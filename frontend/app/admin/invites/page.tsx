@@ -216,7 +216,7 @@ export default function AdminInvitesPage() {
                 htmlFor="cohort"
                 className="mb-2 block text-sm font-medium text-text-primary-light dark:text-text-primary-dark"
               >
-                Cohort <span className="text-text-tertiary-light dark:text-text-secondary-dark">(optional)</span>
+                Cohort <span className="text-text-tertiary-light dark:text-text-tertiary-dark">(optional)</span>
               </label>
               <Input
                 id="cohort"
@@ -258,7 +258,7 @@ export default function AdminInvitesPage() {
               disabled={sending}
             />
             <span className="inline-flex items-center gap-1.5">
-              <EnvelopeSimpleIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
+              <EnvelopeSimpleIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
               Email invites
             </span>
           </label>
@@ -397,37 +397,37 @@ export default function AdminInvitesPage() {
                   <tr>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                     >
                       Email
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                     >
                       Cohort
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                     >
                       Status
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                     >
                       Created
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                     >
                       Expires
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                     >
                       Actions
                     </th>
@@ -442,7 +442,7 @@ export default function AdminInvitesPage() {
             </TableScroll>
           )}
 
-          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
+          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-tertiary-dark">
             Showing the most recent {LIST_LIMIT} invites.
           </p>
         </section>

@@ -1,0 +1,297 @@
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { PostHog } from 'posthog-js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LegalReadiness } from '@/features/legal/api/legal-api'
+import { legalReady } from './fixtures/legalReady'
+import { PublicAccessProvider } from '@/features/marketing/components/PublicAccessProvider'
+import PublicAccessLine from '@/features/marketing/components/PublicAccessLine'
+import ClosingLine from '@/features/marketing/components/ClosingLine'
+import PricingSection from '@/features/marketing/components/PricingSection'
+import { CHECKING_STATUS, WaitlistAccessStatus, WaitlistEntryLink } from '@/features/waitlist/components/WaitlistAccess'
+import { PILL_LABEL } from '@/features/waitlist/components/WaitlistPill'
+import Header from '@/components/Header'
+import { ACCESS_COPY, accountLabels, accountShortLabels, heldAccessLines, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
+
+const mocks = vi.hoisted(() => ({ read: vi.fn(), pathname: '/', stats: vi.fn() }))
+vi.mock('@/features/legal/api/legal-api', () => ({ getLegalReadiness: mocks.read }))
+vi.mock('next/navigation', () => ({ usePathname: () => mocks.pathname, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => null, logout: vi.fn() }))
+vi.mock('@/features/waitlist/api/waitlist-api', () => ({ getWaitlistStats: mocks.stats }))
+vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
+vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
+vi.mock('@/lib/analytics', () => ({ default: { homepageSectionViewed: vi.fn(), billingCycleToggled: vi.fn(), exampleCtaClicked: vi.fn() } }))
+vi.mock('@/lib/featureFlags', async (original) => ({ ...(await original<typeof import('@/lib/featureFlags')>()), ENABLE_PRO_TRIAL: true }))
+
+const closed = { ...legalReady, collection_available: false, checkout_available: false, operator: null }
+/** What a reader is shown: the hero line's held lines are in the document, invisible and aria-hidden (E220). */
+const shown = { ignore: 'script, style, [aria-hidden="true"]' }
+function deferred() {
+  let resolve!: (value: LegalReadiness) => void
+  const promise = new Promise<LegalReadiness>((done) => { resolve = done })
+  return { promise, resolve }
+}
+function Surface({ mode = 'invite' }: { mode?: AccessMode }) {
+  return <PublicAccessProvider>
+    <Header accessMode={mode} />
+    <PublicAccessLine accessMode={mode} />
+    <ClosingLine accessMode={mode} />
+    <PricingSection accessMode={mode} showBeta />
+    <WaitlistAccessStatus />
+    <WaitlistEntryLink className="" />
+  </PublicAccessProvider>
+}
+function open(mode: AccessMode = 'invite') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={client}><Surface mode={mode} /></QueryClientProvider>)
+}
+const noIntakePromise = () => {
+  expect(screen.queryByRole('link', { name: /Request.*invite|Create a free account|Sign up|Join the waitlist/i })).not.toBeInTheDocument()
+  expect(screen.queryByText('Free for beta members')).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /Upgrade to Pro|Start .*free trial/ })).not.toBeInTheDocument()
+  expect(screen.getAllByRole('link', { name: /live example/i }).length).toBeGreaterThan(1)
+  const close = screen.getByText(/Start with a real filing:/).closest('p')!
+  expect(within(close).getAllByRole('link')).toHaveLength(1)
+}
+
+beforeEach(() => {
+  mocks.read.mockReset().mockResolvedValue(closed)
+  mocks.stats.mockReset().mockResolvedValue({ total_signups: 0 })
+  mocks.pathname = '/'
+})
+let analytics: PostHog | undefined
+afterEach(async () => {
+  await analytics?.shutdown()
+  analytics = undefined
+})
+
+describe('public access promises follow fresh readiness', () => {
+  it.each(['invite', 'public'] as const)('keeps examples and login available while %s intake is checking or closed', async (mode) => {
+    const pending = deferred()
+    mocks.read.mockReturnValueOnce(pending.promise)
+    open(mode)
+    noIntakePromise()
+    await screen.findByRole('link', { name: 'Log in' })
+    await act(async () => pending.resolve(closed))
+    expect(screen.getAllByText(/New registrations are currently closed/)).toHaveLength(2)
+    noIntakePromise()
+    expect(mocks.stats).not.toHaveBeenCalled()
+    expect(mocks.read).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['invite', 'public'] as const)('shows the %s intake destination only after collection opens, independently of checkout', async (mode) => {
+    mocks.read.mockResolvedValue({ ...legalReady, checkout_available: false })
+    open(mode)
+    const label = mode === 'invite' ? 'Request an invite' : 'Create a free account'
+    const links = await screen.findAllByRole('link', { name: label })
+    expect(links.length).toBeGreaterThan(1)
+    for (const link of links) expect(link).toHaveAttribute('href', mode === 'invite' ? '/waitlist' : '/register')
+    expect(screen.getByRole('link', { name: 'Join the waitlist' })).toHaveAttribute('href', '#waitlist')
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    expect(screen.queryByText('Free for beta members')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /free trial/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View plans' })).toHaveAttribute('href', '/pricing?billing=monthly')
+  })
+
+  it('retains confirmed intake during navigation and focus checks, then switches only to the latest completed answer', async () => {
+    mocks.read.mockResolvedValueOnce(legalReady)
+    const view = open()
+    await screen.findAllByRole('link', { name: 'Request an invite' })
+    const close = screen.getByText(/Start with a real filing:/).closest('p')!
+    const accountAction = within(close).getByRole('link', { name: 'Request an invite' })
+    const example = within(close).getByRole('link', { name: /read the Apple/ })
+    accountAction.focus()
+    const old = deferred()
+    mocks.read.mockReturnValueOnce(old.promise)
+    mocks.pathname = '/waitlist'
+    view.rerender(<QueryClientProvider client={new QueryClient()}><Surface /></QueryClientProvider>)
+    await waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(2))
+    expect(accountAction).toHaveFocus()
+    // The hero's checking line and the waitlist status's sentence alike (E224).
+    expect(screen.queryByText(/Checking registration/, shown)).not.toBeInTheDocument()
+    const latest = deferred()
+    mocks.read.mockReturnValueOnce(latest.promise)
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(3))
+    expect(accountAction).toHaveFocus()
+    expect(screen.getByText('Private beta · request an invite', shown)).toBeInTheDocument()
+    await act(async () => latest.resolve(closed))
+    expect(screen.getAllByText(/New registrations are currently closed/)).toHaveLength(2)
+    noIntakePromise()
+    await waitFor(() => expect(example).toHaveFocus())
+    await act(async () => old.resolve(legalReady))
+    noIntakePromise()
+    expect(screen.getAllByText(/New registrations are currently closed/)).toHaveLength(2)
+    mocks.read.mockRejectedValueOnce(new Error('offline'))
+    fireEvent(window, new Event('focus'))
+    await screen.findAllByText(/Registration availability could not be confirmed/)
+    noIntakePromise()
+    expect(mocks.read).toHaveBeenCalledTimes(4)
+  })
+})
+
+describe('the header and the hero keep their place as readiness lands (E220)', () => {
+  const MODES = ['invite', 'public'] as const
+  const checking = [null, true] as const
+  const opened = [legalReady, false] as const
+  const closedAnswer = [closed, false] as const
+  const unconfirmed = [null, false] as const
+
+  it.each(MODES)("holds every account label the %s bar can print in the header's copy", (mode) => {
+    for (const [readiness, loading] of [checking, opened, closedAnswer, unconfirmed]) {
+      expect(accountLabels(mode), `${readiness?.collection_available} ${loading}`).toContain(publicAccessCopy(mode, readiness, loading).cta)
+    }
+  })
+
+  it.each(MODES)("holds the %s hero line's checking and open lines and no other", (mode) => {
+    // Chief design on #1686: the closed line would add a row at some widths and a closed notice to every visit's HTML,
+    // and the other mode's line would put a promise this mode does not make there.
+    expect(heldAccessLines(mode)).toEqual([publicAccessCopy(mode, ...checking).line, publicAccessCopy(mode, ...opened).line])
+    for (const answer of [closedAnswer, unconfirmed]) expect(heldAccessLines(mode)).not.toContain(publicAccessCopy(mode, ...answer).line)
+  })
+
+  it.each(MODES)('keeps the %s hero line in one cell with the lines it holds, the shown one alone read', async (mode) => {
+    const pending = deferred()
+    mocks.read.mockReturnValueOnce(pending.promise)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <PublicAccessProvider>
+          <PublicAccessLine accessMode={mode} />
+        </PublicAccessProvider>
+      </QueryClientProvider>,
+    )
+    const cells = () => [...container.querySelector('p')!.children] as HTMLElement[]
+    const read = () => cells().filter((cell) => !cell.hasAttribute('aria-hidden')).map((cell) => cell.textContent)
+    const held = () => {
+      for (const cell of cells()) expect(cell).toHaveClass('col-start-1', 'row-start-1')
+      for (const cell of cells()) expect(cell.classList.contains('invisible')).toBe(cell.hasAttribute('aria-hidden'))
+      // The server HTML's text keeps the lines apart, for a reader of the page without its styles.
+      expect(container.querySelector('p')!.textContent).toBe(cells().map((cell) => cell.textContent).join(' '))
+      return cells().map((cell) => cell.textContent)
+    }
+    expect(container.querySelector('p')).toHaveClass('grid')
+    expect(held()).toEqual(heldAccessLines(mode))
+    expect(read()).toEqual([publicAccessCopy(mode, ...checking).line])
+    await act(async () => pending.resolve(legalReady))
+    expect(held()).toEqual(heldAccessLines(mode))
+    expect(read()).toEqual([ACCESS_COPY[mode].line])
+    mocks.read.mockResolvedValueOnce(closed)
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(read()).toEqual([publicAccessCopy(mode, ...closedAnswer).line]))
+    expect(held()).toEqual([...heldAccessLines(mode), publicAccessCopy(mode, ...closedAnswer).line])
+    mocks.read.mockRejectedValueOnce(new Error('offline'))
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(read()).toEqual([publicAccessCopy(mode, ...unconfirmed).line]))
+    expect(held()).toEqual([...heldAccessLines(mode), publicAccessCopy(mode, ...unconfirmed).line])
+  })
+
+  it.each(MODES)("holds every label the %s compact bar's account link can print in its cell (E223)", (mode) => {
+    for (const [readiness, loading] of [checking, opened, closedAnswer, unconfirmed]) {
+      expect(accountShortLabels(mode), `${readiness?.collection_available} ${loading}`).toContain(publicAccessCopy(mode, readiness, loading).ctaShort)
+    }
+  })
+
+  it.each(MODES)("keeps the %s compact bar's account label in one cell with the labels it holds, the shown one alone read and recorded (E223)", async (mode) => {
+    const pending = deferred()
+    mocks.read.mockReturnValueOnce(pending.promise)
+    // The real PostHog SDK, driven as in feedback-autocapture.spec.tsx. Its autocapture records the text of every span
+    // in a clicked link that does not opt out (ph-no-capture), so a click on the link records the shown label alone.
+    analytics = new PostHog()
+    vi.spyOn(analytics, '_send_request').mockImplementation((request) => {
+      request.callback?.({ statusCode: 200, json: {} })
+    })
+    const recorded: unknown[] = []
+    analytics.on('eventCaptured', (event) => {
+      if (event.event === '$autocapture') recorded.push(event.properties.$el_text)
+    })
+    analytics.init('phc_synthetic_header_project', {
+      api_host: 'https://example.invalid',
+      autocapture: true, capture_pageview: false, capture_pageleave: false,
+      disable_session_recording: true, disable_external_dependency_loading: true,
+      request_batching: false, advanced_disable_flags: true,
+      persistence: 'memory',
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <PublicAccessProvider>
+          <Header accessMode={mode} />
+        </PublicAccessProvider>
+      </QueryClientProvider>,
+    )
+    // Chief design on #1686: the compact link holds the mode's label and the live example's in one cell, as the full
+    // bar's copy holds accountLabels, so the bar keeps its height as readiness lands; its name stays the shown label.
+    // The label's place in the cell is the e2e case's to measure (header-covers-nothing.spec.ts).
+    const cell = (name: string) => {
+      const link = screen.getByRole('link', { name })
+      const cells = link.firstElementChild!
+      expect(cells).toHaveClass('grid')
+      const labels = [...cells.children] as HTMLElement[]
+      for (const label of labels) expect(label).toHaveClass('col-start-1', 'row-start-1')
+      for (const label of labels) expect(label.classList.contains('invisible')).toBe(label.hasAttribute('aria-hidden'))
+      recorded.length = 0
+      link.addEventListener('click', (event) => event.preventDefault(), { once: true })
+      fireEvent.click(link)
+      return {
+        held: labels.map((label) => label.textContent),
+        read: labels.filter((label) => !label.hasAttribute('aria-hidden')).map((label) => label.textContent),
+        recorded: [...recorded],
+      }
+    }
+    const example = publicAccessCopy(mode, ...checking).ctaShort
+    await screen.findByRole('link', { name: example })
+    expect(cell(example)).toEqual({ held: accountShortLabels(mode), read: [example], recorded: [example] })
+    await act(async () => pending.resolve(legalReady))
+    const own = ACCESS_COPY[mode].ctaShort
+    expect(cell(own)).toEqual({ held: accountShortLabels(mode), read: [own], recorded: [own] })
+    mocks.read.mockResolvedValueOnce(closed)
+    fireEvent(window, new Event('focus'))
+    await screen.findByRole('link', { name: publicAccessCopy(mode, ...closedAnswer).ctaShort })
+    expect(cell(publicAccessCopy(mode, ...closedAnswer).ctaShort)).toEqual({ held: accountShortLabels(mode), read: [example], recorded: [example] })
+  })
+
+  it("keeps the waitlist page's status in one cell with its checking sentence and the counter's pill, the shown one alone read (E222)", async () => {
+    const pending = deferred()
+    mocks.read.mockReturnValueOnce(pending.promise)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <PublicAccessProvider>
+          <WaitlistAccessStatus />
+        </PublicAccessProvider>
+      </QueryClientProvider>,
+    )
+    // Chief design on #1686 (comment 6433704320): the status above the waitlist form holds its checking sentence and the
+    // counter's pill in one cell, as the hero's access line holds its lines, so the form keeps its place as readiness
+    // answers open. The held pill is static: the counter's stats load only once readiness answers open. The shown
+    // item's place in the cell is the e2e case's to measure (legal-readiness.spec.ts).
+    const cell = () => {
+      const status = container.firstElementChild!
+      expect(status).toHaveClass('grid')
+      const items = [...status.children] as HTMLElement[]
+      for (const item of items) expect(item).toHaveClass('col-start-1', 'row-start-1')
+      for (const item of items) expect(item.classList.contains('invisible')).toBe(item.hasAttribute('aria-hidden'))
+      return {
+        held: items.filter((item) => item.hasAttribute('aria-hidden')).map((item) => item.textContent),
+        read: items.filter((item) => !item.hasAttribute('aria-hidden')).map((item) => item.textContent),
+      }
+    }
+    // Its sentence, not the hero's shorter checking line: its rows hold the status as tall as a landed count's pill (E224).
+    const checkingLine = CHECKING_STATUS
+    expect(checkingLine).not.toBe(publicAccessCopy('invite', ...checking).line)
+    expect(cell()).toEqual({ held: [PILL_LABEL], read: [checkingLine] })
+    expect(mocks.stats).not.toHaveBeenCalled()
+    await act(async () => pending.resolve(legalReady))
+    await waitFor(() => expect(mocks.stats).toHaveBeenCalledTimes(1))
+    expect(cell()).toEqual({ held: [checkingLine], read: [PILL_LABEL] })
+    mocks.read.mockResolvedValueOnce(closed)
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(cell().read).toEqual([publicAccessCopy('invite', ...closedAnswer).line]))
+    expect(cell().held).toEqual([checkingLine, PILL_LABEL])
+    mocks.read.mockRejectedValueOnce(new Error('offline'))
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(cell().read).toEqual([publicAccessCopy('invite', ...unconfirmed).line]))
+    expect(cell().held).toEqual([checkingLine, PILL_LABEL])
+  })
+})

@@ -30,6 +30,23 @@ space, Markdown marks or a line break between keyword and reference, ``GH-N``, i
 and it fails a pull request listing 250 commits, the most GitHub lists, whose later messages it cannot
 read. A squash message typed at merge is outside any pull-request check.
 
+Open rows (E218): the gate fails, draft or not and override or not, while the pull request changes a file that an
+open row of ``tasks/todo.md`` leaves to its next change, until its title, body or a commit message names each such
+row by its id. A row leaves a path to its next change when a segment of its owner (the parenthetical after its id and
+disposition, split at its semicolons) names a next change ("next writer of", "the next functional change to", "the
+next PR that changes") and the path in backticks: an owner ``(next writer of `routers/auth.py`, high tier; ...)``
+owns each changed file whose path holds ``routers/auth.py`` as whole segments, and a directory such as
+``summary_stages`` owns every file under it. E92 left a voice pass to "the next functional change to
+`summary_stages`", and four pull requests changed it without naming E92 before #1671 carried it. The gate checks the
+naming alone: whether the pull request carries the row or says why not, what the owner asks of a change
+("functional"), and an owner that names no path stay review-checked
+(``lessons/ops-read-the-rows-a-change-owns-before-you-make-it.md``). The rows are the base branch's as the gate runs,
+read from the checkout the workflow makes: a row the pull request adds binds the next change, a row it deletes still
+binds it, and a row that lands on the base after a pull request's last run binds it from its next run (a push, an
+edit or a re-run). A renamed file counts under both its paths. GitHub lists at most 3,000 of a pull request's files,
+and the gate reads them once per head; at that cap the rest are unread, so every open row that leaves a path counts
+until the pull request names it.
+
 Override: a line ``Review override: <reason>`` (at least ten characters of reason) in the pull
 request body passes the gate with the reason echoed into the job log. That is the rule's own
 escape clause, "wait, or write down why you did not", and it keeps the gate from deadlocking when
@@ -68,6 +85,7 @@ import sys
 import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 
 SUMMARY_MARKER = "codex-pull-request-review-summary"
@@ -135,6 +153,98 @@ def closing_references(texts: Iterable[Tuple[str, Optional[str]]]) -> List[str]:
     """Every closing reference in the (where, text) pairs, read as rendered, as ``where: "keyword #N"``."""
     return [f'{where}: "{" ".join(match.group(0).split())}"'
             for where, text in texts for match in CLOSING.finditer(html.unescape(ESCAPE.sub("", text or "")))]
+
+
+# E218: an open row of tasks/todo.md opens with its id, an em dash and its disposition, then its owner in
+# parentheses: "E121 <dash> DO (next writer of `routers/auth.py`, high tier; ...)". The file has also marked the id with
+# a colon, an en dash or a hyphen, written the disposition in other cases or with a clause ("Do, high tier (") and put
+# the id in bold, and each such head is read. A segment of the owner, split at semicolons outside code spans and nested
+# parentheses, that names a next change ("next writer of", "the next functional change to", "the next PR that
+# changes") names in backticks the paths that change owns. A segment that names none ("high tier for
+# `internal.py`", "at the next deploy of `x`") binds nothing, and neither does the row's text after its owner; a
+# "next" inside a code span (`the next writer of X`) is the span's. At most four words come before the owner.
+OPEN_ROW = re.compile(r"- \[ \] \**(?P<row>[A-Z]+\d+)\**\s*(?:[\u2014\u2013:-]\s*)?(?:[A-Za-z][A-Za-z,-]*\s+){0,4}\(")
+NEXT_CHANGE = re.compile(r"\bnext\s+(?:[\w'-]+\s+){0,3}?(?:writers?|changes?|prs?|pull\s+requests?)\b", re.IGNORECASE)
+CODE_SPAN = re.compile(r"`([^`]+)`")
+# The base branch's open items: the workflow checks out the base, and runs this script from its root.
+TODO = Path(__file__).resolve().parents[2] / "tasks" / "todo.md"
+# GitHub's pull-request files endpoint lists at most 3,000 files, 30 pages of 100.
+FILE_LIST_CAP = 3000
+
+
+class OwnedRow(NamedTuple):
+    row: str                # the row's id, such as E121
+    paths: Tuple[str, ...]  # the paths its owner leaves to their next change, such as routers/auth.py
+
+
+def _owner_segments(text: str) -> List[str]:
+    """The owner's segments. ``text`` starts just inside its parenthesis and the owner ends at the one that closes
+    it, or at the line's end; a code span hides parentheses and semicolons."""
+    segments: List[str] = []
+    current: List[str] = []
+    depth, code = 0, False
+    for char in text:
+        if char == "`":
+            code = not code
+        elif not code and char == "(":
+            depth += 1
+        elif not code and char == ")":
+            if not depth:
+                break
+            depth -= 1
+        elif not code and not depth and char == ";":
+            segments.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    segments.append("".join(current))
+    return segments
+
+
+def _owner_path(span: str) -> str:
+    """A path from the owner as the gate matches it: a line reference (``x.py:86``), a leading ``./`` or ``/``,
+    and a trailing ``/`` or ``/**`` dropped, so a directory owns everything under it."""
+    path = re.sub(r":\d+(?:-\d+)?$", "", span.strip())
+    path = re.sub(r"(?:/\*{1,2})+$", "", path).rstrip("/")
+    return path[2:] if path.startswith("./") else path.lstrip("/")
+
+
+def owned_rows(todo: str) -> List[OwnedRow]:
+    """Every open row whose owner leaves a path to its next change, with the paths it names, in file order."""
+    rows = []
+    for line in todo.splitlines():
+        match = OPEN_ROW.match(line)
+        if not match:
+            continue
+        segments = [segment for segment in _owner_segments(line[match.end():])
+                    if NEXT_CHANGE.search(CODE_SPAN.sub(" ", segment))]
+        paths = tuple(dict.fromkeys(
+            path for segment in segments for path in map(_owner_path, CODE_SPAN.findall(segment)) if path))
+        if paths:
+            rows.append(OwnedRow(match.group("row"), paths))
+    return rows
+
+
+def _owns(path: str, filename: str) -> bool:
+    """Whether ``filename`` is ``path`` or lies under it, matched on whole segments anywhere in its path, so
+    ``routers/auth.py`` owns backend/app/routers/auth.py and not routers/oauth.py, and a bare directory name owns
+    every file under a directory of that name."""
+    want, have = path.split("/"), filename.split("/")
+    return any(have[start:start + len(want)] == want for start in range(len(have) - len(want) + 1))
+
+
+def unnamed_rows(rows: Iterable[OwnedRow], files: Iterable[str], texts: Iterable[Optional[str]],
+                 complete: bool = True) -> List[Tuple[OwnedRow, List[str]]]:
+    """Each row that no text names by its id and that owns a changed file, with the files it owns. With the file
+    list incomplete, every row no text names counts, since an unlisted file may be one it owns."""
+    changed, read = list(files), [text or "" for text in texts]
+    found = []
+    for owned in rows:
+        mine = [name for name in changed if any(_owns(path, name) for path in owned.paths)]
+        named = re.compile(rf"(?<![A-Za-z0-9]){re.escape(owned.row)}(?![A-Za-z0-9])")
+        if (mine or not complete) and not any(named.search(text) for text in read):
+            found.append((owned, mine))
+    return found
 
 
 Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in the repository, or None
@@ -447,15 +557,19 @@ def _prove_cycles(current: Review, states: List[Entry], ready: Optional[datetime
 def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
            pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None, *,
            pr_draft: Optional[bool], pr_title: Optional[str] = None,
-           pr_commit_messages: Iterable[Tuple[str, str]] = (),
+           pr_commit_messages: Iterable[Tuple[str, str]] = (), pr_files: Iterable[str] = (),
+           pr_files_complete: bool = True, open_rows: Iterable[OwnedRow] = (),
            pr_created_at: Optional[str] = None, pr_timeline: Optional[List[Dict[str, Any]]] = None,
            pr_head: Optional[str] = None, now: Optional[datetime] = None) -> Verdict:
-    """Pure decision over the pull request's comments, title, body, commits (SHAs and messages) and
-    live draft flag for one head SHA.
+    """Pure decision over the pull request's comments, title, body, commits (SHAs and messages), changed
+    files and live draft flag for one head SHA, and the base branch's open rows.
 
     A closing keyword before a reference in the title, the body or a commit message fails first,
     draft or not and override or not: the merge would close what it names. So does a commit list at
-    GitHub's cap, whose later messages are unread. A draft fails, override or not, and so does a draft
+    GitHub's cap, whose later messages are unread, and so does a changed file that an open row leaves
+    to its next change while no title, body or commit message names the row (E218); with the file list
+    at GitHub's cap, every open row that leaves a path counts until it is named. A draft fails,
+    override or not, and so does a draft
     flag the API did not report as a boolean (None): the check passes only for a pull request that
     can merge. Codex names the reviewed
     commit by a short SHA. It identifies the head only when the repository resolves that prefix to
@@ -464,8 +578,9 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
     head = (head_sha or "").lower()
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         return "fail", f"review-gate: invalid head SHA {head_sha!r}"
+    messages = list(pr_commit_messages)
     references = closing_references([("title", pr_title), ("body", pr_body)]
-                                    + [(f"commit {str(sha)[:7]}", message) for sha, message in pr_commit_messages])
+                                    + [(f"commit {str(sha)[:7]}", message) for sha, message in messages])
     if references:
         return "fail", ("review-gate: a closing keyword names an issue or pull request, and the merge would close it: "
                         + "; ".join(references) + ". Reword each so no form of close, fix or resolve sits right before "
@@ -476,6 +591,25 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
     if len(commits) >= COMMIT_LIST_CAP:
         return "fail", (f"review-gate: the pull request lists {len(commits)} commits, the most GitHub lists, so the "
                         "messages of any later commits are unread; squash the branch to fewer commits")
+    unnamed = unnamed_rows(open_rows, pr_files, [pr_title, pr_body] + [message for _, message in messages],
+                           complete=pr_files_complete)
+    if unnamed:
+        owned = []
+        for row, mine in unnamed:
+            # A file's name is the pull request's own text: escaped, a newline in it cannot start a log line that
+            # the runner would read as a workflow command.
+            shown = (", ".join(name.encode("unicode_escape").decode("ascii") for name in mine[:3]) or "no listed file"
+                     ) + (f" and {len(mine) - 3} more" if len(mine) > 3 else "")
+            owned.append(f"{row.row} (its owner names {', '.join(f'`{path}`' for path in row.paths)}) owns {shown}")
+        lead = ("this pull request changes files that open rows of tasks/todo.md leave to their next change, and its "
+                "title, body and commit messages do not name each such row: ")
+        if not pr_files_complete:
+            lead = (f"this pull request lists {FILE_LIST_CAP:,} changed files, the most GitHub lists, so the rest are "
+                    "unread and any open rows of tasks/todo.md that leave a path to their next change may own one; its "
+                    "title, body and commit messages do not name each such row: ")
+        return "fail", ("review-gate: " + lead + "; ".join(owned) + ". Read each row, then carry it in this pull "
+                        "request or say in the body why not, naming the row; an edit of the title or body re-runs "
+                        "this check (lessons/ops-read-the-rows-a-change-owns-before-you-make-it.md)")
     if pr_draft is None:
         return "fail", "review-gate: the pull request's draft flag could not be read; failing closed"
     if pr_draft:
@@ -536,18 +670,22 @@ def _github(path: str, token: str) -> Any:
         return json.loads(response.read().decode("utf-8"))
 
 
-def _paged(path: str, token: str) -> List[Any]:
+def _listed(path: str, token: str, pages: int) -> Tuple[List[Any], bool]:
+    """Up to ``pages`` pages of 100 of a listing, and whether the listing ended within them."""
     items: List[Any] = []
-    page = 1
-    while page <= MAX_PAGES:
+    for page in range(1, pages + 1):
         batch = _github(f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}", token)
         if not isinstance(batch, list):
             raise EvidenceError("GitHub pagination did not return a list")
         items.extend(batch)
         if len(batch) < 100:
-            break
-        page += 1
-    else:
+            return items, True
+    return items, False
+
+
+def _paged(path: str, token: str) -> List[Any]:
+    items, complete = _listed(path, token, MAX_PAGES)
+    if not complete:
         raise EvidenceError("GitHub pagination limit reached; evidence is incomplete")
     return items
 
@@ -605,16 +743,45 @@ class State(NamedTuple):
     created_at: Optional[str] = None
     timeline: Optional[List[Dict[str, Any]]] = None
     head: Optional[str] = None
+    files: Tuple[str, ...] = ()
+    files_complete: bool = True
 
 
-def fetch_state(repo: str, number: str, token: str) -> State:
-    """Comments, body, commits, draft flag and title, all read now. The draft flag is None unless the
-    API reports a boolean, which ``decide`` fails closed."""
+def _changed_files(items: List[Any]) -> Tuple[str, ...]:
+    """Every path the pull request changes, a renamed file's previous path included. An entry without a path
+    fails closed."""
+    names: List[str] = []
+    for item in items:
+        filename = item.get("filename") if isinstance(item, dict) else None
+        if not isinstance(filename, str) or not filename:
+            raise EvidenceError("the pull request's file list has an entry without a path")
+        names.append(filename)
+        if "previous_filename" in item:
+            previous = item["previous_filename"]
+            if not isinstance(previous, str) or not previous:
+                raise EvidenceError("the pull request's file list has a renamed file without its previous path")
+            names.append(previous)
+    return tuple(names)
+
+
+FileList = Tuple[Tuple[str, ...], bool]  # a head's changed files, and whether GitHub listed them all
+
+
+def fetch_state(repo: str, number: str, token: str, file_lists: Optional[Dict[str, FileList]] = None) -> State:
+    """Comments, body, commits, changed files, draft flag and title, all read now. The draft flag is None
+    unless the API reports a boolean, which ``decide`` fails closed. The changed files are a function of the
+    head, so ``file_lists`` keeps them by head across polls: a 2,000-file list is 20 calls, once."""
     comments = _paged(f"repos/{repo}/issues/{number}/comments", token)
     pull = _github(f"repos/{repo}/pulls/{number}", token)
     items = _paged(f"repos/{repo}/pulls/{number}/commits", token)
     commits = [str(item.get("sha", "")).lower() for item in items]
     messages = tuple((sha, str((item.get("commit") or {}).get("message") or "")) for sha, item in zip(commits, items))
+    head = (pull.get("head") or {}).get("sha")
+    if file_lists is not None and isinstance(head, str) and head in file_lists:
+        files, files_complete = file_lists[head]
+    else:
+        items, files_complete = _listed(f"repos/{repo}/pulls/{number}/files", token, FILE_LIST_CAP // 100)
+        files = _changed_files(items)
     draft = pull.get("draft")
     # Old guards and the explicit override remain usable even when review evidence is unavailable.
     timeline = None
@@ -635,12 +802,13 @@ def fetch_state(repo: str, number: str, token: str) -> State:
             comment["review_history"] = histories[comment["id"]]
     final_pull = _github(f"repos/{repo}/pulls/{number}", token)
     fields = ("draft", "created_at", "title", "body", "updated_at")
-    head = (pull.get("head") or {}).get("sha")
     if (head != (final_pull.get("head") or {}).get("sha")
             or any(pull.get(key) != final_pull.get(key) for key in fields)):
         raise SnapshotChanged("pull request changed during the evidence read; polling a fresh snapshot")
+    if file_lists is not None and isinstance(head, str):
+        file_lists[head] = (files, files_complete)  # kept only once the head held through the whole read
     return State(fresh_comments, pull.get("body"), commits, draft if isinstance(draft, bool) else None,
-                 pull.get("title"), messages, pull.get("created_at"), timeline, head)
+                 pull.get("title"), messages, pull.get("created_at"), timeline, head, files, files_complete)
 
 
 def repository_resolver(repo: str, token: str) -> Resolver:
@@ -660,7 +828,7 @@ def repository_resolver(repo: str, token: str) -> Resolver:
 def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State]] = None,
          resolve: Optional[Resolver] = None,
          sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic,
-         wall: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> int:
+         wall: Callable[[], datetime] = lambda: datetime.now(timezone.utc), todo: Path = TODO) -> int:
     env = os.environ
     head = env.get("REVIEW_GATE_HEAD", "")
     timeout = float(env.get("REVIEW_GATE_TIMEOUT_MINUTES", "20")) * 60
@@ -670,8 +838,15 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         if not (repo and number and token):
             print("review-gate: REVIEW_GATE_REPO, REVIEW_GATE_PR and GITHUB_TOKEN are required")
             return 1
-        fetch = lambda: fetch_state(repo, number, token)  # noqa: E731
+        file_lists: Dict[str, FileList] = {}
+        fetch = lambda: fetch_state(repo, number, token, file_lists)  # noqa: E731
         resolve = resolve or repository_resolver(repo, token)
+    try:
+        rows = owned_rows(todo.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"review-gate: the base branch's tasks/todo.md is unreadable ({type(exc).__name__}); failing closed",
+              flush=True)
+        return 1
     started = clock()
     while True:
         try:
@@ -684,6 +859,7 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         else:
             verdict, message = decide(head, state.comments, state.body, state.commits, resolve, pr_draft=state.draft,
                                       pr_title=state.title, pr_commit_messages=state.commit_messages,
+                                      pr_files=state.files, pr_files_complete=state.files_complete, open_rows=rows,
                                       pr_created_at=state.created_at, pr_timeline=state.timeline, pr_head=state.head,
                                       now=wall())
         print(message, flush=True)

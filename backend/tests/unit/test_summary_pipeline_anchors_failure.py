@@ -6,6 +6,8 @@ be written, ``record_progress`` failing inside the timeout and generic failure h
 exception messages pass through to the client verbatim, and the generic failure path's progress
 and funnel records. Every assertion is on an observable: yielded event dicts, DB rows, mock call
 lists, the in-flight registry, the generation semaphore and the exact log text the code formats.
+The handlers' ``error`` writes name ``starts_run`` since E217: F3's follower and F6's leader, whose
+fetch stage has written, keep the row's clock.
 """
 import logging
 import uuid
@@ -32,8 +34,8 @@ from tests.support.summary_stream_harness import (
 
 LOGGER = "app.services.summary_pipeline"
 INITIALIZING = {"type": "progress", "stage": "initializing", "message": "Initializing...", "percent": 0}
-GENERIC_FAILURE = {"type": "error", "message": "Unable to retrieve this filing at the moment — please try again shortly."}
-TIMED_OUT = {"type": "error", "message": "Summary generation timed out. Please try again."}
+GENERIC_FAILURE = {"type": "error", "message": "We could not generate this summary. Try again shortly."}
+TIMED_OUT = {"type": "error", "message": "The summary timed out before it finished. Try again."}
 
 
 @pytest.fixture(autouse=True)
@@ -167,7 +169,8 @@ async def test_release_failure_in_cleanup_is_logged_and_the_lease_row_survives(c
 async def test_timeout_handler_survives_a_failing_error_progress_write(caplog):
     """A follower whose wait budget is exhausted takes the pipeline-timeout path: when the ``error``
     progress write raises, the ERROR is logged with a traceback, the timeout message is still the
-    only terminal, the funnel records STARTED then TIMED_OUT, and the active leader keeps its slot."""
+    only terminal, the funnel records STARTED then TIMED_OUT, and the active leader keeps its slot;
+    a follower's write keeps the row's clock (``starts_run=False``, E217)."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
     leader = summary_pipeline._claim_inflight(filing_id)
@@ -188,7 +191,7 @@ async def test_timeout_handler_survives_a_failing_error_progress_write(caplog):
     assert _terminals(events) == [events[-1]]
     assert [e["stage"] for e in events if e["type"] == "progress"] == ["initializing", "queued"]
     summarize.assert_not_called()
-    assert record_progress.call_args_list == [call(ANY, filing_id, "error", error="Pipeline timeout")]
+    assert record_progress.call_args_list == [call(ANY, filing_id, "error", error="Pipeline timeout", starts_run=False)]
     error_records = [r for r in caplog.records if r.name == LOGGER and r.levelno == logging.ERROR]
     assert [r.getMessage() for r in error_records] == [
         f"[stream:{filing_id}] Failed to record pipeline timeout error: db down"
@@ -245,7 +248,7 @@ async def test_generic_handler_survives_a_failing_error_progress_write(caplog):
 @pytest.mark.asyncio
 async def test_failure_message_classification_and_the_failed_funnel_event(raised: str, expected: str):
     """Messages that already read ``Unable to retrieve``/``Unable to complete`` reach the client
-    verbatim (cut at 200 characters); every other exception becomes the generic retrieval error.
+    verbatim (cut at 200 characters); every other exception becomes the generic failure sentence.
     The failed funnel event always carries the raw message cut at 200 plus the telemetry context."""
     filing_id = seed_company_filing()
     funnel = MagicMock()
@@ -287,7 +290,7 @@ async def test_headless_provider_failure_records_error_progress_and_persists_not
 
     assert events[0] == INITIALIZING
     assert [e for e in events if e["type"] != "progress"] == [GENERIC_FAILURE]
-    assert record_progress.call_args_list[-1] == call(ANY, filing_id, "error", error="kaboom")
+    assert record_progress.call_args_list[-1] == call(ANY, filing_id, "error", error="kaboom", starts_run=False)
     assert (logging.ERROR, f"[stream:{filing_id}] Error in streaming summary: kaboom") in _pipeline_logs(caplog)
     refund.assert_not_called()
     release.assert_not_called()

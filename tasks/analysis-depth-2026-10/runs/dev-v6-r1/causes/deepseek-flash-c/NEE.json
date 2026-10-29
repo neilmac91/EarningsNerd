@@ -1,0 +1,87 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "NEE",
+ "split": "dev",
+ "claims": 6,
+ "output_sha256": "b80dc03afd942aeafe28246db1e19d88e5391e35779024b3fb8663d4de3134ae",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2022 increase came largely from higher fuel cost recovery revenues of about $1,716 million as fuel and energy prices rose .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Fuel cost recovery revenues increased approximately $1,716 million in 2022 primarily as a result of higher fuel and energy prices. The increase in operating revenues in 2022 also reflects higher other revenues of approximately $566 million primarily related to increases in cost recovery clause revenue from storm protection plan and environmental, franchise fees and gross receipts taxes. In 2022 and 2021, cost recovery clauses contributed approximately $261 million and $188 million, respectively, to FPL\u2019s net income. In January 2023, FPL filed with the FPSC to recover approximately $2.1 billion of under-recovered fuel costs incurred in 2022. See Note 1 \u2013 Rate Regulation."
+    }
+   ],
+   "label": "supported",
+   "reason": "P51 says fuel cost recovery revenues rose about $1,716 million in 2022, primarily because of higher fuel and energy prices."
+  },
+  {
+   "sentence": "The FY2024 decline reflected lower storm cost recovery revenues of about $1,090 million and lower fuel cost recovery revenues of about $526 million .",
+   "passages": [
+    {
+     "id": "P34",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The decrease in operating revenues in 2024 reflects lower storm cost recovery revenues of approximately $1,090 million primarily associated with the completion of surcharges for Hurricanes Ian and Nicole, as discussed above. The decrease in operating revenues in 2024 was also impacted by a decrease in fuel cost recovery revenues of approximately $526 million primarily as a result of lower fuel and energy prices. In 2024 and 2023, cost recovery clauses contributed approximately $417 million and $369 million, respectively, to FPL\u2019s net income."
+    }
+   ],
+   "label": "supported",
+   "reason": "P34 attributes the 2024 decrease to lower storm cost recovery (about $1,090M) and lower fuel cost recovery (about $526M) revenues."
+  },
+  {
+   "sentence": "FPL's FY2025 revenue rose $1,243 million on higher storm cost recovery, retail base and storm protection plan cost recovery revenues, partly offset by lower fuel cost recovery .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2025, operating revenues increased $1,243 million primarily due to higher storm cost recovery, retail base and storm protection plan cost recovery revenues, partly offset by lower fuel cost recovery revenues."
+    }
+   ],
+   "label": "supported",
+   "reason": "P21 gives exactly these drivers for the 2025 revenue increase, partly offset by lower fuel cost recovery."
+  },
+  {
+   "sentence": "D&A rose to 25.5% of revenue in FY2025, with depreciation and amortization up $951 million mainly on higher storm cost amortization of about $1,090 million .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation and amortization expense increased $951 million during 2025 primarily reflecting higher amortization of deferred storm costs, primarily associated with Hurricanes Debby, Helene and Milton, as discussed above, of approximately $1,090\u00a0million and increased depreciation related to higher plant in service balances, partly offset by the impact of reserve amortization. Reserve amortization, or reversal of such amortization, reflects adjustments to accrued asset removal costs provided under the 2021 rate agreement in order to achieve the targeted regulatory ROE. Reserve amortization is recorded as either an increase or decrease to accrued asset removal costs which is reflected in noncurrent regulatory assets on NEE's and FPL's consolidated balance sheets. As of December\u00a031, 2025, approximately $303\u00a0million of reserve amortization remains available for future amortization through the RSM under the 2025 rate agreement."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16 attributes the $951M D&A increase mainly to higher amortization of deferred storm costs of about $1,090M."
+  },
+  {
+   "sentence": "The gap reflects a -17.7% effective tax rate and $3,750 million of other expense, with Corporate and Other hurt by about $1,002 million of non-qualifying hedge losses .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results decreased $1,256 million during 2025 primarily due to unfavorable after-tax impacts of approximately $1,002 million, as compared to the prior year, related to non-qualifying hedge activity as a result of changes in the fair value of interest rate derivative instruments used to manage interest rate and foreign currency exchange rate risk associated primarily with outstanding and expected future debt issuances and borrowings (see Note\u00a03) as well as higher average debt balances."
+    }
+   ],
+   "label": "partial",
+   "reason": "P8 supports the hedge losses hurting Corporate and Other; no passage links the tax rate or other expense to the stated gap."
+  },
+  {
+   "sentence": "The swing from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenues from fuel and other cost recovery clauses and pass-through costs, such as franchise fees, revenue taxes and storm-related surcharges, are largely a pass-through of costs. Such revenues also include a return on investment allowed to be recovered through the cost recovery clauses on certain assets, primarily related to certain solar, environmental projects, storm protection plan investments and the unamortized balance of the regulatory asset associated with FPL's acquisition of a generation facility. See Item\u00a01. Business \u2013 FPL \u2013 FPL Regulation \u2013 FPL Electric Rate Regulation \u2013 Cost Recovery Clauses. Under-recovery or over-recovery of cost recovery clause and other pass-through costs (deferred clause and franchise expenses and revenues) can significantly affect NEE's and FPL's operating cash flows. During 2025, the change from a net over-recovery of cost recovery clauses to a net under-recovery of cost recovery clauses impacted FPL's operating cash flows by approximately $89 million, primarily related to higher fuel prices."
+    }
+   ],
+   "label": "supported",
+   "reason": "P19 states the over-to-under-recovery change affected FPL operating cash flows by about $89M."
+  }
+ ],
+ "cost_usd": 0.037444,
+ "backend": "claude_cli",
+ "input_tokens": 3429,
+ "cached_input_tokens": 0,
+ "output_tokens": 501
+}

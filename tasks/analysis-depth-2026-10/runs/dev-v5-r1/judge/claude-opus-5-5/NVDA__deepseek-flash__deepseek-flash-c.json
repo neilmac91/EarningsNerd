@@ -1,0 +1,106 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "740138d7833e2a9c8b66b3b73227fd388ae75ebc1cb642839c436e9829fc6c43",
+ "y_sha256": "53030e084b9fd38080afff52e500d3eeb7b226b51d516276ab45341f192f376d",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A says net cash collapsed from $34.7bn to $2.1bn and builds a peer rank on it. Draft B's screened flag shows short-term investments were simply unreported in FY2026, so that is a data artifact. A also ties capex to inventory growth without support. A has richer causes (H20 charge, tax, concentration, China), but B is fully grounded, discloses the data gap and labels its analysis."
+   },
+   "cost_usd": 0.126541,
+   "latency_s": 13.694,
+   "backend": "claude_cli",
+   "input_tokens": 14560,
+   "cached_input_tokens": 727,
+   "output_tokens": 787,
+   "reasoning_tokens": 579,
+   "meta": {
+    "duration_api_ms": 8576,
+    "cache_creation_input_tokens": 13831,
+    "list_cost_usd": 0.071217
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A says net cash collapsed from $34.7bn to $2.1bn and builds a peer rank on it. Draft B's screened flag shows short-term investments were simply unreported in FY2026, so that is a data artifact. A also ties capex to inventory growth without support. A has richer causes (H20 charge, tax, concentration, China), but B is fully grounded, discloses the data gap and labels its analysis.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds real depth: the H20 charge, tax rate, China, customer concentration and working-capital build. But it presents the $2.14bn FY2026 net cash as a genuine collapse when short-term investments are missing, a gap A correctly discloses. B also ties capex to inventory growth, pins the 57.9% operating-income fall on Graphics, and mislabels FCF/NI 0.83x as OCF conversion. A says less but stays fully supported."
+   },
+   "cost_usd": 0.126481,
+   "latency_s": 11.362,
+   "backend": "claude_cli",
+   "input_tokens": 14560,
+   "cached_input_tokens": 727,
+   "output_tokens": 784,
+   "reasoning_tokens": 563,
+   "meta": {
+    "duration_api_ms": 7611,
+    "cache_creation_input_tokens": 13831,
+    "list_cost_usd": 0.071157
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds real depth: the H20 charge, tax rate, China, customer concentration and working-capital build. But it presents the $2.14bn FY2026 net cash as a genuine collapse when short-term investments are missing, a gap A correctly discloses. B also ties capex to inventory growth, pins the 57.9% operating-income fall on Graphics, and mislabels FCF/NI 0.83x as OCF conversion. A says less but stays fully supported.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.253022
+}

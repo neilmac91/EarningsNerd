@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import MetricsTable from '@/features/analysis/components/MetricsTable'
+import { tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+
+const TAILWIND_FONT_SIZE = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { fontSize: Record<string, [string, unknown]> } } }).theme.extend.fontSize
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 
 const dataset: AnalysisDataset = {
@@ -70,19 +77,85 @@ describe('MetricsTable', () => {
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
-  it('renders values, deltas, the derived dagger, and — for missing points', () => {
-    render(<MetricsTable dataset={dataset} />)
+  it('renders values, deltas and — for missing points, and no dagger on a calculated figure', () => {
+    const { container } = render(<MetricsTable dataset={dataset} />)
 
     expect(screen.getByText('Revenue')).toBeInTheDocument()
     expect(screen.getByText('EPS (diluted)')).toBeInTheDocument()
-    // Derived Q4 revenue carries the computed dagger; the badge explains it.
+    // Derived Q4 revenue says "calculated" in its name and draws no dagger (D-061); no "† calculated" label explains one.
     expect(screen.getByRole('button', { name: /Revenue, Q4 2024:.*calculated/ })).toBeInTheDocument()
-    expect(screen.getByText('† calculated')).toBeInTheDocument()
-    // The never-derived EPS Q4 renders an em-dash placeholder.
-    expect(screen.getAllByRole('button', { name: /unavailable.*data note/ }).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/† calculated/)).not.toBeInTheDocument()
+    expect(container.querySelector('tbody')?.textContent).not.toContain('†')
+    expect(screen.getByText(/^Figures are rounded for display\. Select any value for its source and full precision\.$/)).toBeInTheDocument()
+    // The never-derived EPS Q4 renders an em-dash placeholder; its gap note marks nothing, so its name names none.
+    expect(screen.getByRole('button', { name: /^EPS \(diluted\), Q4 2024: unavailable\. View source/ })).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     // Quarterly mode shows QoQ deltas.
     expect(screen.getByText('+2.0%').parentElement).toHaveTextContent('Change vs prior quarter')
+  })
+
+  it('gives a figure and its change line the whole budget unless a note that marks them takes a glyph (D-061)', () => {
+    const fact = { version: 1 as const, method: 'reported' as const, validation: 'needs_review' as const, formula: null, inputs: [] }
+    const years = [{ key: 'FY2023', fiscal_year: 2023, fiscal_period: 'FY', period_end: '2023-12-31' }, { key: 'FY2024', fiscal_year: 2024, fiscal_period: 'FY', period_end: '2024-12-31' }]
+    // Nine glyphs each: "$1,234.56" and "+123,457%". A record-only note marks nothing and takes no glyph; the source
+    // conflict's letter takes one, so its figure drops to "$1.2K".
+    const budgets: AnalysisDataset = { ...dataset, mode: 'annual', period_key: 'FY2023..FY2024', periods: years, series: [{
+      concept: 'eps_diluted', label: 'EPS (diluted)', unit: 'USD/shares', percent: false, cagr: null, points: [
+        { period: 'FY2023', value: 1234.56, provenance: { ...fact, reasons: ['legacy_calculation'] } },
+        { period: 'FY2024', value: 1234.56, provenance: { ...fact, reasons: ['source_conflict'] }, yoy: 1234.567, yoy_provenance: { ...fact, method: 'calculated' as const, reasons: ['legacy_calculation'] } },
+      ],
+    }] }
+    render(<MetricsTable dataset={budgets} />)
+    const cell = (period: string) => screen.getByRole('button', { name: new RegExp(`^EPS \\(diluted\\), ${period}: `) })
+    expect(cell('FY2023').querySelector('span')!.textContent).toBe('$1,234.56')
+    expect(cell('FY2023').querySelector('[data-note-letter]')).toBeNull()
+    expect(cell('FY2024').querySelector('span')!.textContent).toBe('$1.2K')
+    expect(cell('FY2024').querySelector('[data-note-letter]')).toHaveTextContent(/^[a-z]$/)
+    expect(screen.getByText('+123,457%')).toBeInTheDocument()
+  })
+
+  it('names the metrics the run calculates in the sentence above the table, as the dataset labels them', () => {
+    const calculated = { version: 1 as const, method: 'calculated' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+    const reported = { ...calculated, method: 'reported' as const }
+    const years = [{ key: 'FY2023', fiscal_year: 2023, fiscal_period: 'FY', period_end: '2023-12-31' }, { key: 'FY2024', fiscal_year: 2024, fiscal_period: 'FY', period_end: '2024-12-31' }]
+    const row = (concept: string, label: string, provenance: typeof calculated, percent = false) => ({
+      concept, label, unit: percent ? 'pure' : 'USD', percent, cagr: null,
+      points: years.map((year, index) => ({ period: year.key, value: 10 + index, provenance })),
+    })
+    const annual: AnalysisDataset = { ...dataset, mode: 'annual', period_key: 'FY2023..FY2024', periods: years, series: [
+      row('revenue', 'Revenue', reported),
+      row('operating_margin', 'Operating margin', calculated, true),
+      row('free_cash_flow', 'Free cash flow', calculated),
+      // An abbreviation keeps its capitals inside the sentence.
+      row('eps_diluted', 'EPS (diluted)', calculated),
+    ] }
+    const { container, rerender } = render(<MetricsTable dataset={annual} />)
+    expect(screen.getByText('Figures are rounded for display; operating margin, free cash flow and EPS (diluted) are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    expect(container.querySelector('tbody')?.textContent).not.toContain('†')
+    // A row calculated in only one year is not named; one name takes "is".
+    const partly = structuredClone(annual)
+    partly.series = [annual.series[0], annual.series[2], { ...annual.series[1], points: [annual.series[1].points[0], { ...annual.series[1].points[1], provenance: reported }] }]
+    rerender(<MetricsTable dataset={partly} />)
+    expect(screen.getByText('Figures are rounded for display; free cash flow is calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+
+    // Every margin of the run calculated reads as "margins", where the first margin stands; a ratio takes "the".
+    const regn = structuredClone(annual)
+    regn.series = [
+      row('revenue', 'Revenue', reported), row('operating_margin', 'Operating margin', calculated, true), row('net_margin', 'Net margin', calculated, true),
+      row('free_cash_flow', 'Free cash flow', calculated), row('working_capital', 'Working capital', calculated), row('current_ratio', 'Current ratio', calculated),
+    ]
+    rerender(<MetricsTable dataset={regn} />)
+    expect(screen.getByText('Figures are rounded for display; margins, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    // A reported margin keeps the calculated ones named one by one: "margins" would claim it too.
+    const gross = structuredClone(regn)
+    gross.series.splice(1, 0, row('gross_margin', 'Gross margin', reported, true))
+    rerender(<MetricsTable dataset={gross} />)
+    expect(screen.getByText('Figures are rounded for display; operating margin, net margin, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    // The margins alone still take "are".
+    const marginsOnly = structuredClone(regn)
+    marginsOnly.series = regn.series.slice(0, 3)
+    rerender(<MetricsTable dataset={marginsOnly} />)
+    expect(screen.getByText('Figures are rounded for display; margins are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
   })
 
   it('hides the CAGR column entirely in quarterly mode (dead UI otherwise)', () => {
@@ -97,6 +170,33 @@ describe('MetricsTable', () => {
     expect(firstBodyCell).toHaveClass('left-0')
   })
 
+  it('frames the sheet: the heading row and the Metric column keep the panel surface and its inks, the figures sit on the sheet', () => {
+    // The founder's call on the sheet: the labels keep the normal theme colours, for slight contrast with the data.
+    const { container } = render(<MetricsTable dataset={dataset} />)
+    const table = container.querySelector('table')!
+    const frame = table.parentElement!.parentElement!
+    expect(frame).toHaveClass('rounded-xl', 'outline', 'outline-1', 'outline-rule-light', 'bg-well-light', 'dark:outline-rule-dark', 'dark:bg-well-dark')
+    expect(table.querySelector('thead tr')).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark')
+    for (const th of table.querySelectorAll('thead th')) expect(th).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    for (const row of table.querySelectorAll('tbody tr')) {
+      const [label, ...figures] = [...row.children]
+      expect(label).toHaveClass('bg-panel-light', 'dark:bg-panel-dark', 'border-r', 'border-rule-light', 'dark:border-rule-dark')
+      for (const cell of figures) expect(cell.className, 'a figure cell shows the sheet').not.toMatch(/(?:^|\s)(?:dark:)?bg-/)
+    }
+    expect(within(table).getByRole('rowheader', { name: 'Revenue' }).firstElementChild).toHaveClass('text-figure-light', 'dark:text-figure-dark')
+  })
+
+  it('sets every figure and change line in the figure face, with tabular lining numerals and no tracking', () => {
+    render(<MetricsTable dataset={dataset} />)
+    const control = screen.getByRole('button', { name: /^Revenue, Q3 2024:/ })
+    const cell = control.closest('td')!
+    expect(cell.firstElementChild).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
+    // A button's UA font shorthand resets font-variant-numeric, so the control re-declares the figure's numerals.
+    expect(control).toHaveClass('tabular-nums', 'lining-nums')
+    // The change line is 12px too, and its own size class would bring caption tracking back: it zeroes it again.
+    expect(within(cell).getByText(/Change vs prior quarter/).closest('[class*="text-gain-data"]')).toHaveClass('tracking-normal')
+  })
+
   it('rounds unusually long table figures while source detail preserves value and full comparison', async () => {
     const large = structuredClone(dataset)
     large.series[1].points[0] = { period: '2024Q3', value: -15154, reconciled: false, qoq: 1234.567, qoq_reconciled: false }
@@ -104,7 +204,7 @@ describe('MetricsTable', () => {
     const figure = screen.getByRole('button', { name: /EPS \(diluted\), Q3 2024:/ })
     expect(figure).toHaveTextContent('-$15.2K')
     expect(figure.closest('td')).toHaveTextContent('+123.5K%')
-    expect(screen.getByText('Figures are rounded for display. Select a value for full precision.')).toBeVisible()
+    expect(screen.getByText('Figures are rounded for display. Select any value for its source and full precision.')).toBeVisible()
     await userEvent.click(figure)
     const detail = screen.getByRole('dialog')
     expect(within(detail).getByText('As stored: -15,154 USD per share')).toBeVisible()
@@ -233,7 +333,20 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
   it('renders "n/m" for a sign-flip growth value instead of a nonsensical percentage', () => {
     render(<MetricsTable dataset={annualDataset} />)
     expect(screen.getByText('n/m').parentElement).toHaveTextContent('Change vs prior year')
+    // Read aloud as words, not "n slash m": the abbreviation is hidden and the words stand in for it.
+    const token = screen.getByText('n/m')
+    expect(token).toHaveAttribute('aria-hidden', 'true')
+    expect(token.nextElementSibling).toHaveClass('sr-only')
+    expect(token.nextElementSibling).toHaveTextContent(/^not meaningful$/)
     expect(screen.getByText(/n\/m means not meaningful/)).toHaveTextContent('The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.')
+  })
+
+  it('says in the caption what the legend says of the final column, with no window left to select', () => {
+    const { container } = render(<MetricsTable dataset={annualDataset} />)
+    const caption = container.querySelector('caption')!.textContent!
+    expect(caption).toMatch(/: value and change versus prior year\. The final column shows CAGR, or percentage-point change for percent-unit rows\.$/)
+    expect(screen.getByText(/n\/m means not meaningful/).textContent).toContain('The final column shows CAGR, or percentage-point change for percent-unit rows.')
+    expect(caption).not.toMatch(/select/)
   })
 
   it('drops the final column, its legend and its caption on a one-year run, whose count reads in the singular (E185)', () => {
@@ -250,8 +363,8 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     expect(screen.getByRole('columnheader', { name: 'FY2024' })).toBeInTheDocument()
     expect(screen.queryByText('CAGR')).not.toBeInTheDocument()
     expect(screen.getByText(/n\/m means not meaningful/).textContent).toBe('n/m means not meaningful.')
-    expect(container.querySelector('caption')?.textContent).toBe('Metrics by period, 1 of 1 year: value and change versus prior year.')
-    expect(screen.getByText(/^Showing /).textContent).toBe('Showing 1 of 1 year')
+    expect(container.querySelector('caption')?.textContent).toBe('Metrics by period, 1 year: value and change versus prior year.')
+    expect(container.textContent).not.toMatch(/Showing \d/)
   })
 
   it('names the metric names as what lies left of a one-period table on a phone, annual or quarterly (E185)', () => {
@@ -309,7 +422,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
 })
 
 
-describe('MetricsTable period windows', () => {
+describe('MetricsTable periods', () => {
   const twelve: AnalysisDataset = {
     ...dataset,
     period_key: '2023Q1..2025Q4',
@@ -324,26 +437,24 @@ describe('MetricsTable period windows', () => {
     })) }],
   }
 
-  it('keeps All as the default, limits only table columns, and resets for a new dataset', async () => {
+  it('shows every period with no window control, and starts a new report on a fresh scroller', () => {
+    // The 6-of-N window is retired: the table always holds the whole run and scrolls sideways where it must.
     const input = structuredClone(twelve)
     const { rerender } = render(<MetricsTable dataset={input} />)
     const table = screen.getByRole('table')
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
     expect(within(table).getAllByRole('columnheader')).toHaveLength(13)
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 6 of 12 quarters')
-    expect(screen.getByRole('button', { name: 'Newest 6' })).toHaveFocus()
-    expect(screen.queryByRole('button', { name: /Revenue, Q1 2023:/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Revenue, Q4 2025:/ })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
+    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(All 12|Newest 6|Earliest 6)$/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Revenue, Q1 2023:/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Revenue, Q4 2025:/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, Q4 2025:/ })).toBeInTheDocument()
     expect(input).toEqual(twelve)
+    // The same report keeps its scroller (and so its scroll position); another report gets a new one.
+    const scroller = table.parentElement
+    rerender(<MetricsTable dataset={structuredClone(input)} />)
+    expect(screen.getByRole('table').parentElement).toBe(scroller)
     rerender(<MetricsTable dataset={{ ...input, ticker: 'OTHER' }} />)
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('table').parentElement).not.toBe(scroller)
     expect(screen.getAllByRole('columnheader')).toHaveLength(13)
-    rerender(<MetricsTable dataset={input} />)
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('marks only a populated, actually derived Q4 header and uses semantic row headers', () => {
@@ -367,13 +478,59 @@ describe('MetricsTable period windows', () => {
     expect(screen.getByText(/^n\/m means not meaningful\./)).toHaveTextContent('A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.')
   })
 
-  it('shows every period and suppresses window controls for an explicit illustrative sample', async () => {
-    const { rerender } = render(<MetricsTable dataset={twelve} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    rerender(<MetricsTable dataset={twelve} sample />)
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 12 of 12 quarters')
-    expect(screen.getAllByRole('columnheader')).toHaveLength(13)
-    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Newest 6' })).not.toBeInTheDocument()
+})
+
+/**
+ * The column arithmetic (DESIGN_SYSTEM.md, Data note mark): a figure is 12px Geist Mono (DataTable's compact text-xs),
+ * a mark 11px (text-data-xs), each glyph 0.6em wide (Geist Mono's 600-unit advance, which the e2e "analysis phone
+ * marks" gate measures on the real glyphs), and the mark keeps 2px (ml-0.5) from its figure; a note's letters share
+ * one box. A figure carries no dagger (D-061), so its one mark is a note letter where the note questions the number.
+ * The gutter is one mark and its gap, so a marked and an unmarked figure share one edge, and a period column holds
+ * the widest line tableTokenBudget allows inside its inset (1px a side on a phone, 4px from md).
+ */
+describe('MetricsTable column widths', () => {
+  const source = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../features/analysis/components/MetricsTable.tsx'), 'utf8')
+  const rem = (name: string, prefix = '') => {
+    const match = new RegExp(`(?:^|[\\s"])${prefix.replace(':', '\\:')}\\[--${name}:([\\d.]+)rem\\]`).exec(source)
+    if (!match) throw new Error(`${prefix}--${name} is not a rem value in MetricsTable.tsx`)
+    return Number(match[1])
+  }
+  const ADVANCE = 0.6
+  const FIGURE = parseFloat(TAILWIND_FONT_SIZE.xs[0]) // rem, text-xs
+  const MARK = parseFloat(TAILWIND_FONT_SIZE['data-xs'][0]) // rem, text-data-xs
+  const GAP = 0.125 // rem, ml-0.5
+  /** Each line the budget allows: [label, width in rem], over a note of none, one or two letters. */
+  const lines = ['', 'a', 'ab'].map((letter) => {
+    const glyphs = tableTokenBudget(letter)
+    const width = glyphs * ADVANCE * FIGURE + (letter ? GAP : 0) + letter.length * ADVANCE * MARK
+    return [`${glyphs} glyphs${letter ? ` ${letter}` : ''}`, width] as const
+  })
+  const widest = Math.max(...lines.map(([, width]) => width))
+
+  it('lets the metric column give up to 6px only below md, where that buys a phone its third whole period', () => {
+    const base = /\[--metric-col:min\(([\d.]+)rem,100cqi\)\]/.exec(source)
+    const bands = [...source.matchAll(/(\S*)\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:/g)]
+    expect(base && bands.length === 1, 'the metric column and its one band').toBeTruthy()
+    // From md the band would cut the 8.25rem column, not the phone's 6.5rem: at 200% text an 816px screen falls in it.
+    expect(bands[0][1], 'the band\'s variant').toBe('max-md:')
+    const band = /max-md:\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:calc\(100cqi-3\*var\(--period-col\)\)\]/.exec(source)
+    expect(band, 'the band\'s rule').toBeTruthy()
+    const [low, high] = [Number(band![1]), Number(band![2])]
+    // From the top of the band three periods fit beside the full metric column anyway; below its foot they cannot.
+    expect(high).toBeCloseTo(Number(base![1]) + 3 * rem('period-col'), 6)
+    expect(high - low).toBeCloseTo(0.375, 6)
+  })
+
+  it('keeps the mark gutter one mark and its 2px gap wide', () => {
+    expect(rem('mark-gutter')).toBeCloseTo(GAP + ADVANCE * MARK, 6)
+  })
+
+  it('gives every period column room for its widest line inside its inset, at the default and a doubled text size', () => {
+    // An eight-glyph figure and a one-letter note: 8 × 7.2 + 2 + 6.6px.
+    expect(widest * 16, lines.map(([label, width]) => `${label}: ${(width * 16).toFixed(1)}px`).join(', ')).toBeCloseTo(66.2, 6)
+    for (const root of [16, 32]) {
+      expect(rem('period-col') * root - 2, `phone, ${root}px root`).toBeGreaterThanOrEqual(widest * root)
+      expect(rem('period-col', 'md:') * root - 0.5 * root, `md, ${root}px root`).toBeGreaterThanOrEqual(widest * root) // px-1 a side
+    }
   })
 })

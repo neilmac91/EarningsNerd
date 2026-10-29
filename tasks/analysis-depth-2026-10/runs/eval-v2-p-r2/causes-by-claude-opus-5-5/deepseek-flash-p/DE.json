@@ -1,0 +1,80 @@
+{
+ "system": "deepseek-flash-p",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 5,
+ "output_sha256": "ded6e29a7de4160055cd3dd79e1b524d97ee5665512423921d74a8327b116a85",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2024 decline came as rising global grain stocks, lower commodity prices and elevated interest rates cut shipment volumes , and FY2025 volumes fell 30% in U.S. and Canada large agriculture .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    },
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "P17 attributes lower agriculture shipment volumes to rising grain stocks, lower commodity prices and elevated interest rates. P10 confirms the 30% U.S./Canada volume decline."
+  },
+  {
+   "sentence": "The FY2025 Production & Precision Agriculture volume drop of 30% in the U.S. and Canada was only partly offset by a 22% increase in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 states the 30% U.S./Canada sales volume decrease was partially offset by a 22% increase in Brazil."
+  },
+  {
+   "sentence": "FY2024 production costs were favorable on lower material and profit-sharing costs, partly offset by higher overhead from lower volumes .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production costs were favorable in 2024 due to lower material and employee profit-sharing incentives costs, partially offset by higher manufacturing overhead costs driven by lower volumes and production inefficiencies."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16 attributes favorable costs to lower material and profit-sharing costs, partly offset by higher overhead from lower volumes and inefficiencies."
+  },
+  {
+   "sentence": "FY2025 operating inflows were driven by net income adjusted for non-cash provisions and a decrease in sales receivables .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes operating inflows to net income adjusted for non-cash provisions and lower sales-related receivables."
+  },
+  {
+   "sentence": "Small Agriculture & Turf operating profit fell on lower volumes and higher tariffs, partly offset by price realization .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit decreased primarily due to lower sales volumes/ sales mix and higher tariffs, partially offset by price realization."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 attributes the operating profit decrease to lower volumes/mix and higher tariffs, partially offset by price realization."
+  }
+ ],
+ "cost_usd": 0.033764,
+ "backend": "claude_cli",
+ "input_tokens": 2614,
+ "cached_input_tokens": 0,
+ "output_tokens": 643
+}

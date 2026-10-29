@@ -84,7 +84,7 @@ export default function SecondaryPaneTabs({
           'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ' +
           (active
             ? 'border-brand font-semibold text-text-primary-light dark:border-brand-dark dark:text-text-primary-dark'
-            : 'border-transparent font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark')
+            : 'border-transparent font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white')
         }
       >
         <Icon className="h-4 w-4" aria-hidden="true" />

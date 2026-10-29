@@ -13,7 +13,10 @@ export const ADVANCE = FONT_PX * 0.6
 export const textWidth = (text: string) => [...text].length * ADVANCE
 
 const HEIGHT: Record<ChartView, number> = { card: 320, expanded: 520 }
-const CAPTION = 14
+/** A card's height, the same for a chart that draws and one that says why it does not (D13). */
+export const CARD_HEIGHT = HEIGHT.card
+/** A panel caption's band; its baseline is the band's top + FONT_PX. */
+export const CAPTION = 14
 const LABEL_PAD = 14
 const TICK_PAD = 8
 /** Off-scale band row pitch: an 11 px line box is about 13 px tall, so rows sit 14 px apart. */
@@ -26,14 +29,21 @@ const BOTTOM = 4
 const RIGHT_PAD = 8
 /** The narrowest period slot: below it the chart scrolls inside its own viewport, never the page. */
 export const MIN_SLOT = 36
+/** A labelled chart (the top line's) widens its slot past MIN_SLOT until A4 finds a label tier, up to this. On the
+ *  audit's 72 top lines, 66 fit at 36 px and the other six (LCID, NVDA, PLUG, REGN, REGNPN and RIVN, all annual)
+ *  needed at most 41.7 px: six-glyph labels such as "$4.86B" cannot keep 2 px apart at a 36 px pitch. Past it, as
+ *  a code-prefixed currency's labels ("CHF 4.9B") can be, the card says VALUES_DONT_FIT instead. */
+export const LABELLED_MAX_SLOT = 42
 /** The value strip's row: its series' swatch centred at STRIP_MARKER_X, then its short name from STRIP_LABEL_X. */
 export const STRIP_MARKER_X = 6
 export const STRIP_LABEL_X = 14
-/** What the card says under the SVG when A4 finds no label tier for a panel (spec §3.7). */
-export const VALUES_DONT_FIT = 'Values don’t fit at this width: expand the chart or see the metrics table.'
+/** What the card says under the SVG when A4 finds no label tier for a panel, even at LABELLED_MAX_SLOT (spec §3.7).
+ *  It does not offer the expanded view: on a phone that view is no wider. */
+export const VALUES_DONT_FIT = 'Values don’t fit at this width. The metrics table lists them.'
 
 export interface LabelPlan {
-  /** One decimal tier for the whole panel, or null when no tier fits (no labels; the strip has them). */
+  /** One decimal tier for the whole panel, or null when no tier fits: the panel prints no labels and the card says
+   *  VALUES_DONT_FIT. */
   decimals: number | null
 }
 
@@ -133,6 +143,61 @@ export interface ChartLayout {
   notesY: number
 }
 
+/** The slot an SVG x falls in, as an index into the model's periods: §3.9's hit target is the slot's full width and the
+ *  SVG's full height. Null in the gutter or the right pad. */
+export function slotAt(layout: ChartLayout, x: number): number | null {
+  if (x < layout.plotLeft || x >= layout.plotRight) return null
+  const count = Math.round((layout.plotRight - layout.plotLeft) / layout.slot)
+  return Math.min(count - 1, Math.floor((x - layout.plotLeft) / layout.slot))
+}
+
+/** A period's column, its slot's left edge and width: the hover and focus wash (§3.9) and the span a keyboard move
+ *  brings into view. */
+export function columnOf(layout: ChartLayout, period: string): { left: number; width: number } {
+  return { left: layout.x(period) - layout.slot / 2, width: layout.slot }
+}
+
+/** The surface behind a panel's caption in A7's sticky gutter: the caption runs past the gutter, so its band is backed
+ *  to its own width plus 4 px. 0 for a panel without a caption. */
+export const captionBacking = (box: PanelBox) => (box.captionY != null && box.panel.caption ? Math.ceil(textWidth(box.panel.caption)) + 4 : 0)
+
+/** How far A7's sticky gutter covers the viewport at a scroll offset: the plot's own gutter, and while the scroll
+ *  leaves a period's column cut at the gutter's edge, that whole column, out to the next slot boundary. No value then
+ *  shows in part beside the axis, where a cut "−19%" would read "19%". */
+export function gutterCover(layout: ChartLayout, scrollLeft: number): number {
+  if (scrollLeft <= 0) return layout.plotLeft
+  return layout.plotLeft + Math.ceil(scrollLeft / layout.slot - 1e-9) * layout.slot - scrollLeft
+}
+
+/** A box in the viewport's x, past the cover's edge, that A7's sticky gutter also covers. */
+export interface GutterCut {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** The printed values the cover's edge cuts at a scroll offset, each as the rest of its box past the cover, so the gutter
+ *  hides it whole. Only two texts run past their period's column: a bar label, which A4 keeps 2 px from its neighbours
+ *  in either direction (up to 5 px over, "+2,915%"), and an off-scale value, centred on its column whatever its width
+ *  (up to 12 px over, "−15,071%"). Every other text lies inside its column, which the cover takes whole. */
+export function gutterCuts(layout: ChartLayout, scrollLeft: number, cover: number): GutterCut[] {
+  const edge = scrollLeft + cover
+  const boxes = layout.panels.flatMap((box) => [
+    // A label's planned box (labelAt): 10 px above its baseline, 3 below.
+    ...box.bars.flatMap((bar) => (bar.label ? [{ x0: bar.x + bar.width / 2 - textWidth(bar.label.text) / 2, w: textWidth(bar.label.text), y0: bar.label.y - 10, h: 13 }] : [])),
+    ...[box.offAbove, box.offBelow].flatMap((band) => (band ? band.items.map((item) => ({
+      x0: item.left, w: OFF_GLYPH + textWidth(item.text), y0: band.top + OFF_ROW * item.row, h: OFF_ROW,
+    })) : [])),
+  ])
+  return boxes.filter((box) => box.x0 < edge && box.x0 + box.w > edge)
+    .map((box) => ({ x: cover, y: box.y0, width: box.x0 + box.w - edge, height: box.h }))
+}
+
+/** A7's sticky gutter's width: what it covers, the cut values past it, or the widest caption's backing. */
+export const gutterOverlayWidth = (layout: ChartLayout, cover = layout.plotLeft, cuts: GutterCut[] = []) =>
+  Math.max(cover, ...cuts.map((cut) => cut.x + cut.width), ...layout.panels.map(captionBacking))
+
 /**
  * The left gutter and the narrowest slot. The gutter holds the widest tick label (G_L). An expanded view with a
  * value strip also fits its rows, so the strip is collision-free by construction as §3.10 says: every slot holds
@@ -148,10 +213,22 @@ function frameOf(model: ChartModel, view: ChartView): { gutter: number; minSlot:
   return { gutter: Math.max(gutter, Math.ceil(STRIP_LABEL_X + label)), minSlot: Math.max(MIN_SLOT, Math.ceil(cell + 4)) }
 }
 
-/** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. */
+/** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. A labelled
+ *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period, at which A4 finds a tier for every
+ *  labelled panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its
+ *  minimum. The search steps a slot pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
-  return gutter + RIGHT_PAD + minSlot * model.periods.length
+  const at = (slot: number) => gutter + RIGHT_PAD + slot * model.periods.length
+  const fits = (width: number) => !plan(model, width, view).valuesDontFit
+  if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)
+  for (let slot = minSlot + 1; slot <= LABELLED_MAX_SLOT; slot++) {
+    if (!fits(at(slot))) continue
+    let width = at(slot - 1) + 1
+    while (!fits(width)) width++
+    return width
+  }
+  return at(minSlot)
 }
 
 /** Off-scale rows: entries sorted by x take the lowest row where their box (glyph and value, padded 4 px
@@ -254,7 +331,11 @@ function planNearZero(box: PanelFrame, bars: Bar[], slot: number): Pick<PanelBox
 }
 
 export function layoutChart(model: ChartModel, containerWidth: number, view: ChartView): ChartLayout {
-  const width = Math.max(containerWidth, minChartWidth(model, view))
+  return plan(model, Math.max(containerWidth, minChartWidth(model, view)), view)
+}
+
+/** The whole plan at a given SVG width. */
+function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
   const { gutter } = frameOf(model, view)
   const plotLeft = gutter
   const plotRight = width - RIGHT_PAD

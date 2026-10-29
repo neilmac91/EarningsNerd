@@ -1,3 +1,4 @@
+import type { FeedbackAttachment } from '@/features/feedback/api/feedback-api'
 import api from '@/lib/api/client'
 
 /**
@@ -85,6 +86,8 @@ export type FeedbackType = 'bug' | 'feature' | 'general'
 export type FeedbackStatus = 'new' | 'triaged' | 'resolved'
 
 export interface FeedbackRecord {
+  attachment_count?: number
+  attachments?: FeedbackAttachment[]
   id: number
   user_id: number | null
   user_email: string | null

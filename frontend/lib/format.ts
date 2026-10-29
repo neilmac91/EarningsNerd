@@ -157,6 +157,20 @@ export const sentenceCase = (label: string): string => {
   })
 }
 
+/**
+ * The glyphs past ASCII that the data face, Geist Mono, draws at its one 0.6em advance: the no-break space Intl puts
+ * after a currency code, ¢ £ ¤ ¥ € in its latin file and ₪ ₱ ₴ ₹ ₽ in latin-ext, as a production build serves them. No
+ * file draws ₩ or ₫, though latin-ext's range claims both (chief design read the six files on #1652). next/font fetches
+ * the faces at build, so tests/e2e/analysis-layout.spec.ts measures each glyph in the built face: a font that drops one
+ * fails there. The trend charts' prefix (moneyPrefix), fmtCurrency and the KPI strip's width all read this one list.
+ */
+export const DATA_FACE_GLYPHS = '\u00a0¢£¤¥€₪₱₴₹₽'
+/** The glyphs a currency's en-US sign holds that Geist Mono lacks: KRW's ₩, VND's ₫ and the narrow no-break space in
+ *  XOF's "F CFA". The e2e's control: none of them measures at the face's advance. */
+export const DATA_FACE_MISSING = '\u202f₩₫'
+/** Whether the data face draws a glyph: printable ASCII or one of DATA_FACE_GLYPHS. */
+export const dataFaceDraws = (glyph: string): boolean => (glyph >= ' ' && glyph <= '~') || DATA_FACE_GLYPHS.includes(glyph)
+
 export const fmtCurrency = (
   value: NumericInput,
   options?: { currency?: string; digits?: number; compact?: boolean }
@@ -169,15 +183,38 @@ export const fmtCurrency = (
   const currency = options?.currency ?? 'USD'
   const digits = options?.digits ?? (Math.abs(num) < 1 ? 2 : 1)
   const compact = options?.compact ?? Math.abs(num) >= 1000
+  // A sign the data face lacks would paint in the fallback face, so its currency prints by code, as the trend
+  // charts' moneyPrefix does (E203): "KRW 300.9T", not "₩300.9T".
+  const symbol = currencySymbol(currency)
 
   const formatter = getFormatter({
     style: 'currency',
     currency,
+    currencyDisplay: symbol && ![...symbol].every(dataFaceDraws) ? 'code' : 'symbol',
     notation: compact ? 'compact' : 'standard',
     maximumFractionDigits: digits,
     minimumFractionDigits: digits > 0 ? Math.min(digits, 2) : 0,
   })
   return formatter.format(num)
+}
+
+const COMPACT_SCALE: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }
+
+/**
+ * The frames of a count-up toward `final`, held in the unit `final` prints in ("CHF 0.0B" … "CHF 22.8B"), so no
+ * frame is wider than the value it ends on, as hooks/useCountUp asks of its format. Compact notation on every frame
+ * changes unit on the way ("CHF 999.9M" before "CHF 22.8B"), a glyph wider than the final value the KPI strip sizes
+ * its cards for. The last frame is fmtCurrency(final, { compact: true }) exactly. The guarantee covers a count from
+ * zero, which is why KpiStrip keys each tile by its value: a tween from a larger value would pass wider frames.
+ */
+export const compactCurrencyCountUp = (final: number, currency = 'USD'): ((value: number) => string) => {
+  const last = fmtCurrency(final, { compact: true, currency })
+  const digits = Math.abs(final) < 1 ? 2 : 1
+  const unit = getFormatter({
+    style: 'currency', currency, notation: 'compact', maximumFractionDigits: digits, minimumFractionDigits: digits,
+  }).formatToParts(final).find((part) => part.type === 'compact')?.value ?? ''
+  const scale = COMPACT_SCALE[unit] ?? 1
+  return (value) => value === final ? last : `${fmtCurrency(value / scale, { currency, digits, compact: false })}${unit}`
 }
 
 // The engine's ISO 4217 list, where it has one (ES2022), so a well-formed code no currency has ("ABC") prints no

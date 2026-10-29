@@ -1,0 +1,106 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "f880440ff960d0e5f261f70336720f38245dc5f03cf6080895cd2ccabf442e8d",
+ "y_sha256": "37d5b499e16893a588fdec1724f396623d6ffbc649ee4e03c4bb4b8ea97e67ca",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts attribute the FY2023 decline to 'weak PC demand and inventory correction', which the cited passage does not say. A adds an Embedded decline the truncated passage does not show. B adds semi-custom and Radeon drivers it also cannot show. A goes deeper with peer operating-margin and ROE gaps and the inventory-days build, and ranks more relevant red flags. B separates analysis from fact better and its margin bridge adds up, but it omits the peer profitability gap."
+   },
+   "cost_usd": 0.158377,
+   "latency_s": 18.8,
+   "backend": "claude_cli",
+   "input_tokens": 16527,
+   "cached_input_tokens": 727,
+   "output_tokens": 1592,
+   "reasoning_tokens": 1357,
+   "meta": {
+    "duration_api_ms": 14437,
+    "cache_creation_input_tokens": 15798,
+    "list_cost_usd": 0.095185
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"Both drafts attribute the FY2023 decline to 'weak PC demand and inventory correction', which the cited passage does not say. A adds an Embedded decline the truncated passage does not show. B adds semi-custom and Radeon drivers it also cannot show. A goes deeper with peer operating-margin and ROE gaps and the inventory-days build, and ranks more relevant red flags. B separates analysis from fact better and its margin bridge adds up, but it omits the peer profitability gap.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts share the unsupported 'weak PC demand and inventory correction' gloss. A also claims console SoCs and Radeon drove growth, which the truncated passage does not show. B asserts an unquoted 3% Embedded decline and a 'highest in window' capex ratio. B adds more insight: unit and ASP drivers, the FY2022 Data Center surge, peer operating-margin and ROE gaps, and the inventory-days trend. A labels its judgements more clearly and avoids B's 'recovery is durable' overstatement."
+   },
+   "cost_usd": 0.151817,
+   "latency_s": 16.14,
+   "backend": "claude_cli",
+   "input_tokens": 16527,
+   "cached_input_tokens": 727,
+   "output_tokens": 1264,
+   "reasoning_tokens": 1003,
+   "meta": {
+    "duration_api_ms": 11695,
+    "cache_creation_input_tokens": 15798,
+    "list_cost_usd": 0.088625
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts share the unsupported 'weak PC demand and inventory correction' gloss. A also claims console SoCs and Radeon drove growth, which the truncated passage does not show. B asserts an unquoted 3% Embedded decline and a 'highest in window' capex ratio. B adds more insight: unit and ASP drivers, the FY2022 Data Center surge, peer operating-margin and ROE gaps, and the inventory-days trend. A labels its judgements more clearly and avoids B's 'recovery is durable' overstatement.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.310194
+}

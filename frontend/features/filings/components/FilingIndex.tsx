@@ -211,7 +211,7 @@ export function FilingIndex({
       {status === 'ready' && total > 0 && (
         <div className="px-4 pt-2 [container-type:inline-size] [@media(min-width:40rem)]:px-cap-6">
           {/* The visible column labels; each row's link already names its form, period and filed date. */}
-          <div aria-hidden="true" className={cx('hidden [@media(min-width:48rem)]:grid', ROW_TRACKS, 'pb-2 pt-4 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark')}>
+          <div aria-hidden="true" className={cx('hidden [@media(min-width:48rem)]:grid', ROW_TRACKS, 'pb-2 pt-4 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark')}>
             <span>Form</span>
             <span>Period</span>
             <span>Filed</span>
@@ -257,7 +257,7 @@ export function FilingIndex({
                         <CaretDownIcon
                           aria-hidden="true"
                           className={cx(
-                            'h-4 w-4 text-text-tertiary-light transition-transform duration-base motion-reduce:transition-none dark:text-text-secondary-dark',
+                            'h-4 w-4 text-text-tertiary-light transition-transform duration-base motion-reduce:transition-none dark:text-text-tertiary-dark',
                             !open && '-rotate-90',
                           )}
                         />
@@ -346,7 +346,7 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
         <span className={cx('col-start-2 mt-1 font-data text-xs tabular-nums [@container(width<15rem)]:col-start-1 [@media(min-width:48rem)]:col-start-auto [@media(min-width:48rem)]:mt-0 [@media(min-width:48rem)]:text-sm', MUTED)}>
           <span className="[@media(min-width:48rem)]:sr-only">Filed</span> {filed}
         </span>
-        <span aria-hidden="true" className="hidden justify-end text-text-tertiary-light dark:text-text-secondary-dark [@media(min-width:48rem)]:flex">
+        <span aria-hidden="true" className="hidden justify-end text-text-tertiary-light dark:text-text-tertiary-dark [@media(min-width:48rem)]:flex">
           <CaretRightIcon className="h-4 w-4" />
         </span>
       </Link>

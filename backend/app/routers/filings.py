@@ -329,9 +329,10 @@ async def get_filing_content(filing_id: int, db: Session = Depends(get_db)):
 async def get_filing_fundamentals(filing_id: int, db: Session = Depends(get_db)) -> FundamentalsResponse:
     """Annual fundamentals time-series **as reported in this specific filing** (roadmap B).
 
-    Reads the normalized `financial_fact` rows for this `filing_id` (its own comparative years) — an
-    immutable, document-faithful snapshot. A single indexed DB read, no live SEC calls. Returns empty
-    `concepts` when the filing's facts aren't populated yet (they backfill when it's summarized).
+    Reads the normalized `financial_fact` rows at this filing's company and accession (its own
+    comparative years, whichever fact writer stored them) — an immutable, document-faithful snapshot.
+    A single indexed DB read, no live SEC calls. Returns empty `concepts` when the filing's facts
+    aren't populated yet (they backfill when it's summarized).
     """
     data = await run_in_threadpool(filing_read_service.filing_fundamentals, db, filing_id)
     if data is None:

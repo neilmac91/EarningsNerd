@@ -105,6 +105,10 @@ ALLOWED_MUTATING_GETS: dict[tuple[str, str], str] = {}
 # Read-through caches persist what they just fetched; OAuth GETs are GET by protocol; the progress
 # heartbeat self-heals an orphaned row. Anything new belongs on POST or needs a reason here.
 ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
+    ("app/routers/feedback.py", "feedback_attachment"): (
+        "private object read: launch and reap a hard-deadline storage child; both tasks are awaited "
+        "and settled before return/cancellation, never detached work or database writes"
+    ),
     ("app/routers/analysis.py", "get_coverage"): (
         "read-through: fires a fire-and-forget companyfacts ingest (asyncio.create_task, deduped, "
         "through the SEC limiter) when coverage is stale; the response itself is a read"
@@ -135,7 +139,7 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
     ),
     ("app/routers/summaries.py", "get_summary_progress"): (
         "progress heartbeat: marks an orphaned/stalled generation row as a retryable error on read "
-        "(db.commit) so the client never sees an eternal 'generating'"
+        "(one conditional UPDATE and its commit) so the client never sees an eternal 'generating'"
     ),
     ("app/routers/users.py", "get_notification_preferences"): (
         "lazy create: get_or_create_preferences inserts the default preferences row on first read "
@@ -152,10 +156,16 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
 # with the kind and count of each one there. A write that moves (a router helper into a service)
 # moves its pin in the same PR; one more or one fewer changes its count.
 ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
+    ("app/routers/feedback.py", "feedback_attachment"): {
+        "app/services/feedback_storage_worker_service.py::run_feedback_storage_operation": {"create_task": 1},
+        "app/services/feedback_storage_worker_service.py::_finish_child": {"create_task": 1},
+    },
     ("app/routers/analysis.py", "get_coverage"): {
         "app/routers/analysis.py::get_coverage": {"create_task": 1},
         "app/services/facts/ingest.py::_persist_companyfacts_payload": {"commit": 1},
         "app/services/facts/upsert.py::upsert_facts_bulk": {"add": 1, "commit": 1},
+        # The same ingest's own-report history rows, which the bulk upsert stores beside its winners.
+        "app/services/facts/own_reports.py::insert_history_rows": {"add": 1},
     },
     ("app/routers/auth.py", "apple_login"): {
         "app/services/oauth_account_service.py::save_apple_state": {"commit": 1},
@@ -201,7 +211,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/filing_scan_service.py::upsert_filings": {"add": 1, "commit": 1},
     },
     ("app/routers/summaries.py", "get_summary_progress"): {
-        "app/routers/summaries.py::get_summary_progress": {"commit": 1},
+        "app/services/summary_generation_service.py::mark_stale_progress_as_error": {"query.update": 1},
+        "app/services/summary_generation_service.py::progress_poll_answer": {"commit": 1},
     },
     ("app/routers/users.py", "get_notification_preferences"): {
         "app/services/notification_service.py::get_or_create_preferences": {"add": 1, "commit": 1, "flush": 2},

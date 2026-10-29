@@ -22,7 +22,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 KNOWN_USER_KEYED_PREFIXES = {
     "summary:", "ask:",  # routers/summaries.py
     "analysis-coverage:", "analysis-dataset:", "analysis-xlsx:", "analysis-stream:",  # routers/analysis.py
-    "feedback:",  # routers/feedback.py
+    "feedback:", "feedback-media:",  # routers/feedback.py
     "change-password:",  # routers/auth.py
 }
 

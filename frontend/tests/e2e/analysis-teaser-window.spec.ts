@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { legalReady } from './fixtures/legalReady'
 
 /**
  * E139: on /analysis a guest (or a Free reader) gets the sample run inside PeekLocked's locked preview, and its
@@ -24,8 +25,9 @@ import { test, expect, type Page } from '@playwright/test'
  * reader is in.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md), and the build may name a production API
- * host, so every API request is answered here in the browser whatever its host: the session check 401 (a guest), any
- * other API path 404 and recorded; every other request but the frontend's own GET and HEAD is aborted.
+ * host, so every API request is answered here in the browser whatever its host: the session check 401 (a guest),
+ * public collection readiness open, any other API path 404 and recorded; every other request but the frontend's
+ * own GET and HEAD is aborted.
  */
 
 const THEMES = ['light', 'dark'] as const
@@ -48,6 +50,7 @@ async function answerGuest(page: Page, baseURL: string) {
     if (url.hostname.endsWith('.sentry.io')) return route.abort()
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/internal/')) {
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (request.method() === 'GET' && url.pathname === '/api/legal/readiness') return route.fulfill({ status: 200, headers, json: legalReady })
       if (url.pathname === '/api/auth/me') {
         traffic.me++
         return route.fulfill({ status: 401, headers, json: { detail: 'Not authenticated' } })
@@ -130,7 +133,7 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       expect(g.masked, `${at}: nothing around the upgrade action carries a mask, so the action is never faded`).toEqual([])
       expect(g.scrollWidth, `${at}: /analysis does not scroll sideways (scrollWidth ${g.scrollWidth}px, clientWidth ${g.clientWidth}px)`).toBeLessThanOrEqual(g.clientWidth)
       expect(traffic.me, 'the page read the session as a guest').toBeGreaterThan(0)
-      expect(traffic.unexpectedApi, 'a guest on /analysis reads only the session').toEqual([])
+      expect(traffic.unexpectedApi, 'a guest on /analysis reads only the session and public readiness').toEqual([])
     })
   })
 }

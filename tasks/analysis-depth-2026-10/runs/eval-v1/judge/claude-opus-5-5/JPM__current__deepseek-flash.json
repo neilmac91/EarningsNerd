@@ -1,0 +1,86 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is fully sourced but only restates table values. It also contrasts bank operating cash flow with net income without any caveat. B explains drivers, peers, credit and capital return, and flags the net-income data issue. B has grounding slips: it uses an FY2022 passage to explain FY2023 and a $2.6B segment passage to explain the firmwide provision. 'Limited cushion' and 'deep liquidity base' are interpretations stated as fact. B's depth still outweighs those flaws."
+   },
+   "cost_usd": 0.086993,
+   "latency_s": 11.91,
+   "input_tokens": 9994,
+   "output_tokens": 636,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A is fully sourced but only restates table values. It also contrasts bank operating cash flow with net income without any caveat. B explains drivers, peers, credit and capital return, and flags the net-income data issue. B has grounding slips: it uses an FY2022 passage to explain FY2023 and a $2.6B segment passage to explain the firmwide provision. 'Limited cushion' and 'deep liquidity base' are interpretations stated as fact. B's depth still outweighs those flaws.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is accurate but mostly restates table values and offers no interpretation. A explains drivers, costs, credit, capital return and peers, mostly with apt citations. A has real flaws. It attaches provision causes from a $2.6B passage, likely a segment, to the $14.2B firmwide figure. It cites FY2022 text for FY2023, calls credit 'deteriorating' though criticized share fell, and sets an unrealistic 33.8% threshold. Still far more useful."
+   },
+   "cost_usd": 0.089237,
+   "latency_s": 13.925,
+   "input_tokens": 9992,
+   "output_tokens": 749,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is accurate but mostly restates table values and offers no interpretation. A explains drivers, costs, credit, capital return and peers, mostly with apt citations. A has real flaws. It attaches provision causes from a $2.6B passage, likely a segment, to the $14.2B firmwide figure. It cites FY2022 text for FY2023, calls credit 'deteriorating' though criticized share fell, and sets an unrealistic 33.8% threshold. Still far more useful.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.17623
+}

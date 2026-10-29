@@ -1,0 +1,63 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "CVX",
+ "split": "holdout",
+ "claims": 4,
+ "output_sha256": "54418f520a55579422ebcdf0986d9d0d57cd97a7fa56d9a80eddde0049b60a30",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2022 jump came from higher upstream realizations and downstream margins .",
+   "passages": [
+    {
+     "id": "P57",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in income tax expense in 2022 of $8.1 billion is due to the increase in total income before tax for the company of $28.0 billion. The increase in income before taxes for the company is primarily the result of higher upstream realizations and downstream margins."
+    }
+   ],
+   "label": "supported",
+   "reason": "P57 attributes the 2022 increase in income before taxes primarily to higher upstream realizations and downstream margins."
+  },
+  {
+   "sentence": "The FY2025 revenue decline came mainly from lower crude oil and refined product prices, partly offset by higher volumes .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased in 2025 mainly due to lower crude oil and refined product prices, partially offset by higher crude oil and refined product sales volumes and higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "P17 says 2025 revenues fell mainly on lower crude and refined product prices, partially offset by higher sales volumes."
+  },
+  {
+   "sentence": "Higher upstream depreciation, lower realizations and higher operating costs drove the earnings decline .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The decrease in income tax expense in 2025 of $2.5 billion was primarily due to the decrease in total income before tax for the company of $7.8 billion, along with the absence of the tax impacts of the asset sales in Canada. The decrease in income before taxes for the company was primarily the result of higher upstream depreciation, depletion and amortization, lower upstream realizations, unfavorable foreign exchange impacts, and higher operating costs, partially offset by higher upstream sales volumes and higher downstream margins."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 cites higher upstream DD&A, lower upstream realizations and higher operating costs, among others, for the 2025 pre-tax income decrease."
+  },
+  {
+   "sentence": "Higher cash distributions from TCO and legacy Hess assets more than offset lower commodity prices .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash, Cash Equivalents and Marketable Securities Total balances were $6.3 billion and $6.8 billion at December\u00a031, 2025 and 2024, respectively. The company holds its cash with a diverse group of major financial institutions and has processes and safeguards in place designed to manage its cash balances and mitigate the risk of loss. Cash provided by operating activities in 2025 was $33.9 billion, compared to $31.5 billion in 2024, primarily as higher cash distributions from TCO and contributions from legacy Hess assets more than offset the impact of lower commodity prices. Between January and March 2025, Chevron purchased 15.38 million shares of Hess common stock in open market transactions for approximately $2.2 billion. Cash provided by operating activities was net of contributions to employee pension plans of approximately $588 million in 2025 and $844 million in 2024. Capital expenditures totaled $17.3 billion in 2025 compared to $16.4 billion in 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6: higher TCO cash distributions and legacy Hess contributions more than offset lower commodity prices in 2025 operating cash flow."
+  }
+ ],
+ "cost_usd": 0.029212,
+ "backend": "claude_cli",
+ "input_tokens": 2495,
+ "cached_input_tokens": 0,
+ "output_tokens": 463
+}

@@ -6,40 +6,76 @@ from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any
 
-DATA_NOTES_VERSION = 1
+# Version 2: the reasons' words below and the marked notes lettered first. The envelope's shape is version 1's, so the
+# frontend reads both; a saved presentation of version 1 regenerates once (presentation_is_current). A change to the
+# words, the record-only list or the letter order takes a new version: test_analysis_data_notes.py's NOTES_DIGESTS
+# holds each version's.
+DATA_NOTES_VERSION = 2
 _MISSING = object()
 _KINDS = {"review": 0, "unknown": 1, "unavailable": 2}
 _BASES = ("qoq", "yoy", "cagr", "window_pp")
 _FALLBACK_MESSAGE = "The source or calculation basis needs review. Check the original filing."
+# Each reason's words. A note's message prints for one figure (the evidence dialog, a workbook cell's comment) and once
+# for all of a note's figures (the page's detail, the PDF's and the workbook's lists, the chart footnotes), so a sentence
+# names no one figure (no "the figure", "the saved calculation" or "this value"), asks for nothing only the page does
+# ("select it") and says nothing of how a gap is drawn, which differs by surface: a dash in the table, the PDF's tables
+# and the page's and PNG's bar charts, a break in a line chart, an empty cell and an empty chart slot in the workbook,
+# "Unavailable" in the PDF's Sources & methods. Nor does a sentence carry a semicolon: a chart's footnote lists a note's
+# places with "; " before its words. test_analysis_data_notes.py holds all four.
 REASONS = {
-    "not_in_dataset": "Not available in this dataset.",
-    "legacy_calculation": "This saved calculation predates the current source checks. Its inputs need review.",
-    "source_check_needed": "A source check remains unresolved. Review the original filing before use.",
-    "unsupported_eps_calculation": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
-    "legacy_calculation_not_supported": "This saved calculation could not be reproduced from compatible source inputs and is unavailable.",
-    "repair_rolled_back": "This figure was withdrawn during a data correction and is unavailable.",
+    "not_in_dataset": "Not in our data. Never shown as zero.",
+    "legacy_calculation": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.",
+    "source_check_needed": "Not yet matched to the filing by our automated check.",
+    "unsupported_eps_calculation": "Calculated quarterly earnings per share is not supported. Use a reported quarterly EPS figure.",
+    "legacy_calculation_not_supported": "Could not be reproduced from compatible source inputs, so unavailable.",
+    "repair_rolled_back": "Withdrawn during a data correction and unavailable.",
     "incompatible_vintages": "The inputs come from incompatible versions of the company’s filings.",
-    "missing_compatible_operand": "A compatible earlier year-to-date figure is unavailable for this calculation.",
-    "negative_calculated_value": "The calculation produced an invalid negative amount and was withheld.",
-    "missing_inputs": "The source inputs needed for this calculation are unavailable.",
-    "missing_input": "A source input needed for this calculation is unavailable.",
+    "missing_compatible_operand": "No compatible earlier year-to-date figure is available to calculate from.",
+    "negative_calculated_value": "Calculated as an invalid negative amount, so withheld.",
+    "missing_inputs": "Source inputs needed for calculation are unavailable.",
+    "missing_input": "A source input needed for calculation is unavailable.",
     "missing_source": "The original source could not be established.",
-    "missing_provenance": "Detailed source information is unavailable for this figure.",
-    "legacy_unverified": "This saved figure needs a source check before use.",
-    "legacy_unreconciled": "This saved figure needs a source check before use.",
-    "legacy_unknown": "Validation details are unavailable for this saved figure. No verification claim is made.",
-    "legacy_provenance_unavailable": "Detailed source information is unavailable for this saved figure.",
+    "missing_provenance": "Detailed source information is unavailable.",
+    "legacy_unverified": "Needs a source check before use.",
+    "legacy_unreconciled": "Needs a source check before use.",
+    "legacy_unknown": "Validation details are unavailable. No verification claim is made.",
+    "legacy_provenance_unavailable": "Saved without detailed source information.",
     "incompatible_inputs": "The source inputs do not have a compatible reporting basis.",
-    "mixed_vintage": "The calculation combines figures from different filing versions.",
-    "mixed_vintages": "The calculation combines figures from different filing versions.",
+    "mixed_vintage": "Calculated from figures in different filing versions.",
+    "mixed_vintages": "Calculated from figures in different filing versions.",
     "unit_mismatch": "The source inputs use different units or currencies.",
-    "period_mismatch": "The source inputs cover incompatible reporting periods.",
+    "period_mismatch": "Period ends on a different date from its filing’s reporting period.",
     "missing_adjacent_period": "The immediately preceding period is unavailable.",
     "eps_not_additive": "Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.",
     "eps_requires_reported_quarter": "A reported quarterly earnings-per-share figure is unavailable.",
     "rounded_share_count": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
-    "source_conflict": "Available sources disagree on this figure.",
+    "calculation_mismatch": "Not confirmed by our calculation from the filed inputs.",
+    "missing_calculation_inputs": "Not checked: no compatible inputs in the same filing.",
+    "zero_where_prior_nonzero": "Zero where the previous period was not zero.",
+    "magnitude_vs_prior": "More than ten times the previous period’s value, or less than a tenth of it.",
+    "eps_sign_vs_net_income": "Earnings per share and net income have opposite signs for the period.",
+    "diluted_gt_basic": "Diluted earnings per share is higher than basic earnings per share for the period.",
+    "legacy_period_label_mismatch": "Saved with the wrong fiscal period and replaced by a corrected figure.",
+    "rolling_duration_not_fiscal_year": "Saved as a rolling twelve months, not the company’s fiscal year, so unavailable.",
+    "calculation_parent_period_corrected": "Withdrawn and unavailable: an input was corrected or withdrawn.",
+    "source_conflict": "The company’s filings report different values. We show the most recent filing’s value.",
 }
+# Reasons that describe a figure's record, not its value (D-061): their notes put no mark beside the figure. Closed: any
+# other reason marks, so a new reason shows until it is classified here. lib/dataNotes.ts holds the same list, and the
+# shared notes fixture's record_only_reasons pins both.
+RECORD_ONLY_REASONS = frozenset({"legacy_calculation"})
+# The fine print's words for a note that marks its figure ("Revenue FY2024: not yet matched to the filing"). The page
+# prints them from provenance.ts REASON_SUMMARIES, which the fixture's summaries holds equal to these; the PDF and the
+# workbook print them through note_summary, in their summary line (analysis_export_metadata.fine_print_summary). A clause
+# has no semicolon of its own, as a sentence has none: the fine print lists a note's places, and joins its clauses,
+# with "; ".
+SUMMARIES = {
+    "source_check_needed": "not yet matched to the filing",
+    "source_conflict": "the filings report different values (the most recent shown)",
+    "calculation_mismatch": "not confirmed by our calculation from the filed inputs",
+    "missing_calculation_inputs": "no compatible inputs in the same filing, so not checked",
+}
+SUMMARY_FALLBACK = "questioned by an automated check"
 
 
 def _issue(value: Mapping[str, Any]) -> dict | None:
@@ -93,9 +129,25 @@ def _add(groups: dict, value: Mapping[str, Any]) -> dict | None:
     })
 
 
+def marks_figure(note: Mapping[str, Any]) -> bool:
+    """Whether a note puts a mark beside its figure: a review note with a reason that questions the number (D-061).
+    It reads the note's reasons in place: test_data_note_reasons_have_words.py reads an assignment to a name `reasons`
+    as a write, which would make every export that asks this question a reason emitter."""
+    return note["kind"] == "review" and (
+        not note["reasons"] or any(reason not in RECORD_ONLY_REASONS for reason in note["reasons"]))
+
+
+def note_summary(reasons: Iterable[str]) -> str:
+    """A marked note's fine-print words, as the page's noteSummary writes them: each questioning reason's clause,
+    once, in reason order. The exports' summary line prints it; the fixture's summaries pins it to the page's."""
+    clauses = [SUMMARIES.get(reason, SUMMARY_FALLBACK) for reason in reasons if reason not in RECORD_ONLY_REASONS]
+    return "; ".join(dict.fromkeys(clauses or [SUMMARY_FALLBACK]))
+
+
 def _finish(groups: dict) -> list[dict]:
-    # Python's stable sort preserves first report appearance within each kind.
-    notes = sorted(groups.values(), key=lambda note: _KINDS[note["kind"]])
+    # Marked notes take the first letters, so a page's first visible letter is "a"; then review, unknown and
+    # unavailable notes. Python's stable sort preserves first report appearance within each.
+    notes = sorted(groups.values(), key=lambda note: (not marks_figure(note), _KINDS[note["kind"]]))
     for index, note in enumerate(notes):
         note["letter"] = _letter(index)
         note["id"] = f"analysis-data-note-{note['letter']}"

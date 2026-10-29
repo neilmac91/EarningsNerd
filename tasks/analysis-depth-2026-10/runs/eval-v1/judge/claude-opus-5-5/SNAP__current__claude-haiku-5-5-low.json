@@ -1,0 +1,86 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "B explains what the table cannot: segment contributions, cost-line margin bridge, SBC-driven cash conversion, note-funded buybacks, interest costs and peer net-debt ranking. It also flags gaps in its own evidence. Flaws: 'subscriber numbers' is unsupported by the truncated passage, and loss per share narrowing faster than net loss despite more shares is unexplained. A is mostly grounded but restates table values, mixes debt tags and offers threshold-free watch items."
+   },
+   "cost_usd": 0.107345,
+   "latency_s": 16.78,
+   "input_tokens": 11108,
+   "output_tokens": 1208,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"B explains what the table cannot: segment contributions, cost-line margin bridge, SBC-driven cash conversion, note-funded buybacks, interest costs and peer net-debt ranking. It also flags gaps in its own evidence. Flaws: 'subscriber numbers' is unsupported by the truncated passage, and loss per share narrowing faster than net loss despite more shares is unexplained. A is mostly grounded but restates table values, mixes debt tags and offers threshold-free watch items.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains what drove FY2025 growth (impressions up, pricing down), breaks down the margin change by cost line and links the cash\u2013loss gap to stock-based compensation. It also covers debt-funded buybacks against peers. One claim is unsupported: other revenue growing on subscriber numbers. B mostly restates the table, calls a narrower loss '+34% net income growth', compares debt figures with mismatched tags, and gives watch items without thresholds."
+   },
+   "cost_usd": 0.104737,
+   "latency_s": 15.421,
+   "input_tokens": 11112,
+   "output_tokens": 1076,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains what drove FY2025 growth (impressions up, pricing down), breaks down the margin change by cost line and links the cash\u2013loss gap to stock-based compensation. It also covers debt-funded buybacks against peers. One claim is unsupported: other revenue growing on subscriber numbers. B mostly restates the table, calls a narrower loss '+34% net income growth', compares debt figures with mismatched tags, and gives watch items without thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.212082
+}

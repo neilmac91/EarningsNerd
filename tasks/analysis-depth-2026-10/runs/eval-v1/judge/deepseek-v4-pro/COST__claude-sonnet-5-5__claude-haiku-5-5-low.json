@@ -1,0 +1,86 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "claude-sonnet-5-5",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, well-supported analysis of growth drivers, margin effects, and cash conversion, with clear causal links and numeric thresholds. Draft B has some unsupported claims (e.g., FY2022 cash conversion cause) and less precise grounding. A's coverage is more comprehensive and its calibration is more careful."
+   },
+   "cost_usd": 0.002909,
+   "latency_s": 2.345,
+   "input_tokens": 10189,
+   "output_tokens": 135,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, well-supported analysis of growth drivers, margin effects, and cash conversion, with clear causal links and numeric thresholds. Draft B has some unsupported claims (e.g., FY2022 cash conversion cause) and less precise grounding. A's coverage is more comprehensive and its calibration is more careful.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better peer context, and more concrete watch items, while remaining fully grounded in cited sources. Draft B adds receivables but lacks equivalent depth and has a minor unsupported claim about inventory turns."
+   },
+   "cost_usd": 0.002873,
+   "latency_s": 2.536,
+   "input_tokens": 10189,
+   "output_tokens": 117,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better peer context, and more concrete watch items, while remaining fully grounded in cited sources. Draft B adds receivables but lacks equivalent depth and has a minor unsupported claim about inventory turns.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.005782
+}

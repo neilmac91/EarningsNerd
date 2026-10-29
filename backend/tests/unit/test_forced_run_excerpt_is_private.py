@@ -14,7 +14,6 @@ grounding and keeps it, as an unforced first generation does. A kept or failed r
 """
 import asyncio
 import threading
-import time
 from contextlib import ExitStack, contextmanager
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -289,19 +288,33 @@ def test_a_replacing_forced_run_stores_its_excerpt_over_a_save_committed_while_i
 
 @contextmanager
 def _the_run_ends_with_no_excerpt(how, late_excerpt):
-    """``get_or_cache_excerpt`` as a run that ends with no excerpt meets it: its build returned nothing,
-    raised (a database blip in its thread), or outlasted the enrichment join, which drops it (E77's CPU
-    contention; ``late_excerpt`` is what it would have returned)."""
+    """Build no excerpt, or keep its worker pending until the real enrichment join cancels it."""
     from app.services import summary_pipeline
 
-    finished = threading.Event()
+    started, finished = threading.Event(), threading.Event()
+    release, join_cancelled = threading.Event(), threading.Event()
+    run_in_threadpool = summary_pipeline.run_in_threadpool
 
     def late(*_a, **_k):
+        started.set()
         try:
-            time.sleep(0.5)
+            assert release.wait(5), "excerpt worker was never released"
             return late_excerpt
         finally:
             finished.set()
+
+    async def release_on_join_cancellation(func, *args, **kwargs):
+        if getattr(func, "__name__", None) != "extract_excerpt_sync":
+            return await run_in_threadpool(func, *args, **kwargs)
+        worker = asyncio.create_task(run_in_threadpool(func, *args, **kwargs))
+        try:
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            # Observe the real join's cancellation before an owned offload drains its worker.
+            join_cancelled.set()
+            release.set()
+            await asyncio.gather(worker, return_exceptions=True)
+            raise
 
     builder = {
         "none": MagicMock(return_value=None),
@@ -312,9 +325,15 @@ def _the_run_ends_with_no_excerpt(how, late_excerpt):
         stack.enter_context(patch.object(summary_pipeline, "get_or_cache_excerpt", builder))
         if how == "join-dropped":
             stack.enter_context(patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 0.05))
-        yield builder
+            stack.enter_context(patch.object(summary_pipeline, "run_in_threadpool", release_on_join_cancellation))
+        try:
+            yield builder
+        finally:
+            release.set()  # Always unblock a started worker, including on an earlier test failure.
+            if started.is_set():
+                assert finished.wait(5)
         if how == "join-dropped":
-            assert finished.wait(5)  # the join drops the build, not its thread, which runs to its end
+            assert join_cancelled.is_set(), "excerpt did not outlast the enrichment join"
 
 
 def _a_partial_stored_summary(filing_id):

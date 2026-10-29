@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightIcon, ListIcon, SignOutIcon, XIcon } from '@/lib/icons'
+import { ArrowRightIcon, ListIcon, SignOutIcon, WarningIcon, XIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import UserMenu from '@/features/auth/components/UserMenu'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
@@ -15,7 +15,8 @@ import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
-import { ACCESS_COPY, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { accountLabels, accountShortLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { usePublicAccess } from '@/features/marketing/components/PublicAccessProvider'
 
 const NAV_LINKS = [
   // Flag-gated: /search, /analysis and /calendar all 404 while their flags are off, so the nav
@@ -79,7 +80,7 @@ export default function Header({
   }, [])
   const router = useRouter()
   const queryClient = useQueryClient()
-  const account = ACCESS_COPY[accessMode]
+  const account = usePublicAccess(accessMode)
   const headerRef = useRef<HTMLElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -247,7 +248,7 @@ export default function Header({
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+              className="text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               {link.label}
             </Link>
@@ -259,7 +260,10 @@ export default function Header({
             nothing in it is painted, focused or read) and the live controls, set at the cell's right edge. The cell is
             as wide as a guest's set whatever the auth check shows, in any font and either access mode, so the nav
             keeps its place as the check settles: it moved 109px for a guest and 35px for a reader at 1152px (E175,
-            chief design on #1558, comment 6377073723). A reader's toggle, bell and avatar stay together at the right,
+            chief design on #1558, comment 6377073723). The copy's account link holds, in one cell, every label the live
+            one can print in this mode (accountLabels: the mode's own and the live example's), so the nav keeps its
+            place as registration readiness lands too: in invite mode it moved 4.5px at 1152px as "See a live example"
+            became "Request an invite" (E220). A reader's toggle, bell and avatar stay together at the right,
             the spare width between them and the nav, and the live set's right edge is the bar's, so the menus anchored
             there (right-0) open on the screen (E160). min-h-10, the md button's height, holds the bar at one height
             whatever the check shows: the 36px placeholder and a signed-in reader's 36px avatar sit centred in the
@@ -271,7 +275,13 @@ export default function Header({
             </span>
             <span className={buttonVariants({ variant: 'ghost', size: 'md' })}>Log in</span>
             <span className={buttonVariants({ variant: 'primary', size: 'md' })}>
-              {account.cta}
+              <span className="grid">
+                {accountLabels(accessMode).map((label) => (
+                  <span key={label} className="col-start-1 row-start-1">
+                    {label}
+                  </span>
+                ))}
+              </span>
               <ArrowRightIcon className="h-3.5 w-3.5" />
             </span>
           </span>
@@ -321,7 +331,27 @@ export default function Header({
           {user && <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />}
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
-              {account.ctaShort}
+              {/* The label holds, in one cell, every label the link can print in this mode (accountShortLabels: the
+                  mode's own and the live example's), the shown one visible and the rest invisible and aria-hidden, so
+                  the bar keeps its height as registration readiness lands: under 200% text at 370 and 450px, "Live
+                  example" took one line and "Request invite" two, and the bar grew 14px (E223, chief design on #1686,
+                  comment 6436319684). The link's name stays the shown label, and items-center and text-center keep that
+                  label central in a cell a taller or wider twin sets. The rest carry ph-no-capture: PostHog's
+                  autocapture records the text of every span in a clicked link, so a click records the shown label
+                  alone, as it did before the hold. */}
+              <span className="grid items-center text-center">
+                {accountShortLabels(accessMode).map((label) =>
+                  label === account.ctaShort ? (
+                    <span key={label} className="col-start-1 row-start-1">
+                      {label}
+                    </span>
+                  ) : (
+                    <span key={label} aria-hidden="true" className="ph-no-capture invisible col-start-1 row-start-1">
+                      {label}
+                    </span>
+                  ),
+                )}
+              </span>
             </Link>
           )}
           <button
@@ -331,7 +361,7 @@ export default function Header({
               setBellOpen(false)
               setMobileMenuOpen(!mobileMenuOpen)
             }}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
           >
@@ -385,8 +415,11 @@ export default function Header({
                     <Link
                       href={`/check-email?email=${encodeURIComponent(user.email)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                      // A step the account still needs: the menu's own row in the primary ink, the state's colour on
+                      // its glyph alone, as the account menu's row (E196 (2)).
+                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:text-text-primary-dark dark:hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
+                      <WarningIcon aria-hidden="true" className="h-4 w-4 flex-none text-warning-light dark:text-warning-dark" />
                       Verify your email
                     </Link>
                   )}
@@ -405,7 +438,7 @@ export default function Header({
                     onClick={handleMobileLogout}
                     className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
-                    <SignOutIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
+                    <SignOutIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
                     Log out
                   </button>
                 </>

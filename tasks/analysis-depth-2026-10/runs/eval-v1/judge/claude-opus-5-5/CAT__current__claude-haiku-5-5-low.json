@@ -1,0 +1,86 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "B's causal claims match its quoted 10-K passages: volume-driven FY2020 drop, FY2023 price and volume gains, tariff-led FY2025 manufacturing costs. It adds segment mix, tax rate, net debt, peers and payouts, and labels analysis and the proxy-data issue. Minor stretches: the 28.6% operating-income CAGR from a depressed FY2016 base, and loose debt attribution. A only restates table values, wrongly reports no red flags, and gives vague watch items."
+   },
+   "cost_usd": 0.106481,
+   "latency_s": 14.549,
+   "input_tokens": 11405,
+   "output_tokens": 1046,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"strong\", \"rationale\": \"B's causal claims match its quoted 10-K passages: volume-driven FY2020 drop, FY2023 price and volume gains, tariff-led FY2025 manufacturing costs. It adds segment mix, tax rate, net debt, peers and payouts, and labels analysis and the proxy-data issue. Minor stretches: the 28.6% operating-income CAGR from a depressed FY2016 base, and loose debt attribution. A only restates table values, wrongly reports no red flags, and gives vague watch items.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Draft A explains why results moved, and its causes match the quoted filing passages: falling volume in FY2020, price and volume in FY2023, tariffs and price in FY2025. It also covers segments, cash conversion, peers and capital allocation, discloses the proxy-sourced net income, and labels its judgements as analysis. Draft B mostly restates table values, labels net income as XBRL when it is proxy-sourced, reports no red flags, and sets watch items without thresholds."
+   },
+   "cost_usd": 0.103001,
+   "latency_s": 12.337,
+   "input_tokens": 11405,
+   "output_tokens": 872,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"strong\", \"rationale\": \"Draft A explains why results moved, and its causes match the quoted filing passages: falling volume in FY2020, price and volume in FY2023, tariffs and price in FY2025. It also covers segments, cash conversion, peers and capital allocation, discloses the proxy-sourced net income, and labels its judgements as analysis. Draft B mostly restates table values, labels net income as XBRL when it is proxy-sourced, reports no red flags, and sets watch items without thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.209482
+}

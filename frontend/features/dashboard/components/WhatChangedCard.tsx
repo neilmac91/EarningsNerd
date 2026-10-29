@@ -106,7 +106,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
             )}
             {/* "Latest report" (vs "Last filed" in Your companies): this feed shows the newest
                 10-K/10-Q, which can be older than a company's most recent filing of any form. */}
-            <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">Latest report</span>
+            <span className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">Latest report</span>
             <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               {item.filing_type} · {formatLocalDate(item.filing_date, 'MMM d, yyyy')}
             </span>

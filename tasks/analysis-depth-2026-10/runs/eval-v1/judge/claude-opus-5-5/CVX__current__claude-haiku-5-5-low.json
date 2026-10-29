@@ -1,0 +1,86 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values, with generic watch items and no causes. B explains segment drivers, cost lines, cash conversion, distributions versus free cash flow and the revenue recast, citing filing passages. B has slips: it compares the FY2025 tax rate with FY2023, applies pre-tax income causes to revenue, and draws a strained cost-to-EPS link. These flaws are outweighed by B's much greater well-supported substance."
+   },
+   "cost_usd": 0.098677,
+   "latency_s": 10.746,
+   "input_tokens": 11552,
+   "output_tokens": 597,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values, with generic watch items and no causes. B explains segment drivers, cost lines, cash conversion, distributions versus free cash flow and the revenue recast, citing filing passages. B has slips: it compares the FY2025 tax rate with FY2023, applies pre-tax income causes to revenue, and draws a strained cost-to-EPS link. These flaws are outweighed by B's much greater well-supported substance.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values. A has real grounding slips. It compares the FY2025 tax rate with FY2023 (cited as the prior year). It infers a causal 'so' from operating costs to EPS. It ties FY2023 revenue to income-before-tax passages. Still, most of A's causal claims match their passages. A also adds segment, peer, recast, capital-return and guidance context. B offers no interpretation."
+   },
+   "cost_usd": 0.107617,
+   "latency_s": 14.802,
+   "input_tokens": 11552,
+   "output_tokens": 1044,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but only restates table values. A has real grounding slips. It compares the FY2025 tax rate with FY2023 (cited as the prior year). It infers a causal 'so' from operating costs to EPS. It ties FY2023 revenue to income-before-tax passages. Still, most of A's causal claims match their passages. A also adds segment, peer, recast, capital-return and guidance context. B offers no interpretation.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.206294
+}

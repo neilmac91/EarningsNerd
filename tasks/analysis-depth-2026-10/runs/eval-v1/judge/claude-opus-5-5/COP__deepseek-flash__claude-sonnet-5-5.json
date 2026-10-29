@@ -1,0 +1,86 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A misreads the cited -5.3% three-year CAGR as positive growth. It says margin decline would 'extend a fifth year' when FY2022\u201325 is three years. It asserts the tax rate 'rose' without a prior-year figure. It also repeats the 100th-percentile net cash claim without noticing total debt equals only the current portion. B flags that debt problem, discloses what the filings leave unexplained, labels judgements as analysis, and adds well-sourced SG&A, interest and segment drivers."
+   },
+   "cost_usd": 0.128321,
+   "latency_s": 12.775,
+   "input_tokens": 14615,
+   "output_tokens": 854,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A misreads the cited -5.3% three-year CAGR as positive growth. It says margin decline would 'extend a fifth year' when FY2022\u201325 is three years. It asserts the tax rate 'rose' without a prior-year figure. It also repeats the 100th-percentile net cash claim without noticing total debt equals only the current portion. B flags that debt problem, discloses what the filings leave unexplained, labels judgements as analysis, and adds well-sourced SG&A, interest and segment drivers.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful mix detail: gas versus crude contribution, production costs and peer ROE. But it misreads the \u22125.3% three-year CAGR as positive and says the margin decline would extend 'a fifth year' when it is three. It asserts tax and ROE 'rose/fell' without prior figures. It also presents net cash as peer-leading even though debt shows only the current portion. A flags that debt anomaly, discloses its gaps and stays well grounded."
+   },
+   "cost_usd": 0.128313,
+   "latency_s": 13.814,
+   "input_tokens": 14619,
+   "output_tokens": 852,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds useful mix detail: gas versus crude contribution, production costs and peer ROE. But it misreads the \u22125.3% three-year CAGR as positive and says the margin decline would extend 'a fifth year' when it is three. It asserts tax and ROE 'rose/fell' without prior figures. It also presents net cash as peer-leading even though debt shows only the current portion. A flags that debt anomaly, discloses its gaps and stays well grounded.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.256634
+}

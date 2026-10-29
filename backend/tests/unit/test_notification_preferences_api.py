@@ -93,6 +93,21 @@ def test_put_allows_pro_toggles_for_pro_user(client):
 
 
 @pytest.mark.requires_db
+def test_a_put_of_one_field_leaves_the_foreign_issuer_preferences_as_stored(client):
+    # Filing alerts hides its 20-F and 6-K rows while the frontend's FPI flag is off and saves one field per
+    # switch (E33), so a save of another preference must not touch the two it cannot show.
+    with _as_user(is_pro=False):
+        url = "/api/users/me/notification-preferences"
+        assert client.put(url, json={"notify_20f": False, "notify_6k": True}).status_code == 200
+        resp = client.put(url, json={"notify_10k": False})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert (body["notify_10k"], body["notify_20f"], body["notify_6k"]) == (False, False, True)
+        assert {key: client.get(url).json()[key] for key in ("notify_20f", "notify_6k")} == {
+            "notify_20f": False, "notify_6k": True}
+
+
+@pytest.mark.requires_db
 def test_put_rejects_invalid_digest(client):
     with _as_user(is_pro=False):
         resp = client.put("/api/users/me/notification-preferences", json={"digest": "hourly"})

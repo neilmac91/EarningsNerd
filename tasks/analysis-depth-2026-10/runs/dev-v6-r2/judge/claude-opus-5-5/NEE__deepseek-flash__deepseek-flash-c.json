@@ -1,0 +1,106 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "cdf8b6bad38a6e0a988ed49315efff068a2854c4606e4f05294f6ff0872463e9",
+ "y_sha256": "733af65276b2e5f56619abd639b86774c7132fed3ed1ac1f193cee5f900b25b9",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A misattributes the FY2021 margin trough to the Mountain Valley Pipeline impairment. Its own source [10] puts that charge in 2020 and says it was absent in 2021. A also says the capital programme drives operating cash flow, and adds dividend-pressure speculation. Both drafts cite an $89m figure their passage does not state. A offers more depth (NEER capacity, FY2023 hedge gains, restatement caveat). B is better supported and labels its judgements as analysis."
+   },
+   "cost_usd": 0.131121,
+   "latency_s": 14.481,
+   "backend": "claude_cli",
+   "input_tokens": 14625,
+   "cached_input_tokens": 727,
+   "output_tokens": 990,
+   "reasoning_tokens": 754,
+   "meta": {
+    "duration_api_ms": 10433,
+    "cache_creation_input_tokens": 13896,
+    "list_cost_usd": 0.075537
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A misattributes the FY2021 margin trough to the Mountain Valley Pipeline impairment. Its own source [10] puts that charge in 2020 and says it was absent in 2021. A also says the capital programme drives operating cash flow, and adds dividend-pressure speculation. Both drafts cite an $89m figure their passage does not state. A offers more depth (NEER capacity, FY2023 hedge gains, restatement caveat). B is better supported and labels its judgements as analysis.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts wrongly tie the FY2021 margin trough to the FY2020 Mountain Valley Pipeline impairment. A also misreads the +23.5pp figure, which is the change from FY2022, not FY2021. B supports the FY2023 peak with the hedge-gain passage and adds NEER capacity additions, the decline in FPL's revenue share, debt versus equity compounding and a restatement caveat. B's watch items overreach on the dividend and hedge-driven claims, while A labels its analysis well."
+   },
+   "cost_usd": 0.131453,
+   "latency_s": 14.024,
+   "backend": "claude_cli",
+   "input_tokens": 14629,
+   "cached_input_tokens": 727,
+   "output_tokens": 1005,
+   "reasoning_tokens": 759,
+   "meta": {
+    "duration_api_ms": 10036,
+    "cache_creation_input_tokens": 13900,
+    "list_cost_usd": 0.075853
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts wrongly tie the FY2021 margin trough to the FY2020 Mountain Valley Pipeline impairment. A also misreads the +23.5pp figure, which is the change from FY2022, not FY2021. B supports the FY2023 peak with the hedge-gain passage and adds NEER capacity additions, the decline in FPL's revenue share, debt versus equity compounding and a restatement caveat. B's watch items overreach on the dividend and hedge-driven claims, while A labels its analysis well.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.262574
+}

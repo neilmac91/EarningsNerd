@@ -14,21 +14,25 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, STRIP_LABEL_X, textWidth, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
-import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
-import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
-import { currencySymbol } from '@/lib/format'
+import { chartReadouts } from '@/features/analysis/lib/charts/readout'
+import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
+import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { reasonText } from '@/features/analysis/lib/provenance'
+import { currencySymbol, dataFaceDraws } from '@/lib/format'
+import { MIXED_NOTES, questioned, withMixedNotes } from './chartPlan'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
-}
+})
 const DATASETS = Object.entries(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 const WIDTHS: Record<ChartView, number[]> = { card: [342, 502], expanded: [390, 1030] }
-/** The SVG glyph set (spec G2): printable ASCII plus ’ − — ↑ ↓ † ·. Geist Mono's subsets carry each at
- *  0.6 em; ▲ ▼ and the thin space exist in neither, so they are never planned. */
-const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓†·]*$/
+/** The SVG glyph set (spec G2): printable ASCII plus ’ − — ↑ ↓ ·. Geist Mono's subsets carry each at 0.6 em; ▲ ▼
+ *  and the thin space exist in neither, so they are never planned. † left the set with the band's dagger (D-061, E194). */
+const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓·]*$/
 const MARKERS = ['circle', 'square', 'triangle']
 
 /** Every string the renderer will print inside the SVG, from the model and the plan alone. */
@@ -49,7 +53,9 @@ function svgStrings(model: ChartModel, layout: ChartLayout): string[] {
 describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source }) => {
   for (const chart of CHART_IDS) for (const view of ['card', 'expanded'] as const) {
     it(`${chart} · ${view}`, () => {
-      const model = buildChartModel(chart, structuredClone(source))
+      const ds = structuredClone(source)
+      const notes = resolveDataNotes(ds)
+      const model = buildChartModel(chart, ds, notes)
       if (model.unavailable) {
         expect(model.panels, 'a chart that does not apply draws nothing').toEqual([])
         expect(model.unavailable.length).toBeGreaterThan(20)
@@ -60,8 +66,20 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
       expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
       if (view === 'card') expect(layouts[0].height).toBe(320)
       layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(WIDTHS[view][i], minChartWidth(model, view))))
-      for (const layout of layouts) {
+      for (const [i, layout] of layouts.entries()) {
         expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(MIN_SLOT - 1e-9)
+        // A4/A7: a chart widens past its container only as far as LABELLED_MAX_SLOT, and only when that gives its
+        // labels a tier; a chart that still prints none kept its minimum.
+        const fitSlot = (WIDTHS[view][i] - layout.gutter - 8) / model.periods.length
+        if (model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) expect(layout.slot, 'A7: widened at most to LABELLED_MAX_SLOT').toBeLessThanOrEqual(Math.max(fitSlot, LABELLED_MAX_SLOT) + 1e-9)
+        // A chart that still prints no labels took no widening, and its labels miss at its minimum too (so a wider
+        // container never loses labels its minimum holds).
+        const base = layout.gutter + 8 + MIN_SLOT * model.periods.length
+        const atMinimum = layoutChart(model, 0, view)
+        if (layout.valuesDontFit) {
+          expect(minChartWidth(model, view), 'A4: no widening for labels it cannot fit').toBe(base)
+          expect(atMinimum.valuesDontFit, 'A4: labels that miss at the container missed at the minimum').toBe(true)
+        }
         const texts = svgStrings(model, layout)
         for (const text of texts) {
           expect(text, 'M12: glyphs Geist Mono carries').toMatch(SVG_GLYPHS)
@@ -190,11 +208,12 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
       const bandLetters = new Set(Object.values(model.notesBand ?? {}).flat().map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text)))
       const footnoteLetters = new Set(model.footnotes.map((note) => note.mark).filter((mark) => /^[a-z]+$/.test(mark)))
       expect([...bandLetters].sort()).toEqual([...footnoteLetters].sort())
-      const hasDagger = Object.values(model.notesBand ?? {}).flat().some((glyph) => glyph.text === '†')
-      expect(model.footnotes.some((note) => note.mark === '†')).toBe(hasDagger)
-      // G6: † sits only in the band and its footnote, never beside a name or a number.
+      // D-061 (spec §3.3's note): a band letter is a note that questions the number; a gap's footnote leads with no
+      // letter, and no chart draws or keys a †, beside a name, a number or anywhere else (G6).
+      const byLetter = new Map(notes.notes.map((note) => [note.letter, note]))
+      for (const letter of bandLetters) expect(noteMarksFigure(byLetter.get(letter)), `${letter} questions the number`).toBe(true)
       const prose = [model.title, model.subtitle, ...model.legend.flatMap((item) => [item.label, item.value ?? '']),
-        ...model.panels.map((panel) => panel.caption ?? ''), ...model.footnotes.map((note) => note.text)]
+        ...model.panels.map((panel) => panel.caption ?? ''), ...model.footnotes.flatMap((note) => [note.mark, note.text])]
       for (const text of prose) expect(text, 'G6').not.toContain('†')
       // M18: every growth slot without a value is explained, as structural, unavailable or n/m.
       if (chart === 'topline') {
@@ -297,19 +316,40 @@ describe('the cases the step-1 data required', () => {
     expect(model('JPM_annual', 'cash').legend.map((item) => item.label)).toEqual(['Operating CF', 'Net income'])
     const pgr = model('PGR_quarterly', 'topline')
     expect(pgr.title).toBe('Premiums earned & growth')
-    expect(Object.entries(pgr.notesBand!).filter(([, glyphs]) => glyphs.some((glyph) => glyph.text === '†')).map(([period]) => period)).toEqual(['2024Q4', '2025Q4'])
+    // Premiums earned is calculated in two Q4s (the year less its first three quarters): a footnote names them, and no
+    // band glyph marks them (D-061).
+    expect(pgr.footnotes).toContainEqual({ mark: '', text: 'Calculated by EarningsNerd from reported figures: Premiums earned Q4 ’24, Q4 ’25.' })
     expect(model('O_annual', 'topline').unavailable).toBe('No top-line figure in this company’s filed data (revenue, net interest income or premiums earned).')
     expect(model('O_annual', 'margins').unavailable).toBe('Margins need revenue, which is not in this company’s filed data.')
   })
 
-  it('review notes: one letter per period in warning ink, naming the series and periods once', () => {
-    const m = model('REGNPN_annual', 'margins')
-    expect(m.notesBand).toEqual({
-      FY2023: [{ text: 'a', tone: 'review' }], FY2024: [{ text: 'a', tone: 'review' }], FY2025: [{ text: 'a', tone: 'review' }],
-    })
+  it('review notes: a record-only one letters nothing, and one that questions the number letters each period once (D-061)', () => {
+    // REGNPN's simulated flags are legacy_calculation, record-only: no letter, no line; the data notes keep them.
+    const recorded = model('REGNPN_annual', 'margins')
+    expect(recorded.notesBand).toBeNull()
+    expect(recorded.footnotes.map((note) => note.mark)).toEqual([''])
+    expect(recorded.legend.map((item) => item.label), 'an absent gross margin is not listed').toEqual(['Operating', 'Net'])
+    const m = model('REGNPN_annual', 'margins', questioned)
+    expect(m.notesBand).toEqual({ FY2023: [{ text: 'a' }], FY2024: [{ text: 'a' }], FY2025: [{ text: 'a' }] })
     expect(m.footnotes[0].mark).toBe('a')
     expect(m.footnotes[0].text).toMatch(/^Operating margin and Net margin FY2023–FY2025: /)
-    expect(m.legend.map((item) => item.label), 'an absent gross margin is not listed').toEqual(['Operating', 'Net'])
+  })
+
+  it('MIXED_NOTES, the sweeps’ own dataset: only a questioned value or comparison letters, an n/m one included (D-061)', () => {
+    const ds = dataset(MIXED_NOTES)
+    // Data notes version 2: the notes that mark a figure take the first letters, so the record-only one follows them.
+    expect(resolveDataNotes(ds).notes.map((note) => [note.letter, note.kind, noteMarksFigure(note)]), 'every kind a band can meet')
+      .toEqual([['a', 'review', true], ['b', 'review', true], ['c', 'review', false], ['d', 'unknown', false], ['e', 'unavailable', false]])
+    const band = (chart: ChartId) => Object.fromEntries(Object.entries(buildChartModel(chart, ds).notesBand ?? {}).map(([period, glyphs]) => [period, glyphs.map((glyph) => glyph.text)]))
+    expect(band('topline'), 'a questioned comparison, on a number and on an n/m').toEqual({ FY2024: ['a'], FY2025: ['b'] })
+    // A footnote's words are its reason's, from the one map the shared notes fixture holds equal to the backend's.
+    expect(buildChartModel('topline', ds).footnotes.slice(0, 2)).toEqual([
+      { mark: 'a', text: `Revenue YoY FY2024: ${reasonText('source_conflict')}` },
+      { mark: 'b', text: `Revenue YoY FY2025: ${reasonText('period_mismatch')}` },
+    ])
+    expect(band('margins'), 'operating margin’s questioned flags; net margin’s record-only ones letter nothing').toEqual({ FY2023: ['a'], FY2024: ['a'], FY2025: ['a'] })
+    expect(band('cash'), 'free cash flow’s unrecorded checks letter nothing').toEqual({})
+    expect(band('balance'), 'a gap letters nothing').toEqual({})
   })
 
   it('a gap in the window: the year after it is unavailable, not structural, and a zero base is found by its key', () => {
@@ -376,20 +416,24 @@ describe('the cases the step-1 data required', () => {
     for (const s of ds.series.filter((series) => ['revenue', 'net_income', 'operating_cash_flow'].includes(series.concept))) {
       for (const point of s.points) if (point.value != null) point.provenance = review([`reason_${n++}`])
     }
-    // Letters follow report order, so three FY2017 balance points that share earlier reasons get a one-letter and
+    // Letters follow report order, so three FY2020 balance points that share earlier reasons get a one-letter and
     // two two-letter notes between them.
-    const at = (concept: string) => ds.series.find((s) => s.concept === concept)!.points.find((point) => point.period === 'FY2017')!
+    const at = (concept: string, period = 'FY2020') => ds.series.find((s) => s.concept === concept)!.points.find((point) => point.period === period)!
     at('cash_and_equivalents').provenance = review(['reason_28'])
     at('shareholders_equity').provenance = review(['reason_2'])
     at('long_term_debt').provenance = review(['reason_27'])
+    // FY2017's long-term debt is a gap: its note is unavailable, so it letters nothing (D-061).
+    expect(at('long_term_debt', 'FY2017').value).toBeNull()
+    at('long_term_debt', 'FY2017').provenance = review(['reason_27'])
     const m = buildChartModel('balance', ds)
-    const letterOf = new Map(groupDataNotes(ds).notes.map((note) => [note.reasons[0], note.letter]))
-    const cell = m.notesBand!.FY2017.map((glyph) => glyph.text)
+    const letterOf = new Map(groupDataNotes(ds).notes.filter((note) => note.kind === 'review').map((note) => [note.reasons[0], note.letter]))
+    expect(m.notesBand!.FY2017, 'a gap letters nothing').toBeUndefined()
+    const cell = m.notesBand!.FY2020.map((glyph) => glyph.text)
     const expected = ['reason_2', 'reason_27', 'reason_28'].map((reason) => letterOf.get(reason)!).sort((a, b) => (a.length - b.length) || a.localeCompare(b))
     expect(cell, 'letter order: a … z, aa …').toEqual(expected)
     expect(cell.map((letter) => letter.length), 'one letter, then two').toEqual([1, 2, 2])
     expect(cell, 'a plain string sort would put the two-letter ones first').not.toEqual([...cell].sort())
-    const placed = noteGlyphs(m, layoutChart(m, 502, 'card')).filter((glyph) => glyph.period === 'FY2017')
+    const placed = noteGlyphs(m, layoutChart(m, 502, 'card')).filter((glyph) => glyph.period === 'FY2020')
     placed.slice(1).forEach((glyph, i) => expect(glyph.x - placed[i].x - (textWidth(glyph.text) + textWidth(placed[i].text)) / 2).toBeCloseTo(1.5, 9))
   })
 
@@ -400,13 +444,128 @@ describe('the cases the step-1 data required', () => {
     expect(narrow.width, 'a narrow expanded view scrolls rather than crowd its strip').toBeGreaterThan(358)
   })
 
-  it('a phone card that cannot fit the top line’s labels says so (A4)', () => {
-    expect(layoutChart(model('REGN_annual', 'topline'), 342, 'card').valuesDontFit).toBe(true)
-    expect(layoutChart(model('REGN_annual', 'topline'), 502, 'card').valuesDontFit).toBe(false)
+  it('a phone card widens the top line to the narrowest width that prints its labels, up to 42 px a period (A4, A7)', () => {
+    const planAt = (name: string, width: number) => {
+      const plan = layoutChart(model(name, 'topline'), width, 'card')
+      return [plan.width, plan.valuesDontFit]
+    }
+    // At 36 px a period REGN's six-glyph labels ("$4.86B") collide; they first fit 465 px wide (41.6 px a period).
+    expect(planAt('REGN_annual', 342)).toEqual([465, false])
+    expect(planAt('PLUG_annual', 342)).toEqual([432, false])
+    // RIVN fits its card at 36 px, but not its growth labels ("+2,915%"): it widens and scrolls too.
+    expect(planAt('RIVN_annual', 342)).toEqual([382, false])
+    // LCID needs 41.7 px a period, which its 342 px card already gives: no scroll for a whole-pixel slot.
+    expect(planAt('LCID_annual', 342)).toEqual([342, false])
+    // A chart wide enough already is never widened, a top line that fits at 36 px keeps it (AAPL: 409 px at 342),
+    // and a chart with no labels keeps 36 px.
+    expect(planAt('REGN_annual', 502)).toEqual([502, false])
+    const aapl = model('AAPL_annual', 'topline')
+    const aaplAt342 = layoutChart(aapl, 342, 'card')
+    expect([aaplAt342.width, aaplAt342.valuesDontFit]).toEqual([aaplAt342.gutter + 8 + MIN_SLOT * aapl.periods.length, false])
+    expect(minChartWidth(aapl)).toBe(aaplAt342.width)
+    const margins = model('REGN_annual', 'margins')
+    expect(minChartWidth(margins)).toBe(layoutChart(margins, 342, 'card').gutter + 8 + MIN_SLOT * margins.periods.length)
+  })
+
+  it('labels no slot up to 42 px can hold leave the card to say so, without widening it (A4)', () => {
+    const chf = model('REGN_annual', 'topline', (ds) => {
+      for (const series of ds.series) if (!series.percent) for (const point of [series, ...series.points]) point.unit = 'CHF'
+    })
+    const plan = layoutChart(chf, 502, 'card')
+    expect([plan.width, plan.valuesDontFit]).toEqual([502, true])
+    expect(minChartWidth(chf), 'widening that cannot fit the labels is not taken').toBe(plan.gutter + 8 + MIN_SLOT * chf.periods.length)
+    expect(plan.panels[0].bars.every((bar) => bar.label == null)).toBe(true)
+    expect(VALUES_DONT_FIT).toBe('Values don’t fit at this width. The metrics table lists them.')
   })
 
   it('a one-period window: an empty growth panel shows its zero rule alone', () => {
     expect(ticks(model('XOM_quarterly', 'topline'), 1)).toEqual(['0%'])
+  })
+})
+
+describe('reading a chart: the slot under a pointer, a period’s column and the sticky gutter (§3.9, A7)', () => {
+  it.each(DATASETS.map(([name]) => name))('%s', (name) => {
+    for (const chart of CHART_IDS) {
+      const model = buildChartModel(chart, dataset(name))
+      if (model.unavailable) continue
+      for (const width of [342, 502]) {
+        const layout = layoutChart(model, width, 'card')
+        // §3.9's hit target: every x of a slot's full width reads its period, and nothing in the gutter or right pad.
+        model.periods.forEach((period, i) => {
+          const column = columnOf(layout, period.key)
+          expect(column.width).toBe(layout.slot)
+          expect(column.left + column.width / 2).toBeCloseTo(layout.x(period.key), 9)
+          for (const x of [column.left + 0.001, layout.x(period.key), column.left + column.width - 0.001]) expect(slotAt(layout, x)).toBe(i)
+        })
+        expect(slotAt(layout, layout.plotLeft - 0.001)).toBeNull()
+        expect(slotAt(layout, layout.plotRight)).toBeNull()
+        // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut.
+        expect(gutterCover(layout, 0)).toBe(layout.plotLeft)
+        for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width]) {
+          const cover = gutterCover(layout, scroll)
+          expect(cover).toBeGreaterThanOrEqual(layout.plotLeft - 1e-9)
+          expect(cover).toBeLessThan(layout.plotLeft + layout.slot)
+          const boundary = (scroll + cover - layout.plotLeft) / layout.slot
+          expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+        }
+        expect(gutterOverlayWidth(layout)).toBe(Math.max(layout.plotLeft, ...layout.panels.map(captionBacking)))
+        for (const box of layout.panels) {
+          if (box.captionY != null && box.panel.caption) expect(captionBacking(box)).toBeGreaterThanOrEqual(textWidth(box.panel.caption) + 4)
+        }
+      }
+    }
+  })
+})
+
+describe('A7’s sticky gutter never shows a printed value in part, at any scroll', () => {
+  /** Every text the plan prints, by kind, as its box: x from its planned centre or left, y the band it sits in. */
+  function texts(model: ChartModel, layout: ChartLayout) {
+    const boxes: { kind: string; period: string; x0: number; x1: number; y0: number; y1: number }[] = []
+    const centred = (kind: string, period: string, x: number, text: string, baseline: number) =>
+      boxes.push({ kind, period, x0: x - textWidth(text) / 2, x1: x + textWidth(text) / 2, y0: baseline - 10, y1: baseline + 3 })
+    for (const box of layout.panels) {
+      for (const bar of box.bars) if (bar.label) centred('bar label', bar.period, bar.x + bar.width / 2, bar.label.text, bar.label.y)
+      for (const gap of box.gaps) centred('gap', gap.period, gap.x, gap.text, gap.y)
+      for (const label of box.nearZero) centred('near zero', label.period, label.x, label.text, label.y)
+      for (const band of [box.offAbove, box.offBelow]) for (const item of band?.items ?? []) {
+        const y0 = band!.top + OFF_ROW * item.row
+        boxes.push({ kind: 'off-scale', period: item.period, x0: item.left, x1: item.left + OFF_GLYPH + textWidth(item.text), y0, y1: y0 + OFF_ROW })
+      }
+    }
+    for (const period of model.periods) for (const line of period.tick) centred('x tick', period.key, layout.x(period.key), line, layout.xTickY)
+    if (layout.stripTop != null) model.strip.forEach((row, i) => {
+      for (const period of model.periods) centred('strip cell', period.key, layout.x(period.key), row.cells[period.key], layout.stripRowY[i])
+    })
+    for (const glyph of noteGlyphs(model, layout)) centred('note glyph', glyph.period, glyph.x, glyph.text, layout.notesY)
+    return boxes
+  }
+
+  it.each(DATASETS.map(([name]) => name))('%s', (name) => {
+    for (const chart of CHART_IDS) {
+      const model = buildChartModel(chart, dataset(name))
+      if (model.unavailable) continue
+      for (const view of ['card', 'expanded'] as const) for (const viewport of [300, 342]) {
+        const layout = layoutChart(model, viewport, view)
+        const boxes = texts(model, layout)
+        // Only a bar label and an off-scale value run past their column; the cover takes every other text with its column.
+        for (const box of boxes) if (box.kind !== 'bar label' && box.kind !== 'off-scale') {
+          const column = columnOf(layout, box.period)
+          expect(box.x0, `${chart} ${view}: ${box.kind} inside its column`).toBeGreaterThanOrEqual(column.left - 1e-9)
+          expect(box.x1, `${chart} ${view}: ${box.kind} inside its column`).toBeLessThanOrEqual(column.left + column.width + 1e-9)
+        }
+        for (let scroll = 1; scroll <= layout.width - viewport; scroll += 1.5) {
+          const cover = gutterCover(layout, scroll)
+          const edge = scroll + cover
+          const cuts = gutterCuts(layout, scroll, cover)
+          for (const box of boxes) {
+            if (box.x0 >= edge || box.x1 <= edge) continue
+            // Cut by the edge: the rest of its box lies under a cut the gutter draws.
+            const hidden = cuts.some((cut) => cut.x <= cover + 1e-9 && cut.x + cut.width >= box.x1 - scroll - 1e-9 && cut.y <= box.y0 + 1e-9 && cut.y + cut.height >= box.y1 - 1e-9)
+            expect(hidden, `${chart} ${view} at ${scroll}: a ${box.kind} shows in part`).toBe(true)
+          }
+        }
+      }
+    }
   })
 })
 
@@ -428,10 +587,25 @@ describe('amounts carry their filer’s currency, never a default dollar sign', 
     expect(bare.subtitle).toBe('FY2016–FY2025 · fiscal years end Dec')
   })
 
-  it('amounts in two currencies never share a scale', () => {
-    const mixed = model('REGN_annual', 'cash', (ds) => { ds.series.find((s) => s.concept === 'net_income')!.points[3].unit = 'EUR' })
+  it.each([
+    ['topline', 'revenue'],
+    ['cash', 'net_income'],
+    ['balance', 'cash_and_equivalents'],
+  ] as const)('amounts in two currencies never share a scale: %s', (chart, concept) => {
+    const mixed = model('REGN_annual', chart, (ds) => { ds.series.find((s) => s.concept === concept)!.points[3].unit = 'EUR' })
     expect(mixed.panels).toEqual([])
     expect(mixed.unavailable).toMatch(/more than one currency/)
+  })
+
+  it('a won or dong filer reads by its code, since Geist Mono draws neither sign (E203)', () => {
+    expect(ticks(model('REGN_annual', 'cash', inUnit('KRW')))[1]).toBe('KRW 2B')
+    expect([moneyPrefix('KRW'), moneyPrefix('VND'), moneyPrefix('INR'), moneyPrefix('ILS'), moneyPrefix('PHP')]).toEqual(['KRW ', 'VND ', '₹', '₪', '₱'])
+    // XOF's "F CFA" holds a narrow no-break space (U+202F), which no Geist Mono face draws, so it prints its code too.
+    expect(moneyPrefix('XOF')).toBe('XOF ')
+    // Over the ISO 4217 list, every glyph that a prefix prints is one the data face draws (G2).
+    const printed = Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])
+    expect([...new Set(printed)].filter((glyph) => !dataFaceDraws(glyph))).toEqual([])
+    expect(printed, 'the list is the one Intl prints from').toEqual(expect.arrayContaining(['₹', '₪', '₱', '€', '£', '¥']))
   })
 
   it('currencySymbol reads ISO 4217 codes only', () => {
@@ -480,7 +654,16 @@ describe('A1 and A2: ticks and printed values', () => {
     expect([format.d0, format.value(999.7e6), format.value(400e6)]).toEqual([2, '$1.00B', '$0.40B'])
   })
 
-  it('A1 at any magnitude: a ₩120,000T axis still steps uniformly', () => {
+  it('M15: every printed value rounds as the metrics table rounds, half away from zero on the decimal', () => {
+    // Each half is a hair under it as a double (143.35 is 143.3499…), where toFixed rounds down: "143.3", "30.1".
+    expect([fixed(143.35, 1), fixed(30.15, 1), fixed(0.35, 1), fixed(46.995, 2), fixed(4.0805, 3)]).toEqual(['143.4', '30.2', '0.4', '47.00', '4.081'])
+    // At each call site: a percent panel's values, an amount at its axis's precision, and in its own unit.
+    expect([percentFormat(10, false).value(30.15), percentFormat(10, true).value(-0.35)]).toEqual(['30.2%', `${MINUS}0.4%`])
+    const format = moneyFormat([200e6], 50e6, [0, 50e6, 100e6, 150e6, 200e6], 'USD')
+    expect([format.value(143.35e6, 1), tooltipMoney(-46.995e6, 'USD'), compactMoney(3.55e6, 'USD')]).toEqual(['$143.4M', `${MINUS}$47.00M`, '$3.6M'])
+  })
+
+  it('A1 at any magnitude: a KRW 120,000T axis still steps uniformly', () => {
     expect(niceAxis([3e16, 1.2e17], 5)).toMatchObject({ step: 2.5e16, ticks: [0, 2.5e16, 5e16, 7.5e16, 1e17, 1.25e17] })
   })
 
@@ -528,7 +711,7 @@ function plan(model: ChartModel, layout: ChartLayout) {
       }
     }),
     legend: model.legend.map((item) => [item.label, item.value ?? null, item.color, item.swatch, item.marker ?? null, item.absent]),
-    notes: noteGlyphs(model, layout).map((glyph) => [glyph.period, glyph.text, glyph.tone, px(glyph.x)]),
+    notes: noteGlyphs(model, layout).map((glyph) => [glyph.period, glyph.text, px(glyph.x)]),
     footnotes: model.footnotes.map((note) => [note.mark, note.text]),
     strip: layout.view === 'expanded' ? model.strip.map((row) => [row.short, row.color, row.swatch, row.marker ?? null, row.cells]) : [],
   }
@@ -540,8 +723,13 @@ const golden = (value: unknown) => `${JSON.stringify(value, null, 2).replace(/\[
 describe.each(GOLDEN)('%s: the golden plan', (name) => {
   it('matches its committed plan in every chart and view', async () => {
     const plans = Object.fromEntries(CHART_IDS.map((chart) => {
-      const m = buildChartModel(chart, dataset(name))
-      return [chart, { card: plan(m, layoutChart(m, 502, 'card')), expanded: plan(m, layoutChart(m, 1030, 'expanded')) }]
+      const ds = dataset(name)
+      const notes = resolveDataNotes(ds)
+      const m = buildChartModel(chart, ds, notes)
+      // The tooltip's header and rows, then the values stop's spoken sentence, one line a period (readout.ts): view-independent,
+      // so once a chart.
+      const readout = chartReadouts(m, ds, notes).map((period) => [period.header, ...period.rows.map((row) => `${row.label}: ${row.text}`), period.announcement])
+      return [chart, { card: plan(m, layoutChart(m, 502, 'card')), expanded: plan(m, layoutChart(m, 1030, 'expanded')), readout }]
     }))
     await expect(golden(plans)).toMatchFileSnapshot(`fixtures/chart-golden/${name}.json`)
   })

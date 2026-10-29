@@ -57,6 +57,7 @@ def test_qualified_income_abstains_without_borrowing_operands_or_rounded_fallbac
             filing = SimpleNamespace(
                 id=1, filing_date=None, period_end_date=None,
                 sec_url="https://sec.example/filing", filing_type="10-K",
+                document_url="https://sec.example/filing/primary.htm",
                 company=SimpleNamespace(name="Engineering control"), content_cache=None,
             )
             summary = SimpleNamespace(filing_id=1, raw_summary=candidate)

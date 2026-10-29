@@ -139,7 +139,7 @@ export default function ProDepth() {
             <li key={extra.title} className="flex flex-col gap-1 border-t border-border-light py-4 dark:border-white/10">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <h4 className="text-base leading-5">{extra.title}</h4>
-                <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                <span className="font-data text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                   {extra.tags.map((tag, index) => (
                     <Fragment key={tag}>
                       {index > 0 && (

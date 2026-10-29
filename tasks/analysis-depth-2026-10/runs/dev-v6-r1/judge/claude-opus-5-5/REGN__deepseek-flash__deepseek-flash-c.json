@@ -1,0 +1,106 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "51a587fdd605a238e43eb1972c0f449f9eba6dc445b93a32200071fbb0d1b880",
+ "y_sha256": "e937e8778b79d269287013b6ed80672c242f62ea027daa369996e35d3e874100",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts share a sourced core. Draft A states two interpretations as fact without support: that the margin decline is 'structural, not cyclical', and that weak ROE reflects the cash-heavy balance sheet. Draft B labels its judgements as analysis and adds sourced depth: EPS versus net income via buybacks, cost growth outpacing revenue, the tax rate, EYLEA's former revenue share and R&D's peer rank. B's 'several years' capex wording slightly overreaches its source."
+   },
+   "cost_usd": 0.150496,
+   "latency_s": 14.369,
+   "backend": "claude_cli",
+   "input_tokens": 16338,
+   "cached_input_tokens": 0,
+   "output_tokens": 990,
+   "reasoning_tokens": 752,
+   "meta": {
+    "duration_api_ms": 9430,
+    "cache_creation_input_tokens": 16336,
+    "list_cost_usd": 0.085152
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts share a sourced core. Draft A states two interpretations as fact without support: that the margin decline is 'structural, not cyclical', and that weak ROE reflects the cash-heavy balance sheet. Draft B labels its judgements as analysis and adds sourced depth: EPS versus net income via buybacks, cost growth outpacing revenue, the tax rate, EYLEA's former revenue share and R&D's peer rank. B's 'several years' capex wording slightly overreaches its source.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts overreach slightly. A says the filing flagged capex continuing 'several years', which the passage does not state. B attributes weak ROE to the cash-heavy balance sheet without support. B explains more: the product-to-collaboration mix shift, the EYLEA HD offset, Sanofi profits as 36.5% of revenue, R&D growth, and no operating leverage. Its watch thresholds are two-sided. A labels interpretation more carefully, and its 'contributed 9.0pp of 1.0% growth' wording confuses."
+   },
+   "cost_usd": 0.149765,
+   "latency_s": 15.656,
+   "backend": "claude_cli",
+   "input_tokens": 16338,
+   "cached_input_tokens": 727,
+   "output_tokens": 1237,
+   "reasoning_tokens": 985,
+   "meta": {
+    "duration_api_ms": 11601,
+    "cache_creation_input_tokens": 15609,
+    "list_cost_usd": 0.087329
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts overreach slightly. A says the filing flagged capex continuing 'several years', which the passage does not state. B attributes weak ROE to the cash-heavy balance sheet without support. B explains more: the product-to-collaboration mix shift, the EYLEA HD offset, Sanofi profits as 36.5% of revenue, R&D growth, and no operating leverage. Its watch thresholds are two-sided. A labels interpretation more carefully, and its 'contributed 9.0pp of 1.0% growth' wording confuses.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.300261
+}

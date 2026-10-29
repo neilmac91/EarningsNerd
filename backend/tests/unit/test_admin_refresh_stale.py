@@ -3,11 +3,13 @@
 Unlike reset-all (delete+regenerate, destroys bookmarks), refresh-stale drains the ONE orchestrator
 with force_regenerate=True so each stale row is UPDATEd in place. The in-place UPDATE + keep-better
 mechanics are pinned in test_background_generation_characterization.py; here we pin the endpoint:
-admin gate, the staleness filter/count (dry-run = the staleness count), and that a real run calls
-force_regenerate per candidate without disturbing the saved_summaries bookmark. Generation itself is
-mocked (the drain is exercised by the characterization tests). Each test scopes by a UNIQUE
+admin gate, the staleness filter/count (dry-run = the staleness count), that a real run calls
+force_regenerate per candidate without disturbing the saved_summaries bookmark, and that it answers its
+outcomes past the default request timeout, deferring what its time budget leaves unstarted (E213).
+Generation itself is mocked (the drain is exercised by the characterization tests). Each test scopes by a UNIQUE
 filing_type to isolate its rows in the shared module DB.
 """
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -220,6 +222,165 @@ def test_keep_better_gate_kept_row_counts_as_kept_not_updated(client, as_admin, 
     body = resp.json()
     assert body["updated_count"] == 0
     assert body["kept_by_gate_count"] == 1
+
+
+@pytest.mark.requires_db
+def test_a_raised_or_error_event_generation_counts_as_failed(client, as_admin, monkeypatch):
+    # A generation that raises, and one that ends in the orchestrator's terminal error event (a paid attempt that
+    # failed), are failed: neither updated nor kept by the gate, and the audit row counts both.
+    ft = f"FAIL-{uuid.uuid4().hex[:6]}"
+    seed = _seed(ft, stamps=[(None, None), (None, None)])
+    generated: list[int] = []
+
+    def raise_then_error(filing_id, _user_id, *, force_regenerate=False, rebuild_excerpt=False):
+        generated.append(filing_id)
+        if len(generated) == 1:
+            raise RuntimeError("generation crashed")
+        return {"type": "error", "message": "The summary could not be generated."}
+
+    monkeypatch.setattr(
+        "app.services.summary_generation_service.generate_summary_background", AsyncMock(side_effect=raise_then_error)
+    )
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false&limit=2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert (body["updated_count"], body["kept_by_gate_count"], body["failed_count"]) == (0, 0, 2)
+    assert body["failed_filing_ids"] == generated and sorted(generated) == sorted(seed["filing_ids"])
+
+    from app.database import SessionLocal
+    from app.models.audit_log import AuditLog
+
+    db = SessionLocal()
+    try:
+        [details] = [details for (details,) in db.query(AuditLog.details).filter(
+            AuditLog.action == "summaries_refresh_stale") if (details or {}).get("filing_type") == ft]
+        assert (details["updated_count"], details["kept_by_gate_count"], details["failed_count"]) == (0, 0, 2)
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_a_run_past_the_default_request_timeout_still_answers_its_outcomes(client, as_admin, monkeypatch):
+    # E213: a real run generates in its request, so its path takes a timeout of its own in main.py's table, not the
+    # 30 s default. The default here is shortened to stand for 30 s, and each generation outlasts it: on the default,
+    # the run answered 504 before its first generation ended and finished after the response. It answers its
+    # per-filing outcomes, and its audit row counts them.
+    import main
+
+    ft = f"SLOW-{uuid.uuid4().hex[:6]}"
+    seed = _seed(ft, stamps=[(None, None), (None, None)])
+    generated: list[int] = []
+
+    async def slow_generation(filing_id, _user_id, *, force_regenerate=False):
+        await asyncio.sleep(0.25)
+        if not generated:  # the first is regenerated, the second kept by the keep-better gate
+            await asyncio.to_thread(_stamp_current_side_effect, filing_id, None, force_regenerate=force_regenerate)
+        generated.append(filing_id)
+
+    monkeypatch.setattr("app.services.summary_generation_service.generate_summary_background", slow_generation)
+    monkeypatch.setitem(main.REQUEST_TIMEOUT_SECONDS, "default", 0.05)
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false&limit=2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert sorted(generated) == sorted(seed["filing_ids"])
+    assert (body["updated_filing_ids"], body["kept_by_gate_filing_ids"], body["failed_count"], body["deferred_count"]) == (
+        generated[:1], generated[1:], 0, 0)
+
+    from app.database import SessionLocal
+    from app.models.audit_log import AuditLog
+
+    db = SessionLocal()
+    try:
+        [details] = [details for (details,) in db.query(AuditLog.details).filter(
+            AuditLog.action == "summaries_refresh_stale") if (details or {}).get("filing_type") == ft]
+        assert (details["updated_count"], details["kept_by_gate_count"], details["deferred_count"]) == (1, 1, 0)
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_a_run_reports_the_candidates_its_time_budget_left_unstarted_as_deferred(client, as_admin, monkeypatch):
+    # With the budget already spent, the run starts no generation: every candidate is deferred, still stale for a later
+    # call, and the audit row counts them.
+    from app.routers import admin
+
+    ft = f"DEFER-{uuid.uuid4().hex[:6]}"
+    _seed(ft, stamps=[(None, None), (None, None)])
+    spy = AsyncMock()
+    monkeypatch.setattr("app.services.summary_generation_service.generate_summary_background", spy)
+    monkeypatch.setattr(admin, "_REFRESH_STALE_START_BY_SECONDS", -1.0)
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false&limit=2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    spy.assert_not_called()
+    assert (body["updated_count"], body["kept_by_gate_count"], body["failed_count"]) == (0, 0, 0)
+    assert body["deferred_filing_ids"] == body["candidate_filing_ids"] and body["deferred_count"] == 2
+    assert "2 deferred to a later call" in body["message"]
+
+    from app.database import SessionLocal
+    from app.models.audit_log import AuditLog
+
+    db = SessionLocal()
+    try:
+        [details] = [details for (details,) in db.query(AuditLog.details).filter(
+            AuditLog.action == "summaries_refresh_stale") if (details or {}).get("filing_type") == ft]
+        assert details["deferred_count"] == 2
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_a_runs_budget_starts_before_its_candidate_read(client, as_admin, monkeypatch):
+    # The route sets its deadline when it begins, so the candidate read is inside the budget: a read that takes the
+    # route's clock past the deadline leaves every candidate deferred. A deadline set after the read would start the
+    # whole budget over after it, leaving the read's queries outside the budget.
+    from app.routers import admin
+    from app.services import admin_summary_service
+
+    ft = f"READ-{uuid.uuid4().hex[:6]}"
+    _seed(ft, stamps=[(None, None), (None, None)])
+    now = [1000.0]
+    monkeypatch.setattr(admin, "time", SimpleNamespace(monotonic=lambda: now[0]))
+    select = admin_summary_service.select_stale_candidates
+
+    def slow_select(*args, **kwargs):
+        now[0] += admin._REFRESH_STALE_START_BY_SECONDS + 1.0
+        return select(*args, **kwargs)
+
+    monkeypatch.setattr(admin_summary_service, "select_stale_candidates", slow_select)
+    spy = AsyncMock()
+    monkeypatch.setattr("app.services.summary_generation_service.generate_summary_background", spy)
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false&limit=2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    spy.assert_not_called()
+    assert body["deferred_filing_ids"] == body["candidate_filing_ids"] and body["deferred_count"] == 2
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_a_run_starts_no_generation_past_its_time_budget(monkeypatch):
+    # The run starts a generation only while its clock has not passed start_by, as the job-side drain starts none past
+    # its max_seconds. On this clock each generation takes 100 s: with the budget ending at 100 s, the first two start,
+    # the second at 100 s itself, and the third, due at 200 s, is deferred with the fourth.
+    from app.services import admin_summary_service
+
+    ft = f"BUDGET-{uuid.uuid4().hex[:6]}"
+    seed = _seed(ft, stamps=[(None, None)] * 4)
+    now = [0.0]
+    started_at: list[float] = []
+
+    async def generation(filing_id, _user_id, *, force_regenerate=False):
+        started_at.append(now[0])
+        now[0] += 100.0
+
+    monkeypatch.setattr("app.services.summary_generation_service.generate_summary_background", generation)
+    outcomes = await admin_summary_service.regenerate_in_place(
+        seed["filing_ids"], actor_id=1, actor_email="admin@example.com", filing_type=ft,
+        schema_version_lt=None, stale_total=4, start_by=100.0, clock=lambda: now[0])
+    assert started_at == [0.0, 100.0]
+    # Neither generation stamped its row, so the keep-better gate's count takes both.
+    assert outcomes == ([], seed["filing_ids"][:2], [], seed["filing_ids"][2:])
 
 
 @pytest.mark.requires_db

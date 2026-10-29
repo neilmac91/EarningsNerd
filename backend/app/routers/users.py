@@ -16,7 +16,7 @@ from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refres
 # their home, and no handler below can shadow a service function of the same name.
 from app.services import user_account_service, user_data_export_service, user_notification_feed_service
 from app.services import filing_list_service
-from app.services.audit_service import log_user_deletion, log_data_export
+from app.services.audit_service import log_data_export
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import (
     apply_preference_update,
@@ -303,7 +303,8 @@ async def export_user_data(
     """
     Export the account records provided by the data-export feature in JSON format.
 
-    Provider logs, audit records, correspondence and backups are not included in this export.
+    Includes retained feedback and private screenshot download metadata, not image bytes.
+    Provider logs, audit records, other correspondence and backups are not included.
     """
     user_id = current_user.id
 
@@ -383,8 +384,9 @@ async def delete_user_account(
     Delete the account and its associated application records.
 
     This endpoint:
-    1. Deletes the user row and records owned by its database cascades
-    2. Logs the deletion for audit purposes
+    1. Makes the best-effort provider calls (Stripe, PostHog, Sentry) and records their outcomes
+    2. Deletes the user row, and the records its database cascades own, in one transaction with the
+       deletion's audit row: a failure of either rolls both back and answers 500 (F19)
     3. Clears authentication cookie
     4. Returns success confirmation
 
@@ -395,6 +397,13 @@ async def delete_user_account(
     user_id = current_user.id
     user_email = current_user.email
     stripe_customer_id = current_user.stripe_customer_id
+    # Each provider's outcome, logged with a failure too: a failed deletion commits no audit row, and the
+    # provider actions already taken are not undone (F19).
+    deletion_results = {
+        "stripe": "skipped",
+        "posthog": "skipped",
+        "sentry": "skipped"
+    }
     try:
         # Log deletion for audit trail (before deleting user)
         logger.warning(
@@ -403,16 +412,11 @@ async def delete_user_account(
         )
 
         # The auth lookup's connection goes back before the third-party calls, so none of them holds
-        # one; the audit row and the deletion run after them as one unit in the thread pool (E171).
+        # one; the audit row and the deletion run after them as one unit in the thread pool (E171), and
+        # commit as one transaction (F19).
         await run_in_threadpool(filing_list_service.release_request_session, db)
 
         # Delete from third-party services BEFORE deleting from database
-        deletion_results = {
-            "stripe": "skipped",
-            "posthog": "skipped",
-            "sentry": "skipped"
-        }
-
         # 1. Cancel every Stripe subscription that can still bill
         if STRIPE_AVAILABLE and stripe_customer_id:
             try:
@@ -450,16 +454,8 @@ async def delete_user_account(
         def record_and_delete() -> None:
             # One unit in the thread pool: a failure is rolled back before the release.
             try:
-                # Create audit log BEFORE deleting user (so we can still reference user_id)
-                log_user_deletion(
-                    db=db,
-                    user_id=user_id,
-                    user_email=user_email,
-                    third_party_results=deletion_results
-                )
-
-                # Delete user from database (cascade delete will handle related records)
-                user_account_service.delete_user(db, user_id)
+                # The audit row and the deletion commit together (cascade delete handles related records).
+                user_account_service.delete_account(db, user_id, third_party_results=deletion_results)
             except Exception:
                 user_account_service.rollback_account_deletion(db)
                 raise
@@ -490,7 +486,10 @@ async def delete_user_account(
         }
 
     except Exception as e:
-        logger.error(f"Error deleting user account {user_id}: {str(e)}")
+        logger.error(
+            f"Error deleting user account {user_id}: {str(e)}. "
+            f"Third-party deletion results: {deletion_results}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="We could not delete your account. Contact support."

@@ -1,0 +1,106 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "3f5c98ef0472c2986ff761ee37d7a58d57b38126e905b059a7c641ce432a8b76",
+ "y_sha256": "27f99d83027caddd1c56de587a0b13f4609636534dc2dd5194620cfeb8196c1a",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts cite an FDIC charge their passages don't state; B adds an unsourced $734m figure and a deposit-growth cause. A misreads higher technology spend as a reason costs fell, attributes FY2023 issuance to MUB without a source, and garbles cash-flow and tax-margin logic. Grounding is roughly even. B goes deeper: FY2023 cost spike, capital return versus FY2019, share-count history, peer efficiency percentile. It also flags the long-term-debt data break and labels its analysis."
+   },
+   "cost_usd": 0.128305,
+   "latency_s": 16.458,
+   "backend": "claude_cli",
+   "input_tokens": 13583,
+   "cached_input_tokens": 727,
+   "output_tokens": 1266,
+   "reasoning_tokens": 1019,
+   "meta": {
+    "duration_api_ms": 12510,
+    "cache_creation_input_tokens": 12854,
+    "list_cost_usd": 0.076889
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite an FDIC charge their passages don't state; B adds an unsourced $734m figure and a deposit-growth cause. A misreads higher technology spend as a reason costs fell, attributes FY2023 issuance to MUB without a source, and garbles cash-flow and tax-margin logic. Grounding is roughly even. B goes deeper: FY2023 cost spike, capital return versus FY2019, share-count history, peer efficiency percentile. It also flags the long-term-debt data break and labels its analysis.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts have comparable grounding faults. A attributes FDIC charges, including an uncited $734m, to the FY2023 and FY2025 cost moves; its net-margin gap and deposit-growth explanations are unsupported. B also adds FDIC, reads higher technology spend as a cost reduction, ties a share-count rise to MUB without a source, and has a confused tax-rate argument. A adds longer-run context on capital return, share count and allowance, discloses the long-term-debt data break and labels its analysis."
+   },
+   "cost_usd": 0.138785,
+   "latency_s": 20.451,
+   "backend": "claude_cli",
+   "input_tokens": 13583,
+   "cached_input_tokens": 727,
+   "output_tokens": 1790,
+   "reasoning_tokens": 1538,
+   "meta": {
+    "duration_api_ms": 16689,
+    "cache_creation_input_tokens": 12854,
+    "list_cost_usd": 0.087369
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts have comparable grounding faults. A attributes FDIC charges, including an uncited $734m, to the FY2023 and FY2025 cost moves; its net-margin gap and deposit-growth explanations are unsupported. B also adds FDIC, reads higher technology spend as a cost reduction, ties a share-count rise to MUB without a source, and has a confused tax-rate argument. A adds longer-run context on capital return, share count and allowance, discloses the long-term-debt data break and labels its analysis.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.26709
+}

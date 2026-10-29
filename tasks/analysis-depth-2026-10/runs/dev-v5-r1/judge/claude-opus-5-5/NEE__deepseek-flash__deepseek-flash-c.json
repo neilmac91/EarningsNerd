@@ -1,0 +1,106 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "2dc4aced7444fb8e247f265fe28c8c979bb3090e846655b9048336008a8ebbd8",
+ "y_sha256": "386caf79cc40212a1eb7c40c6d82aefc66782b29fd33d7ee610a977b1a92b14d",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A's FY2021 margin explanation misreads its source: the Mountain Valley Pipeline impairment fell in 2020 and sat below operating income. A also asserts unsupported claims on free cash flow, capex versus D&A, and 'non-cash' tax credits. A covers more inflections and a data caveat, but B is largely grounded, labels its interpretations as analysis, and sets clearer thresholds. B's $585m tax-credit figure is not visible in its truncated source."
+   },
+   "cost_usd": 0.130881,
+   "latency_s": 14.655,
+   "backend": "claude_cli",
+   "input_tokens": 14785,
+   "cached_input_tokens": 727,
+   "output_tokens": 914,
+   "reasoning_tokens": 684,
+   "meta": {
+    "duration_api_ms": 9042,
+    "cache_creation_input_tokens": 14056,
+    "list_cost_usd": 0.074657
+   },
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A's FY2021 margin explanation misreads its source: the Mountain Valley Pipeline impairment fell in 2020 and sat below operating income. A also asserts unsupported claims on free cash flow, capex versus D&A, and 'non-cash' tax credits. A covers more inflections and a data caveat, but B is largely grounded, labels its interpretations as analysis, and sets clearer thresholds. B's $585m tax-credit figure is not visible in its truncated source.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B explains the multi-year swings and segments better, but several of its claims are wrong. It blames FY2021 on the 2020 Mountain Valley Pipeline impairment, says D&A exceeds capex, gives a 1.55x\u20132.73x range that omits FY2018's 0.99x, and calls tax credits non-cash without a source. A has smaller gaps: the unsourced $89m and $585m. A also labels its interpretations as analysis. On grounding, A is clearly better."
+   },
+   "cost_usd": 0.134509,
+   "latency_s": 15.229,
+   "backend": "claude_cli",
+   "input_tokens": 14781,
+   "cached_input_tokens": 727,
+   "output_tokens": 1097,
+   "reasoning_tokens": 867,
+   "meta": {
+    "duration_api_ms": 11024,
+    "cache_creation_input_tokens": 14052,
+    "list_cost_usd": 0.078301
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B explains the multi-year swings and segments better, but several of its claims are wrong. It blames FY2021 on the 2020 Mountain Valley Pipeline impairment, says D&A exceeds capex, gives a 1.55x\u20132.73x range that omits FY2018's 0.99x, and calls tax credits non-cash without a source. A has smaller gaps: the unsourced $89m and $585m. A also labels its interpretations as analysis. On grounding, A is clearly better.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.26539
+}

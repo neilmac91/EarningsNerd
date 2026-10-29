@@ -1,0 +1,75 @@
+{
+ "system": "deepseek-flash-p",
+ "ticker": "USB",
+ "split": "holdout",
+ "claims": 5,
+ "output_sha256": "3fbd923c3d990ccb95cb40e3e9add8989e247bd7632889d95c30b280ae53c0be",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2021 rebound came from a lower credit-loss provision, which fell to a $1.2 billion release as the economy and credit performance improved .",
+   "passages": [
+    {
+     "id": "P57",
+     "filing": "FY2021 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "The Company earned $8.0 billion in 2021, an increase of $3.0 billion (60.6 percent) from 2020, reflecting a decrease in the provision for credit losses, partially offset by lower pre-provision operating income. The decrease in the provision for credit losses was driven by improvement in the global economy, as well as strong credit and collateral performance. Net interest income decreased due to lower loan spreads and declining average loan balances driven by commercial loan payoffs by business customers, partially offset by changes in deposit and funding mix and higher loan fees. Noninterest income decreased due to lower mortgage banking revenue, commercial products revenue and securities gains, partially offset by improvements in payment services revenue, trust and investment management fees, deposit service charges, treasury management fees and investment products fees."
+    }
+   ],
+   "label": "supported",
+   "reason": "P57 says the lower credit-loss provision drove the earnings increase, citing global economic improvement and strong credit and collateral performance."
+  },
+  {
+   "sentence": "FY2023's expense step-up reflected merger and integration charges and operating costs from the MUB acquisition plus a $734 million FDIC special assessment , lifting the efficiency ratio to its 67.4% window high .",
+   "passages": [
+    {
+     "id": "P30",
+     "filing": "FY2023 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Noninterest Expense Noninterest expense in 2023 was $18.9 billion, compared with $14.9 billion in 2022. The Company\u2019s efficiency ratio was 66.7 percent in 2023, compared with 61.4 percent in 2022. The $4.0 billion (26.6 percent) increase in noninterest expense in 2023 over 2022 reflected the impact of increased merger and integration charges, as well as operating expenses related to the MUB acquisition, higher compensation and employee benefits expense, and higher other intangibles and other noninterest expense. Compensation and employee benefits expense increased 13.7 percent in 2023 over 2022, primarily due to MUB expense as well as merit increases and hiring to support business growth. Other intangibles expense increased primarily due to the core deposit intangible created as a result of the MUB acquisition. Other noninterest expense increased 58.2 percent primarily due to the $734 million FDIC special assessment charge."
+    }
+   ],
+   "label": "supported",
+   "reason": "P30 attributes the expense rise to MUB merger/integration charges and operating expenses, plus the $734 million FDIC special assessment."
+  },
+  {
+   "sentence": "That decline came from deposit mix changes and second-quarter loan sales, which cut segment net interest income 4.9% .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Net revenue decreased $358 million (3.9 percent) in 2025, compared with 2024. Net interest income, on a taxable-equivalent basis, decreased $377 million (4.9 percent) in 2025, compared with 2024, primarily due to changes in deposit mix, along with the impact of loan sales in the second quarter of 2025. Noninterest income increased $19 million (1.2 percent) in 2025, compared with 2024, primarily due to higher mortgage banking revenue driven by gain on sale activity."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 attributes the 4.9% net interest income decrease to changes in deposit mix and second-quarter 2025 loan sales."
+  },
+  {
+   "sentence": "Payment Services net revenue rose on higher average loan balances, higher loan fees, lower funding costs and higher merchant processing and card revenue from sales volume .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Net revenue increased $381 million (5.4 percent) in 2025, compared with 2024. Net interest income, on a taxable-equivalent basis, increased $217 million (7.7 percent) in 2025, compared with 2024, primarily due to higher average loan balances, higher loan fees and lower funding costs. Noninterest income increased $164 million (3.9 percent) in 2025, compared with 2024, driven by higher merchant processing services and card revenue mainly due to higher sales volume."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 cites higher average loans, loan fees and lower funding costs, plus higher merchant processing and card revenue from sales volume."
+  },
+  {
+   "sentence": "Noninterest expense fell 2.0% in FY2025 on prior-year merger and integration charges, lower compensation from operational efficiencies and the absence of the FDIC special assessment .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Noninterest Expense Noninterest expense in 2025 was $16.8 billion, compared with $17.2 billion in 2024. The $351 million (2.0 percent) decrease in noninterest expense in 2025, compared to 2024, reflected the impact of merger and integration charges in the prior year, lower compensation and employee benefits expense and other noninterest expense, partially offset by higher technology and communications expense and marketing and business development expense. Compensation and employee benefits expense decreased primarily due to cost savings from operational efficiencies, partially offset by merit increases. Other noninterest expense decreased primarily due to the impact in the prior year of the FDIC special assessment. Technology and communications expense increased primarily due to investments in infrastructure and technology development. Marketing and business development expense increased primarily due to increased initiatives in 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 cites prior-year merger charges, lower compensation from operational efficiencies, and the prior-year FDIC special assessment."
+  }
+ ],
+ "cost_usd": 0.038632,
+ "backend": "claude_cli",
+ "input_tokens": 3280,
+ "cached_input_tokens": 0,
+ "output_tokens": 620
+}

@@ -4,13 +4,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel, EmailStr, Field, field_validator
-import jwt
 from app.database import get_db
 from app.models import User, Filing, Summary
 from app.routers.auth import get_current_user
 from app.services.summary_generation_service import progress_as_dict
-from app.services.summary_placeholders import is_summary_placeholder
-from app.config import settings
+from app.services.summary_placeholders import is_stored_summary_ready
 from app.services import filing_list_service, legal_readiness_service, watchlist_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.turnstile import enforce_turnstile
@@ -21,14 +19,11 @@ from app.services.waitlist_service import (
     WaitlistReferralNotFound,
     WaitlistSignupFailed,
     build_referral_link,
-    build_verification_link,
     calculate_waitlist_position,
     count_referrals,
     count_signups,
     create_signup,
-    create_verification_token,
     find_signup_by_email,
-    mark_email_verified,
     mark_welcome_email_sent,
     SignupView,
 )
@@ -304,14 +299,12 @@ async def get_watchlist_insights(
                         summary_created_at = summary.created_at.isoformat() if summary.created_at else None
                         summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
 
-                        has_placeholder = is_summary_placeholder(summary.business_overview)
-
-                        if has_placeholder:
-                            summary_status = "placeholder"
-                            needs_regeneration = True
-                        else:
+                        if is_stored_summary_ready(summary):
                             summary_status = "ready"
                             needs_regeneration = False
+                        else:
+                            summary_status = "placeholder"
+                            needs_regeneration = True
                     elif progress_snapshot:
                         stage = progress_snapshot.get("stage", "generating")
                         if stage == "error":
@@ -475,8 +468,6 @@ async def join_waitlist(
 
     position = calculate_waitlist_position(signup.position, signup.priority_score)
     referral_link = build_referral_link(signup.referral_code)
-    verification_token = create_verification_token(signup.email, signup.referral_code)
-    verification_link = build_verification_link(verification_token)
 
     def mark_sent() -> None:
         # Its own unit after the send; the release rolls back a flag commit that fails.
@@ -492,7 +483,6 @@ async def join_waitlist(
             name=signup.name,
             position=position,
             referral_link=referral_link,
-            verification_link=verification_link,
         )
         await run_in_threadpool(mark_sent)
         email_sent = True
@@ -568,48 +558,3 @@ async def get_waitlist_stats(db: Session = Depends(get_db)):
             filing_list_service.release_request_session(db)
 
     return await run_in_threadpool(stats_for_reader)
-
-
-@waitlist_router.post("/verify/{token}")
-async def verify_waitlist_email(token: str, db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-            options={"require": ["exp", "sub", "type"]},
-            leeway=settings.JWT_LEEWAY_SECONDS,
-        )
-    except jwt.PyJWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired token.",
-        ) from exc
-
-    if payload.get("type") != "waitlist_verify":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid verification token.",
-        )
-
-    email = payload.get("sub")
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid verification token.",
-        )
-
-    def verify() -> bool:
-        try:
-            return mark_email_verified(db, email)
-        finally:
-            filing_list_service.release_request_session(db)
-
-    if not await run_in_threadpool(verify):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Waitlist entry not found.",
-        )
-
-    return {"success": True, "message": "Email verified."}
-

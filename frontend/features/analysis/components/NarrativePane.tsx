@@ -5,16 +5,16 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { Badge, Button, Card, Notice, countControlClass, cx } from '@/components/ui'
-import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/icons'
+import { ActivityLine, Badge, Button, Card, Notice, countControlClass, cx } from '@/components/ui'
+import { ArrowClockwiseIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
-import { sourceUrl } from '@/features/analysis/lib/provenance'
+import { sourceUrl, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkAnalysisPeriods, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
-import { groupQualityNotes, qualityNotesModelFromWire, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
+import { groupQualityNotes, noteMarksFigure, qualityNotesModelFromWire, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
 import { structuredNarrativeParts } from '@/features/analysis/lib/narrativePresentation'
 import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
 import { useReportDataNotes } from './DataNotesContext'
@@ -42,12 +42,14 @@ function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation
   const label = citation.section_ref || `Source ${citation.n}`
   const note = notes.noteForQuality(citation)
   const display = citationDisplay(citation)
+  // Names only a note whose letter the chip shows (D-061); the rest are read in the Sources list's data notes.
+  const described = dataNoteDescription(note)
   return (
     <button
       type="button"
       onClick={() => flashAndScrollToSource(citation.n)}
       title={`${display}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
-      aria-label={`Citation ${citation.n}: ${label}. ${display}${note ? `, ${dataNoteDescription(note)}` : ''}`}
+      aria-label={`Citation ${citation.n}: ${label}. ${display}${described ? `, ${described}` : ''}`}
       className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]<DataNoteMark note={note} />
@@ -91,17 +93,18 @@ function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { ope
       <NarrativeCitationChip citation={figure.source} notes={notes} /><span aria-hidden="true">{index < figures.length - 1 ? '; ' : '.'}</span>
     </li>)}
   </ul>
+  // The fold names the letters its chips show: only notes that question the number mark a figure (D-061).
   const noteKeys = new Set(figures.map((figure) => notes.noteForQuality(figure.source)?.key))
-  const letters = notes.notes.filter((note) => noteKeys.has(note.key)).map((note) => note.letter)
+  const letters = notes.notes.filter((note) => noteKeys.has(note.key) && noteMarksFigure(note)).map((note) => note.letter)
   return <details className="my-3 text-sm">
     <summary className={cx('cursor-pointer rounded', countControlClass('summary'))}>
       Show the {figures.length} source figures behind this{letters.length > 0 && <> · figures carry {letters.length === 1 ? 'note' : 'notes'} {letters.join(', ')}</>}
     </summary>
     <ul role="list" className="mt-2 list-none !pl-0" aria-label="Figures behind this finding">
       {figures.map((figure, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
-        <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{formatAnalysisPeriod(figure.period)}{figure.derived && ' †'}</span>
+        <span className="font-data text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{formatAnalysisPeriod(figure.period)}</span>
         <span>{figure.label}</span>
-        <span className="font-data">{figure.display}</span>
+        <span className="font-data">{figure.display}{figure.derived && <DataNoteMark calculated announce />}</span>
         <span><NarrativeCitationChip citation={figure.source} notes={notes} /></span>
       </li>)}
     </ul>
@@ -117,8 +120,19 @@ export interface NarrativeState {
   error?: string
 }
 
+/** What a streaming run is doing, in words: the pane's Activity line and the page's status line (AnalysisPageClient)
+ *  both say these, so the two cannot drift. */
+export function runStageWords(stage?: string): string {
+  return stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'
+}
+
+/** A run that ends without enough reported history: the card's notice (why, then what to do next), which the page's
+ *  status line says whole. */
+export const NOT_ENOUGH_HISTORY = 'Not enough reported history in the selected range for a meaningful analysis.'
+export const NOT_ENOUGH_HISTORY_NEXT = 'Try widening the period range.'
+
 const SOURCE_BADGE_BASE =
-  'Sources identify filed figures or calculated figures (marked †).'
+  'Sources identify filed and calculated figures.'
 
 /** The teaser's sample is one saved run of the pipeline (features/analysis/demo, D-046): its figures are the
  *  pipeline's, not approximations, but the run is not the reader's own. Readers do not know the word "pipeline", so
@@ -151,11 +165,18 @@ function sourceBadgeTitle(unverified: number | null | undefined, mismatched?: nu
   return warning ? `${SOURCE_BADGE_BASE} ${warning}` : SOURCE_BADGE_BASE
 }
 
+/** How a calculated source was made, keyed on its recorded reason: an empty input list alone does not prove a
+ *  calculation predates kept inputs. */
+function calculationWords(provenance: FactProvenance): string {
+  if (provenance.reasons.includes('legacy_calculation')) return 'calculated before we kept its inputs'
+  return provenance.inputs.length ? 'calculated from filed figures' : 'calculated figure'
+}
+
 function CitationList({ citations, sample, notes }: { citations: AnalysisCitation[]; sample?: boolean; notes: QualityNotesModel }) {
   if (citations.length === 0) return null
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
-      <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+      <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
         {sample
           ? 'Sources · sample data (one saved run)'
           : 'Sources · filed and calculated figures'}
@@ -178,8 +199,8 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
               <DataNoteMark note={notes.noteForQuality(citation)} calculated={citation.provenance?.method === 'calculated' || (!citation.provenance && citation.derived)} announce />
               {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer" aria-label={`Original filing for source ${citation.n}: ${citation.concept?.replaceAll('_', ' ') || 'figure'}, ${citation.period ? formatAnalysisPeriod(citation.period) : 'period not recorded'}`}>Original filing</a>}
               {citation.section_ref && (
-                <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
-                  · {citation.provenance?.method === 'calculated' ? (citation.provenance.inputs.length ? 'Calculated from recorded inputs' : 'Calculated figure') : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref}
+                <span className="ml-1 text-text-tertiary-light dark:text-text-tertiary-dark">
+                  · {citation.provenance?.method === 'calculated' ? calculationWords(citation.provenance) : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref}
                 </span>
               )}
             </span>
@@ -261,10 +282,7 @@ export default function NarrativePane({
             AI trend analysis
           </h2>
           {state.status === 'streaming' && (
-            <span className="flex items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-              <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              {state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}
-            </span>
+            <ActivityLine>{runStageWords(state.stage)}</ActivityLine>
           )}
           {state.status === 'done' && completion && !notEnoughData && sample && (
             <Badge title={SAMPLE_NOTE}>
@@ -283,7 +301,7 @@ export default function NarrativePane({
             // The explanation is a visible line, not a title tooltip: a phone or a keyboard never shows a title.
             <>
               <Badge>Cached</Badge>
-              <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+              <span className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                 Served from an earlier run · regenerates if these figures change
               </span>
             </>
@@ -338,8 +356,8 @@ export default function NarrativePane({
       ) : notEnoughData ? (
         <Notice
           variant="info"
-          title="Not enough reported history in the selected range for a meaningful analysis."
-          description="Try widening the period range."
+          title={NOT_ENOUGH_HISTORY}
+          description={NOT_ENOUGH_HISTORY_NEXT}
         />
       ) : (
         <>

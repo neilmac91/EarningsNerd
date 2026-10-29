@@ -1,0 +1,1473 @@
+{
+ "ticker": "REGN",
+ "arm": "gemini-3.8-flash",
+ "family": "gemini",
+ "model": "gemini-3.8-flash",
+ "split": "dev",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "453122e96b992763b4d3b1abd459811e96113c140230b6080a8f6e40224234ef",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 50261,
+   "cached_input_tokens": 0,
+   "output_tokens": 2385,
+   "reasoning_tokens": 0,
+   "latency_s": 18.877,
+   "cost_usd": 0.04664,
+   "backend": "openai_compat",
+   "model_served": "gemini-3.8-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 52646
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Between FY2016 and FY2025, revenue expanded at a compound annual growth rate of 12.8% [F198] to $14.3 billion [F10], while net income grew at a 19.7% CAGR [F200] to $4.50 billion [F40].\"},\n    {\"type\": \"comparison\", \"text\": \"Growth was marked by extreme volatility around pandemic treatments, as revenue surged 89.1% in FY2021 [D241] to $16.1 billion [F6] before contracting 24.3% in FY2022 [D292] to $12.2 billion [F7].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2021 surge and subsequent FY2022 collapse were driven by US REGEN-COV sales of $5.83 billion in FY2021 [S48] that fell to zero in FY2022 [S49] after the FDA revised its emergency use authorization due to lack of efficacy against the Omicron variant [P43].\"},\n    {\"type\": \"judgement\", \"text\": \"Regeneron has settled into single-digit top-line growth post-pandemic, masking an underlying transition from legacy ophthalmology toward collaboration royalties.\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"In FY2025, total revenue grew 1.0% to $14.3 billion [F10][D440], as collaboration revenue rose 21.0% to $7.33 billion [S22][D522] while net product sales dropped 17.3% to $6.31 billion [S16][D506].\"},\n    {\"type\": \"cause\", \"text\": \"The primary positive driver was Regeneron's share of profits from the Sanofi antibody collaboration, which contributed +9.3pp to revenue growth [D592] and reached $5.24 billion [S52], driven by higher Dupixent sales [P9].\"},\n    {\"type\": \"cause\", \"text\": \"Conversely, legacy US EYLEA net product sales declined 42.4% [D577] to $2.75 billion [S43], subtracting 14.2pp from growth [D578] due to competitive pressures, compounded bevacizumab substitution, and patient cannibalization toward EYLEA HD [P10].\"},\n    {\"type\": \"comparison\", \"text\": \"Although US EYLEA HD generated $1.64 billion [S64], up 36.3% [D613] and contributing +3.1pp [D614], combined US EYLEA and EYLEA HD fell from $5.97 billion in FY2024 to $4.38 billion in FY2025 [S45][S46].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating expenses grew 5.4% [D457], outpacing revenue growth of 1.0% [D440], which caused operating income to contract 10.3% to $3.58 billion [F20][D441].\"},\n    {\"type\": \"comparison\", \"text\": \"Diluted EPS grew 8.2% to $41.48 per share in FY2025 [F70][D444], outpacing net income growth of 2.1% [D442] due to a 5.6% reduction in diluted share count [D459].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin fell 3.2pp to 24.9% in FY2025 [F30][D453], reaching its lowest level of the ten-year window [D749] and sitting below the window median of 34.6% [D751].\"},\n    {\"type\": \"fact\", \"text\": \"The latest margin decline was driven by R&D expense expanding to 40.8% of revenue [D420], creating a 4.7pp negative margin effect [D465], partially offset by a 2.0pp positive effect as SG&A improved to 18.8% of revenue [D421][D466].\"},\n    {\"type\": \"cause\", \"text\": \"SG&A expense decreased 8.6% in FY2025 to $2.70 billion [X47][D456] primarily due to lower charitable contributions to the Good Days patient assistance foundation [P5].\"},\n    {\"type\": \"cause\", \"text\": \"Net margin remained stable at 31.4% in FY2025 [F50], diverging positively from operating margin due to $1.65 billion in other income [X117] and an effective tax rate of 13.9% [D427] that benefited from the settlement of IRS audits [P1][P2].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Cash conversion remained healthy in FY2025, with operating cash flow of $4.98 billion [F80] representing 1.11x net income [D428] and free cash flow of $4.08 billion [F100] representing 0.91x net income [D429].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow margin was 28.4% in FY2025 [D425], exceeding the window median of 26.4% [D757] and ranking in the 86th percentile of biopharma peers [D776].\"},\n    {\"type\": \"fact\", \"text\": \"Capital intensity climbed as capex grew 18.9% [D447] to $898 million [F90], representing 6.3% of revenue [D424] and 1.65x depreciation and amortization [D430].\"},\n    {\"type\": \"cause\", \"text\": \"Elevated capital expenditures over recent years reflect ongoing infrastructure commitments, including facility expansions in Tarrytown and Rensselaer, New York [P19].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Regeneron closed FY2025 with $18.9 billion in cash and investments [D432] and $1.99 billion in long-term debt [F187], generating net cash of $16.9 billion [D434].\"},\n    {\"type\": \"comparison\", \"text\": \"Net cash stood at 117.7% of revenue [D435], placing the company at the 100th percentile among 8 biopharma peers where the median is net debt of 50.7% of revenue [D780][D781].\"},\n    {\"type\": \"fact\", \"text\": \"In FY2025, the company deployed $3.81 billion into capital returns [D436], consisting of $3.44 billion in share repurchases [X137] and its inaugural dividend payment of $370 million [X140], absorbing 93.3% of free cash flow [D437].\"},\n    {\"type\": \"comparison\", \"text\": \"These repurchases lowered diluted weighted-average shares by 5.6% to 108.6 million [D459][X127], reversing share count increases from FY2022 through FY2024 [D311][D361][D410].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin has declined for four consecutive years from 55.7% in FY2021 to 24.9% in FY2025 [F26][F30][R1], shedding 30.7pp [R1].\"},\n    {\"type\": \"judgement\", \"text\": \"This compression reflects the loss of high-margin REGEN-COV revenue and heavy R&D reinvestment, which increases reliance on collaboration volume to maintain operating profits.\"},\n    {\"type\": \"fact\", \"text\": \"Revenue figures for FY2018 and FY2019 in the historical metrics table reflect later recasts of $5.15 billion [F3] and $6.56 billion [F4], compared to original 10-K reported totals of $6.71 billion [X3] and $7.86 billion [X4][R2].\"},\n    {\"type\": \"comparison\", \"text\": \"Consequently, table-based comparisons across the FY2017 to FY2020 window mix accounting presentations, although first-reported FY2018 revenue growth was 14.3% [D771].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"A further slide in operating margin below the FY2025 low of 24.9% [D749] in the FY2026 10-K would confirm persistent operating cost deleverage.\"},\n    {\"type\": \"comparison\", \"text\": \"Combined US EYLEA and EYLEA HD net product sales falling short of the FY2025 level of $4.38 billion [S46] in the FY2026 10-K would signal accelerated biosimilar loss beyond the offset from EYLEA HD.\"},\n    {\"type\": \"comparison\", \"text\": \"Sanofi collaboration antibody profit share sustaining growth above its FY2025 level of $5.24 billion [S52] in upcoming quarterly filings would validate Dupixent's ability to shoulder top-line expansion.\"}\n  ]}\n]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 50261,
+  "cached_input_tokens": 0,
+  "output_tokens": 2385,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 18.877,
+ "cost_usd": 0.04664,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Between FY2016 and FY2025, revenue expanded at a compound annual growth rate of 12.8% [F198] to $14.3 billion [F10], while net income grew at a 19.7% CAGR [F200] to $4.50 billion [F40]."
+     },
+     {
+      "type": "comparison",
+      "text": "Growth was marked by extreme volatility around pandemic treatments, as revenue surged 89.1% in FY2021 [D241] to $16.1 billion [F6] before contracting 24.3% in FY2022 [D292] to $12.2 billion [F7]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2021 surge and subsequent FY2022 collapse were driven by US REGEN-COV sales of $5.83 billion in FY2021 [S48] that fell to zero in FY2022 [S49] after the FDA revised its emergency use authorization due to lack of efficacy against the Omicron variant [P43]."
+     },
+     {
+      "type": "judgement",
+      "text": "Regeneron has settled into single-digit top-line growth post-pandemic, masking an underlying transition from legacy ophthalmology toward collaboration royalties."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "In FY2025, total revenue grew 1.0% to $14.3 billion [F10][D440], as collaboration revenue rose 21.0% to $7.33 billion [S22][D522] while net product sales dropped 17.3% to $6.31 billion [S16][D506]."
+     },
+     {
+      "type": "cause",
+      "text": "The primary positive driver was Regeneron's share of profits from the Sanofi antibody collaboration, which contributed +9.3pp to revenue growth [D592] and reached $5.24 billion [S52], driven by higher Dupixent sales [P9]."
+     },
+     {
+      "type": "cause",
+      "text": "Conversely, legacy US EYLEA net product sales declined 42.4% [D577] to $2.75 billion [S43], subtracting 14.2pp from growth [D578] due to competitive pressures, compounded bevacizumab substitution, and patient cannibalization toward EYLEA HD [P10]."
+     },
+     {
+      "type": "comparison",
+      "text": "Although US EYLEA HD generated $1.64 billion [S64], up 36.3% [D613] and contributing +3.1pp [D614], combined US EYLEA and EYLEA HD fell from $5.97 billion in FY2024 to $4.38 billion in FY2025 [S45][S46]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating expenses grew 5.4% [D457], outpacing revenue growth of 1.0% [D440], which caused operating income to contract 10.3% to $3.58 billion [F20][D441]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS grew 8.2% to $41.48 per share in FY2025 [F70][D444], outpacing net income growth of 2.1% [D442] due to a 5.6% reduction in diluted share count [D459]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin fell 3.2pp to 24.9% in FY2025 [F30][D453], reaching its lowest level of the ten-year window [D749] and sitting below the window median of 34.6% [D751]."
+     },
+     {
+      "type": "fact",
+      "text": "The latest margin decline was driven by R&D expense expanding to 40.8% of revenue [D420], creating a 4.7pp negative margin effect [D465], partially offset by a 2.0pp positive effect as SG&A improved to 18.8% of revenue [D421][D466]."
+     },
+     {
+      "type": "cause",
+      "text": "SG&A expense decreased 8.6% in FY2025 to $2.70 billion [X47][D456] primarily due to lower charitable contributions to the Good Days patient assistance foundation [P5]."
+     },
+     {
+      "type": "cause",
+      "text": "Net margin remained stable at 31.4% in FY2025 [F50], diverging positively from operating margin due to $1.65 billion in other income [X117] and an effective tax rate of 13.9% [D427] that benefited from the settlement of IRS audits [P1][P2]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Cash conversion remained healthy in FY2025, with operating cash flow of $4.98 billion [F80] representing 1.11x net income [D428] and free cash flow of $4.08 billion [F100] representing 0.91x net income [D429]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin was 28.4% in FY2025 [D425], exceeding the window median of 26.4% [D757] and ranking in the 86th percentile of biopharma peers [D776]."
+     },
+     {
+      "type": "fact",
+      "text": "Capital intensity climbed as capex grew 18.9% [D447] to $898 million [F90], representing 6.3% of revenue [D424] and 1.65x depreciation and amortization [D430]."
+     },
+     {
+      "type": "cause",
+      "text": "Elevated capital expenditures over recent years reflect ongoing infrastructure commitments, including facility expansions in Tarrytown and Rensselaer, New York [P19]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Regeneron closed FY2025 with $18.9 billion in cash and investments [D432] and $1.99 billion in long-term debt [F187], generating net cash of $16.9 billion [D434]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash stood at 117.7% of revenue [D435], placing the company at the 100th percentile among 8 biopharma peers where the median is net debt of 50.7% of revenue [D780][D781]."
+     },
+     {
+      "type": "fact",
+      "text": "In FY2025, the company deployed $3.81 billion into capital returns [D436], consisting of $3.44 billion in share repurchases [X137] and its inaugural dividend payment of $370 million [X140], absorbing 93.3% of free cash flow [D437]."
+     },
+     {
+      "type": "comparison",
+      "text": "These repurchases lowered diluted weighted-average shares by 5.6% to 108.6 million [D459][X127], reversing share count increases from FY2022 through FY2024 [D311][D361][D410]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin has declined for four consecutive years from 55.7% in FY2021 to 24.9% in FY2025 [F26][F30][R1], shedding 30.7pp [R1]."
+     },
+     {
+      "type": "judgement",
+      "text": "This compression reflects the loss of high-margin REGEN-COV revenue and heavy R&D reinvestment, which increases reliance on collaboration volume to maintain operating profits."
+     },
+     {
+      "type": "fact",
+      "text": "Revenue figures for FY2018 and FY2019 in the historical metrics table reflect later recasts of $5.15 billion [F3] and $6.56 billion [F4], compared to original 10-K reported totals of $6.71 billion [X3] and $7.86 billion [X4][R2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Consequently, table-based comparisons across the FY2017 to FY2020 window mix accounting presentations, although first-reported FY2018 revenue growth was 14.3% [D771]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "A further slide in operating margin below the FY2025 low of 24.9% [D749] in the FY2026 10-K would confirm persistent operating cost deleverage."
+     },
+     {
+      "type": "comparison",
+      "text": "Combined US EYLEA and EYLEA HD net product sales falling short of the FY2025 level of $4.38 billion [S46] in the FY2026 10-K would signal accelerated biosimilar loss beyond the offset from EYLEA HD."
+     },
+     {
+      "type": "comparison",
+      "text": "Sanofi collaboration antibody profit share sustaining growth above its FY2025 level of $5.24 billion [S52] in upcoming quarterly filings would validate Dupixent's ability to shoulder top-line expansion."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 793,
+ "gate": {
+  "passed": true,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 6,
+   "comparison": 15,
+   "cause": 6,
+   "judgement": 2
+  },
+  "claims": 80,
+  "verified": 79,
+  "unverified_counts": 0,
+  "names": 1,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Between FY2016 and FY2025, revenue expanded at a compound annual growth rate of 12.8% [F198] to $14.3 billion [F10], while net income grew at a 19.7% CAGR [F200] to $4.50 billion [F40].",
+    "type": "fact",
+    "citations": [
+     "F198",
+     "F10",
+     "F200",
+     "F40"
+    ],
+    "claims": [
+     {
+      "claim": "12.8%",
+      "value": 12.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F198"
+      ]
+     },
+     {
+      "claim": "$14.3 billion",
+      "value": 14.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     },
+     {
+      "claim": "19.7%",
+      "value": 19.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F200"
+      ]
+     },
+     {
+      "claim": "$4.50 billion",
+      "value": 4.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F40"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Growth was marked by extreme volatility around pandemic treatments, as revenue surged 89.1% in FY2021 [D241] to $16.1 billion [F6] before contracting 24.3% in FY2022 [D292] to $12.2 billion [F7].",
+    "type": "comparison",
+    "citations": [
+     "D241",
+     "F6",
+     "D292",
+     "F7"
+    ],
+    "claims": [
+     {
+      "claim": "89.1%",
+      "value": 89.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D241"
+      ]
+     },
+     {
+      "claim": "$16.1 billion",
+      "value": 16.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F6"
+      ]
+     },
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D292"
+      ]
+     },
+     {
+      "claim": "$12.2 billion",
+      "value": 12.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2021 surge and subsequent FY2022 collapse were driven by US REGEN-COV sales of $5.83 billion in FY2021 [S48] that fell to zero in FY2022 [S49] after the FDA revised its emergency use authorization due to lack of efficacy against the Omicron variant [P43].",
+    "type": "cause",
+    "citations": [
+     "S48",
+     "S49",
+     "P43"
+    ],
+    "claims": [
+     {
+      "claim": "$5.83 billion",
+      "value": 5.83,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S48"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Regeneron has settled into single-digit top-line growth post-pandemic, masking an underlying transition from legacy ophthalmology toward collaboration royalties.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "In FY2025, total revenue grew 1.0% to $14.3 billion [F10][D440], as collaboration revenue rose 21.0% to $7.33 billion [S22][D522] while net product sales dropped 17.3% to $6.31 billion [S16][D506].",
+    "type": "fact",
+    "citations": [
+     "F10",
+     "D440",
+     "S22",
+     "D522",
+     "S16",
+     "D506"
+    ],
+    "claims": [
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "$14.3 billion",
+      "value": 14.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     },
+     {
+      "claim": "21.0%",
+      "value": 21.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D522"
+      ]
+     },
+     {
+      "claim": "$7.33 billion",
+      "value": 7.33,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S22"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D506"
+      ]
+     },
+     {
+      "claim": "$6.31 billion",
+      "value": 6.31,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S16"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The primary positive driver was Regeneron's share of profits from the Sanofi antibody collaboration, which contributed +9.3pp to revenue growth [D592] and reached $5.24 billion [S52], driven by higher Dupixent sales [P9].",
+    "type": "cause",
+    "citations": [
+     "D592",
+     "S52",
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "9.3pp",
+      "value": 9.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D592"
+      ]
+     },
+     {
+      "claim": "$5.24 billion",
+      "value": 5.24,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S52"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Conversely, legacy US EYLEA net product sales declined 42.4% [D577] to $2.75 billion [S43], subtracting 14.2pp from growth [D578] due to competitive pressures, compounded bevacizumab substitution, and patient cannibalization toward EYLEA HD [P10].",
+    "type": "cause",
+    "citations": [
+     "D577",
+     "S43",
+     "D578",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "42.4%",
+      "value": 42.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D577"
+      ]
+     },
+     {
+      "claim": "$2.75 billion",
+      "value": 2.75,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S43"
+      ]
+     },
+     {
+      "claim": "14.2pp",
+      "value": 14.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D578"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Although US EYLEA HD generated $1.64 billion [S64], up 36.3% [D613] and contributing +3.1pp [D614], combined US EYLEA and EYLEA HD fell from $5.97 billion in FY2024 to $4.38 billion in FY2025 [S45][S46].",
+    "type": "comparison",
+    "citations": [
+     "S64",
+     "D613",
+     "D614",
+     "S45",
+     "S46"
+    ],
+    "claims": [
+     {
+      "claim": "$1.64 billion",
+      "value": 1.64,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S64"
+      ]
+     },
+     {
+      "claim": "36.3%",
+      "value": 36.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D613"
+      ]
+     },
+     {
+      "claim": "3.1pp",
+      "value": 3.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D614"
+      ]
+     },
+     {
+      "claim": "$5.97 billion",
+      "value": 5.97,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S45"
+      ]
+     },
+     {
+      "claim": "$4.38 billion",
+      "value": 4.38,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S46"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating expenses grew 5.4% [D457], outpacing revenue growth of 1.0% [D440], which caused operating income to contract 10.3% to $3.58 billion [F20][D441].",
+    "type": "comparison",
+    "citations": [
+     "D457",
+     "D440",
+     "F20",
+     "D441"
+    ],
+    "claims": [
+     {
+      "claim": "5.4%",
+      "value": 5.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D457"
+      ]
+     },
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "10.3%",
+      "value": 10.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D441"
+      ]
+     },
+     {
+      "claim": "$3.58 billion",
+      "value": 3.58,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F20"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS grew 8.2% to $41.48 per share in FY2025 [F70][D444], outpacing net income growth of 2.1% [D442] due to a 5.6% reduction in diluted share count [D459].",
+    "type": "comparison",
+    "citations": [
+     "F70",
+     "D444",
+     "D442",
+     "D459"
+    ],
+    "claims": [
+     {
+      "claim": "8.2%",
+      "value": 8.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "$41.48 per share",
+      "value": 41.48,
+      "unit": "usd_per_share",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F70"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     },
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D459"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin fell 3.2pp to 24.9% in FY2025 [F30][D453], reaching its lowest level of the ten-year window [D749] and sitting below the window median of 34.6% [D751].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D453",
+     "D749",
+     "D751"
+    ],
+    "claims": [
+     {
+      "claim": "3.2pp",
+      "value": 3.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D453"
+      ]
+     },
+     {
+      "claim": "24.9%",
+      "value": 24.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "34.6%",
+      "value": 34.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D751"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The latest margin decline was driven by R&D expense expanding to 40.8% of revenue [D420], creating a 4.7pp negative margin effect [D465], partially offset by a 2.0pp positive effect as SG&A improved to 18.8% of revenue [D421][D466].",
+    "type": "fact",
+    "citations": [
+     "D420",
+     "D465",
+     "D421",
+     "D466"
+    ],
+    "claims": [
+     {
+      "claim": "40.8%",
+      "value": 40.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D420"
+      ]
+     },
+     {
+      "claim": "4.7pp",
+      "value": 4.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D465"
+      ]
+     },
+     {
+      "claim": "2.0pp",
+      "value": 2.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D466"
+      ]
+     },
+     {
+      "claim": "18.8%",
+      "value": 18.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "SG&A expense decreased 8.6% in FY2025 to $2.70 billion [X47][D456] primarily due to lower charitable contributions to the Good Days patient assistance foundation [P5].",
+    "type": "cause",
+    "citations": [
+     "X47",
+     "D456",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "8.6%",
+      "value": 8.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D456"
+      ]
+     },
+     {
+      "claim": "$2.70 billion",
+      "value": 2.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X47"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin remained stable at 31.4% in FY2025 [F50], diverging positively from operating margin due to $1.65 billion in other income [X117] and an effective tax rate of 13.9% [D427] that benefited from the settlement of IRS audits [P1][P2].",
+    "type": "cause",
+    "citations": [
+     "F50",
+     "X117",
+     "D427",
+     "P1",
+     "P2"
+    ],
+    "claims": [
+     {
+      "claim": "31.4%",
+      "value": 31.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "$1.65 billion",
+      "value": 1.65,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X117"
+      ]
+     },
+     {
+      "claim": "13.9%",
+      "value": 13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D427"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Cash conversion remained healthy in FY2025, with operating cash flow of $4.98 billion [F80] representing 1.11x net income [D428] and free cash flow of $4.08 billion [F100] representing 0.91x net income [D429].",
+    "type": "comparison",
+    "citations": [
+     "F80",
+     "D428",
+     "F100",
+     "D429"
+    ],
+    "claims": [
+     {
+      "claim": "$4.98 billion",
+      "value": 4.98,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     },
+     {
+      "claim": "1.11x",
+      "value": 1.11,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D428"
+      ]
+     },
+     {
+      "claim": "$4.08 billion",
+      "value": 4.08,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "0.91x",
+      "value": 0.91,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D429"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin was 28.4% in FY2025 [D425], exceeding the window median of 26.4% [D757] and ranking in the 86th percentile of biopharma peers [D776].",
+    "type": "comparison",
+    "citations": [
+     "D425",
+     "D757",
+     "D776"
+    ],
+    "claims": [
+     {
+      "claim": "28.4%",
+      "value": 28.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     },
+     {
+      "claim": "26.4%",
+      "value": 26.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D757"
+      ]
+     },
+     {
+      "claim": "86th percentile",
+      "value": 86.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D776"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capital intensity climbed as capex grew 18.9% [D447] to $898 million [F90], representing 6.3% of revenue [D424] and 1.65x depreciation and amortization [D430].",
+    "type": "fact",
+    "citations": [
+     "D447",
+     "F90",
+     "D424",
+     "D430"
+    ],
+    "claims": [
+     {
+      "claim": "18.9%",
+      "value": 18.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "$898 million",
+      "value": 898.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F90"
+      ]
+     },
+     {
+      "claim": "6.3%",
+      "value": 6.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D424"
+      ]
+     },
+     {
+      "claim": "1.65x",
+      "value": 1.65,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D430"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Elevated capital expenditures over recent years reflect ongoing infrastructure commitments, including facility expansions in Tarrytown and Rensselaer, New York [P19].",
+    "type": "cause",
+    "citations": [
+     "P19"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Regeneron closed FY2025 with $18.9 billion in cash and investments [D432] and $1.99 billion in long-term debt [F187], generating net cash of $16.9 billion [D434].",
+    "type": "comparison",
+    "citations": [
+     "D432",
+     "F187",
+     "D434"
+    ],
+    "claims": [
+     {
+      "claim": "$18.9 billion",
+      "value": 18.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D432"
+      ]
+     },
+     {
+      "claim": "$1.99 billion",
+      "value": 1.99,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F187"
+      ]
+     },
+     {
+      "claim": "$16.9 billion",
+      "value": 16.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash stood at 117.7% of revenue [D435], placing the company at the 100th percentile among 8 biopharma peers where the median is net debt of 50.7% of revenue [D780][D781].",
+    "type": "comparison",
+    "citations": [
+     "D435",
+     "D780",
+     "D781"
+    ],
+    "claims": [
+     {
+      "claim": "117.7%",
+      "value": 117.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D780"
+      ]
+     },
+     {
+      "claim": "8",
+      "value": 8.0,
+      "unit": "count",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "50.7%",
+      "value": 50.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D781"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "In FY2025, the company deployed $3.81 billion into capital returns [D436], consisting of $3.44 billion in share repurchases [X137] and its inaugural dividend payment of $370 million [X140], absorbing 93.3% of free cash flow [D437].",
+    "type": "fact",
+    "citations": [
+     "D436",
+     "X137",
+     "X140",
+     "D437"
+    ],
+    "claims": [
+     {
+      "claim": "$3.81 billion",
+      "value": 3.81,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D436"
+      ]
+     },
+     {
+      "claim": "$3.44 billion",
+      "value": 3.44,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X137"
+      ]
+     },
+     {
+      "claim": "$370 million",
+      "value": 370.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X140"
+      ]
+     },
+     {
+      "claim": "93.3%",
+      "value": 93.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D437"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "These repurchases lowered diluted weighted-average shares by 5.6% to 108.6 million [D459][X127], reversing share count increases from FY2022 through FY2024 [D311][D361][D410].",
+    "type": "comparison",
+    "citations": [
+     "D459",
+     "X127",
+     "D311",
+     "D361",
+     "D410"
+    ],
+    "claims": [
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D459"
+      ]
+     },
+     {
+      "claim": "108.6 million",
+      "value": 108.6,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X127"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Operating margin has declined for four consecutive years from 55.7% in FY2021 to 24.9% in FY2025 [F26][F30][R1], shedding 30.7pp [R1].",
+    "type": "comparison",
+    "citations": [
+     "F26",
+     "F30",
+     "R1",
+     "R1"
+    ],
+    "claims": [
+     {
+      "claim": "55.7%",
+      "value": 55.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F26"
+      ]
+     },
+     {
+      "claim": "24.9%",
+      "value": 24.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "30.7pp",
+      "value": 30.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "This compression reflects the loss of high-margin REGEN-COV revenue and heavy R&D reinvestment, which increases reliance on collaboration volume to maintain operating profits.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Revenue figures for FY2018 and FY2019 in the historical metrics table reflect later recasts of $5.15 billion [F3] and $6.56 billion [F4], compared to original 10-K reported totals of $6.71 billion [X3] and $7.86 billion [X4][R2].",
+    "type": "fact",
+    "citations": [
+     "F3",
+     "F4",
+     "X3",
+     "X4",
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "$5.15 billion",
+      "value": 5.15,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F3"
+      ]
+     },
+     {
+      "claim": "$6.56 billion",
+      "value": 6.56,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F4"
+      ]
+     },
+     {
+      "claim": "$6.71 billion",
+      "value": 6.71,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X3"
+      ]
+     },
+     {
+      "claim": "$7.86 billion",
+      "value": 7.86,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X4"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Consequently, table-based comparisons across the FY2017 to FY2020 window mix accounting presentations, although first-reported FY2018 revenue growth was 14.3% [D771].",
+    "type": "comparison",
+    "citations": [
+     "D771"
+    ],
+    "claims": [
+     {
+      "claim": "14.3%",
+      "value": 14.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D771"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "A further slide in operating margin below the FY2025 low of 24.9% [D749] in the FY2026 10-K would confirm persistent operating cost deleverage.",
+    "type": "comparison",
+    "citations": [
+     "D749"
+    ],
+    "claims": [
+     {
+      "claim": "24.9%",
+      "value": 24.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D749"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Combined US EYLEA and EYLEA HD net product sales falling short of the FY2025 level of $4.38 billion [S46] in the FY2026 10-K would signal accelerated biosimilar loss beyond the offset from EYLEA HD.",
+    "type": "comparison",
+    "citations": [
+     "S46"
+    ],
+    "claims": [
+     {
+      "claim": "$4.38 billion",
+      "value": 4.38,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S46"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Sanofi collaboration antibody profit share sustaining growth above its FY2025 level of $5.24 billion [S52] in upcoming quarterly filings would validate Dupixent's ability to shoulder top-line expansion.",
+    "type": "comparison",
+    "citations": [
+     "S52"
+    ],
+    "claims": [
+     {
+      "claim": "$5.24 billion",
+      "value": 5.24,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S52"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ }
+}

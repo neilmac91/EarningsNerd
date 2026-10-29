@@ -1,0 +1,1610 @@
+{
+ "ticker": "VRTX",
+ "arm": "claude-sonnet-5-5",
+ "family": "claude",
+ "model": "claude-sonnet-5-5",
+ "split": "holdout",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "8198e74661257777402eba4c3a8b5c692a6b079b4039632d31a96588f4dc0e10",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 50416,
+   "cached_input_tokens": 3056,
+   "output_tokens": 6231,
+   "reasoning_tokens": 4046,
+   "latency_s": 46.465,
+   "cost_usd": 0.252052,
+   "backend": "claude_cli",
+   "model_served": "claude-sonnet-5-5",
+   "meta": {
+    "duration_api_ms": 39973,
+    "cache_creation_input_tokens": 47358,
+    "list_cost_usd": 0.157641
+   },
+   "problems": [],
+   "raw": "{\"sections\":[{\"key\":\"arc\",\"title\":\"The arc\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Revenue compounded at 24.2% a year, from $1.70 billion in FY2016 to $12.0 billion in FY2025 [F1][F10][F196].\"},{\"type\":\"cause\",\"text\":\"Revenue grew 49.1% in FY2020 [D194], driven by TRIKAFTA's US launch in the fourth quarter of 2019 and KAFTRIO's EU launch in the third quarter of 2020 [P51].\"},{\"type\":\"cause\",\"text\":\"Operating margin fell from 38.8% in FY2023 to -2.1% in FY2024, a 40.9pp drop, as acquired in-process R&D of $4.6 billion included $4.4 billion for Alpine [F33][F34][D408][P11].\"},{\"type\":\"comparison\",\"text\":\"Growth has since slowed, with revenue up 8.9% in FY2025 [D446] against a 3-year CAGR of 10.4% [D679].\"}]},{\"key\":\"drivers\",\"title\":\"What drove growth\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"TRIKAFTA/KAFTRIO reached 85.9% of revenue in FY2025, up from 62.3% in FY2020 [D529][D516].\"},{\"type\":\"comparison\",\"text\":\"It added 29.5pp to growth in FY2021 and 26.3pp in FY2022 but only 0.7pp in FY2025 [D519][D522][D531].\"},{\"type\":\"comparison\",\"text\":\"ALYFTREK, with $837.8 million of FY2025 sales, added 7.6pp to growth, more than TRIKAFTA/KAFTRIO's 0.7pp [S69][D590][D531].\"},{\"type\":\"comparison\",\"text\":\"Profit has lagged revenue: the 3-year operating income CAGR was -1.0% against revenue's 10.4% [D681][D679].\"},{\"type\":\"fact\",\"text\":\"Diluted shares were 258.0 million in FY2025, unchanged from the prior year, so EPS growth tracked net income [X137][D459].\"}]},{\"key\":\"margins\",\"title\":\"Margins and costs\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"FY2025 operating margin of 34.8% sits above the 31.8% window median but below the 48.2% high and far above the -2.1% low [F35][D663][D662][D661].\"},{\"type\":\"cause\",\"text\":\"Margin rose 36.9pp in FY2025 [D452], almost all from the residual line at +37.7pp as the FY2024 Alpine charge did not repeat [D468][P11].\"},{\"type\":\"fact\",\"text\":\"SG&A cost 1.3pp of margin, rising to 14.6% of revenue from 13.3%, and the FY2024 10-K guided to higher 2025 spend for launches [D467][D427][D384][P6].\"},{\"type\":\"cause\",\"text\":\"Cost of sales was 13.8% of revenue in FY2025 [D425], with the filing citing a lower overall royalty rate for CF medicines [P4].\"}]},{\"key\":\"cash\",\"title\":\"Cash conversion\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Operating cash flow of $3.63 billion was 0.92x net income, and free cash flow was 0.81x, against a window median of 1.07x [F85][D434][D435][D675].\"},{\"type\":\"cause\",\"text\":\"The filing attributes operating cash flow primarily to income from operations of $4.17 billion [P1][F25].\"},{\"type\":\"comparison\",\"text\":\"Free cash flow margin was 26.6% against a 32.8% median, and capex was 3.6% of revenue and 2.09x D&A [D431][D669][D430][D436].\"}]},{\"key\":\"balance_sheet\",\"title\":\"Balance sheet and capital allocation\",\"sentences\":[{\"type\":\"cause\",\"text\":\"Net cash rose to $12.3 billion from $11.2 billion [D439][D393], and working capital rose to $7.34 billion from $6.03 billion on cash from product revenue [F175][F174][P2].\"},{\"type\":\"comparison\",\"text\":\"Net cash equals 102.7% of revenue, the 88th percentile among 8 biopharma peers, whose median is -50.7% [D440][D691][D692].\"},{\"type\":\"comparison\",\"text\":\"Buybacks were $2.02 billion in FY2025, 63.2% of free cash flow, up from $1.18 billion in FY2024 [X147][D442][X146].\"},{\"type\":\"comparison\",\"text\":\"Return on average equity of 22.5% is the 38th percentile of 8 peers, below their 38.7% median [D445][D695][D696].\"}]},{\"key\":\"red_flags\",\"title\":\"Red flags\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Days inventory outstanding rose 85 days to 373 in FY2025, from 135 in FY2016, with inventory up 39.9% [R1][D444][D397][D19][D462].\"},{\"type\":\"judgement\",\"text\":\"The filings cited do not explain the build, and it ties up cash that could otherwise reach free cash flow [R1][D444].\"},{\"type\":\"comparison\",\"text\":\"Free cash flow was 0.81x net income, the 14th percentile of 7 peers, whose median is 1.11x [D435][D693][D694].\"},{\"type\":\"fact\",\"text\":\"TRIKAFTA/KAFTRIO is 85.9% of revenue with growth of 0.7%, so one product's saturation now sets the top line [D529][D530].\"},{\"type\":\"fact\",\"text\":\"The tax-rate swing is benign, as the FY2024 rate of 315.5% reflected non-deductible Alpine AIPR&D, and the FY2019 buyback recast touches no figure used here [R2][D390][P5][X141].\"}]},{\"key\":\"watch\",\"title\":\"What to watch\",\"sentences\":[{\"type\":\"judgement\",\"text\":\"Days inventory outstanding staying above 373 days confirms the build, while a fall below FY2024's 287 days would reverse it, in the FY2026 10-K [D444][D397].\"},{\"type\":\"judgement\",\"text\":\"Revenue growth below 8.9% would confirm the slowdown, with TRIKAFTA/KAFTRIO growth below 0.7% as the check, in the FY2026 10-K [D446][D530].\"},{\"type\":\"judgement\",\"text\":\"Free cash flow to net income above the 1.07x window median would reverse the conversion gap from 0.81x, in the FY2026 10-K [D675][D435].\"}]}]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 52881,
+   "cached_input_tokens": 3056,
+   "output_tokens": 2832,
+   "reasoning_tokens": 521,
+   "latency_s": 18.836,
+   "cost_usd": 0.227922,
+   "backend": "claude_cli",
+   "model_served": "claude-sonnet-5-5",
+   "meta": {
+    "duration_api_ms": 14712,
+    "cache_creation_input_tokens": 49823,
+    "list_cost_usd": 0.128581
+   },
+   "problems": [],
+   "raw": "```json\n{\"sections\": [{\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Revenue compounded at 24.2% a year, from $1.70 billion in FY2016 to $12.0 billion in FY2025 [F1][F10][F196].\"}, {\"type\": \"cause\", \"text\": \"Revenue grew 49.1% in FY2020 [D194], driven by TRIKAFTA's US launch in the fourth quarter of 2019 and KAFTRIO's EU launch in the third quarter of 2020 [P51].\"}, {\"type\": \"cause\", \"text\": \"Operating margin fell from 38.8% in FY2023 to -2.1% in FY2024, a 40.9pp drop, as acquired in-process R&D of $4.6 billion included $4.4 billion for Alpine [F33][F34][D408][P11].\"}, {\"type\": \"comparison\", \"text\": \"Growth has since slowed, with revenue up 8.9% in FY2025 [D446] against a 3-year CAGR of 10.4% [D679].\"}]}, {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"TRIKAFTA/KAFTRIO reached 85.9% of revenue in FY2025, up from 62.3% in FY2020 [D529][D516].\"}, {\"type\": \"comparison\", \"text\": \"It added 29.5pp to growth in FY2021 and 26.3pp in FY2022 but only 0.7pp in FY2025 [D519][D522][D531].\"}, {\"type\": \"comparison\", \"text\": \"ALYFTREK, with $837.8 million of FY2025 sales, added 7.6pp to growth, more than TRIKAFTA/KAFTRIO's 0.7pp [S69][D590][D531].\"}, {\"type\": \"comparison\", \"text\": \"Profit has lagged revenue: the 3-year operating income CAGR was -1.0% against revenue's 10.4% [D681][D679].\"}, {\"type\": \"fact\", \"text\": \"Diluted shares were 258.0 million in FY2025, unchanged from the prior year, so EPS growth tracked net income [X137][D459].\"}]}, {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"FY2025 operating margin of 34.8% sits above the 31.8% window median but below the 48.2% high and far above the -2.1% low [F35][D663][D662][D661].\"}, {\"type\": \"comparison\", \"text\": \"Margin rose 36.9pp in FY2025 [D452], almost all from the residual line at +37.7pp [D468].\"}, {\"type\": \"cause\", \"text\": \"The residual reflects the prior-year charge of $4.6 billion of acquired in-process R&D, including $4.4 billion for Alpine, not repeating [P11][D468].\"}, {\"type\": \"fact\", \"text\": \"SG&A cost 1.3pp of margin, rising to 14.6% of revenue from 13.3%, and the FY2024 10-K guided to higher 2025 spend for launches [D467][D427][D384][P6].\"}, {\"type\": \"cause\", \"text\": \"Cost of sales was 13.8% of revenue in FY2025 [D425], with the filing citing a lower overall royalty rate for CF medicines [P4].\"}]}, {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating cash flow of $3.63 billion was 0.92x net income, and free cash flow was 0.81x, against a window median of 1.07x [F85][D434][D435][D675].\"}, {\"type\": \"cause\", \"text\": \"The filing attributes operating cash flow primarily to income from operations of $4.17 billion [P1][F25].\"}, {\"type\": \"comparison\", \"text\": \"Free cash flow margin was 26.6% against a 32.8% median, and capex was 3.6% of revenue and 2.09x D&A [D431][D669][D430][D436].\"}]}, {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [{\"type\": \"cause\", \"text\": \"Net cash rose to $12.3 billion from $11.2 billion [D439][D393], and working capital rose to $7.34 billion from $6.03 billion on cash from product revenue [F175][F174][P2].\"}, {\"type\": \"comparison\", \"text\": \"Net cash equals 102.7% of revenue, the 88th percentile among 8 biopharma peers, whose median is -50.7% [D440][D691][D692].\"}, {\"type\": \"comparison\", \"text\": \"Buybacks were $2.02 billion in FY2025, 63.2% of free cash flow, up from $1.18 billion in FY2024 [X147][D442][X146].\"}, {\"type\": \"comparison\", \"text\": \"Return on average equity of 22.5% is the 38th percentile of 8 peers, below their 38.7% median [D445][D695][D696].\"}]}, {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Days inventory outstanding rose 85 days to 373 in FY2025, from 135 in FY2016, with inventory up 39.9% [R1][D444][D397][D19][D462].\"}, {\"type\": \"judgement\", \"text\": \"The filings cited do not explain the build, and it ties up cash that could otherwise reach free cash flow [R1][D444].\"}, {\"type\": \"comparison\", \"text\": \"Free cash flow was 0.81x net income, the 14th percentile of 7 peers, whose median is 1.11x [D435][D693][D694].\"}, {\"type\": \"fact\", \"text\": \"TRIKAFTA/KAFTRIO is 85.9% of revenue with growth of 0.7%, so one product's saturation now sets the top line [D529][D530].\"}, {\"type\": \"fact\", \"text\": \"The tax-rate swing is benign, as the FY2024 rate of 315.5% reflected non-deductible Alpine AIPR&D, and the FY2019 buyback recast touches no figure used here [R2][D390][P5][X141].\"}]}, {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [{\"type\": \"judgement\", \"text\": \"Days inventory outstanding staying above 373 days confirms the build, while a fall below FY2024's 287 days would reverse it, in the FY2026 10-K [D444][D397].\"}, {\"type\": \"judgement\", \"text\": \"Revenue growth below 8.9% would confirm the slowdown, with TRIKAFTA/KAFTRIO growth below 0.7% as the check, in the FY2026 10-K [D446][D530].\"}, {\"type\": \"judgement\", \"text\": \"Free cash flow to net income above the 1.07x window median would reverse the conversion gap from 0.81x, in the FY2026 10-K [D675][D435].\"}]}]}\n```"
+  }
+ ],
+ "usage": {
+  "input_tokens": 103297,
+  "cached_input_tokens": 6112,
+  "output_tokens": 9063,
+  "reasoning_tokens": 4567
+ },
+ "latency_s": 65.301,
+ "cost_usd": 0.479974,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 24.2% a year, from $1.70 billion in FY2016 to $12.0 billion in FY2025 [F1][F10][F196]."
+     },
+     {
+      "type": "cause",
+      "text": "Revenue grew 49.1% in FY2020 [D194], driven by TRIKAFTA's US launch in the fourth quarter of 2019 and KAFTRIO's EU launch in the third quarter of 2020 [P51]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating margin fell from 38.8% in FY2023 to -2.1% in FY2024, a 40.9pp drop, as acquired in-process R&D of $4.6 billion included $4.4 billion for Alpine [F33][F34][D408][P11]."
+     },
+     {
+      "type": "comparison",
+      "text": "Growth has since slowed, with revenue up 8.9% in FY2025 [D446] against a 3-year CAGR of 10.4% [D679]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "TRIKAFTA/KAFTRIO reached 85.9% of revenue in FY2025, up from 62.3% in FY2020 [D529][D516]."
+     },
+     {
+      "type": "comparison",
+      "text": "It added 29.5pp to growth in FY2021 and 26.3pp in FY2022 but only 0.7pp in FY2025 [D519][D522][D531]."
+     },
+     {
+      "type": "comparison",
+      "text": "ALYFTREK, with $837.8 million of FY2025 sales, added 7.6pp to growth, more than TRIKAFTA/KAFTRIO's 0.7pp [S69][D590][D531]."
+     },
+     {
+      "type": "comparison",
+      "text": "Profit has lagged revenue: the 3-year operating income CAGR was -1.0% against revenue's 10.4% [D681][D679]."
+     },
+     {
+      "type": "fact",
+      "text": "Diluted shares were 258.0 million in FY2025, unchanged from the prior year, so EPS growth tracked net income [X137][D459]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2025 operating margin of 34.8% sits above the 31.8% window median but below the 48.2% high and far above the -2.1% low [F35][D663][D662][D661]."
+     },
+     {
+      "type": "comparison",
+      "text": "Margin rose 36.9pp in FY2025 [D452], almost all from the residual line at +37.7pp [D468]."
+     },
+     {
+      "type": "cause",
+      "text": "The residual reflects the prior-year charge of $4.6 billion of acquired in-process R&D, including $4.4 billion for Alpine, not repeating [P11][D468]."
+     },
+     {
+      "type": "fact",
+      "text": "SG&A cost 1.3pp of margin, rising to 14.6% of revenue from 13.3%, and the FY2024 10-K guided to higher 2025 spend for launches [D467][D427][D384][P6]."
+     },
+     {
+      "type": "cause",
+      "text": "Cost of sales was 13.8% of revenue in FY2025 [D425], with the filing citing a lower overall royalty rate for CF medicines [P4]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $3.63 billion was 0.92x net income, and free cash flow was 0.81x, against a window median of 1.07x [F85][D434][D435][D675]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing attributes operating cash flow primarily to income from operations of $4.17 billion [P1][F25]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin was 26.6% against a 32.8% median, and capex was 3.6% of revenue and 2.09x D&A [D431][D669][D430][D436]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "cause",
+      "text": "Net cash rose to $12.3 billion from $11.2 billion [D439][D393], and working capital rose to $7.34 billion from $6.03 billion on cash from product revenue [F175][F174][P2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash equals 102.7% of revenue, the 88th percentile among 8 biopharma peers, whose median is -50.7% [D440][D691][D692]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks were $2.02 billion in FY2025, 63.2% of free cash flow, up from $1.18 billion in FY2024 [X147][D442][X146]."
+     },
+     {
+      "type": "comparison",
+      "text": "Return on average equity of 22.5% is the 38th percentile of 8 peers, below their 38.7% median [D445][D695][D696]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Days inventory outstanding rose 85 days to 373 in FY2025, from 135 in FY2016, with inventory up 39.9% [R1][D444][D397][D19][D462]."
+     },
+     {
+      "type": "judgement",
+      "text": "The filings cited do not explain the build, and it ties up cash that could otherwise reach free cash flow [R1][D444]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was 0.81x net income, the 14th percentile of 7 peers, whose median is 1.11x [D435][D693][D694]."
+     },
+     {
+      "type": "fact",
+      "text": "TRIKAFTA/KAFTRIO is 85.9% of revenue with growth of 0.7%, so one product's saturation now sets the top line [D529][D530]."
+     },
+     {
+      "type": "fact",
+      "text": "The tax-rate swing is benign, as the FY2024 rate of 315.5% reflected non-deductible Alpine AIPR&D, and the FY2019 buyback recast touches no figure used here [R2][D390][P5][X141]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "judgement",
+      "text": "Days inventory outstanding staying above 373 days confirms the build, while a fall below FY2024's 287 days would reverse it, in the FY2026 10-K [D444][D397]."
+     },
+     {
+      "type": "judgement",
+      "text": "Revenue growth below 8.9% would confirm the slowdown, with TRIKAFTA/KAFTRIO growth below 0.7% as the check, in the FY2026 10-K [D446][D530]."
+     },
+     {
+      "type": "judgement",
+      "text": "Free cash flow to net income above the 1.07x window median would reverse the conversion gap from 0.81x, in the FY2026 10-K [D675][D435]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 585,
+ "gate": {
+  "passed": true,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 6,
+   "cause": 6,
+   "comparison": 13,
+   "judgement": 4
+  },
+  "claims": 77,
+  "verified": 72,
+  "unverified_counts": 0,
+  "names": 5,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 24.2% a year, from $1.70 billion in FY2016 to $12.0 billion in FY2025 [F1][F10][F196].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F196"
+    ],
+    "claims": [
+     {
+      "claim": "24.2%",
+      "value": 24.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F196"
+      ]
+     },
+     {
+      "claim": "$1.70 billion",
+      "value": 1.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$12.0 billion",
+      "value": 12.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Revenue grew 49.1% in FY2020 [D194], driven by TRIKAFTA's US launch in the fourth quarter of 2019 and KAFTRIO's EU launch in the third quarter of 2020 [P51].",
+    "type": "cause",
+    "citations": [
+     "D194",
+     "P51"
+    ],
+    "claims": [
+     {
+      "claim": "49.1%",
+      "value": 49.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D194"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Operating margin fell from 38.8% in FY2023 to -2.1% in FY2024, a 40.9pp drop, as acquired in-process R&D of $4.6 billion included $4.4 billion for Alpine [F33][F34][D408][P11].",
+    "type": "cause",
+    "citations": [
+     "F33",
+     "F34",
+     "D408",
+     "P11"
+    ],
+    "claims": [
+     {
+      "claim": "38.8%",
+      "value": 38.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F33"
+      ]
+     },
+     {
+      "claim": "-2.1%",
+      "value": -2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F34"
+      ]
+     },
+     {
+      "claim": "40.9pp",
+      "value": 40.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D408"
+      ]
+     },
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P11",
+      "ids": [
+       "P11"
+      ]
+     },
+     {
+      "claim": "$4.4 billion",
+      "value": 4.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P11",
+      "ids": [
+       "P11"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Growth has since slowed, with revenue up 8.9% in FY2025 [D446] against a 3-year CAGR of 10.4% [D679].",
+    "type": "comparison",
+    "citations": [
+     "D446",
+     "D679"
+    ],
+    "claims": [
+     {
+      "claim": "8.9%",
+      "value": 8.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D446"
+      ]
+     },
+     {
+      "claim": "3",
+      "value": 3.0,
+      "unit": "count",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "10.4%",
+      "value": 10.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D679"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "TRIKAFTA/KAFTRIO reached 85.9% of revenue in FY2025, up from 62.3% in FY2020 [D529][D516].",
+    "type": "comparison",
+    "citations": [
+     "D529",
+     "D516"
+    ],
+    "claims": [
+     {
+      "claim": "85.9%",
+      "value": 85.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D529"
+      ]
+     },
+     {
+      "claim": "62.3%",
+      "value": 62.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D516"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "It added 29.5pp to growth in FY2021 and 26.3pp in FY2022 but only 0.7pp in FY2025 [D519][D522][D531].",
+    "type": "comparison",
+    "citations": [
+     "D519",
+     "D522",
+     "D531"
+    ],
+    "claims": [
+     {
+      "claim": "29.5pp",
+      "value": 29.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D519"
+      ]
+     },
+     {
+      "claim": "26.3pp",
+      "value": 26.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D522"
+      ]
+     },
+     {
+      "claim": "0.7pp",
+      "value": 0.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D531"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "ALYFTREK, with $837.8 million of FY2025 sales, added 7.6pp to growth, more than TRIKAFTA/KAFTRIO's 0.7pp [S69][D590][D531].",
+    "type": "comparison",
+    "citations": [
+     "S69",
+     "D590",
+     "D531"
+    ],
+    "claims": [
+     {
+      "claim": "$837.8 million",
+      "value": 837.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S69"
+      ]
+     },
+     {
+      "claim": "7.6pp",
+      "value": 7.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D590"
+      ]
+     },
+     {
+      "claim": "0.7pp",
+      "value": 0.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D531"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Profit has lagged revenue: the 3-year operating income CAGR was -1.0% against revenue's 10.4% [D681][D679].",
+    "type": "comparison",
+    "citations": [
+     "D681",
+     "D679"
+    ],
+    "claims": [
+     {
+      "claim": "3",
+      "value": 3.0,
+      "unit": "count",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "-1.0%",
+      "value": -1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D681"
+      ]
+     },
+     {
+      "claim": "10.4%",
+      "value": 10.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D679"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted shares were 258.0 million in FY2025, unchanged from the prior year, so EPS growth tracked net income [X137][D459].",
+    "type": "fact",
+    "citations": [
+     "X137",
+     "D459"
+    ],
+    "claims": [
+     {
+      "claim": "258.0 million",
+      "value": 258.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X137"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2025 operating margin of 34.8% sits above the 31.8% window median but below the 48.2% high and far above the -2.1% low [F35][D663][D662][D661].",
+    "type": "comparison",
+    "citations": [
+     "F35",
+     "D663",
+     "D662",
+     "D661"
+    ],
+    "claims": [
+     {
+      "claim": "34.8%",
+      "value": 34.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F35"
+      ]
+     },
+     {
+      "claim": "31.8%",
+      "value": 31.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D663"
+      ]
+     },
+     {
+      "claim": "48.2%",
+      "value": 48.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D662"
+      ]
+     },
+     {
+      "claim": "-2.1%",
+      "value": -2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D661"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Margin rose 36.9pp in FY2025 [D452], almost all from the residual line at +37.7pp [D468].",
+    "type": "comparison",
+    "citations": [
+     "D452",
+     "D468"
+    ],
+    "claims": [
+     {
+      "claim": "36.9pp",
+      "value": 36.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D452"
+      ]
+     },
+     {
+      "claim": "37.7pp",
+      "value": 37.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D468"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The residual reflects the prior-year charge of $4.6 billion of acquired in-process R&D, including $4.4 billion for Alpine, not repeating [P11][D468].",
+    "type": "cause",
+    "citations": [
+     "P11",
+     "D468"
+    ],
+    "claims": [
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P11",
+      "ids": [
+       "P11"
+      ]
+     },
+     {
+      "claim": "$4.4 billion",
+      "value": 4.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P11",
+      "ids": [
+       "P11"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "SG&A cost 1.3pp of margin, rising to 14.6% of revenue from 13.3%, and the FY2024 10-K guided to higher 2025 spend for launches [D467][D427][D384][P6].",
+    "type": "fact",
+    "citations": [
+     "D467",
+     "D427",
+     "D384",
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "1.3pp",
+      "value": 1.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D467"
+      ]
+     },
+     {
+      "claim": "14.6%",
+      "value": 14.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D427"
+      ]
+     },
+     {
+      "claim": "13.3%",
+      "value": 13.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D384"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Cost of sales was 13.8% of revenue in FY2025 [D425], with the filing citing a lower overall royalty rate for CF medicines [P4].",
+    "type": "cause",
+    "citations": [
+     "D425",
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "13.8%",
+      "value": 13.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $3.63 billion was 0.92x net income, and free cash flow was 0.81x, against a window median of 1.07x [F85][D434][D435][D675].",
+    "type": "comparison",
+    "citations": [
+     "F85",
+     "D434",
+     "D435",
+     "D675"
+    ],
+    "claims": [
+     {
+      "claim": "$3.63 billion",
+      "value": 3.63,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F85"
+      ]
+     },
+     {
+      "claim": "0.92x",
+      "value": 0.92,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     },
+     {
+      "claim": "0.81x",
+      "value": 0.81,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     },
+     {
+      "claim": "1.07x",
+      "value": 1.07,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D675"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The filing attributes operating cash flow primarily to income from operations of $4.17 billion [P1][F25].",
+    "type": "cause",
+    "citations": [
+     "P1",
+     "F25"
+    ],
+    "claims": [
+     {
+      "claim": "$4.17 billion",
+      "value": 4.17,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F25"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin was 26.6% against a 32.8% median, and capex was 3.6% of revenue and 2.09x D&A [D431][D669][D430][D436].",
+    "type": "comparison",
+    "citations": [
+     "D431",
+     "D669",
+     "D430",
+     "D436"
+    ],
+    "claims": [
+     {
+      "claim": "26.6%",
+      "value": 26.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D431"
+      ]
+     },
+     {
+      "claim": "32.8%",
+      "value": 32.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D669"
+      ]
+     },
+     {
+      "claim": "3.6%",
+      "value": 3.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D430"
+      ]
+     },
+     {
+      "claim": "2.09x",
+      "value": 2.09,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D436"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash rose to $12.3 billion from $11.2 billion [D439][D393], and working capital rose to $7.34 billion from $6.03 billion on cash from product revenue [F175][F174][P2].",
+    "type": "cause",
+    "citations": [
+     "D439",
+     "D393",
+     "F175",
+     "F174",
+     "P2"
+    ],
+    "claims": [
+     {
+      "claim": "$12.3 billion",
+      "value": 12.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D439"
+      ]
+     },
+     {
+      "claim": "$11.2 billion",
+      "value": 11.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D393"
+      ]
+     },
+     {
+      "claim": "$7.34 billion",
+      "value": 7.34,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F175"
+      ]
+     },
+     {
+      "claim": "$6.03 billion",
+      "value": 6.03,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F174"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash equals 102.7% of revenue, the 88th percentile among 8 biopharma peers, whose median is -50.7% [D440][D691][D692].",
+    "type": "comparison",
+    "citations": [
+     "D440",
+     "D691",
+     "D692"
+    ],
+    "claims": [
+     {
+      "claim": "102.7%",
+      "value": 102.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "88th percentile",
+      "value": 88.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D691"
+      ]
+     },
+     {
+      "claim": "8",
+      "value": 8.0,
+      "unit": "count",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "-50.7%",
+      "value": -50.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D692"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks were $2.02 billion in FY2025, 63.2% of free cash flow, up from $1.18 billion in FY2024 [X147][D442][X146].",
+    "type": "comparison",
+    "citations": [
+     "X147",
+     "D442",
+     "X146"
+    ],
+    "claims": [
+     {
+      "claim": "$2.02 billion",
+      "value": 2.02,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X147"
+      ]
+     },
+     {
+      "claim": "63.2%",
+      "value": 63.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     },
+     {
+      "claim": "$1.18 billion",
+      "value": 1.18,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X146"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Return on average equity of 22.5% is the 38th percentile of 8 peers, below their 38.7% median [D445][D695][D696].",
+    "type": "comparison",
+    "citations": [
+     "D445",
+     "D695",
+     "D696"
+    ],
+    "claims": [
+     {
+      "claim": "22.5%",
+      "value": 22.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     },
+     {
+      "claim": "38th percentile",
+      "value": 38.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D695"
+      ]
+     },
+     {
+      "claim": "8",
+      "value": 8.0,
+      "unit": "count",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "38.7%",
+      "value": 38.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D696"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Days inventory outstanding rose 85 days to 373 in FY2025, from 135 in FY2016, with inventory up 39.9% [R1][D444][D397][D19][D462].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "D444",
+     "D397",
+     "D19",
+     "D462"
+    ],
+    "claims": [
+     {
+      "claim": "85 days",
+      "value": 85.0,
+      "unit": "days",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     },
+     {
+      "claim": "373",
+      "value": 373.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "135",
+      "value": 135.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D19"
+      ]
+     },
+     {
+      "claim": "39.9%",
+      "value": 39.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D462"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The filings cited do not explain the build, and it ties up cash that could otherwise reach free cash flow [R1][D444].",
+    "type": "judgement",
+    "citations": [
+     "R1",
+     "D444"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow was 0.81x net income, the 14th percentile of 7 peers, whose median is 1.11x [D435][D693][D694].",
+    "type": "comparison",
+    "citations": [
+     "D435",
+     "D693",
+     "D694"
+    ],
+    "claims": [
+     {
+      "claim": "0.81x",
+      "value": 0.81,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     },
+     {
+      "claim": "14th percentile",
+      "value": 14.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D693"
+      ]
+     },
+     {
+      "claim": "7",
+      "value": 7.0,
+      "unit": "count",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "1.11x",
+      "value": 1.11,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D694"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "TRIKAFTA/KAFTRIO is 85.9% of revenue with growth of 0.7%, so one product's saturation now sets the top line [D529][D530].",
+    "type": "fact",
+    "citations": [
+     "D529",
+     "D530"
+    ],
+    "claims": [
+     {
+      "claim": "85.9%",
+      "value": 85.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D529"
+      ]
+     },
+     {
+      "claim": "0.7%",
+      "value": 0.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D530"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The tax-rate swing is benign, as the FY2024 rate of 315.5% reflected non-deductible Alpine AIPR&D, and the FY2019 buyback recast touches no figure used here [R2][D390][P5][X141].",
+    "type": "fact",
+    "citations": [
+     "R2",
+     "D390",
+     "P5",
+     "X141"
+    ],
+    "claims": [
+     {
+      "claim": "315.5%",
+      "value": 315.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D390"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Days inventory outstanding staying above 373 days confirms the build, while a fall below FY2024's 287 days would reverse it, in the FY2026 10-K [D444][D397].",
+    "type": "judgement",
+    "citations": [
+     "D444",
+     "D397"
+    ],
+    "claims": [
+     {
+      "claim": "373 days",
+      "value": 373.0,
+      "unit": "days",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "287 days",
+      "value": 287.0,
+      "unit": "days",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D397"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Revenue growth below 8.9% would confirm the slowdown, with TRIKAFTA/KAFTRIO growth below 0.7% as the check, in the FY2026 10-K [D446][D530].",
+    "type": "judgement",
+    "citations": [
+     "D446",
+     "D530"
+    ],
+    "claims": [
+     {
+      "claim": "8.9%",
+      "value": 8.9,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D446"
+      ]
+     },
+     {
+      "claim": "0.7%",
+      "value": 0.7,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D530"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Free cash flow to net income above the 1.07x window median would reverse the conversion gap from 0.81x, in the FY2026 10-K [D675][D435].",
+    "type": "judgement",
+    "citations": [
+     "D675",
+     "D435"
+    ],
+    "claims": [
+     {
+      "claim": "1.07x",
+      "value": 1.07,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D675"
+      ]
+     },
+     {
+      "claim": "0.81x",
+      "value": 0.81,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 75,
+  "verified": 69,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "margins",
+    "sentence": "Margin rose 36.9pp in FY2025 [D452], almost all from the residual line at +37.7pp as the FY2024 Alpine charge did not repeat [D468][P11].",
+    "type": "cause",
+    "failure": "'37.7pp' matches cited but not in the period(s) named (2024)"
+   }
+  ]
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 24.2% a year, from $1.70 billion in FY2016 to $12.0 billion in FY2025 [F1][F10][F196]."
+     },
+     {
+      "type": "cause",
+      "text": "Revenue grew 49.1% in FY2020 [D194], driven by TRIKAFTA's US launch in the fourth quarter of 2019 and KAFTRIO's EU launch in the third quarter of 2020 [P51]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating margin fell from 38.8% in FY2023 to -2.1% in FY2024, a 40.9pp drop, as acquired in-process R&D of $4.6 billion included $4.4 billion for Alpine [F33][F34][D408][P11]."
+     },
+     {
+      "type": "comparison",
+      "text": "Growth has since slowed, with revenue up 8.9% in FY2025 [D446] against a 3-year CAGR of 10.4% [D679]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "TRIKAFTA/KAFTRIO reached 85.9% of revenue in FY2025, up from 62.3% in FY2020 [D529][D516]."
+     },
+     {
+      "type": "comparison",
+      "text": "It added 29.5pp to growth in FY2021 and 26.3pp in FY2022 but only 0.7pp in FY2025 [D519][D522][D531]."
+     },
+     {
+      "type": "comparison",
+      "text": "ALYFTREK, with $837.8 million of FY2025 sales, added 7.6pp to growth, more than TRIKAFTA/KAFTRIO's 0.7pp [S69][D590][D531]."
+     },
+     {
+      "type": "comparison",
+      "text": "Profit has lagged revenue: the 3-year operating income CAGR was -1.0% against revenue's 10.4% [D681][D679]."
+     },
+     {
+      "type": "fact",
+      "text": "Diluted shares were 258.0 million in FY2025, unchanged from the prior year, so EPS growth tracked net income [X137][D459]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2025 operating margin of 34.8% sits above the 31.8% window median but below the 48.2% high and far above the -2.1% low [F35][D663][D662][D661]."
+     },
+     {
+      "type": "cause",
+      "text": "Margin rose 36.9pp in FY2025 [D452], almost all from the residual line at +37.7pp as the FY2024 Alpine charge did not repeat [D468][P11]."
+     },
+     {
+      "type": "fact",
+      "text": "SG&A cost 1.3pp of margin, rising to 14.6% of revenue from 13.3%, and the FY2024 10-K guided to higher 2025 spend for launches [D467][D427][D384][P6]."
+     },
+     {
+      "type": "cause",
+      "text": "Cost of sales was 13.8% of revenue in FY2025 [D425], with the filing citing a lower overall royalty rate for CF medicines [P4]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $3.63 billion was 0.92x net income, and free cash flow was 0.81x, against a window median of 1.07x [F85][D434][D435][D675]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing attributes operating cash flow primarily to income from operations of $4.17 billion [P1][F25]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin was 26.6% against a 32.8% median, and capex was 3.6% of revenue and 2.09x D&A [D431][D669][D430][D436]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "cause",
+      "text": "Net cash rose to $12.3 billion from $11.2 billion [D439][D393], and working capital rose to $7.34 billion from $6.03 billion on cash from product revenue [F175][F174][P2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash equals 102.7% of revenue, the 88th percentile among 8 biopharma peers, whose median is -50.7% [D440][D691][D692]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks were $2.02 billion in FY2025, 63.2% of free cash flow, up from $1.18 billion in FY2024 [X147][D442][X146]."
+     },
+     {
+      "type": "comparison",
+      "text": "Return on average equity of 22.5% is the 38th percentile of 8 peers, below their 38.7% median [D445][D695][D696]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Days inventory outstanding rose 85 days to 373 in FY2025, from 135 in FY2016, with inventory up 39.9% [R1][D444][D397][D19][D462]."
+     },
+     {
+      "type": "judgement",
+      "text": "The filings cited do not explain the build, and it ties up cash that could otherwise reach free cash flow [R1][D444]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was 0.81x net income, the 14th percentile of 7 peers, whose median is 1.11x [D435][D693][D694]."
+     },
+     {
+      "type": "fact",
+      "text": "TRIKAFTA/KAFTRIO is 85.9% of revenue with growth of 0.7%, so one product's saturation now sets the top line [D529][D530]."
+     },
+     {
+      "type": "fact",
+      "text": "The tax-rate swing is benign, as the FY2024 rate of 315.5% reflected non-deductible Alpine AIPR&D, and the FY2019 buyback recast touches no figure used here [R2][D390][P5][X141]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "judgement",
+      "text": "Days inventory outstanding staying above 373 days confirms the build, while a fall below FY2024's 287 days would reverse it, in the FY2026 10-K [D444][D397]."
+     },
+     {
+      "type": "judgement",
+      "text": "Revenue growth below 8.9% would confirm the slowdown, with TRIKAFTA/KAFTRIO growth below 0.7% as the check, in the FY2026 10-K [D446][D530]."
+     },
+     {
+      "type": "judgement",
+      "text": "Free cash flow to net income above the 1.07x window median would reverse the conversion gap from 0.81x, in the FY2026 10-K [D675][D435]."
+     }
+    ]
+   }
+  ]
+ }
+}

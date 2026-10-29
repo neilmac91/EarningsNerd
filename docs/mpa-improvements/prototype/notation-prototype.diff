@@ -1,0 +1,208 @@
+diff --git a/frontend/features/analysis/components/DataNoteMark.tsx b/frontend/features/analysis/components/DataNoteMark.tsx
+index 1785625f2..acbcea988 100644
+--- a/frontend/features/analysis/components/DataNoteMark.tsx
++++ b/frontend/features/analysis/components/DataNoteMark.tsx
+@@ -1,7 +1,25 @@
+ import type { DataNote } from '@/features/analysis/lib/dataNotes'
+ 
++/** Plain words for each note kind: the same words on every surface (prototype, docs/mpa-improvements/coherence.md §2). */
++export const NOTE_KIND_WORDS = { review: 'need a source check', unknown: 'no check recorded', unavailable: 'not in our data' } as const
++export const CALCULATED_WORDS = 'calculated by EarningsNerd from filed figures'
++
+ export function dataNoteDescription(note?: DataNote | null) {
+-  return note ? `data note ${note.letter}` : ''
++  return note ? `data note ${note.letter}, ${note.kind === 'review' ? 'needs a source check' : NOTE_KIND_WORDS[note.kind]}` : ''
++}
++
++// One flag size everywhere: the data-xs step, raised, never scaled by the figure it follows.
++const FLAG = 'align-super font-sans text-data-xs font-medium leading-none'
++
++/** The review letter wears a ring so its weight is not carried by colour alone. */
++export function NoteLetter({ note, className = '' }: { note: Pick<DataNote, 'letter' | 'kind'>; className?: string }) {
++  return note.kind === 'review'
++    ? <span aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} title={`Note ${note.letter}: needs a source check`} className={`${FLAG} inline-flex h-[1.35em] min-w-[1.35em] items-center justify-center rounded-full border border-current px-[0.2em] text-warning-light dark:text-warning-dark ${className}`}>{note.letter}</span>
++    : <span aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} title={`Note ${note.letter}: ${NOTE_KIND_WORDS[note.kind]}`} className={`${FLAG} text-text-tertiary-light dark:text-text-secondary-dark ${className}`}>{note.letter}</span>
++}
++
++export function CalculatedFlag({ className = '' }: { className?: string }) {
++  return <span aria-hidden="true" title={`† ${CALCULATED_WORDS}`} className={`${FLAG} text-text-tertiary-light dark:text-text-secondary-dark ${className}`}>†</span>
+ }
+ 
+ /** The enclosing figure/control owns the accessible name; marks never add a Tab stop. */
+@@ -16,11 +34,26 @@ export default function DataNoteMark({ note, calculated = false, announce = fals
+   const spacing = compact ? 'ml-[0.03125rem]' : 'ml-0.5'
+   return (
+     <>
+-      {calculated && <span aria-hidden="true" className={`${spacing} text-text-secondary-light dark:text-text-secondary-dark`}>†</span>}
+-      {note && <sup aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} className={`${spacing} font-data text-data-xs leading-[0] ${note.kind === 'review' ? 'text-warning-light dark:text-warning-dark' : 'text-text-tertiary-light dark:text-text-secondary-dark'}`}>{note.letter}</sup>}
++      {calculated && <CalculatedFlag className={spacing} />}
++      {note && <NoteLetter note={note} className={spacing} />}
+       {/* Anchor the absolute sr-only box inside the table's scroll boundary. Without this
+           containing block, an off-screen comparison can extend the document's scroll width. */}
+       {announce && <span className="relative"><span className="sr-only">{`, ${[calculated ? 'calculated' : '', dataNoteDescription(note)].filter(Boolean).join(', ')}`}</span></span>}
+     </>
+   )
+ }
++
++/** One key, beside every surface that shows a flag: only the marks that surface shows. */
++export function NotationKey({ notes, calculated }: { notes: readonly Pick<DataNote, 'letter' | 'kind' | 'id'>[]; calculated: boolean }) {
++  if (!calculated && notes.length === 0) return null
++  return (
++    <span className="inline-flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
++      {calculated && <span><CalculatedFlag /> calculated</span>}
++      {notes.map((note) => (
++        <a key={note.letter} href={`#${note.id}`} className="rounded underline decoration-dotted underline-offset-2 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
++          <NoteLetter note={note} /> {note.kind === 'review' ? 'needs a source check' : NOTE_KIND_WORDS[note.kind]}
++        </a>
++      ))}
++    </span>
++  )
++}
+diff --git a/frontend/features/analysis/components/DataNotes.tsx b/frontend/features/analysis/components/DataNotes.tsx
+index 10d733745..bf4afa43c 100644
+--- a/frontend/features/analysis/components/DataNotes.tsx
++++ b/frontend/features/analysis/components/DataNotes.tsx
+@@ -9,12 +9,38 @@ import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
+ import { comparisonLocations, tablePeriods } from '@/features/analysis/lib/reportPresentation'
+ import { formatInstant, formatLocalDate } from '@/lib/format'
+ import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
++import { CalculatedFlag, NoteLetter, NOTE_KIND_WORDS } from './DataNoteMark'
+ 
+ /** Nothing to subscribe to: the source date asks only whether it renders in the browser. */
+ const noSubscription = () => () => {}
+ 
+ const comparisonLabel = (basis: string) => basis === 'qoq' ? 'QoQ' : basis === 'yoy' ? 'YoY' : basis === 'window_pp' ? 'window percentage-point' : 'CAGR'
+ 
++
++/** Prototype copy by reason (coherence.md §3); the shipping change moves it to data_notes.REASONS so exports match. */
++const PLAIN_REASONS: Record<string, string> = {
++  legacy_calculation: 'Inputs not linked. We calculated these figures before 10 October 2026, when we began recording each calculation’s inputs. This note says the record is incomplete, not that the figure is wrong: it is shown as stored, without links to its inputs. Before relying on one, open it and compare it with the filing.',
++  source_check_needed: 'Not yet matched to the filing. Our automated check could not confirm these figures against the company’s filed data. Open one to compare it with the filing.',
++  not_in_dataset: 'Not in our data for these periods. Shown as —, never as zero.',
++}
++const plainMessage = (note: DataNote) => note.reasons.every((reason) => PLAIN_REASONS[reason])
++  ? note.reasons.map((reason) => PLAIN_REASONS[reason]).join(' ') : note.message
++
++/** "Operating margin and Net margin (FY2023–FY2025); Working capital (FY2024)": metrics sharing a span share a clause. */
++export function placesSentence(values: DataNote['values']) {
++  const periods = new Map<string, string[]>()
++  for (const value of values) periods.set(value.label, [...(periods.get(value.label) ?? []), value.period])
++  const spans = new Map<string, string[]>()
++  for (const [label, keys] of periods) {
++    const years = [...new Set(keys)].map((key) => /^FY(\d{4})$/.exec(key)?.[1]).map(Number)
++    const span = years.every(Number.isFinite) && years.length > 1 && Math.max(...years) - Math.min(...years) === years.length - 1
++      ? `FY${Math.min(...years)}–FY${Math.max(...years)}` : [...new Set(keys)].map((key) => formatAnalysisPeriod(key)).join(', ')
++    spans.set(span, [...(spans.get(span) ?? []), label])
++  }
++  const list = (labels: string[]) => labels.length < 2 ? labels[0] : `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}`
++  return [...spans].map(([span, labels]) => `${list(labels)} (${span})`).join('; ')
++}
++
+ type ComparisonLocations = ReturnType<typeof comparisonLocations>
+ 
+ function comparisonLocator(location: ReturnType<ComparisonLocations>[number]) {
+@@ -43,16 +69,18 @@ export function DataNotesList({ notes, locations }: { notes: DataNote[]; locatio
+           comparisonPlaces.set(label, [...(comparisonPlaces.get(label) ?? []), comparison.period])
+         }
+         return <li id={note.id} key={note.key} tabIndex={-1} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2 rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+-          <span className={`relative font-data font-medium ${note.kind === 'review' ? 'text-warning-light dark:text-warning-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}><span className="sr-only">Note </span>{note.letter}.</span>
++          <span className="relative pt-0.5"><span className="sr-only">Note {note.letter}, {NOTE_KIND_WORDS[note.kind]}</span><NoteLetter note={note} /></span>
+           <div className="min-w-0 space-y-1">
+-            <p>{note.message}</p>
++            <p className="text-sm text-text-primary-light dark:text-text-primary-dark">{plainMessage(note)}</p>
+             {values.size > 0 && <p>{[...values].map(([label, periods]) => `${label} (${[...new Set(periods)].map((period) => formatAnalysisPeriod(period)).join(', ')})`).join('; ')}.</p>}
+             {(note.values.length > 0 || comparisons.length > 0) && <p className="font-data text-xs">{[
+               ...(note.values.length ? [`${note.values.length} ${note.values.length === 1 ? 'figure' : 'figures'}`] : []),
+               ...comparisons.map(([basis, count]) => `${count} ${comparisonLabel(basis)} ${count === 1 ? 'comparison' : 'comparisons'}`),
+             ].join(' · ')}.</p>}
+-            {comparisonPlaces.size > 0 && <p>Comparisons: {[...comparisonPlaces].map(([label, periods]) => `${label} (${[...new Set(periods)].map((period) => formatAnalysisPeriod(period)).join(', ')})`).join('; ')}.</p>}
+-            {locations?.(note).map(location => <p key={location.basis}>{comparisonLocator(location)}</p>)}
++            {comparisonPlaces.size > 0 && <details><summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Growth figures that carry this note</summary>
++              {comparisonPlaces.size > 0 && <p>Comparisons: {[...comparisonPlaces].map(([label, periods]) => `${label} (${[...new Set(periods)].map((period) => formatAnalysisPeriod(period)).join(', ')})`).join('; ')}.</p>}
++              {locations?.(note).map(location => <p key={location.basis}>{comparisonLocator(location)}</p>)}
++            </details>}
+           </div>
+         </li>
+       })}
+@@ -83,24 +111,25 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
+   return (
+     <section className="min-w-0 border-y border-border-light py-1 dark:border-border-dark" data-analysis-data-notes data-analysis-print-scope={printScope}>
+       <details>
+-        <summary className="cursor-pointer rounded py-2 text-sm text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark">
+-          <span className="font-medium">Data notes</span>
+-          <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
+-            {/* The same words NarrativePane's sample labels use for the one payload (D-046). */}
+-            {sample && <span> · sample data (one saved run)</span>}
+-            {!sample && allPopulatedPassed && <span> · No figures need review · {totals.passed} checked</span>}
+-            {totals.reviewValues > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewValues} {totals.reviewValues === 1 ? 'figure needs' : 'figures need'} review ({letters('review', 'values').join(', ')})</span>}
+-            {totals.reviewComparisons > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewComparisons} {totals.reviewComparisons === 1 ? 'comparison carries' : 'comparisons carry'} {reviewComparisonLetters.length === 1 ? 'note' : 'notes'} {reviewComparisonLetters.join(', ')}</span>}
+-            {totals.unknown > 0 && <span> · {totals.unknown} {totals.unknown === 1 ? 'figure has' : 'figures have'} no validation record ({letters('unknown', 'values').join(', ')})</span>}
+-            {unknownComparisons > 0 && <span> · {unknownComparisons} {unknownComparisons === 1 ? 'comparison has' : 'comparisons have'} no validation record ({letters('unknown', 'comparisons').join(', ')})</span>}
+-            {totals.unavailable > 0 && <span> · {totals.unavailable} unavailable ({letters('unavailable', 'values').join(', ')})</span>}
+-            {totals.calculated > 0 && <span> · {totals.calculated} calculated †</span>}
++        <summary className="cursor-pointer list-none rounded py-2 text-sm text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark [&::-webkit-details-marker]:hidden">
++          <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
++            <span className="font-medium">Data notes</span>
++            {sample && <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">sample data (one saved run)</span>}
++            {!sample && totals.total > 0 && <span className="text-text-secondary-light dark:text-text-secondary-dark">Of <span className="tnum font-data">{totals.total}</span> figures, <span className="tnum font-data">{totals.passed}</span> passed automated checks</span>}
++            {model.notes.filter((note) => note.values.length > 0).map((note) => <span key={note.key} className={note.kind === 'review' ? 'text-warning-light dark:text-warning-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}>
++              <NoteLetter note={note} /> <span className="tnum font-data">{note.values.length}</span> {note.values.length === 1 ? NOTE_KIND_WORDS[note.kind].replace('need a', 'needs a') : NOTE_KIND_WORDS[note.kind]}
++            </span>)}
++            {totals.calculated > 0 && <span className="text-text-secondary-light dark:text-text-secondary-dark"><CalculatedFlag /> <span className="tnum font-data">{totals.calculated}</span> calculated</span>}
++            <span className="text-xs text-brand-strong underline underline-offset-2 dark:text-brand-strong-dark">Details</span>
+           </span>
++          {model.notes.some((note) => note.kind === 'review' && note.values.length > 0) && <span className="mt-1 block text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
++            Ringed letters mark figures to check before relying on them: {model.notes.filter((note) => note.kind === 'review').map((note) => placesSentence(note.values)).join('; ')}.{totals.reviewComparisons > 0 && ` ${totals.reviewComparisons} growth figures built on them carry the same note.`}
++          </span>}
+         </summary>
+         <div className="space-y-3 pb-3 pt-1 text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+           <DataNotesList notes={model.notes} locations={locations} />
+           <p>Automated checks confirm that reported figures come from the company’s filed data (XBRL) and that calculations combine compatible periods and units; they are not an audit of the company’s accounts.</p>
+-          <p>Select a figure to inspect its source, reporting period and calculation. Letters identify data notes; † marks a calculated figure, not an error. Comparisons retain notes from their source inputs. Counts describe distinct figures and comparisons, not the number of places they appear.</p>
++          <p>Select a figure to inspect its source, reporting period and calculation. A ringed letter marks a figure that needs a source check; a plain letter marks a gap; † marks a figure we calculated, not an error. Comparisons retain notes from their source inputs. Counts describe distinct figures and comparisons, not the number of places they appear.</p>
+           <details>
+             <summary className="cursor-pointer rounded font-medium focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Sources &amp; methods</summary>
+             <div className="mt-2 space-y-2">
+diff --git a/frontend/features/analysis/components/KpiStrip.tsx b/frontend/features/analysis/components/KpiStrip.tsx
+index dd1ef822b..2dd1a7679 100644
+--- a/frontend/features/analysis/components/KpiStrip.tsx
++++ b/frontend/features/analysis/components/KpiStrip.tsx
+@@ -55,7 +55,7 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
+       </dd>
+       <dd className="tnum flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 self-start font-data text-xs">
+         <span className="text-text-secondary-light dark:text-text-secondary-dark">
+-          {formatAnalysisPeriod(kpi.point.period)}{kpi.latestAvailable && <span> · latest available</span>}
++          {formatAnalysisPeriod(kpi.point.period)}{kpi.latestAvailable && <span> · latest available</span>}{kpi.note?.kind === 'review' && <span className="text-warning-light dark:text-warning-dark"> · needs a source check</span>}
+         </span>
+         {text && <span className={`${directionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`} title={kpi.growthTitle}>
+           {kpi.growthLabel} {text}<DataNoteMark note={kpi.growthNote} />
+diff --git a/frontend/features/analysis/components/MetricsTable.tsx b/frontend/features/analysis/components/MetricsTable.tsx
+index ef38c4341..6c9e7f192 100644
+--- a/frontend/features/analysis/components/MetricsTable.tsx
++++ b/frontend/features/analysis/components/MetricsTable.tsx
+@@ -10,7 +10,7 @@ import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudg
+ import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
+ import { tableComparisonBasis, tablePeriods, tablePresentation, type TableWindow } from '@/features/analysis/lib/reportPresentation'
+ import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+-import DataNoteMark from './DataNoteMark'
++import DataNoteMark, { NotationKey } from './DataNoteMark'
+ import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
+ import DataNotesLink from './DataNotesLink'
+ import SourceValue from './SourceValue'
+@@ -173,15 +173,7 @@ export default function MetricsTable({
+           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+             Metrics by period
+           </Heading>
+-          <DataNotesLink notes={visibleNotes} />
+-          {hasDerived && (
+-            <span
+-              className="text-xs text-text-secondary-light dark:text-text-secondary-dark"
+-              title="Calculated from source figures. Select a value to inspect its inputs and method."
+-            >
+-              † calculated
+-            </span>
+-          )}
++          <NotationKey notes={visibleNotes} calculated={hasDerived} />
+         </div>
+         {onExportXlsx && (
+           <Button

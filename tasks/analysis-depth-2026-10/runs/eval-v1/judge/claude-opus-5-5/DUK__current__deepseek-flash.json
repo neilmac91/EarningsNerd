@@ -1,0 +1,86 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values and gives vague watch items with no thresholds. B explains segment drivers, D&A, fuel undercollections, peers and cash conversion, with numeric watch thresholds. It has real grounding slips: it omits the prior-year impairment as the main FY2024 driver, applies a net-income passage to revenue, claims a 2.19-3.48x OCF/NI range that FY2020's 6.4x breaks, and calls 15.7% net margin 'close' to 27.2%."
+   },
+   "cost_usd": 0.098037,
+   "latency_s": 13.805,
+   "input_tokens": 10622,
+   "output_tokens": 937,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values and gives vague watch items with no thresholds. B explains segment drivers, D&A, fuel undercollections, peers and cash conversion, with numeric watch thresholds. It has real grounding slips: it omits the prior-year impairment as the main FY2024 driver, applies a net-income passage to revenue, claims a 2.19-3.48x OCF/NI range that FY2020's 6.4x breaks, and calls 15.7% net margin 'close' to 27.2%.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A has far more insight, but several claims misread their sources. It attributes FY2024 growth to rates and weather while omitting the cited primary driver, the prior-year impairments. It pins FY2022 revenue to a cash-flow passage about net income. It says an 11.2% tax rate kept net margin 'close' to operating margin (15.7% vs 27.2%) and confuses net-debt signs. B is shallow and mostly restates the table, but every claim is supported."
+   },
+   "cost_usd": 0.099805,
+   "latency_s": 14.739,
+   "input_tokens": 10628,
+   "output_tokens": 1023,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A has far more insight, but several claims misread their sources. It attributes FY2024 growth to rates and weather while omitting the cited primary driver, the prior-year impairments. It pins FY2022 revenue to a cash-flow passage about net income. It says an 11.2% tax rate kept net margin 'close' to operating margin (15.7% vs 27.2%) and confuses net-debt signs. B is shallow and mostly restates the table, but every claim is supported.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.197842
+}

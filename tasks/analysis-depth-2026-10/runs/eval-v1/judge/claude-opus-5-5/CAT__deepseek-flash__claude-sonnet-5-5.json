@@ -1,0 +1,86 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A has factual and grounding errors. It calls -38.8% net debt 'better' than the -35.6% peer median. It says cash 'stayed flat' after a 44.9% rise. It credits a higher tax rate with narrowing the margin drop, and compares OCF/NI with an FCF/NI median. B ties causes to cited passages, adds the FY2023 inflection and the Construction Industries price drag, labels its analysis, and sets sharper watch thresholds."
+   },
+   "cost_usd": 0.138125,
+   "latency_s": 11.841,
+   "input_tokens": 15998,
+   "output_tokens": 791,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A has factual and grounding errors. It calls -38.8% net debt 'better' than the -35.6% peer median. It says cash 'stayed flat' after a 44.9% rise. It credits a higher tax rate with narrowing the margin drop, and compares OCF/NI with an FCF/NI median. B ties causes to cited passages, adds the FY2023 inflection and the Construction Industries price drag, labels its analysis, and sets sharper watch thresholds.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft B contains several factual errors. It calls net debt of -38.8% of revenue 'better' than the -35.6% peer median. It says cash 'stayed flat' after reporting a 44.9% rise. It claims a higher tax rate explains net margin falling less than operating margin, and compares operating cash flow conversion with the free cash flow median. Draft A's causal claims match its cited passages, its interpretations are labelled as analysis, and it links its watch items to company guidance."
+   },
+   "cost_usd": 0.146705,
+   "latency_s": 16.117,
+   "input_tokens": 15998,
+   "output_tokens": 1220,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft B contains several factual errors. It calls net debt of -38.8% of revenue 'better' than the -35.6% peer median. It says cash 'stayed flat' after reporting a 44.9% rise. It claims a higher tax rate explains net margin falling less than operating margin, and compares operating cash flow conversion with the free cash flow median. Draft A's causal claims match its cited passages, its interpretations are labelled as analysis, and it links its watch items to company guidance.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.28483
+}

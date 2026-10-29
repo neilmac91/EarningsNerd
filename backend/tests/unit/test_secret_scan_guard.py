@@ -3926,7 +3926,7 @@ def test_a_session_start_outside_a_repository_does_nothing(tmp_path: Path) -> No
 def test_a_session_start_reads_git_in_english_whatever_the_session_s_language(tmp_path: Path) -> None:
     # git in the session's language: the start reads "not a git repository" in git's own words
     translated = _git_wrapper(tmp_path / "bin", '[ "${LC_ALL-}" = C ] && exec "$REAL" "$@"\n'
-                              'err=$(mktemp) || exit 1\n"$REAL" "$@" 2>"$err"; code=$?\n'
+                              'err=$(mktemp) || exit 1\nLC_ALL=C "$REAL" "$@" 2>"$err"; code=$?\n'
                               'sed "s/not a git repository/kein Git-Repository/" "$err" >&2; rm -f "$err"; exit $code')
     german = {**translated, "LC_ALL": "de_DE.UTF-8", "LANGUAGE": "de"}
     plain = _plain(tmp_path)
@@ -4036,8 +4036,11 @@ def test_turn_on_names_a_moved_clone_s_old_path_and_leaves_it(project: Project, 
     again = Project(tmp_path / "again", project.cache, project.log)
     moved.root.rename(again.root)
     proc = _turned_on(again, root=linked)
-    assert proc.returncode == 1 and proc.stdout.startswith(f"{OFF}git cannot read the clone (fatal: not a git "
-                                                           "repository: "), proc.stdout
+    # in git's own words, which differ by release: git 2.43 says "not a git repository" and git 2.56 (CI's runner
+    # image of 2026-10-25) "gitfile does not point to a valid repository"
+    assert proc.returncode == 1 and proc.stdout.startswith(tuple(
+        f"{OFF}git cannot read the clone (fatal: {words}: "
+        for words in ("not a git repository", "gitfile does not point to a valid repository"))), proc.stdout
     proc = _session_start(again, CLOUD, linked)
     assert proc.returncode == 0 and proc.stdout.startswith(f"{OFF}git cannot read the clone (fatal: "), proc.stdout
 

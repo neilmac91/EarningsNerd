@@ -23,7 +23,9 @@ import { STATIC_ENTRIES } from '../../app/sitemap'
  * must read stays secondary. The ink is read from tailwind.config.js, so a token change cannot leave
  * the census looking at a colour nothing uses; the census must also find tertiary text, or a broken
  * probe would pass.
- * The census is light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
+ * The census runs in both themes (E202 (1)): in dark, muted text takes tertiary's dark twin (gray-400 #9CA3AF), measured
+ * the same way against what is behind it, tints included; tests/unit/figureSurfaceInks.spec.ts also holds that twin
+ * text-safe on the bare dark panel and page.
  *
  * The waitlist's join link (E82), in both themes: the pill rests at the secondary recipe's hover fill
  * (`bg-brand-weak`; in dark a shade stronger, `bg-brand-dark/15` beside the recipe's `brand-weak-dark` at 0.14)
@@ -51,19 +53,22 @@ import { STATIC_ENTRIES } from '../../app/sitemap'
  */
 
 const TAILWIND = createRequire(__filename)('../../tailwind.config.js') as {
-  theme: { extend: { colors: { text: { tertiary: { light: string } }; brand: { strong: string; 'strong-dark': string } } } }
+  theme: { extend: { colors: { text: { tertiary: { light: string; dark: string } }; brand: { strong: string; 'strong-dark': string } } } }
 }
 const hexToRgb = (hex: string) => {
   const n = parseInt(hex.replace('#', ''), 16)
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 const TERTIARY_INK = hexToRgb(TAILWIND.theme.extend.colors.text.tertiary.light)
+const TERTIARY_INK_DARK = hexToRgb(TAILWIND.theme.extend.colors.text.tertiary.dark)
 /** The secondary recipe's label ink, per theme (`text-brand-strong`, `dark:text-brand-strong-dark`). */
 const BRAND_INK = {
   light: hexToRgb(TAILWIND.theme.extend.colors.brand.strong),
   dark: hexToRgb(TAILWIND.theme.extend.colors.brand['strong-dark']),
 }
 const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Source"]'
+/** The in-flight card's pending step, the label the "summary in flight" route waits for. */
+const PENDING_STEP = 'Writing the summary and checking figures against the filing'
 
 const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
 const companyFiling = (id: number, filing_type: string, filing_date: string, report_date: string) => ({
@@ -148,7 +153,7 @@ const ROUTES: Route[] = [
     },
     ready: async (p) => {
       await expect(p.getByRole('heading', { level: 2, name: 'Generating the summary' })).toBeVisible()
-      await expect(p.getByText('Writing the summary', { exact: true })).toBeVisible()
+      await expect(p.getByText(PENDING_STEP, { exact: true })).toBeVisible()
       // The status line crossfades in on mount (animate-fadeIn): the census reads the header once that has finished, never mid-opacity.
       await settled(p.getByRole('heading', { level: 2, name: 'Generating the summary' }).locator('xpath=..'))
     },
@@ -391,7 +396,8 @@ test.describe('main routes at 1440x900, light theme', () => {
       // Anti-vacuity: the homepage keeps tertiary labels inside its sample cards (on panel and white), and
       // the in-flight card its pending step labels.
       if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name}`).toBeGreaterThan(10)
-      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain('Writing the summary')
+      // The census keeps a text's first 48 characters (inkCensus), so the step is matched on as much.
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain(PENDING_STEP.slice(0, 48))
       // Soft: one run reports every floor a route misses.
       expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name}`).toEqual([])
 
@@ -463,6 +469,37 @@ test.describe('main routes at 1440x900, light theme', () => {
     expect(isInstance('/docs/[...slug]', '/docs')).toBe(false)
     expect(isInstance('/docs/[[...slug]]', '/docs')).toBe(true)
   })
+})
+
+/**
+ * The census in dark (E202 (1)): muted ink there is tertiary's dark twin (gray-400, read from tailwind.config.js),
+ * measured as the light census measures its ink, against what is behind each text, tints included, on the same routes
+ * at the same width, the company page's hovered year header too. The heading outline and the census's route lists do
+ * not change with the theme, so the light describe holds them alone.
+ */
+test.describe('main routes at 1440x900, dark theme', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  for (const route of [...ROUTES, ...PUBLIC_ROUTES]) {
+    test(`${route.name}: muted ink clears AA in dark`, async ({ page, baseURL }) => {
+      await visit(page, baseURL!, route, 'dark')
+      expect(await page.evaluate(() => document.documentElement.classList.contains('dark')), 'the dark theme took').toBe(true)
+      await page.mouse.move(0, 0)
+
+      const census = await inkCensus(page, TERTIARY_INK_DARK, route.foldOpacity)
+      // Anti-vacuity, as in light: the homepage's sample cards and the in-flight card's pending steps.
+      if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name} in dark`).toBeGreaterThan(10)
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name} in dark`).toContain(PENDING_STEP.slice(0, 48))
+      expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name} in dark`).toEqual([])
+
+      if (route.name === 'company') {
+        const header = page.getByRole('button', { name: /^Report year 2025\b/ })
+        await header.hover()
+        await settled(header)
+        expect.soft((await inkCensus(page, TERTIARY_INK_DARK)).filter((c) => c.ratio < 4.5), 'tertiary text under 4.5:1 with a year header hovered, in dark').toEqual([])
+      }
+    })
+  }
 })
 
 /**

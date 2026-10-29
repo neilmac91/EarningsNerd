@@ -18,23 +18,45 @@ the corresponding visible warnings; mutations removing these paths must fail tho
 **Additional evidence (2026-10-11, analysis data notes)**: Repeated warnings made the same concern
 look like many unrelated errors and widened metric columns. Group explanations once and carry the
 same letters, reason identities and counts across the report and exports; keep a mark at each
-affected figure. Shared `backend/tests/fixtures/analysis_data_notes.json` cases are exercised by
+figure whose note questions the number, and every note in the evidence dialog, the data notes and the
+exports (D-061, 2026-10-25: a record-only `legacy_calculation` note, a gap and a missing check record mark
+nothing; `frontend/tests/unit/dataNoteMarking.spec.tsx` holds the rule to the shared fixture's
+`marked_letters`). Shared `backend/tests/fixtures/analysis_data_notes.json` cases are exercised by
 Python and TypeScript. `test_analysis_data_notes.py`, `data-notes.spec.ts` and export tests pin the
 shared groups and numeric-cell preservation. `analysis-presentation-api.spec.ts` rejects supplied
 metadata that omits concerns or belongs to another snapshot before the stream becomes terminal;
 an absent legacy field alone permits the older presentation fallback.
+Every reason the backend writes has words of its own in `data_notes.REASONS` and `provenance.ts`
+REASONS (2026-10-25, data notes version 2): `backend/tests/unit/test_data_note_reasons_have_words.py`
+reads every module under `app/` and fails a reason it finds with none, which would otherwise reach the page and
+the exports as the generic fallback sentence, and runs every emitter module the reader names through each
+reason-writing line it names (traced; quarterly_fact_repair on in-memory SQLite) to hold the codes it gathers to the
+same words and to what the reader finds, and the shared fixture holds the two maps, the
+record-only list and the fine print's summary words equal. A saved analysis keeps its notes, and the
+cache admits it by `DATA_NOTES_VERSION` alone, so a change to the words, the record-only list or the
+letter order takes a new version: `test_analysis_data_notes.py` pins each version's digest
+(`NOTES_DIGESTS`), and a row saved under the old version regenerates once, unmetered.
 
 **Deployment compatibility (2026-10-11)**: Adding structured evidence does not update an
-already-open browser tab. Keep the code-owned operand tail in its existing wire grammar until
-those clients no longer depend on it; compact the reading prose and structured operand values
-separately. Format the PDF's presentation copy without rewriting stored evidence. The shared
-`analysis_legacy_evidence.json` fixture is pinned by the backend producer and consumed by the
-unchanged frontend evidence parser in `narrative-pane.spec.tsx`; restoring whole-observation
-formatting must fail this gate.
+already-open browser tab. Nor does a data notes version: a tab that loaded its report under the old
+version still decodes it, but refuses the first narrative it streams after the backend moves (a new
+report prefix, EVIDENCE_RECOVERY) until Run analysis reloads the report; `data-notes.spec.ts` holds
+both halves (2026-10-26). A tab whose bundle cannot read the new version refuses the reloaded
+report too, so a version move lands its reader first, in a pull request of its own
+(`arch-a-data-notes-version-lands-its-reader-first.md`, 2026-10-28). Keep the code-owned operand
+tail in its existing wire grammar until those clients no longer depend on it; compact the reading
+prose and structured operand values separately. Format the PDF's presentation copy without
+rewriting stored evidence. The shared `analysis_legacy_evidence.json` fixture is pinned by the
+backend producer and consumed by the unchanged frontend evidence parser in
+`narrative-pane.spec.tsx`; restoring whole-observation formatting must fail this gate.
 
 **Export count evidence (2026-10-11)**: A comparison can lack validation even when all selected
 figures passed their checks. The shared `totals.unknown` counts figures only; PDF and workbook
 summaries separately count unknown comparison memberships instead of implying that this total
 covers both populations. `test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook`
 uses the shared annual-window fixture to check both rendered exports and preserve the source
-dataset and totals unchanged.
+dataset and totals unchanged. Since 2026-10-27 (MPA WP3-B, D-061) both summaries are the page's fine
+print (`analysis_export_metadata.fine_print_summary`): each marked note's places and words, then "N not
+in our data", "N figures with no check recorded" and, apart, "N growth figures with no check recorded",
+"N calculated from filed figures", and "No figures need review · N checked" never beside a record-only
+note; `test_export_note_marks.py` holds both exports' letters to the shared fixture's `marked_letters`.

@@ -1,0 +1,2613 @@
+{
+ "ticker": "JPM",
+ "arm": "deepseek-flash-c",
+ "family": "deepseek",
+ "model": "deepseek-flash",
+ "split": "dev",
+ "profile": "bank",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "e6a42ec93dd2c08129652dc05a9b532650bd247ade35a55da12b4857a8383954",
+ "prompt_sha256": "05f799a8cdcc892d0843a5987d9d8333cc1c81a02571d18d71a12a619ce0b33e",
+ "packs": "packs-v2",
+ "pack_sha256": "514acb679e38e9069913fa8e1ae537004a1585961c4242e07df14e2a14503378",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 30001,
+   "cached_input_tokens": 2432,
+   "output_tokens": 1752,
+   "reasoning_tokens": 0,
+   "latency_s": 12.107,
+   "cost_usd": 0.005194,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 31753
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue, net interest income plus noninterest income, rose from $96.6 billion in FY2016 to $182 billion in FY2025, a 7.3% CAGR [D5][D206].\"},\n    {\"type\": \"comparison\", \"text\": \"The path was a step change rather than a smooth compound: revenue was $121.6 billion in FY2021 and $158 billion in FY2023, a 30% jump in two years [D110][D159].\"},\n    {\"type\": \"cause\", \"text\": \"Net interest income drove that step, rising 33.8% in FY2023 to $89.3 billion, as higher rates lifted interest income to $171 billion [D174][F8][X125].\"},\n    {\"type\": \"comparison\", \"text\": \"FY2025 growth slowed to 2.8%, with net interest income up 3.1% and noninterest income up 2.4% [D226][D221][D222].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"North America supplied the bulk of growth, contributing 20.6pp of the FY2023 revenue increase and 10.2pp in FY2024, before fading to 0.2pp in FY2025 [D245][D248][D251].\"},\n    {\"type\": \"comparison\", \"text\": \"Asia-Pacific was the fastest-growing geography in FY2025, up 17.3% and contributing 1.2pp, with EMEA adding 1.2pp on 9.5% growth [D300][D301][D275][D276].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2025 net interest income increase came from higher Markets net interest income, higher Card Services revolving balances and higher wholesale deposit balances, largely offset by deposit margin compression [P28].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating costs grew 1.4pp faster than revenue in FY2025, at 4.2% against 2.8% [D225][D226].\"},\n    {\"type\": \"comparison\", \"text\": \"EPS grew faster than net income over the window, 13.9% against 9.7% CAGR, as the diluted share count fell 3.4% in FY2025 alone [F115][F113][D224].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The efficiency ratio was 52.4% in FY2025, against a 57.2% window median and a 51.7% window low in FY2024 [D207][D333][D331].\"},\n    {\"type\": \"comparison\", \"text\": \"That is the best cost discipline in the peer group, at the 0th percentile against a 61.7% median for seven banks [D336][D337].\"},\n    {\"type\": \"cause\", \"text\": \"Noninterest expense rose 4% to $95.6 billion on higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing spend, partly offset by FDIC special assessment releases [P26][X137].\"},\n    {\"type\": \"comparison\", \"text\": \"In FY2025 net margin of 31.2% sat 21.2pp below the 52.3% net interest income share of revenue, with the 7.8% credit-loss provision and 52.4% efficiency ratio the gap [D210][D209][D208][D207].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Operating cash flow is not a meaningful earnings-quality measure for a bank; it swung to -$147.8 billion in FY2025 from -$42.0 billion in FY2024 [F60][F59].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2025 outflow came from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income and higher trading liabilities [P21].\"},\n    {\"type\": \"comparison\", \"text\": \"Capital return is the better test: buybacks plus dividends of $48.2 billion were 85% of the $57.0 billion net income [D205][F30].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Return on average equity was 16.1% in FY2025, at the 100th percentile against an 11.8% peer median [D213][D338][D339].\"},\n    {\"type\": \"fact\", \"text\": \"Shareholders' equity reached $362 billion against $4.42 trillion of assets, with loans of $1.47 trillion at 57.3% of $2.56 trillion of deposits [F110][F90][X197][X207][D211].\"},\n    {\"type\": \"cause\", \"text\": \"Loans grew $121.1 billion, driven by CIB Markets and AWM securities-based lending on higher client demand [P4].\"},\n    {\"type\": \"comparison\", \"text\": \"FY2025 buybacks of $31.6 billion and dividends of $16.6 billion exceeded the prior year's $33.6 billion combined, and the diluted share count fell 3.4% [X102][X112][D182][D224].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"The credit-loss provision rose to 7.8% of revenue in FY2025 from 6.0% in FY2024, above the 6.0% peer median and at the 75th percentile of four banks [D208][D185][D341][D340].\"},\n    {\"type\": \"judgement\", \"text\": \"Criticized wholesale exposure of $48.5 billion, up from $44.7 billion, and rising nonaccruals point to a credit cycle turning rather than a one-quarter charge [P2][P1].\"},\n    {\"type\": \"fact\", \"text\": \"Net income for FY2021 to FY2025 in the table comes from the proxy pay-versus-performance table, not the 10-K, and differs by up to 0.10% [R1][F26][X16][F30][X20].\"},\n    {\"type\": \"judgement\", \"text\": \"The gap is immaterial to the trend but the 10-K figures should be used where precision matters [R1].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Whether the efficiency ratio holds below the 57.2% window median or drifts back toward the 59.2% FY2022 high, reported in the FY2026 10-K [D333][D332].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether the credit-loss provision stays above the 6.0% peer median or falls back toward the 5.0% FY2022 level, in the FY2026 10-K [D341][D136].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether net interest income growth recovers from 3.1% toward the 12.3% three-year revenue CAGR, in the FY2026 10-K [D221][D335].\"}\n  ]}\n]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 31933,
+   "cached_input_tokens": 29952,
+   "output_tokens": 110,
+   "reasoning_tokens": 0,
+   "latency_s": 3.761,
+   "cost_usd": 0.000453,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 32043
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"arc\", \"original\": \"Net interest income drove that step, rising 33.8% in FY2023 to $89.3 billion, as higher rates lifted interest income to $171 billion [D174][F8][X125].\", \"type\": \"fact\", \"text\": \"Net interest income rose 33.8% in FY2023 to $89.3 billion, with interest income at $171 billion [D174][F8][X125].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 61934,
+  "cached_input_tokens": 32384,
+  "output_tokens": 1862,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 15.868,
+ "cost_usd": 0.005647,
+ "generation_ok": true,
+ "pipeline": "v2",
+ "nonce": "d617aa663ec8",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue, net interest income plus noninterest income, rose from $96.6 billion in FY2016 to $182 billion in FY2025, a 7.3% CAGR [D5][D206]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was a step change rather than a smooth compound: revenue was $121.6 billion in FY2021 and $158 billion in FY2023, a 30% jump in two years [D110][D159]."
+     },
+     {
+      "type": "fact",
+      "text": "Net interest income rose 33.8% in FY2023 to $89.3 billion, with interest income at $171 billion [D174][F8][X125]."
+     },
+     {
+      "type": "comparison",
+      "text": "FY2025 growth slowed to 2.8%, with net interest income up 3.1% and noninterest income up 2.4% [D226][D221][D222]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "North America supplied the bulk of growth, contributing 20.6pp of the FY2023 revenue increase and 10.2pp in FY2024, before fading to 0.2pp in FY2025 [D245][D248][D251]."
+     },
+     {
+      "type": "comparison",
+      "text": "Asia-Pacific was the fastest-growing geography in FY2025, up 17.3% and contributing 1.2pp, with EMEA adding 1.2pp on 9.5% growth [D300][D301][D275][D276]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2025 net interest income increase came from higher Markets net interest income, higher Card Services revolving balances and higher wholesale deposit balances, largely offset by deposit margin compression [P28]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 1.4pp faster than revenue in FY2025, at 4.2% against 2.8% [D225][D226]."
+     },
+     {
+      "type": "comparison",
+      "text": "EPS grew faster than net income over the window, 13.9% against 9.7% CAGR, as the diluted share count fell 3.4% in FY2025 alone [F115][F113][D224]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The efficiency ratio was 52.4% in FY2025, against a 57.2% window median and a 51.7% window low in FY2024 [D207][D333][D331]."
+     },
+     {
+      "type": "comparison",
+      "text": "That is the best cost discipline in the peer group, at the 0th percentile against a 61.7% median for seven banks [D336][D337]."
+     },
+     {
+      "type": "cause",
+      "text": "Noninterest expense rose 4% to $95.6 billion on higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing spend, partly offset by FDIC special assessment releases [P26][X137]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2025 net margin of 31.2% sat 21.2pp below the 52.3% net interest income share of revenue, with the 7.8% credit-loss provision and 52.4% efficiency ratio the gap [D210][D209][D208][D207]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Operating cash flow is not a meaningful earnings-quality measure for a bank; it swung to -$147.8 billion in FY2025 from -$42.0 billion in FY2024 [F60][F59]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2025 outflow came from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income and higher trading liabilities [P21]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capital return is the better test: buybacks plus dividends of $48.2 billion were 85% of the $57.0 billion net income [D205][F30]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Return on average equity was 16.1% in FY2025, at the 100th percentile against an 11.8% peer median [D213][D338][D339]."
+     },
+     {
+      "type": "fact",
+      "text": "Shareholders' equity reached $362 billion against $4.42 trillion of assets, with loans of $1.47 trillion at 57.3% of $2.56 trillion of deposits [F110][F90][X197][X207][D211]."
+     },
+     {
+      "type": "cause",
+      "text": "Loans grew $121.1 billion, driven by CIB Markets and AWM securities-based lending on higher client demand [P4]."
+     },
+     {
+      "type": "comparison",
+      "text": "FY2025 buybacks of $31.6 billion and dividends of $16.6 billion exceeded the prior year's $33.6 billion combined, and the diluted share count fell 3.4% [X102][X112][D182][D224]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "The credit-loss provision rose to 7.8% of revenue in FY2025 from 6.0% in FY2024, above the 6.0% peer median and at the 75th percentile of four banks [D208][D185][D341][D340]."
+     },
+     {
+      "type": "judgement",
+      "text": "Criticized wholesale exposure of $48.5 billion, up from $44.7 billion, and rising nonaccruals point to a credit cycle turning rather than a one-quarter charge [P2][P1]."
+     },
+     {
+      "type": "fact",
+      "text": "Net income for FY2021 to FY2025 in the table comes from the proxy pay-versus-performance table, not the 10-K, and differs by up to 0.10% [R1][F26][X16][F30][X20]."
+     },
+     {
+      "type": "judgement",
+      "text": "The gap is immaterial to the trend but the 10-K figures should be used where precision matters [R1]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether the efficiency ratio holds below the 57.2% window median or drifts back toward the 59.2% FY2022 high, reported in the FY2026 10-K [D333][D332]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether the credit-loss provision stays above the 6.0% peer median or falls back toward the 5.0% FY2022 level, in the FY2026 10-K [D341][D136]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether net interest income growth recovers from 3.1% toward the 12.3% three-year revenue CAGR, in the FY2026 10-K [D221][D335]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 618,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 27,
+  "sentence_types": {
+   "fact": 5,
+   "comparison": 15,
+   "cause": 5,
+   "judgement": 2
+  },
+  "claims": 68,
+  "verified": 68,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "arc",
+    "sentence": "Net interest income drove that step, rising 33.8% in FY2023 to $89.3 billion, as higher rates lifted interest income to $171 billion [D174][F8][X125].",
+    "type": "cause",
+    "failure": "cause sentence cites no filing passage"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue, net interest income plus noninterest income, rose from $96.6 billion in FY2016 to $182 billion in FY2025, a 7.3% CAGR [D5][D206].",
+    "type": "fact",
+    "citations": [
+     "D5",
+     "D206"
+    ],
+    "claims": [
+     {
+      "claim": "$96.6 billion",
+      "value": 96.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D5"
+      ]
+     },
+     {
+      "claim": "$182 billion",
+      "value": 182.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D206"
+      ]
+     },
+     {
+      "claim": "7.3%",
+      "value": 7.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "CAGR D5->D206 over 9y",
+      "ids": [
+       "D206",
+       "D5"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was a step change rather than a smooth compound: revenue was $121.6 billion in FY2021 and $158 billion in FY2023, a 30% jump in two years [D110][D159].",
+    "type": "comparison",
+    "citations": [
+     "D110",
+     "D159"
+    ],
+    "claims": [
+     {
+      "claim": "$121.6 billion",
+      "value": 121.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D110"
+      ]
+     },
+     {
+      "claim": "$158 billion",
+      "value": 158.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D159"
+      ]
+     },
+     {
+      "claim": "30%",
+      "value": 30.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "growth D159/D110",
+      "ids": [
+       "D159",
+       "D110"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Net interest income drove that step, rising 33.8% in FY2023 to $89.3 billion, as higher rates lifted interest income to $171 billion [D174][F8][X125].",
+    "type": "cause",
+    "citations": [
+     "D174",
+     "F8",
+     "X125"
+    ],
+    "claims": [
+     {
+      "claim": "33.8%",
+      "value": 33.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D174"
+      ]
+     },
+     {
+      "claim": "$89.3 billion",
+      "value": 89.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F8"
+      ]
+     },
+     {
+      "claim": "$171 billion",
+      "value": 171.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X125"
+      ]
+     }
+    ],
+    "failures": [
+     "cause sentence cites no filing passage"
+    ]
+   },
+   {
+    "section": "arc",
+    "text": "FY2025 growth slowed to 2.8%, with net interest income up 3.1% and noninterest income up 2.4% [D226][D221][D222].",
+    "type": "comparison",
+    "citations": [
+     "D226",
+     "D221",
+     "D222"
+    ],
+    "claims": [
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     },
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D221"
+      ]
+     },
+     {
+      "claim": "2.4%",
+      "value": 2.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D222"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "North America supplied the bulk of growth, contributing 20.6pp of the FY2023 revenue increase and 10.2pp in FY2024, before fading to 0.2pp in FY2025 [D245][D248][D251].",
+    "type": "comparison",
+    "citations": [
+     "D245",
+     "D248",
+     "D251"
+    ],
+    "claims": [
+     {
+      "claim": "20.6pp",
+      "value": 20.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D245"
+      ]
+     },
+     {
+      "claim": "10.2pp",
+      "value": 10.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D248"
+      ]
+     },
+     {
+      "claim": "0.2pp",
+      "value": 0.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D251"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Asia-Pacific was the fastest-growing geography in FY2025, up 17.3% and contributing 1.2pp, with EMEA adding 1.2pp on 9.5% growth [D300][D301][D275][D276].",
+    "type": "comparison",
+    "citations": [
+     "D300",
+     "D301",
+     "D275",
+     "D276"
+    ],
+    "claims": [
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D300"
+      ]
+     },
+     {
+      "claim": "1.2pp",
+      "value": 1.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D301"
+      ]
+     },
+     {
+      "claim": "1.2pp",
+      "value": 1.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D301"
+      ]
+     },
+     {
+      "claim": "9.5%",
+      "value": 9.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D275"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The FY2025 net interest income increase came from higher Markets net interest income, higher Card Services revolving balances and higher wholesale deposit balances, largely offset by deposit margin compression [P28].",
+    "type": "cause",
+    "citations": [
+     "P28"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs grew 1.4pp faster than revenue in FY2025, at 4.2% against 2.8% [D225][D226].",
+    "type": "comparison",
+    "citations": [
+     "D225",
+     "D226"
+    ],
+    "claims": [
+     {
+      "claim": "1.4pp",
+      "value": 1.4,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D225-D226",
+      "ids": [
+       "D225",
+       "D226"
+      ]
+     },
+     {
+      "claim": "4.2%",
+      "value": 4.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D225"
+      ]
+     },
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "EPS grew faster than net income over the window, 13.9% against 9.7% CAGR, as the diluted share count fell 3.4% in FY2025 alone [F115][F113][D224].",
+    "type": "comparison",
+    "citations": [
+     "F115",
+     "F113",
+     "D224"
+    ],
+    "claims": [
+     {
+      "claim": "13.9%",
+      "value": 13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F115"
+      ]
+     },
+     {
+      "claim": "9.7%",
+      "value": 9.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F113"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D224"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The efficiency ratio was 52.4% in FY2025, against a 57.2% window median and a 51.7% window low in FY2024 [D207][D333][D331].",
+    "type": "comparison",
+    "citations": [
+     "D207",
+     "D333",
+     "D331"
+    ],
+    "claims": [
+     {
+      "claim": "52.4%",
+      "value": 52.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D207"
+      ]
+     },
+     {
+      "claim": "57.2%",
+      "value": 57.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D333"
+      ]
+     },
+     {
+      "claim": "51.7%",
+      "value": 51.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D331"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "That is the best cost discipline in the peer group, at the 0th percentile against a 61.7% median for seven banks [D336][D337].",
+    "type": "comparison",
+    "citations": [
+     "D336",
+     "D337"
+    ],
+    "claims": [
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D336"
+      ]
+     },
+     {
+      "claim": "61.7%",
+      "value": 61.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D337"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Noninterest expense rose 4% to $95.6 billion on higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing spend, partly offset by FDIC special assessment releases [P26][X137].",
+    "type": "cause",
+    "citations": [
+     "P26",
+     "X137"
+    ],
+    "claims": [
+     {
+      "claim": "4%",
+      "value": 4.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     },
+     {
+      "claim": "$95.6 billion",
+      "value": 95.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X137"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In FY2025 net margin of 31.2% sat 21.2pp below the 52.3% net interest income share of revenue, with the 7.8% credit-loss provision and 52.4% efficiency ratio the gap [D210][D209][D208][D207].",
+    "type": "comparison",
+    "citations": [
+     "D210",
+     "D209",
+     "D208",
+     "D207"
+    ],
+    "claims": [
+     {
+      "claim": "31.2%",
+      "value": 31.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D210"
+      ]
+     },
+     {
+      "claim": "21.2pp",
+      "value": 21.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D210-D209",
+      "ids": [
+       "D210",
+       "D209"
+      ]
+     },
+     {
+      "claim": "52.3%",
+      "value": 52.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D209"
+      ]
+     },
+     {
+      "claim": "7.8%",
+      "value": 7.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D208"
+      ]
+     },
+     {
+      "claim": "52.4%",
+      "value": 52.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D207"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow is not a meaningful earnings-quality measure for a bank; it swung to -$147.8 billion in FY2025 from -$42.0 billion in FY2024 [F60][F59].",
+    "type": "fact",
+    "citations": [
+     "F60",
+     "F59"
+    ],
+    "claims": [
+     {
+      "claim": "-$147.8 billion",
+      "value": -147.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F60"
+      ]
+     },
+     {
+      "claim": "-$42.0 billion",
+      "value": -42.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F59"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The FY2025 outflow came from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income and higher trading liabilities [P21].",
+    "type": "cause",
+    "citations": [
+     "P21"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capital return is the better test: buybacks plus dividends of $48.2 billion were 85% of the $57.0 billion net income [D205][F30].",
+    "type": "comparison",
+    "citations": [
+     "D205",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "$48.2 billion",
+      "value": 48.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D205"
+      ]
+     },
+     {
+      "claim": "85%",
+      "value": 85.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "share D205/F30",
+      "ids": [
+       "D205",
+       "F30"
+      ]
+     },
+     {
+      "claim": "$57.0 billion",
+      "value": 57.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Return on average equity was 16.1% in FY2025, at the 100th percentile against an 11.8% peer median [D213][D338][D339].",
+    "type": "comparison",
+    "citations": [
+     "D213",
+     "D338",
+     "D339"
+    ],
+    "claims": [
+     {
+      "claim": "16.1%",
+      "value": 16.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D213"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D338"
+      ]
+     },
+     {
+      "claim": "11.8%",
+      "value": 11.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D339"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Shareholders' equity reached $362 billion against $4.42 trillion of assets, with loans of $1.47 trillion at 57.3% of $2.56 trillion of deposits [F110][F90][X197][X207][D211].",
+    "type": "fact",
+    "citations": [
+     "F110",
+     "F90",
+     "X197",
+     "X207",
+     "D211"
+    ],
+    "claims": [
+     {
+      "claim": "$362 billion",
+      "value": 362.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F110"
+      ]
+     },
+     {
+      "claim": "$4.42 trillion",
+      "value": 4.42,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F90"
+      ]
+     },
+     {
+      "claim": "$1.47 trillion",
+      "value": 1.47,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X197"
+      ]
+     },
+     {
+      "claim": "57.3%",
+      "value": 57.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D211"
+      ]
+     },
+     {
+      "claim": "$2.56 trillion",
+      "value": 2.56,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X207"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Loans grew $121.1 billion, driven by CIB Markets and AWM securities-based lending on higher client demand [P4].",
+    "type": "cause",
+    "citations": [
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "$121.1 billion",
+      "value": 121.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "FY2025 buybacks of $31.6 billion and dividends of $16.6 billion exceeded the prior year's $33.6 billion combined, and the diluted share count fell 3.4% [X102][X112][D182][D224].",
+    "type": "comparison",
+    "citations": [
+     "X102",
+     "X112",
+     "D182",
+     "D224"
+    ],
+    "claims": [
+     {
+      "claim": "$31.6 billion",
+      "value": 31.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X102"
+      ]
+     },
+     {
+      "claim": "$16.6 billion",
+      "value": 16.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X112"
+      ]
+     },
+     {
+      "claim": "$33.6 billion",
+      "value": 33.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D182"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D224"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The credit-loss provision rose to 7.8% of revenue in FY2025 from 6.0% in FY2024, above the 6.0% peer median and at the 75th percentile of four banks [D208][D185][D341][D340].",
+    "type": "fact",
+    "citations": [
+     "D208",
+     "D185",
+     "D341",
+     "D340"
+    ],
+    "claims": [
+     {
+      "claim": "7.8%",
+      "value": 7.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D208"
+      ]
+     },
+     {
+      "claim": "6.0%",
+      "value": 6.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D185"
+      ]
+     },
+     {
+      "claim": "6.0%",
+      "value": 6.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D185"
+      ]
+     },
+     {
+      "claim": "75th percentile",
+      "value": 75.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D340"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Criticized wholesale exposure of $48.5 billion, up from $44.7 billion, and rising nonaccruals point to a credit cycle turning rather than a one-quarter charge [P2][P1].",
+    "type": "judgement",
+    "citations": [
+     "P2",
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$48.5 billion",
+      "value": 48.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P2",
+      "ids": [
+       "P2"
+      ]
+     },
+     {
+      "claim": "$44.7 billion",
+      "value": 44.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P2",
+      "ids": [
+       "P2"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net income for FY2021 to FY2025 in the table comes from the proxy pay-versus-performance table, not the 10-K, and differs by up to 0.10% [R1][F26][X16][F30][X20].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "F26",
+     "X16",
+     "F30",
+     "X20"
+    ],
+    "claims": [
+     {
+      "claim": "0.10%",
+      "value": 0.1,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The gap is immaterial to the trend but the 10-K figures should be used where precision matters [R1].",
+    "type": "judgement",
+    "citations": [
+     "R1"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether the efficiency ratio holds below the 57.2% window median or drifts back toward the 59.2% FY2022 high, reported in the FY2026 10-K [D333][D332].",
+    "type": "comparison",
+    "citations": [
+     "D333",
+     "D332"
+    ],
+    "claims": [
+     {
+      "claim": "57.2%",
+      "value": 57.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D333"
+      ]
+     },
+     {
+      "claim": "59.2%",
+      "value": 59.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D332"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether the credit-loss provision stays above the 6.0% peer median or falls back toward the 5.0% FY2022 level, in the FY2026 10-K [D341][D136].",
+    "type": "comparison",
+    "citations": [
+     "D341",
+     "D136"
+    ],
+    "claims": [
+     {
+      "claim": "6.0%",
+      "value": 6.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D341"
+      ]
+     },
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D136"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether net interest income growth recovers from 3.1% toward the 12.3% three-year revenue CAGR, in the FY2026 10-K [D221][D335].",
+    "type": "comparison",
+    "citations": [
+     "D221",
+     "D335"
+    ],
+    "claims": [
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D221"
+      ]
+     },
+     {
+      "claim": "12.3%",
+      "value": 12.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D335"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 27,
+  "sentence_types": {
+   "fact": 6,
+   "comparison": 15,
+   "cause": 4,
+   "judgement": 2
+  },
+  "claims": 68,
+  "verified": 68,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue, net interest income plus noninterest income, rose from $96.6 billion in FY2016 to $182 billion in FY2025, a 7.3% CAGR [D5][D206].",
+    "type": "fact",
+    "citations": [
+     "D5",
+     "D206"
+    ],
+    "claims": [
+     {
+      "claim": "$96.6 billion",
+      "value": 96.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D5"
+      ]
+     },
+     {
+      "claim": "$182 billion",
+      "value": 182.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D206"
+      ]
+     },
+     {
+      "claim": "7.3%",
+      "value": 7.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "CAGR D5->D206 over 9y",
+      "ids": [
+       "D206",
+       "D5"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was a step change rather than a smooth compound: revenue was $121.6 billion in FY2021 and $158 billion in FY2023, a 30% jump in two years [D110][D159].",
+    "type": "comparison",
+    "citations": [
+     "D110",
+     "D159"
+    ],
+    "claims": [
+     {
+      "claim": "$121.6 billion",
+      "value": 121.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D110"
+      ]
+     },
+     {
+      "claim": "$158 billion",
+      "value": 158.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D159"
+      ]
+     },
+     {
+      "claim": "30%",
+      "value": 30.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "growth D159/D110",
+      "ids": [
+       "D159",
+       "D110"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Net interest income rose 33.8% in FY2023 to $89.3 billion, with interest income at $171 billion [D174][F8][X125].",
+    "type": "fact",
+    "citations": [
+     "D174",
+     "F8",
+     "X125"
+    ],
+    "claims": [
+     {
+      "claim": "33.8%",
+      "value": 33.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D174"
+      ]
+     },
+     {
+      "claim": "$89.3 billion",
+      "value": 89.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F8"
+      ]
+     },
+     {
+      "claim": "$171 billion",
+      "value": 171.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X125"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2025 growth slowed to 2.8%, with net interest income up 3.1% and noninterest income up 2.4% [D226][D221][D222].",
+    "type": "comparison",
+    "citations": [
+     "D226",
+     "D221",
+     "D222"
+    ],
+    "claims": [
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     },
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D221"
+      ]
+     },
+     {
+      "claim": "2.4%",
+      "value": 2.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D222"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "North America supplied the bulk of growth, contributing 20.6pp of the FY2023 revenue increase and 10.2pp in FY2024, before fading to 0.2pp in FY2025 [D245][D248][D251].",
+    "type": "comparison",
+    "citations": [
+     "D245",
+     "D248",
+     "D251"
+    ],
+    "claims": [
+     {
+      "claim": "20.6pp",
+      "value": 20.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D245"
+      ]
+     },
+     {
+      "claim": "10.2pp",
+      "value": 10.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D248"
+      ]
+     },
+     {
+      "claim": "0.2pp",
+      "value": 0.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D251"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Asia-Pacific was the fastest-growing geography in FY2025, up 17.3% and contributing 1.2pp, with EMEA adding 1.2pp on 9.5% growth [D300][D301][D275][D276].",
+    "type": "comparison",
+    "citations": [
+     "D300",
+     "D301",
+     "D275",
+     "D276"
+    ],
+    "claims": [
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D300"
+      ]
+     },
+     {
+      "claim": "1.2pp",
+      "value": 1.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D301"
+      ]
+     },
+     {
+      "claim": "1.2pp",
+      "value": 1.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D301"
+      ]
+     },
+     {
+      "claim": "9.5%",
+      "value": 9.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D275"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The FY2025 net interest income increase came from higher Markets net interest income, higher Card Services revolving balances and higher wholesale deposit balances, largely offset by deposit margin compression [P28].",
+    "type": "cause",
+    "citations": [
+     "P28"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs grew 1.4pp faster than revenue in FY2025, at 4.2% against 2.8% [D225][D226].",
+    "type": "comparison",
+    "citations": [
+     "D225",
+     "D226"
+    ],
+    "claims": [
+     {
+      "claim": "1.4pp",
+      "value": 1.4,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D225-D226",
+      "ids": [
+       "D225",
+       "D226"
+      ]
+     },
+     {
+      "claim": "4.2%",
+      "value": 4.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D225"
+      ]
+     },
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "EPS grew faster than net income over the window, 13.9% against 9.7% CAGR, as the diluted share count fell 3.4% in FY2025 alone [F115][F113][D224].",
+    "type": "comparison",
+    "citations": [
+     "F115",
+     "F113",
+     "D224"
+    ],
+    "claims": [
+     {
+      "claim": "13.9%",
+      "value": 13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F115"
+      ]
+     },
+     {
+      "claim": "9.7%",
+      "value": 9.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F113"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D224"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The efficiency ratio was 52.4% in FY2025, against a 57.2% window median and a 51.7% window low in FY2024 [D207][D333][D331].",
+    "type": "comparison",
+    "citations": [
+     "D207",
+     "D333",
+     "D331"
+    ],
+    "claims": [
+     {
+      "claim": "52.4%",
+      "value": 52.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D207"
+      ]
+     },
+     {
+      "claim": "57.2%",
+      "value": 57.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D333"
+      ]
+     },
+     {
+      "claim": "51.7%",
+      "value": 51.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D331"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "That is the best cost discipline in the peer group, at the 0th percentile against a 61.7% median for seven banks [D336][D337].",
+    "type": "comparison",
+    "citations": [
+     "D336",
+     "D337"
+    ],
+    "claims": [
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D336"
+      ]
+     },
+     {
+      "claim": "61.7%",
+      "value": 61.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D337"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Noninterest expense rose 4% to $95.6 billion on higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing spend, partly offset by FDIC special assessment releases [P26][X137].",
+    "type": "cause",
+    "citations": [
+     "P26",
+     "X137"
+    ],
+    "claims": [
+     {
+      "claim": "4%",
+      "value": 4.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     },
+     {
+      "claim": "$95.6 billion",
+      "value": 95.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X137"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In FY2025 net margin of 31.2% sat 21.2pp below the 52.3% net interest income share of revenue, with the 7.8% credit-loss provision and 52.4% efficiency ratio the gap [D210][D209][D208][D207].",
+    "type": "comparison",
+    "citations": [
+     "D210",
+     "D209",
+     "D208",
+     "D207"
+    ],
+    "claims": [
+     {
+      "claim": "31.2%",
+      "value": 31.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D210"
+      ]
+     },
+     {
+      "claim": "21.2pp",
+      "value": 21.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D210-D209",
+      "ids": [
+       "D210",
+       "D209"
+      ]
+     },
+     {
+      "claim": "52.3%",
+      "value": 52.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D209"
+      ]
+     },
+     {
+      "claim": "7.8%",
+      "value": 7.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D208"
+      ]
+     },
+     {
+      "claim": "52.4%",
+      "value": 52.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D207"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow is not a meaningful earnings-quality measure for a bank; it swung to -$147.8 billion in FY2025 from -$42.0 billion in FY2024 [F60][F59].",
+    "type": "fact",
+    "citations": [
+     "F60",
+     "F59"
+    ],
+    "claims": [
+     {
+      "claim": "-$147.8 billion",
+      "value": -147.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F60"
+      ]
+     },
+     {
+      "claim": "-$42.0 billion",
+      "value": -42.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F59"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The FY2025 outflow came from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income and higher trading liabilities [P21].",
+    "type": "cause",
+    "citations": [
+     "P21"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capital return is the better test: buybacks plus dividends of $48.2 billion were 85% of the $57.0 billion net income [D205][F30].",
+    "type": "comparison",
+    "citations": [
+     "D205",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "$48.2 billion",
+      "value": 48.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D205"
+      ]
+     },
+     {
+      "claim": "85%",
+      "value": 85.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "share D205/F30",
+      "ids": [
+       "D205",
+       "F30"
+      ]
+     },
+     {
+      "claim": "$57.0 billion",
+      "value": 57.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Return on average equity was 16.1% in FY2025, at the 100th percentile against an 11.8% peer median [D213][D338][D339].",
+    "type": "comparison",
+    "citations": [
+     "D213",
+     "D338",
+     "D339"
+    ],
+    "claims": [
+     {
+      "claim": "16.1%",
+      "value": 16.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D213"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D338"
+      ]
+     },
+     {
+      "claim": "11.8%",
+      "value": 11.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D339"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Shareholders' equity reached $362 billion against $4.42 trillion of assets, with loans of $1.47 trillion at 57.3% of $2.56 trillion of deposits [F110][F90][X197][X207][D211].",
+    "type": "fact",
+    "citations": [
+     "F110",
+     "F90",
+     "X197",
+     "X207",
+     "D211"
+    ],
+    "claims": [
+     {
+      "claim": "$362 billion",
+      "value": 362.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F110"
+      ]
+     },
+     {
+      "claim": "$4.42 trillion",
+      "value": 4.42,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F90"
+      ]
+     },
+     {
+      "claim": "$1.47 trillion",
+      "value": 1.47,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X197"
+      ]
+     },
+     {
+      "claim": "57.3%",
+      "value": 57.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D211"
+      ]
+     },
+     {
+      "claim": "$2.56 trillion",
+      "value": 2.56,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X207"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Loans grew $121.1 billion, driven by CIB Markets and AWM securities-based lending on higher client demand [P4].",
+    "type": "cause",
+    "citations": [
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "$121.1 billion",
+      "value": 121.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "FY2025 buybacks of $31.6 billion and dividends of $16.6 billion exceeded the prior year's $33.6 billion combined, and the diluted share count fell 3.4% [X102][X112][D182][D224].",
+    "type": "comparison",
+    "citations": [
+     "X102",
+     "X112",
+     "D182",
+     "D224"
+    ],
+    "claims": [
+     {
+      "claim": "$31.6 billion",
+      "value": 31.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X102"
+      ]
+     },
+     {
+      "claim": "$16.6 billion",
+      "value": 16.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X112"
+      ]
+     },
+     {
+      "claim": "$33.6 billion",
+      "value": 33.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D182"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D224"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The credit-loss provision rose to 7.8% of revenue in FY2025 from 6.0% in FY2024, above the 6.0% peer median and at the 75th percentile of four banks [D208][D185][D341][D340].",
+    "type": "fact",
+    "citations": [
+     "D208",
+     "D185",
+     "D341",
+     "D340"
+    ],
+    "claims": [
+     {
+      "claim": "7.8%",
+      "value": 7.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D208"
+      ]
+     },
+     {
+      "claim": "6.0%",
+      "value": 6.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D185"
+      ]
+     },
+     {
+      "claim": "6.0%",
+      "value": 6.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D185"
+      ]
+     },
+     {
+      "claim": "75th percentile",
+      "value": 75.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D340"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Criticized wholesale exposure of $48.5 billion, up from $44.7 billion, and rising nonaccruals point to a credit cycle turning rather than a one-quarter charge [P2][P1].",
+    "type": "judgement",
+    "citations": [
+     "P2",
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$48.5 billion",
+      "value": 48.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P2",
+      "ids": [
+       "P2"
+      ]
+     },
+     {
+      "claim": "$44.7 billion",
+      "value": 44.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P2",
+      "ids": [
+       "P2"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net income for FY2021 to FY2025 in the table comes from the proxy pay-versus-performance table, not the 10-K, and differs by up to 0.10% [R1][F26][X16][F30][X20].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "F26",
+     "X16",
+     "F30",
+     "X20"
+    ],
+    "claims": [
+     {
+      "claim": "0.10%",
+      "value": 0.1,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The gap is immaterial to the trend but the 10-K figures should be used where precision matters [R1].",
+    "type": "judgement",
+    "citations": [
+     "R1"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether the efficiency ratio holds below the 57.2% window median or drifts back toward the 59.2% FY2022 high, reported in the FY2026 10-K [D333][D332].",
+    "type": "comparison",
+    "citations": [
+     "D333",
+     "D332"
+    ],
+    "claims": [
+     {
+      "claim": "57.2%",
+      "value": 57.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D333"
+      ]
+     },
+     {
+      "claim": "59.2%",
+      "value": 59.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D332"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether the credit-loss provision stays above the 6.0% peer median or falls back toward the 5.0% FY2022 level, in the FY2026 10-K [D341][D136].",
+    "type": "comparison",
+    "citations": [
+     "D341",
+     "D136"
+    ],
+    "claims": [
+     {
+      "claim": "6.0%",
+      "value": 6.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D341"
+      ]
+     },
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D136"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether net interest income growth recovers from 3.1% toward the 12.3% three-year revenue CAGR, in the FY2026 10-K [D221][D335].",
+    "type": "comparison",
+    "citations": [
+     "D221",
+     "D335"
+    ],
+    "claims": [
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D221"
+      ]
+     },
+     {
+      "claim": "12.3%",
+      "value": 12.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D335"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 68,
+  "verified": 68,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "arc",
+    "sentence": "Net interest income drove that step, rising 33.8% in FY2023 to $89.3 billion, as higher rates lifted interest income to $171 billion [D174][F8][X125].",
+    "type": "cause",
+    "failure": "cause sentence cites no filing passage"
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue, net interest income plus noninterest income, rose from $96.6 billion in FY2016 to $182 billion in FY2025, a 7.3% CAGR [D5][D206]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was a step change rather than a smooth compound: revenue was $121.6 billion in FY2021 and $158 billion in FY2023, a 30% jump in two years [D110][D159]."
+     },
+     {
+      "type": "cause",
+      "text": "Net interest income drove that step, rising 33.8% in FY2023 to $89.3 billion, as higher rates lifted interest income to $171 billion [D174][F8][X125]."
+     },
+     {
+      "type": "comparison",
+      "text": "FY2025 growth slowed to 2.8%, with net interest income up 3.1% and noninterest income up 2.4% [D226][D221][D222]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "North America supplied the bulk of growth, contributing 20.6pp of the FY2023 revenue increase and 10.2pp in FY2024, before fading to 0.2pp in FY2025 [D245][D248][D251]."
+     },
+     {
+      "type": "comparison",
+      "text": "Asia-Pacific was the fastest-growing geography in FY2025, up 17.3% and contributing 1.2pp, with EMEA adding 1.2pp on 9.5% growth [D300][D301][D275][D276]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2025 net interest income increase came from higher Markets net interest income, higher Card Services revolving balances and higher wholesale deposit balances, largely offset by deposit margin compression [P28]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 1.4pp faster than revenue in FY2025, at 4.2% against 2.8% [D225][D226]."
+     },
+     {
+      "type": "comparison",
+      "text": "EPS grew faster than net income over the window, 13.9% against 9.7% CAGR, as the diluted share count fell 3.4% in FY2025 alone [F115][F113][D224]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The efficiency ratio was 52.4% in FY2025, against a 57.2% window median and a 51.7% window low in FY2024 [D207][D333][D331]."
+     },
+     {
+      "type": "comparison",
+      "text": "That is the best cost discipline in the peer group, at the 0th percentile against a 61.7% median for seven banks [D336][D337]."
+     },
+     {
+      "type": "cause",
+      "text": "Noninterest expense rose 4% to $95.6 billion on higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing spend, partly offset by FDIC special assessment releases [P26][X137]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2025 net margin of 31.2% sat 21.2pp below the 52.3% net interest income share of revenue, with the 7.8% credit-loss provision and 52.4% efficiency ratio the gap [D210][D209][D208][D207]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Operating cash flow is not a meaningful earnings-quality measure for a bank; it swung to -$147.8 billion in FY2025 from -$42.0 billion in FY2024 [F60][F59]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2025 outflow came from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income and higher trading liabilities [P21]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capital return is the better test: buybacks plus dividends of $48.2 billion were 85% of the $57.0 billion net income [D205][F30]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Return on average equity was 16.1% in FY2025, at the 100th percentile against an 11.8% peer median [D213][D338][D339]."
+     },
+     {
+      "type": "fact",
+      "text": "Shareholders' equity reached $362 billion against $4.42 trillion of assets, with loans of $1.47 trillion at 57.3% of $2.56 trillion of deposits [F110][F90][X197][X207][D211]."
+     },
+     {
+      "type": "cause",
+      "text": "Loans grew $121.1 billion, driven by CIB Markets and AWM securities-based lending on higher client demand [P4]."
+     },
+     {
+      "type": "comparison",
+      "text": "FY2025 buybacks of $31.6 billion and dividends of $16.6 billion exceeded the prior year's $33.6 billion combined, and the diluted share count fell 3.4% [X102][X112][D182][D224]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "The credit-loss provision rose to 7.8% of revenue in FY2025 from 6.0% in FY2024, above the 6.0% peer median and at the 75th percentile of four banks [D208][D185][D341][D340]."
+     },
+     {
+      "type": "judgement",
+      "text": "Criticized wholesale exposure of $48.5 billion, up from $44.7 billion, and rising nonaccruals point to a credit cycle turning rather than a one-quarter charge [P2][P1]."
+     },
+     {
+      "type": "fact",
+      "text": "Net income for FY2021 to FY2025 in the table comes from the proxy pay-versus-performance table, not the 10-K, and differs by up to 0.10% [R1][F26][X16][F30][X20]."
+     },
+     {
+      "type": "judgement",
+      "text": "The gap is immaterial to the trend but the 10-K figures should be used where precision matters [R1]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether the efficiency ratio holds below the 57.2% window median or drifts back toward the 59.2% FY2022 high, reported in the FY2026 10-K [D333][D332]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether the credit-loss provision stays above the 6.0% peer median or falls back toward the 5.0% FY2022 level, in the FY2026 10-K [D341][D136]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether net interest income growth recovers from 3.1% toward the 12.3% three-year revenue CAGR, in the FY2026 10-K [D221][D335]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch"
+}

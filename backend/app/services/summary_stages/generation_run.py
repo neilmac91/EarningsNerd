@@ -55,6 +55,8 @@ class GenerationRun:
 
     # A3: set when this request becomes the generation leader; released in ``release``.
     inflight_event: Optional[asyncio.Event] = None
+    # Set once the fetch stage's progress write, which starts this run's clock (E216), has returned.
+    progress_clock_started: bool = False
     generation_semaphore: Optional[asyncio.Semaphore] = None
     generation_slot_held: bool = False
     usage_reservation_token: Optional[str] = None
@@ -157,10 +159,19 @@ class GenerationRun:
             logger.warning(f"[stream:{filing_id}] Could not refund usage unit ({reason}): {refund_error}")
 
     def record_progress_sync(self, *args, **kwargs) -> None:
-        # record_progress refreshes its returned row after committing. Close that read
-        # transaction here too; the stream only needs the durable write, not the ORM row.
+        # A session of its own for the one statement record_progress writes and commits (the
+        # commit returns the connection); the stream needs only the durable write.
         with database.SessionLocal() as progress_session:
             pipeline.record_progress(progress_session, *args, **kwargs)
+
+    def error_starts_clock(self) -> bool:
+        """Whether this run's error progress write starts the row's clock (E217): only a leader's, the run holding the
+        filing's claim, before its fetch stage's write has returned, since the error is then the run's first write. A
+        follower's error goes to the row its live leader owns. A run that fails in ``load_filing``, before the in-flight
+        registry is read, cannot tell whether a live leader in its own process owns the row, and a run whose claim itself
+        raises holds no claim, which the rule goes by: all of them keep the clock, as does a leader whose fetch stage
+        has written."""
+        return self.inflight_event is not None and not self.progress_clock_started
 
     # Metering point: a held admission lease becomes a counted unit when the provider request
     # is ISSUED — the `provider_start_signal` the request dispatcher fires immediately before
@@ -173,8 +184,8 @@ class GenerationRun:
     # the client cannot induce: a provider-side failure (the task raises, returns an error
     # payload or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an
     # honest partial still costs nothing. A result that arrives without the signal (a stand-in
-    # service) is counted on completion. Callers without a lease (the background drain with
-    # current_user=None, and uncapped Pro) keep the completion-time count in the finalize stage.
+    # service) is counted on completion. The caller without a lease (the background drain, with
+    # current_user=None) keeps the completion-time count in the finalize stage.
 
     def begin_charge(self) -> None:
         """Start the lease-to-unit write (at most once). Called from the dispatcher's start

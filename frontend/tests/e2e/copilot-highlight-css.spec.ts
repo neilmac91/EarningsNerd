@@ -162,7 +162,7 @@ test.describe('Copilot citation highlight', () => {
     expect(result.findRuleText).toContain('::highlight(copilot-find)')
     // The device's mark in both themes: its tint, its 2px hairline unbroken, the passage in the primary ink.
     expect(result.light.device).toEqual({ tint: 'rgb(236, 242, 238)', hairline: 'rgb(207, 224, 214)', width: '2px', ink: 'rgb(26, 26, 23)' })
-    expect(result.dark.device).toEqual({ tint: 'rgba(127, 178, 149, 0.14)', hairline: 'rgba(127, 178, 149, 0.28)', width: '2px', ink: 'rgb(215, 218, 220)' })
+    expect(result.dark.device).toEqual({ tint: 'rgba(127, 178, 149, 0.14)', hairline: 'rgba(127, 178, 149, 0.28)', width: '2px', ink: 'rgb(234, 236, 239)' })
     for (const theme of [result.light, result.dark]) {
       expect({ tint: theme.tint, hairline: theme.hairline, width: theme.width, ink: theme.ink }).toEqual(theme.device)
       expect({ line: theme.line, skipInk: theme.skipInk }).toEqual({ line: 'underline', skipInk: 'none' })

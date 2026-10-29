@@ -1,0 +1,86 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B goes deeper: FY2022 margin collapse, Embedded drag, R&D leverage, goodwill, segment-margin watch item, ZT discontinued cash. But several causes lack support in its cited sources: Xilinx amortization, the SG&A recast, 'mixed' Embedded demand, and the $1.2bn ZT figure from a truncated passage. A's main lapse is attributing the FY2023 Client decline to weak PC demand, which its cited passage omits. Grounding weighs first, so A edges ahead."
+   },
+   "cost_usd": 0.148621,
+   "latency_s": 13.932,
+   "input_tokens": 16635,
+   "output_tokens": 1061,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"tie\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B goes deeper: FY2022 margin collapse, Embedded drag, R&D leverage, goodwill, segment-margin watch item, ZT discontinued cash. But several causes lack support in its cited sources: Xilinx amortization, the SG&A recast, 'mixed' Embedded demand, and the $1.2bn ZT figure from a truncated passage. A's main lapse is attributing the FY2023 Client decline to weak PC demand, which its cited passage omits. Grounding weighs first, so A edges ahead.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A makes several causal claims its sources don't support: the FY2022 gross-margin drop blamed on Xilinx amortization, Embedded's decline on 'mixed demand', and an SG&A 'recast'. Draft B's lapses are smaller: 'highest capex/D&A in window' and attributing 'weak PC demand' to a passage that lacks it. B also explains the net margin correctly, including the $577m other income, and adds the operating-margin peer comparison. A has richer red flags and watch thresholds."
+   },
+   "cost_usd": 0.150185,
+   "latency_s": 15.301,
+   "input_tokens": 16633,
+   "output_tokens": 1140,
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A makes several causal claims its sources don't support: the FY2022 gross-margin drop blamed on Xilinx amortization, Embedded's decline on 'mixed demand', and an SG&A 'recast'. Draft B's lapses are smaller: 'highest capex/D&A in window' and attributing 'weak PC demand' to a passage that lacks it. B also explains the net margin correctly, including the $577m other income, and adds the operating-margin peer comparison. A has richer red flags and watch thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.298806
+}

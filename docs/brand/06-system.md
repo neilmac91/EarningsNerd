@@ -36,8 +36,9 @@ WCAG contrast ratios computed for this page (relative luminance, sRGB) against t
 
 | Dark token | hex | on navy | on slate panel | in dark sage tint |
 |---|---|---|---|---|
-| text-primary-dark | `#D7DADC` | 13.41 | 10.45 | 10.73 |
-| text-secondary-dark | `#9CA3AF` | 7.42 | 5.78 | 5.94 |
+| text-primary-dark | `#EAECEF` | 15.91 | 12.40 | 12.74 |
+| text-secondary-dark | `#D1D5DB` | 12.78 | 9.96 | 10.23 |
+| text-tertiary-dark | `#9CA3AF` | 7.42 | 5.78 | 5.94 |
 | brand-dark (fill and accent) | `#7FB295` | 7.80 | 6.08 | 6.25 |
 | brand-strong-dark (text) | `#98C5AD` | 9.80 | 7.64 | 7.84 |
 | brand-fill-dark | `#569272` | 5.16 | 4.02 | 4.13 |
@@ -159,10 +160,11 @@ Rules:
 - **Colour.** Light: tint `#ECF2EE`, hairline `#CFE0D6`, bar `#4F7A63`, marks `#3C6650`. Dark: tint
   `rgba(127,178,149,0.14)`, hairline `rgba(127,178,149,0.28)`, bar `#7FB295`, marks `#98C5AD`. The
   tint is a surface, never a fill for text; measured, the hairline reads 1.24:1 on cream and the
-  tint 1.02:1, which is the point: the device is quiet, and the ink on it (15.4:1 light, 10.7:1
+  tint 1.02:1, which is the point: the device is quiet, and the ink on it (15.4:1 light, 12.7:1
   dark) carries the words. The words on the tint are the primary ink: in the Source pane the
-  reader's secondary ink would be 4.49:1 on the dark tint over the slate panel, so the located
-  passage takes the primary ink there (8.1:1).
+  reader's secondary ink was 4.49:1 on the dark tint over the slate panel while it was gray-400, so
+  the located passage takes the primary ink there (9.6:1); the secondary ink is gray-300 since
+  2026-10-25 (7.7:1 there), and the passage keeps the primary ink, the device's words.
 - **Promotional emphasis (C5).** Every homepage headline variant, the auth-shell promise and the
   waitlist headline use `BrandEmphasis`: a full Bright Sage (`brand-strong-dark`, `#98C5AD`) fill
   in both themes, 8px corners and genuine Inter italic 600. Light uses opaque espresso (`#1A1A17`,

@@ -241,7 +241,11 @@ which no later sync undoes until the journaled repair recomputes it. A
 sync in USD alone keeps main's convergence gaps (E198): an amendment the per-filing writer stored
 behind its original's companyfacts row stays behind, a newer filing's restatement under a
 lower-priority tag stays behind where the older filings have no Filing rows, and a lagging payload's
-insert replaces a newer row dated by its provenance alone, each for good.
+insert replaces a newer row dated by its provenance alone, each for good; the last only where no sync
+since #1682 stored that winner's identity as the year's own-report history row, which keeps the insert
+out. Those history rows (`facts/own_reports.py`) come from the collector's candidates, so a foreign
+filing's convenience translation is never one, and a proven switch writes none; the currency step
+treats one as any stored row, so it is current only where the batch's own winner has its identity.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;

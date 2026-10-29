@@ -44,7 +44,7 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
           keeps its rule and its pl-2. At 320px under 200% text that leaves the quote 183px, where "advertising," needs
           171px (gate: tests/e2e/reflow-200.spec.ts, the Trace to Source demo). */}
       <div className="mt-4 rounded-lg border border-border-light bg-white px-4 py-3.5 dark:border-white/10 dark:bg-white/5 [@media(max-width:24rem)]:border-0 [@media(max-width:24rem)]:bg-transparent [@media(max-width:24rem)]:px-0 dark:[@media(max-width:24rem)]:bg-transparent">
-        <p className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
           {trace.metric}
         </p>
         <p className="mt-1 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">

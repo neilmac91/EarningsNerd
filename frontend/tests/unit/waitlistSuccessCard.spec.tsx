@@ -11,8 +11,8 @@ import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 
 /**
- * The waitlist success card (audit pub/F02, BG-10): the heading is the backend's join message, with a
- * fallback that renders as text (an HTML entity in a JS string is not decoded); the referral sentence is
+ * The waitlist success card (audit pub/F02, BG-10): the heading confirms waitlist membership, not access;
+ * the referral sentence is
  * stated once, from REFERRAL_BONUS, beside the link the backend now points at /waitlist?ref=. The form
  * submits the ?ref= it was opened with, which is how a referral is counted. The link is set in the data
  * face, so its code reads as typed, and the share links wrap inside the card at 200% text. A code no
@@ -170,8 +170,13 @@ async function join(message: string | undefined) {
 }
 
 describe('waitlist success card', () => {
-  it('renders the backend message as its heading and submits the ?ref= it was opened with', async () => {
-    expect(await join("You're on the waitlist.")).toHaveTextContent("You're on the waitlist.")
+  it('confirms a waitlist place, offers reading before sharing, and submits the original referral', async () => {
+    expect(await join("You're in!")).toHaveTextContent("You're on the waitlist.")
+    expect(screen.queryByText("You're in!")).not.toBeInTheDocument()
+    expect(screen.getByText(/This is not an account or an invitation yet/)).toBeInTheDocument()
+    const example = screen.getByRole('link', { name: 'Read a live example while you wait' })
+    const share = screen.getByRole('link', { name: 'Share on Twitter' })
+    expect(example.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(api.joinWaitlist).toHaveBeenCalledWith(expect.objectContaining({ referral_code: 'abc12345' }), undefined)
   })
 

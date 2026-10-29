@@ -25,11 +25,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import settings
 from app.database import SessionLocal, engine
 from app.models import Base, Filing, Summary, SummaryGenerationProgress, User, UserUsage
 from app.routers.auth import get_current_user
-from app.services import summary_pipeline
+from app.services import subscription_service, summary_pipeline
 from app.services.edgar.compat import XBRLServiceCompat
 from app.services.edgar.xbrl_service import edgar_xbrl_service
 from app.services.subscription_service import get_current_month
@@ -84,7 +83,7 @@ def _seed(body=READY):
 
 
 def _at_the_fair_use_ceiling(user_id, monkeypatch):
-    monkeypatch.setattr(settings, "PRO_SUMMARY_MONTHLY_CAP", 1)
+    monkeypatch.setattr(subscription_service, "PRO_SUMMARY_MONTHLY_CAP", 1)
     with SessionLocal() as db:
         db.add(UserUsage(user_id=user_id, month=get_current_month(), summary_count=1))
         db.commit()
@@ -127,7 +126,7 @@ def test_a_regenerate_that_ends_before_fresh_xbrl_keeps_the_snapshot_and_its_ver
         _at_the_fair_use_ceiling(pro_user.id, monkeypatch)
         fetch, expected = AsyncMock(return_value=FRESH), "temporarily paused new summary generation"
     else:
-        fetch, expected = _still_fetching, "Unable to retrieve this filing"
+        fetch, expected = _still_fetching, "We could not generate this summary"
 
     with TestClient(app) as client:
         before = _revenue_row(client, filing_id)

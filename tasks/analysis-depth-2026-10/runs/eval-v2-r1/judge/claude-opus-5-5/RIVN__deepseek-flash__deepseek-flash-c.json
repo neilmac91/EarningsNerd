@@ -1,0 +1,106 @@
+{
+ "ticker": "RIVN",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "378610e41ab3c9203dbea2987271d06fd117a5b36e5ef04173da670f36b9f9f9",
+ "y_sha256": "ea3e498cebd4ae7db2f5a582235ff6a2febdec288e02d8fa29b73959a05a6e5d",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "B adds well-sourced context A lacks: Volkswagen revenue contribution, the $186m litigation charge behind the net-versus-operating gap, the $27.0bn accumulated deficit and R2 timing. It also labels its interpretations as analysis. However, B misreads the 26.8pp cost-of-revenue effect as the total margin gain (27.8pp). A flags the 129% segment-sum data problem, but one watch item is incoherent: net cash cannot 'fall toward' a higher FY2024 figure. B's thresholds are clearer."
+   },
+   "cost_usd": 0.135745,
+   "latency_s": 14.792,
+   "backend": "claude_cli",
+   "input_tokens": 14903,
+   "cached_input_tokens": 727,
+   "output_tokens": 1110,
+   "reasoning_tokens": 846,
+   "meta": {
+    "duration_api_ms": 10697,
+    "cache_creation_input_tokens": 14174,
+    "list_cost_usd": 0.079049
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"B adds well-sourced context A lacks: Volkswagen revenue contribution, the $186m litigation charge behind the net-versus-operating gap, the $27.0bn accumulated deficit and R2 timing. It also labels its interpretations as analysis. However, B misreads the 26.8pp cost-of-revenue effect as the total margin gain (27.8pp). A flags the 129% segment-sum data problem, but one watch item is incoherent: net cash cannot 'fall toward' a higher FY2024 figure. B's thresholds are clearer.\"}\n```",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A calls the 26.8pp cost-of-revenue effect the operating-margin gain; the actual gain was 27.8pp. Draft B gets this right and adds sourced depth A lacks: SG&A drag, ASP-driven gross-loss improvement, Automotive's negative contribution and a net-cash peer comparison. B also discloses that segment figures overlap. A's labelled analysis is cleaner, and B's third watch item is muddled. Still, B is better grounded and richer."
+   },
+   "cost_usd": 0.129093,
+   "latency_s": 11.454,
+   "backend": "claude_cli",
+   "input_tokens": 14909,
+   "cached_input_tokens": 727,
+   "output_tokens": 775,
+   "reasoning_tokens": 540,
+   "meta": {
+    "duration_api_ms": 7501,
+    "cache_creation_input_tokens": 14180,
+    "list_cost_usd": 0.072373
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A calls the 26.8pp cost-of-revenue effect the operating-margin gain; the actual gain was 27.8pp. Draft B gets this right and adds sourced depth A lacks: SG&A drag, ASP-driven gross-loss improvement, Automotive's negative contribution and a net-cash peer comparison. B also discloses that segment figures overlap. A's labelled analysis is cleaner, and B's third watch item is muddled. Still, B is better grounded and richer.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.264838
+}

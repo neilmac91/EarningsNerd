@@ -1,0 +1,415 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "RIVN",
+ "split": "holdout",
+ "auditor": "claude-opus-5-5",
+ "cost_usd": 0.1065,
+ "items": [
+  {
+   "sentence": "Revenue rose from $1.66 billion in FY2022 to $5.39 billion in FY2025, a three-year CAGR of 48.1% .",
+   "claim": "$1.66 billion",
+   "match": "cited: F4 = Revenue, FY2022",
+   "label": "consistent",
+   "reason": "FY2022 revenue matches."
+  },
+  {
+   "sentence": "Revenue rose from $1.66 billion in FY2022 to $5.39 billion in FY2025, a three-year CAGR of 48.1% .",
+   "claim": "$5.39 billion",
+   "match": "cited: F7 = Revenue, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 revenue matches."
+  },
+  {
+   "sentence": "Revenue rose from $1.66 billion in FY2022 to $5.39 billion in FY2025, a three-year CAGR of 48.1% .",
+   "claim": "48.1%",
+   "match": "cited: D342 = Revenue 3-year CAGR, FY2022..FY2025",
+   "label": "consistent",
+   "reason": "Three-year revenue CAGR FY2022 to FY2025 matches."
+  },
+  {
+   "sentence": "Operating margin improved from -413.5% in FY2022 to -66.5% in FY2025, yet the operating loss was still $3.59 billion .",
+   "claim": "-413.5%",
+   "match": "cited: F28 = Operating margin, FY2022",
+   "label": "consistent",
+   "reason": "FY2022 operating margin matches."
+  },
+  {
+   "sentence": "Operating margin improved from -413.5% in FY2022 to -66.5% in FY2025, yet the operating loss was still $3.59 billion .",
+   "claim": "-66.5%",
+   "match": "cited: F31 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating margin matches."
+  },
+  {
+   "sentence": "Operating margin improved from -413.5% in FY2022 to -66.5% in FY2025, yet the operating loss was still $3.59 billion .",
+   "claim": "$3.59 billion",
+   "match": "cited: F26 = Operating income, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating loss is operating income."
+  },
+  {
+   "sentence": "The FY2022 revenue jump of 2914.5% came primarily from 19,412 more vehicle deliveries .",
+   "claim": "2914.5%",
+   "match": "cited: D83 = Revenue growth, FY2022",
+   "label": "consistent",
+   "reason": "FY2022 revenue growth matches."
+  },
+  {
+   "sentence": "The FY2022 revenue jump of 2914.5% came primarily from 19,412 more vehicle deliveries .",
+   "claim": "19,412",
+   "match": "passage P67: P67 = a figure in a FY2022 10-K passage",
+   "label": "consistent",
+   "reason": "FY2022 10-K passage figure for delivery increase."
+  },
+  {
+   "sentence": "Gross profit turned positive at $144 million in FY2025 from -$1.20 billion in FY2024, and the filing credits higher selling prices and lower cost per vehicle for the automotive improvement .",
+   "claim": "$144 million",
+   "match": "cited: F14 = Gross profit, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 gross profit matches."
+  },
+  {
+   "sentence": "Gross profit turned positive at $144 million in FY2025 from -$1.20 billion in FY2024, and the filing credits higher selling prices and lower cost per vehicle for the automotive improvement .",
+   "claim": "-$1.20 billion",
+   "match": "cited: F13 = Gross profit, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 gross profit matches."
+  },
+  {
+   "sentence": "Software and Services segment revenue grew 221.7% to $1.56 billion in FY2025, adding 21.6pp to total revenue growth .",
+   "claim": "221.7%",
+   "match": "cited: D322 = Software and Services (segment) growth, FY2025",
+   "label": "consistent",
+   "reason": "Software and Services segment growth FY2025 matches."
+  },
+  {
+   "sentence": "Software and Services segment revenue grew 221.7% to $1.56 billion in FY2025, adding 21.6pp to total revenue growth .",
+   "claim": "$1.56 billion",
+   "match": "cited: S26 = Software and Services (segment), FY2025",
+   "label": "consistent",
+   "reason": "Software and Services segment revenue FY2025 matches."
+  },
+  {
+   "sentence": "Software and Services segment revenue grew 221.7% to $1.56 billion in FY2025, adding 21.6pp to total revenue growth .",
+   "claim": "21.6pp",
+   "match": "cited: D323 = Software and Services (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Segment contribution to revenue growth matches."
+  },
+  {
+   "sentence": "Automotive revenue fell 14.6% and subtracted 13.2pp from growth, leaving it at 71.1% of revenue versus 90.3% in FY2024 .",
+   "claim": "14.6%",
+   "match": "cited: D315 = Automotive (segment) growth, FY2025",
+   "label": "consistent",
+   "reason": "Automotive segment growth FY2025, stated as a fall."
+  },
+  {
+   "sentence": "Automotive revenue fell 14.6% and subtracted 13.2pp from growth, leaving it at 71.1% of revenue versus 90.3% in FY2024 .",
+   "claim": "13.2pp",
+   "match": "cited: D316 = Automotive (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Automotive contribution to growth matches."
+  },
+  {
+   "sentence": "Automotive revenue fell 14.6% and subtracted 13.2pp from growth, leaving it at 71.1% of revenue versus 90.3% in FY2024 .",
+   "claim": "71.1%",
+   "match": "cited: D314 = Automotive (segment) share of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Automotive share of revenue FY2025 matches."
+  },
+  {
+   "sentence": "Automotive revenue fell 14.6% and subtracted 13.2pp from growth, leaving it at 71.1% of revenue versus 90.3% in FY2024 .",
+   "claim": "90.3%",
+   "match": "cited: D311 = Automotive (segment) share of revenue, FY2024",
+   "label": "consistent",
+   "reason": "Automotive share FY2024 matches."
+  },
+  {
+   "sentence": "The automotive decline came from 9,332 fewer deliveries, due in part to the expiry of 45W tax credits, and lower regulatory credit sales .",
+   "claim": "9,332",
+   "match": "passage P22: P22 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2025 10-K passage figure for the delivery decline."
+  },
+  {
+   "sentence": "Diluted shares rose 17.1% in FY2025 while the net loss shrank 23.2%, so the per-share loss narrowed by 34.5% .",
+   "claim": "17.1%",
+   "match": "cited: D260 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "Diluted share count change FY2025 matches."
+  },
+  {
+   "sentence": "Diluted shares rose 17.1% in FY2025 while the net loss shrank 23.2%, so the per-share loss narrowed by 34.5% .",
+   "claim": "23.2%",
+   "match": "cited: D241 = Net income: change in size of loss, FY2025",
+   "label": "consistent",
+   "reason": "Net loss shrinkage FY2025 matches."
+  },
+  {
+   "sentence": "Diluted shares rose 17.1% in FY2025 while the net loss shrank 23.2%, so the per-share loss narrowed by 34.5% .",
+   "claim": "34.5%",
+   "match": "cited: D242 = EPS (basic): change in size of loss, FY2025",
+   "label": "consistent",
+   "reason": "Per-share loss narrowing matches the EPS loss change."
+  },
+  {
+   "sentence": "FY2025 operating margin of -66.5% is the window high, against a median of -129.4% and a low of -7,672.7% in FY2021 .",
+   "claim": "-66.5%",
+   "match": "cited: D325 = Operating margin window high (FY2025), FY2021..FY2025",
+   "label": "consistent",
+   "reason": "Operating margin window high matches."
+  },
+  {
+   "sentence": "FY2025 operating margin of -66.5% is the window high, against a median of -129.4% and a low of -7,672.7% in FY2021 .",
+   "claim": "-129.4%",
+   "match": "cited: D326 = Operating margin window median, FY2021..FY2025",
+   "label": "consistent",
+   "reason": "Window median matches."
+  },
+  {
+   "sentence": "FY2025 operating margin of -66.5% is the window high, against a median of -129.4% and a low of -7,672.7% in FY2021 .",
+   "claim": "-7,672.7%",
+   "match": "cited: D324 = Operating margin window low (FY2021), FY2021..FY2025",
+   "label": "consistent",
+   "reason": "Window low in FY2021 matches."
+  },
+  {
+   "sentence": "In the FY2025 bridge, cost of revenue added 26.8pp to operating margin, R&D added 1.5pp and SG&A subtracted 0.5pp .",
+   "claim": "26.8pp",
+   "match": "cited: D267 = Operating-margin effect of cost of revenue (pp), FY2025",
+   "label": "consistent",
+   "reason": "Cost of revenue margin effect FY2025 matches."
+  },
+  {
+   "sentence": "In the FY2025 bridge, cost of revenue added 26.8pp to operating margin, R&D added 1.5pp and SG&A subtracted 0.5pp .",
+   "claim": "1.5pp",
+   "match": "cited: D268 = Operating-margin effect of R&D (pp), FY2025",
+   "label": "consistent",
+   "reason": "R&D margin effect matches."
+  },
+  {
+   "sentence": "In the FY2025 bridge, cost of revenue added 26.8pp to operating margin, R&D added 1.5pp and SG&A subtracted 0.5pp .",
+   "claim": "0.5pp",
+   "match": "cited: D269 = Operating-margin effect of SG&A (pp), FY2025",
+   "label": "consistent",
+   "reason": "SG&A margin effect matches."
+  },
+  {
+   "sentence": "Cost of revenue fell 15.0%, which the filing ties to fewer vehicles produced and delivered and lower material and conversion costs .",
+   "claim": "15.0%",
+   "match": "cited: D255 = Cost of revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Cost of revenue growth FY2025, stated as a fall."
+  },
+  {
+   "sentence": "Net margin of -67.7% sits below operating margin of -66.5% because other expense included $186 million for a securities class action settlement .",
+   "claim": "-67.7%",
+   "match": "cited: F43 = Net margin, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 net margin matches."
+  },
+  {
+   "sentence": "Net margin of -67.7% sits below operating margin of -66.5% because other expense included $186 million for a securities class action settlement .",
+   "claim": "-66.5%",
+   "match": "cited: F31 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating margin matches."
+  },
+  {
+   "sentence": "Net margin of -67.7% sits below operating margin of -66.5% because other expense included $186 million for a securities class action settlement .",
+   "claim": "$186 million",
+   "match": "passage P10: P10 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2025 10-K passage figure for the settlement."
+  },
+  {
+   "sentence": "Free cash flow was -$2.49 billion in FY2025 against a net loss of $3.65 billion, a free cash flow margin of -46.2% .",
+   "claim": "-$2.49 billion",
+   "match": "cited: F78 = Free cash flow, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow matches."
+  },
+  {
+   "sentence": "Free cash flow was -$2.49 billion in FY2025 against a net loss of $3.65 billion, a free cash flow margin of -46.2% .",
+   "claim": "$3.65 billion",
+   "match": "cited: F38 = Net income, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 net loss is net income."
+  },
+  {
+   "sentence": "Free cash flow was -$2.49 billion in FY2025 against a net loss of $3.65 billion, a free cash flow margin of -46.2% .",
+   "claim": "-46.2%",
+   "match": "cited: D226 = Free cash flow margin, FY2025",
+   "label": "consistent",
+   "reason": "FCF margin FY2025 matches."
+  },
+  {
+   "sentence": "Operating cash outflow narrowed to $779 million, which the filing attributes to a significant reduction in net loss .",
+   "claim": "$779 million",
+   "match": "cited: F64 = Operating cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Operating cash flow FY2025 matches."
+  },
+  {
+   "sentence": "Capex rose 49.9% to $1.71 billion, or 2.18x D&A, on expansion of production capacity at the Normal Factory .",
+   "claim": "49.9%",
+   "match": "cited: D246 = Capital expenditures growth, FY2025",
+   "label": "consistent",
+   "reason": "Capex growth FY2025 matches."
+  },
+  {
+   "sentence": "Capex rose 49.9% to $1.71 billion, or 2.18x D&A, on expansion of production capacity at the Normal Factory .",
+   "claim": "$1.71 billion",
+   "match": "cited: F71 = Capital expenditures, FY2025",
+   "label": "consistent",
+   "reason": "Capex FY2025 matches."
+  },
+  {
+   "sentence": "Capex rose 49.9% to $1.71 billion, or 2.18x D&A, on expansion of production capacity at the Normal Factory .",
+   "claim": "2.18x",
+   "match": "cited: D228 = Capex / D&A, FY2025",
+   "label": "consistent",
+   "reason": "Capex/D&A FY2025 matches."
+  },
+  {
+   "sentence": "Net cash fell to $1.64 billion in FY2025 from $3.26 billion in FY2024, with debt flat at $4.44 billion .",
+   "claim": "$1.64 billion",
+   "match": "cited: D231 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net cash FY2025 matches."
+  },
+  {
+   "sentence": "Net cash fell to $1.64 billion in FY2025 from $3.26 billion in FY2024, with debt flat at $4.44 billion .",
+   "claim": "$3.26 billion",
+   "match": "cited: D179 = Net cash (cash and investments less debt), FY2024",
+   "label": "consistent",
+   "reason": "Net cash FY2024 matches."
+  },
+  {
+   "sentence": "Net cash fell to $1.64 billion in FY2025 from $3.26 billion in FY2024, with debt flat at $4.44 billion .",
+   "claim": "$4.44 billion",
+   "match": "cited: F135 = Long-term debt, FY2025",
+   "label": "consistent",
+   "reason": "Debt paraphrases long-term debt FY2025."
+  },
+  {
+   "sentence": "Net cash at 30.5% of revenue ranks in the 75th percentile of four autos peers, above their 17.8% median .",
+   "claim": "30.5%",
+   "match": "cited: D232 = Net cash % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Net cash % of revenue FY2025 matches."
+  },
+  {
+   "sentence": "Net cash at 30.5% of revenue ranks in the 75th percentile of four autos peers, above their 17.8% median .",
+   "claim": "75th percentile",
+   "match": "cited: D351 = Net cash % of revenue: percentile vs autos peers (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer percentile matches."
+  },
+  {
+   "sentence": "Net cash at 30.5% of revenue ranks in the 75th percentile of four autos peers, above their 17.8% median .",
+   "claim": "17.8%",
+   "match": "cited: D352 = Net cash % of revenue: autos peer median (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer median matches."
+  },
+  {
+   "sentence": "Financing inflow of $886 million came primarily from shares issued to Volkswagen Group and capital contributed by outside parties in Mind Robotics .",
+   "claim": "$886 million",
+   "match": "cited: F92 = Financing cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Financing cash flow FY2025 matches."
+  },
+  {
+   "sentence": "Diluted shares rose 17.1% in FY2025, after 7.0% in FY2024, so funding the burn is diluting holders .",
+   "claim": "17.1%",
+   "match": "cited: D260 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "Diluted share change FY2025 matches."
+  },
+  {
+   "sentence": "Diluted shares rose 17.1% in FY2025, after 7.0% in FY2024, so funding the burn is diluting holders .",
+   "claim": "7.0%",
+   "match": "cited: D209 = Diluted share count change, FY2024",
+   "label": "consistent",
+   "reason": "Diluted share change FY2024 matches."
+  },
+  {
+   "sentence": "Rivian has posted a net loss in each of seven years, including $3.65 billion in FY2025, and its accumulated deficit reached $27.0 billion .",
+   "claim": "$3.65 billion",
+   "match": "cited: F38 = Net income, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 net loss matches."
+  },
+  {
+   "sentence": "Rivian has posted a net loss in each of seven years, including $3.65 billion in FY2025, and its accumulated deficit reached $27.0 billion .",
+   "claim": "$27.0 billion",
+   "match": "passage P5: P5 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2025 10-K passage figure for the accumulated deficit."
+  },
+  {
+   "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years .",
+   "claim": "13.8%",
+   "match": "cited: D223 = Stock-based compensation % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "SBC % of revenue FY2025 matches."
+  },
+  {
+   "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years .",
+   "claim": "10%",
+   "match": "cited: D223 = Stock-based compensation % of revenue, FY2025",
+   "label": "mismatch",
+   "reason": "10% is a five-year floor, not the FY2025 SBC ratio of 13.8%."
+  },
+  {
+   "sentence": "Cash and investments of $6.08 billion cover 2.4 years of the latest burn, and the filing expects significant capital investment over the next several years .",
+   "claim": "$6.08 billion",
+   "match": "cited: D229 = Cash and investments, FY2025",
+   "label": "consistent",
+   "reason": "Cash and investments FY2025 matches."
+  },
+  {
+   "sentence": "Cash and investments of $6.08 billion cover 2.4 years of the latest burn, and the filing expects significant capital investment over the next several years .",
+   "claim": "2.4 years",
+   "match": "cited: D236 = Years of burn covered by cash and investments, FY2025",
+   "label": "consistent",
+   "reason": "Years of burn covered matches."
+  },
+  {
+   "sentence": "Automotive was 71.1% of revenue and fell 14.6% in FY2025, with the filing citing fewer deliveries and expired 45W credits .",
+   "claim": "71.1%",
+   "match": "cited: D314 = Automotive (segment) share of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Automotive share FY2025 matches."
+  },
+  {
+   "sentence": "Automotive was 71.1% of revenue and fell 14.6% in FY2025, with the filing citing fewer deliveries and expired 45W credits .",
+   "claim": "14.6%",
+   "match": "cited: D315 = Automotive (segment) growth, FY2025",
+   "label": "consistent",
+   "reason": "Automotive growth FY2025, stated as a fall."
+  },
+  {
+   "sentence": "Gross margin staying above the FY2025 level of 2.7% would confirm the turn; a fall below it would reverse it, visible in the FY2026 10-K .",
+   "claim": "2.7%",
+   "match": "cited: F19 = Gross margin, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 gross margin matches."
+  },
+  {
+   "sentence": "Free cash flow burn below the FY2025 level of $2.49 billion would confirm narrowing losses, while burn above it would reverse the trend, visible in the FY2026 10-K .",
+   "claim": "$2.49 billion",
+   "match": "cited: D235 = Cash burn (negative free cash flow), FY2025",
+   "label": "consistent",
+   "reason": "FY2025 cash burn matches."
+  },
+  {
+   "sentence": "Automotive revenue growth above the FY2025 decline of 14.6% would confirm stabilisation, with R2 deliveries expected from the second quarter of 2026 .",
+   "claim": "14.6%",
+   "match": "cited: D315 = Automotive (segment) growth, FY2025",
+   "label": "consistent",
+   "reason": "Automotive FY2025 decline matches."
+  }
+ ]
+}

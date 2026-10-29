@@ -3,8 +3,12 @@
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the five original §9
 decisions are taken (2026-10-10); amended decision 4 and decisions 6–9 were adopted on 2026-10-11 under the founder's delegation to Astra's recommendation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
-the follow-ups in §11 are open; this document itself ships nothing · Support
-material:
+the follow-ups in §11 are open; this document itself ships nothing; on 2026-10-25 the table window
+(§4.5) was retired with the metrics-table number system (see the note under §4.5's window control), and
+the current table rule is `frontend/DESIGN_SYSTEM.md` §4, Analysis table; the same day the founder also narrowed the marking rule (`docs/brand/decisions-log.md` D-061), so the
+figure affix (§4.2), the strip (§4.3) and the web row of §4.10 are superseded where their notes say (its PDF and
+Excel rows on 2026-10-27, by the exports' own change),
+while §9's decisions stand · Support material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
 
@@ -32,6 +36,13 @@ The proposal replaces label-per-instance with **note-per-issue**:
    card or a column sits next to a number any more.
 3. One **Data notes strip** under the headline cards (a hairline strip, not a card) with the counts and
    the grouped notes, replacing the "N source checks needed" badge.
+
+   **Superseded (2026-10-25)** for items 2 and 3: the founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061). A figure carries no
+   dagger, and a letter only where its note questions the number (a review note with any reason other
+   than the record-only `legacy_calculation`), in the neutral note ink; the strip is one line of fine print
+   under the metrics table. Every note stays in the evidence dialog and the data notes, and §9's decisions
+   stand. The current rules are `DESIGN.md`'s Calculation Provenance Rule and `frontend/DESIGN_SYSTEM.md`
+   §4 (Data note mark, Data notes strip); this section keeps the October 2026 record as it was.
 4. A **KPI strip** whose label, value and delta rows are shared across cards (CSS subgrid) and whose
    period line names each figure's actual period.
 5. A **metrics table** with fixed, equal period columns (76 px desktop, 68 px phone, scaling with text
@@ -266,7 +277,8 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
   many of those changes are in the quarters shown, since the report-wide count no longer describes the
   page: state 2 with Newest 6 reads "14 quarter-over-quarter changes in the table (8 in the 6 quarters
   shown)", state 3 with Earliest 6 "3 quarter-over-quarter changes in the table (none in the 6 quarters
-  shown)"; with the full window the clause is unchanged.
+  shown)"; with the full window the clause is unchanged. (Retired with the table window on 2026-10-25:
+  the table clause now counts the whole table; see the note under §4.5's window control.)
 - A year-over-year change the table shows as the labelled fallback of a cell without a quarter-over-quarter
   change (§4.5) is counted among the places that show it: "…, of which the headline cards show one, the
   table shows one as its labelled fallback, … and the exports carry all". None of the three fixture states
@@ -321,6 +333,13 @@ On click, Enter, Space or tap the figure opens the evidence dialog (§4.6). The 
 separate control (it would add dozens of Tab stops); the Data notes strip and the dialog both explain
 it, and the notes chip on a chart or the narrative header jumps to the strip.
 
+**Superseded (2026-10-25).** The founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061): no `†` beside a figure (a sentence above
+the table names the calculated metrics, and the figure's name still says "calculated"), and a letter, in
+the note ink and never warning ink, only for a note that questions the number. A record-only, unknown or
+unavailable note marks nothing and is named in the dialog, not in the figure's name. The Q4 column
+header's `†` and the period picker's stay: they mark periods. §9's decisions stand; the current rule is
+`frontend/DESIGN_SYSTEM.md` §4, Data note mark.
+
 ### 4.3 Data notes strip
 
 Position: under the KPI strip, where `SourcesMethods` sits today, so it is the legend for everything
@@ -332,15 +351,26 @@ figures, Q4 derivation, EPS, FCF definition, data as of, snapshot). Every chart'
 narrative header's chip open this strip and scroll to the note. Owner: a new `DataNotes.tsx` that
 replaces `SourcesMethods.tsx`.
 
+**Superseded (2026-10-25).** The founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061): the data notes are one line of fine print
+8px under the metrics table, with no hairlines and no warning ink. The summary names each marked note by
+its letter, places and words and counts the gaps, the figures with no check recorded and the calculated
+figures; "No figures need review" (decision 9) never stands beside a record-only note. The open detail
+lists every note, and the comparison locators are gone. §9's decisions stand; the current rule is
+`frontend/DESIGN_SYSTEM.md` §4, Data notes strip.
+
 ### 4.4 KPI strip
 
-- `<dl>` grid, `grid-cols-2 lg:grid-cols-4`; each card `grid-rows-subgrid` spanning three rows (label,
-  value, period + delta) so the three rows share heights across the strip and every value sits on the
-  same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
+- `<dl>` grid, `grid-cols-2 lg:grid-cols-4` (columns superseded 2026-10-25 by E197; see the note that
+  ends this item); each card `grid-rows-subgrid` spanning three rows (label, value, period + delta) so
+  the three rows share heights across the strip and every value sits on the same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
   (decision 4). When the page container is narrower than 17 em of its own text size (a 390 px phone at
   200% text is 11 em; 320 px at 100% text is 20 em) the cards go one-up: a 48 px figure cannot share a
   173 px card, and the measured overflow at 390 / 320 with 200% text was 55 / 90 px before this rule and
-  0 after it (§9, amendment to decision 4).
+  0 after it (§9, amendment to decision 4). (2026-10-25: E197 keeps two-up at 320 px only where two cards
+  hold the strip's widest value on one line, every dollar value the fixtures carry included; a code-prefixed
+  value that two cannot hold, "CHF 22.8B" at 320 px or "CA$968.0M" with a note's letter at 360 px, takes one
+  card instead of leaving its card, and from lg the strip takes four cards only where four hold it.
+  `frontend/DESIGN_SYSTEM.md` §4, Analysis KPI, holds the current rule.)
 - Label: the metric name only, eyebrow style, allowed to wrap. Value: 24 px data face with the affix.
   Third row: "Q2 2026 · YoY +28.0%" as two inline items that wrap independently on narrow cards; when
   the card's period is older than the dataset's latest period, "· latest available" in secondary ink
@@ -357,7 +387,8 @@ Shipped in #1202 (`DataTable`'s opt-in `layout="fixed"`, `colWidths`, `cellPaddi
 budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
 
 - `table-layout: fixed` with explicit widths: metric column 8.25 rem (132 px), period columns 4.75 rem
-  (76 px) from 768 px up; 6.5 rem and 4.25 rem below. Widths are in rem so they scale with the reader's
+  (76 px) from 768 px up; 6.5 rem and 4.25 rem below (2026-10-25: #1606 widened the phone column to 4.375 rem
+  for the 2px each footnote mark keeps; `frontend/DESIGN_SYSTEM.md` §4 holds the current widths). Widths are in rem so they scale with the reader's
   text size. Content never sizes a column, so the cell's content must fit its box: the padding is part of
   the geometry (the prototype uses 0.25 rem per side on phones and 0.5 rem above; #1202 uses the compact
   inset), and a figure is formatted to a glyph budget before it is placed (#1202's `tableTokenBudget`:
@@ -400,6 +431,13 @@ budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
   "Showing 6 of 12 quarters" (years in annual mode). The default is always All: nothing is dropped
   silently, the window is the reader's explicit choice, and charts, headline figures, the data-note totals
   and the exports are not affected by it. Choosing a window keeps focus on the control.
+  **Superseded (2026-10-25).** The window, its status line and the locators' "in the N quarters shown"
+  clause are retired with the metrics-table number system, reversing this decision (#1202, refined in
+  #1273): the table shows every period and scrolls sideways with whole-column snapping, and phones open
+  on the newest period with the "← Earlier quarters" hint. At 1280–1920 px every period fits with no
+  scroll, and on a 390 px phone the full table and Newest 6 each showed three whole periods, so the window
+  only hid data. The current rule is `frontend/DESIGN_SYSTEM.md` §4, Analysis table; this section keeps the
+  October 2026 record as it was.
 - **Annual mode** uses the same table: basis "Δ vs prior year", the window in years, and the CAGR /
   window-change column last, at the period width, inside the snap set, with its window ("FY2016–FY2025")
   in the header. The landing page's `AnalysisDemo` and the `AnalysisTeaser` render the annual sample with
@@ -473,30 +511,23 @@ returns to the figure (the `Modal` contract).
 
 ### 4.7 Charts
 
-Shipped in #1203 (chart notes with a placement pass, PNG notes). The rules, with the corrections of §11:
+Shipped in #1203 (chart notes with a placement pass, PNG notes) on the Recharts charts, with the corrections of
+§11. Since the trend charts' renderer replaced them (E195, D-064), `docs/design/analysis-trend-charts-spec-2026-10.md`
+governs the four trend charts' note marks (its §3.3 and §0.5) under D-061's rule (§4.10's note); the filled bars
+stay. The rules:
 
-When the trend charts' new renderer replaces today's charts, `docs/design/analysis-trend-charts-spec-2026-10.md`
-replaces the note marks and the "Notes a" chip below for those four charts (its §0.5); the filled bars stay. Until
-then these rules govern production.
-
-- An affected point is a hollow marker (panel fill, 2 px series-colour stroke, ≥ 3:1 on both grounds)
-  with the note letter above it; an affected bar keeps its fill and carries the letter above it (a
-  dashed or hollow bar reads as an estimate in a financial chart). A growth-line point's letter can
-  fall over a bar, so it carries a 3 px panel-colour halo (`paint-order: stroke`) and stays legible in
-  the label ink on either ground. Letters are 11 px data face in the
-  chart label ink, never warning ink: against the honey series the warning pair measures 1.6:1 in dark
-  and 2.1:1 in light, and a letter in the series colour reads as part of the series. Colours are SVG
-  attributes taken from the chart theme, never CSS classes or variables, because the PNG export
-  serializes the SVG in isolation.
-- The legend row ends with a "Notes a" provenance chip that opens the strip and moves focus to the note.
-  Gaps stay gaps.
-- The plot is a named scroll region that is a Tab stop only while it overflows. recharts'
-  `accessibilityLayer` adds a second, unnamed Tab stop inside it whose arrow keys move a tooltip: either
-  turn it off or name the surface and put the note letter in the tooltip.
-- PNG export notes carry the same sentences as the strip: "Note a: This saved calculation predates …
-  (Operating margin Q2 2025, Q2 2026 …)", the unavailability line once (the panel's own gap line is the
-  same note), the calculated line, the FCF definition, source date and disclosure, wrapped beneath the
-  plot as today, with periods formatted as "Q2 2026".
+- No note is drawn inside a plot. An observation whose note questions the number puts its letter in the notes band,
+  a 16 px row always reserved under the period axis, centred under its period, in the chart's note ink, never warning
+  ink: against the honey series the warning pair measures 1.6:1 in dark and 2.1:1 in light. An affected bar keeps its
+  fill (a dashed or hollow bar reads as an estimate in a financial chart). Colours are SVG attributes taken from the
+  chart theme, never CSS classes or variables, because the PNG export serializes the SVG in isolation.
+- The footnote lines under the plot explain each letter: its series, periods and reason. A gap's line names its
+  periods in words with no letter, and a calculated value carries no glyph, its periods named in a footnote line.
+- The legend row ends with a "Notes a" provenance chip that names exactly the footnotes' letters, opens the strip and
+  moves focus to the note. Gaps stay gaps.
+- The plot is a named scroll region that is a Tab stop only while it overflows. After it, the chart's values stop, a
+  slider over the periods, speaks each period's readout and its marked notes by letter ("data note a").
+- The PNG prints the card's footnote lines, the FCF definition, source date and disclosure, wrapped beneath the plot.
 
 ### 4.8 Narrative
 
@@ -582,6 +613,22 @@ corrections of §11:
 | Excel | the letter in the cell's number format (`#,##0" (a)"`), so the cell stays numeric, sorts and prints; the sentence in the cell comment | the same on the growth cells the workbook has (window and top-line YoY) | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & methods sheet (unchanged, with the Note column) |
 | PNG | hollow marker / filled bar + letter | letter on the growth line | gap | "Note a: …" lines under the plot | not applicable |
 
+**Superseded (2026-10-25)** for the Web and PNG rows: the founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061). On the page a
+figure reads `26.1%` (no dagger) and carries `ᵃ` only where its note questions the number, a gap is `—`
+alone, and the summary is the fine print under the table; a chart's PNG prints its card's footnote lines, which
+name the marked letters and state a gap in words (§4.7, E195). The PDF and Excel rows move with the exports' own change. §9's decisions stand.
+
+**Superseded (2026-10-27)** for the PDF and Excel rows (MPA WP3-B, `docs/mpa-improvements/coherence.md` §2.5): the
+exports follow D-061 as the page does. The PDF prints a figure with no dagger and a raised letter only where its note
+questions the number, in the grid, the appendix, the citations and the narrative; a gap is `—` alone; the sentence above
+the grid names the calculated metrics, and the fine print sits under the grid (a bold "Data notes" lead, no heading),
+a full grid printing whole on one page with its summary line, with a citation's own notes under Narrative sources. The
+workbook's letter
+is `#,##0" a"`, not `#,##0" (a)"`, on marked figures only, "n/m" taking it from the format's text section; every note
+stays a cell comment, naming its letter only where it marks; the cover sheet prints the page's fine print and the
+Metrics grid has the key to the letters it prints under it. The Note column (17) names a marked note's letter and
+an unmarked note's words.
+
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
 apostrophe) and the data columns keep the period keys the API uses. The PDF's compact money formatter
 matches the web's ("$1.2T", "$1.0B"; today's prints "$1.23T" and "$1000.0M"). The backend owns the
@@ -592,7 +639,8 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
 
 - Reading order: picker → headline cards (each a definition group: term, value button, period and
   delta) → Data notes (a disclosure; open, a list of notes) → chart panels (heading, legend, Notes chip,
-  controls, the plot as a named scrollable region while it overflows; arrow keys scroll it) → narrative
+  controls, the plot as a named scrollable region while it overflows, its arrow keys scrolling it, then its values
+  stop, a slider whose arrow keys step the periods) → narrative
   (headings, paragraphs with citation chips, evidence disclosures, Sources list) → table window control
   → table region → cells.
 - Table: the scroll container is `role="region"` named "Metrics by period, table of 12 quarters", a Tab
@@ -616,10 +664,11 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
   by the spacing exception (table rows about 41 px apart, columns at least 68 px); repeated "Open filing
   ↗" links carry distinct names. The table scrolls by swipe and snaps to columns; the chart plot scrolls
   by swipe inside its region, never the page.
-- Colour: letters and `†` carry the meaning; tones carry direction, as today. Warning ink is 6.4:1 on
-  cream and inside its tint 5.2:1; amber-500 on navy in dark; the muted letter pair is 5.2:1 / 5.8:1 on
-  panel. Hollow markers keep a 2 px stroke of the series colour (≥ 3:1 on both grounds); chart letters
-  use the chart label ink.
+- Colour: letters carry the meaning; tones carry direction, as today. Since D-061 no figure carries a `†`
+  and no mark takes warning ink: a figure's letter is the note ink (5.2:1 / 10.0:1 on panel), and a chart's,
+  in its notes band, its tooltip and its footnotes, the chart's note ink (5.2:1 / 7.8:1 on panel; §4.7).
+  Warning ink (6.4:1 on cream, 5.2:1 inside its tint; amber-500 on navy in dark) stays for the evidence
+  dialog's status line on a note that questions the number, its letter included ("Needs review · Note b").
 - Gates: the analysis route joins `tests/e2e/text-floors.spec.ts` in both themes; the layout gate (#1206,
   `tests/e2e/analysis-layout.spec.ts`) asserts the region's role, name and Tab stop, the header counts and
   every figure control's name; still owed there, as follow-ups: the conditional Tab stop, a focused cell
@@ -897,6 +946,9 @@ tabs, and the web replaces its exact spans with evidence disclosures.
   keeps its own `not_in_dataset` and `legacy_calculation_not_supported` gaps, so "after the repair" is
   not state 1 byte for byte).
 - Any frontend override that marks a legacy record validated, hides a note, or shows "verified".
+  (Narrowed 2026-10-25, D-061: every note stays in the evidence dialog and the data notes; only a note
+  that questions the number keeps a mark beside the figure. Never marking a legacy record validated and
+  never saying "verified" stand.)
 - Changing what counts as `needs_review` or `unavailable`.
 
 ## 8. Where this review departs from the brief
@@ -939,7 +991,8 @@ verification. Implementation and its measurement gates remain separate from this
    adopt; the filing and company pages keep their own vocabulary.
 4. Keep the KPI strip two-up at 320 px (measured fine, "Free cash flow" wraps) or go one-up below 360.
    Recommended: two-up.
-5. Whether the table window should also drive the charts. Recommended: no.
+5. Whether the table window should also drive the charts. Recommended: no. (Moot from 2026-10-25: the
+   table window is retired; see the note under §4.5's window control.)
 
 **Amended and added by the comprehensive review (2026-10-10, evening).** Each is implemented in the
 prototype as recommended; the founder may overrule any of them. Historical release checkpoint:
@@ -966,6 +1019,9 @@ without a second pressed selection state. Merge and deployment verification rema
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%
    text; the cards go one-up when the page is narrower than 17 em of its own text size (§4.4).
+   (2026-10-25: E197 narrows two-up to strips whose two cards hold the widest value on one line, every
+   dollar value the fixtures carry included; a code-prefixed value two cards cannot hold at 320 or 360 px
+   takes one card. §4.4 records the change.)
 6. Table figures are rounded to a glyph budget (#1202: fewer decimals, compact scale or scientific
    notation for a token that would not fit) with the stored value one click away. This is a
    presentation decision the brief did not take; it shipped. Recommended: keep it, with the rounding note
@@ -1103,14 +1159,16 @@ correction landed in this document:
   cells change fill) before it judges the header's fill. The picker's presets are plain buttons, without
   `aria-pressed` or a selected tint (§4.9, as decision 8 recommends; the summary line states the range);
   the open note's table clause says how many of its quarter-over-quarter changes are in the quarters
-  shown when the table window is narrower than the report, and counts the year-over-year changes the
-  table shows as its labelled fallback (§4.1); the evidence dialog's status follows the notes model's own
-  resolution, so a stored figure without a provenance record whose reconciled flag is false reads "Needs
-  review" with its reason, as its affix and its note do, instead of "No validation record". The phone
-  table's "← Earlier quarters" hint hides at the scroll start and shows only while the table is scrolled
-  away from it, as §4.5 says (it had shown whenever the table overflowed); the disclosure caret and the
-  button fills do not transition under `prefers-reduced-motion`. The chart regions are Tab stops only while
-  they overflow their panels, measured after paint and on every resize as the table's region is, and their
+  shown when the table window is narrower than the report (retired with the table window on
+  2026-10-25: the clause now counts the whole table; see the note under §4.5's window control), and
+  counts the year-over-year changes the table shows as its labelled fallback (§4.1); the evidence
+  dialog's status follows the notes model's own resolution, so a stored figure without a provenance
+  record whose reconciled flag is false reads "Needs review" with its reason, as its affix and its
+  note do, instead of "No validation record". The phone table's "← Earlier quarters" hint hides at
+  the scroll start and shows only while the table is scrolled away from it, as §4.5 says (it had
+  shown whenever the table overflowed); the disclosure caret and the button fills do not transition
+  under `prefers-reduced-motion`. The chart regions are Tab stops only while they overflow their
+  panels, measured after paint and on every resize as the table's region is, and their
   names carry the scroll hint only then (§4.7, §5; they had been unconditional Tab stops, four inert ones at
   1480 px). Each "Original filing" link in the narrative's Sources list is named by its source number, figure
   and period ("Original filing for source 3: Revenue, Q2 2026"), so a screen reader's link list tells them

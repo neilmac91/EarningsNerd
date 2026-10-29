@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import Link from 'next/link'
 import { CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
+import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
+import { ENABLE_FPI_FILINGS } from '@/lib/featureFlags'
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
@@ -54,7 +56,7 @@ function Toggle({
             </Link>
           )}
         </div>
-        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{description}</p>
+        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">{description}</p>
       </div>
       {/* Busy fades only the track; the shared switch's focus ring remains opaque.
           Plan-locked switches retain native disabled because their own press cannot flip that state. */}
@@ -90,7 +92,11 @@ export default function NotificationPreferencesForm() {
 
   const mutation = useMutation({
     mutationFn: updateNotificationPreferences,
-    onSuccess: (updated) => {
+    // The account the change was made under (E29): a save that answers after the session generation moved on
+    // (a logout, another login, a lost session) writes nothing into the next account's preferences.
+    onMutate: () => ({ generation: getSessionGeneration() }),
+    onSuccess: (updated, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
       // The server returns the coerced/effective prefs — trust them as the source of truth.
       queryClient.setQueryData(queryKeys.notificationPreferences(), updated)
     },
@@ -103,7 +109,7 @@ export default function NotificationPreferencesForm() {
     <Card className="p-cap-6 mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Filing alerts</h2>
-        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-secondary-dark" />}
+        {mutation.isPending && <CircleNotchIcon aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-tertiary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.
@@ -162,20 +168,27 @@ function PreferenceRows({
         locked={!prefs.eightk_available}
         onChange={setBool('notify_8k')}
       />
-      <Toggle
-        label="Foreign annual reports (20-F)"
-        description="Annual reports from foreign issuers (20-F / 40-F)."
-        checked={prefs.notify_20f}
-        busy={busy}
-        onChange={setBool('notify_20f')}
-      />
-      <Toggle
-        label="Foreign interim reports (6-K)"
-        description="Interim updates from foreign issuers, delivered in your digest rather than in real time."
-        checked={prefs.notify_6k}
-        busy={busy}
-        onChange={setBool('notify_6k')}
-      />
+      {/* The foreign-issuer rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS, the API's ENABLE_FPI_FILINGS mirror, as the plan
+          lines do (E33), so the form never offers a form the API keeps off. A hidden row keeps its stored value: each
+          switch saves its own field alone, so no other save carries notify_20f or notify_6k. */}
+      {ENABLE_FPI_FILINGS && (
+        <>
+          <Toggle
+            label="Foreign annual reports (20-F)"
+            description="Annual reports from foreign issuers (20-F / 40-F)."
+            checked={prefs.notify_20f}
+            busy={busy}
+            onChange={setBool('notify_20f')}
+          />
+          <Toggle
+            label="Foreign interim reports (6-K)"
+            description="Interim updates from foreign issuers, delivered in your digest rather than in real time."
+            checked={prefs.notify_6k}
+            busy={busy}
+            onChange={setBool('notify_6k')}
+          />
+        </>
+      )}
       <Toggle
         label="Real-time alerts"
         description="An email from the hourly filing check, instead of the daily digest."
@@ -195,7 +208,7 @@ function PreferenceRows({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
         <div className="grow basis-40">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest</span>
-          <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
             Alerts that aren&apos;t real-time arrive in one email a day.
           </p>
         </div>

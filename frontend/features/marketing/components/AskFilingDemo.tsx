@@ -12,7 +12,7 @@ const ANSWER_REGISTER =
 
 // Inside-card eyebrow (11px uppercase tracked, tertiary on the white field surface).
 const EYEBROW =
-  'text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark'
+  'text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark'
 
 const FIELD = 'rounded-lg border border-border-light bg-white dark:border-white/10 dark:bg-white/5'
 
@@ -94,7 +94,7 @@ export default function AskFilingDemo() {
         {/* Decorative composer: hidden from assistive tech and out of the tab order (a server
             component may render the client <Button>, but not call its class factory). */}
         <div aria-hidden="true" className={`${FIELD} flex items-center gap-2 py-1.5 pl-3.5 pr-1.5`}>
-          <span className="flex-1 text-sm text-text-tertiary-light dark:text-text-secondary-dark">Ask this filing…</span>
+          <span className="flex-1 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">Ask this filing…</span>
           <Button size="sm" tabIndex={-1}>
             Ask
           </Button>

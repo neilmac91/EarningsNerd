@@ -1657,9 +1657,11 @@ const WORD_FIELDS = new Set([
   'acquired_disposed', 'channel', 'code', 'coverage_status', 'digest', 'entryPoint', 'error', 'fallback_reason', 'id',
   'kind', 'plan', 'qualityTier', 'reason', 'reasons', 'referral_code', 'role', 'stage', 'status', 'subscription_status',
   'section', 'summary_status', 'tier', 'time', 'tone', 'transaction_code', 'type', 'writer_error',
+  'accepted_content_types', 'content_type',
   // URLs and opaque ids.
   'document', 'document_url', 'fragment_url', 'invite_link', 'pageUrl', 'page_url', 'referral_link', 'secUrl', 'sec_url',
   'source_url', 'url', 'snapshot_id', 'stripe_customer_id', 'stripe_subscription_id', 'sha256', 'follow_up_ids',
+  'submission_id', 'submissionId', 'download_path',
   // The words a person types.
   'email', 'provider_email', 'user_email', 'message', 'subject', 'q', 'query', 'honeypot',
 ])

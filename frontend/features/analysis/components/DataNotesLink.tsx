@@ -1,6 +1,6 @@
 'use client'
 
-import type { DataNote } from '@/features/analysis/lib/dataNotes'
+import { noteMarksFigure, type DataNote } from '@/features/analysis/lib/dataNotes'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 
 /** Reveal the report's note before moving focus; hidden details never receive a dead jump. */
@@ -16,11 +16,15 @@ export function openDataNote(id: string) {
   target.scrollIntoView?.({ block: 'center', behavior: 'auto' })
 }
 
+/** A surface's Notes chip lists only the letters its figures show (noteMarksFigure, D-061): the table's, a chart's and
+ *  the narrative's chips all pass every note they hold and take the marked ones here. With none, there is no chip. */
 export default function DataNotesLink({ notes }: { notes: DataNote[] }) {
-  if (notes.length === 0) return null
+  const marked = notes.filter(noteMarksFigure)
+  if (marked.length === 0) return null
+  const letters = marked.map((note) => note.letter).join(', ')
   return (
-    <button type="button" className={sourceTraceChipClass(false)} onClick={() => openDataNote(notes[0].id)} aria-label={`Review data notes ${notes.map((note) => note.letter).join(', ')}`}>
-      Notes {notes.map((note) => note.letter).join(', ')}
+    <button type="button" className={sourceTraceChipClass(false)} onClick={() => openDataNote(marked[0].id)} aria-label={`Review data notes ${letters}`}>
+      Notes {letters}
     </button>
   )
 }

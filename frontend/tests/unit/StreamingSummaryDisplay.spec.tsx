@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import StreamingSummaryDisplay from '@/app/filing/[id]/StreamingSummaryDisplay'
 import { GuidanceCard } from '@/components/ui'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { PRO_FAIR_USE_LINE } from '@/lib/planLimits'
+import { proFairUseLine } from '@/lib/planLimits'
 
 // The trial ships behind ENABLE_PRO_TRIAL (flipped with the backend's PRO_TRIAL_DAYS); a live flag lets a
 // case turn it on without re-importing the component.
@@ -30,6 +30,13 @@ const filing: Filing = {
   sec_url: 'https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/',
   company: { id: 1, ticker: 'AAPL', name: 'APPLE INC.' },
 } as Filing
+
+/** A step's label, found by its row's text: the fetching step's form code is a run of its own inside it. */
+const stepLabel = (text: string) => {
+  const row = screen.getAllByRole('listitem').find((item) => item.textContent === text)
+  if (!row) throw new Error(`no step reads ${text}`)
+  return row.lastElementChild as HTMLElement
+}
 
 const renderAt = (stage: string, elapsedSeconds = 0) =>
   render(
@@ -62,12 +69,12 @@ describe('StreamingSummaryDisplay live region', () => {
   })
 
   it('changes only on stage transitions, not on progress ticks', async () => {
-    const { rerender } = renderAt('analyzing', 5)
+    const { rerender } = renderAt('parsing', 5)
     await act(async () => {})
-    const live = () => screen.getByText(/^(Checking figures against the filing’s data|Writing the summary)\.$/)
+    const live = () => screen.getByText(/^(Reading the statements, risk factors and MD&A|Writing the summary and checking figures against the filing)\.$/)
     const before = live().textContent
     rerender(
-      <StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={20} />,
+      <StreamingSummaryDisplay streamingText="" stage="parsing" message="" filing={filing} elapsedSeconds={20} />,
     )
     await act(async () => {})
     expect(live().textContent).toBe(before)
@@ -75,7 +82,22 @@ describe('StreamingSummaryDisplay live region', () => {
       <StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={21} />,
     )
     await act(async () => {})
-    expect(live()).toHaveTextContent('Writing the summary.')
+    expect(live()).toHaveTextContent('Writing the summary and checking figures against the filing.')
+  })
+
+  // The backend's analyzing stage passes in milliseconds, and the figures are checked while the summary is written
+  // (under summarizing), so one step says both: the region announces it once, as analyzing starts, and the stage
+  // change to summarizing says nothing new (E196 (6)).
+  it('announces the writing step once across analyzing and summarizing, where the figure check is part of it', async () => {
+    const { rerender } = renderAt('analyzing', 5)
+    await act(async () => {})
+    const live = screen.getByText('Writing the summary and checking figures against the filing.')
+    expect(live).toHaveAttribute('aria-live', 'polite')
+    rerender(
+      <StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={21} />,
+    )
+    await act(async () => {})
+    expect(live).toHaveTextContent(/^Writing the summary and checking figures against the filing\.$/)
   })
 
   it('has a generic announcement for early and unknown stages', async () => {
@@ -94,28 +116,84 @@ describe('StreamingSummaryDisplay step log', () => {
   it('shows a pending step with its empty marker, its label at full opacity in tertiary ink', async () => {
     renderAt('fetching')
     await act(async () => {})
-    const pending = screen.getByText('Writing the summary')
+    const pending = screen.getByText('Writing the summary and checking figures against the filing')
     // Its marker: the empty hairline circle (no check, no dot) beside the label.
     const marker = pending.previousElementSibling as HTMLElement
     expect(marker.className.split(/\s+/)).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-border-light', 'dark:border-border-dark']))
     expect(marker.childElementCount).toBe(0)
     // Whole class tokens: a translucent ink (`text-text-tertiary-light/40`) fades it as opacity-40 did.
-    expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-secondary-dark']))
+    expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-tertiary-dark']))
     expect(pending.className).not.toMatch(/text-text-(?:tertiary|secondary)-(?:light|dark)\//)
     for (let el: HTMLElement | null = pending; el; el = el.parentElement) expect(el.className).not.toMatch(/\bopacity-/)
-    expect(screen.getByText('Fetching the 10-K from SEC.gov').className).toContain('font-medium')
+    expect(stepLabel('Fetching the 10-K from SEC.gov').className).toContain('font-medium')
   })
 
-  it('reads the four steps in the product voice, the first naming the filing’s own form', async () => {
+  // At 390px under 200% text the fetching step broke "10-" over "K from SEC.gov". Its form code is one
+  // whitespace-nowrap run, as the live-status line's is, an amended form's included, while the live region reads
+  // the plain sentence (E230).
+  it.each(['10-K', '10-K/A', '20-F'])('keeps the %s whole in the fetching step, the live region reading the plain sentence', async (form) => {
+    render(<StreamingSummaryDisplay streamingText="" stage="fetching" message="" filing={{ ...filing, filing_type: form }} elapsedSeconds={0} />)
+    await act(async () => {})
+    const label = stepLabel(`Fetching the ${form} from SEC.gov`)
+    const runs = [...label.querySelectorAll('span')]
+    expect(runs.map((run) => [run.textContent, run.className])).toEqual([[form, 'whitespace-nowrap']])
+    expect(screen.getByText(`Fetching the ${form} from SEC.gov.`)).toHaveAttribute('aria-live', 'polite')
+  })
+
+  it('names no form code when the filing has none, and keeps no run for one', async () => {
+    render(<StreamingSummaryDisplay streamingText="" stage="fetching" message="" filing={{ ...filing, filing_type: '' }} elapsedSeconds={0} />)
+    await act(async () => {})
+    expect(stepLabel('Fetching the filing from SEC.gov').querySelectorAll('span')).toHaveLength(0)
+  })
+
+  it('reads the three steps in the product voice, the first naming the filing’s own form', async () => {
     renderAt('fetching')
     await act(async () => {})
     const labels = screen.getAllByRole('listitem').map((item) => item.textContent)
     expect(labels).toEqual([
       'Fetching the 10-K from SEC.gov',
       'Reading the statements, risk factors and MD&A',
-      'Checking figures against the filing’s data',
-      'Writing the summary',
+      'Writing the summary and checking figures against the filing',
     ])
+  })
+
+  // A step of its own for the figure check ticked done within milliseconds of the analyzing stage, before any figure
+  // was checked; the writing step now covers both stages: active through each, done only when the run completes.
+  it('keeps the writing step active through analyzing and summarizing, and done only at completion', async () => {
+    const step = () => screen.getByText('Writing the summary and checking figures against the filing')
+    const reading = () => screen.getByText('Reading the statements, risk factors and MD&A')
+    const { rerender } = renderAt('parsing')
+    await act(async () => {})
+    expect(step().className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light']))
+    for (const stage of ['analyzing', 'summarizing']) {
+      rerender(<StreamingSummaryDisplay streamingText="" stage={stage} message="" filing={filing} elapsedSeconds={1} />)
+      await act(async () => {})
+      expect(step().className, stage).toContain('font-medium')
+      expect(reading().className, stage).not.toContain('font-medium')
+      expect(reading().className.split(/\s+/), stage).toEqual(expect.arrayContaining(['text-text-secondary-light']))
+      expect((step().previousElementSibling as HTMLElement).querySelector('svg'), stage).toBeNull()
+    }
+    // Done at completion: the label in the secondary ink, the check in its marker.
+    rerender(<StreamingSummaryDisplay streamingText="" stage="completed" message="" filing={filing} elapsedSeconds={1} />)
+    await act(async () => {})
+    expect(step().className).not.toContain('font-medium')
+    expect(step().className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-secondary-light']))
+    expect((step().previousElementSibling as HTMLElement).querySelector('svg')).not.toBeNull()
+  })
+
+  // The writing step's label wraps at phone widths. Each row aligns its 20px marker to its label's first line, whose
+  // line box is the same 1.25rem (text-sm), where centring it on the whole label set the dot between the lines.
+  it('aligns each step’s marker to its label’s first line', async () => {
+    renderAt('summarizing')
+    await act(async () => {})
+    const rows = screen.getAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    for (const row of rows) {
+      expect(row.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'items-start']))
+      expect(row.className).not.toMatch(/\bitems-center\b/)
+      expect((row.firstElementChild as HTMLElement).className.split(/\s+/)).toEqual(expect.arrayContaining(['h-5', 'w-5']))
+      expect((row.lastElementChild as HTMLElement).className.split(/\s+/)).toContain('text-sm')
+    }
   })
 
   // The stalled sentence takes the header's live-status line (a sentence the reader must read: secondary ink,
@@ -147,7 +225,6 @@ describe('StreamingSummaryDisplay status line', () => {
       'Reviewing the line called Other…',
     ],
     summarizing: [
-      'Checking the figures against the filing’s data…',
       'Finding where the filing says that…',
       'Translating management’s phrasing into plain English…',
     ],
@@ -168,6 +245,23 @@ describe('StreamingSummaryDisplay status line', () => {
     expect(text.startsWith('10-K · ')).toBe(true)
     expect(LINES[pool]).toContain(text.slice('10-K · '.length))
     expect(meta.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-sm', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+  })
+
+  // A line says what the step beside it does not: the summarizing pool's "Checking the figures against the filing's
+  // data…" left once the writing step said the same (E230). Each filing takes its own line, so the case reads one
+  // filing per place in the pool.
+  it('shows only the summarizing pool’s lines at summarizing, none of them the writing step’s check', async () => {
+    const seen = new Set<string>()
+    for (const id of [1, 2, 3, 4, 5, 6]) {
+      const { unmount } = render(<StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={{ ...filing, id }} elapsedSeconds={0} />)
+      await act(async () => {})
+      const line = (metaOf().textContent ?? '').slice('10-K · '.length)
+      expect(LINES.summarizing, `filing ${id}`).toContain(line)
+      expect(line, `filing ${id}`).not.toMatch(/figures/i)
+      seen.add(line)
+      unmount()
+    }
+    expect([...seen].sort()).toEqual([...LINES.summarizing].sort())
   })
 
   it('keeps its line through a stage’s ticks and re-renders, and changes it only with the stage', async () => {
@@ -261,9 +355,9 @@ describe('StreamingSummaryDisplay paywall routing', () => {
   })
 })
 
-// The pipeline's sentences keep their em-dashes until the next functional change to summary_stages (F35,
-// D-046, E92); the card shows the mapped sentence (features/summaries/lib/streamErrorCopy.ts), and the raw one
-// still routes it.
+// The pipeline's sentences took the product's words with E217's functional change to summary_stages (F35, D-046,
+// E92); the card still maps the stream endpoint's own answers and the two sentences the matchers route on
+// (features/summaries/lib/streamErrorCopy.ts), and the raw sentence still routes it.
 describe('StreamingSummaryDisplay failure reason', () => {
   it('shows a backend sentence in the product voice', async () => {
     render(
@@ -271,14 +365,14 @@ describe('StreamingSummaryDisplay failure reason', () => {
         streamingText=""
         stage="error"
         message=""
-        error={'Unable to retrieve this filing at the moment \u2014 please try again shortly.'}
+        error="Filing not found"
         filing={filing}
       />,
     )
     await act(async () => {})
     expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
-    expect(screen.getByText('We could not generate this summary. Try again shortly.')).toBeInTheDocument()
-    expect(screen.queryByText(/\u2014/)).toBeNull()
+    expect(screen.getByText('This filing could not be found.')).toBeInTheDocument()
+    expect(screen.queryByText('Filing not found')).toBeNull()
   })
 
   // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card
@@ -406,8 +500,8 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     await settle()
     expect(document.activeElement).toBe(heading("You've hit this month's free limit"))
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).not.toHaveFocus()
-    // What "go unlimited" holds, in the one sentence lib/planLimits.ts builds (E58, D-046).
-    expect(screen.getByText(PRO_FAIR_USE_LINE)).toBeInTheDocument()
+    // What "go unlimited" holds, in the one sentence lib/planLimits.ts builds (E58, D-046, D-050).
+    expect(screen.getByText(proFairUseLine())).toBeInTheDocument()
   })
 
   it('its Try again hands focus to the progress heading when its press restarts the run', async () => {

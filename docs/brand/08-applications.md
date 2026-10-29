@@ -268,28 +268,36 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 ## 3. Inside the product
 
-- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): seven lines in the voice
-  (five new, one kept, "Reading the size-8 fine print…", and the opening line "Opening the filing…") in three
-  pools, one for fetching, three for parsing and three shared by analyzing and summarizing; one shows per
+- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): six lines in the voice
+  (four new, one kept, "Reading the size-8 fine print…", and the opening line "Opening the filing…") in three
+  pools, one for fetching, three for parsing and two shared by analyzing and summarizing (a third, "Checking
+  the figures against the filing's data…", left with E230: the writing step beside it says that); one shows per
   filing in the card's live-status line in place of "Processing…", changing with the pipeline's stage, unsigned (the "Reading the filing"
   signature and its blue info callout went on 2026-10-24: a quip is activity, not a state); the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
-  and its four steps read "Fetching the 10-K from SEC.gov" (the filing's own form), "Reading the
-  statements, risk factors and MD&A", "Checking figures against the filing's data" and "Writing the
-  summary", which the live region announces as they start. Neither "Generating the summary" nor "AI-generated
+  and its three steps read "Fetching the 10-K from SEC.gov" (the filing's own form), "Reading the
+  statements, risk factors and MD&A" and "Writing the summary and checking figures against the filing",
+  which the live region announces as they start. The last covers the analyzing and summarizing stages:
+  analyzing passes in milliseconds and the figures are checked while the summary is written, so a step of
+  its own, "Checking figures against the filing's data", ticked done before any figure was checked (E196
+  (6)). It says "figures", not "its figures", since the code checks only some, and each step's marker sits
+  beside its label's first line when the label wraps. The first step keeps its form code whole, one unbroken run, as
+  the live-status line does, so "10-K" never breaks at its hyphen under 200% text (E230). Neither "Generating the summary" nor "AI-generated
   summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
   sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it." in
   that line, unsigned, and the live region says it once, without guessing why. A stored summary that failed reads "This summary did
   not finish" over its own sentence, "The last attempt for this filing did not finish. Try again to
   generate it." The pipeline's stream errors are mapped on the client
-  (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings are to change
-  with the next functional change there, and the mapping holds until then (F35, D-046, E92). The raw
+  (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings took the product's
+  words with E217's functional change there (F35, D-046, E92), and the map holds each of them as itself. It
+  still maps the stream endpoint's own answers and the two sentences the matchers route on, the free monthly
+  limit and Pro's fair-use pause, which keep their words until the error-code field (E31, D-065). The raw
   sentence still decides the paywall card and the retry, and
   `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
   `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
   fails until it is mapped. The client's own fallbacks (`features/summaries/api/summaries-api.ts`,
-  `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, a dropped or closed
-  stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
+  `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, an error frame with no
+  message of its own, a dropped or closed stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
   or the API client's transport text, pinned path by path in `tests/unit/summaryStreamFallbacks.spec.tsx`.
   The error card offers its Retry only for a failure a retry can help (`isNonRetryableStreamError`,
   which also stops the stream's automatic retry): Pro's fair-use pause, a sign-in or a permission error
@@ -380,9 +388,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide: `PRO_FAIR_USE_LINE` in
-  `frontend/lib/planLimits.ts`, built from `PRO_SUMMARY_MONTHLY_CAP` (the backend's `config.py` default), read by
-  the /pricing FAQ and the filing page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide: `proFairUseLine()` in
+  `frontend/lib/planLimits.ts`, built from `PRO_SUMMARY_MONTHLY_CAP` and, while the analysis flag ships the feature,
+  `ANALYSIS_MONTHLY_CAP` (the backend's `entitlements.py` constants, D-050), read by the /pricing FAQ and the filing
+  page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face. A watched
@@ -444,9 +453,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Exports** (`backend/app/services/export_service.py`, `pdf_branding.py`,
   `excel_export_service.py`, `analysis_export_metadata.py`): mastheads read "EarningsNerd · AI
   summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
-  "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
-  ("Source: SEC EDGAR · {url}") and the CSV, which now carries that source row under its generated
-  date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution
+  "{company} · Multi-Period Analysis", the feature keeping its name). The analysis PDF and workbook print
+  the company as the page and the chart PNG do ("Regeneron Pharmaceuticals, Inc.", never EDGAR's
+  capitals) through `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`; the
+  filing summary's PDF and CSV keep EDGAR's form until E210, since the eval's blinding reads that PDF's
+  date. The middot and sentence case hold for the PDF's source line
+  ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
+  document, with the address that link opens) and the CSV, which now carries that source row under its
+  generated date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution
   sits on its own line in the PDF and follows a middot in the CSV, never a dash. The CSV now ends
   with the PDF's closing sentences, verbatim (D-046): after a blank row, the closing note's two
   paragraphs (the masthead line, then the disclaimer), a row each, read from the constant both
@@ -460,11 +474,34 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   sage text in the exports. The PDFs carry Inter's italic beside its roman
   (`backend/app/assets/fonts/Inter-Variable-Italic-latin.woff2`, the same 4.001 build and latin
   subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every
-  quote printed upright. The workbook's header rows rest in the ink on the neutral ground and its
-  labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
-  "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
-  each count that is not zero, singular at one, and the passed count only when no figure needs
-  review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
+  quote printed upright. A symbols face of the same build (`Inter-Variable-symbols.woff2`, its source and
+  cut in `SOURCES.txt` beside the licence) carries the dagger, the left and right arrows and the white
+  bullet the latin subsets lack, which printed in DejaVu, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a
+  convenience translation) and the won and rupee signs, with an italic cut beside the roman and each with a
+  space for a space Pango keeps between two marks. It is a family of its own, 'Inter Var Symbols',
+  after Inter in every stack: WeasyPrint embeds two faces of one family and style as one font, so a second
+  'Inter Var' face drew "₩" as the latin "A". The data face falls back to Inter and its symbols before the
+  system's monospace, and a nested list takes the disc, as the app's lists do at every level. Each PDF names itself (its title, English, EarningsNerd as author and
+  generator, the analysis its ticker, mode and range as the subject) and ships tagged, with a structure
+  tree; no PDF/UA claim, as no validator backs one. The analysis exports print an instant as words with
+  its zone named ("Generated October 24, 2026, 20:26 UTC", "Source data as of …"), never raw ISO. The
+  workbook names itself in its properties (title, subject, EarningsNerd as creator) and prints each sheet
+  with the brand footer and a page count, the Overview portrait and the rest landscape: one page wide,
+  Metrics repeating its header row and label column, except "Sources & methods", whose 17 columns printed
+  at 2.9pt on one page, so it prints four pages wide (about 8pt in LibreOffice), across then down, repeating
+  its header row and its Metric and Period columns. The analysis PDF's meta line breaks between its clauses, never inside an
+  instant. The workbook's header rows rest in the ink on the
+  neutral ground and its labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
+  "Sources & methods" is in sentence case wherever it is named; the data notes follow the page's fine
+  print (D-061, WP3-B): a letter only where a note questions the number, the summary line naming each
+  marked note's places and words and counting the gaps, the figures with no check recorded and the
+  calculated figures, "No figures need review" never beside a record-only note, and no dagger after a
+  figure. The PDF names the calculated metrics above its grid and sets the fine print under it, with a
+  bold "Data notes" lead and no heading, a full grid printing whole on one page with its summary line;
+  the workbook prints a marked figure's letter through its number format ('#,##0" a"'), so the cell stays
+  a number and its column widens to hold it, names a letter in a comment only where it marks and keys its
+  letters under the Metrics grid. A window reads
+  "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
   tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
   outlines, with no transform anywhere in either PDF's stylesheet, by
   `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour value to a token in its role
@@ -472,15 +509,34 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd", every rule that can
   style a PDF link to the ink with an underline, and the italic to an italic face (the family
   declares one, each face's file is the style it is declared as, and every font a rendered PDF
-  embeds for italic text is an italic program) by `test_export_palette_parity.py`, which reads a
+  embeds for italic text is an italic program) and every font a rendered PDF embeds to a vendored face's
+  family and to Identity-H, with no .notdef drawn, each glyph a font's text map pairs with text to that
+  text's glyph or what GSUB makes of it (a substitute, a ligature or a chain of them, the text read as given
+  or composed, and a space the face lacks drawn as its own; the gate's docstring names what it cannot see)
+  in a file declared for the font's family and style, each declared
+  face to a file in `backend/app/assets/fonts` and to a family and style no other face declares, and each
+  nested list's marker to the disc, by `test_export_palette_parity.py` (`test_vendored_font_sources.py`
+  holds each file to the hash `SOURCES.txt` records, and the symbols cuts, their declared range, the cut
+  commands and the marks the gate's fixtures must print to one set of code points), which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
-  the null token, no exclamation mark or emoji, the headings the exports own in sentence case) by
-  `test_export_voice.py`; the eval's blinding of the generation date by a case in
-  `test_acceptance_readiness.py` that runs it on a real export; and the backend's hand-composed
-  wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`.
+  the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
+  EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the marks to the page's
+  rule, and the fine print's count clauses, places, detail forms and checks sentence (read from `DataNotes.tsx`), the
+  calculated sentence (from `metrics-table.spec.tsx`) and the Q4 legend (from `MetricsTable.tsx`) to the page's words, by
+  `test_export_note_marks.py`; the eval's blinding
+  of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; the
+  backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`; and the
+  backend's company display name to the page's by one case table,
+  `backend/tests/fixtures/company_display_names.json`, which `test_company_names.py` and
+  `formatCompanyName.spec.ts` both run, the Python test also holding the two modules' word lists equal.
 - **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
   of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
-  mail ends "Verify your email address and you can start reading."
+  mail asks "Verify your email address to subscribe to Pro.", what verifying gates (checkout), where it
+  said "and you can start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
+  "log in"; the filing alert's last line points at the filing ("The summary links to the filing, so you
+  can check it."), where it said "so you don't have to read the whole filing"; and the waitlist welcome
+  mail no longer asks its reader to verify their address "to secure your place", a step no page took
+  (E46 (2)).
 - **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
   overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
   the OS setting; a status toast (success, error, warning, info) keeps the panel
@@ -633,15 +689,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
   accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
-  error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
-  in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
+  error is an error Notice titled "Search did not load", its message the backend's own detail, or the
+  surface's advice ("Try again in a minute.") when the body carried none, a bodiless 503 or 413
+  included (E196 (3)). The description no
   longer promises every filing, and the title is in sentence case. At 200% text a row's company
   name wraps under its ticker in the primary ink (in both themes), each date and form code stays
   whole, and a middot keeps to the fact before it, so no line starts with one; each fact, its label,
   its value and its middot, is one run, so a line breaks between facts, and inside one only when it
-  alone is wider than the line; the error alert's
+  alone is wider than the line; the error Notice's
   glyph keeps its size, its message takes its column's whole width and breaks a long token, and
-  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the alert
+  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the Notice
   (`full-text-search.spec.tsx`). The two date fields take the Input primitive's 14px text and shrink to their
   row: in the forms plugin's 1rem, with the blank room Chrome keeps in a date field for a six-digit year, each was
   312px in a 256px row at 320px under 200% text and the page scrolled to 344px (E81,

@@ -15,7 +15,8 @@ this module load no Settings, ORM or EDGAR code, at import or at call time. Only
 payload's own view of itself (``payload_view``), import the ORM. The collector's item admission
 (``admitted_items``) and its pick over the companyfacts registries (``companyfacts_currencies``)
 live here too, so the per-filing pick counts exactly the periods ``companyfacts`` keeps and the
-demotion reads the very pick the collector read.
+demotion reads the very pick the collector read. So does the form rule admission applies
+(``is_proxy_form``): a proxy or information statement's figures never win a period nor vote.
 
 A sync that involves no currency but USD (``_another_currency``: neither the payload's pick nor a
 stored row of the batch's concepts names another) is main's: nothing is protected and the currency
@@ -38,6 +39,7 @@ newer filing's current row there, whatever earlier syncs left, outside those it 
 from __future__ import annotations
 
 import math
+import re
 from datetime import date
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Mapping, NamedTuple
 
@@ -88,21 +90,43 @@ def _reporting_currency(
     )[0]
 
 
+# Schedule 14A and 14C submissions: a letter prefix (PRE, PREM, PRER, PREC, PREN, PRRN, DEF, DEFA,
+# DEFM, DEFR, DEFC, DEFN, DFAN, DFRN, PX), an optional space, then 14A or 14C, an optional suffix
+# (PX14A6G, PX14A6N) and /A. No periodic report or registration statement is named so: those start
+# with a digit (10-K, 20-F, 8-K) or a letter and a hyphen (S-1, F-4, N-14), and SC 14D9 and SC 14N
+# are other schedules.
+_PROXY_FORM = re.compile(r"[A-Z]+ ?14[AC][0-9A-Z]*(?:/A)?")
+
+
+def is_proxy_form(form: Any) -> bool:
+    """A proxy or information statement (DEF 14A, DEFA14A, PRE 14C, ...), never a financial report.
+
+    Since 2023 a proxy's pay-versus-performance table tags ``NetIncomeLoss`` (and sometimes other
+    statement lines) for five fiscal years. Companyfacts lists those items under the proxy's own form,
+    filed after the reports it quotes, so a latest-filed rule would take the proxy's figure, which can
+    be rounded, on another basis or at the wrong scale (FedEx's is in dollars, not millions). Every
+    other form stays admitted: 10-K, 10-Q, 20-F, 40-F, 6-K, an 8-K recast, S-1, S-4, 10-KT and their
+    amendments, including a 10-K/A that adds Part III late and carries the same table.
+    """
+    return isinstance(form, str) and _PROXY_FORM.fullmatch(" ".join(form.split()).upper()) is not None
+
+
 def admitted_items(items: list, *, instant: bool) -> Iterator[tuple[tuple[date, str], date | None, float, dict]]:
     """Each companyfacts item the collector keeps, as ``((end, klass), start, value, item)``.
 
-    A kept item has a finite numeric ``val`` and a parseable ``end``. A duration also needs a
-    parseable ``start``, and its span sets klass ("FY", "Q", "YTD6" or "YTD9"; any other span is
-    dropped); an instant's klass is "I". ``filing_currencies`` counts each filing's items on these
-    same keys, so an item the collector drops for its value, date or span never votes. The pick
-    runs over the whole registries, so the concepts a financial filer's collector skips
-    (``_FI_SKIPPED_CONCEPTS``) still vote: a filing tags them in its own currency too.
+    A kept item comes from no proxy or information statement (``is_proxy_form``), and has a finite
+    numeric ``val`` and a parseable ``end``. A duration also needs a parseable ``start``, and its
+    span sets klass ("FY", "Q", "YTD6" or "YTD9"; any other span is dropped); an instant's klass is
+    "I". ``filing_currencies`` counts each filing's items on these same keys, so an item the
+    collector drops for its form, value, date or span never votes. The pick runs over the whole
+    registries, so the concepts a financial filer's collector skips (``_FI_SKIPPED_CONCEPTS``) still
+    vote: a filing tags them in its own currency too.
     """
     # Call time: concepts imports quarterly, which imports this module.
     from app.services.facts.concepts import _classify_duration, _parse_date
 
     for item in items:
-        if not isinstance(item, dict):
+        if not isinstance(item, dict) or is_proxy_form(item.get("form")):
             continue
         value = item.get("val")
         if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):

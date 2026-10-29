@@ -1,0 +1,106 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "e3da7e01698862b9f305563d286315a8435a790da10f2981a9280b8a0add870f",
+ "y_sha256": "a46c2eb92bc8a4ee4d6f8281f56b1ebf46aa9d0d3afb17986591727be10a5e4e",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts attribute other-revenue growth to subscriptions and describe capex as leased-facility workspace improvements, but the cited passages are truncated before saying either. Both also misstate the share-count/EPS logic; A wrongly says the per-share decline 'trailed'. B adds a margin bridge, SBC versus operating loss, and buybacks failing to cut the share count, all clearly labelled as analysis. A uniquely covers sales and marketing and interest expense."
+   },
+   "cost_usd": 0.151997,
+   "latency_s": 18.775,
+   "backend": "claude_cli",
+   "input_tokens": 16267,
+   "cached_input_tokens": 727,
+   "output_tokens": 1377,
+   "reasoning_tokens": 1147,
+   "meta": {
+    "duration_api_ms": 13848,
+    "cache_creation_input_tokens": 15538,
+    "list_cost_usd": 0.089845
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts attribute other-revenue growth to subscriptions and describe capex as leased-facility workspace improvements, but the cited passages are truncated before saying either. Both also misstate the share-count/EPS logic; A wrongly says the per-share decline 'trailed'. B adds a margin bridge, SBC versus operating loss, and buybacks failing to cut the share count, all clearly labelled as analysis. A uniquely covers sales and marketing and interest expense.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts pin the FY2022 loss on a passage about Adjusted EBITDA and cite subscription growth from a truncated quote. A adds unsupported claims: buybacks were 'debt-funded' and the note repurchase was 'funded by' the 2033 Notes. B misreads EPS as 'trailing' the net loss and says buybacks shrink the share count, which its own 2.1% rise contradicts. B goes deeper on interest expense, debt-extinguishment gains, sales and marketing, and revenue mix. A separates its analysis from facts more carefully."
+   },
+   "cost_usd": 0.154577,
+   "latency_s": 19.151,
+   "backend": "claude_cli",
+   "input_tokens": 16267,
+   "cached_input_tokens": 727,
+   "output_tokens": 1506,
+   "reasoning_tokens": 1242,
+   "meta": {
+    "duration_api_ms": 15171,
+    "cache_creation_input_tokens": 15538,
+    "list_cost_usd": 0.092425
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts pin the FY2022 loss on a passage about Adjusted EBITDA and cite subscription growth from a truncated quote. A adds unsupported claims: buybacks were 'debt-funded' and the note repurchase was 'funded by' the 2033 Notes. B misreads EPS as 'trailing' the net loss and says buybacks shrink the share count, which its own 2.1% rise contradicts. B goes deeper on interest expense, debt-extinguishment gains, sales and marketing, and revenue mix. A separates its analysis from facts more carefully.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.306574
+}

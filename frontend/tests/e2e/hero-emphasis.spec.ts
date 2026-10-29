@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { HEADLINES } from '../../features/marketing/lib/headline'
+import { answerLegalReadiness } from './fixtures/legalReady'
 
 test.use({ deviceScaleFactor: 2 })
 
@@ -18,6 +19,7 @@ for (const surface of SURFACES) {
       for (const doubled of [false, true]) {
         test(`${surface.name} emphasis fits at ${width}px, ${theme}, ${doubled ? '200%' : '100%'} text`, async ({ page, baseURL }) => {
           await page.setViewportSize({ width, height: 1000 })
+          await answerLegalReadiness(page, baseURL!)
           // Settle the guest header before measuring: a retrying session check otherwise inserts
           // its account link between captures and moves the heading without changing its styling.
           await page.route('**/api/auth/me', (route) => route.fulfill({

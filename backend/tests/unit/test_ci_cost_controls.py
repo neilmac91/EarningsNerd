@@ -9,6 +9,7 @@ nothing about it, so an unknown scope can never skip that job.
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -328,10 +329,42 @@ def test_e2e_tests_keeps_the_founders_35_minute_limit():
     assert workflow()["jobs"]["e2e-tests"]["timeout-minutes"] == "35"
 
 
+def test_charts_run_in_the_standard_e2e_job_without_a_flag():
+    # E195 retires the separate chart build once F67 removes its required check. The standard job already collects
+    # every browser spec, including the gallery and D13; neither spec may retain the flag that used to skip it here.
+    jobs = workflow()["jobs"]
+    assert "e2e-charts-v2" not in jobs
+    run = next(each for each in jobs["e2e-tests"]["steps"] if each.get("name") == "Run E2E tests")
+    assert run["run"] == "npx playwright test"
+    assert run["working-directory"] == "frontend"
+    assert run["env"] == {"PLAYWRIGHT_BASE_URL": "http://localhost:3000"}
+    assert "NEXT_PUBLIC_CHARTS_V2" not in (ROOT / ".github/workflows/ci.yml").read_text()
+    flagged = sorted(path.name for path in (ROOT / "frontend/tests/e2e").glob("*.spec.ts") if "CHARTS_V2" in path.read_text())
+    assert flagged == [], f"browser specs still read the retired chart flag: {flagged}"
+
+
+def test_documented_required_checks_are_jobs_a_workflow_runs():
+    # docs/OPERATIONS.md names the checks main's ruleset (23561253) requires. Each must be a job some workflow runs: a
+    # required check no job reports blocks every pull request. So a job deleted from its workflow (E195's e2e-charts-v2)
+    # fails here until the list drops it, and with it the founder's ruleset entry. CONTRIBUTING.md names them too.
+    text = (ROOT / "docs/OPERATIONS.md").read_text()
+    start = text.index("required status checks")
+    listed = re.findall(r"`([a-z0-9-]+)`", text[start:text.index("each pinned to the GitHub Actions app", start)])
+    jobs = set()
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        jobs |= set((yaml.load(path.read_text(), Loader=yaml.BaseLoader) or {}).get("jobs", {}))
+    assert len(listed) == len(set(listed)) == 7
+    assert set(listed) <= jobs, set(listed) - jobs
+    contributing = (ROOT / "CONTRIBUTING.md").read_text()
+    ci = contributing[contributing.index("## CI"):]
+    assert all(f"`{name}`" in ci for name in listed), [name for name in listed if f"`{name}`" not in ci]
+
+
 def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     ci = workflow()
     # Unique run_id fallbacks prevent queued main/manual runs replacing each other,
-    # which cancel-in-progress:false alone would NOT prevent.
+    # which cancel-in-progress:false alone would NOT prevent. Neither this group nor eval-baseline's reads the
+    # event's action or draft state, so a pull request's ready-mark run and its draft runs supersede one another (F55).
     assert ci["concurrency"] == {
         "group": "ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
         "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
@@ -345,6 +378,16 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     assert set(ci["jobs"]["deploy-backend"]["needs"]) == {
         "backend-tests", "frontend-tests", "migrations-postgres", "e2e-tests", "secret-scan",
     }
+
+
+def test_each_head_reports_required_checks_and_the_ready_mark_starts_the_paid_eval():
+    # F55: drafts draw no eval-baseline (test_eval_parity.py runs its scope shell against the live draft flag), so the
+    # ready mark must start a run of its own; the three default types keep every required check reporting on each
+    # head, drafts included. The job still runs on a pull request or a dispatch, never on a push.
+    ci = workflow()
+    assert ci["on"]["pull_request"]["types"] == ["opened", "synchronize", "reopened", "ready_for_review"]
+    assert ci["jobs"]["eval-baseline"]["if"] == (
+        "github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'")
 
 
 def test_pip_caches_downloads_keyed_by_the_installed_pins_not_environments():

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/queryKeys'
 
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -40,13 +41,21 @@ const sample = {
   unread_count: 1,
 }
 
-function renderBell() {
+function renderBell(cached?: typeof sample) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  if (cached) queryClient.setQueryData(queryKeys.notifications(), cached)
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <NotificationBell />
     </QueryClientProvider>,
   )
+  return { ...view, queryClient }
+}
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve }
 }
 
 describe('NotificationBell', () => {
@@ -89,6 +98,82 @@ describe('NotificationBell', () => {
     expect(await screen.findByText(/no filing alerts yet/i)).toBeInTheDocument()
     expect(screen.queryByText('1')).not.toBeInTheDocument()
     expect(markNotificationsSeen).not.toHaveBeenCalled()
+  })
+
+  it.each([true, false])('does not claim empty before the first read settles (online=%s)', async (online) => {
+    onlineManager.setOnline(online)
+    vi.mocked(getNotifications).mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    const { unmount, queryClient } = renderBell()
+    try {
+      await user.click(screen.getByRole('button', { name: 'Notifications' }))
+      expect(screen.getByRole('status')).toHaveTextContent('Loading filing alerts')
+      expect(screen.queryByText(/no filing alerts yet/i)).not.toBeInTheDocument()
+      expect(markNotificationsSeen).not.toHaveBeenCalled()
+    } finally {
+      unmount()
+      queryClient.clear()
+      onlineManager.setOnline(true)
+    }
+  })
+
+  it('keeps a failed read and focused recovery through a repeated attempt, then shows the confirmed result', async () => {
+    vi.mocked(getNotifications).mockRejectedValueOnce(new Error('offline'))
+    const user = userEvent.setup()
+    renderBell()
+    await user.click(screen.getByRole('button', { name: 'Notifications' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load filing alerts.')
+    expect(screen.queryByText(/no filing alerts yet/i)).not.toBeInTheDocument()
+    const recovery = deferred<typeof sample>()
+    vi.mocked(getNotifications).mockReturnValueOnce(recovery.promise)
+    const retry = screen.getByRole('button', { name: 'Try again' })
+    retry.focus()
+    await user.keyboard('{Enter}{Enter}')
+    expect(getNotifications).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load filing alerts.')
+    expect(screen.queryByText('Loading filing alerts…')).not.toBeInTheDocument()
+    expect(retry).toHaveFocus()
+    await act(async () => recovery.resolve({ items: [], unread_count: 0 }))
+    expect(await screen.findByText(/no filing alerts yet/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Notifications')).toHaveFocus())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps cached alerts visible when a refresh fails and does not call stale emptiness current', async () => {
+    vi.mocked(getNotifications).mockRejectedValue(new Error('offline'))
+    const user = userEvent.setup()
+    const { queryClient } = renderBell({ ...sample, unread_count: 0 })
+    await user.click(screen.getByRole('button', { name: 'Notifications' }))
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: queryKeys.notifications() }) })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Showing the last loaded alerts.')
+    expect(screen.getByRole('menuitem', { name: /New 10-Q from AAPL/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    // A known empty snapshot also remains stale; it cannot become today's empty-data claim.
+    act(() => { queryClient.setQueryData(queryKeys.notifications(), { items: [], unread_count: 0 }) })
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: queryKeys.notifications() }) })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Showing the last loaded alerts.')
+    expect(screen.queryByText(/no filing alerts yet/i)).not.toBeInTheDocument()
+  })
+
+  it.each(['inside', 'outside', 'modal', 'handled'])('returns Escape focus only when the bell owns it (%s)', async (owner) => {
+    vi.mocked(getNotifications).mockRejectedValue(new Error('offline'))
+    const user = userEvent.setup()
+    renderBell()
+    await user.click(screen.getByRole('button', { name: 'Notifications' }))
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    render(owner === 'modal'
+      ? <div role="dialog" aria-modal="true"><button>Other action</button></div>
+      : <button>Other action</button>)
+    const target = owner === 'inside' ? retry : screen.getByRole('button', { name: 'Other action' })
+    target.focus()
+    if (owner === 'handled') target.addEventListener('keydown', (event) => event.preventDefault(), { once: true })
+    fireEvent.keyDown(target, { key: 'Escape' })
+    if (owner === 'modal' || owner === 'handled') {
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+    } else {
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    }
+    expect(owner === 'inside' ? screen.getByRole('button', { name: 'Notifications' }) : target).toHaveFocus()
   })
 
   // The header's two menus sit on one rung, the header's own (z-header 50; DESIGN_SYSTEM.md Stacking),

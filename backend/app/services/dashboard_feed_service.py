@@ -35,7 +35,7 @@ from app.services.filing_section_service import (
 )
 from app.services.section_review_service import review_progress
 from app.services.summary_generation_service import progress_as_dict
-from app.services.summary_placeholders import is_summary_placeholder
+from app.services.summary_placeholders import is_stored_summary_ready
 
 logger = logging.getLogger(__name__)
 
@@ -221,8 +221,8 @@ def _summary_status(summary: Optional[Summary], progress: Optional[dict]) -> dic
     """Mirror the watchlist-insights status taxonomy (ready/placeholder/generating/error/missing).
     ``progress`` is the filing's generation-progress snapshot, consulted only without a summary."""
     if summary is not None:
-        placeholder = is_summary_placeholder(summary.business_overview)
-        return {"summary_id": summary.id, "summary_status": "placeholder" if placeholder else "ready"}
+        ready = is_stored_summary_ready(summary)
+        return {"summary_id": summary.id, "summary_status": "ready" if ready else "placeholder"}
 
     if progress:
         stage = progress.get("stage", "generating")

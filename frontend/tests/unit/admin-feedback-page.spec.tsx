@@ -115,6 +115,55 @@ describe('AdminFeedbackPage', () => {
       expect(vi.mocked(updateFeedbackStatus)).toHaveBeenCalledWith(bugReport.id, 'resolved')
     })
   })
+
+  it.each(['Escape', 'Close', 'scrim'])('shows literal feedback and usable links in a private dialog, returning focus after %s', async (closePath) => {
+    const report = { ...bugReport, message: 'Export failed. See https://example.test/report?quarter=1#chart.' }
+    vi.mocked(listFeedback).mockResolvedValue([report])
+    renderPage()
+    const opener = await screen.findByRole('button', { name: 'View details for feedback 1' })
+    expect(opener).toHaveAccessibleDescription(report.message)
+    expect(opener.closest('.ph-no-capture')).not.toBeNull()
+    expect(opener).not.toHaveAttribute('title')
+    expect(opener.querySelector('a,button')).toBeNull()
+    opener.focus()
+    fireEvent.click(opener)
+    const dialog = screen.getByRole('dialog', { name: 'Feedback details' })
+    expect(dialog).toHaveClass('ph-no-capture')
+    expect(opener).toBeInTheDocument()
+    expect(within(dialog).getByText('/filing/123')).toBeInTheDocument()
+    const link = within(dialog).getByRole('link')
+    expect(link).toHaveAttribute('href', 'https://example.test/report?quarter=1#chart')
+    expect(link.closest('button')).toBeNull()
+    expect(link.parentElement?.textContent).toBe(report.message)
+    if (closePath === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
+    else if (closePath === 'Close') fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    else fireEvent.click(dialog.parentElement!)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(opener).toHaveFocus()
+    expect(screen.getByLabelText('Set status for feedback 1')).toBeInTheDocument()
+  })
+
+  it.each(['removed', 'error'])('keeps an open report readable when its list is %s, then returns focus to the heading', async (outcome) => {
+    vi.mocked(listFeedback).mockResolvedValue([bugReport])
+    let finishStatus!: (report: FeedbackRecord) => void
+    vi.mocked(updateFeedbackStatus).mockReturnValue(new Promise((resolve) => { finishStatus = resolve }))
+    renderPage()
+    const opener = await screen.findByRole('button', { name: 'View details for feedback 1' })
+    // A status mutation can settle while the admin is reading the report it removes from this filter.
+    fireEvent.change(screen.getByLabelText('Set status for feedback 1'), { target: { value: 'resolved' } })
+    await waitFor(() => expect(updateFeedbackStatus).toHaveBeenCalled())
+    opener.focus()
+    fireEvent.click(opener)
+    if (outcome === 'removed') vi.mocked(listFeedback).mockResolvedValue([])
+    else vi.mocked(listFeedback).mockRejectedValue(new Error('offline'))
+    finishStatus({ ...bugReport, status: 'resolved' })
+    await waitFor(() => expect(opener).not.toBeInTheDocument())
+    const dialog = screen.getByRole('dialog', { name: 'Feedback details' })
+    expect(within(dialog).getByText(bugReport.message)).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Feedback', level: 2 })).toHaveFocus()
+  })
 })
 
 /**
@@ -158,14 +207,15 @@ describe('AdminFeedbackPage: the table scrolls inside its card', () => {
   it('gives the message column the width the other columns leave, so the status select keeps its own', async () => {
     vi.mocked(listFeedback).mockResolvedValue([bugReport])
     renderPage()
-    const message = await screen.findByRole('button', { name: bugReport.message })
+    const message = await screen.findByRole('button', { name: 'View details for feedback 1' })
     // w-full takes the rest of the row; a max-width here instead held the column at the message's own width.
     const cell = message.closest('td')!
     expect(cell).toHaveClass('w-full')
     expect(cell.className).not.toMatch(/(^|\s)max-w-/)
     // A one-line (truncate) message would size the column by its whole text: its intrinsic width is contained,
     // with a 16rem floor for the phone's scrolling table.
-    expect(message).toHaveClass('[contain:inline-size]', 'min-w-64', 'truncate')
+    expect(message).toHaveClass('[contain:inline-size]', 'min-w-64')
+    expect(within(message).getByText(bugReport.message)).toHaveClass('truncate')
   })
 
   it("never cuts a reporter's address: a long one wraps inside its cell within 14rem", async () => {

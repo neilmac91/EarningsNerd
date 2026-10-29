@@ -30,13 +30,13 @@ function SourceIdentity({ label, source, fictional }: { label: string; source: R
         {source.ticker} · 10-K<br />
         Period ended {source.reportDate} · Filed {source.filingDate}
       </p>
-      <p className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{source.accession}</p>
+      <p className="font-data text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{source.accession}</p>
       {source.originalUrl ? (
         <a href={source.originalUrl} target="_blank" rel="noopener noreferrer" className={sourceLinkClass}>
           Open {label.toLowerCase()} original ↗
         </a>
       ) : (
-        <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
           {fictional ? 'Illustrative text; no SEC source.' : 'Original document link unavailable.'}
         </p>
       )}
@@ -141,7 +141,7 @@ export default function FilingRedlines() {
                   <Input label="Later filing ID" inputMode="numeric" value={currentId} onChange={(event) => editId('current', event.target.value)} autoComplete="off" />
                 </div>
                 <Button type="submit" loading={view.kind === 'loading'} loadingText="Reading cached filings…">Compare cached text</Button>
-                <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                   Reads existing cached text only. It does not fetch or generate missing filing text.
                 </p>
               </form>

@@ -44,9 +44,8 @@ export const EXAMPLE_FILING_ID = process.env.NEXT_PUBLIC_EXAMPLE_FILING_ID
  * EXAMPLE_FILING_ID is set, else falls back to the company page.
  *
  * The example/onboarding deep-link carries `demo=1` so the filing page renders
- * in demo mode (curated first impression): the quality badge + Regenerate
- * button are suppressed and the copilot's attention nudge is silenced, so a
- * first-time visitor never meets a "Partial" badge on the curated example.
+ * in demo mode: Regenerate is suppressed and the copilot’s attention nudge is
+ * silenced. The recorded summary coverage remains visible.
  */
 export const exampleFilingHref = (entry: string): string =>
   EXAMPLE_FILING_ID
@@ -55,12 +54,10 @@ export const exampleFilingHref = (entry: string): string =>
 
 /**
  * Honest degradation (roadmap S4). When enabled, the filing summary shows an explicit quality
- * badge ("Full summary" / "Partial — ...; retry") driven by the backend's
- * `raw_summary.quality` verdict, and STOPS stripping internal failure notices client-side —
- * so a degraded summary is surfaced honestly with a one-click regenerate instead of being
- * dressed up as a complete one.
- * Default: disabled (set NEXT_PUBLIC_ENABLE_QUALITY_BADGE='true' to enable), preserving the
- * current notice-stripping behavior until validated.
+ * coverage disclosure (full / partial / unknown) driven by the backend’s
+ * `raw_summary.quality` verdict and partial status, including in demo mode. Internal
+ * failure notices are always stripped; human-readable coverage details explain the limits.
+ * Default: disabled (set NEXT_PUBLIC_ENABLE_QUALITY_BADGE='true' to enable).
  */
 export const ENABLE_QUALITY_BADGE =
   process.env.NEXT_PUBLIC_ENABLE_QUALITY_BADGE === 'true'
@@ -124,11 +121,13 @@ export const ENABLE_ANALYSIS =
   process.env.NEXT_PUBLIC_ENABLE_ANALYSIS === 'true'
 
 /**
- * Name 20-F filings on the plan cards. Mirrors the API's ENABLE_FPI_FILINGS, which decides whether
- * foreign private issuers' filings are served at all (backend/app/config.py defaults it off; the API
- * deploy step sets it on). The Free plan line reads "10-K, 10-Q and 20-F filings from SEC EDGAR" only
- * while this flag is set and "10-K and 10-Q filings from SEC EDGAR" otherwise, so the cards never name
- * a form the API keeps off. Set it in lockstep with the API's flag (tasks/todo.md F39).
+ * Name 20-F filings on the plan cards and offer the foreign-issuer rows (20-F, 6-K) in Filing alerts.
+ * Mirrors the API's ENABLE_FPI_FILINGS, which decides whether foreign private issuers' filings are
+ * served at all (backend/app/config.py defaults it off; the API deploy step sets it on). The Free plan
+ * line reads "10-K, 10-Q and 20-F filings from SEC EDGAR" only while this flag is set and "10-K and
+ * 10-Q filings from SEC EDGAR" otherwise, so the cards never name a form the API keeps off; the alert
+ * rows hide with it and keep the stored preferences (E33). Set it in lockstep with the API's flag
+ * (tasks/todo.md F39).
  * Default: disabled.
  */
 export const ENABLE_FPI_FILINGS =

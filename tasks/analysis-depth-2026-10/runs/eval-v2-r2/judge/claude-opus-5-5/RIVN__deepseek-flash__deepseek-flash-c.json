@@ -1,0 +1,106 @@
+{
+ "ticker": "RIVN",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "daba2da25cf0746736db7ffffd124d4d9c4580e0279d505f65929ed1a943bca4",
+ "y_sha256": "6ba92fac840b9b5297fdd4983f1a8e64db12b585806b60b5512693bbeb6d5f3f",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both say the services growth came from 'the Joint Venture', which the cited passage does not mention, and A misreads FY2022 as 'first deliveries'. B overstates the 45W credit's role, which the filing says was only 'in part'. B also pairs net cash measured from FY2021 with a one-year cash drop. B goes deeper, with EPS dilution, an FCF peer gap, the accumulated deficit, R2 guidance and labelled analysis. A is tighter and flags the 129% data issue. Grounding tips it to A."
+   },
+   "cost_usd": 0.147745,
+   "latency_s": 16.917,
+   "backend": "claude_cli",
+   "input_tokens": 16113,
+   "cached_input_tokens": 727,
+   "output_tokens": 1226,
+   "reasoning_tokens": 978,
+   "meta": {
+    "duration_api_ms": 12226,
+    "cache_creation_input_tokens": 15384,
+    "list_cost_usd": 0.086209
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"tie\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"Both say the services growth came from 'the Joint Venture', which the cited passage does not mention, and A misreads FY2022 as 'first deliveries'. B overstates the 45W credit's role, which the filing says was only 'in part'. B also pairs net cash measured from FY2021 with a one-year cash drop. B goes deeper, with EPS dilution, an FCF peer gap, the accumulated deficit, R2 guidance and labelled analysis. A is tighter and flags the 129% data issue. Grounding tips it to A.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts wrongly attribute software growth to the Joint Venture; the cited passage never says so. A also blurs net cash, pairing the FY2021\u2013FY2025 decline with a one-year 21% drop as if it were the cause. B makes only a minor error ('first deliveries'). B adds more interpretation: VW's 15.4pp growth contribution, peer margin and net-cash comparisons, and rising current liabilities behind the ratio fall. It also discloses the 129% product-sum data issue."
+   },
+   "cost_usd": 0.141365,
+   "latency_s": 13.236,
+   "backend": "claude_cli",
+   "input_tokens": 16113,
+   "cached_input_tokens": 727,
+   "output_tokens": 907,
+   "reasoning_tokens": 669,
+   "meta": {
+    "duration_api_ms": 8682,
+    "cache_creation_input_tokens": 15384,
+    "list_cost_usd": 0.079829
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts wrongly attribute software growth to the Joint Venture; the cited passage never says so. A also blurs net cash, pairing the FY2021\u2013FY2025 decline with a one-year 21% drop as if it were the cause. B makes only a minor error ('first deliveries'). B adds more interpretation: VW's 15.4pp growth contribution, peer margin and net-cash comparisons, and rising current liabilities behind the ratio fall. It also discloses the 129% product-sum data issue.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.28911
+}

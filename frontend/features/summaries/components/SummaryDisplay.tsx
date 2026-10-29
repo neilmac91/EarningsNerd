@@ -34,31 +34,19 @@ const FundamentalsTrendChart = dynamic(
   { ssr: false },
 )
 
-// P0-2 badge de-escalation (data-quality plan, safeguard #5): the XBRL literal-grounding check
-// is a heuristic — when it is the ONLY partial reason, render neutral wording instead of an
-// accusatory data-integrity verdict (it false-fired on every bank pre-fix). The full reason
-// list stays available in the badge tooltip.
+// These exact server reason keys are held by test_quality_grounding_presence.py. Give
+// readers the scope of each check without leaking internal diagnostics or asserting a
+// figure is false: the literal-matching check can miss a valid presentation of the figure.
 const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'
 const NO_GROUNDING_REASON = 'filing grounding unavailable: no usable excerpt or numeric XBRL data'
-// Each server reason in plain words for what its check covers (D-058, no acronym in a label), while the comparison
-// keeps the server's string (backend/app/services/summary_generation_service.py; test_quality_grounding_presence.py
-// holds the keys to it). The grounding check looks for the filed revenue (a bank's components) and net income
-// anywhere in the summary's text, so it says nothing was matched. The tooltip reads each reason in full; the badge,
-// which keeps to one line (Badge is nowrap), reads its first reason in short.
-const REASON_WORDS: Record<string, string> = {
-  [GROUNDING_REASON]: 'the filed revenue or net income is not stated in the summary',
-  [NO_GROUNDING_REASON]: 'the filing’s text and figures were unavailable to check against',
-}
-const BADGE_WORDS: Record<string, string> = {
-  [GROUNDING_REASON]: 'filed revenue or net income not stated',
-  [NO_GROUNDING_REASON]: 'no filing text or figures to check',
-}
-export const reasonWords = (reason: string): string => REASON_WORDS[reason] ?? reason
-export function partialBadgeLabel(reasons: string[] | undefined): string {
-  if (reasons && reasons.length === 1 && reasons[0] === GROUNDING_REASON) {
-    return 'Partial coverage'
-  }
-  return `Partial${reasons && reasons.length ? ` · ${BADGE_WORDS[reasons[0]] ?? reasonWords(reasons[0])}` : ''}`
+export function reasonWords(reason: string): string {
+  if (reason === GROUNDING_REASON) return 'The automatic check did not find the filed revenue or net income in the summary.'
+  if (reason === NO_GROUNDING_REASON) return 'The filing’s text and figures were unavailable to check against.'
+  const sections = /^only (\d+)\/(\d+) sections populated$/.exec(reason)
+  if (sections) return `Only ${sections[1]} of ${sections[2]} summary sections contain information.`
+  const figures = /^(\d+) summary figure\(s\) not traceable to filing data$/.exec(reason)
+  if (figures) return `The automatic check could not trace ${figures[1]} summary figure${figures[1] === '1' ? '' : 's'} to the filing’s data.`
+  return 'A coverage issue was recorded, but its details are unavailable.'
 }
 
 export interface SummaryDisplayProps {
@@ -104,7 +92,7 @@ export function SummaryDisplay({
     [markdownContent]
   )
   const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
-  const quality = rawSummary?.quality as { tier?: string; reasons?: string[] } | undefined
+  const quality = rawSummary?.quality
   const isPartialQuality = ENABLE_QUALITY_BADGE && quality?.tier === 'partial'
 
   const { exportPdf, exportCsv } = useSummaryExports(filing)
@@ -133,7 +121,11 @@ export function SummaryDisplay({
   const hasPolishedMarkdown = !isError
 
   const isPartial = rawSummary?.status === 'partial'
-  const showQualityBadge = !demoMode && ENABLE_QUALITY_BADGE && Boolean(quality?.tier)
+  // A generation marked partial must not read as full, even on an older row without
+  // a quality verdict. An absent or unfamiliar verdict never implies completeness.
+  const coverageTier = isPartial || quality?.tier === 'partial' ? 'partial' : quality?.tier === 'full' ? 'full' : 'unknown'
+  const coverageReasons = [...new Set((quality?.reasons ?? []).map(reasonWords))]
+  const showQualityBadge = ENABLE_QUALITY_BADGE
   const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry)
 
   // T2: the single structured projection the page renders (metrics, risks-with-provenance, prose,
@@ -197,16 +189,36 @@ export function SummaryDisplay({
               page's h1 (2026-10 critique P-05). The body is the structured page (T2) — a number has
               exactly one home there, so no leading markdown card or duplicate metrics table renders. */}
           {(showQualityBadge || showRegenerate) && (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {/* S4 quality badge: honest signal of full vs partial output. Suppressed in demo mode
-                  so a first-time visitor never meets "Partial" on the curated example (plan 1.3). */}
-              {showQualityBadge && quality?.tier ? (
-                <Badge
-                  variant={quality.tier === 'full' ? 'brand' : 'warning'}
-                  title={quality.reasons && quality.reasons.length ? quality.reasons.map(reasonWords).join('; ') : undefined}
-                >
-                  {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
-                </Badge>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              {showQualityBadge ? (
+                <div className="min-w-0 flex-1 basis-64 space-y-2" role="group" aria-label="Summary coverage">
+                  {/* A short label keeps Badge's one-line contract; full reasons wrap below it. */}
+                  <Badge variant={coverageTier === 'full' ? 'brand' : coverageTier === 'partial' ? 'warning' : 'neutral'}>
+                    {coverageTier === 'full' ? 'Full summary' : coverageTier === 'partial' ? 'Partial coverage' : 'Coverage unknown'}
+                  </Badge>
+                  <details className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    <summary className="w-fit max-w-full cursor-pointer rounded-lg py-3 text-brand-strong dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                      Coverage details
+                    </summary>
+                    <div className="space-y-2 pt-2">
+                      <p>
+                        {coverageTier === 'full'
+                          ? 'This summary passed the automatic coverage checks when it was generated.'
+                          : coverageTier === 'partial'
+                            ? 'Some information could not be included or checked in this summary.'
+                            : 'No coverage check result is available for this summary.'}
+                      </p>
+                      {coverageReasons.length > 0 ? (
+                        <ul className="list-disc space-y-2 pl-5">
+                          {coverageReasons.map(reason => <li key={reason}>{reason}</li>)}
+                        </ul>
+                      ) : coverageTier === 'partial' ? (
+                        <p>No further coverage details were recorded.</p>
+                      ) : null}
+                      <p>Coverage does not verify every claim. Check the cited sources and the original filing.</p>
+                    </div>
+                  </details>
+                </div>
               ) : (
                 <span />
               )}

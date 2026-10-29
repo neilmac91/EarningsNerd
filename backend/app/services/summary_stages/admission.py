@@ -70,7 +70,7 @@ async def load_filing(run: GenerationRun) -> AsyncIterator[dict]:
         if request_evidence is not None:
             request_evidence.reason = "filing_not_found"
         logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
-        yield {'type': 'error', 'message': 'Filing not found'}
+        yield {'type': 'error', 'message': 'This filing could not be found.'}
         return
 
     # A run admitted to replace an unready row serves the row once another run has made it ready.
@@ -132,7 +132,7 @@ async def join_or_lead(run: GenerationRun) -> AsyncIterator[dict]:
         if request_evidence is not None:
             request_evidence.delivery_path = "coalesced"
         logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
-        yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(pipeline.time.time() - run.pipeline_started_at)}
+        yield {'type': 'progress', 'stage': 'queued', 'message': 'This summary is already being generated. Joining that run…', 'percent': 3, 'elapsed_seconds': int(pipeline.time.time() - run.pipeline_started_at)}
         while not existing_generation.is_set() and waited < pipeline.INFLIGHT_WAIT_CAP_SECONDS:
             try:
                 await asyncio.wait_for(existing_generation.wait(), timeout=pipeline.settings.STREAM_HEARTBEAT_INTERVAL)
@@ -201,9 +201,10 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
 
         can_generate, current_count, limit, user_is_unlimited, run.usage_reservation_token = await run.run_sync_db(check_usage_sync)
         if not can_generate:
-            # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
-            # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
-            # never an upsell, and skip the paywall funnel event (a Pro user isn't paywalled).
+            # A Pro user is billing-unlimited, so a block here means Pro's fair-use ceiling
+            # (entitlements.PRO_SUMMARY_MONTHLY_CAP, which the pricing page states) tripped — answer
+            # with the pause below, never an upsell, and skip the paywall funnel event (a Pro user
+            # isn't paywalled).
             if request_evidence is not None:
                 request_evidence.reason = "fair_use" if user_is_unlimited else "monthly_quota"
             if user_is_unlimited:

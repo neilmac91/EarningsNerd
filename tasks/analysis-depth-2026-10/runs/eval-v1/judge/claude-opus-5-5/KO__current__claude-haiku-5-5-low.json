@@ -1,0 +1,86 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "A mostly restates table values. Its 1.31x FCF/net-income average is skewed by FY2017's depressed earnings, and it ignores the IRS deposit behind the cash drop. B ties its causes to quoted filing passages: fairlife lapping, pricing, refranchising gains and the IRS deposit. It flags the debt data break and the recast revenue, and labels its judgements as analysis. B also covers payouts above free cash flow and sets numeric watch thresholds. The only stretch is the operating-leverage framing."
+   },
+   "cost_usd": 0.107505,
+   "latency_s": 10.695,
+   "input_tokens": 12663,
+   "output_tokens": 594,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"strong\",\n \"rationale\": \"A mostly restates table values. Its 1.31x FCF/net-income average is skewed by FY2017's depressed earnings, and it ignores the IRS deposit behind the cash drop. B ties its causes to quoted filing passages: fairlife lapping, pricing, refranchising gains and the IRS deposit. It flags the debt data break and the recast revenue, and labels its judgements as analysis. B also covers payouts above free cash flow and sets numeric watch thresholds. The only stretch is the operating-leverage framing.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "A explains causes using quoted filing passages: lapping the fairlife remeasurement, concentrate pricing and volume, refranchising gains, and the IRS deposit. It flags the debt data break and recast revenue, and sets thresholds to watch. Calling the margin jump 'operating leverage' slightly overreaches, since most of it came from lapped charges. B mostly restates table values. Its 1.31x FCF average is skewed by FY2017 and not disclosed, and its watch items lack thresholds."
+   },
+   "cost_usd": 0.107581,
+   "latency_s": 10.523,
+   "input_tokens": 12665,
+   "output_tokens": 597,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"strong\", \"rationale\": \"A explains causes using quoted filing passages: lapping the fairlife remeasurement, concentrate pricing and volume, refranchising gains, and the IRS deposit. It flags the debt data break and recast revenue, and sets thresholds to watch. Calling the margin jump 'operating leverage' slightly overreaches, since most of it came from lapped charges. B mostly restates table values. Its 1.31x FCF average is skewed by FY2017 and not disclosed, and its watch items lack thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.215086
+}

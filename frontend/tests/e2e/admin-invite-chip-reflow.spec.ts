@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 
 /**
  * An email chip on /admin/invites (features/admin/components/EmailChipsInput.tsx) keeps its "already invited" marker
@@ -31,6 +31,29 @@ import { test, expect, type Page } from '@playwright/test'
  * address shows whole, wrapped inside its cell, and the table fits its box (with the cell nowrap it was 1264px in
  * 1214px), while a short address and "Anonymous" keep one line each.
  *
+ * The resend dialog's share options (features/admin/components/ShareInvite.tsx, opened in ResendShareModal.tsx) fit the
+ * dialog at 390, 360 and 320px under the browser's own 200% text setting, in both themes (E240): no element inside the
+ * dialog scrolls sideways, the dialog's own scroller included, the share panel and every button and link in the body
+ * end inside its content box, and the page does not scroll sideways. Its minimum width once held it at 512px, wider
+ * than the dialog, and below 390px "Copy for DM/LinkedIn" (unbroken) and the WhatsApp button inside uncapped insets
+ * still did. These cases set the browser's text size (CDP), as email-verification-resend does, since the dialog's
+ * measure is the viewport's. Each runs again with the browser's own share sheet (an init script defines
+ * navigator.share and canShare), where ShareInvite's "Share invite" button stands beside "More": side by side under
+ * 200% text the pair ran past the body until it wrapped (E242, chief design on #1791).
+ *
+ * The bulk summary (features/admin/components/BulkResultSummary.tsx), after a send that creates two invites, fails one
+ * and skips two entries, holds its addresses and its rows at 390, 360 and 320px under the browser's 200% text setting
+ * and at 320px without it, in both themes (E242): every character of every address is painted inside its row (the
+ * skipped line's inside the summary), an address of a common length breaks only after its @, each created row's
+ * controls end inside the row, and the page does not scroll sideways. A created row's address was cut to 110px by
+ * truncate at 320px under 200% text; a failed row's ran out of the row and scrolled the page to 633px, and to 343px at
+ * 320px without the text setting; and the row's Copy link and Share invite buttons, 129px at their narrowest, ran 20px
+ * into the row's inset. Then "Share invite" in a created row opens the share options in a dialog, chief design's ruling
+ * on #1784, since under 200% text they cannot fit the row: the dialog names the address, nothing in it scrolls
+ * sideways, and the share panel and every control end inside its body. Each case runs again with the browser's own
+ * share sheet, where a created row's "Share invite" button stands beside "More", which opens the dialog: the pair
+ * wraps inside the row, where side by side under 200% text "More" ran 59 to 112px past it (chief design on #1791).
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
  * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
  * middleware's session gate is satisfied by its non-credential presence cookie.
@@ -48,12 +71,14 @@ const INVALID = 'not-an-email'
 const CHIPS = [INVITED, SHORT, SHORT_VALID, LONG, INVALID]
 /** A reporter's address of 50 characters. */
 const REPORTER_50 = 'maximilian.featherstonehaugh@exampleenterprise.com'
+const FEEDBACK_LINK = `https://evidence.example.test/report/${'long-filing-reference-'.repeat(12)}?quarter=1#chart`
 
 type Theme = 'light' | 'dark'
 type Box = { left: number; right: number; top: number; bottom: number }
 
-/** Opens an admin page as an admin, the API answered in the browser. */
-async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string) {
+/** Opens an admin page as an admin, the API answered in the browser; `answers` replaces or adds an endpoint's answer,
+ *  by its path. */
+async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string, answers: Record<string, unknown> = {}) {
   const origin = new URL(baseURL).origin
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
   await page.addInitScript((theme: Theme) => {
@@ -66,7 +91,9 @@ async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string
   const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
   await page.route((url) => url.origin === API_ORIGIN, (route) => {
     const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
-    switch (new URL(route.request().url()).pathname) {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname in answers) return json(200, answers[pathname])
+    switch (pathname) {
       case '/api/auth/me':
         return json(200, { id: 1, email: 'ada@example.com', full_name: 'Ada', is_pro: false, is_beta: false, is_admin: true, email_verified: true })
       case '/api/admin/invites':
@@ -80,7 +107,7 @@ async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string
             [REPORTER_50, 'feature', 'triaged'],
             [INVITED, 'bug', 'new'],
             [null, 'general', 'resolved'],
-          ].map(([user_email, type, status], i) => ({ id: i + 1, user_id: user_email ? 42 + i : null, user_email, type, message: 'The summary export button does nothing on Safari.', page_url: '/filing/123', status, created_at: '2026-10-14T00:00:00Z' })),
+          ].map(([user_email, type, status], i) => ({ id: i + 1, user_id: user_email ? 42 + i : null, user_email, type, message: `The summary export button does nothing on Safari.\n${FEEDBACK_LINK}`, page_url: '/filing/123', status, created_at: '2026-10-14T00:00:00Z' })),
         })
       default:
         return json(404, { detail: 'Not found' })
@@ -184,6 +211,126 @@ function expectClear(m: Measure, label: string) {
  */
 function expectNoSidewaysScroll(m: Measure, label: string) {
   expect(m.page.withChips, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+}
+
+/** One link-only invite, and its resend's answer: a link-only invite's share options show the warning Notice too. */
+const LINK_ONLY_ANSWERS = {
+  '/api/admin/invites': {
+    invites: [{ id: 7, email: null, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' }],
+  },
+  '/api/admin/invites/7/resend': {
+    id: 8, email: null, invite_link: 'https://earningsnerd.io/register?invite=abc123', expires_at: '2026-11-08T00:00:00Z', emailed: false, cohort: 'beta', revoked_invite_id: 7,
+  },
+}
+
+/** A long address the bulk send fails (the API answers 409). Its local part has no hyphen, so unbroken it cannot wrap
+ *  before its domain's: at 320px it ran out of its row at the default text size too. */
+const FAILS = 'bartholomew.featherstonehaugh@example-enterprise.com'
+
+/** Answers each invite the form sends: FAILS with a 409, any other address with a fresh link it did not email. Routes
+ *  added later run first, so every other request falls back to openAdmin's answers. */
+async function answerSends(page: Page, baseURL: string) {
+  const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
+  let minted = 0
+  await page.route(`${API_ORIGIN}/api/admin/invites`, (route) => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    const { email } = route.request().postDataJSON() as { email: string }
+    if (email === FAILS) return route.fulfill({ status: 409, headers: cors, json: { detail: 'An active invite already exists for this address.' } })
+    minted += 1
+    return route.fulfill({
+      status: 200,
+      headers: cors,
+      json: { id: 100 + minted, email, invite_link: `https://earningsnerd.io/register?invite=sent${minted}`, expires_at: '2026-11-08T00:00:00Z', emailed: false, cohort: 'beta' },
+    })
+  })
+}
+
+/** In the bulk summary: where each character of each row's address and of the skipped line is painted, against the
+ *  row's content box (the summary's for the skipped line), the address's text line by line, each created row's
+ *  controls, and the page's widths. */
+async function measureSummary(summary: Locator) {
+  return summary.evaluate((el) => {
+    const content = (node: Element) => {
+      const style = getComputedStyle(node)
+      const r = node.getBoundingClientRect()
+      return { left: r.left + parseFloat(style.paddingLeft), right: r.right - parseFloat(style.paddingRight) }
+    }
+    const outside = (node: Element, box: { left: number; right: number }) => {
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
+      const range = document.createRange()
+      let text = ''
+      let past = ''
+      const lines: Array<{ top: number; text: string }> = []
+      for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
+        for (let i = 0; i < t.data.length; i++) {
+          range.setStart(t, i)
+          range.setEnd(t, i + 1)
+          const r = range.getBoundingClientRect()
+          text += t.data[i]
+          if (r.left < box.left - 0.5 || r.right > box.right + 0.5) past += t.data[i]
+          const line = lines.find((l) => Math.abs(l.top - r.top) < 2)
+          if (line) line.text += t.data[i]
+          else lines.push({ top: r.top, text: t.data[i] })
+        }
+      }
+      return { text, past, lines: lines.map((l) => l.text) }
+    }
+    const rows = [...el.querySelectorAll('li')].map((li) => {
+      const box = content(li)
+      return {
+        address: outside(li.firstElementChild!, box),
+        controls: [...li.querySelectorAll('button, a')].map((control) => {
+          const r = control.getBoundingClientRect()
+          return { name: control.textContent!.trim(), past: Math.max(box.left - r.left, r.right - box.right) }
+        }),
+      }
+    })
+    const skipped = [...el.querySelectorAll('p')].find((p) => p.textContent!.endsWith('already invited or invalid.'))!
+    return {
+      rows,
+      skipped: outside(skipped, content(el)),
+      page: { scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth },
+    }
+  })
+}
+
+/** Every element in the dialog that scrolls sideways (its scroll width past its client width), the share panel's box
+ *  against the dialog body's content box, how far each button and link in the body runs past that box, and the page's
+ *  widths. */
+async function measureShareOptions(dialog: Locator) {
+  return dialog.evaluate((d) => {
+    // A hidden name tail (sr-only, as "More" carries beside the browser's share sheet) clips its words to a 1px box by
+    // design, so it scrolls nowhere a reader sees.
+    const scrolling = [d, ...d.querySelectorAll('*')]
+      .filter((el) => !el.classList.contains('sr-only') && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible')
+      .map((el) => `${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 3).join('.')}: ${el.scrollWidth}px in ${el.clientWidth}px`)
+    // The share panel holds the message field; the dialog's body is ModalBody's recipe (px-cap-6 py-4).
+    const sharePanel = d.querySelector('textarea')!.closest('.shadow-e2')!
+    const panel = sharePanel.getBoundingClientRect()
+    const body = sharePanel.closest('.px-cap-6.py-4')!
+    const style = getComputedStyle(body)
+    const outer = body.getBoundingClientRect()
+    const content = { left: outer.left + parseFloat(style.paddingLeft), right: outer.right - parseFloat(style.paddingRight) }
+    return {
+      scrolling,
+      panel: { left: panel.left, right: panel.right, width: panel.width },
+      body: content,
+      controls: [...body.querySelectorAll('button, a')].map((control) => {
+        const r = control.getBoundingClientRect()
+        return { name: control.textContent!.trim(), past: Math.max(content.left - r.left, r.right - content.right) }
+      }),
+      page: { scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth },
+    }
+  })
+}
+
+/** Gives the browser its own share sheet, as a phone's has: ShareInvite then offers its "Share invite" button beside
+ *  "More" (More share options), which opens the share options. */
+async function offerShareSheet(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true })
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true })
+  })
 }
 
 /** The document's width and the viewport's once the root font is set (figure-receipt-reflow's 200% method). */
@@ -337,7 +484,135 @@ for (const theme of ['light', 'dark'] as const) {
     })
   })
 
+  test.describe(`the resend dialog's share options, ${theme} theme`, () => {
+    // With the browser's own share sheet, its "Share invite" button stands beside "More", and the pair wraps to fit the
+    // dialog's body: side by side under 200% text they ran 6 to 68px past it (E242, chief design on #1791).
+    for (const sheet of [false, true]) {
+      const opener = sheet ? 'More share options' : 'Share invite'
+      for (const width of [390, 360, 320]) {
+        test(`at ${width}px under 200% text${sheet ? ", with the browser's share sheet," : ''} nothing in the dialog scrolls sideways, and the share panel and every control end inside its body (E240${sheet ? ', E242' : ''})`, async ({ page, baseURL }) => {
+          await page.setViewportSize({ width, height: 900 })
+          const cdp = await page.context().newCDPSession(page)
+          await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+          if (sheet) await offerShareSheet(page)
+          await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+          expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe('32px')
+          await page.getByRole('button', { name: /Resend/ }).first().click()
+          const dialog = page.getByRole('dialog')
+          await dialog.getByRole('button', { name: opener, expanded: false }).click()
+          await expect(dialog.getByText('Not bound to an email')).toBeVisible()
+          await page.evaluate(() => document.fonts.ready)
+          const m = await measureShareOptions(dialog)
+          const label = `${width}px, 200% text, ${sheet ? 'the share sheet, ' : ''}${theme}`
+          expect(m.scrolling, `${label}: an element in the dialog scrolls sideways`).toEqual([])
+          expect(m.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(m.body.left - 0.5)
+          expect(m.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(m.body.right + 0.5)
+          for (const control of m.controls) expect(control.past, `${label}: "${control.name}" runs past the dialog body's content box`).toBeLessThanOrEqual(0.5)
+          expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+        })
+      }
+    }
+  })
+
+  test.describe(`the bulk summary, ${theme} theme`, () => {
+    // With the browser's own share sheet, a created row's "Share invite" button stands beside "More", which opens the
+    // dialog, and the pair wraps inside the row: side by side under 200% text "More" ran 59 to 112px past it (chief
+    // design on #1791).
+    for (const sheet of [false, true]) {
+      const opener = sheet ? 'More share options' : 'Share invite'
+      for (const [width, doubled] of [[390, true], [360, true], [320, true], [320, false]] as const) {
+        const text = doubled ? '200% text' : 'the default text size'
+        test(`at ${width}px under ${text}${sheet ? ", with the browser's share sheet," : ''} every address shows whole in its row, the rows' controls fit them, and the share options open in a dialog that holds them (E242)`, async ({ page, baseURL }) => {
+          await page.setViewportSize({ width, height: 900 })
+          if (doubled) {
+            const cdp = await page.context().newCDPSession(page)
+            await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+          }
+          if (sheet) await offerShareSheet(page)
+          await openAdmin(page, baseURL!, theme, '/admin/invites')
+          await answerSends(page, baseURL!)
+          expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe(doubled ? '32px' : '16px')
+          await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
+          const field = page.getByLabel('Email addresses')
+          await field.fill([SHORT_VALID, LONG, FAILS, INVITED, INVALID].join(', '))
+          await field.press('Enter')
+          await page.getByRole('button', { name: 'Send invites' }).click()
+          const summary = page.locator('div[aria-live="polite"]', { hasText: 'already invited or invalid' })
+          await expect(summary.getByText('1 failed')).toBeVisible()
+          await expect(summary.getByRole('listitem')).toHaveCount(3)
+          // The share sheet is found after mount: "More" shows in both created rows before anything is read.
+          if (sheet) await expect(summary.getByRole('button', { name: 'More share options' })).toHaveCount(2)
+          await page.evaluate(() => document.fonts.ready)
+          const label = `${width}px, ${text}, ${sheet ? 'the share sheet, ' : ''}${theme}`
+
+          const m = await measureSummary(summary)
+          expect(m.rows.map((row) => row.address.text).sort(), `${label}: the rows`).toEqual([SHORT_VALID, LONG, FAILS].sort())
+          for (const { address, controls } of m.rows) {
+            expect(address.past, `${label}: characters of ${address.text} painted outside its row`).toBe('')
+            for (const control of controls) expect(control.past, `${label}: "${control.name}" in the row of ${address.text} runs past the row`).toBeLessThanOrEqual(0.5)
+          }
+          // An address of a common length breaks only after its @: the row keeps room for "example.com" (both caps).
+          const short = m.rows.find((row) => row.address.text === SHORT_VALID)!.address
+          const [local, domain] = SHORT_VALID.split('@')
+          expect([[SHORT_VALID], [`${local}@`, domain]], `${label}: ${SHORT_VALID} breaks inside a part, as ${short.lines.join(' / ')}`).toContainEqual(short.lines)
+          expect(m.skipped.text, `${label}: the skipped line`).toBe(`${INVALID}, ${INVITED}: already invited or invalid.`)
+          expect(m.skipped.past, `${label}: characters of the skipped line painted outside the summary`).toBe('')
+          expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+
+          await summary.getByRole('listitem').filter({ hasText: SHORT_VALID }).getByRole('button', { name: opener, expanded: false }).click()
+          const dialog = page.getByRole('dialog', { name: 'Share invite' })
+          await expect(dialog.getByText(`The invite link for ${SHORT_VALID} works once`)).toBeVisible()
+          await expect(dialog.getByRole('textbox', { name: 'Message' })).toBeVisible()
+          const d = await measureShareOptions(dialog)
+          expect(d.scrolling, `${label}: an element in the share dialog scrolls sideways`).toEqual([])
+          expect(d.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(d.body.left - 0.5)
+          expect(d.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(d.body.right + 0.5)
+          for (const control of d.controls) expect(control.past, `${label}: "${control.name}" runs past the dialog body's content box`).toBeLessThanOrEqual(0.5)
+          expect(d.page.scrollWidth, `${label}: the page scrolls sideways with the dialog open`).toBe(d.page.clientWidth)
+        })
+      }
+    }
+  })
+
   test.describe(`the feedback list, ${theme} theme`, () => {
+    test('details wrap long links at 390px and 200% text, with keyboard close and no preview fetch', async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 390, height: 400 })
+      const evidenceRequests: string[] = []
+      page.on('request', (request) => {
+        if (new URL(request.url()).hostname === 'evidence.example.test') evidenceRequests.push(request.url())
+      })
+      await openAdmin(page, baseURL!, theme, '/admin/feedback')
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      const opener = page.getByRole('button', { name: 'View details for feedback 1' })
+      await opener.focus()
+      await opener.press('Enter')
+      const dialog = page.getByRole('dialog', { name: 'Feedback details' })
+      const close = dialog.getByRole('button', { name: 'Close' })
+      await expect(close).toBeFocused()
+      const link = dialog.getByRole('link', { name: FEEDBACK_LINK })
+      await expect(link).toHaveAttribute('href', FEEDBACK_LINK)
+      await page.keyboard.press('Tab')
+      await expect(link).toBeFocused()
+      await expect(link).toBeInViewport()
+      const fit = await dialog.evaluate((panel) => {
+        const bounds = panel.getBoundingClientRect()
+        const link = panel.querySelector('a')!
+        return {
+          sideways: panel.scrollWidth > panel.clientWidth,
+          outside: [...link.getClientRects()].some((rect) => rect.left < bounds.left || rect.right > bounds.right),
+          pageSideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        }
+      })
+      expect(fit).toEqual({ sideways: false, outside: false, pageSideways: false })
+      await page.keyboard.press('Tab')
+      await expect(close).toBeFocused()
+      await expect(close).toBeInViewport()
+      await page.keyboard.press('Escape')
+      await expect(dialog).toHaveCount(0)
+      await expect(opener).toBeFocused()
+      expect(evidenceRequests).toEqual([])
+    })
+
     test('at 320px the page does not scroll sideways at the default size and under a 200% root font', async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 320, height: 900 })
       await openAdmin(page, baseURL!, theme, '/admin/feedback')

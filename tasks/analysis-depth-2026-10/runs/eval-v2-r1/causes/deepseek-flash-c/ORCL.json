@@ -1,0 +1,99 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "ORCL",
+ "split": "holdout",
+ "claims": 7,
+ "output_sha256": "3f23c3a9269fb590786c7aaf59adc6a67b0c5a3d36012ea8f483a74a7a85e200",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2023 step came from the Cerner acquisition, which contributed revenue across all three businesses .",
+   "passages": [
+    {
+     "id": "P48",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Excluding the effects of foreign currency rate fluctuations, our total revenues increased across our three businesses during fiscal 2023 relative to fiscal 2022 primarily due to revenue contributions from our acquisition of Cerner. Excluding the impact of our acquisition of Cerner, the constant currency revenues increase during fiscal 2023 relative to fiscal 2022 in our cloud and license business was attributable to growth in our cloud services and license support revenues as customers purchased our applications and infrastructure technologies via cloud and license deployment models and also renewed their related cloud contracts and license support contracts to continue to gain access to the latest versions of our technologies and to receive support services, partially offset by a decrease in our cloud license and on-premise license revenues. In our hardware business, the increase during fiscal 2023 was primarily due to growth in our Oracle Exadata and certain other strategic hardware product offerings."
+    }
+   ],
+   "label": "supported",
+   "reason": "P48 says revenues increased across all three businesses mainly because of revenue contributions from the Cerner acquisition."
+  },
+  {
+   "sentence": "The FY2026 step came from cloud revenues as customers purchased applications and infrastructure technologies and renewed cloud contracts .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cloud and software business\u2019 total revenues increased by $9.3 billion in reported currency in fiscal 2026 relative to fiscal 2025 primarily due to an increase in cloud revenues as customers purchased our applications and infrastructure technologies and renewed their related cloud contracts. Excluding the favorable impact of currency rate fluctuations of 2% in fiscal 2026, cloud applications and cloud infrastructure contributed 16% and 84%, respectively, to the constant currency growth in cloud revenues in fiscal 2026. The Americas, the EMEA and the Asia Pacific regions contributed 87%, 6% and 7%, respectively, to the constant currency revenue growth for this business during fiscal 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P17 attributes the FY2026 cloud and software revenue increase to customers purchasing applications and infrastructure and renewing cloud contracts."
+  },
+  {
+   "sentence": "Cloud applications and cloud infrastructure contributed 16% and 84% of constant-currency cloud revenue growth in FY2026 .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cloud and software business\u2019 total revenues increased by $9.3 billion in reported currency in fiscal 2026 relative to fiscal 2025 primarily due to an increase in cloud revenues as customers purchased our applications and infrastructure technologies and renewed their related cloud contracts. Excluding the favorable impact of currency rate fluctuations of 2% in fiscal 2026, cloud applications and cloud infrastructure contributed 16% and 84%, respectively, to the constant currency growth in cloud revenues in fiscal 2026. The Americas, the EMEA and the Asia Pacific regions contributed 87%, 6% and 7%, respectively, to the constant currency revenue growth for this business during fiscal 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P17 states cloud applications and infrastructure contributed 16% and 84% of constant-currency cloud revenue growth."
+  },
+  {
+   "sentence": "The other-line drag reflects a $1.5 billion rise in restructuring and other expenses from the 2026 Restructuring Plan .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Restructuring and other expenses increased by $1.5 billion in reported currency in fiscal 2026 relative to fiscal 2025 primarily due to higher restructuring expenses from actions we took in fiscal 2026 relative to fiscal 2025. Restructuring activities in fiscal 2026 primarily related to the 2026 Restructuring Plan, while restructuring activities in fiscal 2025 primarily related to the 2024 Restructuring Plan, which is substantially complete."
+    }
+   ],
+   "label": "supported",
+   "reason": "P11 attributes the $1.5B restructuring increase to FY2026 actions, primarily under the 2026 Restructuring Plan."
+  },
+  {
+   "sentence": "Operating cash rose $11.2 billion on higher net income and favorable working capital, including $4.6 billion of customer prepayments .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities increased by $11.2 billion in fiscal 2026 relative to fiscal 2025 primarily due to higher net income adjusted for certain non-cash charges and higher cash favorable working capital changes, net, which includes $4.6 billion cash inflows from customer prepayments with significant financing component."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 cites higher adjusted net income and favorable working capital, including $4.6B of customer prepayments."
+  },
+  {
+   "sentence": "Investing outflows rose $30.1 billion mainly on a $34.4 billion increase in capital expenditures .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used for investing activities increased by $30.1 billion in fiscal 2026 relative to fiscal 2025 primarily due to a $34.4 billion increase in capital expenditures, partially offset by $4.3 billion of cash proceeds from the sale of our investment in Ampere."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes the $30.1B investing outflow increase primarily to a $34.4B rise in capital expenditures."
+  },
+  {
+   "sentence": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes issued in FY2026 .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "was primarily due to proceeds from the issuance of senior notes, net of issuance costs, of $42.7 billion during fiscal 2026; $32.0 billion of cash inflows from our operations; $5.0 billion of cash proceeds from the issuance of Mandatory Convertible Preferred Stock, net of issuance costs; $4.9 billion of cash inflows from the sale of our investments, primarily in Ampere; $3.3 billion of cash inflows from short-term financing related to capital expenditures, net; and $1.3 billion of net cash provided by our employee stock programs, partially offset by $55.7 billion of cash used for capital expenditures; $5.8 billion of cash used to pay dividends to our common and preferred stockholders; $5.0 billion of cash used for scheduled repayments of debt; $851 million of cash used for repayment of commercial paper, net; $337 million of cash outflows for other financing activities, net; $864 million of cash used for purchases of non-current investments; and $95 million of cash used for repurchases of our common stock, in each case during fiscal 2026."
+    }
+   ],
+   "label": "partial",
+   "reason": "P7 cites $42.7B of senior notes as a source of the cash increase. It never explains the debt balance rise."
+  }
+ ],
+ "cost_usd": 0.041512,
+ "backend": "claude_cli",
+ "input_tokens": 3655,
+ "cached_input_tokens": 0,
+ "output_tokens": 614
+}

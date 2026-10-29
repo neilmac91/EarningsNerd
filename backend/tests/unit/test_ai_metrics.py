@@ -245,6 +245,27 @@ def test_record_carries_requested_vs_actual_model_fingerprint_latency_trigger_an
     assert junk["estimated_cost_usd"] is None  # no token counts: unknown, never a claimed zero
     bucket = [c for c in ai_metrics.get_ai_metrics()["calls"] if c["count"] == 2][0]
     assert bucket["estimated_cost_usd"] == 7.25
+    # NEW-01: the unknown call is outside that sum, and the bucket says so.
+    assert bucket["estimated_cost_known_usd"] == 7.25 and bucket["estimated_cost_unknown_calls"] == 1
+    assert bucket["estimated_cost_complete"] is False
+    ai_metrics.record_ai_call(operation="summary_primary", provider="primary", actual_model="deepseek-flash",
+                              usage={"prompt_tokens": 1, "completion_tokens": 1}, outcome="success")
+    flash = [c for c in ai_metrics.get_ai_metrics()["calls"] if c["actual_model"] == "deepseek-flash"][0]
+    assert flash["estimated_cost_usd"] == flash["estimated_cost_known_usd"] == 1.5
+    assert flash["estimated_cost_unknown_calls"] == 0 and flash["estimated_cost_complete"] is True
+
+
+def test_the_sdk_cache_split_prices_the_uncached_rest_while_the_record_keeps_what_was_reported(monkeypatch):
+    # NEW-01: the SDK reports cached_tokens without a miss count; the usage row keeps that as reported
+    # (miss unknown), and the estimate prices the other 60 prompt tokens at the miss tariff, not as free.
+    from app.services import llm_pricing
+
+    monkeypatch.setattr(llm_pricing, "is_peak_hour", lambda at=None: False)
+    sdk = CompletionUsage(prompt_tokens=100, completion_tokens=20, total_tokens=120,
+                          prompt_tokens_details=PromptTokensDetails(cached_tokens=40))
+    result = record(sdk)
+    assert result["usage"]["cache_hit_tokens"] == 40 and result["usage"]["cache_miss_tokens"] is None
+    assert result["estimated_cost_usd"] == round((40 * 0.022 + 60 * 0.66 + 20 * 1.98) / 1_000_000, 6)
 
 
 def test_trigger_label_is_context_scoped():

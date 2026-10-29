@@ -341,7 +341,7 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
         run.charged_month = None
         run.charge_future = None  # nothing left to settle: the unit is owed
     elif user_id and count_usage and run.usage_reservation_token is None:
-        # No lease was held (background drain, uncapped Pro): the historical
+        # No lease was held (the background drain): the historical
         # completion-time count, full results only. A lease still held here was left
         # uncharged on purpose (an unsignalled timeout fallback); `release` releases it.
         def track_usage_sync():
@@ -377,6 +377,6 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
     if run.summary_status == "partial":
         yield {'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': saved_summary_id}
     elif run.summary_status == "error":
-        yield {'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': saved_summary_id}
+        yield {'type': 'error', 'message': summary_message or 'We could not generate this summary. Try again shortly.', 'summary_id': saved_summary_id}
     else:
         yield {'type': 'complete', 'summary_id': saved_summary_id, 'percent': 100}

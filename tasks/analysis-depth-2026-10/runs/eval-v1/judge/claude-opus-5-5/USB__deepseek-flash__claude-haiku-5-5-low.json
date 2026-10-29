@@ -1,0 +1,86 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts assert an FDIC special assessment in FY2023 that the cited passage does not mention. A adds an uncited $734m figure, calls Payment Services 'steadiest' from one year of data, and states 'cyclical' as fact. B wrongly ties the FY2022 provision to MUB. B explains the provision-driven net income swings and FY2024 cost relief, labels its analysis, and discloses unexplained cash flow and missing debt data."
+   },
+   "cost_usd": 0.140545,
+   "latency_s": 16.689,
+   "input_tokens": 15038,
+   "output_tokens": 1296,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts assert an FDIC special assessment in FY2023 that the cited passage does not mention. A adds an uncited $734m figure, calls Payment Services 'steadiest' from one year of data, and states 'cyclical' as fact. B wrongly ties the FY2022 provision to MUB. B explains the provision-driven net income swings and FY2024 cost relief, labels its analysis, and discloses unexplained cash flow and missing debt data.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Both drafts misattribute causes. A cites an FDIC assessment for FY2023 that its passage omits, and links the FY2022 provision to MUB. B invents a $734m FDIC figure, adds an unsupported FDIC cause for FY2025, and presents 'steadiest' and 'cyclical' as fact. A explains the FY2020\u201322 earnings swings, labels its analysis, and discloses data gaps (OCF unexplained, debt missing after FY2022). B's segment detail is well sourced and its prose cleaner, but its watch thresholds are weaker."
+   },
+   "cost_usd": 0.140993,
+   "latency_s": 17.212,
+   "input_tokens": 15034,
+   "output_tokens": 1320,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Both drafts misattribute causes. A cites an FDIC assessment for FY2023 that its passage omits, and links the FY2022 provision to MUB. B invents a $734m FDIC figure, adds an unsupported FDIC cause for FY2025, and presents 'steadiest' and 'cyclical' as fact. A explains the FY2020\u201322 earnings swings, labels its analysis, and discloses data gaps (OCF unexplained, debt missing after FY2022). B's segment detail is well sourced and its prose cleaner, but its watch thresholds are weaker.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.281538
+}

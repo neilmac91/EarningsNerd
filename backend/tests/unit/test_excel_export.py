@@ -18,6 +18,7 @@ import pytest
 from openpyxl import load_workbook
 
 from app.services.excel_export_service import build_analysis_workbook
+from app.services.trend_analysis.data_notes import REASONS
 
 EXPORTED_AT = datetime(2026, 7, 6, tzinfo=timezone.utc)
 
@@ -156,7 +157,7 @@ class TestOverviewSheet:
         assert "TST" in texts
         assert "FY2022–FY2024 · 3 periods" in texts  # the window key as a range; never "FY2022..FY2024"
         assert "SEC filings and calculations via EarningsNerd · earningsnerd.io" in texts
-        assert any("July 06, 2026" in t for t in texts)
+        assert "July 6, 2026, 00:00 UTC" in texts and "Exported UTC" not in texts  # the instant as words, its zone named
         assert any("earningsnerd.io/terms" in t for t in texts)
         assert any("not" in t and "investment" in t for t in texts)  # the disclaimer paragraph
         # One period reads in the singular, its window key, as the engine writes it, as that one period (E177).
@@ -164,6 +165,31 @@ class TestOverviewSheet:
         single.update(period_key="FY2024..FY2024", periods=single["periods"][2:])
         overview = load_workbook(io.BytesIO(build_analysis_workbook(single, exported_at=EXPORTED_AT)))["Overview"]
         assert overview["B12"].value == "FY2024 · 1 period"
+
+    def test_the_company_and_the_instants_read_as_the_page_prints_them(self):
+        """WP3-A: the title takes the page's display name, never EDGAR's capitals, and each instant reads as
+        words with its zone named. Display only: the dataset, whose company_name feeds its fingerprint, keeps it."""
+        from copy import deepcopy
+
+        dataset = _dataset()
+        dataset.update(company_name="REGENERON PHARMACEUTICALS, INC.", ticker="REGN",
+                       data_as_of="2026-10-24T20:21:42.435743Z")
+        before = deepcopy(dataset)
+        book = load_workbook(io.BytesIO(build_analysis_workbook(dataset, exported_at=EXPORTED_AT)))
+        overview = book["Overview"]
+        assert overview["A7"].value == "Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis"
+        assert book.properties.title == "Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis"
+        texts = [str(cell.value) for sheet in book.worksheets for row in sheet.iter_rows() for cell in row if cell.value]
+        assert texts and not any("REGENERON" in text for text in texts)
+        assert "REGENERON" not in str(vars(book.properties))
+        facts = {row[0].value: row[1].value for row in overview.iter_rows(min_row=10, max_row=17)}
+        assert list(facts)[:5] == ["Ticker", "Mode", "Periods", "Exported", "Source data as of"]
+        assert facts["Exported"] == "July 6, 2026, 00:00 UTC"
+        assert facts["Source data as of"] == "October 24, 2026, 20:21 UTC"
+        assert dataset == before
+        dataset.update(company_name=None, data_as_of="Legacy refresh")
+        overview = load_workbook(io.BytesIO(build_analysis_workbook(dataset, exported_at=EXPORTED_AT)))["Overview"]
+        assert overview["A7"].value == "REGN · Multi-Period Analysis" and overview["B14"].value == "Legacy refresh"
 
     def test_labels_and_headers_rest_in_the_ink(self, workbook):
         """D-041 (D-030 in the workbook): a fact label and a header row carry the ink, the header on
@@ -176,7 +202,10 @@ class TestOverviewSheet:
     def test_conventions_are_stated(self, workbook):
         texts = self._texts(workbook)
         assert any("true Excel percentages" in t for t in texts)
-        assert any("Computed Q4" in t or "computed Q4" in t for t in texts)  # † legend (derived present)
+        # Which figures carry a comment is the closing line's to say, once: a calculation, computed Q4 included, whose
+        # comment names it ("Calculated figure." or "Computed Q4.").
+        assert sum("a figure with a data note or a calculation carries a comment" in t for t in texts) == 1
+        assert "Calculation method is separate from whether the source checks passed." in texts  # derived present
 
     def test_brand_mark_png_is_embedded(self, workbook_bytes):
         # openpyxl does not read images back — the zip container is the proof.
@@ -185,6 +214,41 @@ class TestOverviewSheet:
                 name.startswith("xl/media/") and name.endswith(".png")
                 for name in archive.namelist()
             )
+
+
+class TestFileAndPrintSetup:
+    """WP3-A: the inspection read creator "openpyxl", no title and no page setup on any sheet."""
+
+    def test_the_file_names_itself(self, workbook):
+        properties = workbook.properties
+        assert (properties.creator, properties.lastModifiedBy) == ("EarningsNerd", "EarningsNerd")
+        assert properties.title == "Test & Co · Multi-Period Analysis"
+        assert properties.subject == "TST · Annual · FY2022–FY2024"
+        # openpyxl writes the instant as UTC and reads it back naive; it stamps the modified time on save.
+        assert properties.created == EXPORTED_AT.replace(tzinfo=None) and properties.language == "en"
+
+    def test_every_sheet_prints_to_its_width_with_the_brand_footer(self, workbook):
+        """Each sheet prints one page wide but Sources: its 17 audit columns printed at about 2.9pt on one page
+        (chief design on f7593b13), so it prints four pages wide, repeating its Metric and Period columns."""
+        for sheet in workbook.worksheets:
+            setup = sheet.page_setup
+            pages_wide = 4 if sheet.title == "Sources & methods" else 1
+            assert setup.orientation == ("portrait" if sheet.title == "Overview" else "landscape"), sheet.title
+            assert (setup.fitToWidth, setup.fitToHeight, sheet.sheet_properties.pageSetUpPr.fitToPage) == (
+                pages_wide, 0, True), sheet.title
+            assert (sheet.oddFooter.left.text, sheet.oddFooter.right.text) == (
+                "EarningsNerd · earningsnerd.io", "Page &P of &N"), sheet.title
+            assert str(sheet.sheet_properties.tabColor.rgb).endswith("4F7A63"), sheet.title  # the setup keeps the tab
+        metrics, sources = workbook["Metrics"], workbook["Sources & methods"]
+        # Written "1:1" and "A:A"; the file's defined name reads back absolute.
+        assert (metrics.print_title_rows, metrics.print_title_cols) == ("$1:$1", "$A:$A")
+        assert (sources.print_title_rows, sources.print_title_cols) == ("$1:$1", "$A:$B")
+        # Across, then down: a run of rows prints its four pages side by side, not a band of pages apart.
+        assert sources.page_setup.pageOrder == "overThenDown"
+        assert {sheet.page_setup.pageOrder for sheet in workbook.worksheets if sheet is not sources} == {None}
+        assert [sources.cell(1, column).value for column in (1, 2)] == ["Metric", "Period"]
+        assert workbook["Overview"].print_title_rows is None
+        assert metrics["B2"].value == "revenue"  # the machine column keeps the raw concept key
 
 
 class TestMetricsSheet:
@@ -208,6 +272,21 @@ class TestMetricsSheet:
         assert ws["D4"].value == 1.11 and ws["D4"].number_format == "#,##0.00"
         assert ws["D5"].value == 1.5 and ws["D5"].number_format == '0.00"x"'
 
+    def test_a_gap_stays_empty_and_its_note_says_no_dash(self, workbook):
+        # The page and the PDF print a gap as a dash; the workbook leaves its cell empty (its charts an empty slot), so
+        # the note it carries here and in the Overview says only that the figure is not in our data, never zero (data
+        # notes v2). A gap marks nothing (D-061): its comment and its Overview entry name no letter, and the summary
+        # says how this workbook draws it.
+        cell = workbook["Metrics"]["E3"]
+        assert cell.value is None and cell.number_format == "0.0%"
+        note = f"Data note: {REASONS['not_in_dataset']}"
+        assert cell.comment.text == note
+        overview = [row[0] for row in workbook["Overview"].iter_rows(values_only=True) if row[0]]
+        assert (f"{REASONS['not_in_dataset']} Net margin (FY2023); EPS (diluted) (FY2023); Current ratio (FY2023). "
+                "3 figures.") in overview
+        assert any(text.startswith("3 not in our data, left blank · ") for text in overview)
+        assert "dash" not in note and "\u2014" not in note
+
     def test_derived_q4_gets_a_comment_never_a_fill(self, workbook):
         ws = workbook["Metrics"]
         derived = ws["F2"]  # revenue FY2024
@@ -215,7 +294,7 @@ class TestMetricsSheet:
         assert derived.comment.text.endswith(
             "Computed Q4. Calculation details are unavailable in this older snapshot.")
         assert derived.fill.patternType is None  # no fill — comments only
-        assert ws["D2"].comment.text.startswith("Data note a:")  # legacy validation remains unknown
+        assert ws["D2"].comment.text.startswith("Data note: ")  # legacy validation remains unknown, and marks nothing
 
     def test_annual_window_figures(self, workbook):
         ws = workbook["Metrics"]
@@ -232,8 +311,9 @@ class TestMetricsSheet:
             "method": "calculated", "validation": "needs_review", "reasons": ["source_conflict"],
         })
         alternative = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]["G3"]
-        assert alternative.value == 0.5 and alternative.number_format == "0.0%"
-        assert alternative.comment.text.startswith("Data note a: Available sources disagree on this figure.")
+        # Filings that disagree question the number (D-061): the letter follows the figure, set by its format.
+        assert alternative.value == 0.5 and alternative.data_type == "n" and alternative.number_format == '0.0%" a"'
+        assert alternative.comment.text.startswith(f"Data note a: {REASONS['source_conflict']}")
 
     def test_quarterly_dataset_omits_window_columns(self):
         quarterly = _dataset()
@@ -283,7 +363,9 @@ class TestPanelSheets:
 
         overview = wb["Overview"]
         title = overview["A7"]
-        assert title.data_type == "s" and title.value.startswith("=HYPERLINK")
+        # The display name cases the token before its slash ("=Hyperlink(\"Http://..."), as formatCompanyName does;
+        # the cell still opens with "=", so the guard still decides it.
+        assert title.data_type == "s" and title.value.startswith("=Hyperlink(")
         ticker_cell = overview["B10"]
         assert ticker_cell.data_type == "s" and ticker_cell.value == "=T"
         metrics = wb["Metrics"]
@@ -339,10 +421,12 @@ class TestPanelSheets:
         assert input_row[15].hyperlink.target == "https://example.com/filing"
         texts = [str(cell.value) for row in source_sheet for cell in row if cell.value is not None]
         assert "unsupported_eps_calculation" in texts
-        assert "Note" in texts and any(text.startswith("Data note ") for text in texts)
+        # The Note column names an unmarked note in its words, never a letter the grid does not print (D-061).
+        assert "Note" in texts and REASONS["unsupported_eps_calculation"] in texts
+        assert not any(text.startswith("Data note") for text in texts)
         overview = [cell.value for row in workbook["Overview"] for cell in row]
         assert "a" * 64 in overview and "quarterly-v2" in overview
-        assert "2026-07-01T09:00:00Z" in overview
+        assert "July 1, 2026, 09:00 UTC" in overview and "2026-07-01T09:00:00Z" not in overview
         assert any("finance-lease principal" in str(value) for value in overview)
 
 

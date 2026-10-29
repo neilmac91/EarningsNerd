@@ -18,7 +18,10 @@ an absolutely positioned box only when the clip is the box's containing block or
 containing block is the nearest ancestor with a position other than static (or a transform, filter or
 contain). So when an element clips and an sr-only box, or any absolutely positioned one, renders inside
 it, give the clipping element a position (`relative`), or give one to an element inside the clip that
-holds the box. Then no unpositioned clip sits between the box and its containing block. Inside a nowrap,
+holds the box. Then no unpositioned clip sits between the box and its containing block. A position on the
+clip itself makes it the containing block of every absolutely positioned box inside it, so a box that a
+nested, unpositioned clip held before now escapes that inner clip into the outer one's scroll range; when
+the clip holds other such boxes, position an element around the one box instead. Inside a nowrap,
 truncated or scrolled container the box's static place can be far past the visible edge. An escaped box
 then widens the document's scroll width though nothing paints there, and a phone scrolls sideways. Prove
 a fix by the page's scroll width in a browser, at the width and text size where the clipped content
@@ -40,4 +43,7 @@ ancestors an absolutely positioned box escapes and names the box (dac23622: "pas
 ", XBRL concept us-gaap:EarningsPerShareD""). #1344's admin spec pins its site once it lands. No static
 scan reads this rule: the clip and the sr-only box can sit in different components (TableScroll clips
 what FeedbackRow renders), so a scan of one element and its parent cannot see the pair. A route the e2e
-spec does not visit is review-checked.
+spec does not visit is review-checked. E234 (2026-10-29) met the first remedy's limit: `relative` on the
+Copilot rail's conversation column re-anchored the Sources list's sr-only "(opens in a new tab)" spans
+past the messages scroller's own clip, so the rail's status line took a positioned wrapper of its own
+(`frontend/features/filings/components/copilot/AskCopilotRail.tsx`).

@@ -22,3 +22,19 @@ https://docs.svix.com/receiving/verifying-payloads/how-manual and ties the test'
 the module-level clock import the test patches, the pre-E20 implementation fails that test and
 eleven more on assertions; dropped in unchanged, every test errors at setup on the missing import. Partly gated: that file pins this
 webhook. The next verifier's accept case is review-checked.
+
+The feedback-media provisioner repeated this error on 2026-10-25: its synthetic email channel
+always had `verificationStatus: VERIFIED`, but the actual enabled email channel omitted that
+default enum. Google's [channel API](https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels)
+allows the unspecified default for channels that need no verification or have a legacy exemption.
+`backend/tests/unit/test_feedback_media_infrastructure.py` now carries that observed metadata shape
+through provisioning, cleanup/probe inspection and upload enablement, alongside the explicit default
+and verified forms. Explicit unverified, null and unknown statuses still fail before writes; the
+readback never claims email delivery was tested. The original strict check fails the acceptance gate.
+
+A bounded review also reproduced an alert-policy mismatch with the official Monitoring SDK:
+ProtoJSON omits the implicit-presence `double threshold_value` when it is zero. The creation and
+inspection fixtures now model that canonical response instead of echoing the request, and accept
+both omitted and explicit zero while rejecting nonzero, null, boolean and string values and other
+condition drift. This is provider-contract evidence, not an observed live policy response. The
+comparison normalizes only the missing zero field; it does not overwrite actual configuration drift.

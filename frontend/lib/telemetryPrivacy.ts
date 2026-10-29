@@ -10,6 +10,7 @@ function isCredentialName(name: string): boolean {
 
 /** Telemetry needs the page path, never URL query parameters or fragments. */
 export function sanitizeTelemetryUrl(value: string): string {
+  if (/^(?:blob:|data:)/i.test(value)) return REDACTED
   try {
     const url = new URL(value, 'https://telemetry.invalid')
     // Only parse URL-shaped strings; error messages are handled by the text boundary below.
@@ -29,7 +30,7 @@ export function sanitizeTelemetryUrl(value: string): string {
 }
 
 export function sanitizeTelemetryText(value: string): string {
-  if (/^(?:https?%3a|%2f)/i.test(value)) {
+  if (/^(?:(?:https?|blob|data)%3a|%2f)/i.test(value)) {
     try {
       const decoded = decodeURIComponent(value)
       const clean = sanitizeTelemetryText(decoded)
@@ -40,6 +41,7 @@ export function sanitizeTelemetryText(value: string): string {
     return sanitizeTelemetryUrl(value)
   }
   return value
+    .replace(/\b(?:blob:|data:)[^\s"'<>]+/gi, REDACTED)
     .replace(/https?:\/\/[^\s"'<>]+/gi, sanitizeTelemetryUrl)
     .replace(/\/[^\s"'<>?#]*[?#][^\s"'<>]*/g, sanitizeTelemetryUrl)
     .replace(QUERY_CREDENTIAL, `$1${REDACTED}`)

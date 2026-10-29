@@ -1,0 +1,86 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "Draft A misreads several sources. It cites a truncated passage for a Wirtgen claim, calls production costs unfavorable when the filing says favorable, compares OCF/NI to an FCF/NI median, and treats a price comment as the volume cause. Draft B's causal claims match their passages. It adds an incremental margin, a margin bridge, segment margins and credit-loss provisions. It discloses that FY2025 operating income is missing and that the C&F decline is unexplained. B's 'R2 to R7' labels are jargon."
+   },
+   "cost_usd": 0.135977,
+   "latency_s": 14.427,
+   "input_tokens": 15012,
+   "output_tokens": 1078,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"strong\",\n \"rationale\": \"Draft A misreads several sources. It cites a truncated passage for a Wirtgen claim, calls production costs unfavorable when the filing says favorable, compares OCF/NI to an FCF/NI median, and treats a price comment as the volume cause. Draft B's causal claims match their passages. It adds an incremental margin, a margin bridge, segment margins and credit-loss provisions. It discloses that FY2025 operating income is missing and that the C&F decline is unexplained. B's 'R2 to R7' labels are jargon.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B shows more of the cycle, with peer ROE, below-the-line costs and segment contributions. But it has several unsupported or misread claims. The Wirtgen 12% figure is absent from its cited passage. It calls FY2024 production costs unfavorable when the filing says favorable. It misattributes 'moderating market conditions' and leaves the $35.8bn FY2021 net-debt figure unexplained. A is mostly supported, adds a credit-loss flag and gives numeric watch thresholds. Its 'R2 to R7' label and some causal blending are minor flaws."
+   },
+   "cost_usd": 0.138373,
+   "latency_s": 17.108,
+   "input_tokens": 15014,
+   "output_tokens": 1197,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B shows more of the cycle, with peer ROE, below-the-line costs and segment contributions. But it has several unsupported or misread claims. The Wirtgen 12% figure is absent from its cited passage. It calls FY2024 production costs unfavorable when the filing says favorable. It misattributes 'moderating market conditions' and leaves the $35.8bn FY2021 net-debt figure unexplained. A is mostly supported, adds a credit-loss flag and gives numeric watch thresholds. Its 'R2 to R7' label and some causal blending are minor flaws.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.27435
+}

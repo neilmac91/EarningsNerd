@@ -7,7 +7,8 @@ import QuickAccessBar from '@/features/marketing/components/QuickAccessBar'
 import TrustStrip from '@/features/marketing/components/TrustStrip'
 import { ArrowRightIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
-import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
+import type { AccessMode } from '@/features/marketing/lib/access'
+import PublicAccessLine from './PublicAccessLine'
 import type { ExampleData } from '@/lib/serverApi'
 
 /**
@@ -29,7 +30,6 @@ export default function LandingHero({
   example: ExampleData | null
   accessMode: AccessMode
 }) {
-  const access = ACCESS_COPY[accessMode]
   return (
     <section aria-labelledby="hero-h" className="bg-background-light dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-24 lg:pt-20">
@@ -47,7 +47,7 @@ export default function LandingHero({
                 See a live example
                 <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
               </MarketingCta>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{access.line}</p>
+              <PublicAccessLine accessMode={accessMode} />
             </div>
 
             {/* Company search: the secondary action, so it keeps the "/" shortcut but never

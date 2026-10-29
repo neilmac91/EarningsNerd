@@ -14,7 +14,21 @@ import { FREE_COPILOT_QUESTIONS, FREE_EARNINGS_ALERT_LIMIT, FREE_SUMMARY_LIMIT }
 // Live mutable flag so a test can flip ENABLE_PRO_TRIAL without re-importing the component.
 // The flags ship off: the plan lists leave out the lines they decide (lib/planLimits.ts shipped).
 const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
-vi.mock('@/lib/featureFlags', () => flags)
+vi.mock('@/lib/featureFlags', async (original) => ({ ...(await original<typeof import('@/lib/featureFlags')>()), ...flags,
+  get ENABLE_PRO_TRIAL() { return flags.ENABLE_PRO_TRIAL },
+  get ENABLE_ANALYSIS() { return flags.ENABLE_ANALYSIS },
+  get ENABLE_FPI_FILINGS() { return flags.ENABLE_FPI_FILINGS },
+}))
+
+// These offer/layout cases assume released checkout; publicAccess.spec.tsx exercises the hold.
+vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
+  const { ACCESS_COPY } = await import('@/features/marketing/lib/access')
+  const { legalReady } = await import('./fixtures/legalReady')
+  return {
+    usePublicAccess: (mode: keyof typeof ACCESS_COPY) => ACCESS_COPY[mode],
+    usePublicReadiness: () => ({ readiness: legalReady, loading: false }),
+  }
+})
 
 vi.mock('@/lib/analytics', () => ({ default: { homepageSectionViewed: vi.fn(), billingCycleToggled: vi.fn() } }))
 

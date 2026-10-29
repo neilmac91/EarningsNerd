@@ -9,7 +9,8 @@ recomputes their transitive import closure over every top-level package and modu
 filter excludes), and fails when a reachable module falls outside the filter (the filter is
 stale), when a path that cannot affect the run would trigger it (routers, integrations,
 `main.py`, `task_worker_main.py`, the Dockerfile, scripts, migrations, tests, Markdown directly under `docs/`, `evals/`
-and `evals/baselines/` the run does not read, and the summary-eval modules; files directly under `app/` trigger as a group so a new top-level module
+and `evals/baselines/` the run does not read, the summary-eval modules, and the trend-depth research harness
+under `evals/trend_depth/`; files directly under `app/` trigger as a group so a new top-level module
 cannot fall outside the filter; a non-trigger of a deliberate category the closure starts to import
 or name is reported as such, while a named file of a catch-all category becomes an input), or when
 a filter pattern matches nothing the eval uses.
@@ -1142,7 +1143,8 @@ def non_triggers(closure: set[str], named: set[str] | None = None) -> list[str]:
     deliberate = _existing(
         _glob("tests/**/*") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
         + _glob("app/routers/*.py") + _glob("app/integrations/*.py") + top_level + [BACKEND / p for p in SUMMARY_EVAL_DATA]
-        + _glob("evals/baselines/*.json"),
+        + _glob("evals/baselines/*.json")
+        + _glob("evals/trend_depth/*"),  # the offline Multi-Period Analysis research harness; the Copilot run never imports it
         "non-triggers",
     )
     overlap = sorted(set(deliberate) & (closure | named | inputs))

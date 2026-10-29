@@ -65,11 +65,13 @@ A change of more than one kind below takes the widest reading. Any of them adds
   - the recipe of each existing component or surface the change uses or edits, whatever its list.
     A recipe's name need not be its component's, so search §4's recipe block for the component's
     name: `<NarrativePane>` is under Analysis reading, `<PeriodPicker>` under Analysis periods,
-    `<SourceValue>` under Analysis evidence, `<SourceTrace>` under Provenance chip and
+    `<SourceValue>` under Analysis evidence, `<ResultsHeader>`, the analysis page's results
+    column and the Free teaser's preview (`<AnalysisTeaser>`, its module gaps) under Analysis
+    results, `<SourceTrace>` under Provenance chip and
     `<Button reserveLoadingText>` under Steady loading. This is the only way these recipes are
-    read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Callout, Chat
-    composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example, Input,
-    Password field, Provenance chip, Steady loading, Toast and Trust strip;
+    read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Analysis results,
+    Callout, Chat composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example,
+    Input, Password field, Provenance chip, Steady loading, Toast and Trust strip;
   - the triggered recipes, for what the change adds or changes:
     - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
       ⌘K and "/", its wording review list j, k, 1, 2 and the arrows; company search binds "/"
@@ -96,12 +98,17 @@ A change of more than one kind below takes the widest reading. Any of them adds
       scroll is a motion change: §11 too);
     - a filter, window or sort that changes how many items a list shows: Analysis table;
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
+    - a run in progress shown in words (a fetch, an answer being grounded, a loading line): Activity line;
+    - a wait shown by a turning glyph outside Button and Input (a control's own request, a wait
+      that decides the layout): Spinner;
     - a fade on content (a mask or a gradient that fades it out at an edge): Locked preview;
-    - figure tiles outside /analysis: Analysis KPI.
+    - figure tiles outside /analysis: Analysis KPI;
+    - a bar of how much of a limit is used (a plan's monthly summaries): Usage meter.
 
   The ESLint design rules and the vitest gates catch the mechanical slips
   (`earningsnerd/direction-text-tokens` holds the 700-level clause for the direction text it
-  reaches); the surface clause is checked in review.
+  reaches, and `tests/unit/figureSurfaceInks.spec.ts` keeps the analysis figure surfaces' data inks on
+  those surfaces); the surface clause is checked in review.
 
 A change that adds or edits a §4 recipe checks whether one of its rules can bind a change that
 never touches its component. If one can, move that rule into the rules before §4's recipe block,

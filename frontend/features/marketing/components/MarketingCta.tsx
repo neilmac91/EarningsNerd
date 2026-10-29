@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { buttonVariants, type ButtonSize, type ButtonVariant } from '@/components/ui'
 import analytics from '@/lib/analytics'
 
@@ -17,6 +17,7 @@ export default function MarketingCta({
   size = 'lg',
   placement,
   className,
+  linkRef,
   children,
 }: {
   href: string
@@ -24,10 +25,12 @@ export default function MarketingCta({
   size?: ButtonSize
   placement?: string
   className?: string
+  linkRef?: Ref<HTMLAnchorElement>
   children: ReactNode
 }) {
   return (
     <Link
+      ref={linkRef}
       href={href}
       className={buttonVariants({ variant, size, className })}
       onClick={placement ? () => analytics.exampleCtaClicked(placement, href) : undefined}

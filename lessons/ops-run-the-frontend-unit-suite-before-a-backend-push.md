@@ -12,9 +12,9 @@ and then failed CI's `frontend-tests`. Both times the failing spec was
 - **#1535 (F60)** moved resend-verification's read into `account_mail_service._issue_link`, and
   `e981dd50a` failed (CI run 40025627889). `ab3cda166` named the new site.
 
-Each red push cost a CI cycle, and its fix push one more paid `eval-baseline` draw: every push to a pull
-request whose diff touches `backend/app/`, `backend/evals/` or `backend/prompts/` draws one
-(`ops-reserve-eval-baseline-before-each-push.md`). Before #1535's push, the session that pushed it ran
+Each red push cost a CI cycle, and its fix push one more paid `eval-baseline` draw: until F55, every push to
+a pull request whose diff touches `backend/app/`, `backend/evals/` or `backend/prompts/` drew one, drafts
+included (`ops-reserve-eval-baseline-before-each-push.md`). Before #1535's push, the session that pushed it ran
 only the backend gate, because no frontend file had changed.
 
 **Rule.** Before a push whose diff changes any file under `backend/`, its tests included, also run the
@@ -43,8 +43,9 @@ merge, since main's ruleset requires the check (`docs/OPERATIONS.md`). The rule 
 its paid draw. A pre-push hook could run the suite, but it would add about four minutes to every push and
 needs `node_modules` in every clone. A machine gate on the cost alone would make `eval-baseline` wait for
 `backend-tests` and `frontend-tests` (`needs:` in `.github/workflows/ci.yml`), so that a red unit test
-skips the paid run. That is a high-tier CI change. Founder row F55 holds the forms for gating
-`eval-baseline`'s spend, and this one is not among them.
+skips the paid run. That is a high-tier CI change. F55 gated `eval-baseline`'s spend another way: a
+draft no longer draws, so a red push to a draft costs a CI cycle alone, while a red push to a ready pull
+request still draws. The `needs:` form was not adopted.
 
 **Evidence.**
 - #1529: `405abe0b`, then `5eaa0797`.

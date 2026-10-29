@@ -9,11 +9,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider, useQuery, onlineManager } from '@tanstack/react-query'
 import api from '@/lib/api/client'
 import { getCompany } from '@/features/companies/api/companies-api'
 import { queryKeys } from '@/lib/queryKeys'
 import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
+import type { AnalysisCoverage } from '@/features/analysis/api/analysis-api'
 
 vi.mock('@/features/companies/components/CompanySearch', () => ({
   default: ({ onSelect }: { onSelect: (ticker: string) => void }) =>
@@ -44,18 +46,21 @@ function LinkProbe({ ticker }: { ticker: string }) {
   return data ? createElement('output', null, `link resolved: ${data.ticker}`) : null
 }
 
-function mount(search: string, probeTicker?: string) {
+const coverageFor = (ticker: string): AnalysisCoverage => ({
+  ticker, company_name: COMPANIES[ticker].name, supported: true, syncing: false,
+  annual: [2021, 2022, 2023].map((year) => ({ key: `FY${year}`, fiscal_year: year, period_end: `${year}-12-31`, has_core: true })),
+  quarterly: [], limits: { annual: 10, quarterly: 12 },
+})
+const clients: QueryClient[] = []
+
+function mount(search: string, probeTicker?: string, seedCoverage = true) {
   window.history.replaceState(null, '', `/analysis${search}`)
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+  clients.push(client)
   client.setQueryData(queryKeys.currentUser(), { id: 7 })
   client.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })
-  for (const ticker of Object.keys(COMPANIES)) {
-    client.setQueryData(queryKeys.analysisCoverage(ticker), {
-      ticker, company_name: COMPANIES[ticker].name, supported: true, syncing: false,
-      annual: [2021, 2022, 2023].map((year) => ({ key: `FY${year}`, fiscal_year: year, period_end: `${year}-12-31`, has_core: true })),
-      quarterly: [],
-      limits: { annual: 10, quarterly: 12 },
-    })
+  for (const ticker of seedCoverage ? Object.keys(COMPANIES) : []) {
+    client.setQueryData(queryKeys.analysisCoverage(ticker), coverageFor(ticker))
   }
   const tree = () =>
     createElement(
@@ -71,7 +76,7 @@ function mount(search: string, probeTicker?: string) {
       window.history.pushState(null, '', `/analysis${next}`)
       view.rerender(tree())
     })
-  return { ...view, navigate }
+  return { ...view, navigate, client }
 }
 
 describe('/analysis?ticker= preselects a resolved company and never runs', () => {
@@ -90,6 +95,8 @@ describe('/analysis?ticker= preselects a resolved company and never runs', () =>
 
   afterEach(() => {
     cleanup()
+    clients.splice(0).forEach((client) => client.clear())
+    onlineManager.setOnline(true)
     vi.restoreAllMocks()
     global.fetch = originalFetch
     window.history.replaceState(null, '', '/')
@@ -166,5 +173,184 @@ describe('/analysis?ticker= preselects a resolved company and never runs', () =>
     mount('')
     const main = screen.getByRole('main')
     expect(within(main).getByRole('heading', { level: 1, name: 'Multi-Period Analysis' })).toBeTruthy()
+  })
+
+  it('keeps an initial offline coverage read unresolved', async () => {
+    onlineManager.setOnline(false)
+    mount('', undefined, false)
+    fireEvent.click(screen.getByRole('button', { name: 'Select Microsoft' }))
+    expect(await screen.findByRole('status', { name: 'Loading available periods' })).toBeInTheDocument()
+    expect(screen.queryByText(/No analyzable reporting history/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Run analysis' })).not.toBeInTheDocument()
+  })
+
+  it('shows a first-touch history fetch as activity, the words in the ink beside one sage pulse dot, until the periods land', async () => {
+    let synced = false
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === '/api/companies/AAPL') return { data: COMPANIES.AAPL }
+      if (url === '/api/analysis/AAPL/coverage') {
+        return { data: synced ? coverageFor('AAPL') : { ...coverageFor('AAPL'), syncing: true, annual: [], quarterly: [] } }
+      }
+      throw Object.assign(new Error('Not found'), { status: 404 })
+    })
+    const { client } = mount('?ticker=AAPL', undefined, false)
+    const words = await screen.findByText("Fetching AAPL's full SEC reporting history. The first load takes a few seconds.")
+    // A line in the secondary ink (the census in statusTintResidue.spec.ts keeps it from being an info Notice), with
+    // the Ask answer's one pulse dot, sage in both themes and hidden from assistive tech.
+    const line = words.closest('p') as HTMLElement
+    expect(line).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark')
+    const dots = line.querySelectorAll('.animate-pulse')
+    expect(dots).toHaveLength(1)
+    expect(dots[0]).toHaveClass('bg-brand-strong', 'dark:bg-brand-strong-dark')
+    expect(dots[0].closest('[aria-hidden="true"]')).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Run analysis' })).not.toBeInTheDocument()
+    // The poll's next read lands the periods: the line gives way to the picker.
+    synced = true
+    await act(async () => { await client.invalidateQueries({ queryKey: queryKeys.analysisCoverage('AAPL') }) })
+    expect(await screen.findByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
+    expect(screen.queryByText(/full SEC reporting history/)).not.toBeInTheDocument()
+    expect(post).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  // A status region announces text added to it, never text it was created with. The load's region stays mounted into
+  // the sync, so the history fetch's words land in a region that already existed and are heard.
+  it('announces a first-touch history fetch: its words land in the status region the load already was', async () => {
+    let answer: ((value: unknown) => void) | undefined
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === '/api/companies/AAPL') return { data: COMPANIES.AAPL }
+      if (url === '/api/analysis/AAPL/coverage') return new Promise((resolve) => { answer = resolve }) as never
+      throw Object.assign(new Error('Not found'), { status: 404 })
+    })
+    mount('?ticker=AAPL', undefined, false)
+    const region = await screen.findByRole('status', { name: 'Loading available periods' })
+    await waitFor(() => expect(answer).toBeDefined())
+    await act(async () => { answer?.({ data: { ...coverageFor('AAPL'), syncing: true, annual: [], quarterly: [] } }) })
+    const words = await screen.findByText("Fetching AAPL's full SEC reporting history. The first load takes a few seconds.")
+    expect(words.closest('[role="status"]')).toBe(region)
+    expect(region).not.toHaveTextContent('Loading…')
+    // The load's name goes with the load: the region does not read "Loading available periods" while it says Fetching.
+    expect(region).not.toHaveAccessibleName()
+  })
+
+  it('announces a history fetch that follows a failed first read: the retried answer lands in the region the load kept', async () => {
+    let fail: ((reason: unknown) => void) | undefined
+    let reads = 0
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === '/api/companies/AAPL') return { data: COMPANIES.AAPL }
+      if (url === '/api/analysis/AAPL/coverage') {
+        reads += 1
+        if (reads === 1) return new Promise((_, reject) => { fail = reject }) as never
+        return { data: { ...coverageFor('AAPL'), syncing: true, annual: [], quarterly: [] } }
+      }
+      throw Object.assign(new Error('Not found'), { status: 404 })
+    })
+    mount('?ticker=AAPL', undefined, false)
+    const region = await screen.findByRole('status', { name: 'Loading available periods' })
+    await waitFor(() => expect(fail).toBeDefined())
+    await act(async () => { fail?.(Object.assign(new Error('Service unavailable'), { status: 503 })) })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load available periods.')
+    // The failed read empties the region and keeps it, beside the error Notice.
+    expect(region).toBeEmptyDOMElement()
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    const words = await screen.findByText("Fetching AAPL's full SEC reporting history. The first load takes a few seconds.")
+    expect(words.closest('[role="status"]')).toBe(region)
+  })
+
+  it('calls a failed poll during the first-touch sync a failed load, claims no periods it never showed, and lands the recovery in the region the sync kept', async () => {
+    let failing = false
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === '/api/companies/AAPL') return { data: COMPANIES.AAPL }
+      if (url === '/api/analysis/AAPL/coverage' && !failing) {
+        return { data: { ...coverageFor('AAPL'), syncing: true, annual: [], quarterly: [] } }
+      }
+      throw Object.assign(new Error('Service unavailable'), { status: 503 })
+    })
+    const { client } = mount('?ticker=AAPL', undefined, false)
+    const region = (await screen.findByText(/full SEC reporting history/)).closest('[role="status"]')
+    failing = true
+    await act(async () => { await client.invalidateQueries({ queryKey: queryKeys.analysisCoverage('AAPL') }) })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load available periods.')
+    expect(alert).not.toHaveTextContent('Showing the last loaded periods.')
+    // The failed poll empties the region and keeps it, so the recovered sync's words land in it again and are heard.
+    expect(region).toBeInTheDocument()
+    expect(region).toBeEmptyDOMElement()
+    failing = false
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect((await screen.findByText(/full SEC reporting history/)).closest('[role="status"]')).toBe(region)
+  })
+
+  it('keeps an unsupported company’s verdict through a failed refresh without claiming periods', async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === '/api/companies/AAPL') return { data: COMPANIES.AAPL }
+      throw Object.assign(new Error('Service unavailable'), { status: 503 })
+    })
+    const { client } = mount('?ticker=AAPL', undefined, false)
+    act(() => { client.setQueryData(queryKeys.analysisCoverage('AAPL'), { ...coverageFor('AAPL'), supported: false, annual: [], quarterly: [] }) })
+    expect(await screen.findByText(/No analyzable reporting history/)).toBeInTheDocument()
+    await act(async () => { await client.invalidateQueries({ queryKey: queryKeys.analysisCoverage('AAPL') }) })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not refresh available periods.')
+    expect(alert).not.toHaveTextContent('Showing the last loaded periods.')
+    expect(screen.getByText(/No analyzable reporting history/)).toBeInTheDocument()
+  })
+
+  it('recovers coverage in place without losing retry focus or starting a paid run', async () => {
+    const user = userEvent.setup()
+    mount('?ticker=AAPL', undefined, false)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load available periods.')
+    expect(screen.queryByText(/No analyzable reporting history/)).not.toBeInTheDocument()
+    let finish!: (value: { data: AnalysisCoverage }) => void
+    vi.mocked(api.get).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+    const retry = screen.getByRole('button', { name: 'Try again' })
+    retry.focus()
+    await user.keyboard('{Enter}{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load available periods.')
+    expect(retry).toHaveFocus()
+    expect(vi.mocked(api.get).mock.calls.filter(([url]) => String(url).endsWith('/coverage'))).toHaveLength(2)
+    await act(async () => finish({ data: coverageFor('AAPL') }))
+    expect(await screen.findByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('AAPL').parentElement).toHaveFocus())
+    expect(post).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('keeps cached periods and the chosen range through a failed refresh and a changed successful read', async () => {
+    const { client } = mount('?ticker=AAPL')
+    const user = userEvent.setup()
+    const from = await screen.findByRole('combobox', { name: 'From' })
+    await user.selectOptions(from, 'FY2022')
+    await act(async () => { await client.invalidateQueries({ queryKey: queryKeys.analysisCoverage('AAPL') }) })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Showing the last loaded periods.')
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not refresh available periods.')
+    expect(screen.getByRole('combobox', { name: 'From' })).toHaveValue('FY2022')
+    const fresh = coverageFor('AAPL')
+    fresh.annual.push({ key: 'FY2024', fiscal_year: 2024, period_end: '2024-12-31', has_core: true })
+    vi.mocked(api.get).mockResolvedValueOnce({ data: fresh })
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByRole('combobox', { name: 'From' })).toHaveValue('FY2022')
+    expect(screen.getByRole('combobox', { name: 'To' })).toHaveValue('FY2023')
+    expect(post).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('does not carry a failed company’s coverage or its late recovery into a different selection', async () => {
+    const { client } = mount('?ticker=AAPL', undefined, false)
+    await screen.findByRole('alert')
+    let finish!: (value: { data: AnalysisCoverage }) => void
+    vi.mocked(api.get).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(finish).toBeTypeOf('function'))
+    act(() => { client.setQueryData(queryKeys.analysisCoverage('MSFT'), coverageFor('MSFT')) })
+    fireEvent.click(screen.getByRole('button', { name: 'Select Microsoft' }))
+    expect(await screen.findByText('Microsoft Corp')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await act(async () => finish({ data: coverageFor('AAPL') }))
+    expect(screen.getByText('Microsoft Corp')).toBeInTheDocument()
+    expect(screen.queryByText('Apple Inc.')).not.toBeInTheDocument()
+    expect(post).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 })

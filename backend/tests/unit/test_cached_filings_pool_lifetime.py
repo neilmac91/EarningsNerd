@@ -1,7 +1,7 @@
 """Gate for lessons/ops-release-cached-filing-reads-before-yield.md: a request's pooled connection
 goes back to the pool before its async route yields to the dependency's finalizer.
 
-One rule, two halves in this one module:
+One rule, three parts in this one module:
 
 - Behaviour: an eight-request burst against a four-slot pool, per listed route, must answer every
   request without a pool timeout, with no transaction left for the finalizer and no checkout on the
@@ -9,24 +9,39 @@ One rule, two halves in this one module:
   with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
-  in the thread pool; each auth session route (logout signed in, with only the refresh cookie and
+  in the thread pool, and a throttled generate-stream request must be refused before its admission reads a
+  filing or summary; each auth session route (logout signed in, with only the refresh cookie and
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
-  one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
-  and a refusal of each, the waitlist join and verification, the contact form and the feedback
+  one, which also holds no connection while it hashes; the password reset and change, their refusals
+  and a failing write included, which hold none while they hash or wait for the breached-password
+  check; the connections list and unlink, their refusals and a failing unlink included, but for an
+  unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer; the four
+  OAuth starts, which save their state in the thread pool; the two OAuth callbacks, a sign-in, a sign-up,
+  a link to an existing account, a refusal and a lost race each, which hold no connection while they wait
+  for the provider or send the linked-account notice), each
+  watchlist route and its refusals, each analysis route
+  and a refusal of each, the waitlist join, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
-  preferences, the bell, the data export and the account deletion) and the Copilot ask stream (a Pro
-  and a Free question, a missing filing and the admission's three refusals) must answer an eight-request burst
-  with no checkout on the loop and nothing left for the finalizer; and the join, the contact form and
-  the feedback submit must send their mails, the analysis exports render, Stripe checkout and the
-  portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
-  with no connection out.
+  preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
+  and a Free question, a missing filing and the admission's three refusals), the summary generate stream (a
+  replay, a generation, an unready row, a Pro and a Free force, and a missing filing), the summary exports (the PDF
+  and the CSV, a Free reader's 403, and a missing summary's and filing's 404), the admin feedback triage and
+  filing and summary maintenance routes (their 404s, and the bulk routes' and the stale-summary refresh's dry and
+  real runs) and the admin invite routes (the list, mint with and without mail, revoke and re-send, their 404s and
+  409s, and the re-send's 503 with invitation mail closed) must answer an eight-request burst with no checkout on
+  the loop and nothing left for the finalizer; and the join, the contact form, the feedback submit and the
+  invite mint and re-send must send their mails, the analysis and summary exports render, the stale-summary
+  refresh generate, Stripe checkout and the portal make their Stripe calls, and the account deletion its Stripe
+  cancellation and PostHog flush, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails, above that route's ceiling, a session call on the loop in the route's own body, the session
   handed to a call there, a ``with`` it enters there, or a call there of a nested unit that uses it,
   so a route the burst does not list cannot add one unseen in a form the ratchet counts. Its gaps are
   under its section below.
+- Deploy: the API service's Cloud Run concurrency stays at or under anyio's default thread tokens, on which
+  the units release their sessions.
 """
 
 import ast
@@ -509,6 +524,243 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["replay", "generate", "unready", "force_pro", "force_free", "missing"])
+async def test_generate_stream_releases_its_connection_off_the_loop_before_it_streams(monkeypatch, tmp_path, case):
+    """The generate stream's admission (the filing and summary reads, the served body, the readiness and Pro
+    checks, the progress clear and the generation snapshot) runs in one thread-pool unit that releases the
+    request session before the response streams, its 403 and 404 included, so eight readers on four slots make
+    no checkout, statement or release on the loop and leave nothing for the finalizer. On the loop, each case
+    ran its statements there, the served body was built there (its Risks projected over the filing's own text),
+    and a missing filing or a Free reader's force left its transaction for the finalizer. Each admitted request
+    reaches the one orchestrator with the admission's inputs; a replay or a refusal reaches none. Each reader's
+    plan comes from its Subscription row while its ``is_pro`` mirror says the opposite, so a Pro check that reads
+    the mirror answers wrong, and so does one moved after the release, on the detached reader, which falls back
+    to the mirror or, once the force's commit has expired the reader, fails. That the release comes before the
+    response starts is the route cases' check in ``test_summary_provider_lifecycle.py``."""
+    from app.models import User
+    from app.models.subscription import Subscription
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generate-stream.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    pro = case != "force_free"
+    shown = "# Summary\n\nStored analysis the filing page shows."
+    # An empty body is one the filing page cannot show, so it is regenerated in place.
+    stored = {"replay": shown, "unready": "", "force_pro": shown, "force_free": shown}.get(case)
+    with sessions() as db:
+        company = Company(cik="0000000006", ticker="STREAM", name="Stream fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000006-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/stream/",
+                        document_url="https://example.test/stream.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $100.0 million."))
+        if stored is not None:
+            db.add(Summary(filing_id=filing.id, business_overview=stored, raw_summary={}))
+        db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                         updated_at=utcnow()))
+        for i in range(8):
+            reader = User(email=f"stream-reader-{i}@example.com", is_active=True, is_pro=not pro)
+            db.add(reader)
+            db.flush()
+            db.add(Subscription(user_id=reader.id, plan="pro", status="active") if pro else Subscription(
+                user_id=reader.id, plan="pro", status="trialing", trial_end=utcnow() - timedelta(days=1)))
+        db.commit()
+        filing_id = 999 if case == "missing" else filing.id
+        reader_ids = sorted(user_id for (user_id,) in db.query(User.id))
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # The statements that touch the progress row: the force branch's clear is one DELETE, with no read before it.
+    progress_statements: list[str] = []
+    event.listen(engine, "before_cursor_execute", lambda _conn, _cursor, statement, *_: progress_statements.append(
+        statement.split()[0].upper()) if "summary_generation_progress" in statement else None)
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+    # The served body projects the summary's Risks over the filing's text, CPU work that runs no SQL: where it ran.
+    built_on_loop: list[bool] = []
+    served_body = summaries_router.source_safe_business_overview
+
+    def recorded_served_body(summary: Any, filing: Any) -> str:
+        built_on_loop.append(threading.get_ident() == loop_thread)
+        return served_body(summary, filing)
+
+    pipeline_calls: list[dict[str, Any]] = []
+
+    async def pipeline(**kwargs: Any):
+        pipeline_calls.append(kwargs)
+        await asyncio.sleep(0.05)  # the other readers' admissions run while this one streams
+        yield {"type": "complete", "summary": "# Summary\n\nGenerated.", "summary_id": 1}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
+    monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    path = f"/api/summaries/filing/{filing_id}/generate-stream" + ("?force=true" if case.startswith("force") else "")
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"stream-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.post(path)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, statement and release ran in the thread pool (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert built_on_loop == ([False] * 8 if stored is not None and case != "missing" else [])
+        # With the orchestrator stubbed, only a Pro force touches the progress row, with one DELETE each and no read
+        # before it: run off the loop, a read, then a delete, let a force find a row another was deleting.
+        assert progress_statements == (["DELETE"] * 8 if case == "force_pro" else [])
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open. A generation's
+        # snapshot that left the subscription unloaded reads it in a session of its own, which closes once.
+        own = [session for session in request_sessions if len(session.open_at_close) == 1]
+        assert len(own) == (8 if case in ("generate", "unready") else 0)
+        assert [request.open_at_close[-1:] for request in request_sessions if request not in own] == [[False]] * 8
+        expected = {"replay": 200, "generate": 200, "unready": 200, "force_pro": 200, "force_free": 403,
+                    "missing": 404}[case]
+        assert [response.status_code for response in responses] == [expected] * 8
+        if case == "replay":
+            assert all("Stored analysis the filing page shows." in response.text for response in responses)
+        elif expected == 200:
+            assert all("Generated." in response.text for response in responses)
+        else:
+            detail = {"force_free": "Regenerating a summary is a Pro feature.", "missing": "Filing not found"}[case]
+            assert [response.json()["detail"] for response in responses] == [detail] * 8
+        # Each admitted request reached the orchestrator once, with the admission's inputs and its own reader.
+        admitted = case in ("generate", "unready", "force_pro")
+        assert len(pipeline_calls) == (8 if admitted else 0)
+        assert sorted(call["user_id"] for call in pipeline_calls) == (reader_ids if admitted else [])
+        flags = {"generate": (False, False, False), "unready": (True, True, False), "force_pro": (True, False, True)}
+        for call in pipeline_calls:
+            snapshot = call["current_user"]
+            assert (snapshot.id, snapshot.subscription.status) == (call["user_id"], "active")
+            assert (call["force_regenerate"], call["replace_unready_only"], call["refresh_xbrl"]) == flags[case]
+            assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "STREAM")
+        with sessions() as db:
+            progress = db.query(SummaryGenerationProgress).count()
+        # The force branch cleared the progress row, and nothing else wrote it.
+        assert progress == (0 if case == "force_pro" else 1)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_generate_stream_refuses_a_throttled_request_before_its_admission(monkeypatch, tmp_path):
+    """The route's rate limit answers its 429 before the admission's unit runs: a throttled Pro force reads no
+    filing or summary, builds no served body (its Risks projected over the filing's text, about a second for a
+    raw-HTML cache) and leaves the progress row, as it did on the loop. Its auth lookup's transaction is left for
+    the finalizer, as a 422's is."""
+    from app.models import User
+    from app.models.subscription import Subscription
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generate-throttled.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000007", ticker="THROT", name="Throttle fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000007-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/throttle/",
+                        document_url="https://example.test/throttle.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $100.0 million."))
+        db.add(Summary(filing_id=filing.id, business_overview="# Summary\n\nStored analysis the filing page shows.",
+                       raw_summary={}))
+        db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                         updated_at=utcnow()))
+        reader = User(email="throttled-reader@example.com", is_active=True, is_pro=False)
+        db.add(reader)
+        db.flush()
+        db.add(Subscription(user_id=reader.id, plan="pro", status="active"))
+        db.commit()
+        filing_id = filing.id
+
+    statements: list[str] = []
+    event.listen(engine, "before_cursor_execute", lambda _conn, _cursor, statement, *_: statements.append(statement))
+    built: list[bool] = []
+    served_body = summaries_router.source_safe_business_overview
+
+    def recorded_served_body(summary: Any, filing: Any) -> str:
+        built.append(True)
+        return served_body(summary, filing)
+
+    pipeline_calls: list[dict[str, Any]] = []
+
+    async def pipeline(**kwargs: Any):
+        pipeline_calls.append(kwargs)
+        yield {"type": "complete", "summary": "# Summary\n\nGenerated.", "summary_id": 1}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
+    monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
+    token = auth.create_access_token({"sub": "throttled-reader@example.com"})
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+                                     base_url="http://test", headers={"Authorization": f"Bearer {token}"}) as client:
+            response = await client.post(f"/api/summaries/filing/{filing_id}/generate-stream?force=true")
+        assert response.status_code == 429
+        assert response.json()["detail"] == "Too many summary requests. Try again shortly."
+        # The auth lookup's read ran, and nothing after it: no filing, summary or progress statement.
+        assert statements
+        assert [statement for statement in statements if "filing" in statement or "summar" in statement] == []
+        assert built == [] and pipeline_calls == []
+        with sessions() as db:
+            assert db.query(SummaryGenerationProgress).count() == 1
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("path,case", [
     ("/api/auth/logout", "logout_signed_in"),
     ("/api/auth/logout", "logout_cookie_only"),
@@ -738,13 +990,856 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
         engine.dispose()
 
 
+# Each request session's closes, in order, by whether the session still held a transaction: a unit's
+# release, then the dependency's finalizer, which must find nothing. A unit whose last statement was a
+# commit releases nothing open; one that read, or failed after its first query, releases its transaction.
+_PASSWORD_CLOSES = {
+    "reset": [True, False, False],  # the token's read, then the committed reset
+    "reset_unknown": [True, False],  # the token's read, refused
+    "reset_fails": [True, True, False],
+    "change": [True, False, False],  # the auth lookup's read, then the committed change
+    "change_wrong": [True, False],  # the auth lookup's read; refused at bcrypt, before any write
+    "change_throttled": [True, False],  # the auth lookup's read, released before the rate limit refuses
+    "change_fails": [True, True, False],
+}
+# The waits a request makes, and the connections out during each, for one request alone.
+_PASSWORD_WAITS = {
+    "reset": [("pwned", 0), ("hash", 0)],
+    "reset_unknown": [],
+    "reset_fails": [("pwned", 0), ("hash", 0)],
+    "change": [("verify", 0), ("pwned", 0), ("hash", 0)],
+    "change_wrong": [("verify", 0)],
+    "change_throttled": [],
+    "change_fails": [("verify", 0), ("pwned", 0), ("hash", 0)],
+}
+_PASSWORD_ANSWERS = {
+    "reset": (200, {"message": "Password updated. You can now log in with your new password."}),
+    "reset_unknown": (400, {"detail": "Invalid or expired reset link."}),
+    "change": (200, {"message": "Password updated."}),
+    "change_wrong": (400, {"detail": "Current password is incorrect."}),
+    "change_throttled": (429, {"detail": "Too many password change attempts. Try again later."}),
+}
+# Each failing case's write, made to raise after its first query: the unit's release rolls it back.
+_PASSWORD_UNIT_FAILS = {"reset_fails": "complete_password_reset_by_id", "change_fails": "stage_password_change"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_PASSWORD_CLOSES))
+async def test_password_reset_and_change_release_their_connection_before_their_waits_and_off_the_loop(
+    monkeypatch, tmp_path, case,
+):
+    """The password reset reads its token's account in one thread-pool unit and resets it in a second; the
+    password change releases its auth lookup's read in one, before its rate limit, and changes the password
+    and mints this device's session in a second. Each unit is released before what follows it, so one request
+    alone has no connection out while bcrypt checks the current password, the breached-password check waits
+    or bcrypt hashes the new one, and nine requests on four slots make no checkout, statement or release on
+    the loop and leave nothing for the finalizer, their refusals and a failing write included. On the loop
+    each route read and wrote there, waited there for the account's users row lock, and kept its
+    connection checked out across bcrypt and the breach check (E121). A reset sets each account's password,
+    burns its link, confirms its email and revokes its session; a change sets its password, revokes its
+    session and leaves one new one, the cookie's; a refusal or a failed write leaves every account as it was.
+    The fakes stand in for bcrypt (a blocking call in its worker thread) and HaveIBeenPwned (an await);
+    the links carry no expiry, which SQLite would hand back without its zone."""
+    from app.config import settings
+    from app.models import RefreshToken, User
+    from app.routers import auth
+    from app.services import auth_account_service, refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'passwords.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
+    emails = [f"password-{i}@example.com" for i in range(9)]
+    with sessions() as db:
+        accounts = [
+            User(email=email, is_active=True, hashed_password="the stored hash", email_verified=False,
+                 password_reset_token=auth_account_service._hash_token(f"reset-link-{i}"))
+            for i, email in enumerate(emails)
+        ]
+        db.add_all(accounts)
+        db.flush()
+        for account in accounts:
+            refresh_token_service.create_refresh_token(db, account)
+        db.commit()
+        account_ids = {account.email: account.id for account in accounts}
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    waits: list[tuple[str, int]] = []
+    bcrypt_on_loop: list[bool] = []
+
+    def verify(plain: str, hashed: str) -> bool:
+        waits.append(("verify", engine.pool.checkedout()))
+        bcrypt_on_loop.append(threading.get_ident() == loop_thread)
+        time.sleep(0.02)  # bcrypt's cost, blocking its worker thread
+        return plain == current and hashed == "the stored hash"
+
+    def hash_password(plain: str) -> str:
+        waits.append(("hash", engine.pool.checkedout()))
+        bcrypt_on_loop.append(threading.get_ident() == loop_thread)
+        time.sleep(0.02)
+        return f"the hash of {plain}"
+
+    async def pwned(_password: str) -> bool:
+        waits.append(("pwned", engine.pool.checkedout()))
+        await asyncio.sleep(0.02)  # HaveIBeenPwned's round trip
+        return False
+
+    if case in _PASSWORD_UNIT_FAILS:
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        monkeypatch.setattr(auth_account_service, _PASSWORD_UNIT_FAILS[case], fails_after_its_first_query)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(auth, "verify_password", verify)
+    monkeypatch.setattr(auth, "get_password_hash", hash_password)
+    monkeypatch.setattr(auth, "is_password_pwned", pwned)
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=0 if case == "change_throttled" else 100,
+                                                           window_seconds=60))
+    route = "reset" if case.startswith("reset") else "change"
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        if route == "reset":
+            headers = {}
+            body = {"token": "never-issued" if case == "reset_unknown" else f"reset-link-{i}", "new_password": new}
+        else:
+            headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
+            body = {"current_password": "not-the-password" if case == "change_wrong" else current,  # gitleaks:allow
+                    "new_password": new}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
+            return await client.post(f"/api/auth/{route}-password", json=body)
+
+    try:
+        # One request alone first: no connection is out while it hashes or waits for the breach check.
+        responses = [await send(0)]
+        assert waits == _PASSWORD_WAITS[case]
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert bcrypt_on_loop == [False] * len(bcrypt_on_loop)
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once; the dependency's finalizer found nothing open.
+        assert [request.open_at_close for request in request_sessions] == [_PASSWORD_CLOSES[case]] * 9
+        status, payload = _PASSWORD_ANSWERS.get(case, (500, None))
+        assert [response.status_code for response in responses] == [status] * 9
+        if payload is not None:
+            assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            stored = [(user.hashed_password, user.password_reset_token is None, user.email_verified)
+                      for user in db.query(User).order_by(User.id)]
+            originals = db.query(RefreshToken).filter(RefreshToken.id <= 9).order_by(RefreshToken.id).all()
+            minted = db.query(RefreshToken).filter(RefreshToken.id > 9).all()
+            revoked = [token.revoked_at is not None for token in originals]
+        if case == "reset":
+            # Reset never signs the reader in.
+            assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
+            assert stored == [(f"the hash of {new}", True, True)] * 9
+            assert (revoked, minted) == ([True] * 9, [])
+        elif case == "change":
+            # Each response carries the session minted for its own account, the only one that account has live.
+            assert stored == [(f"the hash of {new}", False, False)] * 9
+            assert revoked == [True] * 9
+            owner_by_hash = {token.token_hash: token.user_id for token in minted if token.revoked_at is None}
+            assert [
+                owner_by_hash.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
+                for response in responses
+            ] == [account_ids[email] for email in emails]
+            assert len(minted) == 9
+        else:
+            assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
+            assert stored == [("the stored hash", False, False)] * 9
+            assert (revoked, minted) == ([False] * 9, [])
+    finally:
+        engine.dispose()
+
+
+# The connections routes' closes, as above. The auth lookup's read runs on into the route's one unit, whose release
+# ends it; a provider the route does not know is refused before any unit, and the finalizer ends the read, in the
+# thread pool, with nothing awaited in between. An unlink's last statement is its audit row's refresh.
+_CONNECTION_CLOSES = {
+    "list": [True, False],
+    "list_no_password": [True, False],
+    "unlink": [True, False],
+    "unlink_not_linked": [True, False],
+    "unlink_last_method": [True, False],
+    "unlink_unknown": [True],
+    "unlink_fails": [True, False],
+}
+_CONNECTION_ANSWERS = {
+    "unlink": (200, {"status": "success", "unlinked": "google"}),
+    "unlink_not_linked": (404, {"detail": "That provider is not linked to your account."}),
+    "unlink_last_method": (
+        400, {"detail": "You can't remove your only sign-in method. Set a password first, then unlink."},
+    ),
+    "unlink_unknown": (400, {"detail": "Unknown provider."}),
+    "unlink_fails": (500, None),
+}
+_CONNECTION_PROVIDERS = {"unlink_not_linked": "apple", "unlink_unknown": "myspace"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_CONNECTION_CLOSES))
+async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(monkeypatch, tmp_path, case):
+    """The connections list reads the account's links in one thread-pool unit, and an unlink deletes its link and
+    writes its oauth_unlinked audit row in one, each released before the route returns. Nine requests on four slots
+    make no checkout, statement or release on the loop and leave nothing for the finalizer, their refusals and a
+    failing unlink included, but for an unknown provider's 400: it runs no unit, so the finalizer ends its auth
+    lookup's read, in the thread pool. On the loop the list read there, and the unlink deleted, committed and
+    audited there, then read the user its commit had expired, to name it in the audit row (E121). An unlink removes
+    each account's link, then writes its row; a refusal or a failed unlink leaves every link as it was and writes
+    none. The unlink's users row lock is SQLite's no-op here; the PostgreSQL races in
+    tests/integration/test_refresh_rotation_transactions.py pin it."""
+    from app.models import OAuthAccount, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'connections.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, OAuthAccount, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"connections-{i}@example.com" for i in range(9)]
+    password = None if case in ("unlink_last_method", "list_no_password") else "the stored hash"
+    with sessions() as db:
+        accounts = [User(email=email, is_active=True, hashed_password=password) for email in emails]
+        db.add_all(accounts)
+        db.flush()
+        db.add_all([
+            OAuthAccount(user_id=account.id, provider="google", provider_account_id=f"google-sub-{i}",
+                         provider_email=f"google-{i}@example.com")
+            for i, account in enumerate(accounts)
+        ])
+        db.commit()
+        account_ids = [account.id for account in accounts]
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    # Each thread's link deletes and audit inserts, in order: a unit runs on one thread, so an unlink's delete
+    # comes just before its audit row there.
+    writes: dict[int, list[str]] = {}
+
+    def record_write(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        for prefix, kind in (("DELETE FROM oauth_accounts", "delete"), ("INSERT INTO audit_logs", "audit")):
+            if statement.startswith(prefix):
+                writes.setdefault(threading.get_ident(), []).append(kind)
+
+    event.listen(engine, "before_cursor_execute", record_write)
+
+    if case == "unlink_fails":
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unlink failed after its first query")
+
+        monkeypatch.setattr(oauth_account_service, "unlink_oauth_provider", fails_after_its_first_query)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
+            if case.startswith("list"):
+                return await client.get("/api/auth/connections")
+            return await client.delete(f"/api/auth/connections/{_CONNECTION_PROVIDERS.get(case, 'google')}")
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(9)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once, and the dependency's finalizer found nothing open; an unknown
+        # provider's 400 ran no unit, so the finalizer ended its read.
+        assert [request.open_at_close for request in request_sessions] == [_CONNECTION_CLOSES[case]] * 9
+        if case.startswith("list"):
+            assert [response.status_code for response in responses] == [200] * 9
+            assert [
+                (body["has_password"], [(p["provider"], p["provider_email"], type(p["linked_at"])) for p in body["providers"]])
+                for body in (response.json() for response in responses)
+            ] == [(case == "list", [("google", f"google-{i}@example.com", str)]) for i in range(9)]
+        else:
+            status, payload = _CONNECTION_ANSWERS[case]
+            assert [response.status_code for response in responses] == [status] * 9
+            if payload is not None:
+                assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            links = [(link.user_id, link.provider) for link in db.query(OAuthAccount).order_by(OAuthAccount.user_id)]
+            audits = [(row.action, row.user_id, row.user_email, row.details)
+                      for row in db.query(AuditLog).order_by(AuditLog.id)]
+        if case == "unlink":
+            assert links == []
+            assert sum(kinds.count("delete") for kinds in writes.values()) == 9
+            assert all(kinds == ["delete", "audit"] * (len(kinds) // 2) for kinds in writes.values()), writes
+            assert sorted(audits, key=lambda row: row[2]) == [
+                ("oauth_unlinked", str(account_id), email, {"provider": "google"})
+                for account_id, email in zip(account_ids, emails)
+            ]
+        else:
+            assert links == [(account_id, "google") for account_id in account_ids]
+            assert audits == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_an_unlink_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
+    """The unlink's unit releases its session after the link's delete and its audit row have committed. A close
+    that fails there must be logged, not raised: a 500 would report a done unlink as failed, and the retry it
+    invites would answer 404. The first close, the unit's release, raises once it has closed; the route answers
+    200, and the finalizer's close finds nothing open."""
+    from app.models import OAuthAccount, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'unlink-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, OAuthAccount, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="failed-unlink-close@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        db.add(OAuthAccount(user_id=user.id, provider="google", provider_account_id="google-sub"))
+        db.commit()
+        user_id = user.id
+
+    at_close: list[bool] = []
+
+    class FailingFirstClose(Session):
+        """Records, at each close, whether the session held a transaction; the first close, the unlink unit's
+        release after its commits, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append(self.in_transaction())
+            super().close()
+            if len(at_close) == 1:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingFirstClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    token = auth.create_access_token({"sub": "failed-unlink-close@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.delete("/api/auth/connections/google")
+        assert response.status_code == 200 and response.json() == {"status": "success", "unlinked": "google"}
+        # The unit's failed close, after the audit row's refresh, and the finalizer's.
+        assert at_close == [True, False]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            assert db.query(OAuthAccount).count() == 0
+            assert [(row.action, row.user_id) for row in db.query(AuditLog)] == [("oauth_unlinked", str(user_id))]
+    finally:
+        engine.dispose()
+
+
+# Each OAuth start: its method and path, its answer's status, and where its consent URL and state cookie are.
+_OAUTH_STARTS = {
+    "google_login": ("GET", "/api/auth/google", 302, "https://accounts.google.com/", "oauth_state"),
+    "google_start": ("POST", "/api/auth/google/start", 200, "https://accounts.google.com/", "oauth_state"),
+    "apple_login": ("GET", "/api/auth/apple", 302, "https://appleid.apple.com/", "apple_oauth_state"),
+    "apple_start": ("POST", "/api/auth/apple/start", 200, "https://appleid.apple.com/", "apple_oauth_state"),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", list(_OAUTH_STARTS))
+async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp_path, route):
+    """Each OAuth start saves its single-use state row in the thread pool, the route handing its session to
+    ``run_in_threadpool`` itself (E121); the helper that rate limits and builds the consent URL takes no session.
+    Nine starts on four slots make no checkout, statement or release on the loop, and the finalizer finds each
+    session's one commit done. Each answers with a consent URL for its own state and the cookie that binds it,
+    and leaves that state's row."""
+    from urllib.parse import parse_qs, urlparse
+
+    from app.config import settings
+    from app.models import OAuthState
+    from app.routers import auth
+
+    method, path, status, consent, cookie = _OAUTH_STARTS[route]
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'oauth-starts.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    OAuthState.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "google-client")
+    monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "apple-client")
+    monkeypatch.setattr(auth, "OAUTH_START_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            if method == "GET":
+                return await client.get(path, follow_redirects=False)
+            return await client.post(path, json={})
+
+    try:
+        responses = await asyncio.gather(*[send() for _ in range(9)])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # One close per request, the finalizer's, with the save's commit already done.
+        assert [request.open_at_close for request in request_sessions] == [[False]] * 9
+        assert [response.status_code for response in responses] == [status] * 9
+        urls = [response.headers["location"] if method == "GET" else response.json()["url"] for response in responses]
+        assert all(url.startswith(consent) for url in urls)
+        states = [parse_qs(urlparse(url).query)["state"][0] for url in urls]
+        # Each answer's cookie binds its own state: Google's carries it, Apple's its HMAC.
+        bind = auth._apple_state_cookie_value if cookie == "apple_oauth_state" else str
+        assert [response.cookies.get(cookie) for response in responses] == [bind(state) for state in states]
+        with sessions() as db:
+            assert sorted(row.state for row in db.query(OAuthState)) == sorted(states)
+        assert len(set(states)) == 9
+    finally:
+        engine.dispose()
+
+
+# The OAuth callbacks' cases: what the nine accounts are before their callbacks, and what each sign-in writes. A
+# sign-in finds its provider link; a sign-up creates its account (public mode, signup assent on its state); a link
+# attaches the provider to the verified account with that email, and sends the linked-account notice; a refusal is a
+# new account with an unverified email (its state carries signup assent, so the email decides); a lost race is a
+# sign-up whose mint meets another sign-in's committed row, and rolls its own account back.
+_CALLBACK_AUDITS = {
+    "signin": ["oauth_login"],
+    "signup": ["register", "oauth_login"],
+    "link": ["oauth_login", "oauth_linked"],
+    "refused": [],
+    "lost_race": [],
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_CALLBACK_AUDITS))
+@pytest.mark.parametrize("provider", ["google", "apple"])
+async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_path, collection_ready, provider, case):
+    """Each OAuth callback consumes its state in one thread-pool unit, waits for the provider with no connection
+    out, then resolves the account, mints and commits the sign-in, sets the session cookies and writes its audit
+    rows in a second, released before it sends the linked-account notice with no connection out (E121). On the
+    loop the base resolved, committed and audited there, and the session cookies refreshed the user the mint's
+    commit had expired. One callback alone first: no connection is out while it waits; then eight more on four
+    slots make no checkout, statement or release on the loop and leave nothing for the finalizer. Each answer
+    carries the session of its own account; a refusal or a lost race carries none and writes no account, link or
+    row, the lost race's rollback leaving nothing for the release."""
+    from types import SimpleNamespace
+
+    import jwt
+    from sqlalchemy.exc import IntegrityError
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service, refresh_token_service
+    from app.services.account_agreement_service import accept_current_agreement
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'oauth-callbacks.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"callback-{i}@example.com" for i in range(9)]
+    subjects = [f"{provider}-subject-{i}" for i in range(9)]
+    with sessions() as db:
+        if case in ("signin", "link"):
+            accounts = [User(email=email, is_active=True, email_verified=True, full_name=f"Reader {i}")
+                        for i, email in enumerate(emails)]
+            db.add_all(accounts)
+            db.flush()
+            if case == "signin":
+                db.add_all([OAuthAccount(user_id=account.id, provider=provider, provider_account_id=subject)
+                            for account, subject in zip(accounts, subjects)])
+        agreement = accept_current_agreement() if case in ("signup", "refused", "lost_race") else None
+        for i in range(9):
+            oauth_account_service.store_oauth_state(db, f"state-{i}", f"nonce-{i}", None, agreement)
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    # The provider's claims for each request's code or token, and the waits each request makes, with the
+    # connections out during each.
+    claims = {
+        f"token-{i}": {
+            "sub": subjects[i], "email": emails[i], "name": f"Reader {i}",
+            "email_verified": (case != "refused") if provider == "google" else str(case != "refused").lower(),
+        }
+        for i in range(9)
+    }
+    waits: list[tuple[str, int]] = []
+    sent: list[tuple[str, str | None, str]] = []
+
+    class TokenResponse:
+        def __init__(self, token: str) -> None:
+            self.token = token
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"id_token": self.token}
+
+    class GoogleClient:
+        """Google's code exchange, one round trip."""
+
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "GoogleClient":
+            return self
+
+        async def __aexit__(self, *_exc: Any) -> bool:
+            return False
+
+        async def post(self, _url: str, data: dict) -> TokenResponse:
+            waits.append(("provider", engine.pool.checkedout()))
+            await asyncio.sleep(0.02)
+            return TokenResponse(data["code"].replace("code-", "token-"))
+
+    async def verify_google(token: str) -> dict:
+        return claims[token]
+
+    async def verify_apple(token: str, raw_nonce: str) -> dict:
+        waits.append(("provider", engine.pool.checkedout()))
+        await asyncio.sleep(0.02)  # Apple's key fetch
+        assert raw_nonce == token.replace("token-", "nonce-")
+        return claims[token]
+
+    async def send_linked(*, to_email: str, name: str | None, provider: str) -> None:
+        waits.append(("mail", engine.pool.checkedout()))
+        sent.append((to_email, name, provider))
+        await asyncio.sleep(0.02)  # Resend's round trip
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
+    monkeypatch.setattr(auth, "httpx", SimpleNamespace(AsyncClient=GoogleClient))
+    monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
+    monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
+    monkeypatch.setattr("app.services.email_service.send_oauth_linked_email", send_linked)
+    if case == "lost_race":
+        def lose_at_the_mint(db: Session, *_args: Any, **_kwargs: Any) -> str:
+            db.flush()  # the staged link and assent rows, as the token's flush would send them
+            raise IntegrityError("INSERT INTO refresh_tokens", {}, Exception("another sign-in committed first"))
+
+        monkeypatch.setattr(refresh_token_service, "mint_refresh_token", lose_at_the_mint)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        state = f"state-{i}"
+        if provider == "google":
+            cookies = {auth._OAUTH_STATE_COOKIE: state}
+        else:
+            cookies = {auth._APPLE_STATE_COOKIE: auth._apple_state_cookie_value(state)}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", cookies=cookies) as client:
+            if provider == "google":
+                return await client.get("/api/auth/google/callback", params={"code": f"code-{i}", "state": state},
+                                        follow_redirects=False)
+            return await client.post("/api/auth/apple/callback", data={"state": state, "id_token": f"token-{i}"},
+                                     follow_redirects=False)
+
+    try:
+        # One callback alone first: no connection is out while it waits for the provider or sends the notice.
+        responses = [await send(0)]
+        assert waits == [("provider", 0)] + ([("mail", 0)] if case == "link" else [])
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # The state's unit commits and leaves nothing open; the sign-in unit's release ends its transaction, or finds
+        # none after the lost race's rollback; the finalizer finds nothing.
+        closes = [False, False] if case == "lost_race" else [True, False]
+        assert [request.open_at_close for request in request_sessions] == [closes] * 9
+        assert [response.status_code for response in responses] == [302] * 9
+        refused = case in ("refused", "lost_race")
+        error = "email_unverified" if case == "refused" else f"{provider}_account_conflict"
+        landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else settings.FRONTEND_URL
+        assert [response.headers["location"] for response in responses] == [landing] * 9
+        assert sorted(sent) == ([] if case != "link" else sorted(
+            (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
+        with sessions() as db:
+            account_ids = {user.email: user.id for user in db.query(User)}
+            links = sorted((link.user_id, link.provider, link.provider_account_id) for link in db.query(OAuthAccount))
+            live = {token.token_hash: token.user_id for token in db.query(RefreshToken)}
+            audits = sorted((row.user_email, row.action) for row in db.query(AuditLog))
+            assert db.query(OAuthState).count() == 0
+        if refused:
+            assert (account_ids, links, live, audits) == ({}, [], {}, [])
+            assert [settings.REFRESH_COOKIE_NAME in response.cookies for response in responses] == [False] * 9
+        else:
+            assert sorted(account_ids) == sorted(emails)
+            assert links == sorted((account_ids[email], provider, subject) for email, subject in zip(emails, subjects))
+            # Each answer's refresh cookie is its own account's only session.
+            assert [
+                live.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
+                for response in responses
+            ] == [account_ids[email] for email in emails]
+            # And its access cookie names its own account.
+            assert [
+                jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})["sub"]
+                for response in responses
+            ] == emails
+            assert audits == sorted((email, action) for email in emails for action in _CALLBACK_AUDITS[case])
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["google", "apple"])
+async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_commit_fails(
+    monkeypatch, tmp_path, collection_ready, provider,
+):
+    """A sign-up whose every statement after the mint's commit fails: the dropped connection, the pool
+    timeout, the database gone. The account, its link and its session have committed, so the callback must still
+    answer with that session; only its best-effort audit rows are missing. The session cookies take the address
+    the unit read before the commit: reading it from the user that commit expired was a statement after it, and
+    its failure answered 500 for a committed sign-in, the refresh token minted and never delivered (E121)."""
+    from types import SimpleNamespace
+
+    import jwt
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service, refresh_token_service
+    from app.services.account_agreement_service import accept_current_agreement
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'callback-after-commit.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        oauth_account_service.store_oauth_state(db, "state-0", "nonce-0", None, accept_current_agreement())
+        db.commit()
+
+    # Once a commit follows the refresh token's insert, every statement fails.
+    minted, failing = threading.Event(), threading.Event()
+
+    def watch(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        if failing.is_set():
+            raise OperationalError(statement, {}, Exception("the server went away"))
+        if statement.startswith("INSERT INTO refresh_tokens"):
+            minted.set()
+
+    def committed(_conn: Any) -> None:
+        if minted.is_set():
+            failing.set()
+
+    event.listen(engine, "before_cursor_execute", watch)
+    event.listen(engine, "commit", committed)
+
+    class TokenResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"id_token": "token-0"}
+
+    class GoogleClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "GoogleClient":
+            return self
+
+        async def __aexit__(self, *_exc: Any) -> bool:
+            return False
+
+        async def post(self, *_args: Any, **_kwargs: Any) -> TokenResponse:
+            return TokenResponse()
+
+    claims = {"sub": f"{provider}-subject-0", "email": "after-commit@example.com", "name": None,
+              "email_verified": True if provider == "google" else "true"}
+
+    async def verify_google(_token: str) -> dict:
+        return claims
+
+    async def verify_apple(_token: str, raw_nonce: str) -> dict:
+        assert raw_nonce == "nonce-0"
+        return claims
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
+    monkeypatch.setattr(auth, "httpx", SimpleNamespace(AsyncClient=GoogleClient))
+    monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
+    monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
+    if provider == "google":
+        cookies = {auth._OAUTH_STATE_COOKIE: "state-0"}
+    else:
+        cookies = {auth._APPLE_STATE_COOKIE: auth._apple_state_cookie_value("state-0")}
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            cookies=cookies,
+        ) as client:
+            if provider == "google":
+                response = await client.get("/api/auth/google/callback",
+                                            params={"code": "code-0", "state": "state-0"}, follow_redirects=False)
+            else:
+                response = await client.post("/api/auth/apple/callback",
+                                             data={"state": "state-0", "id_token": "token-0"}, follow_redirects=False)
+        assert failing.is_set()
+        assert response.status_code == 302 and response.headers["location"] == settings.FRONTEND_URL
+        access = jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
+        assert access["sub"] == "after-commit@example.com"
+        assert engine.pool.checkedout() == 0
+        event.remove(engine, "before_cursor_execute", watch)
+        with sessions() as db:
+            [user] = db.query(User).all()
+            assert user.email == "after-commit@example.com"
+            assert [(link.provider, link.provider_account_id) for link in db.query(OAuthAccount)] == [
+                (provider, f"{provider}-subject-0")]
+            [token] = db.query(RefreshToken).all()
+            assert refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
+            # The audit writes failed and were swallowed; the sign-in stands without them.
+            assert db.query(AuditLog).count() == 0
+            assert db.query(OAuthState).count() == 0
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.asyncio
 async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypatch, tmp_path, caplog):
     """The refresh releases its session inside its unit, after the rotation has committed. A close
     whose rollback fails there (a connection that dropped after the unit's last statement) must not
     turn the response into a 500: the old token is already rotated away, so a reader who never
-    receives the new cookie refreshes with the old one next, and the replay sweep signs them out
-    everywhere. The first close drops the real DBAPI connection before it runs, so its rollback
+    receives the new cookie refreshes with the old one next, and the replay sweep ends that token's
+    chain, signing that browser out. The first close drops the real DBAPI connection before it runs, so its rollback
     fails as a dropped connection's does. SQLAlchemy reads that as a disconnect: it invalidates the
     connection and returns its slot, the session lets go of its transaction, the release logs the
     failure, and the route answers with the rotated cookie."""
@@ -803,6 +1898,83 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
             original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
         # The reader holds the rotated token, so the next refresh is no replay.
         assert original.revoked_at is not None and original.replaced_by_id == replacement.id
+        assert refresh_token_service._hash_token(
+            response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
+    """The change's second unit releases its session after the mint's commit. A close that fails there must be
+    logged, not raised: the new password, the revocation of every other session and this device's new token
+    have committed, so a 500 would sign the reader out everywhere, this device included, and a retry with the
+    password they had would be refused as wrong. No transaction is open after that commit, so no dropped
+    connection can fail this close as one fails the refresh's above; the second close raises instead, once its
+    own close has run, and the route answers with the new session's cookie."""
+    from app.config import settings
+    from app.models import RefreshToken, User
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'change-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="failed-close@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        refresh_token_service.create_refresh_token(db, user)
+        db.commit()
+
+    at_close: list[bool] = []
+
+    class FailingSecondClose(Session):
+        """Records, at each close, whether the session held a transaction; the second close, the change
+        unit's release after the mint's commit, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append(self.in_transaction())
+            super().close()
+            if len(at_close) == 2:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingSecondClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "verify_password", lambda plain, hashed: (plain, hashed) == (current, "the stored hash"))
+    monkeypatch.setattr(auth, "get_password_hash", lambda plain: f"the hash of {plain}")
+    token = auth.create_access_token({"sub": "failed-close@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.post(
+                "/api/auth/change-password", json={"current_password": current, "new_password": new},
+            )
+        assert response.status_code == 200 and response.json() == {"message": "Password updated."}
+        # The lookup's read released before the waits, the failed close after the commit, and the finalizer's.
+        assert at_close == [True, False, False]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            stored = db.query(User.hashed_password).scalar()
+            original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
+        assert stored == f"the hash of {new}"
+        assert original.revoked_at is not None and replacement.revoked_at is None
         assert refresh_token_service._hash_token(
             response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
     finally:
@@ -967,18 +2139,18 @@ async def test_watchlist_routes_release_their_connection_off_the_loop(monkeypatc
         engine.dispose()
 
 
-_WAITLIST_STATUS = {"join_bad_referral": 400, "verify_missing": 404}
+_WAITLIST_STATUS = {"join_bad_referral": 400}
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
-    "join", "join_referred", "join_existing", "join_bad_referral", "verify", "verify_missing",
+    "join", "join_referred", "join_existing", "join_bad_referral",
 ])
 async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch, tmp_path, case):
-    """The waitlist join and the email verification run their session work in thread-pool units, the
-    join's refusals included, so eight joiners on four slots leave nothing for the finalizer and
-    make no checkout on the loop. The join releases before its mails go out (its own case below)."""
-    from app.services import turnstile, waitlist_service
+    """The waitlist join runs its session work in thread-pool units, its refusals included, so eight
+    joiners on four slots leave nothing for the finalizer and make no checkout on the loop. The join
+    releases before its mails go out (its own case below)."""
+    from app.services import turnstile
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'waitlist-writes.db'}",
@@ -995,7 +2167,7 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
             # A referrer per joiner, so no two joins credit one row.
             db.add(WaitlistSignup(email=f"referrer-{i}@example.com", referral_code=f"refcode{i}",
                                   position=i + 1, priority_score=0))
-            if case in ("join_existing", "verify"):
+            if case == "join_existing":
                 db.add(WaitlistSignup(email=f"joiner-{i}@example.com", referral_code=f"joincod{i}",
                                       position=i + 9, priority_score=0))
         db.commit()
@@ -1043,9 +2215,6 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
     async def send(i: int) -> httpx.Response:
         email = f"joiner-{i}@example.com"
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            if case.startswith("verify"):
-                token = waitlist_service.create_verification_token(email, f"joincod{i}")
-                return await client.post(f"/api/waitlist/verify/{token}")
             body = {"email": email}
             if case == "join_referred":
                 body["referral_code"] = f"refcode{i}"
@@ -1063,14 +2232,10 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
         elif case == "join_existing":
             assert [(payload["error"], payload["referral_code"]) for payload in payloads] == [
                 ("already_registered", f"joincod{i}") for i in range(8)]
-        elif case == "join_bad_referral":
+        else:
             assert payloads == [{
                 "success": False, "error": "invalid_referral", "message": "Referral code not recognized.",
             }] * 8
-        elif case == "verify":
-            assert payloads == [{"success": True, "message": "Email verified."}] * 8
-        else:
-            assert payloads == [{"detail": "Waitlist entry not found."}] * 8
         assert engine.pool.checkedout() == 0
         # Each unit released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
@@ -1088,8 +2253,6 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
                 assert [rows[f"referrer-{i}@example.com"].priority_score for i in range(8)] == [1] * 8
             if case == "join_bad_referral":
                 assert sorted(rows) == [f"referrer-{i}@example.com" for i in range(8)]
-            if case == "verify":
-                assert [rows[email].email_verified for email in joiners] == [True] * 8
     finally:
         engine.dispose()
 
@@ -1305,7 +2468,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
     from app.config import settings
     from app.models import Subscription, User, UserUsage
     from app.routers import auth
-    from app.services.entitlements import get_entitlements
+    from app.services.entitlements import ANALYSIS_MONTHLY_CAP, get_entitlements
     from app.services.subscription_service import get_current_month
 
     engine = create_engine(
@@ -1385,7 +2548,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
                 "summaries_used": i, "summaries_limit": plan.monthly_summary_limit, "is_pro": with_row,
                 "month": month, "qa_used": 10 + i, "qa_limit": settings.COPILOT_MONTHLY_QUESTION_CAP,
                 "copilot_free_taste_used": i % 3, "copilot_free_taste_total": plan.copilot_free_taste,
-                "analysis_used": 20 + i, "analysis_limit": settings.ANALYSIS_MONTHLY_CAP,
+                "analysis_used": 20 + i, "analysis_limit": ANALYSIS_MONTHLY_CAP,
             } for i in range(8)]
         else:
             assert [(payload["plan"], payload["stripe_customer_id"], payload["status"]) for payload in payloads] == [
@@ -2479,7 +3642,7 @@ async def _account_record_request(transport: httpx.ASGITransport, method: str, i
 # with nothing left for the finalizer.
 _ACCOUNT_RECORD_FAILS = {
     "export_fails": ("app.services.user_data_export_service", "build_user_data_export"),
-    "delete_fails": ("app.services.user_account_service", "delete_user"),
+    "delete_fails": ("app.services.user_account_service", "delete_account"),
 }
 
 
@@ -2536,11 +3699,12 @@ async def test_account_export_and_deletion_release_their_connection_off_the_loop
         with sessions() as db:
             accounts = db.query(User.id).count()
             audit = [action for (action,) in db.query(AuditLog.action)]
-        # The export's audit row follows its payload, and the deletion's precedes the account's deletion, so a
-        # failed delete keeps its row (pre-existing; test_account_deletion_api.py pins it over HTTP).
+        # The export's audit row follows its payload. The deletion's is written inside delete_account, which the
+        # failing case replaces, so none is left: the route writes none outside it (test_account_deletion_api.py
+        # pins over HTTP that the row commits with the deletion or not at all, F19).
         assert accounts == (0 if case == "delete" else 8)
         assert audit == {"export": ["data_exported"] * 8, "delete": ["user_deleted"] * 8,
-                         "export_fails": [], "delete_fails": ["user_deleted"] * 8}[case]
+                         "export_fails": [], "delete_fails": []}[case]
     finally:
         engine.dispose()
 
@@ -2714,6 +3878,770 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
         engine.dispose()
 
 
+def _summary_export_fixture(tmp_path, name: str, *, pro: bool):
+    """A four-slot pool over one 10-K with its content cache and summary, a summary whose filing 998 is gone
+    (SQLite leaves the key unenforced), and eight readers, Pro or Free by their Subscription row: an active
+    one, or a trial that has ended. Each reader's ``is_pro`` mirror says the opposite, so a plan check that
+    misses the row, as one on the detached user does (it falls back to the mirror), answers wrong."""
+    from datetime import datetime, timezone
+
+    from app.models import User
+    from app.models.subscription import Subscription
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / name}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000001-26-000001", filing_type="10-K",
+                        filing_date=datetime(2026, 2, 3, tzinfo=timezone.utc), sec_url="https://example.test/filing/",
+                        document_url="https://example.test/filing.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue rose 10% on higher volumes."))
+        db.add(Summary(filing_id=filing.id, business_overview="Overview", raw_summary={"sections": {
+            "executive_snapshot": {"headline": "Revenue rose 10%.", "key_points": ["Volumes grew"]}}}))
+        db.add(Summary(filing_id=998, business_overview="Orphaned"))
+        for i in range(8):
+            reader = User(email=f"export-reader-{i}@example.com", is_active=True, is_pro=not pro)
+            db.add(reader)
+            db.flush()
+            db.add(Subscription(user_id=reader.id, plan="pro", status="active") if pro else Subscription(
+                user_id=reader.id, plan="pro", status="trialing", trial_end=utcnow() - timedelta(days=1)))
+        db.commit()
+    return engine, sessions
+
+
+def _fake_weasyprint(monkeypatch, on_render: Callable[[str], None]) -> None:
+    """WeasyPrint for the summary PDF: ``HTML(string=...).write_pdf()`` hands the markup to ``on_render`` and
+    returns a stub, so the export's own HTML build runs on the rows the route read."""
+    import sys
+    import types
+
+    class HTML:
+        def __init__(self, *, string: str) -> None:
+            self.markup = string
+
+        def write_pdf(self, **_options: Any) -> bytes:
+            on_render(self.markup)
+            return b"%PDF-test"
+
+    weasyprint = types.ModuleType("weasyprint")
+    weasyprint.HTML = HTML
+    monkeypatch.setitem(sys.modules, "weasyprint", weasyprint)
+
+
+_EXPORT_STATUS = {"export": 200, "free": 403, "no_summary": 404, "no_filing": 404}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("export", ["pdf", "csv"])
+@pytest.mark.parametrize("case", ["export", "free", "no_summary", "no_filing"])
+async def test_summary_exports_release_their_connection_off_the_loop(monkeypatch, tmp_path, export, case):
+    """Each summary export runs its plan check (the reader's subscription read), its summary and filing reads and
+    the release in one thread-pool unit, its refusals included, so eight readers on four slots (Free for the plan's
+    403, each plan given by the Subscription row against its ``is_pro`` mirror) make no checkout, statement or
+    release on the loop and leave nothing for the finalizer. The export is built from the detached rows, which carry
+    the filing's content cache and company. On the loop, the plan check, both reads and each build's company read
+    ran there, and every case left its transaction, the auth lookup's, for the finalizer, the export keeping it
+    through its build and render."""
+    from app.routers import auth
+
+    engine, _ = _summary_export_fixture(tmp_path, "summary-exports.db", pro=case != "free")
+    renders: list[str] = []
+    _fake_weasyprint(monkeypatch, renders.append)
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    filing_id = {"no_summary": 999, "no_filing": 998}.get(case, 1)
+
+    async def export_as(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"export-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.get(f"/api/summaries/filing/{filing_id}/export/{export}")
+
+    try:
+        responses = await asyncio.gather(*[export_as(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, and every statement and release ran in the thread pool.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert [response.status_code for response in responses] == [_EXPORT_STATUS[case]] * 8
+        if case == "export":
+            assert [response.headers["content-disposition"] for response in responses] == [
+                f'attachment; filename="Cached fixture_10-K_20260203.{export}"'] * 8
+            # Each build read the company's name and the summary's text from the detached rows.
+            built = renders if export == "pdf" else [response.content.decode() for response in responses]
+            assert len(built) == 8
+            assert all("Cached fixture · 10-K summary" in text and "Revenue rose 10%." in text for text in built)
+            if export == "pdf":
+                assert [response.content for response in responses] == [b"%PDF-test"] * 8
+            else:
+                assert all(text.startswith("\ufeffEarningsNerd · AI summaries of SEC filings") for text in built)
+        else:
+            detail = {
+                "free": f"{export.upper()} export is a Pro feature. Upgrade to Pro to access this feature.",
+                "no_summary": "Summary not found",
+                "no_filing": "Filing not found",
+            }[case]
+            assert [response.json() for response in responses] == [{"detail": detail}] * 8
+            assert renders == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("export", ["pdf", "csv"])
+async def test_summary_exports_hold_no_connection_while_they_render(monkeypatch, tmp_path, export):
+    """The summary exports finish their plan check and reads and release the session before they build, and
+    build in worker threads: no pool slot waits on the PDF's HTML or render or on the CSV's build, before or
+    after it, and none of them runs on the loop, where projecting a cache of raw HTML only takes over a second."""
+    from app.routers import auth
+    from app.services.export_service import ExportService
+
+    engine, _ = _summary_export_fixture(tmp_path, "summary-export-render.db", pro=True)
+    loop_thread = threading.get_ident()
+    # Each build: the connections out as it starts and as it ends, and whether it ran on the loop's thread; the
+    # stub render, which does no work, once.
+    held: dict[str, tuple[int, int, bool]] = {}
+
+    def recorded(step: str, build: Callable) -> Callable:
+        def run(self, summary, filing):
+            before = engine.pool.checkedout()
+            built = build(self, summary, filing)
+            held[step] = (before, engine.pool.checkedout(), threading.get_ident() == loop_thread)
+            return built
+
+        return run
+
+    def render(_markup: str) -> None:
+        out = engine.pool.checkedout()
+        held["pdf_render"] = (out, out, threading.get_ident() == loop_thread)
+
+    _fake_weasyprint(monkeypatch, render)
+    monkeypatch.setattr(ExportService, "generate_pdf_html", recorded("pdf_html", ExportService.generate_pdf_html))
+    monkeypatch.setattr(ExportService, "generate_csv", recorded("csv", ExportService.generate_csv))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    token = auth.create_access_token({"sub": "export-reader-0@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.get(f"/api/summaries/filing/1/export/{export}")
+        assert response.status_code == 200
+        # Each step ran with no connection out, the route's unit having released the session, and off the loop.
+        assert held == (
+            {"pdf_html": (0, 0, False), "pdf_render": (0, 0, False)} if export == "pdf" else {"csv": (0, 0, False)})
+        assert engine.pool.checkedout() == 0
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_an_instance_takes_no_more_requests_than_the_thread_tokens_its_units_release_on():
+    """A unit run with ``run_in_threadpool`` releases its session on one of anyio's default thread tokens, and an auth
+    lookup blocked on the pool holds one while it waits; the dependency's finalizer had a one-token limiter of
+    FastAPI's own. With more requests in flight than tokens and pool slots together, lookups waiting for connections
+    can hold every token their holders need to give the connections back, and nothing moves until the pool times
+    out: sixty PDF exports on 40 tokens and four slots answered 20 of 60, the rest 401, where the base answered all
+    60, and 44 as few as 4, where 43 all answered (E171's export review). So every Cloud Run concurrency the deploy
+    sets is a number at or under the token count, a margin of the pool's slots; raising it needs the units on a
+    limiter of their own (``lessons/ops-release-cached-filing-reads-before-yield.md``). The case reads the deploy
+    job's commands, so a concurrency set outside it (by hand, or in the console) or a token count the app changed at
+    startup is out of its reach."""
+    import re
+
+    import anyio.to_thread
+    import yaml
+
+    workflow = yaml.load((BACKEND_DIR.parent / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+    deploy = "\n".join(
+        line for step in workflow["jobs"]["deploy-backend"]["steps"] for line in step.get("run", "").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    assert "gcloud run deploy earningsnerd-backend" in deploy
+    # Every value, in either form (``--concurrency=N`` or ``--concurrency N``), in any step: a value that is not a
+    # number, such as a variable, fails, since the case could not read it.
+    concurrency = re.findall(r"--concurrency[= ](\S+)", deploy)
+    tokens = anyio.to_thread.current_default_thread_limiter().total_tokens
+    assert concurrency and all(value.isdigit() and int(value) <= tokens for value in concurrency), (concurrency, tokens)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,case", [
+    ("GET", "/api/admin/feedback", "feedback_list"),
+    ("PATCH", "/api/admin/feedback/{feedback}", "feedback_status"),
+    ("PATCH", "/api/admin/feedback/9999", "feedback_missing"),
+    ("DELETE", "/api/admin/filing/{filing}/summary", "delete_summary"),
+    ("DELETE", "/api/admin/filing/9999/summary", "filing_missing"),
+    ("DELETE", "/api/admin/filing/{filing}/xbrl", "clear_xbrl"),
+    ("DELETE", "/api/admin/filing/9999/xbrl", "xbrl_missing"),
+    ("DELETE", "/api/admin/filing/{filing}/reset", "reset_filing"),
+    ("DELETE", "/api/admin/filing/9999/reset", "reset_missing"),
+    ("GET", "/api/admin/filings/audit-xbrl", "audit_xbrl"),
+    ("POST", "/api/admin/filings/bulk-reset-stale", "bulk_reset_dry"),
+    ("POST", "/api/admin/filings/bulk-reset-stale?dry_run=false", "bulk_reset"),
+    ("POST", "/api/admin/summaries/reset-all", "reset_all_dry"),
+    ("POST", "/api/admin/summaries/reset-all?dry_run=false", "reset_all"),
+    ("POST", "/api/admin/summaries/refresh-stale", "refresh_stale_dry"),
+    ("POST", "/api/admin/summaries/refresh-stale?dry_run=false", "refresh_stale"),
+])
+async def test_admin_maintenance_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
+    """The admin feedback triage and the filing and summary maintenance routes run their service call (with the
+    status update's or the reset-all's audit row) and release in one thread-pool unit, their 404s included, so eight
+    admins on four slots make no checkout, statement or release on the loop and leave nothing for the finalizer. On
+    the loop, each statement after the auth lookup ran there (the stale-XBRL audit and bulk reset loading every
+    filing's XBRL), each read after a write's commit checked a connection out there, and every case but a summary
+    delete that found its filing left its transaction for the finalizer, the 404s included.
+
+    The stale-summary refresh reads its candidates in such a unit; a real run then regenerates each (stubbed here,
+    leaving every row stale) and re-reads its stamp, and writes its audit row, each in a session of its own in the
+    thread pool. On the loop, a real run had re-read each stamp and written its audit row on the request's session,
+    checking a connection out there for each."""
+    from app.models import AuditLog, User
+    from app.models.feedback import Feedback
+    from app.routers import auth
+    from app.services import summary_generation_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'admin-maintenance.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    filing_ids: list[int] = []
+    feedback_ids: list[int] = []
+    with sessions() as db:
+        company = Company(cik="0000000006", ticker="ADMN", name="Admin fixture")
+        db.add(company)
+        db.flush()
+        for i in range(8):
+            db.add(User(email=f"admin-{i}@example.com", is_active=True, is_admin=True))
+            # Each filing's XBRL trails its period by ten years, so the audit and the bulk reset find all eight.
+            filing = Filing(company_id=company.id, accession_number=f"0000000006-26-00000{i}", filing_type="10-K",
+                            filing_date=utcnow(), period_end_date=utcnow(), sec_url=f"https://example.test/admin/{i}/",
+                            document_url=f"https://example.test/admin/{i}.htm",
+                            xbrl_data={"revenue": [{"period": "2015-12-31", "value": 1}]})
+            db.add(filing)
+            db.flush()
+            db.add(Summary(filing_id=filing.id, business_overview="# Summary", raw_summary={}))
+            db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                             updated_at=utcnow()))
+            db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $1.0 million."))
+            feedback = Feedback(type="bug", message=f"Report {i}", status="new")
+            db.add(feedback)
+            db.flush()
+            filing_ids.append(filing.id)
+            feedback_ids.append(feedback.id)
+        db.commit()
+        # Admin i sends request i; the audit log stores the admin's id as text.
+        admin_ids = {email: str(user_id) for user_id, email in db.query(User.id, User.email)}
+    emails = [f"admin-{i}@example.com" for i in range(8)]
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # The routes' statements ran on the loop on the connection the auth lookup had checked out in the thread pool,
+    # and a commit gave it back there: neither is a checkout.
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    # The stale refresh's generations, on the real function's signature: each leaves its row stale, so every
+    # request's answer is the same however the eight interleave.
+    generations: list[tuple[int, Any, bool, bool]] = []
+
+    async def generate(filing_id: int, user_id: Any, *, force_regenerate: bool = False,
+                       rebuild_excerpt: bool = False) -> None:
+        generations.append((filing_id, user_id, force_regenerate, rebuild_excerpt))
+
+    monkeypatch.setattr(summary_generation_service, "generate_summary_background", generate)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"admin-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            url = path.format(filing=filing_ids[i], feedback=feedback_ids[i])
+            if method == "PATCH":
+                return await client.patch(url, json={"status": "triaged"})
+            return await client.request(method, url)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, and every statement and release ran in the thread pool:
+        # none on the loop (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open. A real stale refresh
+        # also opens a session for each of its five stamp re-reads and for its audit row, which closes once, itself.
+        own = [session for session in request_sessions if len(session.open_at_close) == 1] if case == "refresh_stale" else []
+        assert len(own) == (8 * (5 + 1) if case == "refresh_stale" else 0)
+        assert [request.open_at_close[-1:] for request in request_sessions if request not in own] == [[False]] * 8
+        missing = case in ("feedback_missing", "filing_missing", "xbrl_missing", "reset_missing")
+        assert [response.status_code for response in responses] == [404 if missing else 200] * 8
+        payloads = [response.json() for response in responses]
+        if case == "feedback_list":
+            assert [len(payload["feedback"]) for payload in payloads] == [8] * 8
+        elif case == "feedback_status":
+            assert sorted((payload["id"], payload["status"]) for payload in payloads) == [
+                (feedback_id, "triaged") for feedback_id in feedback_ids]
+        elif missing:
+            assert [payload["detail"] for payload in payloads] == [
+                "Feedback not found" if case == "feedback_missing" else "Filing not found"] * 8
+        elif case == "audit_xbrl":
+            assert [(payload["total_filings_with_xbrl"], payload["stale_filings_count"]) for payload in payloads] == [
+                (8, 8)] * 8
+        elif case == "bulk_reset_dry":
+            assert [payload["affected_count"] for payload in payloads] == [8] * 8
+        elif case == "reset_all_dry":
+            assert [payload["deleted_count"] for payload in payloads] == [8] * 8
+        elif case == "delete_summary":
+            assert [payload["summary_deleted"] for payload in payloads] == [True] * 8
+        elif case == "clear_xbrl":
+            assert [payload["had_xbrl_data"] for payload in payloads] == [True] * 8
+        elif case == "reset_filing":
+            assert [payload["deleted"] for payload in payloads] == [
+                {"summary": True, "xbrl_data": True, "content_cache": True, "progress": True}] * 8
+        elif case in ("bulk_reset", "reset_all"):
+            # Each reads all eight filings or summaries before any of the others commits, or none after (below).
+            counted = [payload["affected_count" if case == "bulk_reset" else "deleted_count"] for payload in payloads]
+            assert set(counted) <= {0, 8} and 8 in counted, counted
+        elif case in ("refresh_stale_dry", "refresh_stale"):
+            # Each finds the eight stale summaries and samples five of them; a real run regenerates those five, and
+            # the keep-better gate's count takes each, its row still stale.
+            assert [(payload["stale_total"], payload["batch_limit"], payload["updated_count"],
+                     payload["kept_by_gate_count"], payload["failed_count"]) for payload in payloads] == [
+                (8, 5, 0, 5 if case == "refresh_stale" else 0, 0)] * 8
+            sampled = [payload["candidate_filing_ids"] for payload in payloads]
+            assert all(len(set(ids)) == 5 and set(ids) <= set(filing_ids) for ids in sampled), sampled
+            if case == "refresh_stale":
+                assert [payload["kept_by_gate_filing_ids"] for payload in payloads] == sampled
+        assert sorted(generations) == (
+            sorted((filing_id, None, True, False) for ids in sampled for filing_id in ids) if case == "refresh_stale"
+            else [])
+        with sessions() as db:
+            summaries = db.query(Summary).count()
+            # A cleared JSON column holds JSON null, which a SQL IS NOT NULL still counts.
+            xbrl = sum(1 for (data,) in db.query(Filing.xbrl_data) if data is not None)
+            caches = db.query(FilingContentCache).count()
+            statuses = sorted(status for (status,) in db.query(Feedback.status))
+            audits = sorted(
+                (action, user_id, user_email, entity_id or "", tuple(sorted((details or {}).items())))
+                for action, user_id, user_email, entity_id, details in db.query(
+                    AuditLog.action, AuditLog.user_id, AuditLog.user_email, AuditLog.entity_id, AuditLog.details)
+            )
+        # Each write took effect, and the reads, the dry runs and the 404s wrote nothing. SQLite has no advisory
+        # locks, so here a bulk reset or reset-all can read before another's delete commits, then report, and a
+        # reset-all audit, rows the other deleted; on PostgreSQL the maintenance lock runs them one at a time, and
+        # each after the first finds nothing (tests/integration/test_admin_maintenance_transactions.py). Each audit
+        # row names the admin whose request wrote it, and what that request answered.
+        assert summaries == (0 if case in ("delete_summary", "reset_filing", "bulk_reset", "reset_all") else 8)
+        assert xbrl == (0 if case in ("clear_xbrl", "reset_filing", "bulk_reset") else 8)
+        assert caches == (0 if case == "reset_filing" else 8)
+        assert statuses == ["triaged" if case == "feedback_status" else "new"] * 8
+        if case == "feedback_status":
+            assert audits == sorted(
+                ("feedback_status_changed", admin_ids[email], email, str(feedback_ids[i]), (("status", "triaged"),))
+                for i, email in enumerate(emails))
+        elif case == "reset_all":
+            # One row for each reset-all whose plan found the eight summaries, with the count it answered, and none
+            # for one whose plan found none.
+            deleted = (("deleted_count", 8), ("filing_type", None), ("include_saved", False), ("skipped_saved_count", 0))
+            assert audits == sorted(
+                ("summaries_bulk_reset", admin_ids[emails[i]], emails[i], "", deleted)
+                for i, count in enumerate(counted) if count == 8)
+        elif case == "refresh_stale":
+            kept = (("deferred_count", 0), ("failed_count", 0), ("filing_type", None), ("kept_by_gate_count", 5),
+                    ("schema_version_lt", None), ("stale_total", 8), ("updated_count", 0))
+            assert audits == sorted(("summaries_refresh_stale", admin_ids[email], email, "", kept) for email in emails)
+        else:
+            assert audits == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_stale_refresh_holds_no_connection_while_it_generates(monkeypatch, tmp_path):
+    """A real stale refresh generates with no pooled connection out: it reads its candidates and releases the
+    request's session before the first generation, and re-reads each stamp, and writes its audit row after the last,
+    in a session of its own in the thread pool. One admin and two stale summaries; the first generation stamps its
+    row current, so the answer counts that one updated and the other kept by the keep-better gate. On the loop, the
+    request's session held its connection through each generation."""
+    from app.models import AuditLog, User
+    from app.routers import auth
+    from app.services import summary_generation_service
+    from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'stale-refresh.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000010", ticker="STALE", name="Stale fixture")
+        db.add(company)
+        db.flush()
+        db.add(User(email="admin@example.com", is_active=True, is_admin=True))
+        for i in range(2):
+            filing = Filing(company_id=company.id, accession_number=f"0000000010-26-00000{i}", filing_type="10-K",
+                            filing_date=utcnow(), sec_url=f"https://example.test/stale/{i}/",
+                            document_url=f"https://example.test/stale/{i}.htm")
+            db.add(filing)
+            db.flush()
+            db.add(Summary(filing_id=filing.id, business_overview="# Summary"))  # no stamps: stale
+        db.commit()
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+
+    def stamp_current(filing_id: int) -> None:
+        with sessions() as db:
+            db.query(Summary).filter(Summary.filing_id == filing_id).update(
+                {"schema_version": SUMMARY_SCHEMA_VERSION, "prompt_version": SUMMARY_PROMPT_VERSION})
+            db.commit()
+
+    # Each generation: the connections out as it starts and as it ends. The first stamps its row current in a session
+    # of its own, off the loop, as the pipeline's stages write theirs.
+    held: list[tuple[int, int]] = []
+    generated: list[int] = []
+
+    async def generate(filing_id: int, user_id: Any, *, force_regenerate: bool = False,
+                       rebuild_excerpt: bool = False) -> None:
+        start = engine.pool.checkedout()
+        if not generated:
+            await asyncio.to_thread(stamp_current, filing_id)
+        generated.append(filing_id)
+        held.append((start, engine.pool.checkedout()))
+
+    monkeypatch.setattr(summary_generation_service, "generate_summary_background", generate)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    token = auth.create_access_token({"sub": "admin@example.com"})
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            response = await client.post("/api/admin/summaries/refresh-stale?dry_run=false&limit=2")
+        assert response.status_code == 200, response.text
+        assert held == [(0, 0), (0, 0)]
+        payload = response.json()
+        assert (payload["updated_filing_ids"], payload["kept_by_gate_filing_ids"], payload["failed_count"]) == (
+            generated[:1], generated[1:], 0)
+        with sessions() as db:
+            audits = [details for (details,) in db.query(AuditLog.details).filter(
+                AuditLog.action == "summaries_refresh_stale")]
+        assert audits == [{"filing_type": None, "schema_version_lt": None, "stale_total": 2, "updated_count": 1,
+                           "kept_by_gate_count": 1, "failed_count": 0, "deferred_count": 0}]
+    finally:
+        engine.dispose()
+
+
+def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
+    """A four-slot pool with eight admins, eight pending invites bound to invitees (cohort ``seed-{i}``) and eight
+    used ones, the invite routes wired to it with ``send_invite_email`` as their mail sender and invitations
+    ready. Returns the engine, a session factory, the request sessions as they open, whether each checkout,
+    statement and checkin ran on the loop, the seeded invite ids and each admin's id as the audit log stores it."""
+    from app.models import InviteCode, User
+    from app.routers import admin, auth
+    from app.services import legal_readiness_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'admin-invites.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        for i in range(8):
+            db.add(User(email=f"admin-{i}@example.com", is_active=True, is_admin=True))
+        db.flush()
+        for i in range(8):
+            db.add(InviteCode(code_hash=f"{i:064x}", email=f"invitee-{i}@example.com", cohort=f"seed-{i}",
+                              expires_at=utcnow() + timedelta(days=7)))
+            db.add(InviteCode(code_hash=f"{i + 8:064x}", email=f"redeemed-{i}@example.com",
+                              expires_at=utcnow() + timedelta(days=7), used_at=utcnow()))
+        db.commit()
+        pending = [invite_id for (invite_id,) in db.query(InviteCode.id).filter(
+            InviteCode.used_at.is_(None)).order_by(InviteCode.id)]
+        used = [invite_id for (invite_id,) in db.query(InviteCode.id).filter(
+            InviteCode.used_at.isnot(None)).order_by(InviteCode.id)]
+        # Admin i sends request i; the audit log stores the admin's id as text.
+        admin_ids = {email: str(user_id) for user_id, email in db.query(User.id, User.email)}
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    # The routes' statements ran on the loop on the connection the auth lookup had checked out in the thread pool,
+    # and a commit gave it back there: neither is a checkout.
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(admin, "send_invite_email", send_invite_email)
+    monkeypatch.setattr(legal_readiness_service, "is_collection_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
+    return engine, sessions, request_sessions, on_loop, pending, used, admin_ids
+
+
+async def _invite_request(transport: httpx.ASGITransport, method: str, path: str, body: dict | None,
+                          i: int) -> httpx.Response:
+    """Admin ``i``'s request, signed in as them, with invite ``i``'s and invitee ``i``'s placeholders filled."""
+    from app.routers import auth
+
+    token = auth.create_access_token({"sub": f"admin-{i}@example.com"})
+    async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                 headers={"Authorization": f"Bearer {token}"}) as client:
+        if body is None:
+            return await client.request(method, path)
+        return await client.request(method, path, json={key: value.format(i=i) if isinstance(value, str) else value
+                                                        for key, value in body.items()})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,body,case", [
+    ("GET", "/api/admin/invites", None, "list"),
+    ("POST", "/api/admin/invites", {"cohort": "wave-{i}"}, "mint"),
+    ("POST", "/api/admin/invites", {"email": "new-{i}@example.com", "send_email": True}, "mint_email"),
+    ("POST", "/api/admin/invites/{pending}/revoke", None, "revoke"),
+    ("POST", "/api/admin/invites/9999/revoke", None, "revoke_missing"),
+    ("POST", "/api/admin/invites/{used}/revoke", None, "revoke_used"),
+    ("POST", "/api/admin/invites/{pending}/resend", None, "resend"),
+    ("POST", "/api/admin/invites/9999/resend", None, "resend_missing"),
+    ("POST", "/api/admin/invites/{used}/resend", None, "resend_used"),
+    ("POST", "/api/admin/invites/{pending}/resend", None, "resend_unready"),
+])
+async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, body,
+                                                                       case):
+    """The admin invite routes run their session work in thread-pool units, released before the invite mail and
+    before they answer, their 404s and 409s included: the mint and the re-send mint in one unit and write their
+    audit row in another after the mail, and the list and the revoke (with its audit row) are one unit each. So
+    eight admins on four slots, each mail taking 0.05 s, make no checkout, statement or release on the loop and
+    leave nothing for the finalizer. On the loop, the list and the revoke ran every statement after the auth lookup
+    there, and the mint and the re-send held their connection through the mail (E171); the mail case below pins that
+    no connection is out while a mail sends. Odd admins' mails fail, so each audit row and answer must say whether
+    its own mail went. With invitation mail closed, as production keeps it, a re-send of a bound invite answers 503
+    from its unit, released, and changes nothing."""
+    from app.models import AuditLog, InviteCode
+    from app.services import legal_readiness_service
+
+    sent: list[tuple[str, str]] = []
+
+    async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
+        await asyncio.sleep(0.05)  # the other admins' units run while this mail sends
+        if int(to_email.split("@")[0].rsplit("-", 1)[1]) % 2:
+            raise RuntimeError("the mail provider refused the message")
+        sent.append((to_email, magic_link))
+
+    engine, sessions, request_sessions, on_loop, pending, used, admin_ids = _invite_fixture(
+        monkeypatch, tmp_path, send_invite_email)
+    if case == "resend_unready":
+        monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: False)
+    emails = [f"admin-{i}@example.com" for i in range(8)]
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    try:
+        responses = await asyncio.gather(*[
+            _invite_request(transport, method, path.format(pending=pending[i], used=used[i]), body, i)
+            for i in range(8)
+        ])
+        # Every checkout, the auth lookup's included, and every statement and release ran in the thread pool:
+        # none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        expected = {"revoke_missing": 404, "resend_missing": 404, "revoke_used": 409, "resend_used": 409,
+                    "resend_unready": 503}.get(case, 200)
+        assert [response.status_code for response in responses] == [expected] * 8
+        payloads = [response.json() for response in responses]
+        with sessions() as db:
+            invites = {invite.id: invite for invite in db.query(InviteCode)}
+            audits = sorted(
+                (action, user_id, user_email, entity_type, entity_id, tuple(sorted((details or {}).items())))
+                for action, user_id, user_email, entity_type, entity_id, details in db.query(
+                    AuditLog.action, AuditLog.user_id, AuditLog.user_email, AuditLog.entity_type,
+                    AuditLog.entity_id, AuditLog.details)
+            )
+        minted = sorted(set(invites) - set(pending) - set(used))
+        if case == "list":
+            assert [sorted(row["status"] for row in payload["invites"]) for payload in payloads] == [
+                ["pending"] * 8 + ["used"] * 8] * 8
+        elif expected != 200:
+            assert [payload["detail"] for payload in payloads] == [{
+                404: "Invite not found", 409: "Invite already redeemed",
+                503: "Invitation email delivery is currently unavailable."}[expected]] * 8
+        elif case in ("mint", "mint_email"):
+            assert sorted(payload["id"] for payload in payloads) == minted
+            assert [(payload["email"], payload["cohort"], payload["emailed"]) for payload in payloads] == [
+                (f"new-{i}@example.com", None, i % 2 == 0) if case == "mint_email" else (None, f"wave-{i}", False)
+                for i in range(8)]
+            assert all("/register?invite=" in payload["invite_link"] for payload in payloads)
+        elif case == "revoke":
+            assert [(payload["invite_id"], payload["status"]) for payload in payloads] == [
+                (invite_id, "revoked") for invite_id in pending]
+        elif case == "resend":
+            assert [payload["revoked_invite_id"] for payload in payloads] == pending
+            assert sorted(payload["id"] for payload in payloads) == minted
+            assert [(payload["email"], payload["cohort"], payload["emailed"]) for payload in payloads] == [
+                (f"invitee-{i}@example.com", f"seed-{i}", i % 2 == 0) for i in range(8)]
+        # Each write took effect, and the list, the 404s, the 409s and the 503s wrote nothing.
+        assert len(minted) == (8 if case in ("mint", "mint_email", "resend") else 0)
+        assert sorted(invite_id for invite_id, invite in invites.items() if invite.is_revoked) == (
+            pending if case in ("revoke", "resend") else [])
+        assert sorted(invite_id for invite_id, invite in invites.items() if invite.used_at is not None) == used
+        # Each mail that went carried its own request's link, and each minted invite names the admin who minted it.
+        assert sorted(sent) == sorted(
+            (payloads[i]["email"], payloads[i]["invite_link"]) for i in range(0, 8, 2) if case in ("mint_email", "resend"))
+        if case in ("mint", "mint_email", "resend"):
+            assert [invites[payload["id"]].created_by for payload in payloads] == [
+                int(admin_ids[email]) for email in emails]
+        # Each audit row names the admin whose request wrote it and what that request answered.
+        by_admin = {payload.get("revoked_invite_id", payload.get("invite_id")): payload for payload in payloads}
+        if case in ("mint", "mint_email"):
+            assert audits == sorted(
+                ("invite_minted", admin_ids[emails[i]], emails[i], "invite", str(payload["id"]),
+                 (("cohort", None), ("emailed", i % 2 == 0)) if case == "mint_email" else
+                 (("cohort", f"wave-{i}"), ("emailed", False)))
+                for i, payload in enumerate(payloads))
+        elif case == "revoke":
+            assert audits == sorted(
+                ("invite_revoked", admin_ids[emails[i]], emails[i], "invite", str(pending[i]), ()) for i in range(8))
+        elif case == "resend":
+            assert audits == sorted(
+                ("invite_resent", admin_ids[emails[i]], emails[i], "invite", str(by_admin[pending[i]]["id"]),
+                 (("cohort", f"seed-{i}"), ("emailed", i % 2 == 0), ("revoked_invite_id", pending[i])))
+                for i in range(8))
+        else:
+            assert audits == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["mint", "resend"])
+async def test_invite_mint_and_resend_hold_no_connection_while_their_mail_sends(monkeypatch, tmp_path, route):
+    """The mint and the re-send release their session before the invite mail, and write their audit row in a unit
+    of their own after it, so no pool slot waits on the mail provider and the row records that the mail went."""
+    from app.models import AuditLog
+    from app.routers import admin
+
+    held: list[tuple[str, int, int]] = []
+    engine, sessions, request_sessions, _, pending, _, _ = _invite_fixture(monkeypatch, tmp_path, None)
+
+    async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
+        checked_out = engine.pool.checkedout()  # read before this check's own session checks one out
+        with sessions() as db:
+            held.append((to_email, checked_out, db.query(AuditLog).count()))
+
+    monkeypatch.setattr(admin, "send_invite_email", send_invite_email)
+    try:
+        response = await _invite_request(
+            httpx.ASGITransport(app=app, raise_app_exceptions=False), "POST",
+            "/api/admin/invites" if route == "mint" else f"/api/admin/invites/{pending[0]}/resend",
+            {"email": "new-{i}@example.com", "send_email": True} if route == "mint" else None, 0,
+        )
+        assert response.status_code == 200, response.text
+        assert held == [("new-0@example.com" if route == "mint" else "invitee-0@example.com", 0, 0)]
+        assert engine.pool.checkedout() == 0
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]]
+        with sessions() as db:
+            assert [(action, (details or {}).get("emailed")) for action, details in db.query(
+                AuditLog.action, AuditLog.details)] == [("invite_minted" if route == "mint" else "invite_resent", True)]
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -2731,6 +4659,58 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
     [logged] = [record for record in caplog.records
                 if "Releasing the request session failed" in record.getMessage()]
     assert logged.exc_info[1] is error
+
+
+@pytest.mark.asyncio
+async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_to_close(monkeypatch, tmp_path, caplog):
+    """The stale refresh re-reads each stamp, and writes its audit row, in a session of its own after its route has
+    released the request's (``admin_summary_service._in_own_session``). A close that raised there would put a 500 in
+    place of the batch's outcomes after its paid generations. With every such close failing, as a connection dropped
+    after the unit's last statement does, the run still returns its outcomes and writes its audit row, and logs each
+    failed close, as the release does."""
+    from app.models import AuditLog
+    from app.services import admin_summary_service, summary_generation_service
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False})
+    database.Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as db:
+        company = Company(cik="0000000011", ticker="CLOSE", name="Close fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000011-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/close/",
+                        document_url="https://example.test/close.htm")
+        db.add(filing)
+        db.flush()
+        db.add(Summary(filing_id=filing.id, business_overview="# Summary"))  # no stamps: stale
+        db.commit()
+        filing_id = filing.id
+    error = OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly"))
+
+    class DroppedOnClose(Session):
+        def close(self) -> None:
+            super().close()
+            raise error
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=DroppedOnClose))
+
+    async def generate(filing_id: int, user_id: Any, *, force_regenerate: bool = False,
+                       rebuild_excerpt: bool = False) -> None:
+        return None
+
+    monkeypatch.setattr(summary_generation_service, "generate_summary_background", generate)
+    try:
+        outcomes = await admin_summary_service.regenerate_in_place(
+            [filing_id], actor_id=7, actor_email="admin@example.com", filing_type=None, schema_version_lt=None,
+            stale_total=1, start_by=float("inf"))
+        assert outcomes == ([], [filing_id], [], [])
+        with sessionmaker(bind=engine)() as db:
+            assert [tuple(row) for row in db.query(AuditLog.action, AuditLog.user_id)] == [("summaries_refresh_stale", "7")]
+        # One failed close for the stamp re-read and one for the audit row, each with its traceback.
+        assert [record.exc_info[1] for record in caplog.records
+                if "Closing the stale refresh's own session failed" in record.getMessage()] == [error, error]
+    finally:
+        engine.dispose()
 
 
 # ── Structure: every async route keeps its request session off the loop ──────────────
@@ -2792,13 +4772,15 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # thread dispatcher is a call whose last name is in ``_THREAD_DISPATCHERS``.
 #
 # Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
-# though a callee may never use it on the loop. On main five such hand-offs never do:
-# - ``admin_account_service.create_free_account``, a refusal, never uses the session;
-# - the four OAuth starts' ``_start_google`` and ``_start_apple`` put their state write in the thread
-#   pool themselves (since #1547).
-# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` is not one: it reads
-# ``user.email``, which the mint's commit expired, so it refreshes the user through the request
-# session, on the loop. A logged or type-checked session (``logger.info("%s", db)``,
+# though a callee may never use it on the loop. The four OAuth starts handed theirs to ``_start_google``
+# and ``_start_apple``, which put the state write in the thread pool themselves (since #1547), until
+# E121 had each start hand its session to ``run_in_threadpool`` itself.
+# ``admin_account_service.create_free_account``, a refusal, took the session until E171's invite slice
+# dropped it. No hand-off left on main is such a strict over-count.
+# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` was not one either: it read
+# ``user.email``, which the mint's commit expired, so it refreshed the user through the request session,
+# on the loop, until E121 put it in each callback's sign-in unit with the address read before that commit.
+# A logged or type-checked session (``logger.info("%s", db)``,
 # ``isinstance(db, Session)``) counts too, and so do a dispatcher reached through an import alias, a
 # session inside ``functools.partial`` or a generator expression handed to the thread pool, an uncalled
 # method handed to a dispatcher by keyword, a comprehension's variable named like the session
@@ -2836,8 +4818,9 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # - a session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
 #   finalizer);
 # - an ORM instance's lazy load, or its refresh once a commit has expired it (the generate stream's
-#   force branch, E104, has its own case above, and the OAuth callbacks' ``issue_session`` counts as
-#   the hand-off it is).
+#   force branch, E104, has its own case above; the OAuth callbacks' ``issue_session`` read the user
+#   their mint's commit expired until E121 had it take the address read before that commit, in a unit
+#   their burst case holds off the loop).
 #
 # ``test_walk_sees_each_form`` scores the walk on planted forms, the gaps and strict forms among them,
 # so a regression in the walk fails there instead of passing every router vacuously.
@@ -2848,66 +4831,13 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
-# each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
-# entries keeps in-place number edits on different entries mergeable in any order.
+# each entry is a route E121 (``auth.py``) names in ``tasks/todo.md``, E171's last route having left on
+# 2026-10-25. The blank line between entries keeps in-place number edits on different entries mergeable in
+# any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/admin.py", "audit_stale_xbrl"): 1,
-
-    ("app/routers/admin.py", "bulk_reset_stale_xbrl"): 1,
-
-    ("app/routers/admin.py", "clear_filing_xbrl"): 1,
-
-    ("app/routers/admin.py", "create_free_account"): 1,
-
-    ("app/routers/admin.py", "delete_filing_summary"): 1,
-
-    ("app/routers/admin.py", "list_feedback"): 1,
-
-    ("app/routers/admin.py", "list_invites"): 1,
-
-    ("app/routers/admin.py", "mint_invite"): 2,
-
-    ("app/routers/admin.py", "refresh_stale_summaries"): 2,
-
-    ("app/routers/admin.py", "resend_invite"): 2,
-
-    ("app/routers/admin.py", "reset_all_summaries"): 3,
-
-    ("app/routers/admin.py", "reset_filing"): 1,
-
-    ("app/routers/admin.py", "revoke_invite"): 2,
-
-    ("app/routers/admin.py", "update_feedback_status"): 3,
-
-    ("app/routers/auth.py", "apple_callback"): 6,
-
-    ("app/routers/auth.py", "apple_login"): 1,
-
-    ("app/routers/auth.py", "apple_start"): 1,
-
-    ("app/routers/auth.py", "change_password"): 2,
-
-    ("app/routers/auth.py", "google_callback"): 6,
-
-    ("app/routers/auth.py", "google_login"): 1,
-
-    ("app/routers/auth.py", "google_start"): 1,
-
-    ("app/routers/auth.py", "list_connections"): 1,
-
     ("app/routers/auth.py", "register"): 5,
 
-    ("app/routers/auth.py", "reset_password"): 2,
-
-    ("app/routers/auth.py", "unlink_connection"): 2,
-
     ("app/routers/auth.py", "verify_email"): 3,
-
-    ("app/routers/summaries.py", "export_summary_csv"): 2,
-
-    ("app/routers/summaries.py", "export_summary_pdf"): 2,
-
-    ("app/routers/summaries.py", "generate_summary_stream"): 7,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.
@@ -2916,7 +4846,7 @@ MIN_ASYNC_SESSION_FUNCTIONS = 60
 # Callees that run their callable argument in a worker thread of the default pool, where a unit of
 # session work belongs. ``stripe_threads.run_on_stripe_threads`` is not one: a session handed to it
 # would hold a pooled connection on a Stripe thread across Stripe calls, so it counts as a hand-off.
-_THREAD_DISPATCHERS = frozenset({"run_in_threadpool", "to_thread", "run_sync", "run_in_executor"})
+_THREAD_DISPATCHERS = frozenset({"run_in_threadpool", "run_owned_sync", "to_thread", "run_sync", "run_in_executor"})
 
 
 def _tail(node: ast.AST) -> str | None:
@@ -3286,6 +5216,7 @@ async def flags_a_handoff_and_a_read(db: Session = Depends(get_db)):
 
 async def clean_service_to_the_pool(db: Session = Depends(get_db)):
     await run_in_threadpool(service.read, db, 1)
+    await run_owned_sync(service.read, db, 1)
     await run_in_threadpool(service.read, row_id=1, session=db)
     await anyio.to_thread.run_sync(service.read, db)
     await asyncio.get_running_loop().run_in_executor(None, service.read, db)

@@ -1,0 +1,128 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "AMD",
+ "split": "holdout",
+ "claims": 9,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Gross margin rose 10.8pp in FY2017, which the filing attributes mainly to the absence of a 2016 charge worth eight gross margin points .",
+   "passages": [
+    {
+     "id": "P68",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin as a percentage of net revenue was\u00a034%\u00a0in\u00a02017\u00a0compared to\u00a023%\u00a0in\u00a02016. Gross margin improved in 2017 primarily due to the absence of the charge of $340 million recorded in 2016, comprised of a $100 million payment under the Sixth Amendment and the value of the warrant of $240 million under the Warrant Agreement, which accounted for eight gross margin percentage points. In addition, the increase in gross margin percentage for 2017 compared to 2016 was due to a favorable shift in product mix to new Radeon GPU and Ryzen desktop processor products in the Computing and Graphics segment."
+    }
+   ],
+   "label": "supported",
+   "reason": "P68 says gross margin improved primarily from the absent $340M 2016 charge, worth eight gross margin points."
+  },
+  {
+   "sentence": "Revenue rose 43.6% in FY2022 with the Xilinx acquisition, but operating margin fell 16.8pp to 5.4% as Xilinx-related amortization hit gross margin .",
+   "passages": [
+    {
+     "id": "P46",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our 2022 financial results reflect the strength of our diversified business model despite the challenging PC market conditions in the second half of 2022. Net revenue for 2022 was $23.6 billion, an increase of 44% compared to 2021 net revenue of $16.4 billion. The increase in net revenue was driven by a 64% increase in Data Center segment revenue primarily due to higher sales of our EPYC\u2122 server processors, a 21% increase in Gaming segment revenue primarily due to higher semi-custom product sales, and a significant increase in Embedded segment revenue from the prior year period driven by the inclusion of Xilinx embedded product sales. This growth was partially offset by a 10% decrease in Client segment revenue primarily due to lower processor shipments driven by a weak PC market and significant inventory correction actions across the PC supply chain. Gross margin, as a percentage of net revenue for 2022, was 45%, compared to 48% in 2021. The decrease in gross margin was primarily due to amortization of intangible assets associated with the Xilinx acquisition."
+    }
+   ],
+   "label": "partial",
+   "reason": "P46 ties the gross margin decline to Xilinx amortization. Revenue growth is mainly EPYC/Gaming; the operating margin decline isn't explained."
+  },
+  {
+   "sentence": "The filing credits Client unit shipments up 31% with prices up 15%, and Data Center demand for EPYC and Instinct products .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Client net revenue of $10.6 billion in 2025 increased by 51%, compared to net revenue of $7.1 billion in 2024, primarily driven by a 31% increase in unit shipments of processors and a 15% increase in average selling price of processors, reflecting strong demand for AMD desktop and mobile Ryzen processors."
+    },
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Data Center net revenue of $16.6 billion in 2025 increased by 32%, compared to net revenue of $12.6 billion in 2024. The increase was primarily driven by strong demand for our AMD EPYC\u2122 processors and AMD Instinct\u2122 GPU accelerators."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 cites a 31% unit increase and 15% ASP rise; P13 cites EPYC and Instinct demand."
+  },
+  {
+   "sentence": "Gross margin of 49.5% is at its window high; the filing cites product mix, against about $440 million of export-control inventory charges .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin of 50% increased by 1% compared to 49% in 2024, primarily due to product mix partially offset by approximately $440 million of net inventory and related charges associated with the U.S. government export control on AMD Instinct\u2122 MI308 Data Center GPU products."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 attributes the increase to product mix, partially offset by ~$440M of export-control inventory charges."
+  },
+  {
+   "sentence": "The FY2025 operating margin gain of 3.3pp came partly from other lines (+2.6pp), alongside a $140 million fall in acquisition amortization .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Amortization of acquisition-related intangibles of $2.3\u00a0billion for 2025 decreased by $140 million, or 6%, compared to $2.4\u00a0billion in 2024, primarily due to a lower balance of amortizable acquisition-related intangibles compared to the prior year."
+    }
+   ],
+   "label": "partial",
+   "reason": "P7 confirms the $140M amortization decline but doesn't link it to operating margin; the 'other lines' contribution isn't stated."
+  },
+  {
+   "sentence": "Net margin of 12.5% sits 1.8pp above operating margin, helped by $577 million of unrealized investment gains and an $853 million tax release .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income (expense), net of $577 million in 2025 increased by $396 million compared to $181 million in 2024,  primarily due to higher unrealized gains from long-term investments compared to the prior year."
+    },
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "We recorded an income tax benefit of $103 million and an income tax provision of $381 million in 2025 and 2024, respectively, representing effective tax rates of (2.5%) and 19%, respectively. The decrease in income tax provision in 2025 was primarily driven by an $853 million benefit related to the release of uncertain tax positions pertaining to the reasonable cause relief for dual consolidated losses approved by the Internal Revenue Service (IRS) in April 2025, whereas the income tax provision in 2024 included $373 million tax effect from an intercompany integration transaction."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 credits unrealized investment gains for higher other income; P4 credits the $853M tax position release."
+  },
+  {
+   "sentence": "Working capital absorbed $2.4 billion, mainly a $2.2 billion inventory build for Data Center ramps .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities of continuing operations was $6.5\u00a0billion in 2025, primarily due to our net income of $4.3\u00a0billion in 2025, adjusted for non-cash adjustments of $4.6\u00a0billion and net cash outflows of $2.4\u00a0billion from changes in our operating assets and liabilities. The primary drivers of the changes in operating assets and liabilities included a $2.2\u00a0billion increase in inventory primarily to support the continued ramp of Data Center products in advanced process technology nodes. Net cash provided by operating activities of the ZT Manufacturing Business, classified as discontinued operations, was $1.2 billion."
+    }
+   ],
+   "label": "supported",
+   "reason": "P3 names the $2.2B inventory increase for Data Center ramps as the primary driver of the $2.4B outflow."
+  },
+  {
+   "sentence": "Total debt rose 138.0% to $4.10 billion after $1.5 billion of notes issued in March 2025 .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Interest expense of $131 million in 2025 increased by $39 million compared to $92 million in 2024, primarily due to the issuance of $1.5 billion in aggregate principal amount of 4.212% Notes and 4.319% Notes in March 2025."
+    }
+   ],
+   "label": "partial",
+   "reason": "P6 confirms the March 2025 $1.5B notes issuance but cites it for interest expense, not the debt increase."
+  },
+  {
+   "sentence": "The filing ties the $2.2 billion build to Data Center ramps in advanced process nodes .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities of continuing operations was $6.5\u00a0billion in 2025, primarily due to our net income of $4.3\u00a0billion in 2025, adjusted for non-cash adjustments of $4.6\u00a0billion and net cash outflows of $2.4\u00a0billion from changes in our operating assets and liabilities. The primary drivers of the changes in operating assets and liabilities included a $2.2\u00a0billion increase in inventory primarily to support the continued ramp of Data Center products in advanced process technology nodes. Net cash provided by operating activities of the ZT Manufacturing Business, classified as discontinued operations, was $1.2 billion."
+    }
+   ],
+   "label": "supported",
+   "reason": "P3 ties the inventory increase to the Data Center ramp in advanced process technology nodes."
+  }
+ ],
+ "cost_usd": 0.051832
+}

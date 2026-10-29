@@ -1,0 +1,56 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "KO",
+ "split": "holdout",
+ "claims": 3,
+ "output_sha256": "5b3f227677dc0c9ee5b9830bacbec98dcb30810a734d1172b4f936ea92f0e437",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2025 step-up came primarily from lower other operating charges after the prior-year fairlife contingent-consideration remeasurement, plus 1% concentrate volume growth and favorable pricing .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage P12 states lower other operating charges, 1% volume growth, and favorable pricing drove the increase."
+  },
+  {
+   "sentence": "The gross margin gain came from favorable pricing and the prior-year refranchising, partly offset by currency and higher commodity costs .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross profit margin increased to 61.6% in 2025 from 61.1% in 2024. This increase was primarily due to the impact of favorable pricing initiatives and the impact of the prior year refranchising of our bottling operations in the Philippines, Bangladesh and certain territories in India, partially offset by the unfavorable impact of foreign currency exchange rate fluctuations and higher commodity costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage P14 attributes gross margin increase to favorable pricing and prior-year refranchising, partially offset by currency and commodity costs."
+  },
+  {
+   "sentence": "FY2024's collapse to $6.8 billion  was driven primarily by the $6.0 billion IRS Tax Litigation Deposit , and FY2025's $603 million recovery came from stronger operating results and lower tax payments .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2024 and 2023 was $6,805\u00a0million and $11,599\u00a0million, respectively, a decrease of $4,794\u00a0million, or 41%. This decrease was primarily driven by the $6.0 billion IRS Tax Litigation Deposit, an unfavorable impact due to foreign currency exchange rate fluctuations, higher other tax payments, increased charitable donations, and the reduced operating cash flows resulting from the refranchising of our bottling operations. The decrease was also impacted by additional annual incentive payments in the current year due to improved business performance in the prior year. These items were partially offset by strong cash operating results, the transfer of surplus international plan assets from pension trusts to general assets of the Company, payments in the prior year resulting from the buildup of inventory to manage potential supply chain disruptions, increased dividend payments from our equity method investees, and $167\u00a0million of the $275\u00a0million milestone payment for fairlife in the prior year."
+    },
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2025 and 2024 was $7,408\u00a0million and $6,805\u00a0million, respectively, an increase of $603\u00a0million, or 9%. This increase was primarily driven by strong cash operating results, lower tax payments, the timing of changes in working capital and lower contributions to The Coca-Cola Foundation compared to the prior year. These items were partially offset by the prior year benefit of the trade accounts receivable factoring program and higher transfers of surplus non-U.S. plan assets from pension trusts to general assets of the Company in the prior year. The increase was also partially offset by unfavorable hedging activity, higher marketing payments, tax deposits related to Israel and Vietnam, and higher net interest payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 cites IRS deposit for 2024 decline; P1 cites stronger operating results and lower tax payments for 2025 increase."
+  }
+ ],
+ "cost_usd": 0.000931,
+ "backend": "openai_compat",
+ "input_tokens": 948,
+ "cached_input_tokens": 0,
+ "output_tokens": 154
+}

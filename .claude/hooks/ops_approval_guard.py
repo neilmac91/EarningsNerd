@@ -2,10 +2,10 @@
 approves an Ops apply.
 
 `.github/workflows/ops.yml` holds every -apply operation (relabel-fy-apply, repair-ticker-apply,
-reset-filing-summary-apply, repair-quarterly-apply) in its approve-apply job, which runs in the
-`ops-apply` environment whose required reviewer is the founder. Sessions act on GitHub through the
-founder's account, so GitHub would take a session's approval for the founder's own. This hook stops a
-session giving one.
+reset-filing-summary-apply, repair-quarterly-apply, repair-lineage-apply) in its approve-apply job,
+which runs in the `ops-apply` environment whose required reviewer is the founder. Sessions act on
+GitHub through the founder's account, so GitHub would take a session's approval for the founder's
+own. This hook stops a session giving one.
 
 .claude/settings.json runs it before every Bash command. A command line is refused when one of its
 commands, read as the shell reads it (codex_mention_guard.py's reader: compound lines, command

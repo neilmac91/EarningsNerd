@@ -1,0 +1,86 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A misreads several figures. It says OCF/NI of 1.77x is 'down from' a 1.01x median that is actually an FCF/NI median. It calls -4.1% net cash 'better than' the -3.5% peer median, when it is worse. It applies a FY2023 passage to FY2025 discretionary weakness. Draft B stays supported and adds the net-debt trend since FY2022 plus peer comparisons on ROE and FCF margin. B's leaked 'dropped R2/R3' note hurts clarity."
+   },
+   "cost_usd": 0.137761,
+   "latency_s": 13.493,
+   "input_tokens": 15500,
+   "output_tokens": 972,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A misreads several figures. It says OCF/NI of 1.77x is 'down from' a 1.01x median that is actually an FCF/NI median. It calls -4.1% net cash 'better than' the -3.5% peer median, when it is worse. It applies a FY2023 passage to FY2025 discretionary weakness. Draft B stays supported and adds the net-debt trend since FY2022 plus peer comparisons on ROE and FCF margin. B's leaked 'dropped R2/R3' note hurts clarity.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful depth: the FY2025 apparel and food contributions, the tax rate, and the stale burn flag. But it makes factual errors. It compares OCF/NI of 1.77x with an FCF/NI median and calls it 'down'. It calls -4.1% net cash 'better' than the -3.5% peer median. It applies a FY2023 passage to FY2025 and forecasts FCF margin. A has a leaked editorial note but stays grounded and calibrated."
+   },
+   "cost_usd": 0.137705,
+   "latency_s": 12.735,
+   "input_tokens": 15498,
+   "output_tokens": 970,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds useful depth: the FY2025 apparel and food contributions, the tax rate, and the stale burn flag. But it makes factual errors. It compares OCF/NI of 1.77x with an FCF/NI median and calls it 'down'. It calls -4.1% net cash 'better' than the -3.5% peer median. It applies a FY2023 passage to FY2025 and forecasts FCF margin. A has a leaked editorial note but stays grounded and calibrated.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.275466
+}

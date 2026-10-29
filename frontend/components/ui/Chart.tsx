@@ -3,33 +3,33 @@
 /* =============================================================================
    Chart — components/ui/Chart.tsx
    -----------------------------------------------------------------------------
-   The charting layer: chrome sub-tokens + Recharts-style prop factories +
-   a Tooltip content component + a self-contained TrendSparkline.
+   The charting layer: chrome sub-tokens + Recharts prop factories + a
+   Tooltip content component.
 
-   ENCODED RULES (not advisory — the helpers make the wrong thing hard):
-     1. Series color comes from CHART_SERIES positionally, 1→N, never skipped
-        or re-sorted. seriesColor(i) is the only sanctioned lookup.
-     2. gain/loss mark DIRECTION only — a sparkline stroke, delta bars around
-        a zero line. They are never categorical series colors, so "green line"
-        can only ever mean "went up". Use directionTone(), not raw hexes.
-        Direction VOCABULARY is the app's ('up' | 'down' | 'flat', owned by
-        lib/financialTone.ts) — derive it with the app's directionOf(); this
-        file only maps a Direction to its tone.
+   RULES (seriesColor and the chrome tokens encode 1 and 3; 2 and 4 are the charts' to keep):
+     1. Series color comes from CHART_SERIES (CHART_SERIES_DARK in dark)
+        positionally, 1→N, never skipped or re-sorted. seriesColor(i, dark) is
+        the only lookup: the sequences are this module's own, so no chart can
+        index the light one in dark.
+     2. gain/loss mark DIRECTION only. They are never categorical series
+        colors, so "green line" can only ever mean "went up". Direction
+        VOCABULARY is the app's ('up' | 'down' | 'flat', owned by
+        lib/financialTone.ts) — derive it with the app's directionOf().
      3. The sage brand never appears inside a plot area. Nothing in this file
         imports or emits a brand value.
      4. ≥5 series: color stops carrying alone under red-green CVD — add direct
         labels, markers, or dash patterns (chart.5/6 converge for dichromats).
 
    All values mirror `chart.*` in tailwind.config.js. CVD-validated
-   (deuteranopia/protanopia) and ≥3:1 vs both cream #F4F3EE and navy #0B1120.
+   (deuteranopia/protanopia) and ≥3:1 vs both cream #F4F3EE and navy #0B1120;
+   in dark each series takes its chart-N-dark half, APCA Lc ≥ 45 on the dark
+   card where the light hexes measure −30 to −37 (E195's token fold).
 ============================================================================= */
 
-import { type CSSProperties, type ReactNode } from 'react'
-import { MOTION } from '../../lib/motion'
-import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { type ReactNode } from 'react'
 
 /** Categorical sequence — teal, honey, cornflower, coral, slate-blue, periwinkle. */
-export const CHART_SERIES = [
+const CHART_SERIES = [
   '#3E8E84', // 1 teal
   '#B8812F', // 2 honey
   '#5B7CC0', // 3 cornflower
@@ -38,15 +38,29 @@ export const CHART_SERIES = [
   '#8B7BC0', // 6 periwinkle
 ] as const
 
-/** Positional series color — 0-indexed. Charts should never need more than 6. */
-export function seriesColor(index: number): string {
+/** The same sequence's dark halves, chart-1-dark…6-dark. */
+const CHART_SERIES_DARK = [
+  '#62B2A6', // 1 teal
+  '#D3A55C', // 2 honey
+  '#8CA6E3', // 3 cornflower
+  '#E8927C', // 4 coral
+  '#97A6C2', // 5 slate-blue
+  '#AFA2DE', // 6 periwinkle
+] as const
+
+/** How many colours the sequence has, for a chart that cycles one series through them (FundamentalsTrendChart). */
+export const CHART_SERIES_COUNT = CHART_SERIES.length
+
+/** Positional series color — 0-indexed, in the theme's half. Charts should never need more than 6. */
+export function seriesColor(index: number, dark: boolean): string {
   if (process.env.NODE_ENV !== 'production' && index >= CHART_SERIES.length) {
     console.warn(`seriesColor(${index}): >6 series; collapse categories or facet the chart.`)
   }
   // Safe modulo — a negative index (reversed loops, delta math) must never
   // return undefined and silently break every stroke in the chart.
-  const n = CHART_SERIES.length
-  return CHART_SERIES[((index % n) + n) % n]
+  const series = dark ? CHART_SERIES_DARK : CHART_SERIES
+  const n = series.length
+  return series[((index % n) + n) % n]
 }
 
 /** Data face for every number a chart renders — mirrors fontFamily.data.
@@ -58,7 +72,6 @@ export const CHART_FONT =
 
 export interface ChartTheme {
   grid: string
-  axis: string
   label: string
   crosshair: string
   /** Bar-hover FILL wash (Tooltip cursor on bar charts) — chart.1 teal @ 8% / 16%. */
@@ -67,6 +80,9 @@ export interface ChartTheme {
   tipBg: string
   tipBorder: string
   tipShadow: string
+  /** The tooltip's series names (text.secondary) and values (text.primary). */
+  nameInk: string
+  valueInk: string
   /** Direction tones — GRAPHIC values (3:1 floor). Text labels use gainText/lossText. */
   gain: string
   loss: string
@@ -75,19 +91,20 @@ export interface ChartTheme {
   lossText: string
 }
 
-/** Chrome sub-tokens per theme. Mirrors chart.{grid,axis,label,crosshair,ref,tip}. */
+/** Chrome sub-tokens per theme. Mirrors chart.{grid,label,crosshair,ref,tip}. */
 export function chartTheme(dark: boolean): ChartTheme {
   return dark
     ? {
-        grid: 'rgba(255,255,255,0.06)',
-        axis: 'rgba(255,255,255,0.10)',
-        label: '#9CA3AF', // text.secondary.dark — tertiary fails on navy
+        grid: '#525C6B', // chart.grid.dark, Lc −15.0 on the card
+        label: '#B8BEC7', // chart.label.dark, Lc −63.6 on the card, a step above text.tertiary.dark (−48.6) for 11–12 px text
         crosshair: 'rgba(156,163,175,0.4)',
         cursorFill: 'rgba(62,142,132,0.16)',
         ref: '#9CA3AF',
         tipBg: '#1F2937',
         tipBorder: 'rgba(255,255,255,0.10)',
         tipShadow: 'none', // dark cards/overlays separate by fill + hairline, never shadow
+        nameInk: '#D1D5DB', // text.secondary.dark
+        valueInk: '#EAECEF', // text.primary.dark
         gain: '#34D399',
         loss: '#FB7185',
         flat: '#9CA3AF',
@@ -95,8 +112,7 @@ export function chartTheme(dark: boolean): ChartTheme {
         lossText: '#FB7185',
       }
     : {
-        grid: 'rgba(229,231,235,0.6)',
-        axis: '#E5E7EB',
+        grid: '#DCD9D0', // chart.grid.light, Lc 16.8 on the card
         label: '#6B7280', // the flat ink (text.tertiary was this value until #636A77) — 4.6:1 on the card charts sit on
         crosshair: 'rgba(107,114,128,0.45)',
         cursorFill: 'rgba(62,142,132,0.08)',
@@ -104,6 +120,8 @@ export function chartTheme(dark: boolean): ChartTheme {
         tipBg: '#FBFAF6',
         tipBorder: '#E5E7EB',
         tipShadow: '0 1px 3px 0 rgba(16,24,40,0.10), 0 1px 2px -1px rgba(16,24,40,0.10)', // e2
+        nameInk: '#374151', // text.secondary.light
+        valueInk: '#1A1A17', // text.primary.light
         gain: '#16A34A', // gain.light — graphic only (3:1); never text
         loss: '#DC2626', // loss.light — graphic only
         flat: '#6B7280',
@@ -112,41 +130,14 @@ export function chartTheme(dark: boolean): ChartTheme {
       }
 }
 
-/** Direction vocabulary — IDENTICAL to lib/financialTone.ts's Direction
-    ('up' | 'down' | 'flat'), so the two types are interchangeable at every
-    call site. Derive a Direction with the app's directionOf(); this module
-    deliberately does NOT export its own derivation (two same-named helpers
-    with different vocabularies was the landmine this replaces). */
-export type Direction = 'up' | 'down' | 'flat'
-
-/** Internal only — first→last fallback for Sparkline's auto direction. */
-function dirOf(delta: number): Direction {
-  return delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'
-}
-
-/** GRAPHIC stroke/fill for a direction (sparkline stroke, delta bars). */
-export function directionTone(dir: Direction, dark: boolean): string {
-  const t = chartTheme(dark)
-  return dir === 'up' ? t.gain : dir === 'down' ? t.loss : t.flat
-}
-
-/** TEXT color for a direction (delta labels next to a chart) — the same
-    mapping lib/financialTone.directionText makes with Tailwind classes. */
-export function directionTextTone(dir: Direction, dark: boolean): string {
-  const t = chartTheme(dark)
-  return dir === 'up' ? t.gainText : dir === 'down' ? t.lossText : t.flat
-}
-
 /* ---------------------------------------------------------------------------
    Recharts prop factories — spread into the composition:
 
-     const reduced = usePrefersReducedMotion()  // the shared hook (hooks/)
      <CartesianGrid {...gridProps(dark)} />
-     <XAxis dataKey="q" {...xAxisProps(dark)} />
+     <XAxis dataKey="year" {...xAxisProps(dark)} />
      <YAxis {...yAxisProps(dark)} tickFormatter={fmtBillions} />
-     <Tooltip cursor={crosshairProps(dark)} content={<ChartTooltip dark={dark} />} />
-     <ReferenceLine {...zeroLineProps(dark)} />
-     <Line dataKey="dataCenter" stroke={seriesColor(0)} {...lineProps(reduced)} />
+     <Tooltip cursor={barCursorProps(dark)} content={<ChartTooltip dark={dark} />} />
+     <Bar dataKey="value" fill={seriesColor(0, dark)} />
 --------------------------------------------------------------------------- */
 
 export const gridProps = (dark: boolean) => ({
@@ -161,7 +152,10 @@ const tick = (dark: boolean) => ({
 })
 
 export const xAxisProps = (dark: boolean) => ({
-  axisLine: { stroke: chartTheme(dark).axis },
+  // The baseline takes the gridlines' ink: Recharts draws a gridline at each edge of the plot and this line over the
+  // bottom one, where the hairline #E5E7EB (Lc 8.8 on the light card, under the gridlines' 16.8) would leave the
+  // light baseline the quietest rule (E195's token fold; tests/unit/chartThemeTokens.spec.ts).
+  axisLine: { stroke: chartTheme(dark).grid },
   tickLine: false as const,
   tick: tick(dark),
   tickMargin: 8,
@@ -177,71 +171,6 @@ export const yAxisProps = (dark: boolean) => ({
   width: 44,
 })
 
-/** Right-axis "head tag" for a dual-axis panel — a series-color swatch + the series NAME in
-    NEUTRAL ink, floated in the top margin above the right axis. The colored right spine binds a
-    line to the right scale by HUE; this tag NAMES that scale, so the binding is positive (read),
-    not inferred. The swatch is the ONLY colored element (rule 2: series color is graphic-only, and
-    a swatch clears the 3:1 graphic floor); the name uses the neutral AA axis ink (chartTheme.label
-    ≥4.5:1), never the sub-4.5:1 series hue. Pass as a right YAxis `label` element — Recharts
-    injects `viewBox` (the axis band {x,y,width,height}), same as it injects x/y into a custom
-    `tick`; renders nothing until it does. Lives inside the <svg>, so it rasterizes into the PNG
-    export for free. */
-export function AxisSeriesTag({
-  color,
-  label,
-  dark = false,
-  viewBox,
-}: {
-  color: string
-  label: string
-  dark?: boolean
-  /** Injected by Recharts when passed as `label={<AxisSeriesTag …/>}`. */
-  viewBox?: { x?: number; y?: number; width?: number; height?: number }
-}) {
-  // Destructure with a default so a missing viewBox (or any missing field) yields undefined and
-  // returns null — no reliance on `||` short-circuit order to stay TypeError-safe.
-  const { x, y, width } = viewBox ?? {}
-  if (x == null || y == null || width == null) return null
-  const rightEdge = x + width
-  const baseline = y - 8 // up into the widened top margin, clear of the top tick number
-  const swatch = 8
-  const gap = 5
-  // Geist Mono is monospace (~0.6em advance at 11px) — estimate the name width to place the swatch
-  // left of the RIGHT-aligned text. Only the swatch offset leans on the estimate; the text pins to
-  // rightEdge exactly, so a small metrics drift never misaligns the name.
-  const nameWidth = label.length * 6.6
-  return (
-    <g>
-      <rect
-        x={rightEdge - nameWidth - gap - swatch}
-        y={baseline - swatch + 1}
-        width={swatch}
-        height={swatch}
-        rx={2}
-        fill={color}
-      />
-      <text
-        x={rightEdge}
-        y={baseline}
-        textAnchor="end"
-        fontFamily={CHART_FONT}
-        fontSize={11}
-        fill={chartTheme(dark).label}
-      >
-        {label}
-      </text>
-    </g>
-  )
-}
-
-/** Pass as Tooltip's `cursor` — the hover crosshair. LINE charts only; a bar
-    hover needs a FILL wash, not a hairline — use barCursorProps. */
-export const crosshairProps = (dark: boolean) => ({
-  stroke: chartTheme(dark).crosshair,
-  strokeWidth: 1,
-  strokeDasharray: '3 3',
-})
-
 /** Pass as Tooltip's `cursor` on BAR charts — the category-band fill wash
     (chart.1 teal @ 8% light / 16% dark; the wash is a highlight, not a
     series). Replaces the two hand-rolled rgba(62,142,132,…) app charts (v2.2). */
@@ -249,48 +178,29 @@ export const barCursorProps = (dark: boolean) => ({
   fill: chartTheme(dark).cursorFill,
 })
 
-/** Zero line for delta/surprise charts (solid). For other references use refLineProps. */
-export const zeroLineProps = (dark: boolean) => ({
-  y: 0,
-  stroke: chartTheme(dark).ref,
-  strokeWidth: 1,
-  isFront: false as const,
-})
-
-/** Named reference (guidance, consensus) — dashed so it never reads as an axis. */
-export const refLineProps = (dark: boolean) => ({
-  stroke: chartTheme(dark).ref,
-  strokeWidth: 1,
-  strokeDasharray: '4 3',
-})
-
-/** Line props — pass the shared usePrefersReducedMotion() flag. Token-timed:
-    MOTION.slow replaces Recharts' raw ~1500ms library default. */
-export const lineProps = (reduced: boolean) => ({
-  strokeWidth: 2,
-  dot: false as const,
-  activeDot: { r: 3.5, strokeWidth: 0 },
-  isAnimationActive: !reduced,
-  animationDuration: MOTION.slow,
-})
-
 /* ---------------------------------------------------------------------------
    ChartTooltip — Recharts custom `content`. Panel + hairline + e2 (light) /
-   shadow none (dark); values in the data face with tabular numerals.
+   shadow none (dark); values in the data face with tabular numerals. A row's
+   swatch is its mark's paint: the row's `color`, else the series colour of its
+   position. Recharts gives a row its series' own `fill`, so a chart whose bars
+   take their paint from Cells (the peers chart) passes `swatchOf`, which paints
+   each row's swatch as its bar.
 --------------------------------------------------------------------------- */
 
 export interface ChartTooltipProps {
   dark?: boolean
   active?: boolean
   label?: ReactNode
-  payload?: Array<{ name?: string; value?: number | string; color?: string }>
+  payload?: Array<{ name?: string; value?: number | string; color?: string; payload?: unknown }>
   /** Format a row value — defaults to String(). The row's series `name` is passed as the
    *  second argument so mixed-scale panels (money bars + a % growth line) can route by series
    *  instead of guessing from the value's magnitude. */
   formatValue?: (value: number | string | undefined, name?: string) => string
+  /** A row's swatch paint from its data entry (Recharts' `row.payload`), for marks painted one by one. */
+  swatchOf?: (entry: unknown) => { color: string; opacity?: number }
 }
 
-export function ChartTooltip({ dark = false, active, label, payload, formatValue }: ChartTooltipProps) {
+export function ChartTooltip({ dark = false, active, label, payload, formatValue, swatchOf }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
   const t = chartTheme(dark)
   const fmt = formatValue ?? ((v: number | string | undefined) => String(v ?? ''))
@@ -319,118 +229,30 @@ export function ChartTooltip({ dark = false, active, label, payload, formatValue
         {label}
       </div>
       <div style={{ display: 'grid', gap: 4 }}>
-        {payload.map((row, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span
-              aria-hidden="true"
-              style={{ width: 8, height: 8, borderRadius: 2, background: row.color ?? seriesColor(i), flex: 'none' }}
-            />
-            <span style={{ fontSize: 12, color: dark ? '#9CA3AF' : '#374151', flex: 1 }}>{row.name}</span>
-            <span
-              style={{
-                fontFamily: CHART_FONT,
-                fontVariantNumeric: 'tabular-nums',
-                fontSize: 12,
-                fontWeight: 500,
-                color: dark ? '#D7DADC' : '#1A1A17',
-              }}
-            >
-              {fmt(row.value, row.name)}
-            </span>
-          </div>
-        ))}
+        {payload.map((row, i) => {
+          const paint = swatchOf?.(row.payload)
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                aria-hidden="true"
+                style={{ width: 8, height: 8, borderRadius: 2, background: paint?.color ?? row.color ?? seriesColor(i, dark), opacity: paint?.opacity, flex: 'none' }}
+              />
+              <span style={{ fontSize: 12, color: t.nameInk, flex: 1 }}>{row.name}</span>
+              <span
+                style={{
+                  fontFamily: CHART_FONT,
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: t.valueInk,
+                }}
+              >
+                {fmt(row.value, row.name)}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
-  )
-}
-
-/* ---------------------------------------------------------------------------
-   TrendSparkline — self-contained SVG, no Recharts. Direction-toned: the
-   stroke is up/down/flat GRAPHIC tone from the series' own first→last delta
-   (or an explicit `dir`). Optional draw-in animation, disabled under reduced
-   motion. Named to stay clear of the app's own components/charts/Sparkline
-   (different props) — both can coexist; fold the app's onto this one only
-   when its call sites want direction-toned strokes.
---------------------------------------------------------------------------- */
-
-export interface TrendSparklineProps {
-  data: number[]
-  dark?: boolean
-  /** Override the auto first→last direction (e.g. "lower is better" metrics). */
-  dir?: Direction
-  width?: number
-  height?: number
-  strokeWidth?: number
-  /** Soft area fill under the line (gain.soft / loss.soft tint). Default true. */
-  fill?: boolean
-  /** Draw-in on mount. Auto-disabled by prefers-reduced-motion. Default false. */
-  animate?: boolean
-  className?: string
-  style?: CSSProperties
-  /** Accessible summary, e.g. "Revenue, last 8 quarters, up 94%". */
-  label?: string
-}
-
-export function TrendSparkline({
-  data,
-  dark = false,
-  dir,
-  width = 96,
-  height = 28,
-  strokeWidth = 1.5,
-  fill = true,
-  animate = false,
-  className,
-  style,
-  label,
-}: TrendSparklineProps) {
-  const reduced = usePrefersReducedMotion() // before the early return — hooks are unconditional
-  if (data.length < 2) return null
-  const d = dir ?? dirOf(data[data.length - 1] - data[0])
-  const stroke = directionTone(d, dark)
-  const pad = strokeWidth
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const span = max - min || 1
-  const pts = data.map((v, i) => [
-    pad + (i / (data.length - 1)) * (width - pad * 2),
-    pad + (1 - (v - min) / span) * (height - pad * 2),
-  ])
-  const line = pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ')
-  const area = `${line} ${(width - pad).toFixed(2)},${height} ${pad},${height}`
-  // Generous overestimate of path length for the dash draw-in.
-  const dash = width * 2 + height * 2
-
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      role={label ? 'img' : undefined}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-      className={className}
-      style={{ display: 'block', overflow: 'visible', ...style }}
-    >
-      {fill && <polygon points={area} fill={stroke} opacity={dark ? 0.14 : 0.1} />}
-      <polyline
-        points={line}
-        fill="none"
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        style={
-          animate && !reduced
-            ? {
-                strokeDasharray: dash,
-                strokeDashoffset: dash,
-                // Keyframes live in globals.css (the shared layer), token-timed.
-                animation: 'en-spark-draw var(--duration-slow) var(--ease-standard) forwards',
-              }
-            : undefined
-        }
-      />
-    </svg>
   )
 }

@@ -71,10 +71,10 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 | "Where the numbers come from" (section heading) | "Figures with their receipts." |
 | "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | A legend that sets each label beside its meaning: "Matches filing: both years' figures match the numbers Apple reported in the filing's data, after rounding." "Linked, not checked: we link to where the figure is reported but don't check it." "Quote found in filing: the quoted words appear in the filing, word for word." |
 | "Speed matters. Markets move fast. You need clarity before the next earnings call." (waitlist) | "Filings are long. The signal is spread across a hundred pages, and checking a number takes an afternoon. We read it with you and point at the passage." |
-| "Join 0+ others on the waitlist" | (nothing, until the count is worth saying) |
+| "Join 0+ others on the waitlist" | (nothing, until the count is worth saying; then "Join 1,234+ others": the verb of the "Join the waitlist" it replaces, and short enough that the status above the form keeps its height) |
 | "Choose the plan that fits your workflow" (pricing subtitle) | "Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price." |
 | "You're on the EarningsNerd waitlist! 🎉" (email subject) | "You're on the EarningsNerd waitlist" |
-| "Please verify your email address to unlock AI-powered SEC filing summaries." | "Verify your email address and you can start reading." |
+| "Please verify your email address to unlock AI-powered SEC filing summaries." | "Verify your email address to subscribe to Pro." (what verifying gates: checkout, as the site's banner says) |
 | "We couldn't find this page. The link may be mistyped or out of date." (404) | "We looked. The link is mistyped or out of date. Start from the homepage search, or open your dashboard." |
 | "Scanning 400 pages of footnotes so you don't have to…" (loading quip) | "Reading the footnotes so you can go straight to the ones that matter…" |
 | "Explore SEC filings with AI-assisted summaries." (footer) | "The summary that shows its work." |
@@ -146,7 +146,12 @@ the business card, the footer and the merch; it is the positioning in six words.
   and the mark) and print that. The served name stays the data value: a key, a URL, a search query, an
   analytics property, an API payload or a cache row, a CSV, a title attribute that quotes the filing, and a
   record a reader downloads (the evidence pack's JSON, the redlines' review receipt), which keeps EDGAR's name
-  as the filing's header gives it, kept beside the display form as `conformedName`.
+  as the filing's header gives it, kept beside the display form as `conformedName`. The backend holds the one
+  other copy of the rule, `backend/app/utils/company_names.py`, held to this module by a shared case table
+  (`backend/tests/fixtures/company_display_names.json`, which `formatCompanyName.spec.ts` and
+  `backend/tests/unit/test_company_names.py` both run; the Python test also holds the word lists equal): the
+  Multi-Period Analysis PDF and workbook print the display form, while the filing summary's PDF and CSV keep
+  EDGAR's name until E210.
   `frontend/tests/unit/companyNameDisplay.spec.ts` fails a served name printed raw, a `CompanyLogo` given
   one, a field of the app's own filled with one (a served object handed whole to a view of the app's own
   among them) and a printed `conformedName`, except the forms its header names as gaps (text a call puts on

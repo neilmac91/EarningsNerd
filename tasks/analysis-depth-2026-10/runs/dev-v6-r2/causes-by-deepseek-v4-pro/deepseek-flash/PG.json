@@ -1,0 +1,85 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "PG",
+ "split": "dev",
+ "claims": 5,
+ "output_sha256": "f8c9b1571e8dfb134cd6d49201b3c83bb876e4ed48e60041432b795018d38d45",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "That trough was an $8.3 billion before-tax Shave Care impairment charge, $6.8 billion of it goodwill, driven by currency devaluations and decelerating grooming category growth .",
+   "passages": [
+    {
+     "id": "P62",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During fiscal 2019, a non-cash before- and after-tax impairment charge of $6.8 billion was recognized to reduce the carrying amount of goodwill for the Shave Care reporting unit, and a non-cash, before-tax impairment charge of $1.6 billion ($1.2 billion after-tax) was recognized to reduce the carrying amount of the Gillette indefinite-lived intangible asset to its fair value. The underlying reductions in fair values were due in large part to significant currency devaluations in a number of countries relative to the U.S. dollar, a deceleration of category growth caused by changing grooming habits, primarily in the developed markets, and an increased competitive market environment in the U.S. and certain other markets. As a result of the fiscal 2019 impairment determined by the step two testing, the Shave Care fair value exceeded the carrying value by approximately 20% as of June 30, 2019. Because the impairment testing for intangible assets is a one-step process, the Gillette indefinite-lived intangible asset fair value approximated its carrying value at that date."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states impairment due to currency devaluations and deceleration of category growth."
+  },
+  {
+   "sentence": "FY2020 then rebounded 14.0pp on operating margin as the base-period charge fell away and gross margin rose on manufacturing savings, lower commodity costs and higher pricing .",
+   "passages": [
+    {
+     "id": "P65",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net earnings in fiscal 2020 increased 27% to $3.5 billion due to the increase in net sales and a 350 basis-point increase in net earnings margin. Net earnings margin increased primarily due to an increase in gross margin, partially offset by an increase in the effective tax rate and a marginal increase in SG&A as a percentage of net sales. The gross margin increase was driven by manufacturing cost savings, a reduction in commodity costs and higher selling prices partially offset by unfavorable product mix (due to the disproportionate growth of large sizes and product forms with lower than segment average margins). SG&A as a percentage of net sales increased marginally due primarily to an increase in marketing spending, partially offset by a reduction in overhead costs driven by productivity savings and the positive scale benefits of the net sales increase. The increase in the effective tax rate was driven by an unfavorable geographic mix of earnings."
+    },
+    {
+     "id": "P71",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income increased 186% or $10.2 billion to $15.7 billion. $8.3 billion of the increase was due to the base period charge for the Shave Care impairment. The remaining $1.9 billion increase was due to the net sales increase and the increase in gross margin partially offset by the increase in SG&A, all of which are discussed above."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages state operating income increase due to base period charge and gross margin increase from manufacturing savings, lower commodity costs, higher pricing."
+  },
+  {
+   "sentence": "FY2026 net sales rose on favorable foreign exchange of 2% and pricing of 1%, with unit volume and mix unchanged .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased 3% to $87.0 billion in fiscal 2026 driven by favorable foreign exchange of 2% and pricing of 1%. Unit volume and mix were unchanged versus the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net sales increase driven by favorable FX 2% and pricing 1%, with unit volume and mix unchanged."
+  },
+  {
+   "sentence": "The FY2026 decline came from cost of revenue adding 1.0pp of margin drag and SG&A 0.6pp, as gross margin fell on unfavorable category mix and marketing spending rose .",
+   "passages": [
+    {
+     "id": "P25",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income decreased $703 million, or 3%, to $19.7 billion as the increase in net sales was more than offset by the decrease in gross margin and increase in SG&A spending. The operating margin decreased 160 basis points to 22.7% due primarily to the decrease in gross margin and increase in marketing spending."
+    },
+    {
+     "id": "P5",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net earnings decreased 2% to $3.9 billion due to a 50 basis-point decline in net earnings margin, partially offset by an increase in net sales. Net earnings margin decreased due to a decrease in gross margin and an increase in SG&A as a percentage of net sales. Gross margin decreased 40 basis points due to unfavorable category mix, partially offset by lower commodity costs and productivity savings. SG&A as a percentage of net sales increased due to an increase in marketing spending, partially offset by a reduction in overhead spending."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages state operating margin decrease due to gross margin decrease from unfavorable category mix and increase in marketing spending."
+  },
+  {
+   "sentence": "The 9.8% operating cash flow increase came from net earnings plus non-cash items, with payables generating $919 million offset by inventory consuming $641 million for safety stock .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating cash flow was $19.6 billion in 2026, a 10% increase versus the prior year. Net earnings, adjusted for certain non-cash items (depreciation and amortization, share-based compensation expense, deferred income taxes and (gain)/loss on sale of assets) generated approximately $19.5 billion of operating cash flow. Working capital and other impacts generated $29 million of cash in the period. Accounts receivable decreased, resulting in $84 million of cash flow help. Days sales outstanding decreased by one day. Total inventories increased, consuming $641 million of cash, driven primarily by increased safety stock levels and new product initiatives. Days inventory on hand increased by two days. Accounts payable increased, generating $919 million of cash, driven primarily by increased supply chain activity in line with the increase in inventory and increased marketing support activity. Other impacts reduced cash by $333 million primarily driven by the final payment of the transitional tax related to the 2017 U.S."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating cash flow increase from net earnings plus non-cash items, with payables generating $919M and inventory consuming $641M for safety stock."
+  }
+ ],
+ "cost_usd": 0.001428,
+ "backend": "openai_compat",
+ "input_tokens": 1425,
+ "cached_input_tokens": 0,
+ "output_tokens": 246
+}

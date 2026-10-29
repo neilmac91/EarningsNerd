@@ -1,5 +1,5 @@
-"""The review gate (rule 12 for the review-wait lesson and the closing-keyword lesson): the decision is
-pure, pinned offline, and the workflow that publishes it runs on every pull-request event without write
+"""The review gate (rule 12 for the review-wait lesson, the closing-keyword lesson and the open-rows lesson): the
+decision is pure, pinned offline, and the workflow that publishes it runs on every pull-request event without write
 permissions. It never skips that job, because a skipped job counts as passing; a draft fails it instead."""
 import json
 import os
@@ -250,6 +250,295 @@ def test_a_commit_list_at_githubs_cap_fails_closed_override_or_not_because_later
         assert _decide(HEAD, comments, body, capped[1:], resolve, pr_draft=draft)[0] == "pass"
 
 
+# E218: open rows in the shapes tasks/todo.md has used. An owner is the parenthetical after the row's id and
+# disposition; only its segments that name a next change name paths, and the row's text after it names none.
+TODO_ROWS = "\n".join([
+    "## Open items",
+    "- [ ] E121 — DO (next writer of `routers/auth.py`, high tier; E104's review, 2026-10-17): register and "
+    "verify-email still hand the session to services on the event loop.",
+    "- [ ] E150 — DO (next writer of a flag-off runner in `routers/internal.py` or of the job it runs; high tier for "
+    "`internal.py` and `services/facts/**`; E123's sweep and review, 2026-10-21): eight triggers detach a job.",
+    "- [ ] E152 — DO (before Turnstile is switched on; the next writer of `TurnstileWidget.tsx` or of a form that "
+    "waits for its token; E117's review, 2026-10-22): a reader whose browser cannot load its script is stuck.",
+    "- [ ] E92 — POSTPONE (the next functional change to `summary_stages`): the stream's sentences in "
+    "`summary_stages/fetch.py` and `services/ai/summary_finalize.py` keep their em-dashes until that change.",
+    "- [ ] E29 — DO (the next writer of `useWordingReview()`'s callers in `features/watchlist/useWatchlist.ts` or of "
+    "`backend/tests/integration/`; #1290's review): a late answer can write the previous account's data.",
+    "- [ ] E68 — POSTPONE (the next PR that changes `latest_filing_service.py:86` (its fallback); #1293): an app "
+    "comment still names the stored-failure card.",
+    # The file's other heads: a colon after the id, an en dash, a hyphen, a bold id, and a clause after the disposition;
+    # the last two also bind through "pull request" and "PR" alone.
+    "- [ ] E154: DO (the next writer of `SegmentedControl.tsx`; #1534's review): its thumb still eases in.",
+    "- [ ] E155 – Do (next writer of `routers/watchlist.py`): a removed item still counts until the list reloads.",
+    "- [ ] **E169** — DO (the next pull request that edits `ConnectedAccounts.tsx`): an unlinked provider keeps its button.",
+    "- [ ] E170 - Do, high tier (the next PR to touch `services/alerts.py`): the digest re-reads every filing.",
+    # A link before the next-change segment, and code spans holding a parenthesis or a semicolon, stay inside the
+    # owner; a trailing /** and a leading ./ or / are not part of the path; the row's text after the owner binds none.
+    "- [ ] E30 — DO (after [#1400](https://github.com/o/r/pull/1400) merges; the next writer of `useAlerts(`'s "
+    "callers in `./features/alerts/**` or of `db.query(); session.commit()` in `/services/sync.py`): the row's "
+    "text names `routers/text_only.py`, which no change has to name it for.",
+    # No segment names a next change: a tier note, the framework's name, a deploy, an owner phrase in a code span. On the
+    # live file the deploy's segment fails the live-file test below, which asks for a phrase the gate binds.
+    "- [ ] E31 — DO (high tier for `frontend/next.config.js`; before the Next 17 upgrade of `frontend/package.json`; "
+    "at the next deploy of `earningsnerd-backend`; tests for the owner shape `the next writer of X`): none binds.",
+    "- [ ] E56 — PREPARE (next mail writer, after [#1325](https://github.com/o/r/pull/1325) merges): the contact "
+    "form's confirmation still builds its own page (`routers/contact.py`).",
+    "- [x] E19 — DO (next writer of `routers/users.py`): a closed row binds nothing.",
+    "- [ ] F65 — DO: the next writer of `routers/billing.py` is named in the text, and the row has no owner.",
+    "  - [ ] E7 — DO (next writer of `routers/admin.py`): an indented line is no row.",
+])
+OWNED = review_gate.owned_rows(TODO_ROWS)
+
+
+def test_an_open_rows_owner_names_the_paths_its_next_change_owns():
+    """Every head the file has written is read. A link, a nested parenthesis and a code span holding a parenthesis
+    or a semicolon stay inside the owner; a line reference, a trailing slash or /** and a leading ./ or / are not
+    part of the path; a segment that names no next change, a closed row, an indented line and the row's text after
+    its owner bind nothing."""
+    assert OWNED == [
+        ("E121", ("routers/auth.py",)),
+        ("E150", ("routers/internal.py",)),
+        ("E152", ("TurnstileWidget.tsx",)),
+        ("E92", ("summary_stages",)),
+        ("E29", ("useWordingReview()", "features/watchlist/useWatchlist.ts", "backend/tests/integration")),
+        ("E68", ("latest_filing_service.py",)),
+        ("E154", ("SegmentedControl.tsx",)),
+        ("E155", ("routers/watchlist.py",)),
+        ("E169", ("ConnectedAccounts.tsx",)),
+        ("E170", ("services/alerts.py",)),
+        ("E30", ("useAlerts(", "features/alerts", "db.query(); session.commit()", "services/sync.py")),
+    ]
+
+
+AUTH = "backend/app/routers/auth.py"
+STAGES = "backend/app/services/summary_stages/"
+ROW_CASES = [
+    # (case, changed files, title, body, commit messages, draft, the rows the failure lists; none: the check passes)
+    ("an-owned-file-unnamed", [AUTH], None, "body", (), False, ["E121 (its owner names `routers/auth.py`) owns " + AUTH]),
+    ("named-in-the-title", [AUTH], "fix(auth): register off the loop (E121)", "body", (), False, None),
+    ("named-in-the-body", [AUTH], None, "Carries E121's register slice.", (), False, None),
+    ("named-in-a-commit-message", [AUTH], None, "body", (("e" * 40, "fix(auth): copy\n\nE121 not carried: copy only"),),
+     False, None),
+    ("other-rows-ids", [AUTH], None, "E1210, XE121 and E12 are other rows", (), False, ["E121 ("]),
+    ("a-directory-owner", [STAGES + "enrichment.py"], None, "body", (), False,
+     ["E92 (its owner names `summary_stages`) owns " + STAGES + "enrichment.py"]),
+    ("a-line-reference-a-trailing-slash-and-a-code-span", [
+        "backend/app/services/latest_filing_service.py", "backend/tests/integration/test_alerts.py",
+        "frontend/features/watchlist/useWatchlist.ts"], None, "body", (), False, ["E68 (", "E29 ("]),
+    ("the-files-other-heads", [
+        "frontend/components/ui/SegmentedControl.tsx", "backend/app/routers/watchlist.py",
+        "frontend/features/settings/components/ConnectedAccounts.tsx", "backend/app/services/alerts.py"], None,
+     "body", (), False, ["E154 (", "E155 (", "E169 (", "E170 ("]),
+    ("a-link-and-code-spans-in-the-owner", ["frontend/features/alerts/hooks/useAlerts.ts", "backend/app/services/sync.py"],
+     None, "body", (), False, ["E30 (its owner names `useAlerts(`, `features/alerts`, `db.query(); session.commit()`, "
+                               "`services/sync.py`) owns frontend/features/alerts/hooks/useAlerts.ts, "
+                               "backend/app/services/sync.py"]),
+    ("every-unnamed-row-listed", [AUTH, "frontend/components/TurnstileWidget.tsx", STAGES + "fetch.py"], None,
+     "E92 is carried here.", (), False, ["E121 (", "E152 ("]),
+    ("three-files-shown-then-a-count", [STAGES + name for name in ("a.py", "b.py", "c.py", "d.py", "e.py")], None,
+     "body", (), False, ["E92 (its owner names `summary_stages`) owns " + STAGES + "a.py, " + STAGES + "b.py, "
+                         + STAGES + "c.py and 2 more"]),
+    ("files-no-row-owns", [
+        "backend/app/routers/oauth.py", "backend/app/services/summary_stages_old.py", "backend/app/routers/auth.py.orig",
+        "backend/app/services/facts/sync.py", "backend/app/routers/users.py", "backend/app/routers/billing.py",
+        "backend/app/routers/admin.py", "backend/app/routers/contact.py", "backend/app/services/ai/summary_finalize.py",
+        "backend/app/routers/text_only.py", "frontend/next.config.js", "frontend/package.json"],
+     None, "body", (), False, None),
+    ("a-name-that-would-start-a-log-line", ["x\n::error::/routers/auth.py"], None, "body", (), False,
+     ["owns x\\n::error::/routers/auth.py"]),  # printed escaped, so the runner reads no workflow command
+    ("on-a-draft", [AUTH], None, "body", (), True, ["E121 ("]),  # reported before the draft failure
+    ("on-an-unread-draft-flag", [AUTH], None, "body", (), None, ["E121 ("]),  # and before an unread flag's
+    ("despite-an-override", [AUTH], None, OVERRIDE_LINE, (), False, ["E121 ("]),  # an override excuses only the wait
+]
+
+
+@pytest.mark.parametrize("case, files, title, body, messages, draft, expected", ROW_CASES,
+                         ids=[row[0] for row in ROW_CASES])
+def test_a_change_to_a_path_an_open_row_leaves_to_its_next_change_fails_until_a_title_body_or_commit_names_each_row(
+        case, files, title, body, messages, draft, expected):
+    comments = [_summary(COMPLETED, "a834193")]  # the head is reviewed, so only the rows decide
+    resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731
+    verdict, message = _decide(HEAD, comments, body, [HEAD], resolve, pr_draft=draft, pr_title=title,
+                               pr_commit_messages=messages, pr_files=files, open_rows=OWNED)
+    if expected is None:
+        assert verdict == "pass", message
+    else:
+        assert verdict == "fail", message
+        assert "open rows of tasks/todo.md" in message and "naming the row" in message
+        assert message.count(") owns ") == len(expected) and all(text in message for text in expected), message
+        assert "\n" not in message
+
+
+def test_a_file_list_at_githubs_cap_holds_every_open_row_that_leaves_a_path_until_each_is_named():
+    """GitHub lists at most 3,000 of a pull request's files, so any file past them may be one a row owns."""
+    comments = [_summary(COMPLETED, "a834193")]
+    resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731
+    verdict, message = _decide(HEAD, comments, "body", [HEAD], resolve, pr_draft=False, pr_files=[AUTH],
+                               pr_files_complete=False, open_rows=OWNED)
+    assert verdict == "fail" and "lists 3,000 changed files, the most GitHub lists" in message
+    assert message.count(") owns ") == len(OWNED) and "E121 (its owner names `routers/auth.py`) owns " + AUTH in message
+    assert "E92 (its owner names `summary_stages`) owns no listed file" in message
+    named = "A sweep of the tree; none carried: " + ", ".join(owned.row for owned in OWNED) + "."
+    assert _decide(HEAD, comments, named, [HEAD], resolve, pr_draft=False, pr_files=[AUTH], pr_files_complete=False,
+                   open_rows=OWNED)[0] == "pass"
+
+
+def test_a_closing_keyword_and_the_commit_cap_report_before_an_unnamed_row():
+    """Each fails the gate whatever the rows, and the merge would close what a closing keyword names."""
+    comments = [_summary(COMPLETED, "a834193")]
+    resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731
+    capped = [f"{n:040x}" for n in range(1, review_gate.COMMIT_LIST_CAP)] + [HEAD]
+    for body, commits, reported in (("Fixes #12.", [HEAD], "closing keyword"), ("body", capped, "250 commits")):
+        verdict, message = _decide(HEAD, comments, body, commits, resolve, pr_draft=False, pr_files=[AUTH], open_rows=OWNED)
+        assert verdict == "fail" and reported in message and "open rows" not in message, message
+
+
+def test_fetch_state_reads_every_changed_file_to_githubs_cap_once_for_a_head(monkeypatch):
+    """A renamed file counts under both its paths; an entry without a path, or a rename without its previous path,
+    fails closed. A short page ends the list, 30 full pages are GitHub's cap and leave it incomplete, and a head's
+    list is kept across polls once the head held through the read."""
+    pull, pulls = {"draft": True, "head": {"sha": HEAD}}, []  # the pull request's reads, unchanged once ``pulls`` is empty
+    reads = []
+
+    def github(path, token):
+        if path == "repos/o/r/pulls/7":
+            return pulls.pop(0) if pulls else pull
+        assert path.startswith("repos/o/r/pulls/7/files?per_page=100&page="), path
+        reads.append(path)
+        return pages.get(int(path.rsplit("=", 1)[1]), [])
+    monkeypatch.setattr(review_gate, "_github", github)
+    monkeypatch.setattr(review_gate, "_paged", lambda path, token: [])
+    pages = {1: [{"filename": AUTH, "status": "modified"},
+                 {"filename": "backend/app/routers/jobs.py", "status": "renamed",
+                  "previous_filename": "backend/app/routers/internal.py"}] + [{"filename": f"f{n}.py"} for n in range(98)],
+             2: [{"filename": "last.py"}]}
+    lists = {}
+    pulls[:] = [pull, {**pull, "head": {"sha": OTHER}}]
+    with pytest.raises(review_gate.SnapshotChanged):
+        review_gate.fetch_state("o/r", "7", "token", lists)
+    assert lists == {}  # a list read while the head moved is never kept
+    reads.clear()
+    state = review_gate.fetch_state("o/r", "7", "token", lists)
+    assert len(reads) == 2  # the short second page ends the list
+    assert state.files[:3] == (AUTH, "backend/app/routers/jobs.py", "backend/app/routers/internal.py")
+    assert len(state.files) == 102 and state.files[-1] == "last.py" and state.files_complete
+    assert lists == {HEAD: (state.files, True)}
+    reads.clear()
+    assert review_gate.fetch_state("o/r", "7", "token", lists) == state and reads == []  # the next poll reads none
+    pages = {page: [{"filename": f"g{page}-{n}.py"} for n in range(100)] for page in range(1, 40)}
+    state = review_gate.fetch_state("o/r", "7", "token")
+    assert len(state.files) == review_gate.FILE_LIST_CAP == 3000 and not state.files_complete and len(reads) == 30
+    for broken, error in (({"status": "added"}, "without a path"),
+                          ({"filename": "b.py", "previous_filename": None}, "without its previous path")):
+        pages = {1: [broken]}
+        with pytest.raises(review_gate.EvidenceError, match=error):
+            review_gate.fetch_state("o/r", "7", "token")
+
+
+def test_main_reads_the_base_checkouts_open_rows_and_fails_closed_without_them(monkeypatch, capsys, tmp_path):
+    """The workflow runs the base branch's script from the base's root, so the rows are the base's tasks/todo.md;
+    without them main stops before it reads GitHub."""
+    assert review_gate.TODO == ROOT / "tasks" / "todo.md"
+    monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
+    monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", "1")
+    monkeypatch.setenv("REVIEW_GATE_POLL_SECONDS", "5")
+    todo = tmp_path / "todo.md"
+    todo.write_text(TODO_ROWS, encoding="utf-8")
+    # The review still runs, and the change to an owned file fails the first read without waiting for it.
+    state = review_gate.State([_summary(RUNNING, "a834193")], "body", [HEAD], False, None, (), CREATED, [], HEAD,
+                              (AUTH,))
+    sleeps = []
+    ticks = iter([0.0, 0.0, 70.0])
+    assert review_gate.main(fetch=lambda: state, sleep=sleeps.append, clock=lambda: next(ticks, 70.0),
+                            wall=lambda: NOW, todo=todo) == 1
+    assert sleeps == [] and "E121 (its owner names `routers/auth.py`)" in capsys.readouterr().out
+    (tmp_path / "latin1.md").write_bytes(b"- [ ] E1 \xe9 DO (next writer of `x.py`)")
+    for unreadable, error in ((tmp_path / "missing.md", "FileNotFoundError"), (tmp_path / "latin1.md", "UnicodeDecodeError")):
+        assert review_gate.main(fetch=lambda: pytest.fail("read GitHub without the rows"), sleep=sleeps.append,
+                                clock=lambda: 0.0, wall=lambda: NOW, todo=unreadable) == 1
+        assert f"tasks/todo.md is unreadable ({error}); failing closed" in capsys.readouterr().out
+
+
+# A span written as a call (`isXbrlCitation()`) names a function, which the gate can never hold. It need not resolve
+# while a code file the row leaves to its next change, outside the test roots, defines the function, so the row holds
+# the function's own file; a row that means only a function's callers names the function outside the backticks. Every
+# other span, a bare name included, must name a tracked file: a misnamed directory, a file's name without its suffix
+# (`summary_stage`, `README`) or a module's name reads like code, and only the writer can say which they meant.
+CALL = re.compile(r"(?P<name>[A-Za-z_$][\w$]*)\(\)")
+# The files that can define a function: Python, JavaScript and TypeScript outside the test roots, which quote and mock
+# source. A function defined under the test roots or in a shell script is not read, so its row moves the call out of
+# the backticks.
+CODE_SUFFIXES = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+TEST_ROOTS = ("backend/tests/", "frontend/tests/")
+# The framework's name, possessive, versions and paths (`Next.js`, `Next's`, `Next 17`, `next.config.js`, `next/font`,
+# `next@17`), and a link's target, say "next" without naming a change.
+FRAMEWORK = re.compile(r"\bNext(?:\.js\b|'s\b|\s+v?\d)|\bnext[./@]\w")
+NEXT = re.compile(r"\bnext\b", re.IGNORECASE)
+LINK_TARGET = re.compile(r"\]\([^)\s]*\)")
+OPEN_ITEM = re.compile(r"- \[ \] \**[A-Z]+\d+\b")
+
+
+def _defines_call(span: str, files: list[str]) -> bool:
+    """Whether ``span`` is a call, `name()`, of a function a code file among ``files`` defines, outside the test roots:
+    a Python def or class, or a JavaScript or TypeScript function, class or constant, declared where a line starts
+    (after `export`, `default`, `declare`, `async` or a wrapping call such as `memo(`). A test quotes and mocks source
+    and a document shows it, so neither defines it, nor does a mid-line string or comment, nor a TypeScript method in
+    a class or an object."""
+    match = CALL.fullmatch(span)
+    if not match:
+        return False
+    definition = re.compile(r"^[ \t]*(?:export[ \t]+(?:default[ \t]+)?)?(?:declare[ \t]+)?(?:async[ \t]+)?"
+                            r"(?:[\w$.]+\()?(?:def|class|function\*?|const|let|var)[ \t]+"
+                            rf"{re.escape(match.group('name'))}(?![\w$])", re.MULTILINE)
+    return any(definition.search((ROOT / file).read_text(encoding="utf-8", errors="replace")) for file in files
+               if file.endswith(CODE_SUFFIXES) and not file.startswith(TEST_ROOTS))
+
+
+def test_every_open_row_that_leaves_a_path_to_its_next_change_names_tracked_files_behind_a_head_the_gate_reads():
+    """The gate holds a change to a path only while the owner names one. A span in a next-change segment that names no
+    tracked file (a typo, a file renamed since the row was written, a module or a directory misnamed) never binds, so
+    each must name one, or be a call of a function that a code file the row leaves to its next change defines, outside
+    the test roots. Nor does the gate bind an owner whose "next" is in a phrase it does not read, or one behind a head
+    it does not read."""
+    todo = (ROOT / "tasks" / "todo.md").read_text(encoding="utf-8")
+    tracked = subprocess.check_output(["git", "ls-files"], cwd=ROOT, text=True).splitlines()
+    stale = []
+    for owned in review_gate.owned_rows(todo):
+        owned_files = {path: [name for name in tracked if review_gate._owns(path, name)] for path in owned.paths}
+        missing = [path for path, files in owned_files.items() if not files]
+        named = [name for files in owned_files.values() for name in files]
+        failing = missing if len(missing) == len(owned.paths) else [
+            path for path in missing if not _defines_call(path, named)]
+        if failing:
+            stale.append(f"{owned.row} ({', '.join(failing)})")
+    assert stale == [], ("these open rows leave work to the next change of a path that names no tracked file, so "
+                         f"review-gate can never hold it: {stale}; name as a path each file whose next change must "
+                         "carry the row, and write a function as `name()`, without its module or class, only where "
+                         "the row also leaves to its next change the code file outside the test roots that defines "
+                         "it: a Python def or class, or a JavaScript or TypeScript function, class or constant, "
+                         "declared at the start of a line; move any other code out of the backticks, a TypeScript "
+                         "method, a shell function and a function defined under the test roots included")
+    # An owner segment that says "next" and names a span in backticks, in a phrase the gate does not bind ("the next edit
+    # of", "the next deploy of"): reword it as a next writer, change or PR, or move the span out of the segment.
+    unbound = [f"{match.group('row')}: {segment.strip()[:60]}" for line in todo.splitlines()
+               for match in [review_gate.OPEN_ROW.match(line)] if match
+               for segment in review_gate._owner_segments(line[match.end():])
+               for prose in [review_gate.CODE_SPAN.sub(" ", segment)]
+               if review_gate.CODE_SPAN.search(segment) and NEXT.search(FRAMEWORK.sub(" ", LINK_TARGET.sub("]", prose)))
+               and not review_gate.NEXT_CHANGE.search(prose)]
+    assert unbound == [], ("these owner segments say next and name a path, but in a phrase review-gate does not "
+                           f"bind: {unbound}; write the next writer of, the next change to or the next PR that "
+                           "changes, or move the path out of the segment")
+    # A parenthetical anywhere in a row whose head the gate does not read, that would leave a path to its next change
+    # were it the row's owner.
+    unread = [line[:72] for line in todo.splitlines() if OPEN_ITEM.match(line) and not review_gate.OPEN_ROW.match(line)
+              and any(review_gate.owned_rows("- [ ] X1 — DO " + line[start:]) for start, char in enumerate(line)
+                      if char == "(")]
+    assert unread == [], ("review-gate reads no owner in these open rows, though a parenthetical in each leaves a path "
+                          f"to its next change: {unread}; write the row as `- [ ] <id> — <DISPOSITION> (<owner>): "
+                          "<text>`")
+
+
 def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatch, capsys):
     monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
     monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", "1")
@@ -303,12 +592,18 @@ def test_fetch_state_reads_the_draft_flag_from_the_pull_request_now_and_reports_
     def paged_read(path, token):
         paged.append(path)
         return commits if path.endswith("/commits") else []
+
+    def listed(path, token, pages):
+        paged.append(path)
+        return [{"filename": "a.py"}], True
     monkeypatch.setattr(review_gate, "_github", github)
     monkeypatch.setattr(review_gate, "_paged", paged_read)
+    monkeypatch.setattr(review_gate, "_listed", listed)
     assert review_gate.fetch_state("o/r", "7", "token") == (
-        [], "body", ["a" * 40, "b" * 40], draft, "title", (("a" * 40, "first"), ("b" * 40, "")), None, [] if draft is False else None, None)
+        [], "body", ["a" * 40, "b" * 40], draft, "title", (("a" * 40, "first"), ("b" * 40, "")), None,
+        [] if draft is False else None, None, ("a.py",), True)
     # The commits come from the pull request's own list, which GitHub caps at 250, not the branch history.
-    assert paged == ["repos/o/r/issues/7/comments", "repos/o/r/pulls/7/commits"] + (
+    assert paged == ["repos/o/r/issues/7/comments", "repos/o/r/pulls/7/commits", "repos/o/r/pulls/7/files"] + (
         ["repos/o/r/issues/7/timeline"] if draft is False else []) + ["repos/o/r/issues/7/comments"]
 
 
@@ -1054,6 +1349,7 @@ def test_fetch_state_reads_trusted_timeline_and_only_current_summary_history(mon
         assert (node, token) == ('IC_latest', 'token')
         return latest['review_history']
     monkeypatch.setattr(review_gate, '_paged', paged)
+    monkeypatch.setattr(review_gate, '_listed', lambda *a: ([], True))
     monkeypatch.setattr(review_gate, '_fetch_history', history)
     state = review_gate.fetch_state('o/r', '7', 'token')
     assert state.created_at == CREATED and state.timeline == READY_EVENTS
@@ -1118,6 +1414,7 @@ def _mock_snapshot(monkeypatch, *, final_changes=None, fresh_extra=()):
             return next(comment_reads)
         return READY_EVENTS if path.endswith("/timeline") else [{"sha": HEAD}]
     monkeypatch.setattr(review_gate, "_paged", paged)
+    monkeypatch.setattr(review_gate, "_listed", lambda *a: ([{"filename": "a.py"}], True))
     monkeypatch.setattr(review_gate, "_fetch_history", lambda *a: comment["review_history"])
 
 

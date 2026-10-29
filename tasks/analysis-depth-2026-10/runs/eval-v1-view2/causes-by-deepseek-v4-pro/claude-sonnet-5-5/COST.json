@@ -1,0 +1,99 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "COST",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2021 revenue grew 17.5% , as net sales rose 18% on a 16% comparable sales increase, with strong non-foods and e-commerce .",
+   "passages": [
+    {
+     "id": "P56",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $28,832 or 18% during 2021. The improvement was attributable to an increase in comparable sales of 16%, and sales at new warehouses opened in 2020 and 2021. While sales in all core merchandise categories increased, sales were particularly strong in non-foods. Sales increases were also strong in our warehouse ancillary and other businesses, predominantly e-commerce and gasoline. Certain merchandise categories were impacted by inflation higher than what we have experienced in recent years."
+    },
+    {
+     "id": "P54",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Comparable sales increased 16% during 2021 and were positively impacted by increases in shopping frequency and average ticket. There was an increase of 44% in e-commerce comparable sales in 2021, driven by an increase of 80% in the first half of the year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P56 attributes 18% net sales growth to 16% comparable sales, new warehouses, strong non-foods and e-commerce."
+  },
+  {
+   "sentence": "FY2022 revenue grew 15.8% , attributed to a 14% comparable sales increase, new warehouses and higher inflation than in earlier years .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $30,678 or 16% during 2022. The improvement was attributable to an increase in comparable sales of 14%, and sales at new warehouses opened in 2021 and 2022. Sales increased $15,830 in core merchandise categories and $14,848 in warehouse ancillary and other businesses. The rate of increase was strongest in our gasoline, business centers, and travel businesses. Sales continued to be impacted by inflation, higher than what we experienced in previous fiscal years."
+    }
+   ],
+   "label": "supported",
+   "reason": "P42 attributes 16% net sales growth to 14% comparable sales, new warehouses, and higher inflation."
+  },
+  {
+   "sentence": "FY2026 net sales rose 10%, driven by comparable sales up 8% (average ticket up 5%, frequency up 3%) and 25 net new warehouses .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $27,335 or 10% during 2026. The improvement was primarily attributable to an increase in comparable sales of $22,457 or 8%. Comparable sales were positively impacted by increases of 5% in average ticket and 3% in shopping frequency. The remaining increase in net sales was driven by sales at the 25 net new warehouses opened since the end of 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 attributes 10% net sales growth to 8% comparable sales (5% ticket, 3% frequency) and 25 new warehouses."
+  },
+  {
+   "sentence": "In FY2026 cost of revenue moved operating margin by -0.0pp and SG&A by +0.1pp ; SG&A fell 10 basis points as a share of sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "SG&A expenses as a percentage of net sales decreased 10 basis points compared to 2025. SG&A expenses as a percentage of net sales excluding the impact of gasoline price inflation was 9.26%, an increase of one basis point. Changes in foreign currencies relative to the U.S. dollar increased SG&A expenses by $126, attributable to our Other International and Canadian operations. SG&A expenses as a percentage of net sales increased in our Canadian and Other International segments and were flat in our U.S. segment compared to 2025."
+    }
+   ],
+   "label": "partial",
+   "reason": "P9 supports SG&A fell 10 bps as share of sales, but no cost of revenue movement is cited."
+  },
+  {
+   "sentence": "Gross margin percentage fell three basis points in FY2026 as faster growth in gasoline and pharmacy shifted sales mix .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin percentage decreased three basis points. Excluding the impact of gasoline price inflation on net sales, gross margin percentage was 11.22%, an increase of 10 basis points. This increase was positively impacted by 19 basis points in warehouse ancillary and other businesses, primarily gasoline and pharmacy, offset by an 11 basis point decrease in core merchandise categories. The majority of the increase in warehouse ancillary and other businesses and the decrease in core merchandise categories was due to the change in sales mix as warehouse ancillary and other businesses sales grew at a faster rate than core merchandise categories. Core merchandise categories were also negatively impacted by our co-branded credit card program as a result of reward costs associated with higher gasoline sales. IEEPA tariff refunds, net of investment in price reductions for members, positively impacted gross margin by three basis points."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 states gross margin fell three bps due to faster growth in gasoline and pharmacy shifting sales mix."
+  },
+  {
+   "sentence": "The window's largest margin rise was +0.3pp in FY2024 ; cost of revenue added 0.4pp  as charter shipping charges did not recur .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin percentage increased 35 basis points. Excluding the impact of gasoline price deflation on net sales, gross margin percentage was 10.88%, an increase of 31 basis points. This increase was positively impacted by: 19 basis points due to warehouse ancillary and other businesses, primarily e-commerce and gasoline; 16 basis points due to the absence of charges related to the discontinuation of our charter shipping activities that were recorded in the first and third quarters of 2023; and three basis points due to a LIFO benefit. This increase was partially offset by four basis points in our core merchandise categories and three basis points due to increased 2% rewards."
+    }
+   ],
+   "label": "partial",
+   "reason": "P24 supports +35 bps gross margin increase and absence of charter shipping charges, but not +0.3pp largest rise."
+  },
+  {
+   "sentence": "Operating cash flow rose from $13,335 million to $15,817 million on higher operating income and faster inventory turns with better supplier terms .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cash flow provided by operations is primarily from net sales and membership fees. Cash flow used in operations generally consists of payments to merchandise suppliers, warehouse operating costs, including wages and employee benefits, utilities, credit and debit card processing fees, and operating leases. Cash used in operations also includes payments for income taxes. Changes in our net investment in merchandise inventories (the difference between merchandise inventories and accounts payable) is impacted by several factors, including inventory levels and turnover, payment terms with suppliers, and early payments to obtain discounts. Net cash provided by operating activities totaled $15,817 in 2026, compared to $13,335 in 2025. The increase was primarily due to higher operating income, as well as reduced net investment in merchandise inventories. The latter was a result of faster inventory turns and improved payment terms with suppliers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 attributes operating cash flow increase to higher operating income and faster inventory turns with better supplier terms."
+  }
+ ],
+ "cost_usd": 0.00169
+}

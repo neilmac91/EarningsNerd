@@ -51,7 +51,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { BellIcon, LockSimpleIcon, WarningCircleIcon } from '@/lib/icons'
-import { Button, buttonVariants } from '@/components/ui'
+import { Button, GuidanceIconWell, buttonVariants } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import type { BlockedState, EarningsAlertsApi } from '../hooks/useCalendar'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
@@ -107,7 +107,7 @@ export function AlertBell({
         // opacity would fade the focus ring the focusable bell still shows (DESIGN_SYSTEM §4).
         on
           ? 'bg-brand-weak text-brand-strong aria-disabled:text-brand-strong/60 dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/60'
-          : 'text-text-tertiary-light hover:bg-brand-weak hover:text-brand-strong aria-disabled:text-text-tertiary-light/60 dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:aria-disabled:text-text-secondary-dark/60',
+          : 'text-text-tertiary-light hover:bg-brand-weak hover:text-brand-strong aria-disabled:text-text-tertiary-light/60 dark:text-text-tertiary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:aria-disabled:text-text-tertiary-dark/60',
         // `checking` is natively disabled, so the bell cannot hold focus then and keeps the element fade.
         'disabled:cursor-progress disabled:opacity-60 aria-disabled:cursor-progress',
         className,
@@ -344,15 +344,9 @@ export function BellPopover({
         className="fixed overflow-y-auto scroll-py-4 rounded-lg outline-none border border-border-light bg-panel-light p-4 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
       >
         <div className="flex items-start gap-3">
-          <span
-            aria-hidden="true"
-            className={cx(
-              'flex h-8 w-8 flex-none items-center justify-center rounded-full border',
-              isError
-                ? 'border-error-light/25 bg-error-light/10 text-error-light dark:border-error-dark/25 dark:bg-error-dark/10 dark:text-error-dark'
-                : 'border-brand-border bg-brand-weak text-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark',
-            )}
-          >
+          {/* GuidanceCard's well, at 32px: the error's tint for a failed toggle, the brand's for a sign-in or upgrade
+              prompt (E196 (4)). */}
+          <GuidanceIconWell aria-hidden="true" variant={isError ? 'error' : 'empty'} className="h-8 w-8">
             {isError ? (
               <WarningCircleIcon className="h-4 w-4" />
             ) : blocked.kind === 'signin' ? (
@@ -360,7 +354,7 @@ export function BellPopover({
             ) : (
               <BellIcon className="h-4 w-4" />
             )}
-          </span>
+          </GuidanceIconWell>
           <div className="min-w-0 flex-1">
             {/* A failed toggle lands asynchronously, so it is also announced as an alert: focus may
                 not move in (the user moved on), and when it does, the focus speech can cut the alert

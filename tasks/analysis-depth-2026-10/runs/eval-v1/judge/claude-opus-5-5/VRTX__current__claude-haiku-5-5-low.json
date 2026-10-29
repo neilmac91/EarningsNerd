@@ -1,0 +1,86 @@
+{
+ "ticker": "VRTX",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "A mostly restates table values. It also claims 'no trend flags' despite the FY2024 loss, which is misleading. B ties its causal claims to quoted filings: the Alpine acquired R&D and its effect on the tax rate, the 2018 valuation-allowance release, and SG&A guidance. It discloses unexplained gaps in receivables, inventory and capex, and adds product mix, peer context and numeric watch thresholds. B's minor flaws are bracketed flag references in prose and some jargon."
+   },
+   "cost_usd": 0.091041,
+   "latency_s": 11.912,
+   "input_tokens": 10455,
+   "output_tokens": 654,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"strong\", \"rationale\": \"A mostly restates table values. It also claims 'no trend flags' despite the FY2024 loss, which is misleading. B ties its causal claims to quoted filings: the Alpine acquired R&D and its effect on the tax rate, the 2018 valuation-allowance release, and SG&A guidance. It discloses unexplained gaps in receivables, inventory and capex, and adds product mix, peer context and numeric watch thresholds. B's minor flaws are bracketed flag references in prose and some jargon.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "A's causal claims match the cited filings: the 2018 valuation-allowance release, the Alpine AIPR&D charge behind the FY2024 loss and 315.5% tax rate, and the buyback-driven cash decline. It also says where no passage explains a figure. B only restates table values. It reports no red flags despite a FY2024 loss and an inventory build. A's minor flaws are leaked flag markers and an unflagged low-base 95.6% CAGR."
+   },
+   "cost_usd": 0.095425,
+   "latency_s": 13.174,
+   "input_tokens": 10453,
+   "output_tokens": 874,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"strong\", \"rationale\": \"A's causal claims match the cited filings: the 2018 valuation-allowance release, the Alpine AIPR&D charge behind the FY2024 loss and 315.5% tax rate, and the buyback-driven cash decline. It also says where no passage explains a figure. B only restates table values. It reports no red flags despite a FY2024 loss and an inventory build. A's minor flaws are leaked flag markers and an unflagged low-base 95.6% CAGR.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.186466
+}

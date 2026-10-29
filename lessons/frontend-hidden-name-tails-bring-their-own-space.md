@@ -25,6 +25,14 @@ with a hidden tail, here `Open filing{' '}<span className="sr-only">(10-K, acces
 `frontend/tests/unit/filing-supersession.spec.tsx` asserts both rows' whole names with
 `toHaveAccessibleName`; the app-wide gate, which needs a residue list, is tasks/todo.md E68.
 
+**Recurrence (2026-10-29, the invite share panel, E243)**: chief design's review of #1784 found "Copy for
+DM/LinkedIn" named "Copy invite message and link for a DM or LinkedIn" and "Copy message" named "Copy invite
+message and link", and the panel's toggle, which shows "Share invite" or "More", was named "Show share options"
+or "Hide share options". Every control in `frontend/features/admin/components/ShareInvite.tsx` now takes no
+`aria-label`: it keeps its words, the toggle's state is its `aria-expanded`, and "More" extends its name with a
+hidden tail, "More{' '}<span className="sr-only">share options</span>". `frontend/tests/unit/shareInviteNames.spec.tsx`
+holds each control's whole name to begin with the words it shows, with the platform share sheet and without.
+
 **Evidence**: found on this branch's CLEAN-R2 links (`e97f70ff`, in
 `frontend/app/company/[ticker]/page-client.tsx`, since replaced by #1147's filings index): the first
 run of `tests/e2e/company-filing-rows.spec.ts` against the colon tail found no link named "Open

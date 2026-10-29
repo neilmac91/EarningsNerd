@@ -149,6 +149,11 @@ class Settings(BaseSettings):
     # Notifications must not be routed to an outbound-only Resend sender.
     CONTACT_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
     FEEDBACK_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
+    # Uploads remain closed until the private bucket and cleanup job are verified. Turning
+    # this off stops new uploads; authorized reads and cleanup retain the bucket setting.
+    FEEDBACK_MEDIA_ENABLED: bool = False
+    FEEDBACK_MEDIA_BUCKET: str = ""
+    FEEDBACK_MEDIA_RETENTION_DAYS: int = Field(default=180, ge=1, le=180)
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
     # The site's origin that answers without a redirect (the apex redirects to it). Mail links,
     # sign-in redirects and the mail header's tile are built on it, and sent mail keeps the whole
@@ -512,13 +517,6 @@ class Settings(BaseSettings):
     # explicit env override remains supported. SIC backfill/remediation is a separate founder run.
     USE_STATEMENT_FINANCIALS: bool = True
 
-    # Pro summary fair-use ceiling. Pro is "unlimited" as a BILLING promise (entitlements keeps
-    # monthly_summary_limit=None so the plan API never advertises a cap), but a single account —
-    # compromised, scripted, or reverse-trial-farmed — could otherwise drive thousands of fresh
-    # LLM generations/day. This is an INVISIBLE anti-abuse guardrail (degrade with a generic
-    # message, never an upsell), mirroring COPILOT_MONTHLY_QUESTION_CAP / ANALYSIS_MONTHLY_CAP.
-    # Set generously above any real human's monthly usage; 0 disables the ceiling entirely.
-    PRO_SUMMARY_MONTHLY_CAP: int = 300
     # Per-transaction PostgreSQL lock waits for completed-use counter writes; not a total deadline.
     USAGE_COUNTER_LOCK_TIMEOUT_MS: int = Field(default=3000, gt=0, le=10_000)
     # E12b: deadline for each schema step the serving container runs at startup (create_all,
@@ -544,7 +542,7 @@ class Settings(BaseSettings):
     # distinct filings would thrash the core and inflate everyone's latency toward the pipeline
     # timeout. This semaphore queues excess generations instead. Process-local (same scope as the
     # in-flight dedup + L1 caches); the dedup already collapses concurrent hits on the SAME filing.
-    # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0.
+    # <= 0 disables the ceiling (unbounded).
     MAX_CONCURRENT_GENERATIONS: int = 6
 
     # AI Recovery Settings
@@ -576,13 +574,11 @@ class Settings(BaseSettings):
     COPILOT_HISTORY_MAX_ITEMS: int = 50
     COPILOT_HISTORY_ITEM_CHAR_CAP: int = 8000
 
-    # Multi-Period Analysis (Pro flagship): N-period trend datasets + grounded AI narrative.
-    #   ANALYSIS_MONTHLY_CAP          — fair-use soft cap on FRESH generations per Pro user per month
-    #                                     (cached re-serves are free and unmetered; Copilot philosophy).
+    # Multi-Period Analysis (Pro flagship): N-period trend datasets + grounded AI narrative. Its
+    # monthly fair-use ceiling is a plan fact, entitlements.ANALYSIS_MONTHLY_CAP (D-050).
     #   ANALYSIS_MAX_TOKENS           — max completion tokens for the narrative.
     #   ANALYSIS_MAX_ANNUAL_PERIODS   — most fiscal years selectable in annual mode.
     #   ANALYSIS_MAX_QUARTERLY_PERIODS— most quarters selectable in quarterly mode.
-    ANALYSIS_MONTHLY_CAP: int = 100
     ANALYSIS_MAX_TOKENS: int = 3200
     ANALYSIS_MAX_ANNUAL_PERIODS: int = 10
     ANALYSIS_MAX_QUARTERLY_PERIODS: int = 12

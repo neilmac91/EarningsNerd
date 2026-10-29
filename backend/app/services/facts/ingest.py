@@ -56,18 +56,18 @@ def _persist_companyfacts_payload(
 ) -> dict[str, Any]:
     """Normalize and persist one fetched payload in the caller's short transaction, deleting nothing: the
     upsert, then the currency step (``demote_convenience_rows``), both main's for a sync in USD alone; else a
-    newer filing's row holds its key on both (``protected_rows``), and a proven switch upserts nothing."""
+    newer filing's row holds its key on both (``protected_rows``), and a proven switch writes nothing."""
     company_id = company.id  # the commit expires the row; reading it back would check out again
     facts, meta = normalize_companyfacts(company_id, payload, financial_sic=_is_financial_sic(company.sic))
-    view = payload_view(payload)  # pure: the payload's own pick and the filings it names
-    guard = protected_rows(db, facts, view)  # takes the company's row lock, as the upsert does
-    result = upsert_facts_bulk(db, [] if guard.switch else facts, commit=False, protected=guard.kept)  # [] is all-zero
+    guard = protected_rows(db, facts, view := payload_view(payload))  # the view is pure; this takes the row lock
+    batch, history = ([], []) if guard.switch else (facts, meta["history"])  # a proven switch writes nothing
+    result = upsert_facts_bulk(db, batch, history=history, commit=False, protected=guard.kept)  # [] is all-zero
     result["demoted"] += demote_convenience_rows(db, facts, view, guard)
     company.facts_synced_at = utcnow()
     db.commit()
     logger.info(
-        "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s ifrs=%s",
-        company_id, result["inserted"], result["skipped"], result["demoted"],
+        "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s history=%s ifrs=%s",
+        company_id, result["inserted"], result["skipped"], result["demoted"], result["history"],
         meta["unsupported_ifrs"],
     )
     return {

@@ -135,7 +135,7 @@ def extraction_failure(extraction_error: Exception, company_name: str, filing_ty
     logger.error(f"Structured extraction error: {error_msg}")
     return {
         "status": "error",
-        "message": "We couldn't generate this summary just now. Please try again shortly.",
+        "message": "We could not generate this summary. Try again shortly.",
         "summary_title": f"{company_name} {filing_type_key} Filing Summary",
         "sections": [],
         "insights": {
@@ -574,7 +574,7 @@ def determine_status(run: SummaryRun) -> None:
     # the provider returned no covered structured section at all.
     if not run.sections and run.covered_sections == 0:
         run.status = "error"
-        run.message = "Unable to retrieve this filing at the moment — please try again shortly."
+        run.message = "We could not generate this summary. Try again shortly."
 
     # If processing stopped mid-way but we have some sections, mark as partial
     if len(run.sections) > 0 and coverage_ratio < 0.7:

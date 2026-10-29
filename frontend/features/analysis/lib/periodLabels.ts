@@ -5,6 +5,9 @@ const WINDOW = new RegExp(String.raw`^(${ANALYSIS_PERIOD_KEY})\.\.(${ANALYSIS_PE
 const WINDOW_KEY = new RegExp(String.raw`\b(${ANALYSIS_PERIOD_KEY})\.\.(${ANALYSIS_PERIOD_KEY})\b`, 'g')
 const QUARTER_KEY = /\b\d{4}Q[1-4]\b/g
 
+/** A run's mode as the page names it: the results header's "Annual FY2016–FY2025" and the landing demo's title bar. */
+export const ANALYSIS_MODE_LABEL = { annual: 'Annual', quarterly: 'Quarterly' } as const
+
 /** Presentation only: API keys, snapshot identity and period selection keep their original keys. A window key
  *  ("FY2016..FY2025", a CAGR's basis window) reads as its range (formatAnalysisWindow). */
 export function formatAnalysisPeriod(period: string, style: 'long' | 'short' = 'long'): string {

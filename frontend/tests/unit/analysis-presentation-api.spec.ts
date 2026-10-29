@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import api from '@/lib/api/client'
 import {
@@ -5,7 +6,7 @@ import {
   type AnalysisCitation, type AnalysisCompletion, type AnalysisDataset,
 } from '@/features/analysis/api/analysis-api'
 import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
-import { DataNotesRejection } from '@/features/analysis/lib/dataNotesContract'
+import { DataNotesRejection, decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
 import {
   decodeNarrativePresentation, structuredNarrativeParts,
   type NarrativePresentation,
@@ -56,6 +57,13 @@ const presentation: NarrativePresentation = {
   }],
 }
 const range = { mode: 'quarterly' as const, start_period: '2026Q2', end_period: '2026Q2' }
+// Each data notes version the page reads beyond version 1, with the pull request that taught the page to read it. A
+// version move lands its reader first, in a pull request of its own, and DATA_NOTES_VERSION moves only once that one
+// has deployed. Vercel deploys a merge minutes before deploy-backend, so a reader shipped beside its writer leaves every
+// tab opened before the Vercel deploy refusing the server's completions until it is reloaded. Landing the reader first
+// narrows that to a tab opened before the reader's deploy and still open when the server moves
+// (lessons/arch-a-data-notes-version-lands-its-reader-first.md).
+const READERS: Record<number, string> = { 2: '#1641', 3: '#1769' }
 
 function serve(frame: Record<string, unknown>) {
   let sent = false
@@ -81,7 +89,13 @@ describe('analysis presentation API admission', () => {
     expect(report.series).toBe(dataset.series)
   })
 
-  it.each([null, undefined, { ...notes, version: 2 }, { ...notes, notes: [] }])(
+  it.each([2, 3] as const)('admits a version %i report envelope, which has the same shape as version 1', async (version) => {
+    const later = { ...notes, version }
+    vi.spyOn(api, 'post').mockResolvedValue({ data: { ...dataset, data_notes: later } })
+    expect((await getAnalysisDataset('META', range)).data_notes).toEqual(later)
+  })
+
+  it.each([null, undefined, { ...notes, version: 4 }, { ...notes, notes: [] }])(
     'rejects present malformed report metadata (%j) instead of choosing a clean fallback', async (data_notes) => {
       vi.spyOn(api, 'post').mockResolvedValue({ data: { ...dataset, data_notes } })
       await expect(getAnalysisDataset('META', range)).rejects.toThrow('Invalid analysis data notes')
@@ -111,9 +125,47 @@ describe('analysis presentation API admission', () => {
     expect(reader.cancel).toHaveBeenCalledTimes(1)
   })
 
+  it('admits a version 2 or 3 presentation as it admits version 1, so a tab open across a server change keeps working', async () => {
+    const v2: NarrativePresentation = { ...presentation, data_notes_version: 2, notes: { ...notes, version: 2 } }
+    const v3: NarrativePresentation = { ...presentation, data_notes_version: 3, notes: { ...notes, version: 3 } }
+    for (const [envelope, report] of [
+      [presentation, dataset], [v2, { ...dataset, data_notes: v2.notes }], [v3, { ...dataset, data_notes: v3.notes }],
+    ] as const) {
+      serve({ type: 'complete', ...completion, narrative_presentation: envelope })
+      const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
+      await streamAnalysis('META', range, handlers, undefined, report)
+      expect(handlers.onError).not.toHaveBeenCalled()
+      expect((handlers.onComplete.mock.calls[0][0] as AnalysisCompletion).narrative_presentation).toEqual(envelope)
+    }
+  })
+
+  it('reads exactly the data notes versions with a recorded reader, the server\'s among them', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reads = (version: number) => {
+      // Typed as a wire envelope so a version the page does not know still reaches the decoders' own checks.
+      const versioned = { ...notes, version } as unknown as DataNotesWire
+      const report: AnalysisDataset = { ...dataset, data_notes: versioned }
+      const decodes = (decode: () => unknown) => { try { decode(); return true } catch { return false } }
+      const envelope = decodes(() => decodeDataNotes(versioned, report))
+      const narrative = decodes(() => decodeNarrativePresentation(
+        { ...presentation, data_notes_version: version, notes: versioned }, completion, report))
+      expect(narrative, `the report and narrative decoders disagree on data notes version ${version}`).toBe(envelope)
+      return envelope
+    }
+    const recorded = [1, ...Object.keys(READERS).map(Number)]
+    expect(Array.from({ length: Math.max(...recorded) + 3 }, (_, version) => version).filter(reads), 'a decoder reads a '
+      + 'data notes version with no recorded reader: add the pull request that teaches the page that version to READERS. '
+      + 'It merges and deploys before the pull request that moves DATA_NOTES_VERSION').toEqual(recorded)
+    const source = readFileSync('../backend/app/services/trend_analysis/data_notes.py', 'utf8')
+    const server = Number(/^DATA_NOTES_VERSION = (\d+)$/m.exec(source)?.[1])
+    expect(recorded, `the server writes data notes version ${server}, and no recorded reader teaches the page it: land `
+      + 'the reader first, in a pull request of its own, and move DATA_NOTES_VERSION once that one has deployed').toContain(server)
+  })
+
   const invalidEnvelopes = [
     ['missing envelope', null],
     ['unknown version', { ...presentation, format_version: 'analysis-narrative-v2' }],
+    ['unknown data notes version', { ...presentation, data_notes_version: 4 }],
     ['different snapshot', { ...presentation, snapshot_id: 'another' }],
     ['incorrect offset encoding', { ...presentation, offset_encoding: 'code-points' }],
     ['altered source text', { ...presentation, evidence: [{ ...presentation.evidence[0], tail: { ...presentation.evidence[0].tail, text: tail + '.' } }] }],

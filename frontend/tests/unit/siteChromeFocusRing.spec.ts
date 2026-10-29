@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
@@ -9,7 +9,8 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { countControlClass, type CountControlKind } from '@/components/ui/countControl'
 import { inputClasses, type InputClassesOptions } from '@/components/ui/Input'
-import { bindingResolver, type Binding } from './astBindings'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
+import { bindingResolver, containerEscape, type Binding } from './astBindings'
 import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
 
 /**
@@ -36,16 +37,23 @@ import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
  * fails closed. `countControlClass(…)` imported from `@/components/ui` (the barrel or components/ui/countControl.ts, under
  * any local name, a namespace member included) is read as the classes the recipe itself returns for the kind
  * it names: the spec calls the recipe, so the ring is read off it, not trusted by name, and a kind the scan
- * cannot read counts as the classes every kind countControl.ts declares shares. A `const` the file declares
+ * cannot read counts as the classes every kind countControl.ts declares shares. `sourceTraceChipClass(…)`, the
+ * Trace-to-Source chip's recipe (features/filings/lib/sourceTraceChip.ts), is read the same way, for the state
+ * the call names or, where it cannot read the state, the classes both share. A `const` the file declares
  * (at module level or in the function that renders the control) is read as its initializer, read the same
  * way: `const RING = '…'` composed into `cx(…, RING)`, or `const LINK = cx('…', countControlClass('link'))`
- * written as the whole className. Anything else (a `let`, a parameter, an import, a field, a call to any
- * other function) is unreadable: as the whole className it fails, since the ring has to be visible in the
- * file or come from a recipe the scan reads; as a part (a template's `${…}`, a conditional, an argument of
- * `cx(…)` the scan cannot read) it is dynamic and ignored, so the triple must sit in what the scan reads.
- * A props spread fails too, on any element, since it may supply a tabIndex or a className; the one spread
- * the scan reads is a component's own rest props passed to the element that takes its className, as the DS
- * primitives write it (see ownRestProps). Three natively tabbable shapes fail whatever their className, since the
+ * written as the whole className; so is a `const` it imports by name from another of the app's modules, read
+ * in that module (`IDENTITY_LINK` from FilingIdentity, which composes its own `FOCUS`). A condition is read as
+ * the classes both its branches carry, and a template or a `+` join as the string it builds, a class glued to a
+ * part the scan cannot read dropped (joinedTokens). Anything else (a `let`, a parameter, a default or namespace
+ * import, a field, a call to any other function) is unreadable: as the whole className it fails, since the
+ * ring has to be visible in the file or come from a recipe the scan reads; as a part (an argument of `cx(…)` the
+ * scan cannot read) it is dynamic and ignored, so the triple must sit in what the scan reads.
+ * A props spread fails too, on any element, since it may supply a tabIndex or a className. The scan reads two:
+ * a component's own rest props passed to the element that takes its className, as the DS primitives write it
+ * (see ownRestProps), and a plain object the file declares as a `const`, of named entries none of which decides
+ * focus, that nothing writes after it is made (see plainSpread), whose `className` it reads as the element's
+ * where no later one overrides it. Three natively tabbable shapes fail whatever their className, since the
  * browser focuses something no class on them reaches (see unstylableStop): an <iframe> in the Tab order,
  * <audio> or <video> with `controls`, and a <details> with no <summary> of its own.
  *
@@ -104,26 +112,14 @@ const PAGE_ROOTS = routeFiles('app', ['page.tsx'], ROOT)
 const RING_RESIDUE: Record<string, number> = {
   // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
   // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
-  'features/analysis/components/DataNotesLink.tsx': 1, // its button's class is sourceTraceChipClass, imported from features/filings/lib/sourceTraceChip, which carries the ring; the scan does not read across files (review-checked)
   'features/analysis/components/NarrativePane.tsx': 1, // Markdown renderer props spread on p, li, strong, em and td, which the scan cannot read (no Tab stop)
-  'features/analysis/components/TrendCharts.tsx': 17, // chart props spreads the scan cannot read
-  'features/analysis/lib/periodAxis.tsx': 2, // chart tick props spread on its SVG text, which the scan cannot read (no Tab stop)
-  'features/companies/components/CompanyIdentity.tsx': 2, // its crumb and link take IDENTITY_CRUMB and IDENTITY_LINK, recipes imported from FilingIdentity, which the scan does not read across files (#1292 ringed them there; review-checked)
-  'features/filings/components/FilingsHistoryNote.tsx': 1, // its link's class is IDENTITY_LINK, imported from FilingIdentity, which the scan does not read across files (#1292 ringed it through that recipe; review-checked)
-  'features/filings/components/SourceTrace.tsx': 4, // brand-filing-page
-  'features/filings/components/copilot/CitationChip.tsx': 3, // brand-copilot
-  'features/filings/components/copilot/CopilotMessage.tsx': 11, // brand-copilot
-  'features/filings/components/copilot/PaneResizer.tsx': 1, // brand-copilot
-  'features/filings/components/copilot/ReaderTable.tsx': 2, // brand-copilot (Markdown renderer props spreads)
-  'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
+  'features/filings/components/copilot/CopilotMessage.tsx': 11, // Markdown renderer props spreads the scan cannot read; their one Tab stop, the answer's link, takes the ring from globals.css's prose-link rule (D-030, prose-links.spec.ts)
+  'features/filings/components/copilot/ReaderTable.tsx': 2, // two spreads the scan cannot read: the scroll box's own region attributes and the Markdown renderer's props on its table; the box carries the ring when it is a region
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
-  'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
-  'features/marketing/components/TraceToSourceDemo.tsx': 1, // its one stop is the source chip, whose className is sourceTraceChipClass(), a recipe that carries the ring and the scan does not read (brand-filing-page owns SourceTrace; E143 checked it)
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
-  'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 18, stops: 56 }
+const RING_RESIDUE_MAX = { files: 6, stops: 20 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
@@ -275,21 +271,80 @@ function countControlTokens(arg: ts.Expression | undefined): string[] {
   return lists[0].filter((token) => lists.every((list) => list.includes(token)))
 }
 
-/** What a file's class expressions are read with: its bindings, to follow a `const` to its initializer, and the
-    count control's and the field's recipes under the names the file imports them as. */
+/** The Trace-to-Source chip's recipe, under the module a file imports it from (`moduleKey`'s form). */
+const SOURCE_TRACE_IMPORTS = { 'features/filings/lib/sourceTraceChip': ['sourceTraceChipClass'] }
+/** The classes a `sourceTraceChipClass(…)` call returns: the recipe's own, called with the state the call names (none or
+    `false`, the chip at rest; `true`, the chip whose passage the pane shows), or, for a state the scan cannot read
+    (`sourceTraceChipClass(selected)`), the classes both states share. */
+function sourceTraceTokens(arg: ts.Expression | undefined): string[] {
+  if (!arg || arg.kind === ts.SyntaxKind.FalseKeyword) return splitClasses(sourceTraceChipClass(false))
+  if (arg.kind === ts.SyntaxKind.TrueKeyword) return splitClasses(sourceTraceChipClass(true))
+  const [rest, selected] = [false, true].map((state) => splitClasses(sourceTraceChipClass(state)))
+  return rest.filter((token) => selected.includes(token))
+}
+
+/** What a file's class expressions are read with: its bindings, to follow a `const` to its initializer, a `const` it
+    imports from another module (importedConst), and the count control's, the trace chip's and the field's recipes under
+    the names the file imports them as. */
 interface ClassContext {
   resolve: (ref: ts.Identifier) => Binding | undefined
+  importedConst: (ref: ts.Identifier) => { decl: ts.VariableDeclaration; init: ts.Expression; ctx: ClassContext } | undefined
   isCountControl: (callee: ts.Expression) => boolean
+  isSourceTraceChip: (callee: ts.Expression) => boolean
   isButtonFactory: (callee: ts.Expression) => boolean
   isFieldFactory: (callee: ts.Expression) => boolean
 }
+/** The modules an imported const is read in, parsed once, and the context each is read with. */
+const MODULES = new Map<string, ts.SourceFile>()
+const CONTEXTS = new Map<string, ClassContext>()
 const classContext = (sf: ts.SourceFile): ClassContext => ({
   resolve: bindingResolver(sf),
+  importedConst: importedConstReader(sf),
   isCountControl: importedName(sf, COUNT_CONTROL_IMPORTS),
+  isSourceTraceChip: importedName(sf, SOURCE_TRACE_IMPORTS),
   isButtonFactory: buttonFactory(sf),
   // By name only, as the app-wide field clause reads it: a namespace call (`UI.inputClasses()`) is unreadable.
   isFieldFactory: importedName(sf, FACTORY_IMPORTS, false),
 })
+
+/**
+ * A `const` a file imports by name from another of the app's modules (`import { IDENTITY_LINK } from
+ * '@/features/filings/components/FilingIdentity'`), as that module declares and exports it at its top level, with that
+ * module's own context to read its initializer in: its own consts and imports, as its own file reads them. A name
+ * with a local binding, a namespace member, a default import, a re-export (a barrel's `export { … } from`), a `let`
+ * or anything but an exported `const` is not one: undefined, so the reference stays unreadable.
+ */
+function importedConstReader(sf: ts.SourceFile): ClassContext['importedConst'] {
+  const imports = new Map<string, { file: string; name: string }>()
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || st.importClause?.isTypeOnly) continue
+    const named = st.importClause?.namedBindings
+    const spec = st.moduleSpecifier.text
+    if (!named || !ts.isNamedImports(named) || !(spec.startsWith('@/') || spec.startsWith('.'))) continue
+    const key = moduleKey(sf.fileName, spec)
+    const file = [`${key}.ts`, `${key}.tsx`].find((candidate) => existsSync(path.join(ROOT, candidate)))
+    if (!file) continue
+    for (const el of named.elements) if (!el.isTypeOnly) imports.set(el.name.text, { file, name: (el.propertyName ?? el.name).text })
+  }
+  const resolve = bindingResolver(sf)
+  return (ref) => {
+    const imported = imports.get(ref.text)
+    if (!imported || resolve(ref)) return undefined
+    let target = MODULES.get(imported.file)
+    if (!target) MODULES.set(imported.file, (target = parse(readFileSync(path.join(ROOT, imported.file), 'utf8'), imported.file)))
+    for (const st of target.statements) {
+      if (!ts.isVariableStatement(st) || !(st.declarationList.flags & ts.NodeFlags.Const)) continue
+      if (!st.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue
+      for (const decl of st.declarationList.declarations) {
+        if (!ts.isIdentifier(decl.name) || decl.name.text !== imported.name || !decl.initializer) continue
+        let ctx = CONTEXTS.get(imported.file)
+        if (!ctx) CONTEXTS.set(imported.file, (ctx = classContext(target)))
+        return { decl, init: decl.initializer, ctx }
+      }
+    }
+    return undefined
+  }
+}
 
 /** The classes an `inputClasses(…)` call returns: the field recipe's own, called with the options the call writes
     (none, or an object literal whose every option is a boolean, a string or, for `className`, classes the scan
@@ -317,35 +372,50 @@ function fieldFactoryTokens(arg: ts.Expression | undefined, ctx: ClassContext): 
 }
 
 /** The static class tokens of a className attribute, `'factory'` for buttonVariants(…), or null if unreadable. */
-function classTokens(init: ts.JsxAttributeValue | undefined, ctx: ClassContext): string[] | 'factory' | null {
+function classTokens(init: ts.JsxAttributeValue | ts.Expression | undefined, ctx: ClassContext): string[] | 'factory' | null {
   if (!init) return null
   const expr = ts.isJsxExpression(init) ? init.expression : init
   return expr ? expressionTokens(expr, ctx) : null
 }
 
 /**
- * A class expression's static tokens: a string, a template's static text, `buttonVariants(…)` as
- * 'factory', `countControlClass(…)` as the classes the recipe returns (countControlTokens), `inputClasses(…)` as
- * the classes the field recipe returns for the options the call writes (fieldFactoryTokens), a `const` the
- * file declares as the tokens of its initializer (a type assertion or parentheses around it read through;
- * `seen` ends a const that reaches itself), and `cx(…)`, the DS class joiner (components/ui/cx.ts) the
- * primitives write their classes with, as the tokens of its readable arguments. A conditional, a parameter,
- * a `let` or any other argument the scan cannot read (`loading && '…'`, the caller's className) is dynamic
- * and ignored, like a template's `${…}`. null: unreadable.
+ * A class expression's static tokens: a string, `buttonVariants(…)` as 'factory', `countControlClass(…)` as the classes
+ * the recipe returns (countControlTokens), `sourceTraceChipClass(…)` likewise (sourceTraceTokens), `inputClasses(…)` as
+ * the classes the field recipe returns for the options the call writes (fieldFactoryTokens), a `const` the file
+ * declares or imports from another module (importedConst) as the tokens of its initializer (a type assertion or
+ * parentheses around it read through; `seen` ends a const that reaches itself), `cx(…)`, the DS class joiner
+ * (components/ui/cx.ts) the primitives write their classes with, as the tokens of its readable arguments, a condition
+ * whose two branches it reads as the classes both carry, and a template or a `+` join as the classes its parts make
+ * (joinedTokens). A parameter, a `let` or any other argument the scan cannot read (`loading && '…'`, the caller's
+ * className) is dynamic and ignored as a part. null: unreadable.
  */
 function expressionTokens(expr: ts.Expression, ctx: ClassContext, seen: ReadonlySet<ts.Node> = new Set()): string[] | 'factory' | null {
   if (ts.isParenthesizedExpression(expr) || ts.isAsExpression(expr) || ts.isSatisfiesExpression(expr) || ts.isNonNullExpression(expr)) {
     return expressionTokens(expr.expression, ctx, seen)
   }
   if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) return splitClasses(expr.text)
-  if (ts.isTemplateExpression(expr)) return splitClasses([expr.head.text, ...expr.templateSpans.map((s) => s.literal.text)].join(' '))
+  if (ts.isTemplateExpression(expr) || (ts.isBinaryExpression(expr) && expr.operatorToken.kind === ts.SyntaxKind.PlusToken)) {
+    return joinedTokens(expr, ctx, seen)
+  }
+  if (ts.isConditionalExpression(expr)) {
+    // Either branch may be the one rendered, so a class counts only where both carry it.
+    const [yes, no] = [expr.whenTrue, expr.whenFalse].map((branch) => expressionTokens(branch, ctx, seen))
+    return Array.isArray(yes) && Array.isArray(no) ? yes.filter((token) => no.includes(token)) : null
+  }
   if (ts.isIdentifier(expr)) {
     const decl = ctx.resolve(expr)?.decl
-    if (!decl || !ts.isVariableDeclaration(decl) || !decl.initializer || seen.has(decl)) return null
+    if (!decl) {
+      // A const another module exports, read in that module.
+      const imported = ctx.importedConst(expr)
+      if (!imported || seen.has(imported.decl)) return null
+      return expressionTokens(imported.init, imported.ctx, new Set([...seen, imported.decl]))
+    }
+    if (!ts.isVariableDeclaration(decl) || !decl.initializer || seen.has(decl)) return null
     if (!(ts.getCombinedNodeFlags(decl) & ts.NodeFlags.Const)) return null
     return expressionTokens(decl.initializer, ctx, new Set([...seen, decl]))
   }
   if (ts.isCallExpression(expr) && ctx.isCountControl(expr.expression)) return countControlTokens(expr.arguments[0])
+  if (ts.isCallExpression(expr) && ctx.isSourceTraceChip(expr.expression)) return sourceTraceTokens(expr.arguments[0])
   if (ts.isCallExpression(expr) && ctx.isFieldFactory(expr.expression)) return fieldFactoryTokens(expr.arguments[0], ctx)
   if (ts.isCallExpression(expr) && ctx.isButtonFactory(expr.expression)) return 'factory'
   if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
@@ -355,6 +425,62 @@ function expressionTokens(expr: ts.Expression, ctx: ClassContext, seen: Readonly
     }
   }
   return null
+}
+
+/** One part of a template or a `+` join: its classes, and whether its text starts or ends with a space (a part that is
+    not text, whose edges are unknown, does neither). */
+interface Part {
+  tokens: string[]
+  leads: boolean
+  trails: boolean
+}
+/**
+ * The classes a template or a `+` join makes, read as the string it builds: its literal text as written, a `const`'s
+ * string read through to its own parts, and any other part by the classes the scan reads in it (none, where it reads
+ * nothing). Two parts with no space between them glue: the class that ends one and the class that starts the next run
+ * into one the scan does not know (`'shadow-ring-brand' + suffix`), so neither counts. An unreadable part's edges are
+ * unknown, so a class touching it is dropped too, where the old reading took `${…}` for a space. `buttonVariants(…)` in
+ * a join is such a part: the factory's classes are not read, so a join cannot borrow its ring.
+ */
+function joinedTokens(expr: ts.Expression, ctx: ClassContext, seen: ReadonlySet<ts.Node>): string[] {
+  const parts: Part[] = []
+  const text = (value: string) => {
+    if (value) parts.push({ tokens: splitClasses(value), leads: /^\s/.test(value), trails: /\s$/.test(value) })
+  }
+  const walk = (e: ts.Expression, at: ReadonlySet<ts.Node>): void => {
+    if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isNonNullExpression(e)) return walk(e.expression, at)
+    if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return text(e.text)
+    if (ts.isTemplateExpression(e)) {
+      text(e.head.text)
+      for (const span of e.templateSpans) {
+        walk(span.expression, at)
+        text(span.literal.text)
+      }
+      return
+    }
+    if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      walk(e.left, at)
+      return walk(e.right, at)
+    }
+    // A const that holds a string, a template or a join is read through as its own parts, so its edges are its own.
+    const decl = ts.isIdentifier(e) ? ctx.resolve(e)?.decl : undefined
+    const init = decl && ts.isVariableDeclaration(decl) && ts.getCombinedNodeFlags(decl) & ts.NodeFlags.Const && !at.has(decl) ? decl.initializer : undefined
+    if (init && (ts.isStringLiteralLike(init) || ts.isTemplateExpression(init) || (ts.isBinaryExpression(init) && init.operatorToken.kind === ts.SyntaxKind.PlusToken))) {
+      return walk(init, new Set([...at, decl!]))
+    }
+    const tokens = expressionTokens(e, ctx, at)
+    parts.push({ tokens: Array.isArray(tokens) ? tokens : [], leads: false, trails: false })
+  }
+  walk(expr, seen)
+  // A class glued to its neighbour (no space between two parts) is not a class the scan knows.
+  const glued = new Set<string>()
+  parts.forEach((part, i) => {
+    const next = parts[i + 1]
+    if (!next || part.trails || next.leads) return
+    if (part.tokens.length) glued.add(`${i}:${part.tokens.length - 1}`)
+    if (next.tokens.length) glued.add(`${i + 1}:0`)
+  })
+  return parts.flatMap((part, i) => part.tokens.filter((_, j) => !glued.has(`${i}:${j}`)))
 }
 
 /**
@@ -504,6 +630,60 @@ function unstylableStop(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, s
   return null
 }
 
+/** Each file's binding resolver, built once: classify reads it for every element that spreads props. */
+const RESOLVERS = new WeakMap<ts.SourceFile, (ref: ts.Identifier) => Binding | undefined>()
+function resolverOf(sf: ts.SourceFile): (ref: ts.Identifier) => Binding | undefined {
+  let resolve = RESOLVERS.get(sf)
+  if (!resolve) RESOLVERS.set(sf, (resolve = bindingResolver(sf)))
+  return resolve
+}
+
+/** The keys a plain object spread may not hold: each decides whether, or how, the element takes focus or a field is
+    styled, which the scan reads off attributes only. */
+const FOCUS_KEYS = new Set(['tabIndex', 'tabindex', 'disabled', 'hidden', 'contentEditable', 'contenteditable', 'type', 'controls', 'style', 'as'])
+/** A plain object's key as React reads it: an identifier's text or a string literal's, its quotes dropped (`'className'`
+    is `className`; Codex on #1795). undefined for any other key. */
+const keyOf = (prop: ts.ObjectLiteralElementLike): string | undefined =>
+  prop.name && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)) ? prop.name.text : undefined
+/**
+ * A props spread the scan reads key by key: a `const` the file declares whose initializer is an object literal of
+ * named entries (no spread of its own, no computed key), none of them a key that decides focus (FOCUS_KEYS), and
+ * which nothing writes after it is made (astBindings' containerEscape follows every use of it). Its `className`, if
+ * it has one, is read as the element's className where no later className overrides it (classSource); its other
+ * entries (a ref, aria and data attributes, handlers) take no Tab stop and draw no ring. undefined: unreadable.
+ */
+function plainSpread(spread: ts.JsxSpreadAttribute, sf: ts.SourceFile, resolve: (ref: ts.Identifier) => Binding | undefined): ts.ObjectLiteralExpression | undefined {
+  if (!ts.isIdentifier(spread.expression)) return undefined
+  const decl = resolve(spread.expression)?.decl
+  if (!decl || !ts.isVariableDeclaration(decl) || !(ts.getCombinedNodeFlags(decl) & ts.NodeFlags.Const) || !decl.initializer) return undefined
+  let init: ts.Expression = decl.initializer
+  while (ts.isParenthesizedExpression(init) || ts.isAsExpression(init) || ts.isSatisfiesExpression(init)) init = init.expression
+  if (!ts.isObjectLiteralExpression(init)) return undefined
+  for (const prop of init.properties) {
+    if (!ts.isPropertyAssignment(prop) && !ts.isShorthandPropertyAssignment(prop) && !ts.isMethodDeclaration(prop)) return undefined
+    const key = keyOf(prop)
+    if (key === undefined || FOCUS_KEYS.has(key)) return undefined
+  }
+  return containerEscape(init, sf, resolve) ? undefined : init
+}
+
+/** The className an element gets: the last written of its className attribute and a plain spread's `className` entry,
+    as React applies props in order. undefined where it has none. */
+function classSource(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.SourceFile, resolve: (ref: ts.Identifier) => Binding | undefined): ts.Expression | ts.JsxAttributeValue | null | undefined {
+  let source: ts.Expression | ts.JsxAttributeValue | null | undefined
+  for (const p of node.attributes.properties) {
+    if (ts.isJsxAttribute(p) && p.name.getText(sf) === 'className') source = p.initializer ?? null
+    else if (ts.isJsxSpreadAttribute(p)) {
+      // Its className entry by the key React reads, quoted or not; the last of several, as the object keeps.
+      for (const entry of plainSpread(p, sf, resolve)?.properties ?? []) {
+        if (keyOf(entry) !== 'className') continue
+        source = ts.isPropertyAssignment(entry) ? entry.initializer : ts.isShorthandPropertyAssignment(entry) ? entry.name : null
+      }
+    }
+  }
+  return source
+}
+
 /** The display utilities that show an element a `hidden` class hides. */
 const DISPLAY = /^(block|inline-block|inline|flex|inline-flex|grid|inline-grid|table|inline-table|table-\S+|flow-root|contents|list-item)$/
 /** What both scans need to know about one JSX element: whether a user can Tab to it, whether it can take focus at
@@ -542,7 +722,11 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
   // ringless className the scan cannot see, so the element counts as a stop and fails unread, a component
   // included, since it may pass the spread on to an element of its own. The one spread the scan reads is
   // a component's own rest props on the element that takes its className (ownRestProps).
-  const spread = node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && !ownRestProps(p, node, sf))
+  // So does any spread but a plain object the file declares and nothing writes (plainSpread), which the scan reads key
+  // by key; the field clause reads neither (plain counts the readable ones for it).
+  const spreads = node.attributes.properties.filter((p): p is ts.JsxSpreadAttribute => ts.isJsxSpreadAttribute(p) && !ownRestProps(p, node, sf))
+  const plain = spreads.length ? spreads.filter((p) => plainSpread(p, sf, resolverOf(sf))).length : 0
+  const spread = spreads.length > plain
   const unstylable = unstylableStop(node, sf, removed)
   const tabbable =
     unstylable !== null ||
@@ -571,7 +755,7 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
     tag === 'textarea' ||
     tag === 'select' ||
     (tag === 'input' && !(typeAttr && ts.isStringLiteral(typeAttr) && NOT_FORMS_STYLED.includes(typeAttr.text)))
-  return { tag, attr, tabbable, focusable, field, spread, unstylable }
+  return { tag, attr, tabbable, focusable, field, spread, plain, unstylable }
 }
 
 function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { stops: number; findings: Finding[] } {
@@ -586,11 +770,11 @@ function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { sto
       if (tabbable && !(fieldsSeparately && field)) {
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-        const className = attr('className')
-        const tokens = classTokens(className?.initializer, ctx)
+        const className = classSource(node, sf, ctx.resolve)
+        const tokens = className === undefined ? null : classTokens(className ?? undefined, ctx)
         if (unstylable) findings.push({ line, tag, problem: unstylable })
         else if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
-        else if (!className) findings.push({ line, tag, problem: 'no className, so the browser default outline' })
+        else if (className === undefined) findings.push({ line, tag, problem: 'no className, so the browser default outline' })
         else if (tokens === null) findings.push({ line, tag, problem: 'a className the scan cannot read' })
         else if (tokens !== 'factory' && !RINGS.some((ring) => ring.every((t) => tokens.includes(t)))) {
           findings.push({ line, tag, problem: `missing ${RINGS[0].filter((t) => !tokens.includes(t)).join(' ')}` })
@@ -812,7 +996,9 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
   let factory = 0
   const visit = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const { tag, attr, focusable, field, spread } = classify(node, sf, linkNames)
+      const { tag, attr, focusable, field, spread: unread, plain } = classify(node, sf, linkNames)
+      // The field clause reads a field's own attributes only, so any spread fails here, a plain one included.
+      const spread = unread || plain > 0
       const className = attr('className')
       // An inline style outranks every class, the factory's included, so it is read before the factory exemption, and
       // on a DS field component too, which passes it on to its field (`<Input style={{ boxShadow: 'none' }} />`), as it
@@ -1306,6 +1492,83 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       // The factory's own className option carries the caller's classes (Cta, line 28, is read); a
       // conditional one does not.
       '31 <button> a props spread the scan cannot read',
+    ])
+  })
+
+  // The trace chip's recipe, a const another module exports, a condition, a template or a `+` join, and a plain object
+  // spread are read by what they hold: CompanyIdentity's links take FilingIdentity's IDENTITY_LINK, SourceTrace's chips
+  // sourceTraceChipClass(…), SecondaryPaneTabs' tabs a `+` join, and CitationChip's triggers a const of handlers.
+  it('the scan reads a shared recipe, an imported const, a condition, a join and a plain spread by what they hold (a self-check on fixed sources)', () => {
+    const ring = 'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
+    const src = `
+      import NextLink from 'next/link'
+      import { sourceTraceChipClass, sourceTraceChipClass as chip } from '@/features/filings/lib/sourceTraceChip'
+      import * as Trace from '@/features/filings/lib/sourceTraceChip'
+      import { IDENTITY_LINK, IDENTITY_FACTS, FOCUS } from '@/features/filings/components/FilingIdentity'
+      const RING = '${ring}'
+      const BASE = 'px-2 '
+      const OPEN = { className: '${ring} p-1', 'aria-expanded': true, onClick: () => {} }
+      const FOCUSING = { className: '${ring}', tabIndex: 0 }
+      const LOWER = { className: '${ring}', tabindex: '0' }
+      const LATER = { className: '${ring}' }
+      LATER.className = 'p-1'
+      const QUOTED = { 'className': 'p-1' }
+      const QUOTED_RING = { 'className': '${ring}' }
+      export function A({ selected, on, c }: { selected: boolean; on: boolean; c: string }) {
+        return (
+          <nav>
+            <button className={sourceTraceChipClass()}>at rest</button>
+            <button className={chip(true)}>selected</button>
+            <button className={sourceTraceChipClass(selected)}>either</button>
+            <button className={Trace.sourceTraceChipClass(on)}>either, a namespace member</button>
+            <NextLink href="/a" className={IDENTITY_LINK}>identity link</NextLink>
+            <NextLink href="/b" className={IDENTITY_FACTS}>facts, no ring</NextLink>
+            <NextLink href="/c" className={FOCUS}>not exported</NextLink>
+            <a href="/d" className={BASE + RING}>join</a>
+            <a href="/e" className={'px-2' + RING}>glued</a>
+            <a href="/f" className={\`px-2 \${RING}\`}>template</a>
+            <a href="/g" className={\`px-2 \${c}\${RING}\`}>glued to what the scan cannot read</a>
+            <a href="/h" className={on ? RING : \`\${RING} p-1\`}>both branches</a>
+            <a href="/i" className={on ? RING : 'p-1'}>one branch</a>
+            <a href="/j" className={on ? RING : c}>a branch the scan cannot read</a>
+            <button {...OPEN}>plain spread</button>
+            <button {...OPEN} className="p-1">a later className</button>
+            <button className="p-1" {...OPEN}>the spread's className last</button>
+            <div {...FOCUSING}>a key that decides focus</div>
+            <div {...LOWER}>the same key as the DOM spells it</div>
+            <button {...LATER}>written after it is made</button>
+            <button className="${ring}" {...QUOTED}>a quoted key, written last</button>
+            <button {...QUOTED_RING}>a quoted key holding the ring</button>
+          </nav>
+        )
+      }
+      export function B() {
+        const sourceTraceChipClass = () => 'px-2'
+        return <button className={sourceTraceChipClass()}>a local function of the recipe's name</button>
+      }`
+    const { stops, findings } = missingRings(src)
+    expect(stops).toBe(23)
+    expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
+      // An exported const is read in its module, so one with no ring fails; a const the module keeps to itself is no
+      // import the scan can read.
+      '23 <NextLink> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '24 <NextLink> a className the scan cannot read',
+      // A class glued to the next part, written or one the scan cannot read, is a class no stylesheet has.
+      '26 <a> missing focus-visible:outline-none',
+      '28 <a> missing focus-visible:outline-none',
+      // A condition holds what both its branches carry, and one branch the scan cannot read leaves it unread.
+      '30 <a> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '31 <a> a className the scan cannot read',
+      // The className written last wins.
+      '33 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // A spread with a key that decides focus (a tabIndex, in either spelling), or one written after it is made, stays unread.
+      '35 <div> a props spread the scan cannot read',
+      '36 <div> a props spread the scan cannot read',
+      '37 <button> a props spread the scan cannot read',
+      // A quoted key is the key React reads: written last, its classes are the element's, ring or not (Codex on #1795).
+      '38 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // A local function of the recipe's name is not the recipe.
+      '45 <button> a className the scan cannot read',
     ])
   })
 

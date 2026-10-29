@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
-  groupDataNotes, groupQualityNotes, resolveDataNotes, qualityNotesModelFromWire,
+  groupDataNotes, groupQualityNotes, noteMarksFigure, noteSummary, RECORD_ONLY_REASONS, resolveDataNotes, qualityNotesModelFromWire,
   type DataNoteQuality, type DataNotesDataset, type DataNotesPoint, type DataNotesSeries, type DataNotesWire,
 } from '@/features/analysis/lib/dataNotes'
 import { decodeCitationDataNotes, decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
-import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import { REASON_SUMMARIES, REASONS, SUMMARY_FALLBACK, type FactProvenance } from '@/features/analysis/lib/provenance'
 
 const provenance = (validation: FactProvenance['validation'], reasons: string[] = []): FactProvenance => ({
   version: 1, method: 'reported', validation, reasons, formula: null, inputs: [],
@@ -18,13 +18,18 @@ interface GoldenCase {
   citations?: DataNoteQuality[]
   expected_citation_notes?: DataNotesWire
 }
-const golden: { version: number; cases: GoldenCase[] } = JSON.parse(readFileSync('../backend/tests/fixtures/analysis_data_notes.json', 'utf8'))
+const golden: {
+  version: number
+  record_only_reasons: string[]
+  summaries: { clauses: Record<string, string>; fallback: string; joined: { reasons: string[]; summary: string }[] }
+  cases: GoldenCase[]
+} = JSON.parse(readFileSync('../backend/tests/fixtures/analysis_data_notes.json', 'utf8'))
 
 describe('server data notes admission', () => {
   it.each(golden.cases)('shares Python memberships, counts, messages and portable identities: $name', (example) => {
     const before = JSON.stringify(example)
     const legacy = groupDataNotes(example.dataset)
-    expect({ version: 1, notes: legacy.notes, totals: legacy.totals }).toEqual(example.expected)
+    expect({ version: 2, notes: legacy.notes, totals: legacy.totals }).toEqual(example.expected)
     const admitted = decodeDataNotes(example.expected, example.dataset)
     expect(admitted).toEqual(example.expected)
     const report = { ...example.dataset, data_notes: admitted }
@@ -33,13 +38,46 @@ describe('server data notes admission', () => {
     expect(resolved.totals).toBe(admitted.totals)
     if (example.citations && example.expected_citation_notes) {
       const combined = groupQualityNotes(example.citations, legacy)
-      expect({ version: 1, notes: combined.notes, totals: legacy.totals }).toEqual(example.expected_citation_notes)
+      expect({ version: 2, notes: combined.notes, totals: legacy.totals }).toEqual(example.expected_citation_notes)
       const completion = decodeCitationDataNotes(example.expected_citation_notes, report, example.citations)
       expect(completion).toEqual(example.expected_citation_notes)
       const model = qualityNotesModelFromWire(completion.notes)
       for (const citation of example.citations) expect(model.noteForQuality(citation)).toEqual(combined.noteForQuality(citation))
     }
     expect(JSON.stringify(example)).toBe(before)
+  })
+
+  it('holds the same reason words, record-only list and summary words as the backend (data notes version 2)', () => {
+    // The backend's test_analysis_data_notes.py pins its maps to the same fixture, so the two sides cannot drift: case
+    // all_known_reason_messages_and_supplements_after_z holds one note for every backend reason, its message the words.
+    const known = golden.cases.find((entry) => entry.name === 'all_known_reason_messages_and_supplements_after_z')!
+    const backendWords = Object.fromEntries(known.expected.notes.map((note) => [note.reasons[0], note.message]))
+    expect(REASONS).toEqual(backendWords)
+    expect([...RECORD_ONLY_REASONS].sort()).toEqual(golden.record_only_reasons)
+    expect(REASON_SUMMARIES).toEqual(golden.summaries.clauses)
+    expect(SUMMARY_FALLBACK).toBe(golden.summaries.fallback)
+    for (const { reasons, summary } of golden.summaries.joined) expect(noteSummary(reasons), reasons.join('+')).toBe(summary)
+  })
+
+  it('letters the notes that mark a figure first, whatever their place in the report', () => {
+    // A legacy figure first in report order, then a figure not matched to the filing, a mixed note, one with no check
+    // recorded and a gap: the two marked notes take a and b, and a marked citation supplement follows the report.
+    const report = groupDataNotes(dataset([series('cash', [
+      point('2024Q1', { provenance: review('legacy_calculation') }), point('2024Q2', { provenance: review('source_check_needed') }),
+    ]), series('debt', [
+      point('2024Q1', { provenance: undefined }), point('2024Q2', { provenance: review('legacy_calculation', 'source_conflict') }),
+    ]), series('eps', [point('2024Q1', { value: null }), point('2024Q2')])]))
+    expect(report.notes.map((note) => [note.letter, note.kind, note.reasons.join('+'), noteMarksFigure(note)])).toEqual([
+      ['a', 'review', 'source_check_needed', true], ['b', 'review', 'legacy_calculation+source_conflict', true],
+      ['c', 'review', 'legacy_calculation', false], ['d', 'unknown', 'legacy_unknown', false], ['e', 'unavailable', 'not_in_dataset', false],
+    ])
+    // Supplements follow the report's last letter, the marked one first though the citations name it second.
+    const combined = groupQualityNotes([
+      { provenance: provenance('unavailable', ['missing_provenance']) }, { provenance: review('legacy_calculation', 'unit_mismatch') },
+    ], report)
+    expect(combined.notes.slice(5).map((note) => [note.letter, note.kind, note.reasons.join('+')])).toEqual([
+      ['f', 'review', 'legacy_calculation+unit_mismatch'], ['g', 'unknown', 'missing_provenance'],
+    ])
   })
 
   it('retains admitted server copy, letters, ordering and totals across lookups', () => {
@@ -70,7 +108,7 @@ describe('server data notes admission', () => {
   })
 
   it.each([
-    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 2 }) }],
+    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 4 }) }],
     ['fractional total', (wire: DataNotesWire) => { wire.totals.total = 1.5 }],
     ['unsafe total', (wire: DataNotesWire) => { wire.totals.total = Number.MAX_SAFE_INTEGER + 1 }],
     ['duplicate note', (wire: DataNotesWire) => { wire.notes.push(structuredClone(wire.notes[0])) }],
@@ -84,6 +122,31 @@ describe('server data notes admission', () => {
     const wire = structuredClone(example.expected)
     mutate(wire)
     expect(() => decodeDataNotes(wire, example.dataset)).toThrow('Invalid analysis data notes')
+  })
+
+  it('decodes a version 2 or 3 envelope as version 1: the shape is the same, and version 1 still decodes', () => {
+    // Version 3 (E211's two proxy reasons' words) decodes ahead of the server writing it, as version 2 did (#1641).
+    const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
+    for (const version of [1, 2, 3] as const) {
+      const wire = { ...structuredClone(example.expected), version }
+      expect(decodeDataNotes(wire, example.dataset)).toEqual(wire)
+      const report = { ...example.dataset, data_notes: wire }
+      const citationWire = { ...structuredClone(example.expected_citation_notes!), version }
+      expect(decodeCitationDataNotes(citationWire, report, example.citations!)).toEqual(citationWire)
+    }
+  })
+
+  it('a tab holding a version 1 report refuses a version 2 completion until Run analysis reloads the report', () => {
+    // A report loaded before the server moved keeps version 1's words and letters (here one sentence of them); a
+    // narrative streamed after the move carries version 2's, so its report prefix is not the tab's and the page shows
+    // EVIDENCE_RECOVERY (DataNotesWire). Run analysis fetches the report again, which reads the same completion.
+    const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
+    const tabReport = { ...structuredClone(example.expected), version: 1 as const }
+    tabReport.notes[0].message = 'Available sources disagree on this figure.'
+    const stale = { ...example.dataset, data_notes: decodeDataNotes(tabReport, example.dataset) }
+    expect(() => decodeCitationDataNotes(example.expected_citation_notes, stale, example.citations!)).toThrow('citation notes changed the report prefix')
+    const reloaded = { ...example.dataset, data_notes: decodeDataNotes(example.expected, example.dataset) }
+    expect(decodeCitationDataNotes(example.expected_citation_notes, reloaded, example.citations!)).toEqual(example.expected_citation_notes)
   })
 
   it('rejects internally balanced totals that falsely promote a review value to passed', () => {

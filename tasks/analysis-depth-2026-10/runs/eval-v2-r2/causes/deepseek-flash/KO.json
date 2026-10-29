@@ -1,0 +1,97 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "KO",
+ "split": "holdout",
+ "claims": 6,
+ "output_sha256": "1f5b685b42c30fba29d7cf0651f07619bdb6577a7721f1b38883e8581ff52e7f",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Revenue fell 11.4% in FY2020  as the pandemic hit away-from-home channels, then rebounded 17.1% in FY2021  on concentrate volume growth of 9% .",
+   "passages": [
+    {
+     "id": "P49",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2021, worldwide concentrate sales volume increased 9 percent and unit case volume increased 8 percent compared to 2020. The differences between concentrate sales volume and unit case volume growth rates on a consolidated basis and for the operating segments were primarily due to the timing of concentrate shipments and the impact of unit case volume from certain joint ventures in which the Company has an ownership interest, but to which the Company does not sell concentrates, syrups, source waters or powders/minerals. The timing of concentrate shipments was primarily a result of certain bottlers building inventory due to concerns associated with potential supply chain disruptions."
+    }
+   ],
+   "label": "partial",
+   "reason": "P49 gives FY2021 concentrate volume growth of 9% but doesn't tie it to revenue; nothing cited covers the FY2020 pandemic decline."
+  },
+  {
+   "sentence": "FY2025 revenue rose 1.9%  while operating income jumped 37.7% , driven by lower other operating charges after the prior-year fairlife contingent consideration remeasurement .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 says operating income rose mainly on lower other operating charges, due to the prior-year fairlife contingent consideration remeasurement."
+  },
+  {
+   "sentence": "Worldwide concentrate sales volume grew 1% in FY2025 with unit case volume even , and pricing initiatives plus that volume drove the operating income increase .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2025, worldwide concentrate sales volume grew 1% and unit case volume was even compared to 2024. The difference between concentrate sales volume and unit case volume growth rates for our Latin America operating segment was primarily due to the timing of concentrate shipments."
+    },
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16 gives 1% concentrate growth with unit cases even; P12 credits volume growth and pricing initiatives for the operating income increase."
+  },
+  {
+   "sentence": "The FY2025 operating margin rose 7.5pp , of which 6.2pp came from other lines  as other operating charges fell after the FY2024 fairlife remeasurement ; SG&A added 0.7pp  on lower foundation contributions and incentive expense .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    },
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general and administrative expenses were $14,521 million in 2025, compared to $14,582 million in 2024, a decrease of $61 million. This decrease was primarily due to lower contributions to The Coca-Cola Foundation and lower annual incentive expense, partially offset by higher severance costs in 2025 associated with ongoing initiatives to optimize our organization, higher advertising expenses and an asset impairment charge related to certain prototypes in the prior year. Advertising expenses for 2025 and 2024 were $5.4 billion and $5.1 billion, respectively. Refer to Note\u00a017 of Notes to Consolidated Financial Statements for more information on the impairment charge."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 attributes the margin gain to lower other operating charges after the fairlife remeasurement; P13 cites lower Foundation contributions and incentive expense."
+  },
+  {
+   "sentence": "The largest adverse move was FY2024's 3.5pp margin decline , when higher commodity costs, SG&A and other operating charges plus an 11% currency headwind cut operating income 12% .",
+   "passages": [
+    {
+     "id": "P25",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $9,992 million in 2024, compared to $11,311 million in 2023, a decrease of $1,319 million, or 12%. The decrease in operating income was primarily driven by higher commodity costs; higher selling, general and administrative expenses; higher other operating charges; the impact of refranchising our bottling operations in the Philippines, Bangladesh and certain territories in India; and an unfavorable foreign currency exchange rate impact of 11%. These items were partially offset by concentrate sales volume growth of 2% and favorable pricing initiatives."
+    }
+   ],
+   "label": "supported",
+   "reason": "P25 lists higher commodity costs, SG&A, other operating charges and an 11% currency headwind cutting operating income 12%."
+  },
+  {
+   "sentence": "Operating cash flow rose 8.9% to $7.4 billion  on strong cash operating results, lower tax payments and working-capital timing, partly offset by prior-year factoring benefits .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2025 and 2024 was $7,408\u00a0million and $6,805\u00a0million, respectively, an increase of $603\u00a0million, or 9%. This increase was primarily driven by strong cash operating results, lower tax payments, the timing of changes in working capital and lower contributions to The Coca-Cola Foundation compared to the prior year. These items were partially offset by the prior year benefit of the trade accounts receivable factoring program and higher transfers of surplus non-U.S. plan assets from pension trusts to general assets of the Company in the prior year. The increase was also partially offset by unfavorable hedging activity, higher marketing payments, tax deposits related to Israel and Vietnam, and higher net interest payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 cites strong cash operating results, lower tax payments and working-capital timing, partly offset by the prior-year factoring benefit."
+  }
+ ],
+ "cost_usd": 0.043252,
+ "backend": "claude_cli",
+ "input_tokens": 3745,
+ "cached_input_tokens": 0,
+ "output_tokens": 665
+}

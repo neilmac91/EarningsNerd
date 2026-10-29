@@ -23,7 +23,8 @@ review that asks for a change, or a comment that asks for something. An answer i
 which restarts the merge conditions, or a reply that says why not. A request made "before merge" stops
 the merge until it is answered, whatever CI and `review-gate` say. Clean review receipts, bot status
 updates and informational comments need no reply. Go by the reads, not by memory: a compacted session
-has lost its last read.
+has lost its last read. The notifications do not stand in for the comments' read: a comment another
+session posts under the account the sessions share reaches no notification (#1686).
 
 **Gate.** Review-checked. `review-gate` reads Codex's summary and the issue comments, never a review or
 a review thread (`backend/scripts/review_gate.py`, `fetch_state`), and no review event starts it
@@ -33,7 +34,10 @@ that on is the founder's call (`tasks/todo.md` row F63). Review bodies, conversa
 notifications would stay review-checked even then.
 
 **Evidence.** #1533: review 5634381118 and thread 4364177476 at 20:58:50Z, and the merge at 21:03:10Z.
-The correction is in #1536. This rule extends two rules to every reviewer: `AGENTS.md` §6 ("Read the
+The correction is in #1536. #1686 (2026-10-27): chief design's review (6433704320, 04:23Z) and its ruling
+on F68 (6434019340, 04:49Z), both posted under the shared account, reached the authoring session as no
+notification; the merge turn's read of the comments found them, and the pull request went back to draft
+to take them. This rule extends two rules to every reviewer: `AGENTS.md` §6 ("Read the
 head SHA from the PR before merging; never type one from memory") and
 `lessons/ops-merge-after-the-ready-marks-own-codex-review.md` ("every Codex thread on the head
 answered").

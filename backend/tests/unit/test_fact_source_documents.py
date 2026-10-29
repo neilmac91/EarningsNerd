@@ -425,12 +425,20 @@ async def test_a_saved_analysis_pdf_opens_the_documents_its_saved_folders_name(s
     and each link it renders (the citations', the methods' points' and their operands') opens the document
     the rebuilt dataset links in that folder. FY2021's folder stays, nothing else in the PDF changes, and
     the saved row is as it was."""
+    from datetime import timedelta
+    from itertools import count
+
     from app.routers import analysis as router
     from app.services import entitlements
+    from app.services import export_service as export_module
     from app.services import openai_service as oa
     from app.services.export_service import export_service
 
     company_id, cik, ten_k = saved_history
+    # Each export reads a later minute, from the year's last: every field of the instant rolls, so the comparison
+    # below holds only if the mask covers the whole instant.
+    minutes = count()
+    monkeypatch.setattr(export_module, "utcnow", lambda: datetime(2026, 12, 31, 23, 59, tzinfo=timezone.utc) + timedelta(minutes=next(minutes)))
 
     async def selection(messages, **kwargs):
         yield json.dumps({key: [] for key, _ in svc.ANALYSIS_SECTIONS})
@@ -468,7 +476,7 @@ async def test_a_saved_analysis_pdf_opens_the_documents_its_saved_folders_name(s
     saved_links = links.findall(saved_pdf)
     assert set(saved_links) == set(folders.values())  # The saved row links each 10-K's folder, and only those.
     assert links.findall(pdfs[0]) == [opened.get(url, url) for url in saved_links]
-    restored, exported = pdfs[0], re.compile(r"Exported \S+")
+    restored, exported = pdfs[0], re.compile(r"Exported [^<]*")  # the whole instant, to its clause's end
     for folder, document in opened.items():
         restored = restored.replace(document, folder)
     assert exported.sub("", restored) == exported.sub("", saved_pdf)

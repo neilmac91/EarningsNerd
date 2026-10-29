@@ -1,0 +1,106 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "e5f172053a4242f79d4c301d8f36d60a821e66195b1adc8858dcb6cda1c2f143",
+ "y_sha256": "37c61d0a967da84a222c810e5e6d1c8773767c7896e79971104ffdd4c358c9ce",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts have a grounding slip. A adds 'across all products' to the FY2023 cause, which its passage does not state. B cites an operating-cash-flow passage for a revenue claim. A's net cash of $7.1bn (100th percentile) treats $1.0bn of current debt as total debt, which badly misleads readers. B flags that long-term debt stops after FY2020 and adds cost-growth, capex/D&A and ROE peer context. B's watch thresholds are directionally muddled."
+   },
+   "cost_usd": 0.139141,
+   "latency_s": 20.857,
+   "backend": "claude_cli",
+   "input_tokens": 13980,
+   "cached_input_tokens": 727,
+   "output_tokens": 1649,
+   "reasoning_tokens": 1413,
+   "meta": {
+    "duration_api_ms": 16690,
+    "cache_creation_input_tokens": 13251,
+    "list_cost_usd": 0.086137
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts have a grounding slip. A adds 'across all products' to the FY2023 cause, which its passage does not state. B cites an operating-cash-flow passage for a revenue claim. A's net cash of $7.1bn (100th percentile) treats $1.0bn of current debt as total debt, which badly misleads readers. B flags that long-term debt stops after FY2020 and adds cost-growth, capex/D&A and ROE peer context. B's watch thresholds are directionally muddled.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "B cites the correct FY2023 revenue passage, while A attributes that drop to an operating-cash-flow passage. B also adds the margin slide and payout against the company's own framework. A's watch thresholds point the wrong way: 15.4% 'falls toward' 17.9%. However, B presents $7.1bn net cash and a peer-leading rank using only $1.0bn current debt, ignoring the long-term debt gap that A correctly discloses. That is a material calibration failure that narrows B's lead."
+   },
+   "cost_usd": 0.128061,
+   "latency_s": 15.884,
+   "backend": "claude_cli",
+   "input_tokens": 13980,
+   "cached_input_tokens": 727,
+   "output_tokens": 1095,
+   "reasoning_tokens": 850,
+   "meta": {
+    "duration_api_ms": 12029,
+    "cache_creation_input_tokens": 13251,
+    "list_cost_usd": 0.075057
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"B cites the correct FY2023 revenue passage, while A attributes that drop to an operating-cash-flow passage. B also adds the margin slide and payout against the company's own framework. A's watch thresholds point the wrong way: 15.4% 'falls toward' 17.9%. However, B presents $7.1bn net cash and a peer-leading rank using only $1.0bn current debt, ignoring the long-term debt gap that A correctly discloses. That is a material calibration failure that narrows B's lead.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.267202
+}

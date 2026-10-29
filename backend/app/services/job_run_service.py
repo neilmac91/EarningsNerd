@@ -33,6 +33,7 @@ JOB_CADENCES = {
     "notable-filings": timedelta(hours=14),
     "data-quality-report": timedelta(days=7),
     "retention-purge": timedelta(days=7),
+    "feedback-media-cleanup": timedelta(hours=1),
 }
 ERROR_COUNTERS = frozenset({
     "source_errors", "errors", "extract_errors", "alerts_failed", "digests_failed",

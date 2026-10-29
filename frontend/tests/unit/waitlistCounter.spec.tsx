@@ -43,7 +43,7 @@ describe('WaitlistCounter', () => {
   it('at or above the floor, shows the count in neutral ink, not sage', async () => {
     api.getWaitlistStats.mockResolvedValue({ total_signups: 120 })
     const { container } = render(<WaitlistCounter />)
-    await waitFor(() => expect(container.textContent).toBe('Join 120+ others on the waitlist'))
+    await waitFor(() => expect(container.textContent).toBe('Join 120+ others'))
     const count = container.querySelector('[data-waitlist-count]')!
     expect(count.textContent).toBe('120+')
     expect(count.className).toMatch(/\btext-text-primary-light\b/)

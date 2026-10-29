@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "Both drafts are well supported. B's causal claims match its quoted passages: REGEN-COV non-recurrence, the EYLEA decline causes, Dupixent-driven Sanofi profits, the Good Days SG&A drop and the Sanofi amendments behind R&D. A only restates table values. B adds segment drivers, a margin bridge, peer comparisons, capital returns, ranked red flags and numeric watch thresholds. It also discloses the FY2018\u201319 revenue recast and that the other-income rise is unexplained."
+   },
+   "cost_usd": 0.108009,
+   "latency_s": 11.389,
+   "input_tokens": 12341,
+   "output_tokens": 748,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"strong\", \"rationale\": \"Both drafts are well supported. B's causal claims match its quoted passages: REGEN-COV non-recurrence, the EYLEA decline causes, Dupixent-driven Sanofi profits, the Good Days SG&A drop and the Sanofi amendments behind R&D. A only restates table values. B adds segment drivers, a margin bridge, peer comparisons, capital returns, ranked red flags and numeric watch thresholds. It also discloses the FY2018\u201319 revenue recast and that the other-income rise is unexplained.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "A's causal claims mostly match their quoted passages: REGEN-COV non-recurrence, EYLEA erosion, Dupixent-driven Sanofi profits, SG&A and R&D drivers. Two are minor stretches: a global EYLEA passage is applied to US sales, and REGEN-COV is tied to the September agreement. A flags the recast data and the unexplained other income, and benchmarks against peers. B is grounded but only restates table values; its 5.9pp compression looks slightly off from 6.0pp."
+   },
+   "cost_usd": 0.109949,
+   "latency_s": 13.264,
+   "input_tokens": 12341,
+   "output_tokens": 845,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"strong\", \"rationale\": \"A's causal claims mostly match their quoted passages: REGEN-COV non-recurrence, EYLEA erosion, Dupixent-driven Sanofi profits, SG&A and R&D drivers. Two are minor stretches: a global EYLEA passage is applied to US sales, and REGEN-COV is tied to the September agreement. A flags the recast data and the unexplained other income, and benchmarks against peers. B is grounded but only restates table values; its 5.9pp compression looks slightly off from 6.0pp.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.217958
+}

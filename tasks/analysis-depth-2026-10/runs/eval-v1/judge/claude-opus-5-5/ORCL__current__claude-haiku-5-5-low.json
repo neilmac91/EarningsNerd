@@ -1,0 +1,86 @@
+{
+ "ticker": "ORCL",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "B explains the inflections the table cannot: the FY2018 tax charge, FY2022 litigation charges, Cerner and the cloud-infrastructure capex surge funded by senior notes. Its filing quotes support most of this. It stretches twice: a general cloud-revenue passage is cited for Cloud Infrastructure growth, and the net-margin gap is pinned solely on interest. A makes no causal claims but mostly restates table values, clutters its red flags with operand dumps and gives vague watch items."
+   },
+   "cost_usd": 0.117369,
+   "latency_s": 14.296,
+   "input_tokens": 13021,
+   "output_tokens": 944,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"B explains the inflections the table cannot: the FY2018 tax charge, FY2022 litigation charges, Cerner and the cloud-infrastructure capex surge funded by senior notes. Its filing quotes support most of this. It stretches twice: a general cloud-revenue passage is cited for Cloud Infrastructure growth, and the net-margin gap is pinned solely on interest. A makes no causal claims but mostly restates table values, clutters its red flags with operand dumps and gives vague watch items.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains the drivers behind the numbers, each tied to a filing passage: the Tax Act charge, the litigation charges in FY2022, Cerner, cloud infrastructure growth, capex-driven cash burn, and senior-note funding. It also adds peer context and discloses the proxy-sourced net income figure. Its minor overreach is attributing the net-versus-operating margin gap solely to interest expense. B is almost fully grounded but only restates table values, pads its red flags with operand dumps, and sets no watch thresholds."
+   },
+   "cost_usd": 0.115529,
+   "latency_s": 14.308,
+   "input_tokens": 13021,
+   "output_tokens": 852,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains the drivers behind the numbers, each tied to a filing passage: the Tax Act charge, the litigation charges in FY2022, Cerner, cloud infrastructure growth, capex-driven cash burn, and senior-note funding. It also adds peer context and discloses the proxy-sourced net income figure. Its minor overreach is attributing the net-versus-operating margin gap solely to interest expense. B is almost fully grounded but only restates table values, pads its red flags with operand dumps, and sets no watch thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.232898
+}

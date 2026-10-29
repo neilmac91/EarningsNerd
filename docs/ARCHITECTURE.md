@@ -24,7 +24,8 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 ```
 
 - **Frontend:** Next.js 16 (App Router) + TypeScript + Tailwind/shadcn, React Query for
-  server state, Recharts for financial charts, PostHog + Sentry. Auth is an **HttpOnly
+  server state, Recharts for the filing and peer charts and the chart engine's renderer (visx, E195) for the analysis
+  trend charts, PostHog + Sentry. Auth is an **HttpOnly
   cookie** set by the backend — the token is never readable by client JS.
 - **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0 ORM (no raw SQL), async I/O throughout.
 - **AI:** an OpenAI-*compatible* client pointed at **DeepSeek**; default model
@@ -96,8 +97,8 @@ stream_filing_summary(filing_id, ...)
                                          a partial verdict refunds the unit
   f. Persist Summary + FilingContentCache (settles the unit; a provider-side failure before
                                          this refunds it, a client disconnect never does;
-                                         lease-less callers — the background drain, uncapped
-                                         Pro — count full results here instead)
+                                         the lease-less caller — the background drain —
+                                         counts full results here instead)
   → events: progress → chunk → (partial|complete) | error
 ```
 
@@ -141,7 +142,7 @@ backend/
 │   ├── models/           # SQLAlchemy ORM (core in __init__.py, rest in submodules)
 │   ├── schemas/          # Pydantic request/response contracts
 │   ├── integrations/     # external market-data APIs
-│   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float)
+│   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float), telemetry_bootstrap.py (each process's Sentry start and scrubbers)
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
 │   └── database.py       # session management (each engine session at UTC) + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
@@ -171,9 +172,9 @@ frontend/
 | Service | Purpose |
 |---|---|
 | `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
-| `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
+| `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) + the progress row: a run's write (`record_progress`, one upsert) and the progress poll's answer (`progress_poll_answer`, whose stale mark is one conditional UPDATE) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
-| `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
+| `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` and Pro's summary and analysis fair-use ceilings (`PRO_SUMMARY_MONTHLY_CAP`, `ANALYSIS_MONTHLY_CAP`, D-050) |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
 | `login_lockout.py` | Atomic failed-login upserts keyed by peppered email hash; existing reset/lock windows; success clear stays in the caller transaction |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
@@ -186,15 +187,16 @@ frontend/
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
 | `oauth_account_service.py` | OAuth state, account creation/linking, refresh-token persistence and provider connections; the auth router owns provider exchange, cookies and responses |
-| `user_account_service.py` | Profile updates and the database commit/rollback for account deletion; the users router owns third-party erasure and audit events |
+| `user_account_service.py` | Profile updates and the database commit/rollback for account deletion, its mandatory `user_deleted` audit row in the same transaction; the users router owns third-party erasure and the other audit events |
 | `user_data_export_service.py` | Read-only assembly of the account's personal-data export; the users router records the export and returns the download |
-| `admin_account_service.py` | Provision a new Free account, send its password-setup link and audit the admin action; existing accounts are never changed |
-| `admin_feedback_service.py` | Feedback listing, status updates and submitter-email lookup for admin triage; the router owns authorization and audit events |
-| `admin_filing_service.py` | Per-filing summary/XBRL resets and stale-XBRL audit/bulk reset; the router owns authorization and error responses |
-| `admin_summary_service.py` | Select and delete reset candidates or regenerate stale summaries through the single headless generation path; the router owns authorization, batch limits and responses |
+| `admin_account_service.py` | Refuse direct provisioning of a Free account: the admin route answers 409 and points to an invitation, so only the recipient accepts the account requirements; nothing is created, and the service takes no session |
+| `invite_service.py` | Closed-beta invites: mint, validate and single-use redemption; the admin revoke and re-issue read the invite under its row lock from their check to their commit, so an invite a registration redeemed first is refused with a 409, not revoked or replaced, and a redemption that comes second finds the invite revoked and is refused; the admin router owns authorization, mail and audit events, and runs each route's session work and release in thread-pool units, the mint and re-send writing their audit row in a unit of their own after the invite mail |
+| `admin_feedback_service.py` | Feedback listing, status updates and submitter-email lookup for admin triage; the admin router owns authorization and audit events, and runs each route's session work, payload and release (the status update's audit row with them) as one unit in the thread pool |
+| `admin_filing_service.py` | Per-filing summary/XBRL resets and stale-XBRL audit/bulk reset; each write takes the admin maintenance lock (`lock_maintenance`) first, so the writes and the reset-all run one at a time across instances; the admin router owns authorization and error responses, and runs each route's session work and release as one unit in the thread pool |
+| `admin_summary_service.py` | Select and delete reset candidates or regenerate stale summaries through the single headless generation path; a real reset-all selects under the admin maintenance lock; the router owns authorization, batch limits and responses, and runs the reset-all's selection, deletion, audit row and release as one unit in the thread pool; the stale summaries' refresh reads its candidates and releases in one such unit, and the service re-reads each stamp and writes the audit row in sessions of its own there, so no connection is held while a generation runs |
 | `watchlist_service.py` | Watchlist membership reads/writes and latest-filing, count, summary and generation-progress rows for insights; the watchlist router runs each route's session work, payload and release as one unit in the thread pool, and owns authentication, generation-status presentation and HTTP responses |
 | `saved_summary_service.py` | Saved-summary bookmarks, notes, status and library row shaping, each write holding the account's lock from its check to its commit; the saved-summaries router runs each route's session work, payload and release as one unit in the thread pool, and owns authentication, request validation and HTTP error mapping |
-| `contact_submission_service.py` | Contact row construction and commit/refresh/rollback with the router's logger; the router owns request policy, HTTP error mapping and post-commit notifications |
+| `contact_submission_service.py` | Contact row construction and commit/refresh/rollback with the router's logger, and the plan of the account that uses the sender's address (`sender_plan`, through `entitlements.get_plan`), which the team's notice names; the router owns request policy, HTTP error mapping and post-commit notifications |
 | `user_notification_feed_service.py` | Sent-alert feed reads, unread counts and the seen-at write for the in-app bell, a stamp that only moves forward; the users router owns authentication, request limits and response models, and runs the session work, payload and release of the profile edit, the preference and bell routes and the data export as one unit each in the thread pool; the account deletion releases its session before its Stripe and PostHog calls and writes its audit row and deletes the account in one unit after them |
 | `company_lookup_service.py` | Company lookups, search upserts/CIK-conflict recovery and response snapshots with session release; the companies router owns SEC/quote I/O and HTTP error mapping |
 | `filing_list_service.py` | Company filing-list freshness, cached reads, persistence, background refresh and on-visit history backfill, each request unit releasing its session; the filings router runs those units in the thread pool and keeps request-path SEC awaits, task scheduling/handoff, response models and error mapping |
@@ -202,7 +204,7 @@ frontend/
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
 | `sitemap_service.py` | Eligible company/filing queries and bounded XML assembly; the sitemap router owns the hourly cache, single-flight lock and HTTP response |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
-| `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
+| `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins among report forms: a proxy or information statement's item never competes, and the backfill's cross-check authority skips it too, `facts/currency.py::is_proxy_form`) |
 | `analysis_data_access.py` | Analysis record reads and short-session ingest, metering and reservation-release units; the analysis router runs its request-session work in thread-pool units that release through `filing_list_service.release_request_session`, and keeps HTTP policy, task/stream ownership and call-time collaborator seams |
 | `job_sessions.py` | Runs one job in a session of its own and closes it however the job ends, for work outside a request's `get_db` session: the internal triggers' flag-off background runs and the Resend click record; the callers keep their log lines and pass the job by an attribute resolved at call time |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
@@ -395,6 +397,37 @@ unused since generation became account-required in #619; kept because migrations
   current row at each period it presents, outside the periods it leaves as found (below); a sync in USD
   alone runs the upsert alone. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- A filing's own figures (the filing page's annual chart, `facts/filing_scope.py`) are the FY rows
+  at its company and accession, current or not, never the rows keyed by `filing_id`. Both writers
+  skip a stored identity, so a companyfacts row stored first at the filing's identity (the winner
+  for a period the filing reported last, or a year's own-report row) holds that cell with no filing
+  owner: `filing_id` says which writer stored a row, not which filing reported it. Once the
+  per-filing writer has run (`processed_facts_at`), such a row stands in for the filing's: a
+  reported item, or a calculation with recorded operands, every one of which the same accession
+  reported (a companyfacts calculation takes revenue's accession, so its numerator can be a later
+  filing's; a legacy calculation with no operands never does); a row withheld as `unavailable`, such
+  as one the audited repair retired, never does. A stand-in shows only in the filing's currency: in
+  a line the filing owns rows of, in their units; in any other, in the currency its own rows rank
+  first by the per-filing extractor's rule (the most period ends, then a non-USD code), a ratio by
+  its recorded operands', since a sync can hold a line only in USD (an early sync read the USD lists
+  alone, and one before the per-filing pick, below, read a switcher's USD list); with no own row in
+  any currency, the one the stand-ins rank first. And only in a line that reaches the filing's own period end
+  (`Filing.period_end_date`, the submissions index's period of report, within
+  `fiscal_naming.DRIFT_DAYS` days, counted in days, never calendar years; with none on record, none
+  shows): short of it, the rows left at the accession are only the cells the filing reported last,
+  such as an older report's oldest year or a 10-Q's prior year-end balance, which the sync labels
+  FY. A line that misses a year shows only its rows after it, the filing's own included: two rows
+  more than a year and `DRIFT_DAYS` apart with an FY row of the company's in the line's concept
+  between them, a whole number of years after the earlier one and more than `DRIFT_DAYS` before the
+  later one (a withheld row fills none). An older report's line the writer read nothing of can hold
+  its oldest year and its own-report row, below, the year between under the next report's
+  accession. A gap no such row fills (a fiscal-year change's transition period, a fresh-start split
+  year) is no missing year, so the line charts whole. A stand-in shows under the
+  year counted in whole years, back or forward, from the latest period end the filing's own rows name
+  (`fiscal_naming.years_back`; with none, under its own label), since a companyfacts row stored before
+  the fiscal-year-window writer names its year by the calendar year of its end. The Copilot reads the
+  same scope (`copilot_tools._scope`) and shares the operand test
+  (`fact_provenance.operands_within_accession`).
 - Companyfacts reads each filing in its own currency (`facts/currency.py::filing_currencies`).
   A filing's (accession's) currency is the one that tags more of its kept amount items than any
   other, instants included, each counted once per tag, period end and span on the collector's own
@@ -526,6 +559,24 @@ unused since generation became account-required in #619; kept because migrations
   calculation's own identity (same filing) keeps its old operands, because ingestion never rewrites
   an identity; the journaled repair (`docs/quarterly-data-repair.md`) recomputes it. A demoted row
   stays readable by its accession, as the Copilot's filing scope reads it.
+- Beside each FY winner (a duration or a fiscal-year-end balance), companyfacts keeps the year's
+  own annual report's value when a later filing gave the year another one (`facts/own_reports.py`):
+  a non-current row under the own report's accession, found within the winning tag only, the
+  original preferred over an amendment, then the earliest filed. It is stored only where its
+  identity is free, so it never demotes, promotes or replaces a row, and it never enters the
+  normalizer's `facts`, which the derivations read. The restatement note will read them. It is
+  the own report's figure at that report's accession, so a reader of that filing's rows (the
+  annual chart, the Copilot) reads it as the filing's own: the FY2018 10-K of REGN shows the
+  6,710.8M it gave, never the FY2020 10-K's 5,145.6M, which only the later report's rows carry.
+  Like every stored companyfacts row, one stored first at a filing's own identity holds that cell,
+  since the per-filing writer skips any stored identity, and stands in for it there.
+  Its candidates are the collector's, which never reads a foreign filing's item (below), so a
+  history row is never a convenience translation, and a sync that a newer report proves stale
+  writes none. The currency step treats it as any stored row, by identity, date and accession: where
+  a payload that lags the later report has the history row's identity as its winner, the upsert
+  skips it, and the step makes that row current only where it would make the batch's row current,
+  with the figure the insert would have carried. A sync in USD alone leaves it non-current, so there
+  the later report's figure stays (the history row keeps the lagging insert out).
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

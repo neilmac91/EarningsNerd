@@ -6,7 +6,7 @@ import DataNotes, { DataNotesList } from '@/features/analysis/components/DataNot
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import SourceValue from '@/features/analysis/components/SourceValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import { REASON_SUMMARIES, reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotesLink from '@/features/analysis/components/DataNotesLink'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -54,15 +54,15 @@ function locatorDataset(bank = false): AnalysisDataset {
 }
 
 describe('Financial origin and source checks', () => {
-  it.each([false, true])('locates distinct comparisons using actual headline, growth-chart and fallback membership (bank=%s)', async bank => {
+  it.each([false, true])('names a concern on growth figures alone by its places and words, the headline cards unchanged (bank=%s)', async bank => {
     const report = locatorDataset(bank)
     const view = (input: AnalysisDataset) => <DataNotesProvider dataset={input}><KpiStrip dataset={input} /><DataNotes dataset={input} /><MetricsTable dataset={input} /></DataNotesProvider>
     const { container, rerender } = render(view(report))
     const note = document.getElementById('analysis-data-note-a')!
-    const locator = () => within(note).getByText(/^13 year-over-year comparisons carry this note/)
-    expect(locator()).toHaveTextContent(`The headline cards show 4. The ${bank ? 'net interest income' : 'revenue'} growth chart shows 7. The table shows 3 as its labelled fallback. Exports carry all 13.`)
-    expect(within(note).getByText(/^1 quarter-over-quarter comparison carries/)).toHaveTextContent('The table shows 1.')
-    expect(within(note).getByText(/^1 quarter-over-quarter comparison carries/)).not.toHaveTextContent('headline')
+    // The detail counts the note's growth figures (here it has no figures of its own); it no longer says where on the
+    // page each appears.
+    expect(note).toHaveTextContent('14 growth figures.')
+    expect(note).not.toHaveTextContent(/carry this note|headline cards|growth chart shows|table shows|Exports carry/)
     const headlines = [...container.querySelectorAll('[data-analysis-kpi]')]
     expect(headlines).toHaveLength(4)
     expect(headlines.map(tile => tile.querySelector('dt')?.textContent)).not.toContain('Operating margin')
@@ -70,27 +70,30 @@ describe('Financial origin and source checks', () => {
     expect(headlines[2]).toHaveTextContent('latest available')
     const summary = container.querySelector('[data-analysis-data-notes] > details > summary')!
     const originalSummary = summary.textContent
-    expect(summary).toHaveTextContent('14 comparisons carry note a')
-    expect(screen.getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    expect(locator()).toHaveTextContent('The table shows 3 as its labelled fallback (2 in the 6 quarters shown).')
-    expect(summary.textContent).toBe(originalSummary)
-    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
+    // A note only on growth figures is named by them: the first three metrics, then a count of the rest.
+    const topLine = bank ? 'Net interest income' : 'Revenue'
+    expect(summary.querySelector('[data-note-letter="a"]')).not.toBeNull()
+    expect(summary).toHaveTextContent(`${topLine} YoY Q1 2024, Q2 2024, Q3 2024, Q4 2024, Q1 2025, Q2 2025, Q3 2025, Q4 2025; ${topLine} QoQ Q4 2025; Net income YoY Q4 2025 and 3 more: ${REASON_SUMMARIES.source_conflict}`)
+    // The table's dash itself, a screen reader hearing "a dash" in its place.
+    expect(summary).toHaveTextContent('1 not in our data, shown as —')
+    expect(within(summary as HTMLElement).getByText('a dash')).toHaveClass('sr-only')
+    // b is free cash flow's gap, which marks nothing.
     expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
-    expect(locator()).toHaveTextContent('The table shows 3 as its labelled fallback (1 in the 6 quarters shown).')
-    expect(within(note).getByText(/^1 quarter-over-quarter comparison carries/)).toHaveTextContent('The table shows 1 (0 in the 6 quarters shown).')
-    expect(summary.textContent).toBe(originalSummary)
+    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
     rerender(view({ ...report, snapshot_id: 'locator-two' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 8 of 8 quarters')
-    expect(locator()).not.toHaveTextContent('quarters shown')
-    expect(screen.getByRole('button', { name: 'All 8' })).toHaveAttribute('aria-pressed', 'true')
+    expect(container.querySelector('[data-analysis-data-notes] > details > summary')?.textContent).toBe(originalSummary)
   })
 
   it('keeps citation-only and illustrative note lists free of invented report surface claims', () => {
     const report = locatorDataset()
     const { rerender, container } = render(<DataNotesList notes={groupDataNotes(report).notes} />)
-    expect(container).toHaveTextContent('13 YoY comparisons')
+    expect(container).toHaveTextContent('14 growth figures.')
     expect(container).not.toHaveTextContent(/headline|growth chart|table shows|Exports carry/)
+    // A note on figures counts the growth figures that carry it apart from them, as built on them (#1610 §3.2).
+    const [first] = groupDataNotes(report).notes
+    const ref = { concept: 'revenue', label: 'Revenue', period: '2024Q1' }
+    rerender(<DataNotesList notes={[{ ...first, values: [ref], comparisons: [{ ...ref, basis: 'yoy' }, { ...ref, period: '2024Q2', basis: 'yoy' }] }]} />)
+    expect(container).toHaveTextContent('1 figure; 2 growth figures built on it.')
     rerender(<DataNotes dataset={report} sample />)
     expect(container).not.toHaveTextContent(/headline|growth chart|table shows|Exports carry/)
   })
@@ -110,18 +113,16 @@ describe('Financial origin and source checks', () => {
     expect(container.textContent).not.toContain('2026-10-20T')
   })
 
-  it('lists visible table note letters in admitted report order, including unavailable cells', async () => {
+  it("lists the table's marked letters in admitted report order, leaving out a gap's note", () => {
     const report = locatorDataset()
     const grouped = groupDataNotes(report)
     grouped.notes = grouped.notes.map((note, index) => ({ ...note, letter: ['z', 'a'][index], id: `analysis-data-note-${['z', 'a'][index]}` }))
     report.data_notes = decodeDataNotes({ version: 1, notes: grouped.notes, totals: grouped.totals }, report)
     render(<MetricsTable dataset={report} />)
-    expect(screen.getByRole('button', { name: 'Review data notes z, a' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
     expect(screen.getByRole('button', { name: 'Review data notes z' })).toBeInTheDocument()
   })
 
-  it('counts annual CAGR and percentage-point windows independently of the table period window', async () => {
+  it('counts annual CAGR and percentage-point windows once each, beside every period of the table', () => {
     const report = locatorDataset()
     report.mode = 'annual'
     report.period_key = 'FY2018..FY2025'
@@ -134,11 +135,9 @@ describe('Financial origin and source checks', () => {
     render(<DataNotesProvider dataset={report}><DataNotes dataset={report} /><MetricsTable dataset={report} /></DataNotesProvider>)
     const note = document.getElementById('analysis-data-note-a')!
     expect(note).toHaveTextContent('Revenue CAGR (FY2020–FY2025)')
-    for (const basis of ['CAGR', 'window percentage-point']) {
-      expect(within(note).getByText(`1 ${basis} comparison carries this note. The headline cards show 1. The table shows 1. Exports carry all 1.`)).toBeInTheDocument()
-    }
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
+    expect(note).toHaveTextContent('2 growth figures.')
     expect(note).not.toHaveTextContent('years shown')
+    expect(screen.getAllByRole('columnheader')).toHaveLength(report.periods.length + 2)
     expect(screen.getByRole('columnheader', { name: 'FY2018–FY2025 CAGR' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
   })
@@ -170,7 +169,7 @@ describe('Financial origin and source checks', () => {
     const control = screen.getByRole('button', { name: /Revenue, Q4 2023:.*data note a, also applies to the comparison/ })
     expect(control.getAttribute('aria-label')?.match(/data note a/g)).toHaveLength(1)
     await userEvent.click(control)
-    expect(screen.getByRole('dialog')).toHaveTextContent('Carries note a. The recorded inputs do not identify which input carries this note.')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Carries note a. The recorded inputs do not identify which input this note comes from.')
     expect(screen.getByRole('dialog')).not.toHaveTextContent('it uses')
   })
 
@@ -181,19 +180,23 @@ describe('Financial origin and source checks', () => {
     grouped.notes[0] = { ...grouped.notes[0], letter: 'z', id: 'analysis-data-note-z', message: 'The server retained the original currency concern.' }
     const admitted = Object.assign(flagged, { data_notes: decodeDataNotes({ version: 1, notes: grouped.notes, totals: grouped.totals }, flagged) })
     const children = <><DataNotes dataset={admitted} /><MetricsTable dataset={admitted} /></>
-    render(withProvider ? <DataNotesProvider dataset={admitted}>{children}</DataNotesProvider> : children)
+    const { container } = render(withProvider ? <DataNotesProvider dataset={admitted}>{children}</DataNotesProvider> : children)
     expect(screen.getByRole('button', { name: /Revenue, Q4 2023:.*comparison carries data note z/ })).toBeInTheDocument()
     expect(document.getElementById('analysis-data-note-z')).toHaveTextContent('The server retained the original currency concern.')
-    expect(screen.getByText(/1 comparison carries note z/)).toBeInTheDocument()
+    // The summary takes the note's summary words, noteSummary's for its reasons (a unit mismatch has no clause of its
+    // own); the detail above keeps the server's message.
+    expect(container.querySelector('[data-analysis-data-notes] summary')).toHaveTextContent('Revenue QoQ Q4 2023: questioned by an automated check')
     expect(screen.getByText(/No figures need review · 2 checked/)).toBeInTheDocument()
     expect(document.getElementById('analysis-data-note-a')).not.toBeInTheDocument()
   })
 
   it('presents a validated Q4 calculation and its growth without false warnings, with inspectable operands', async () => {
     const user = userEvent.setup()
-    render(<><DataNotes dataset={dataset} /><MetricsTable dataset={dataset} /></>)
+    const { container } = render(<><DataNotes dataset={dataset} /><MetricsTable dataset={dataset} /></>)
     expect(screen.queryByText(/Source check needed|Growth source check needed|Unverified/)).not.toBeInTheDocument()
-    expect(screen.getByText('† calculated')).not.toHaveClass('bg-warning-light/10')
+    // A calculation is not a concern: no † label, and nothing on the table or in its fine print takes warning ink.
+    expect(screen.queryByText(/† calculated/)).not.toBeInTheDocument()
+    expect(container.querySelector('[class*="text-warning"]')).toBeNull()
     const value = screen.getByRole('button', { name: /Revenue, Q4 2023.*View source/ })
     value.focus()
     await user.keyboard('{Enter}')
@@ -220,7 +223,8 @@ describe('Financial origin and source checks', () => {
     flagged.series[0].points[0].provenance!.reasons = ['unit_mismatch']
     render(<><DataNotes dataset={flagged} /><MetricsTable dataset={flagged} /></>)
     expect(screen.getByRole('button', { name: /Revenue, Q3 2023:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
-    const note = screen.getByText(/The source inputs use different units or currencies/).closest('li')
+    const note = document.getElementById('analysis-data-note-a')!
+    expect(note).toHaveTextContent('The source inputs use different units or currencies')
     expect(note).toHaveTextContent('Revenue (Q3 2023)')
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
@@ -237,15 +241,15 @@ describe('Financial origin and source checks', () => {
     expect(screen.queryByText(/Automated checks passed/)).not.toBeInTheDocument()
   })
 
-  it('keeps an unknown comparison distinct from the passed figures and names its letter at rest', () => {
+  it('keeps an unknown comparison distinct from the passed figures and counts it at rest', () => {
     const unknown = structuredClone(dataset)
     unknown.series[0].points[1].qoq_provenance = null
     unknown.series[0].points[1].qoq_reconciled = true
     render(<DataNotes dataset={unknown} />)
     const summary = document.querySelector('[data-analysis-data-notes] > details > summary')!
     expect(summary).toHaveTextContent('No figures need review · 2 checked')
-    expect(summary).toHaveTextContent('1 comparison has no validation record (a)')
-    expect(summary).not.toHaveTextContent('1 figure has no validation record')
+    expect(summary).toHaveTextContent('1 growth figure with no check recorded')
+    expect(summary).not.toHaveTextContent('1 figure with no check recorded')
     expect(summary.querySelector('[class*="text-brand"]')).toBeNull()
   })
 
@@ -283,7 +287,7 @@ describe('Financial origin and source checks', () => {
     expect(dialog).toHaveTextContent(`As stored: ${exact}`)
     expect(dialog).toHaveTextContent('Needs review')
     expect(dialog).not.toHaveTextContent('Automated checks passed')
-    expect(dialog).toHaveTextContent('Its inputs need review.')
+    expect(dialog).toHaveTextContent(reasonText('legacy_calculation'))
   })
 
   it('substitutes margin operands by concept rather than input order, and retains real source links', async () => {
@@ -300,7 +304,7 @@ describe('Financial origin and source checks', () => {
     rerender(<SourceValue point={{ period: '2026Q2', value: 27, unit: 'pure', provenance: { ...provenance, validation: 'needs_review', reasons: ['source_conflict'] } }} label="Net margin" concept="net_margin">27.0%</SourceValue>)
     expect(dialog).toHaveTextContent('Recorded inputs: 15,848,000,000 ÷ 60,801,000,000 × 100')
     expect(dialog).not.toHaveTextContent('× 100 = 27%')
-    expect(dialog).toHaveTextContent('Available sources disagree on this figure.')
+    expect(dialog).toHaveTextContent(reasonText('source_conflict'))
   })
 
   it('substitutes current-ratio operands by concept when their input order is reversed', async () => {
@@ -343,7 +347,9 @@ describe('Financial origin and source checks', () => {
     render(<MetricsTable dataset={missing} />)
     await userEvent.click(screen.getByRole('button', { name: /Q4 2023: unavailable/ }))
     expect(screen.getByText('A reported quarterly earnings-per-share figure is unavailable.')).toBeInTheDocument()
-    expect(screen.getByRole('dialog')).toHaveTextContent('Unavailable · Note a')
+    // A gap's note marks nothing, so the dialog names no letter; its reason is above.
+    expect(screen.getByRole('dialog')).toHaveTextContent('Unavailable')
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('Note a')
     expect(screen.getByRole('dialog')).toHaveTextContent('Changes that need this quarter are not shown.')
     expect(screen.getByRole('dialog')).not.toHaveTextContent('Withheld')
     expect(screen.queryByText('$40.1B')).not.toBeInTheDocument()
@@ -353,8 +359,9 @@ describe('Financial origin and source checks', () => {
     const flagged = structuredClone(dataset)
     flagged.series[0].points[1].qoq_provenance = { ...calculated, validation: 'needs_review', reasons: ['unit_mismatch'] }
     render(<DataNotesProvider dataset={flagged}><DataNotes dataset={flagged} /><MetricsTable dataset={flagged} /></DataNotesProvider>)
-    expect(screen.getByText(/1 comparison carries note a/)).toBeInTheDocument()
-    expect(screen.getByText(/No figures need review · 2 checked/)).toBeInTheDocument()
+    const summary = document.querySelector('[data-analysis-data-notes] summary')!
+    expect(summary).toHaveTextContent('Revenue QoQ Q4 2023: questioned by an automated check')
+    expect(summary).toHaveTextContent('No figures need review · 2 checked')
     expect(screen.getByText(/Comparisons: Revenue QoQ \(Q4 2023\)/)).toBeInTheDocument()
     const figure = screen.getByRole('button', { name: /Revenue, Q4 2023:.*comparison carries data note a/ })
     expect(figure.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
@@ -370,13 +377,40 @@ describe('Financial origin and source checks', () => {
     const missing = structuredClone(dataset)
     missing.series[0].points.pop()
     render(<DataNotesProvider dataset={missing}><DataNotes dataset={missing} /><MetricsTable dataset={missing} /></DataNotesProvider>)
-    expect(screen.getByText(/1 unavailable/)).toBeInTheDocument()
-    const value = screen.getByRole('button', { name: /Revenue, Q4 2023: unavailable, data note a/ })
-    expect(value.querySelector('[data-note-kind="unavailable"]')).toHaveTextContent('a')
+    expect(document.querySelector('[data-analysis-data-notes] summary')).toHaveTextContent('1 not in our data, shown as —')
+    // The gap shows its dash; its note is counted and listed, and marks nothing (D-061).
+    const value = screen.getByRole('button', { name: /^Revenue, Q4 2023: unavailable\. View source/ })
+    expect(value.querySelector('[data-note-kind]')).toBeNull()
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent(reasonText('not_in_dataset'))
     await userEvent.click(value)
     const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
-    expect(within(dialog).getByText(/Not available in this dataset/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Not in our data\. Never shown as zero\./)).toBeInTheDocument()
     expect(within(dialog).queryByText(/Automated checks passed/)).not.toBeInTheDocument()
+  })
+
+  it("keeps a legacy calculation's note in its dialog and the data notes, with no letter beside the figure (D-061)", async () => {
+    const legacy = structuredClone(dataset)
+    legacy.series[0].points[1].provenance = { ...calculated, inputs: [], formula: null, validation: 'needs_review', reasons: ['legacy_calculation'] }
+    legacy.series[0].points[1].qoq_provenance = { ...calculated, validation: 'passed' }
+    const { container } = render(<DataNotesProvider dataset={legacy}><DataNotes dataset={legacy} /><MetricsTable dataset={legacy} /></DataNotesProvider>)
+    const figure = screen.getByRole('button', { name: /^Revenue, Q4 2023: \$40\.1B, calculated\. View source/ })
+    expect(figure.querySelector('[data-note-letter]')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Review data notes/ })).not.toBeInTheDocument()
+    const summary = container.querySelector('[data-analysis-data-notes] summary')!
+    expect(summary).not.toHaveTextContent('No figures need review')
+    expect(summary.querySelector('[data-note-letter]')).toBeNull()
+    const note = document.getElementById('analysis-data-note-a')!
+    expect(note).toHaveTextContent('Calculated before 10 October 2026')
+    expect(note).toHaveTextContent('Revenue (Q4 2023)')
+    expect(note).toHaveTextContent('1 figure.')
+    await userEvent.click(figure)
+    const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
+    // The figure's own checks: never passed, the note's words in full, no letter and no warning ink.
+    const checks = within(dialog).getByRole('heading', { name: 'Checks' }).closest('section')!
+    expect(within(checks).getByText('Needs review')).not.toHaveClass('text-warning-light')
+    expect(checks).not.toHaveTextContent('Automated checks passed')
+    expect(checks).not.toHaveTextContent('Note a')
+    expect(checks).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.')
   })
 
   it('opens and focuses the report note from its keyboard-activated note control', async () => {
@@ -390,7 +424,7 @@ describe('Financial origin and source checks', () => {
     await userEvent.keyboard('{Enter}')
     expect(disclosure).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('1 QoQ comparison')
+    expect(note).toHaveTextContent('1 growth figure.')
     expect(note).toHaveTextContent('Comparisons: Revenue QoQ (Q4 2023)')
     expect(note).toHaveTextContent('The source inputs use different units or currencies')
   })

@@ -22,8 +22,12 @@ async def require_task_identity(authorization: str | None = Header(default=None)
     try:
         await verify_task_identity(authorization[7:])
     except TaskUnavailable as exc:
+        # Every delivery fails until this is fixed, so it is an error, not a refusal: the line reaches Sentry
+        # by its type and stack alone (F50). Neither exception's text holds a token or a setting's value.
+        logger.exception("Task identity unavailable: the worker is not configured")
         raise HTTPException(503, "Task worker is not configured") from exc
     except httpx.HTTPError as exc:
+        logger.exception("Task identity unavailable: Google's signing keys could not be read")
         raise HTTPException(503, "Task identity verification unavailable") from exc
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
         raise HTTPException(401, "Invalid task identity") from exc

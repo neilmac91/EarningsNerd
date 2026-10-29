@@ -9,7 +9,7 @@ import { searchCompanies, Company, type LatestFilingRef } from '@/features/compa
 import { Sep, periodPhrase } from '@/features/filings/components/FilingIdentity'
 import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
-import { FieldSpinner, inputClasses } from '@/components/ui'
+import { FieldSpinner, Notice, inputClasses } from '@/components/ui'
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent, formatLocalDate } from '@/lib/format'
@@ -228,7 +228,7 @@ export default function CompanySearch({
       <div className="hero-search-glow relative rounded-lg">
         <MagnifyingGlassIcon
           aria-hidden="true"
-          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-tertiary-dark"
         />
         <input
           ref={inputRef}
@@ -256,7 +256,7 @@ export default function CompanySearch({
         {isLoading && <FieldSpinner />}
         {!isLoading && !query && (
           <kbd
-            className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border-light dark:border-white/15 bg-brand-weak dark:bg-white/5 px-2 py-0.5 font-mono text-xs text-text-tertiary-light dark:text-text-secondary-dark sm:block"
+            className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border-light dark:border-white/15 bg-brand-weak dark:bg-white/5 px-2 py-0.5 font-mono text-xs text-text-tertiary-light dark:text-text-tertiary-dark sm:block"
             aria-hidden="true"
           >
             /
@@ -264,33 +264,33 @@ export default function CompanySearch({
         )}
       </div>
 
-      {/* Error Message */}
+      {/* Error Message: an error Notice (E196 (4)) on the dropdown's own opaque panel, since the dropdown floats over the
+          page. Its description is keyed to the failure count, so a retry that fails again with the same message
+          re-inserts it and the alert announces it again. The backend's own words can hold a long token, so it breaks
+          inside the alert (Notice breaks its description). The Retry takes the Notice's action row under the message:
+          it keeps the room of "Trying again…" at rest, and beside the message that room left the message too little
+          width at 200% text on a phone and pushed the Retry past the screen (e2e reflow-200.spec.ts holds this). When
+          the alert goes while "Try again" holds focus (the search lands), focus moves to the field, except after a
+          tap, which would raise the touch keyboard. */}
       {isError && debouncedQuery.length > 0 && (
         <div
           id="company-search-error"
-          role="alert"
-          aria-live="polite"
-          className="absolute z-10 mt-2 w-full rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-panel-light dark:bg-error-dark/10 p-4 shadow-e3 dark:shadow-none backdrop-blur-sm"
+          className="absolute z-10 mt-2 w-full rounded-lg bg-panel-light shadow-e3 dark:bg-panel-dark dark:shadow-none"
         >
-          <div className="mb-1 font-semibold text-error-light dark:text-error-dark">Error searching companies</div>
-          {/* Keyed to the failure count, so a retry that fails again with the same message
-              re-inserts it and the live region announces it again. The backend's own words can hold a long
-              token, so it breaks inside the alert. */}
-          <div key={companiesQuery.errorUpdateCount} className="break-words text-sm text-error-light dark:text-error-dark">
-            {error instanceof ApiError
-              ? error.detail
-              : error instanceof Error
-                ? error.message
-                : 'An unexpected error occurred. Please try again.'}
-          </div>
-          {/* The Retry takes its own row under the message, as a Notice's action does: it keeps the room of
-              "Trying again…" at rest, and beside the message that room left the message too little width at
-              200% text on a phone and pushed the Retry past the screen (e2e reflow-200.spec.ts holds this).
-              When the alert goes while "Try again" holds focus (the search lands), focus moves to the field,
-              except after a tap, which would raise the touch keyboard. */}
-          <div className="mt-2.5 flex">
-            <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />
-          </div>
+          <Notice
+            variant="error"
+            title="Error searching companies"
+            description={
+              <span key={companiesQuery.errorUpdateCount}>
+                {error instanceof ApiError
+                  ? error.detail
+                  : error instanceof Error
+                    ? error.message
+                    : 'An unexpected error occurred. Please try again.'}
+              </span>
+            }
+            action={<RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />}
+          />
         </div>
       )}
 

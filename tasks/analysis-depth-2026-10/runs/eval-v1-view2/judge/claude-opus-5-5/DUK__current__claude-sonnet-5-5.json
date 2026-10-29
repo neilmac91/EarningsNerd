@@ -1,0 +1,86 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A only restates table values and is trivially grounded. B's causal claims mostly match their passages: CCR impairments and COVID volumes in FY2020, renewables impairments behind FY2024, fuel undercollection in FY2022. One slip: its interest-expense cause leaves out the primary driver, lower recovery-clause credits. B adds segment drivers, peer context, a disclosed receivables data break, ranked flags and numeric watch thresholds. That depth outweighs the slip."
+   },
+   "cost_usd": 0.097561,
+   "latency_s": 11.275,
+   "input_tokens": 11140,
+   "output_tokens": 706,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A only restates table values and is trivially grounded. B's causal claims mostly match their passages: CCR impairments and COVID volumes in FY2020, renewables impairments behind FY2024, fuel undercollection in FY2022. One slip: its interest-expense cause leaves out the primary driver, lower recovery-clause credits. B adds segment drivers, peer context, a disclosed receivables data break, ranked flags and numeric watch thresholds. That depth outweighs the slip.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains causes with cited filing passages: the FY2020 CCR impairments and COVID, FY2024 renewables impairments, FY2022 fuel undercollection. It also adds segment drivers, peer context, ranked flags and numeric watch thresholds, and discloses the receivables data break. Its interest-expense cause omits the passage's first-listed driver, lower recovery-clause credits. B is fully supported but only restates table values, and its watch items have no thresholds. A's depth outweighs its minor grounding slip."
+   },
+   "cost_usd": 0.099309,
+   "latency_s": 12.093,
+   "input_tokens": 11136,
+   "output_tokens": 795,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"A explains causes with cited filing passages: the FY2020 CCR impairments and COVID, FY2024 renewables impairments, FY2022 fuel undercollection. It also adds segment drivers, peer context, ranked flags and numeric watch thresholds, and discloses the receivables data break. Its interest-expense cause omits the passage's first-listed driver, lower recovery-clause credits. B is fully supported but only restates table values, and its watch items have no thresholds. A's depth outweighs its minor grounding slip.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.19687
+}

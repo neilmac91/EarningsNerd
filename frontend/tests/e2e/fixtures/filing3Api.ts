@@ -10,9 +10,9 @@ import type { Page } from '@playwright/test'
  * user. Shared by filing-source-chip.spec.ts (EN-01), consent-bar-yields.spec.ts (EN-02),
  * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top),
  * filing-reader-wide-tables.spec.ts (EN-04, the `tables` content), prose-links.spec.ts (D-030,
- * which routes an answer with a link) and header-covers-nothing.spec.ts (the pane under the
- * open menu); a spec seeds its own browser
- * state (theme, consent, coachmark) in its own addInitScript.
+ * which routes an answer with a link), header-covers-nothing.spec.ts (the pane under the
+ * open menu) and copilot-status-line.spec.ts (E238, which holds the Ask stream); a spec seeds
+ * its own browser state (theme, consent, coachmark) in its own addInitScript.
  */
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 export const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-summary.json'), 'utf8')) as Record<string, unknown>
@@ -70,6 +70,15 @@ export async function answerApi(page: Page, baseURL: string, who: Who = 'anon', 
         return who === 'anon'
           ? json(401, { detail: 'Not authenticated' })
           : json(200, { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true })
+      case '/api/feedback/capabilities':
+        // These shared cases use the healthy text-only composer, not a capabilities failure.
+        return json(200, {
+          attachments_enabled: false,
+          max_files: 3,
+          max_file_bytes: 5 * 1024 * 1024,
+          max_total_bytes: 16 * 1024 * 1024,
+          accepted_content_types: ['image/png', 'image/jpeg', 'image/webp'],
+        })
       case '/api/subscriptions/subscription':
         return json(200, { is_pro: true, stripe_customer_id: 'cus_1', stripe_subscription_id: 'sub_1', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: null, cancel_at_period_end: false })
       case '/api/subscriptions/usage':

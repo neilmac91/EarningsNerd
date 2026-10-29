@@ -1,0 +1,1613 @@
+{
+ "ticker": "SNAP",
+ "arm": "claude-haiku-5-5-low",
+ "family": "claude",
+ "model": "claude-haiku-5-5",
+ "split": "dev",
+ "profile": "loss_making",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "5da20c8ab2b2d3c017488aa19a9b95ead2c64031f6a5922fe0d622a7740aa208",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 45819,
+   "cached_input_tokens": 0,
+   "output_tokens": 22926,
+   "reasoning_tokens": 20601,
+   "latency_s": 98.663,
+   "cost_usd": 0.020627,
+   "backend": "claude_cli",
+   "model_served": "claude-haiku-5-5",
+   "meta": {
+    "duration_api_ms": 91459,
+    "cache_creation_input_tokens": 45817,
+    "list_cost_usd": 0.016045
+   },
+   "problems": [],
+   "raw": "```json\n{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue grew from $405 million in FY2016 to $5.93 billion in FY2025, a 34.8% compound rate [F1][F10][F196].\"},\n    {\"type\": \"comparison\", \"text\": \"Growth ran between 43.1% and 64.2% a year from FY2018 to FY2021 [D80][D218], then slowed to 0.1% in FY2023 [D311].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2017 jump, 104.0% growth to $825 million [D36][F2], came from more ads delivered and the self-serve platform launched in November 2016 [P81].\"},\n    {\"type\": \"judgement\", \"text\": \"The cited filings do not explain the FY2023 stall, so it should not be read as a cyclical trend [D311].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Advertising Revenue was $5.19 billion in FY2025, 87.4% of revenue, and grew 5.8% [S39][D536][D537].\"},\n    {\"type\": \"comparison\", \"text\": \"Advertising added 5.3pp and Other Revenue 5.4pp of the 10.6% growth [D538][D545][D406].\"},\n    {\"type\": \"fact\", \"text\": \"Other Revenue reached $745 million, 12.6% of revenue, after growing 62.9% [S42][D543][D544].\"},\n    {\"type\": \"cause\", \"text\": \"The filing credits advertising growth to about 17% more impressions, partly offset by about 10% lower price per impression, and Other Revenue to more subscribers [P24].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating costs grew 5.1% against revenue growth of 10.6%, and incremental operating margin was 44.8% [D423][D406][D429].\"},\n    {\"type\": \"comparison\", \"text\": \"Net loss shrank 34.0% [D408] while loss per diluted share shrank 35.7% [D410], as diluted shares rose 2.1% to 1,694.6 million [D425][X150].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin of -9.0% in FY2025 [F30] is the window high [D554], against a -32.4% median [D555].\"},\n    {\"type\": \"comparison\", \"text\": \"It improved 5.7pp, with cost of revenue adding 1.1pp, R&D 1.3pp and other lines 3.3pp [D419][D431][D432][D433].\"},\n    {\"type\": \"cause\", \"text\": \"The filing says sales and marketing fell $42.4 million on prior-year event timing and $19.9 million of restructuring [P22].\"},\n    {\"type\": \"cause\", \"text\": \"The largest move, 315.1pp in FY2018 [D92], came as stock-based compensation fell from $2.64 billion to $538 million [X82][X83], which the filing ties to lower G&A stock awards [P75][P76].\"},\n    {\"type\": \"comparison\", \"text\": \"Net margin of -7.8% [F50] sits 1.2pp above operating margin of -9.0% [F30], helped by $68.9 million of other income [X130][P18].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow was $656 million in FY2025 [F80], 11.1% of revenue [D394], against a net loss of $461 million [F40].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow of $437 million [F100] was a 7.4% margin [D393], equal to the window high [D560], after $219 million of capex [F90].\"},\n    {\"type\": \"cause\", \"text\": \"The filing attributes the gap mainly to $1.0 billion of stock-based compensation and $163.6 million of D&A, with $96.7 million of debt-extinguishment gains among the adjustments [P13].\"},\n    {\"type\": \"judgement\", \"text\": \"Cash generation is real but leans on non-cash pay, equal to 155.0% of operating cash flow [D396].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Net cash became net debt of $596 million in FY2025 [D399], -10.1% of revenue [D400], down from $1.44 billion in FY2021 [D211].\"},\n    {\"type\": \"comparison\", \"text\": \"On net cash to revenue the company ranks at the 0th percentile of five internet peers, against a 45.0% median [D578][D579].\"},\n    {\"type\": \"cause\", \"text\": \"The 2033 Notes raised $1.47 billion net and funded the repurchase of $1.4 billion of 2026 to 2028 notes [P2][P1].\"},\n    {\"type\": \"comparison\", \"text\": \"Buybacks of $751 million [X156] equalled 171.7% of free cash flow [D402], and diluted shares still rose 2.1% [D425].\"},\n    {\"type\": \"judgement\", \"text\": \"The balance sheet has moved from cash to debt while returns outrun free cash flow [D399][D402], leaving less room for error.\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Net losses persist: every year from FY2016 to FY2025 is loss-making, including $461 million in FY2025 [R1][F40].\"},\n    {\"type\": \"fact\", \"text\": \"Stock-based compensation was 17.1% of revenue [R2][D390], $1.02 billion [X90], and 191.1% of the operating loss [D404].\"},\n    {\"type\": \"judgement\", \"text\": \"Stock pay is the main reason cash flow looks better than the loss.\"},\n    {\"type\": \"fact\", \"text\": \"Buybacks exceeded free cash flow in FY2023, FY2024 and FY2025 [R4][D307][D354][D402], and net cash has fallen four years running [R3][D399].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin holding above -9.0% [F30][D554] in the FY2026 10-K confirms the trend; a return to -14.7% [F29] reverses it.\"},\n    {\"type\": \"comparison\", \"text\": \"Net cash below -$596 million [D399] in the FY2026 10-K confirms the shift to debt, and a move back above -$268 million [D351] reverses it.\"},\n    {\"type\": \"comparison\", \"text\": \"Buybacks above 171.7% of free cash flow [D402] would confirm returns outrunning cash, and a return below 142.3% [D354] reverses it, in the FY2026 10-K.\"}\n  ]}\n]}\n```"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 48427,
+   "cached_input_tokens": 2978,
+   "output_tokens": 2983,
+   "reasoning_tokens": 725,
+   "latency_s": 13.401,
+   "cost_usd": 0.010611,
+   "backend": "claude_cli",
+   "model_served": "claude-haiku-5-5",
+   "meta": {
+    "duration_api_ms": 9576,
+    "cache_creation_input_tokens": 45447,
+    "list_cost_usd": 0.006066
+   },
+   "problems": [],
+   "raw": "{\"sections\": [{\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Revenue grew from $404.5 million in FY2016 to $5.93 billion in FY2025, a 34.8% compound rate [F1][F10][F196].\"}, {\"type\": \"comparison\", \"text\": \"Growth ran between 43.1% and 64.2% a year from FY2018 to FY2021 [D80][D218], then slowed to 0.1% in FY2023 [D311].\"}, {\"type\": \"cause\", \"text\": \"The FY2017 jump, 104.0% growth to $825 million [D36][F2], came from more ads delivered and the self-serve platform launched in November 2016 [P81].\"}, {\"type\": \"judgement\", \"text\": \"The cited filings do not explain the FY2023 stall, so it should not be read as a cyclical trend [D311].\"}]}, {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Advertising Revenue was $5.19 billion in FY2025, 87.4% of revenue, and grew 5.8% [S39][D536][D537].\"}, {\"type\": \"comparison\", \"text\": \"Advertising added 5.3pp and Other Revenue 5.4pp of the 10.6% growth [D538][D545][D406].\"}, {\"type\": \"fact\", \"text\": \"Other Revenue reached $745 million, 12.6% of revenue, after growing 62.9% [S42][D543][D544].\"}, {\"type\": \"cause\", \"text\": \"The filing credits advertising growth to about 17% more impressions, partly offset by about 10% lower price per impression, and Other Revenue to more subscribers [P24].\"}, {\"type\": \"comparison\", \"text\": \"Operating costs grew 5.1% against revenue growth of 10.6%, and incremental operating margin was 44.8% [D423][D406][D429].\"}, {\"type\": \"comparison\", \"text\": \"Net loss shrank 34.0% [D408] while loss per diluted share shrank 35.7% [D410], as diluted shares rose 2.1% to 1,694.6 million [D425][X150].\"}]}, {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating margin of -9.0% in FY2025 [F30] is the window high [D554], against a -32.4% median [D555].\"}, {\"type\": \"comparison\", \"text\": \"It improved 5.7pp, with cost of revenue adding 1.1pp, R&D 1.3pp and other lines 3.3pp [D419][D431][D432][D433].\"}, {\"type\": \"cause\", \"text\": \"The filing says sales and marketing fell $42.4 million on prior-year event timing and $19.9 million of restructuring [P22].\"}, {\"type\": \"cause\", \"text\": \"The largest move, 315.1pp in FY2018 [D92], came as stock-based compensation fell from $2.64 billion to $538 million [X82][X83], which the filing ties to lower G&A stock awards [P75][P76].\"}, {\"type\": \"comparison\", \"text\": \"Net margin of -7.8% [F50] sits 1.2pp above operating margin of -9.0% [F30], helped by $68.9 million of other income [X130][P18].\"}]}, {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating cash flow was $656 million in FY2025 [F80], 11.1% of revenue [D394], against a net loss of $460.5 million [F40].\"}, {\"type\": \"comparison\", \"text\": \"Free cash flow of $437 million [F100] was a 7.4% margin [D393], equal to the window high [D560], after $219 million of capex [F90].\"}, {\"type\": \"cause\", \"text\": \"The filing attributes the gap mainly to $1.0 billion of stock-based compensation and $163.6 million of D&A, with $96.7 million of debt-extinguishment gains among the adjustments [P13].\"}, {\"type\": \"judgement\", \"text\": \"Cash generation is real but leans on non-cash pay, equal to 155.0% of operating cash flow [D396].\"}]}, {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Net cash became net debt of $596 million in FY2025 [D399], -10.1% of revenue [D400], down from $1.44 billion in FY2021 [D211].\"}, {\"type\": \"comparison\", \"text\": \"On net cash to revenue the company ranks at the 0th percentile of five internet peers, against a 45.0% median [D578][D579].\"}, {\"type\": \"cause\", \"text\": \"The 2033 Notes raised $1.47 billion net and funded the repurchase of $1.4 billion of 2026 to 2028 notes [P2][P1].\"}, {\"type\": \"comparison\", \"text\": \"Buybacks of $751 million [X156] equalled 171.7% of free cash flow [D402], and diluted shares still rose 2.1% [D425].\"}, {\"type\": \"judgement\", \"text\": \"The balance sheet has moved from cash to debt while returns outrun free cash flow [D399][D402], leaving less room for error.\"}]}, {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Net losses persist: every year from FY2016 to FY2025 is loss-making, including $460.5 million in FY2025 [R1][F40].\"}, {\"type\": \"fact\", \"text\": \"Stock-based compensation was 17.1% of revenue [R2][D390], $1.02 billion [X90], and 191.1% of the operating loss [D404].\"}, {\"type\": \"judgement\", \"text\": \"Stock pay is the main reason cash flow looks better than the loss.\"}, {\"type\": \"fact\", \"text\": \"Buybacks exceeded free cash flow in FY2023, FY2024 and FY2025 [R4][D307][D354][D402], and net cash has fallen four years running [R3][D399].\"}]}, {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating margin holding above -9.0% [F30][D554] in the FY2026 10-K confirms the trend; a return to -14.7% [F29] reverses it.\"}, {\"type\": \"comparison\", \"text\": \"Net cash below -$596 million [D399] in the FY2026 10-K confirms the shift to debt, and a move back above -$268 million [D351] reverses it.\"}, {\"type\": \"comparison\", \"text\": \"Buybacks above 171.7% of free cash flow [D402] would confirm returns outrunning cash, and a return below 142.3% [D354] reverses it, in the FY2026 10-K.\"}]}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 94246,
+  "cached_input_tokens": 2978,
+  "output_tokens": 25909,
+  "reasoning_tokens": 21326
+ },
+ "latency_s": 112.064,
+ "cost_usd": 0.031238,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue grew from $404.5 million in FY2016 to $5.93 billion in FY2025, a 34.8% compound rate [F1][F10][F196]."
+     },
+     {
+      "type": "comparison",
+      "text": "Growth ran between 43.1% and 64.2% a year from FY2018 to FY2021 [D80][D218], then slowed to 0.1% in FY2023 [D311]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2017 jump, 104.0% growth to $825 million [D36][F2], came from more ads delivered and the self-serve platform launched in November 2016 [P81]."
+     },
+     {
+      "type": "judgement",
+      "text": "The cited filings do not explain the FY2023 stall, so it should not be read as a cyclical trend [D311]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Advertising Revenue was $5.19 billion in FY2025, 87.4% of revenue, and grew 5.8% [S39][D536][D537]."
+     },
+     {
+      "type": "comparison",
+      "text": "Advertising added 5.3pp and Other Revenue 5.4pp of the 10.6% growth [D538][D545][D406]."
+     },
+     {
+      "type": "fact",
+      "text": "Other Revenue reached $745 million, 12.6% of revenue, after growing 62.9% [S42][D543][D544]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing credits advertising growth to about 17% more impressions, partly offset by about 10% lower price per impression, and Other Revenue to more subscribers [P24]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 5.1% against revenue growth of 10.6%, and incremental operating margin was 44.8% [D423][D406][D429]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net loss shrank 34.0% [D408] while loss per diluted share shrank 35.7% [D410], as diluted shares rose 2.1% to 1,694.6 million [D425][X150]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of -9.0% in FY2025 [F30] is the window high [D554], against a -32.4% median [D555]."
+     },
+     {
+      "type": "comparison",
+      "text": "It improved 5.7pp, with cost of revenue adding 1.1pp, R&D 1.3pp and other lines 3.3pp [D419][D431][D432][D433]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing says sales and marketing fell $42.4 million on prior-year event timing and $19.9 million of restructuring [P22]."
+     },
+     {
+      "type": "cause",
+      "text": "The largest move, 315.1pp in FY2018 [D92], came as stock-based compensation fell from $2.64 billion to $538 million [X82][X83], which the filing ties to lower G&A stock awards [P75][P76]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin of -7.8% [F50] sits 1.2pp above operating margin of -9.0% [F30], helped by $68.9 million of other income [X130][P18]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow was $656 million in FY2025 [F80], 11.1% of revenue [D394], against a net loss of $460.5 million [F40]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow of $437 million [F100] was a 7.4% margin [D393], equal to the window high [D560], after $219 million of capex [F90]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing attributes the gap mainly to $1.0 billion of stock-based compensation and $163.6 million of D&A, with $96.7 million of debt-extinguishment gains among the adjustments [P13]."
+     },
+     {
+      "type": "judgement",
+      "text": "Cash generation is real but leans on non-cash pay, equal to 155.0% of operating cash flow [D396]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Net cash became net debt of $596 million in FY2025 [D399], -10.1% of revenue [D400], down from $1.44 billion in FY2021 [D211]."
+     },
+     {
+      "type": "comparison",
+      "text": "On net cash to revenue the company ranks at the 0th percentile of five internet peers, against a 45.0% median [D578][D579]."
+     },
+     {
+      "type": "cause",
+      "text": "The 2033 Notes raised $1.47 billion net and funded the repurchase of $1.4 billion of 2026 to 2028 notes [P2][P1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks of $751 million [X156] equalled 171.7% of free cash flow [D402], and diluted shares still rose 2.1% [D425]."
+     },
+     {
+      "type": "judgement",
+      "text": "The balance sheet has moved from cash to debt while returns outrun free cash flow [D399][D402], leaving less room for error."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Net losses persist: every year from FY2016 to FY2025 is loss-making, including $460.5 million in FY2025 [R1][F40]."
+     },
+     {
+      "type": "fact",
+      "text": "Stock-based compensation was 17.1% of revenue [R2][D390], $1.02 billion [X90], and 191.1% of the operating loss [D404]."
+     },
+     {
+      "type": "judgement",
+      "text": "Stock pay is the main reason cash flow looks better than the loss."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks exceeded free cash flow in FY2023, FY2024 and FY2025 [R4][D307][D354][D402], and net cash has fallen four years running [R3][D399]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin holding above -9.0% [F30][D554] in the FY2026 10-K confirms the trend; a return to -14.7% [F29] reverses it."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash below -$596 million [D399] in the FY2026 10-K confirms the shift to debt, and a move back above -$268 million [D351] reverses it."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks above 171.7% of free cash flow [D402] would confirm returns outrunning cash, and a return below 142.3% [D354] reverses it, in the FY2026 10-K."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 602,
+ "gate": {
+  "passed": true,
+  "sentences": 31,
+  "sentence_types": {
+   "fact": 7,
+   "comparison": 14,
+   "cause": 6,
+   "judgement": 4
+  },
+  "claims": 71,
+  "verified": 71,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue grew from $404.5 million in FY2016 to $5.93 billion in FY2025, a 34.8% compound rate [F1][F10][F196].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F196"
+    ],
+    "claims": [
+     {
+      "claim": "$404.5 million",
+      "value": 404.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$5.93 billion",
+      "value": 5.93,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     },
+     {
+      "claim": "34.8%",
+      "value": 34.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F196"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Growth ran between 43.1% and 64.2% a year from FY2018 to FY2021 [D80][D218], then slowed to 0.1% in FY2023 [D311].",
+    "type": "comparison",
+    "citations": [
+     "D80",
+     "D218",
+     "D311"
+    ],
+    "claims": [
+     {
+      "claim": "43.1%",
+      "value": 43.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D80"
+      ]
+     },
+     {
+      "claim": "64.2%",
+      "value": 64.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D218"
+      ]
+     },
+     {
+      "claim": "0.1%",
+      "value": 0.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D311"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2017 jump, 104.0% growth to $825 million [D36][F2], came from more ads delivered and the self-serve platform launched in November 2016 [P81].",
+    "type": "cause",
+    "citations": [
+     "D36",
+     "F2",
+     "P81"
+    ],
+    "claims": [
+     {
+      "claim": "104.0%",
+      "value": 104.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D36"
+      ]
+     },
+     {
+      "claim": "$825 million",
+      "value": 825.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F2"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The cited filings do not explain the FY2023 stall, so it should not be read as a cyclical trend [D311].",
+    "type": "judgement",
+    "citations": [
+     "D311"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Advertising Revenue was $5.19 billion in FY2025, 87.4% of revenue, and grew 5.8% [S39][D536][D537].",
+    "type": "fact",
+    "citations": [
+     "S39",
+     "D536",
+     "D537"
+    ],
+    "claims": [
+     {
+      "claim": "$5.19 billion",
+      "value": 5.19,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S39"
+      ]
+     },
+     {
+      "claim": "87.4%",
+      "value": 87.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D536"
+      ]
+     },
+     {
+      "claim": "5.8%",
+      "value": 5.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D537"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Advertising added 5.3pp and Other Revenue 5.4pp of the 10.6% growth [D538][D545][D406].",
+    "type": "comparison",
+    "citations": [
+     "D538",
+     "D545",
+     "D406"
+    ],
+    "claims": [
+     {
+      "claim": "5.3pp",
+      "value": 5.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D538"
+      ]
+     },
+     {
+      "claim": "5.4pp",
+      "value": 5.4,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D545"
+      ]
+     },
+     {
+      "claim": "10.6%",
+      "value": 10.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D406"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Other Revenue reached $745 million, 12.6% of revenue, after growing 62.9% [S42][D543][D544].",
+    "type": "fact",
+    "citations": [
+     "S42",
+     "D543",
+     "D544"
+    ],
+    "claims": [
+     {
+      "claim": "$745 million",
+      "value": 745.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S42"
+      ]
+     },
+     {
+      "claim": "12.6%",
+      "value": 12.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D543"
+      ]
+     },
+     {
+      "claim": "62.9%",
+      "value": 62.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D544"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The filing credits advertising growth to about 17% more impressions, partly offset by about 10% lower price per impression, and Other Revenue to more subscribers [P24].",
+    "type": "cause",
+    "citations": [
+     "P24"
+    ],
+    "claims": [
+     {
+      "claim": "17%",
+      "value": 17.0,
+      "unit": "pct",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P24",
+      "ids": [
+       "P24"
+      ]
+     },
+     {
+      "claim": "10%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P24",
+      "ids": [
+       "P24"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs grew 5.1% against revenue growth of 10.6%, and incremental operating margin was 44.8% [D423][D406][D429].",
+    "type": "comparison",
+    "citations": [
+     "D423",
+     "D406",
+     "D429"
+    ],
+    "claims": [
+     {
+      "claim": "5.1%",
+      "value": 5.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D423"
+      ]
+     },
+     {
+      "claim": "10.6%",
+      "value": 10.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D406"
+      ]
+     },
+     {
+      "claim": "44.8%",
+      "value": 44.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D429"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Net loss shrank 34.0% [D408] while loss per diluted share shrank 35.7% [D410], as diluted shares rose 2.1% to 1,694.6 million [D425][X150].",
+    "type": "comparison",
+    "citations": [
+     "D408",
+     "D410",
+     "D425",
+     "X150"
+    ],
+    "claims": [
+     {
+      "claim": "34.0%",
+      "value": 34.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D408"
+      ]
+     },
+     {
+      "claim": "35.7%",
+      "value": 35.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D410"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     },
+     {
+      "claim": "1,694.6 million",
+      "value": 1694.6,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X150"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of -9.0% in FY2025 [F30] is the window high [D554], against a -32.4% median [D555].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D554",
+     "D555"
+    ],
+    "claims": [
+     {
+      "claim": "-9.0%",
+      "value": -9.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "-32.4%",
+      "value": -32.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D555"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "It improved 5.7pp, with cost of revenue adding 1.1pp, R&D 1.3pp and other lines 3.3pp [D419][D431][D432][D433].",
+    "type": "comparison",
+    "citations": [
+     "D419",
+     "D431",
+     "D432",
+     "D433"
+    ],
+    "claims": [
+     {
+      "claim": "5.7pp",
+      "value": 5.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D419"
+      ]
+     },
+     {
+      "claim": "1.1pp",
+      "value": 1.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D431"
+      ]
+     },
+     {
+      "claim": "1.3pp",
+      "value": 1.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D432"
+      ]
+     },
+     {
+      "claim": "3.3pp",
+      "value": 3.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D433"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The filing says sales and marketing fell $42.4 million on prior-year event timing and $19.9 million of restructuring [P22].",
+    "type": "cause",
+    "citations": [
+     "P22"
+    ],
+    "claims": [
+     {
+      "claim": "$42.4 million",
+      "value": 42.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P22",
+      "ids": [
+       "P22"
+      ]
+     },
+     {
+      "claim": "$19.9 million",
+      "value": 19.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P22",
+      "ids": [
+       "P22"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The largest move, 315.1pp in FY2018 [D92], came as stock-based compensation fell from $2.64 billion to $538 million [X82][X83], which the filing ties to lower G&A stock awards [P75][P76].",
+    "type": "cause",
+    "citations": [
+     "D92",
+     "X82",
+     "X83",
+     "P75",
+     "P76"
+    ],
+    "claims": [
+     {
+      "claim": "315.1pp",
+      "value": 315.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D92"
+      ]
+     },
+     {
+      "claim": "$2.64 billion",
+      "value": 2.64,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X82"
+      ]
+     },
+     {
+      "claim": "$538 million",
+      "value": 538.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X83"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of -7.8% [F50] sits 1.2pp above operating margin of -9.0% [F30], helped by $68.9 million of other income [X130][P18].",
+    "type": "comparison",
+    "citations": [
+     "F50",
+     "F30",
+     "X130",
+     "P18"
+    ],
+    "claims": [
+     {
+      "claim": "-7.8%",
+      "value": -7.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "1.2pp",
+      "value": 1.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F50-F30",
+      "ids": [
+       "F50",
+       "F30"
+      ]
+     },
+     {
+      "claim": "-9.0%",
+      "value": -9.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "$68.9 million",
+      "value": 68.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X130"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow was $656 million in FY2025 [F80], 11.1% of revenue [D394], against a net loss of $460.5 million [F40].",
+    "type": "comparison",
+    "citations": [
+     "F80",
+     "D394",
+     "F40"
+    ],
+    "claims": [
+     {
+      "claim": "$656 million",
+      "value": 656.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     },
+     {
+      "claim": "11.1%",
+      "value": 11.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D394"
+      ]
+     },
+     {
+      "claim": "$460.5 million",
+      "value": 460.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F40"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow of $437 million [F100] was a 7.4% margin [D393], equal to the window high [D560], after $219 million of capex [F90].",
+    "type": "comparison",
+    "citations": [
+     "F100",
+     "D393",
+     "D560",
+     "F90"
+    ],
+    "claims": [
+     {
+      "claim": "$437 million",
+      "value": 437.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "7.4%",
+      "value": 7.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D393"
+      ]
+     },
+     {
+      "claim": "$219 million",
+      "value": 219.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F90"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The filing attributes the gap mainly to $1.0 billion of stock-based compensation and $163.6 million of D&A, with $96.7 million of debt-extinguishment gains among the adjustments [P13].",
+    "type": "cause",
+    "citations": [
+     "P13"
+    ],
+    "claims": [
+     {
+      "claim": "$1.0 billion",
+      "value": 1.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P13",
+      "ids": [
+       "P13"
+      ]
+     },
+     {
+      "claim": "$163.6 million",
+      "value": 163.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P13",
+      "ids": [
+       "P13"
+      ]
+     },
+     {
+      "claim": "$96.7 million",
+      "value": 96.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P13",
+      "ids": [
+       "P13"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Cash generation is real but leans on non-cash pay, equal to 155.0% of operating cash flow [D396].",
+    "type": "judgement",
+    "citations": [
+     "D396"
+    ],
+    "claims": [
+     {
+      "claim": "155.0%",
+      "value": 155.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D396"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash became net debt of $596 million in FY2025 [D399], -10.1% of revenue [D400], down from $1.44 billion in FY2021 [D211].",
+    "type": "fact",
+    "citations": [
+     "D399",
+     "D400",
+     "D211"
+    ],
+    "claims": [
+     {
+      "claim": "$596 million",
+      "value": 596.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D399"
+      ]
+     },
+     {
+      "claim": "-10.1%",
+      "value": -10.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D400"
+      ]
+     },
+     {
+      "claim": "$1.44 billion",
+      "value": 1.44,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D211"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "On net cash to revenue the company ranks at the 0th percentile of five internet peers, against a 45.0% median [D578][D579].",
+    "type": "comparison",
+    "citations": [
+     "D578",
+     "D579"
+    ],
+    "claims": [
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D578"
+      ]
+     },
+     {
+      "claim": "45.0%",
+      "value": 45.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D579"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "The 2033 Notes raised $1.47 billion net and funded the repurchase of $1.4 billion of 2026 to 2028 notes [P2][P1].",
+    "type": "cause",
+    "citations": [
+     "P2",
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$1.47 billion",
+      "value": 1.47,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P2",
+      "ids": [
+       "P2"
+      ]
+     },
+     {
+      "claim": "$1.4 billion",
+      "value": 1.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P1",
+      "ids": [
+       "P1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks of $751 million [X156] equalled 171.7% of free cash flow [D402], and diluted shares still rose 2.1% [D425].",
+    "type": "comparison",
+    "citations": [
+     "X156",
+     "D402",
+     "D425"
+    ],
+    "claims": [
+     {
+      "claim": "$751 million",
+      "value": 751.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X156"
+      ]
+     },
+     {
+      "claim": "171.7%",
+      "value": 171.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D402"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "The balance sheet has moved from cash to debt while returns outrun free cash flow [D399][D402], leaving less room for error.",
+    "type": "judgement",
+    "citations": [
+     "D399",
+     "D402"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net losses persist: every year from FY2016 to FY2025 is loss-making, including $460.5 million in FY2025 [R1][F40].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "F40"
+    ],
+    "claims": [
+     {
+      "claim": "$460.5 million",
+      "value": 460.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F40"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Stock-based compensation was 17.1% of revenue [R2][D390], $1.02 billion [X90], and 191.1% of the operating loss [D404].",
+    "type": "fact",
+    "citations": [
+     "R2",
+     "D390",
+     "X90",
+     "D404"
+    ],
+    "claims": [
+     {
+      "claim": "17.1%",
+      "value": 17.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D390"
+      ]
+     },
+     {
+      "claim": "$1.02 billion",
+      "value": 1.02,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X90"
+      ]
+     },
+     {
+      "claim": "191.1%",
+      "value": 191.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D404"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Stock pay is the main reason cash flow looks better than the loss.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Buybacks exceeded free cash flow in FY2023, FY2024 and FY2025 [R4][D307][D354][D402], and net cash has fallen four years running [R3][D399].",
+    "type": "fact",
+    "citations": [
+     "R4",
+     "D307",
+     "D354",
+     "D402",
+     "R3",
+     "D399"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Operating margin holding above -9.0% [F30][D554] in the FY2026 10-K confirms the trend; a return to -14.7% [F29] reverses it.",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D554",
+     "F29"
+    ],
+    "claims": [
+     {
+      "claim": "-9.0%",
+      "value": -9.0,
+      "unit": "pct",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "-14.7%",
+      "value": -14.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F29"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Net cash below -$596 million [D399] in the FY2026 10-K confirms the shift to debt, and a move back above -$268 million [D351] reverses it.",
+    "type": "comparison",
+    "citations": [
+     "D399",
+     "D351"
+    ],
+    "claims": [
+     {
+      "claim": "-$596 million",
+      "value": -596.0,
+      "unit": "usd",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D399"
+      ]
+     },
+     {
+      "claim": "-$268 million",
+      "value": -268.0,
+      "unit": "usd",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D399"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Buybacks above 171.7% of free cash flow [D402] would confirm returns outrunning cash, and a return below 142.3% [D354] reverses it, in the FY2026 10-K.",
+    "type": "comparison",
+    "citations": [
+     "D402",
+     "D354"
+    ],
+    "claims": [
+     {
+      "claim": "171.7%",
+      "value": 171.7,
+      "unit": "pct",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D402"
+      ]
+     },
+     {
+      "claim": "142.3%",
+      "value": 142.3,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D354"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 71,
+  "verified": 68,
+  "failed_claims": 3,
+  "failures": [
+   {
+    "section": "arc",
+    "sentence": "Revenue grew from $405 million in FY2016 to $5.93 billion in FY2025, a 34.8% compound rate [F1][F10][F196].",
+    "type": "fact",
+    "failure": "'$405 million' matches nothing the sentence cites"
+   },
+   {
+    "section": "cash",
+    "sentence": "Operating cash flow was $656 million in FY2025 [F80], 11.1% of revenue [D394], against a net loss of $461 million [F40].",
+    "type": "comparison",
+    "failure": "'$461 million' matches nothing the sentence cites"
+   },
+   {
+    "section": "red_flags",
+    "sentence": "Net losses persist: every year from FY2016 to FY2025 is loss-making, including $461 million in FY2025 [R1][F40].",
+    "type": "fact",
+    "failure": "'$461 million' matches nothing the sentence cites"
+   }
+  ]
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue grew from $405 million in FY2016 to $5.93 billion in FY2025, a 34.8% compound rate [F1][F10][F196]."
+     },
+     {
+      "type": "comparison",
+      "text": "Growth ran between 43.1% and 64.2% a year from FY2018 to FY2021 [D80][D218], then slowed to 0.1% in FY2023 [D311]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2017 jump, 104.0% growth to $825 million [D36][F2], came from more ads delivered and the self-serve platform launched in November 2016 [P81]."
+     },
+     {
+      "type": "judgement",
+      "text": "The cited filings do not explain the FY2023 stall, so it should not be read as a cyclical trend [D311]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Advertising Revenue was $5.19 billion in FY2025, 87.4% of revenue, and grew 5.8% [S39][D536][D537]."
+     },
+     {
+      "type": "comparison",
+      "text": "Advertising added 5.3pp and Other Revenue 5.4pp of the 10.6% growth [D538][D545][D406]."
+     },
+     {
+      "type": "fact",
+      "text": "Other Revenue reached $745 million, 12.6% of revenue, after growing 62.9% [S42][D543][D544]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing credits advertising growth to about 17% more impressions, partly offset by about 10% lower price per impression, and Other Revenue to more subscribers [P24]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 5.1% against revenue growth of 10.6%, and incremental operating margin was 44.8% [D423][D406][D429]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net loss shrank 34.0% [D408] while loss per diluted share shrank 35.7% [D410], as diluted shares rose 2.1% to 1,694.6 million [D425][X150]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of -9.0% in FY2025 [F30] is the window high [D554], against a -32.4% median [D555]."
+     },
+     {
+      "type": "comparison",
+      "text": "It improved 5.7pp, with cost of revenue adding 1.1pp, R&D 1.3pp and other lines 3.3pp [D419][D431][D432][D433]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing says sales and marketing fell $42.4 million on prior-year event timing and $19.9 million of restructuring [P22]."
+     },
+     {
+      "type": "cause",
+      "text": "The largest move, 315.1pp in FY2018 [D92], came as stock-based compensation fell from $2.64 billion to $538 million [X82][X83], which the filing ties to lower G&A stock awards [P75][P76]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin of -7.8% [F50] sits 1.2pp above operating margin of -9.0% [F30], helped by $68.9 million of other income [X130][P18]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow was $656 million in FY2025 [F80], 11.1% of revenue [D394], against a net loss of $461 million [F40]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow of $437 million [F100] was a 7.4% margin [D393], equal to the window high [D560], after $219 million of capex [F90]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing attributes the gap mainly to $1.0 billion of stock-based compensation and $163.6 million of D&A, with $96.7 million of debt-extinguishment gains among the adjustments [P13]."
+     },
+     {
+      "type": "judgement",
+      "text": "Cash generation is real but leans on non-cash pay, equal to 155.0% of operating cash flow [D396]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Net cash became net debt of $596 million in FY2025 [D399], -10.1% of revenue [D400], down from $1.44 billion in FY2021 [D211]."
+     },
+     {
+      "type": "comparison",
+      "text": "On net cash to revenue the company ranks at the 0th percentile of five internet peers, against a 45.0% median [D578][D579]."
+     },
+     {
+      "type": "cause",
+      "text": "The 2033 Notes raised $1.47 billion net and funded the repurchase of $1.4 billion of 2026 to 2028 notes [P2][P1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks of $751 million [X156] equalled 171.7% of free cash flow [D402], and diluted shares still rose 2.1% [D425]."
+     },
+     {
+      "type": "judgement",
+      "text": "The balance sheet has moved from cash to debt while returns outrun free cash flow [D399][D402], leaving less room for error."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Net losses persist: every year from FY2016 to FY2025 is loss-making, including $461 million in FY2025 [R1][F40]."
+     },
+     {
+      "type": "fact",
+      "text": "Stock-based compensation was 17.1% of revenue [R2][D390], $1.02 billion [X90], and 191.1% of the operating loss [D404]."
+     },
+     {
+      "type": "judgement",
+      "text": "Stock pay is the main reason cash flow looks better than the loss."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks exceeded free cash flow in FY2023, FY2024 and FY2025 [R4][D307][D354][D402], and net cash has fallen four years running [R3][D399]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin holding above -9.0% [F30][D554] in the FY2026 10-K confirms the trend; a return to -14.7% [F29] reverses it."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash below -$596 million [D399] in the FY2026 10-K confirms the shift to debt, and a move back above -$268 million [D351] reverses it."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks above 171.7% of free cash flow [D402] would confirm returns outrunning cash, and a return below 142.3% [D354] reverses it, in the FY2026 10-K."
+     }
+    ]
+   }
+  ]
+ }
+}

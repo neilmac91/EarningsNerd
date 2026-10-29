@@ -1,9 +1,10 @@
 """Gate for lessons/ops-auth-lookups-must-let-request-cleanup-progress.md: work that waits for a database
 pool slot never runs on the event loop's default executor.
 
-The default executor is shared with work that may hold a slot: a password change or reset keeps its
-connection checked out while it awaits bcrypt through ``asyncio.to_thread``. A unit waiting there for a
-slot could hold the thread such a holder needs, and neither could move until the pool timed out.
+The default executor is shared with work that may hold a slot: a registration that validates an invite keeps
+its connection checked out while it awaits bcrypt through ``asyncio.to_thread`` (a password change or reset
+did too, until E121's reset-and-change slice (#1727) released theirs before bcrypt). A unit waiting there
+for a slot could hold the thread such a holder needs, and neither could move until the pool timed out.
 Pool-waiting units run on threads of their own instead (``copilot_chat._LOOKUP_THREADS``,
 ``facts.sync_threads._SYNC_THREADS``).
 
@@ -38,14 +39,18 @@ SITES: dict[tuple[str, str, str], str] = {
     ("app/routers/auth.py", "reset_password", "get_password_hash"): _BCRYPT,
     ("app/routers/auth.py", "change_password", "verify_password"): _BCRYPT,
     ("app/routers/auth.py", "change_password", "get_password_hash"): _BCRYPT,
+    ("app/routers/summaries.py", "export_summary_csv", "export_service.generate_csv"):
+        "the CSV from the rows the route's unit read and released; it opens no session",
     ("app/services/copilot_service.py", "_admit_not_disclosed", "_withhold_unsupported_quotations"):
         "string matching against the filing text already in memory; it opens no session",
     ("app/services/copilot_service.py", "_admit_answer", "_withhold_unsupported_quotations"):
         "string matching against the filing text already in memory; it opens no session",
-    ("app/services/export_service.py", "export_pdf", "lambda: HTML(string=html_content).write_pdf()"):
+    ("app/services/export_service.py", "export_pdf", "lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS)"):
         "WeasyPrint over HTML already rendered; it opens no session",
-    ("app/services/export_service.py", "export_analysis_pdf", "lambda: HTML(string=html_content).write_pdf()"):
+    ("app/services/export_service.py", "export_analysis_pdf", "lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS)"):
         "WeasyPrint over HTML already rendered; it opens no session",
+    ("app/services/export_service.py", "export_pdf", "self.generate_pdf_html"):
+        "the summary's HTML from the rows the route's unit read and released; it opens no session",
     ("main.py", "lifespan", "_validate_db_connection"):
         "the startup connection check, before the app serves a request, so no other work holds a slot",
 }

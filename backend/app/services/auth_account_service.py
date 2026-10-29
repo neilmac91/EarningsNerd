@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.models import InviteCode, User
 from app.services import invite_service, login_lockout
+from app.services.auth_validation import is_valid_unicode
 from app.services.account_agreement_service import (
     AcceptedAccountAgreement, require_current_agreement, stage_account_agreement,
 )
@@ -47,6 +48,11 @@ def _generate_token() -> tuple[str, str]:
 
 
 def _hash_token(raw: str) -> str:
+    # A token that is not valid text (a lone surrogate) is no token this module minted (``_generate_token`` makes
+    # URL-safe ASCII), so a verification or reset lookup refuses it as unknown instead of raising from the encode,
+    # which answered 500 (E97).
+    if not is_valid_unicode(raw):
+        raise AccountTokenInvalidError()
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -72,8 +78,8 @@ def create_password_account(
     """Create and commit an unverified password account; None when no account may result.
 
     ``invite`` is the closed-beta invite the register handler already validated (None in public
-    mode). None covers a lost redemption race and a lost concurrent-create race for the same email;
-    the caller answers both with its opaque response.
+    mode). None covers a refused redemption (the invite redeemed or revoked since it validated) and
+    a lost concurrent-create race for the same email; the caller answers both with its opaque response.
     """
     require_collection_available()
     agreement = require_current_agreement(agreement)
@@ -89,8 +95,9 @@ def create_password_account(
         stage_account_agreement(db, user, agreement, source="password")
         # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
         # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
-        # lost redemption race rolls the account back too (the invite's single-use invariant holds),
-        # and a failed insert never burns an invite.
+        # refused redemption (the invite redeemed or revoked since it validated) rolls the account
+        # back too, so an invite admits one account at most and none once revoked, and a failed
+        # insert never burns an invite.
         if invite is not None:
             if not invite_service.redeem_invite(db, invite, user, commit=False):
                 db.rollback()
@@ -221,6 +228,27 @@ def complete_password_reset(db: Session, user: User, hashed_password: str) -> No
     # can't outlive the reset. The attacker is evicted; the legitimate owner logs in fresh.
     revoke_all_for_user(db, user.id)
     db.commit()
+
+
+def complete_password_reset_by_id(db: Session, user_id: int, hashed_password: str) -> None:
+    """The reset route's write: the account :func:`find_password_reset_user` found, read again by its id, then
+    :func:`complete_password_reset`. The route releases its session between the two, before the breached-password
+    check and bcrypt, so it keeps the id, not the row (E121). Raises :class:`AccountTokenInvalidError`, writing
+    nothing, when the account has been deleted since, as the token's read would have then.
+
+    The account's users row lock (``refresh_token_service.lock_user_tokens``) comes before the read, which then
+    sees the commit of whoever held it: a deletion holding it when this starts has deleted the row by the time the
+    read runs. Read before the lock, the row was still there, the reset waited at its revocation's lock, and its
+    commit then matched no row and raised.
+
+    The token is not checked again: the read and the write were apart across those waits when the route ran them
+    on the event loop too, so a reset whose token another reset burned meanwhile still writes, as it did there."""
+    lock_user_tokens(db, user_id)
+    user = db.query(User).filter(User.id == user_id).populate_existing().first()
+    if user is None:
+        db.rollback()  # releases the lock; nothing was written
+        raise AccountTokenInvalidError()
+    complete_password_reset(db, user, hashed_password)
 
 
 def stage_password_change(

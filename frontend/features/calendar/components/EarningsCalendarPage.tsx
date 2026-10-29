@@ -135,7 +135,7 @@ export default function EarningsCalendarPage() {
           <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none sm:text-3xl">
             Earnings calendar
           </h1>
-          <p className="mt-1 max-w-[64ch] text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="mt-1 max-w-[64ch] text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
             U.S. earnings reports, day by day. Dates are U.S. Eastern calendar days.
           </p>
           {/* Coverage caption — shown only when the backend confirms the index filter is active, so
@@ -196,7 +196,7 @@ export default function EarningsCalendarPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark sm:inline-flex">
+          <span className="hidden items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-tertiary-dark sm:inline-flex">
             <ClockIcon aria-hidden="true" className="h-3.5 w-3.5" />
             U.S. Eastern
           </span>
@@ -240,7 +240,7 @@ export default function EarningsCalendarPage() {
         <MonthView anchorIso={anchor} todayIso={todayIso} eventsByDate={eventsByDate} alerts={alerts} onOpenDay={setOpenDay} />
       )}
 
-      <p className="mt-4 px-1 text-xs leading-relaxed text-text-tertiary-light dark:text-text-secondary-dark">
+      <p className="mt-4 px-1 text-xs leading-relaxed text-text-tertiary-light dark:text-text-tertiary-dark">
         Reported dates come from the company&rsquo;s 8-K results filing on SEC EDGAR. Estimated dates and EPS estimates come
         from a market-data provider and can move; &ldquo;usually&rdquo; marks a time the company has not confirmed. Not
         investment advice.

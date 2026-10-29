@@ -29,7 +29,9 @@ from sqlalchemy import desc
 
 from app.database import SessionLocal
 from app.models.financial_fact import FinancialFact
-from app.services.fact_provenance import calculated_provenance, provenance_for_fact, published_value
+from app.services.fact_provenance import (
+    calculated_provenance, operands_within_accession, provenance_for_fact, published_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -248,15 +250,6 @@ def _bounded_rows(query: Any) -> list[FinancialFact]:
     return rows
 
 
-def _inputs_within_filing(provenance: dict, accession: str) -> bool:
-    """Multi-period arithmetic cannot become evidence belonging to one viewed filing."""
-    return all(
-        operand.get("accession") == accession
-        and _inputs_within_filing(operand.get("provenance") or {}, accession)
-        for operand in provenance.get("inputs", [])
-    )
-
-
 def _select_fact(rows: list[FinancialFact], reporting_currency: str | None) -> FinancialFact | None:
     currency = canonical_unit(reporting_currency)
     if currency and "/" not in currency and currency not in {"pure", "shares"}:
@@ -273,7 +266,8 @@ def _select_fact(rows: list[FinancialFact], reporting_currency: str | None) -> F
         raise _Unavailable("invalid_fact")
     if published_value(fact) is None:
         raise _Unavailable("unsupported_calculation")
-    if not _inputs_within_filing(provenance_for_fact(fact), fact.accession):
+    # Multi-period arithmetic cannot become evidence belonging to one viewed filing.
+    if not operands_within_accession(provenance_for_fact(fact), fact.accession):
         raise _Unavailable("cross_filing_calculation")
     return fact
 

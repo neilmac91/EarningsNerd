@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { PANE, answerApi } from './fixtures/filing3Api'
-import { ACCESS_COPY } from '../../features/marketing/lib/access'
+import { ACCESS_COPY, publicAccessCopy } from '../../features/marketing/lib/access'
+import { legalReady } from './fixtures/legalReady'
 
 /**
  * The site header (components/Header.tsx) is the one bar that sticks at the top of the viewport, and it covers
@@ -45,7 +46,8 @@ import { ACCESS_COPY } from '../../features/marketing/lib/access'
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not
  * an inline style on <html>, which no media query reads. CI runs e2e with no backend
  * (lessons/test-e2e-runs-without-backend.md), and the build may name a production API host, so every API request is
- * answered here in the browser whatever its host: the session check 401 (a guest), any other API path 404; every
+ * answered here in the browser whatever its host: the session check 401 (a guest), collection readiness open for
+ * the existing signup/invite layout fixtures, any other API path 404; every
  * other request but the frontend's own GET and HEAD is aborted. The filing pane's case answers the API from
  * fixtures/filing3Api.ts, for a Pro reader. The consent bar is answered before load, so its bottom inset is not in
  * play.
@@ -70,6 +72,7 @@ async function answerGuest(page: Page, baseURL: string) {
     if (url.hostname.endsWith('.sentry.io')) return route.abort()
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/internal/')) {
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (url.pathname === '/api/legal/readiness') return route.fulfill({ status: 200, headers, json: legalReady })
       if (url.pathname === '/api/auth/me') return route.fulfill({ status: 401, headers, json: { detail: 'Not authenticated' } })
       return route.fulfill({ status: 404, headers, json: { detail: 'No backend is available in the header case' } })
     }
@@ -627,7 +630,12 @@ test.describe('from lg the open menu lies over the page / 1100x800, a Pro reader
  * still grows as it appears: chief design accepts that band, since any reservation would give every reader the extra
  * row.
  */
-async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'): Promise<() => void> {
+async function answerHeld(
+  page: Page,
+  baseURL: string,
+  who: 'guest' | 'reader',
+  hold: 'auth' | 'readiness' = 'auth',
+): Promise<() => void> {
   const origin = new URL(baseURL).origin
   let release!: () => void
   const held = new Promise<void>((done) => (release = done))
@@ -639,8 +647,12 @@ async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'):
     if (url.hostname.endsWith('.sentry.io')) return route.abort()
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/internal/')) {
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (url.pathname === '/api/legal/readiness') {
+        if (hold === 'readiness') await held
+        return route.fulfill({ status: 200, headers, json: legalReady })
+      }
       if (url.pathname === '/api/auth/me') {
-        await held
+        if (hold === 'auth') await held
         return who === 'reader'
           ? route.fulfill({ status: 200, headers, json: { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true } })
           : route.fulfill({ status: 401, headers, json: { detail: 'Not authenticated' } })
@@ -660,6 +672,33 @@ const headerAt = (page: Page) =>
     const nav = header.querySelector('nav[aria-label="Main navigation"]')!.getBoundingClientRect()
     return { height: header.getBoundingClientRect().height, scrollY: window.scrollY, navLeft: nav.width > 0 ? nav.left : null }
   })
+
+/**
+ * How far the compact bar's account label sits from its link's centre, across and down, in px; null where the compact
+ * bar is hidden. The link holds every label it can print in one cell (E223), so the shown label may sit in a cell a
+ * taller or wider twin sets, and its span stretches over that cell: the offset reads the text's own box, by a range.
+ */
+const compactLabelOffset = (page: Page) =>
+  page.evaluate(() => {
+    const label = document.querySelector('header[data-site-header] a > span.grid > span:not([aria-hidden])')
+    const link = label?.closest('a')
+    if (!label || !link?.checkVisibility()) return null
+    const range = document.createRange()
+    range.selectNodeContents(label)
+    const text = range.getBoundingClientRect()
+    const box = link.getBoundingClientRect()
+    return { x: text.x + text.width / 2 - (box.x + box.width / 2), y: text.y + text.height / 2 - (box.y + box.height / 2) }
+  })
+/**
+ * Where the compact bar shows, its account label is found and sits within a pixel of its link's centre, the layout's
+ * rounding; where the full bar shows, the label is out of view. Requiring the label keeps a missed selector from
+ * passing the check unread.
+ */
+const expectCentred = (offset: { x: number; y: number } | null, what: string, compact: boolean) => {
+  expect(offset !== null, `${what} is ${compact ? '' : 'not '}in view, in the ${compact ? 'compact' : 'full'} bar`).toBe(compact)
+  if (offset === null) return
+  expect(Math.max(Math.abs(offset.x), Math.abs(offset.y)), `${what} sits ${offset.x.toFixed(1)}px across and ${offset.y.toFixed(1)}px down from its link's centre`).toBeLessThanOrEqual(1)
+}
 
 const HELD_STATES = [
   { width: 1024, doubled: false, bar: 'compact' },
@@ -693,7 +732,12 @@ test.describe('the site header holds one height as its auth check settles (E174,
             if (reader) localStorage.setItem('en_session_active', '1')
           }, who === 'reader')
           const release = await answerHeld(page, baseURL!, who)
+          // Registration readiness answers before the held state is read, so the case reads the auth check alone: as
+          // it landed after that read, it relabelled the account link and the hero's access line, and the nav moved
+          // 4.5 to 9px and a scrolled page 20 to 80px in 28 of 228 runs on main (E220; the next case holds it).
+          const readiness = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/legal/readiness')
           await page.goto('/')
+          await readiness
           const placeholder = page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })
           await expect(placeholder, 'the check is held open, its placeholder in the bar').not.toHaveCount(0)
           if (doubled) await doubleText(page)
@@ -728,19 +772,168 @@ test.describe('the site header holds one height as its auth check settles (E174,
             expect(pending.navLeft, 'the full bar shows its nav while the check is held').not.toBeNull()
             expect(Math.abs(after.navLeft! - pending.navLeft!), `the nav's left edge while the check ran (${pending.navLeft}px) and after (${after.navLeft}px)`).toBeLessThanOrEqual(0.5)
           }
-          // Each access mode's compact label in turn, as a copy fixture: the header keeps its held height with either.
+          // Each access mode's compact label in turn, as a copy fixture: the shown label takes the mode's own and its
+          // hidden twin stays the live example's, the cell the link holds in that mode (E223), and the header keeps its
+          // held height with either, the label central in its link.
           if (bar === 'compact' && who === 'guest') {
             for (const label of [ACCESS_COPY.invite.ctaShort, ACCESS_COPY.public.ctaShort]) {
               await settled.evaluate((link, text) => {
-                link.textContent = text
+                link.querySelector(':scope > span > span:not([aria-hidden])')!.textContent = text
               }, label)
               await settle(page)
               const held = await headerAt(page)
               expect(held.height, `the header with a guest's "${label}" (${held.height}px), as while the check ran (${pending.height}px)`).toBe(pending.height)
+              expectCentred(await compactLabelOffset(page), `a guest's "${label}"`, true)
             }
           }
         })
       })
     }
+  }
+})
+
+/**
+ * The header and the hero keep their place as registration readiness lands (E220, found by #1642's gates). Readiness
+ * relabels the account link ("See a live example" while it checks, then the access mode's label) and the hero's
+ * access line (the checking line, then the mode's). In invite mode, the e2e build's, the full bar's label narrowed
+ * by 9px, so the nav moved 4.5px at 1152 and 1440px and 9px at 2304px under 200% text, and the access line lost
+ * rows, so the page under it moved up 20px at 320 and 390px and 40 to 120px under 200% text. The header's hidden copy
+ * now holds every label its account link can print in the mode (accountLabels), and the access line the checking
+ * line and the mode's own (heldAccessLines). With the auth check answered (a guest) and readiness held open, the
+ * case scrolls, reads the header, the nav's left edge, the access line's height and the page's scroll, answers
+ * readiness, and reads them again. The compact bar's link relabels too ("Live example", then "Request invite"), and
+ * under 200% text at 370 and 450px, below 15rem, "Live example" took one line in the 88px button and "Request invite"
+ * two (102px), so the bar grew 14px; the link now holds both labels in one cell (accountShortLabels), and the bar
+ * keeps its height there too (E223, chief design on #1686, comment 6436319684). The shown label stays central in its
+ * link in either state, a one-line "Live example" in the cell a two-line "Request invite" sets included.
+ */
+const READINESS_STATES = [
+  { width: 320, doubled: false },
+  { width: 390, doubled: false },
+  { width: 1152, doubled: false },
+  { width: 1440, doubled: false },
+  { width: 320, doubled: true },
+  { width: 370, doubled: true },
+  { width: 450, doubled: true },
+  { width: 640, doubled: true },
+  { width: 1440, doubled: true },
+  { width: 2304, doubled: true },
+] as const
+/** The account link while readiness checks: the full bar's label or the compact bar's. */
+const EXAMPLE_LINK = /^(See a live example|Live example)$/
+
+/**
+ * The hero's access line's height. The line is the paragraph in main that carries the checking line while readiness
+ * is held, marked on that first read, so the read after readiness answers measures the same element.
+ */
+const accessLineAt = (page: Page) =>
+  page.evaluate((checking) => {
+    let line = document.querySelector('main [data-e2e-access-line]')
+    if (!line) {
+      line = [...document.querySelectorAll('main p')].find((p) => p.textContent!.includes(checking)) ?? null
+      if (!line) throw new Error(`no paragraph in main carries the checking line ("${checking}") while readiness is held`)
+      line.setAttribute('data-e2e-access-line', '')
+    }
+    return line.getBoundingClientRect().height
+  }, publicAccessCopy('invite', null, true).line)
+
+test.describe('the header and the hero keep their place as registration readiness lands (E220)', () => {
+  for (const { width, doubled } of READINESS_STATES) {
+    // The compact bar shows below 72rem: 1152px, or 2304px under 200% text.
+    const compact = width < (doubled ? 2304 : 1152)
+    test.describe(`${width}px${doubled ? ' and 200% text' : ''}, a guest`, () => {
+      test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+      test('the nav keeps its left edge, the access line its height, a scrolled page its place and the compact label its centre', async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+        })
+        const release = await answerHeld(page, baseURL!, 'guest', 'readiness')
+        await page.goto('/')
+        const banner = page.getByRole('banner')
+        await expect(banner.getByRole('link', { name: EXAMPLE_LINK }), 'the account link offers the live example while readiness is held').toHaveCount(1)
+        if (doubled) await doubleText(page)
+        await settle(page)
+        await page.evaluate(() => window.scrollTo(0, 2000))
+        await settle(page)
+        const checking = await headerAt(page)
+        const checkingLine = await accessLineAt(page)
+        expectCentred(await compactLabelOffset(page), "the compact link's label while readiness is held", compact)
+        expect(checking.scrollY, 'the page is scrolled while readiness is held').toBeGreaterThan(1000)
+
+        release()
+        await expect(banner.getByRole('link', { name: EXAMPLE_LINK }), "the account link takes the access mode's label").toHaveCount(0)
+        await settle(page)
+        const settled = await headerAt(page)
+        const settledLine = await accessLineAt(page)
+        expectCentred(await compactLabelOffset(page), "the compact link's label once readiness answers", compact)
+        expect(settledLine, `the access line while readiness was held (${checkingLine}px) and after (${settledLine}px)`).toBe(checkingLine)
+        expect(settled.height, `the header while readiness was held (${checking.height}px) and after (${settled.height}px)`).toBe(checking.height)
+        expect(settled.scrollY, `the page scrolled to ${checking.scrollY}px while readiness was held`).toBe(checking.scrollY)
+        if (checking.navLeft !== null) {
+          expect(Math.abs(settled.navLeft! - checking.navLeft), `the nav's left edge while readiness was held (${checking.navLeft}px) and after (${settled.navLeft}px)`).toBeLessThanOrEqual(0.5)
+        }
+      })
+    })
+  }
+})
+
+/**
+ * The hero's checking line takes no more rows than the invite line at any width (E224, chief design's option (3) on
+ * #1686, comment 6434019340), so once readiness answers open the invite line fills the cell the two share and leaves no
+ * empty rows under it. The full sentence it replaced, "Checking registration availability. You can explore a live
+ * example.", took a row more from 320 to 460px, and under 200% text one to three rows more (40 to 120px) at most widths
+ * up to 1848px, in CI's fonts. With readiness held, the case reads the rows of each line's text in the hero's cell (its
+ * line boxes, not its cells, which stretch to the tallest) at every 8px across the band where the old line took more at
+ * the narrowest widths, then every 16px on to 1440px, or 1856px under 200% text.
+ */
+const steps = (from: number, to: number, step: number) => Array.from({ length: Math.floor((to - from) / step) + 1 }, (_, i) => from + i * step)
+const ROW_WIDTHS = {
+  default: [...steps(320, 464, 8), ...steps(480, 1440, 16)],
+  doubled: [...steps(320, 480, 8), ...steps(496, 1856, 16)],
+}
+
+test.describe("the hero's checking line takes no more rows than the invite line (E224)", () => {
+  for (const doubled of [false, true]) {
+    test(`at every width read${doubled ? ', under 200% text' : ''}`, async ({ page, baseURL }) => {
+      // 80 or 107 widths, each a resize, a settle and a read: 8 and 9s locally, so a slower runner gets room.
+      test.setTimeout(60_000)
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      // Readiness stays held, so the cell shows the checking line and holds the invite line; both keep their layout.
+      // The line is found by the invite line it holds, so the case reads whatever the checking line says.
+      await answerHeld(page, baseURL!, 'guest', 'readiness')
+      await page.setViewportSize({ width: 320, height: 900 })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.goto('/')
+      await expect(page.getByRole('banner').getByRole('link', { name: EXAMPLE_LINK }), 'the account link offers the live example while readiness is held').toHaveCount(1)
+      if (doubled) await doubleText(page)
+      const invite = ACCESS_COPY.invite.line
+      const taller: string[] = []
+      for (const width of doubled ? ROW_WIDTHS.doubled : ROW_WIDTHS.default) {
+        await page.setViewportSize({ width, height: 900 })
+        await settle(page)
+        const rows = await page.evaluate((invite) => {
+          const held = [...document.querySelectorAll('main p > [aria-hidden="true"]')].find((cell) => cell.textContent === invite)
+          if (!held) throw new Error(`no paragraph in main holds the invite line ("${invite}") while readiness is held`)
+          const line = held.parentElement!
+          const shown = [...line.children].filter((cell) => !cell.hasAttribute('aria-hidden'))
+          if (shown.length !== 1) throw new Error(`the hero's access line shows ${shown.length} lines while readiness is held`)
+          const lineHeight = parseFloat(getComputedStyle(line).lineHeight)
+          // A line box's text fragments share its top; a new row starts more than half a line below the last.
+          const rowsOf = (cell: Element) => {
+            const range = document.createRange()
+            range.selectNodeContents(cell)
+            const tops = [...range.getClientRects()].map((rect) => rect.top).sort((a, b) => a - b)
+            return tops.filter((top, i) => i === 0 || top - tops[i - 1] > lineHeight / 2).length
+          }
+          return { text: shown[0].textContent, checking: rowsOf(shown[0]), invite: rowsOf(held) }
+        }, invite)
+        if (rows.checking > rows.invite) taller.push(`${width}px: "${rows.text}" ${rows.checking} rows, the invite line ${rows.invite}`)
+      }
+      expect(taller, 'the widths where the checking line takes more rows than the invite line').toEqual([])
+    })
   }
 })

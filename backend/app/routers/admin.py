@@ -11,10 +11,11 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 import logging
+import time
 
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import InviteCode, User
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
@@ -23,12 +24,14 @@ from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
 from app.services import admin_feedback_service
 from app.services import admin_account_service
+from app.services import filing_list_service
 from app.services import admin_filing_service
 from app.services import admin_summary_service
 from app.services import invite_service
 from app.services import legal_readiness_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
+from app.services.summary_pipeline import PIPELINE_TIMEOUT_SECONDS
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 from app.utils.text import has_control_characters
 
@@ -79,12 +82,11 @@ class CreateFreeAccountRequest(BaseModel):
 async def create_free_account(
     payload: CreateFreeAccountRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     _require_admin(current_user)
     try:
         return await admin_account_service.create_free_account(
-            db, email=payload.email, full_name=payload.full_name, actor=current_user,
+            email=payload.email, full_name=payload.full_name, actor=current_user,
         )
     except admin_account_service.AccountInvitationRequired as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -167,6 +169,17 @@ class ResendInviteResponse(InviteResponse):
     revoked_invite_id: int
 
 
+def _issued_invite(invite: InviteCode, link: str) -> dict:
+    """A minted invite's response fields, read in its unit while the row is loaded (E171)."""
+    return {
+        "id": invite.id,
+        "email": invite.email,
+        "invite_link": link,
+        "expires_at": invite.expires_at,
+        "cohort": invite.cohort,
+    }
+
+
 @router.post("/invites", response_model=InviteResponse)
 async def mint_invite(
     payload: MintInviteRequest,
@@ -183,40 +196,51 @@ async def mint_invite(
         raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     if payload.send_email and not legal_readiness_service.is_marketing_available():
         raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
-    invite, _raw, link = invite_service.mint_invite(
-        db,
-        created_by=current_user.id,
-        email=payload.email,
-        expires_in_hours=payload.expires_in_hours,
-        cohort=payload.cohort,
-    )
+    # A commit expires the admin, and after the release it is detached: read what the units need first.
+    admin_id, admin_email = current_user.id, current_user.email
+
+    def mint() -> dict:
+        try:
+            invite, _raw, link = invite_service.mint_invite(
+                db,
+                created_by=admin_id,
+                email=payload.email,
+                expires_in_hours=payload.expires_in_hours,
+                cohort=payload.cohort,
+            )
+            return _issued_invite(invite, link)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    issued = await run_in_threadpool(mint)
     emailed = False
     if payload.send_email and payload.email:
         try:
-            await send_invite_email(to_email=payload.email, magic_link=link)
+            await send_invite_email(to_email=payload.email, magic_link=issued["invite_link"])
             emailed = True
         except Exception:
-            logger.warning("Failed to email invite %s", invite.id, exc_info=True)
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="invite_minted",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="invite",
-            entity_id=str(invite.id),
-            details={"cohort": invite.cohort, "emailed": emailed},
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for invite_minted", exc_info=True)
-    return InviteResponse(
-        id=invite.id,
-        email=invite.email,
-        invite_link=link,
-        expires_at=invite.expires_at,
-        emailed=emailed,
-        cohort=invite.cohort,
-    )
+            logger.warning("Failed to email invite %s", issued["id"], exc_info=True)
+
+    def audit() -> None:
+        # A unit of its own after the mail, so the row records whether it went and no pool slot waits on the
+        # mail provider (E171).
+        try:
+            audit_service.create_audit_log(
+                db,
+                action="invite_minted",
+                user_id=admin_id,
+                user_email=admin_email,
+                entity_type="invite",
+                entity_id=str(issued["id"]),
+                details={"cohort": issued["cohort"], "emailed": emailed},
+            )
+        except Exception:
+            logger.warning("Failed to write audit log for invite_minted", exc_info=True)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    await run_in_threadpool(audit)
+    return InviteResponse(**issued, emailed=emailed)
 
 
 @router.get("/invites")
@@ -226,22 +250,28 @@ async def list_invites(
 ):
     """Admin-only: list recent invites with derived status (pending/used/revoked/expired)."""
     _require_admin(current_user)
-    rows = invite_service.list_recent_invites(db)
-    return {
-        "invites": [
-            {
-                "id": r.id,
-                "email": r.email,
-                "status": invite_service.invite_status(r),
-                "cohort": r.cohort,
-                "expires_at": r.expires_at,
-                "used_at": r.used_at,
-                "user_id": r.user_id,
-                "created_at": r.created_at,
+
+    def invites() -> dict:
+        try:
+            return {
+                "invites": [
+                    {
+                        "id": r.id,
+                        "email": r.email,
+                        "status": invite_service.invite_status(r),
+                        "cohort": r.cohort,
+                        "expires_at": r.expires_at,
+                        "used_at": r.used_at,
+                        "user_id": r.user_id,
+                        "created_at": r.created_at,
+                    }
+                    for r in invite_service.list_recent_invites(db)
+                ]
             }
-            for r in rows
-        ]
-    }
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(invites)
 
 
 @router.post("/invites/{invite_id}/revoke")
@@ -252,25 +282,34 @@ async def revoke_invite(
 ):
     """Admin-only: revoke an unused invite so its link can no longer be redeemed."""
     _require_admin(current_user)
+    admin_id, admin_email = current_user.id, current_user.email
+
+    def revoke() -> str:
+        try:
+            invite_status = invite_service.invite_status(invite_service.revoke_invite(db, invite_id))
+            logger.info("Admin %s revoked invite %s", admin_id, invite_id)
+            try:
+                audit_service.create_audit_log(
+                    db,
+                    action="invite_revoked",
+                    user_id=admin_id,
+                    user_email=admin_email,
+                    entity_type="invite",
+                    entity_id=str(invite_id),
+                )
+            except Exception:
+                logger.warning("Failed to write audit log for invite_revoked", exc_info=True)
+            return invite_status
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        invite = invite_service.revoke_invite(db, invite_id)
+        invite_status = await run_in_threadpool(revoke)
     except invite_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
     except invite_service.InviteAlreadyRedeemedError:
         raise HTTPException(status_code=409, detail="Invite already redeemed")
-    logger.info("Admin %s revoked invite %s", current_user.id, invite_id)
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="invite_revoked",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="invite",
-            entity_id=str(invite_id),
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for invite_revoked", exc_info=True)
-    return {"message": "Invite revoked", "invite_id": invite_id, "status": invite_service.invite_status(invite)}
+    return {"message": "Invite revoked", "invite_id": invite_id, "status": invite_status}
 
 
 @router.post("/invites/{invite_id}/resend", response_model=ResendInviteResponse)
@@ -290,57 +329,64 @@ async def resend_invite(
     if not legal_readiness_service.is_collection_available():
         raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     expires_in_hours = payload.expires_in_hours if payload else None
+    admin_id, admin_email = current_user.id, current_user.email
+
+    def reissue() -> dict:
+        try:
+            # Inspect the existing binding before reissue can revoke the old link. An unbound invite
+            # remains a manual-link operation; bound invites require email readiness.
+            if (invite_service.invite_has_delivery_recipient(db, invite_id)
+                    and not legal_readiness_service.is_marketing_available()):
+                raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
+            invite, _raw, link = invite_service.reissue_invite(
+                db,
+                invite_id,
+                created_by=admin_id,
+                expires_in_hours=expires_in_hours,
+            )
+            return _issued_invite(invite, link)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        # Inspect the existing binding off-loop before reissue can revoke the old link. An
-        # unbound invite remains a manual-link operation; bound invites require email readiness.
-        has_recipient = await run_in_threadpool(invite_service.invite_has_delivery_recipient, db, invite_id)
-        if has_recipient and not legal_readiness_service.is_marketing_available():
-            raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
-        invite, _raw, link = invite_service.reissue_invite(
-            db,
-            invite_id,
-            created_by=current_user.id,
-            expires_in_hours=expires_in_hours,
-        )
+        issued = await run_in_threadpool(reissue)
     except invite_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
     except invite_service.InviteAlreadyRedeemedError:
         raise HTTPException(status_code=409, detail="Invite already redeemed")
 
     emailed = False
-    if invite.email:
+    if issued["email"]:
         try:
-            await send_invite_email(to_email=invite.email, magic_link=link)
+            await send_invite_email(to_email=issued["email"], magic_link=issued["invite_link"])
             emailed = True
         except Exception:
-            logger.warning("Failed to email invite %s", invite.id, exc_info=True)
+            logger.warning("Failed to email invite %s", issued["id"], exc_info=True)
 
-    logger.info("Admin %s resent invite %s as %s", current_user.id, invite_id, invite.id)
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="invite_resent",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="invite",
-            entity_id=str(invite.id),
-            details={"revoked_invite_id": invite_id, "cohort": invite.cohort, "emailed": emailed},
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for invite_resent", exc_info=True)
+    logger.info("Admin %s resent invite %s as %s", admin_id, invite_id, issued["id"])
 
-    return ResendInviteResponse(
-        id=invite.id,
-        email=invite.email,
-        invite_link=link,
-        expires_at=invite.expires_at,
-        emailed=emailed,
-        cohort=invite.cohort,
-        revoked_invite_id=invite_id,
-    )
+    def audit() -> None:
+        # As the mint's: a unit of its own after the mail (E171).
+        try:
+            audit_service.create_audit_log(
+                db,
+                action="invite_resent",
+                user_id=admin_id,
+                user_email=admin_email,
+                entity_type="invite",
+                entity_id=str(issued["id"]),
+                details={"revoked_invite_id": invite_id, "cohort": issued["cohort"], "emailed": emailed},
+            )
+        except Exception:
+            logger.warning("Failed to write audit log for invite_resent", exc_info=True)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    await run_in_threadpool(audit)
+    return ResendInviteResponse(**issued, emailed=emailed, revoked_invite_id=invite_id)
 
 
-def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
+def _feedback_item(row: Feedback, user_email: Optional[str], attachments: list | None = None) -> dict:
     """Shape a Feedback row (+ joined user email) into the admin API item."""
     return {
         "id": row.id,
@@ -351,6 +397,8 @@ def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
         "page_url": row.page_url,
         "status": row.status,
         "created_at": row.created_at,
+        "attachment_count": len(attachments or []),
+        "attachments": attachments or [],
     }
 
 
@@ -368,8 +416,16 @@ async def list_feedback(
     and ``type`` query params narrow the result when provided.
     """
     _require_admin(current_user)
-    rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
-    return {"feedback": [_feedback_item(row, email) for row, email in rows]}
+
+    def feedback_list() -> dict:
+        try:
+            rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
+            attachments = admin_feedback_service.attachment_metadata(db, [row.id for row, _ in rows])
+            return {"feedback": [_feedback_item(row, email, attachments[row.id]) for row, email in rows]}
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(feedback_list)
 
 
 @router.patch("/feedback/{feedback_id}", response_model=FeedbackAdminItem)
@@ -386,27 +442,36 @@ async def update_feedback_status(
     """
     _require_admin(current_user)
     new_status = payload.status
-    feedback = admin_feedback_service.set_feedback_status(db, feedback_id, new_status)
-    if not feedback:
-        raise HTTPException(status_code=404, detail="Feedback not found")
+    admin_id, admin_email = current_user.id, current_user.email
 
-    logger.info("Admin %s set feedback %s status to %s", current_user.id, feedback_id, new_status)
+    def set_status() -> dict:
+        try:
+            feedback = admin_feedback_service.set_feedback_status(db, feedback_id, new_status)
+            if not feedback:
+                raise HTTPException(status_code=404, detail="Feedback not found")
 
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="feedback_status_changed",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="feedback",
-            entity_id=str(feedback_id),
-            details={"status": new_status},
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
+            logger.info("Admin %s set feedback %s status to %s", admin_id, feedback_id, new_status)
 
-    user_email = admin_feedback_service.submitter_email(db, feedback)
-    return _feedback_item(feedback, user_email)
+            try:
+                audit_service.create_audit_log(
+                    db,
+                    action="feedback_status_changed",
+                    user_id=admin_id,
+                    user_email=admin_email,
+                    entity_type="feedback",
+                    entity_id=str(feedback_id),
+                    details={"status": new_status},
+                )
+            except Exception:
+                logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
+
+            user_email = admin_feedback_service.submitter_email(db, feedback)
+            attachments = admin_feedback_service.attachment_metadata(db, [feedback.id])
+            return _feedback_item(feedback, user_email, attachments[feedback.id])
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(set_status)
 
 
 @router.delete("/filing/{filing_id}/summary")
@@ -422,10 +487,15 @@ async def delete_filing_summary(
     """
     _require_admin(current_user)
 
-    try:
-        summary_deleted = admin_filing_service.delete_filing_summary(db, filing_id, actor=current_user)
-    except admin_filing_service.FilingNotFoundError:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    def delete_summary() -> bool:
+        try:
+            return admin_filing_service.delete_filing_summary(db, filing_id, actor=current_user)
+        except admin_filing_service.FilingNotFoundError:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        finally:
+            filing_list_service.release_request_session(db)
+
+    summary_deleted = await run_in_threadpool(delete_summary)
 
     return {
         "message": f"Summary deleted for filing {filing_id}",
@@ -446,12 +516,18 @@ async def clear_filing_xbrl(
     fresh data to be fetched from SEC on the next request.
     """
     _require_admin(current_user)
+    admin_id = current_user.id
 
-    try:
-        had_xbrl = admin_filing_service.clear_filing_xbrl(db, filing_id)
-    except admin_filing_service.FilingNotFoundError:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    logger.info(f"Admin {current_user.id} cleared XBRL data for filing {filing_id}")
+    def clear_xbrl() -> bool:
+        try:
+            return admin_filing_service.clear_filing_xbrl(db, filing_id)
+        except admin_filing_service.FilingNotFoundError:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        finally:
+            filing_list_service.release_request_session(db)
+
+    had_xbrl = await run_in_threadpool(clear_xbrl)
+    logger.info(f"Admin {admin_id} cleared XBRL data for filing {filing_id}")
 
     return {
         "message": f"XBRL data cleared for filing {filing_id}",
@@ -477,12 +553,18 @@ async def reset_filing(
     Use this to force a complete re-generation from scratch.
     """
     _require_admin(current_user)
+    admin_id = current_user.id
 
-    try:
-        deleted = admin_filing_service.reset_filing(db, filing_id)
-    except admin_filing_service.FilingNotFoundError:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    logger.info(f"Admin {current_user.id} reset filing {filing_id}: {deleted}")
+    def reset() -> dict[str, bool]:
+        try:
+            return admin_filing_service.reset_filing(db, filing_id)
+        except admin_filing_service.FilingNotFoundError:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        finally:
+            filing_list_service.release_request_session(db)
+
+    deleted = await run_in_threadpool(reset)
+    logger.info(f"Admin {admin_id} reset filing {filing_id}: {deleted}")
 
     return {
         "message": f"Filing {filing_id} has been reset",
@@ -551,9 +633,13 @@ async def audit_stale_xbrl(
     """
     _require_admin(current_user)
 
-    total_filings_with_xbrl, stale_filings = admin_filing_service.audit_stale_xbrl(
-        db, year_threshold=year_threshold
-    )
+    def audit() -> tuple[int, list[dict]]:
+        try:
+            return admin_filing_service.audit_stale_xbrl(db, year_threshold=year_threshold)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    total_filings_with_xbrl, stale_filings = await run_in_threadpool(audit)
 
     return {
         "total_filings_with_xbrl": total_filings_with_xbrl,
@@ -582,13 +668,20 @@ async def bulk_reset_stale_xbrl(
     Returns list of affected filings and reset status.
     """
     _require_admin(current_user)
+    admin_id = current_user.id
 
-    affected_filings = admin_filing_service.bulk_reset_stale_xbrl(
-        db, year_threshold=year_threshold, dry_run=dry_run, actor=current_user
-    )
+    def bulk_reset() -> list[dict]:
+        try:
+            return admin_filing_service.bulk_reset_stale_xbrl(
+                db, year_threshold=year_threshold, dry_run=dry_run, actor=current_user
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    affected_filings = await run_in_threadpool(bulk_reset)
 
     if not dry_run:
-        logger.info(f"Admin {current_user.id} bulk-reset {len(affected_filings)} filings with stale XBRL data")
+        logger.info(f"Admin {admin_id} bulk-reset {len(affected_filings)} filings with stale XBRL data")
 
     return {
         "dry_run": dry_run,
@@ -627,32 +720,41 @@ async def reset_all_summaries(
     Returns counts plus the skipped (saved) filings so an operator can act on them deliberately.
     """
     _require_admin(current_user)
+    admin_id, admin_email = current_user.id, getattr(current_user, "email", None)
 
-    plan = admin_summary_service.select_reset_candidates(
-        db, filing_type=filing_type, include_saved=include_saved
-    )
+    def reset_summaries() -> admin_summary_service.ResetAllPlan:
+        try:
+            plan = admin_summary_service.select_reset_candidates(
+                db, filing_type=filing_type, include_saved=include_saved, for_delete=not dry_run
+            )
+            if not dry_run and plan.delete_ids:
+                admin_summary_service.delete_summaries(db, plan)
+                audit_service.create_audit_log(
+                    db=db,
+                    action="summaries_bulk_reset",
+                    user_id=admin_id,
+                    user_email=admin_email,
+                    entity_type="summaries",
+                    details={
+                        "filing_type": filing_type,
+                        "include_saved": include_saved,
+                        "deleted_count": len(plan.delete_ids),
+                        "skipped_saved_count": len(plan.skipped_saved),
+                    },
+                    status="success",
+                )
+            return plan
+        finally:
+            filing_list_service.release_request_session(db)
+
+    plan = await run_in_threadpool(reset_summaries)
     delete_ids = plan.delete_ids
     skipped_saved = plan.skipped_saved
 
     if not dry_run and delete_ids:
-        admin_summary_service.delete_summaries(db, plan)
-        audit_service.create_audit_log(
-            db=db,
-            action="summaries_bulk_reset",
-            user_id=current_user.id,
-            user_email=getattr(current_user, "email", None),
-            entity_type="summaries",
-            details={
-                "filing_type": filing_type,
-                "include_saved": include_saved,
-                "deleted_count": len(delete_ids),
-                "skipped_saved_count": len(skipped_saved),
-            },
-            status="success",
-        )
         logger.info(
             "Admin %s bulk-reset %d summaries (filing_type=%s, include_saved=%s); skipped %d saved",
-            current_user.id, len(delete_ids), filing_type, include_saved, len(skipped_saved),
+            admin_id, len(delete_ids), filing_type, include_saved, len(skipped_saved),
         )
 
     return {
@@ -673,10 +775,24 @@ async def reset_all_summaries(
     }
 
 
-# Hard ceiling on rows regenerated per refresh-stale call. Each generation can take up to ~120s and
-# runs synchronously in the request, so the batch is capped to stay well within the Cloud Run request
-# timeout and avoid holding a DB connection for a long op. Large backlogs = repeated calls / a job.
+# Hard ceiling on rows regenerated per refresh-stale call. Large backlogs = repeated calls / a job.
 _REFRESH_STALE_MAX_BATCH = 10
+# The path's request timeout in main.py's table, in place of its 30 s default: a real run generates its batch in its
+# request, so it needs minutes. It stays inside the service's Cloud Run request timeout (the deploy's --timeout=600), so
+# the middleware's 504, with its CORS headers, comes before Cloud Run ends the request.
+REFRESH_STALE_TIMEOUT_SECONDS = 570.0
+# What one generation is allowed: the pipeline's 120 s backstop (PIPELINE_TIMEOUT_SECONDS), and a minute for its setup
+# before it and its cleanup after it. An allowance, not a bound: while durable tasks are on, the cleanup waits for its
+# worker threads with no timeout of its own (request_work.RequestWork.drain), so a generation can outlast it.
+_REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS = PIPELINE_TIMEOUT_SECONDS + 60.0
+# A run starts no generation later than this after its route begins, so the last one it starts has its allowance, and
+# 40 s are left for the work outside it: the auth lookup before the route, and the last stamp re-read and the audit row
+# after the batch, three checkouts that each wait at most DB_POOL_TIMEOUT's 10 s, and ten seconds for their queries. An
+# estimate, as the allowance is: a checkout that must also connect (DB_CONNECT_TIMEOUT) can take longer. What it does
+# not start, it reports deferred. A generation started near this bound that outlasts its allowance can take the run
+# past the timeout: it answers 504, and that generation's tail, its re-read and the audit row finish after the
+# response; the budget has passed, so no other generation starts.
+_REFRESH_STALE_START_BY_SECONDS = REFRESH_STALE_TIMEOUT_SECONDS - _REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS - 40.0
 
 
 @router.post("/summaries/refresh-stale")
@@ -695,16 +811,29 @@ async def refresh_stale_summaries(
     each stale row is UPDATEd in place, preserving ``summaries.id`` so the FK/bookmark survives, and
     a keep-better quality gate prevents a 75s AI-timeout fallback from downgrading a stored ``full``.
 
-    **Bounded, synchronous small batch.** Each generation can take up to ~120s, so a real run is
-    hard-capped at ``_REFRESH_STALE_MAX_BATCH`` rows and generates sequentially while the request is
-    in flight (keeping the Cloud Run request's CPU allocated — FastAPI ``BackgroundTasks`` would run
-    under post-response CPU throttling and could be cut short). This deliberately keeps one call well
-    within the request timeout; it is NOT a whole-corpus backfill. Drain a large backlog by calling
-    repeatedly (the op is idempotent + keep-better-gated) or via a precompute-style Cloud Run job.
+    **Bounded, synchronous small batch.** A real run is hard-capped at ``_REFRESH_STALE_MAX_BATCH``
+    rows and generates sequentially in the request, which keeps the Cloud Run request's CPU allocated
+    (FastAPI ``BackgroundTasks`` would run under post-response CPU throttling, which the deploy sets
+    with ``--cpu-throttling`` while durable tasks are on, and could be cut short). ``main.py``'s
+    request-timeout table gives this path ``REFRESH_STALE_TIMEOUT_SECONDS`` (570 s, inside the
+    service's 600 s), and a run starts no generation more than ``_REFRESH_STALE_START_BY_SECONDS``
+    (350 s) after the route begins. That leaves the last one it starts its allowance (the pipeline's
+    120 s backstop, and a minute for its setup and cleanup) and 40 s for the work around the batch.
+    The candidates it does not start are reported ``deferred``: still stale, and a later call may
+    select them. The allowance is not a bound, since while durable tasks are on a generation's
+    cleanup waits for its worker threads: one started near the bound that outlasts it can take the
+    run past the timeout, which then answers 504, and that generation's tail, its stamp re-read and
+    the audit row finish after the response, under that throttling, with only the audit row's counts
+    kept. It is NOT a whole-corpus backfill. Drain a large backlog by calling repeatedly (the op is
+    idempotent + keep-better-gated) or with the job-side drain (``scripts/refresh_stale_summaries.py``).
 
     ``dry_run`` (default) reports the full ``stale_total`` without regenerating — the admin staleness
-    count — while ``batch_limit`` reflects the clamped per-call ceiling. Candidates are ordered
-    most-recent-filing first (a traffic proxy — the DB has no per-summary hit count).
+    count — while ``batch_limit`` reflects the clamped per-call ceiling. Candidates are sampled at
+    random (``admin_summary_service.select_stale_candidates``).
+
+    No pooled connection is held while a generation runs (E171): the candidates are read and the
+    request's session released in one thread-pool unit, and the service re-reads each stamp and writes
+    the audit row in short sessions of its own.
 
     Args:
         schema_version_lt: Refresh rows whose ``schema_version`` is NULL or below this. Omit to
@@ -714,28 +843,41 @@ async def refresh_stale_summaries(
         dry_run: If True (default), only report the stale candidates — regenerate nothing.
     """
     _require_admin(current_user)
+    # The run's time budget starts with the route, so the candidate read is inside it.
+    start_by = time.monotonic() + _REFRESH_STALE_START_BY_SECONDS
     limit = max(1, min(limit, _REFRESH_STALE_MAX_BATCH))
+    # After the release the admin is detached: read what the later work needs first.
+    admin_id, admin_email = current_user.id, getattr(current_user, "email", None)
 
-    stale_total, candidate_filing_ids = admin_summary_service.select_stale_candidates(
-        db, schema_version_lt=schema_version_lt, filing_type=filing_type, limit=limit
-    )
+    def candidates() -> tuple[int, list[int]]:
+        try:
+            return admin_summary_service.select_stale_candidates(
+                db, schema_version_lt=schema_version_lt, filing_type=filing_type, limit=limit
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    stale_total, candidate_filing_ids = await run_in_threadpool(candidates)
 
     # Per-filing outcomes (see admin_summary_service.regenerate_in_place); a dry run regenerates nothing.
     updated: list[int] = []
     kept_by_gate: list[int] = []
     failed: list[int] = []
+    deferred: list[int] = []
     if not dry_run and candidate_filing_ids:
-        updated, kept_by_gate, failed = await admin_summary_service.regenerate_in_place(
-            db,
+        updated, kept_by_gate, failed, deferred = await admin_summary_service.regenerate_in_place(
             candidate_filing_ids,
-            actor=current_user,
+            actor_id=admin_id,
+            actor_email=admin_email,
             filing_type=filing_type,
             schema_version_lt=schema_version_lt,
             stale_total=stale_total,
+            start_by=start_by,
+            clock=time.monotonic,  # the clock its deadline was set on
         )
         logger.info(
-            "Admin %s refresh-stale: updated %d, kept-by-gate %d, failed %d of %d stale (filing_type=%s)",
-            current_user.id, len(updated), len(kept_by_gate), len(failed), stale_total, filing_type,
+            "Admin %s refresh-stale: updated %d, kept-by-gate %d, failed %d, deferred %d of %d stale (filing_type=%s)",
+            admin_id, len(updated), len(kept_by_gate), len(failed), len(deferred), stale_total, filing_type,
         )
 
     return {
@@ -755,6 +897,9 @@ async def refresh_stale_summaries(
         "kept_by_gate_filing_ids": kept_by_gate,
         "failed_count": len(failed),
         "failed_filing_ids": failed,
+        # Not started: the run's time budget had passed. They remain stale for a later call.
+        "deferred_count": len(deferred),
+        "deferred_filing_ids": deferred,
         "message": (
             f"{stale_total} stale summaries"
             f"{f' of type {filing_type}' if filing_type else ''}; "
@@ -762,7 +907,8 @@ async def refresh_stale_summaries(
                 f"would refresh up to {len(candidate_filing_ids)} in place (bookmarks preserved)."
                 if dry_run
                 else f"updated {len(updated)} in place, {len(kept_by_gate)} kept by the "
-                f"keep-better gate (still stale), {len(failed)} failed."
+                f"keep-better gate (still stale), {len(failed)} failed, {len(deferred)} deferred "
+                "to a later call (time budget)."
             )
         ),
     }

@@ -23,7 +23,7 @@ QUEUE = "earningsnerd-background"
 INSTANCE = "earningsnerd-db"
 REGION = "us-west1"
 JOBS = ("pregenerate", "filing-scan", "filing-digest", "backfill-facts",
-        "earnings-calendar-refresh", "earnings-day-alerts", "notable-filings", "retention-purge")
+        "earnings-calendar-refresh", "earnings-day-alerts", "notable-filings", "retention-purge", "feedback-media-cleanup")
 MAX_PAGES = 5
 MAX_RESPONSE = 8 * 1024 * 1024
 MAX_ERROR_BODY = 8 * 1024

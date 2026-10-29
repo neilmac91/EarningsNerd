@@ -36,7 +36,7 @@ export default function CopilotCoachmark({ onTry, tryHandoff, onDismiss, style }
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="absolute right-2 top-2 rounded-lg p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+        className="absolute right-2 top-2 rounded-lg p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
       >
         <XIcon className="h-4 w-4" />
       </button>

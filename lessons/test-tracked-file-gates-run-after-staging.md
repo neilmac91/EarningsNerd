@@ -18,3 +18,10 @@ asserts the gate's module is not among its own targets.
 (`_is_example_env_name`, `test_selector_picks_dotenv_example_files_only`); corrective
 commit `6ac68991` on PR #1069, whose mutation proof restores the substring match and
 reproduces the CI failure.
+
+Recurred 2026-10-24 on `claude/trend-analysis-depth-eval`. A full backend run with the new
+`backend/evals/trend_depth/` package untracked passed. Once the package was committed,
+`test_copilot_eval_paths.py::test_every_file_under_backend_is_classified` failed: it reads
+`git ls-files` and needs every new subdirectory of `evals/` classified. The branch had been pushed
+between the two runs. Run the full suite once more after the first commit of a new package, before
+its push.

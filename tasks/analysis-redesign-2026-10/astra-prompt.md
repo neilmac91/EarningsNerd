@@ -72,7 +72,7 @@ stays open).
 
 The quarterly data repair (`docs/quarterly-data-repair.md`, #1191) is a separate operational action. The UI
 must look right before it (state 2) and after it (state 1). Never mark a legacy record validated from the
-frontend, never hide a note, never show the word "verified".
+frontend, never hide a note, never show the word "verified" (narrowed 2026-10-25, `docs/brand/decisions-log.md` D-061: every note stays in the evidence dialog and the data notes; only a note that questions the number keeps a mark beside the figure).
 </context>
 
 <founder_decisions>

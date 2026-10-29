@@ -1,0 +1,86 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values, and its 'no red flags' adds nothing. B explains the drivers: comps, segment contributions, peers, SG&A, tax rate and capex intensity. Its causes are mostly backed by quoted passages. One is not: it attributes FY2026 operating cash flow growth to operating income and inventory, which passage [43] does not say. Its IEEPA label is also unsourced. Those lapses cost grounding but not the overall preference."
+   },
+   "cost_usd": 0.096929,
+   "latency_s": 10.793,
+   "input_tokens": 11496,
+   "output_tokens": 532,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully supported but only restates table values, and its 'no red flags' adds nothing. B explains the drivers: comps, segment contributions, peers, SG&A, tax rate and capex intensity. Its causes are mostly backed by quoted passages. One is not: it attributes FY2026 operating cash flow growth to operating income and inventory, which passage [43] does not say. Its IEEPA label is also unsourced. Those lapses cost grounding but not the overall preference.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A has some grounding lapses. The OCF driver it cites (operating income plus lower inventory investment) is not stated in passage [43], and 'IEEPA' is not in the excerpt. Most of its other causal claims match quoted filings. B is fully supported but only restates table values, says 'no flags', and gives watch items without thresholds. A's depth, peer context, labelled analysis and disclosed evidence gaps outweigh its errors."
+   },
+   "cost_usd": 0.100221,
+   "latency_s": 11.132,
+   "input_tokens": 11500,
+   "output_tokens": 695,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A has some grounding lapses. The OCF driver it cites (operating income plus lower inventory investment) is not stated in passage [43], and 'IEEPA' is not in the excerpt. Most of its other causal claims match quoted filings. B is fully supported but only restates table values, says 'no flags', and gives watch items without thresholds. A's depth, peer context, labelled analysis and disclosed evidence gaps outweigh its errors.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.19715
+}

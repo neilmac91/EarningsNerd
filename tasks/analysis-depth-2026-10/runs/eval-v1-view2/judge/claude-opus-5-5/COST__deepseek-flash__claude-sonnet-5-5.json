@@ -1,0 +1,86 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A invents an 'IEEPA tariff refunds' effect that its gross-margin passage [35] does not contain. Its FCF watch item is illogical: 1.02x cannot 'recover toward' a 0.99x median. Both drafts attribute the FY2026 operating cash flow rise to a truncated passage that does not state it. B adds the FY2024 charter-shipping inflection, receivables persistence and current-debt maturity, and labels its analysis. B's flaws are a stray citation [28] and a filler red-flag bullet."
+   },
+   "cost_usd": 0.148893,
+   "latency_s": 15.178,
+   "input_tokens": 16359,
+   "output_tokens": 1185,
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A invents an 'IEEPA tariff refunds' effect that its gross-margin passage [35] does not contain. Its FCF watch item is illogical: 1.02x cannot 'recover toward' a 0.99x median. Both drafts attribute the FY2026 operating cash flow rise to a truncated passage that does not state it. B adds the FY2024 charter-shipping inflection, receivables persistence and current-debt maturity, and labels its analysis. B's flaws are a stray citation [28] and a filler red-flag bullet.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B adds useful depth (membership fees, US segment, tax rate, financing mix) but has more grounding faults. It invents an IEEPA tariff-refund effect, presents a stale FY2024 $370m fee guide as forward-looking, and mislabels 1.02x vs a 0.99x median as needing recovery. A shares the unsupported operating-cash-flow cause and miscites [28], but it labels its judgements as analysis and is better calibrated."
+   },
+   "cost_usd": 0.144013,
+   "latency_s": 13.256,
+   "input_tokens": 16359,
+   "output_tokens": 941,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B adds useful depth (membership fees, US segment, tax rate, financing mix) but has more grounding faults. It invents an IEEPA tariff-refund effect, presents a stale FY2024 $370m fee guide as forward-looking, and mislabels 1.02x vs a 0.99x median as needing recovery. A shares the unsupported operating-cash-flow cause and miscites [28], but it labels its judgements as analysis and is better calibrated.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.292906
+}

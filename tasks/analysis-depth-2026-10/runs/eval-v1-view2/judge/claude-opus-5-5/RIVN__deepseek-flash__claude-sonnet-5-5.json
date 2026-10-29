@@ -1,0 +1,86 @@
+{
+ "ticker": "RIVN",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts cite well. A adds an unsupported claim that FY2022 deliveries 'began' and an uninterpretable 264.7% incremental margin. It also leans on overlapping product-line data that it flags itself as unreliable. A is somewhat deeper on SG&A drivers, the operating-margin peer comparison and the current ratio. B stays closer to its sources and adds the accumulated deficit and the R2 guidance. B labels judgements as analysis and reads more cleanly."
+   },
+   "cost_usd": 0.140409,
+   "latency_s": 16.194,
+   "input_tokens": 15126,
+   "output_tokens": 1254,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite well. A adds an unsupported claim that FY2022 deliveries 'began' and an uninterpretable 264.7% incremental margin. It also leans on overlapping product-line data that it flags itself as unreliable. A is somewhat deeper on SG&A drivers, the operating-margin peer comparison and the current ratio. B stays closer to its sources and adds the accumulated deficit and the R2 guidance. B labels judgements as analysis and reads more cleanly.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds real depth: the FY2023 inflection, growth slowing in FY2024\u201325, the peer operating margin, the current-ratio slide and SBC versus the operating loss. But it has unsupported claims. 'For the Joint Venture' is not in the cited passage, 'as deliveries began' misreads FY2022, and it says 'segment figures overlap' when the flag refers to product members. A says less, but its causes match its sources, and it uses company R2 guidance appropriately."
+   },
+   "cost_usd": 0.135453,
+   "latency_s": 13.162,
+   "input_tokens": 15124,
+   "output_tokens": 1007,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds real depth: the FY2023 inflection, growth slowing in FY2024\u201325, the peer operating margin, the current-ratio slide and SBC versus the operating loss. But it has unsupported claims. 'For the Joint Venture' is not in the cited passage, 'as deliveries began' misreads FY2022, and it says 'segment figures overlap' when the flag refers to product members. A says less, but its causes match its sources, and it uses company R2 guidance appropriately.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.275862
+}

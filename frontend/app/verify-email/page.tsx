@@ -45,7 +45,7 @@ function VerifyEmailContent() {
       <div className="text-center">
         {status === 'loading' && (
           <>
-            <CircleNotchIcon className="mx-auto mb-4 h-10 w-10 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+            <CircleNotchIcon aria-hidden="true" className="mx-auto mb-4 h-10 w-10 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
             <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Verifying your email…
             </h1>
@@ -87,7 +87,7 @@ function VerifyEmailContent() {
                   Get a new link
                 </Link>
               </p>
-              <p className="text-text-tertiary-light dark:text-text-secondary-dark">
+              <p className="text-text-tertiary-light dark:text-text-tertiary-dark">
                 or{' '}
                 <Link href="/login" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-brand-strong hover:underline dark:text-brand-strong-dark">
                   back to login

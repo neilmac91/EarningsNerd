@@ -17,13 +17,16 @@ export interface CardProps extends HTMLAttributes<HTMLElement> {
   as?: ElementType
   /** Hover/active/focus affordances for clickable cards (wrap in <a>/<button> for semantics). */
   interactive?: boolean
-  elevation?: 'e1' | 'e2' | 'e3'
+  /** The light lift; dark cards carry none whatever this says. `none` keeps the panel fill and the hairline with no
+      shadow, for an input area that is not content: the analysis page's company and period form (Control, a level
+      under the content cards; DESIGN.md Elevation & Depth). */
+  elevation?: 'none' | 'e1' | 'e2' | 'e3'
   /** Corner step on the 16 / 24 scale (cards 16; a featured banner 24). A `rounded-2xl` in
       className would NOT override the recipe: the stylesheet emits it before `rounded-xl`. */
   radius?: 'xl' | '2xl'
 }
 
-const ELEVATION = { e1: 'shadow-e1', e2: 'shadow-e2', e3: 'shadow-e3' } as const
+const ELEVATION = { none: '', e1: 'shadow-e1', e2: 'shadow-e2', e3: 'shadow-e3' } as const
 const RADIUS = { xl: 'rounded-xl', '2xl': 'rounded-2xl' } as const
 
 export function Card({

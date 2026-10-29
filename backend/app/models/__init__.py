@@ -17,7 +17,7 @@ from app.models.financial_fact_revision import FinancialFactRevision
 from app.models.notable_filing import NotableFiling
 from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, FeedbackSubmission, FeedbackAttachment
 from app.models.job_run import JobRun
 from app.models.billing_payment import BillingPayment
 from app.models.usage_reservation import UsageReservation
@@ -314,7 +314,7 @@ class UserUsage(Base):
     # "Ask this Filing" Copilot (A2) monthly question count, metered separately from summaries.
     qa_count = Column(Integer, default=0, nullable=False)
     # Multi-Period Analysis monthly generation count (fresh AI narratives only — cached re-serves
-    # are free). Fair-use cap: settings.ANALYSIS_MONTHLY_CAP.
+    # are free). Fair-use cap: entitlements.ANALYSIS_MONTHLY_CAP.
     analysis_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

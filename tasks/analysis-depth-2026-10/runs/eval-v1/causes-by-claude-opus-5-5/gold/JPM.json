@@ -1,0 +1,162 @@
+{
+ "system": "gold",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 11,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Net income fell 20.0% to $29.1 billion in FY2020  as $12.2 billion of COVID-19 reserve additions lifted the provision to $17.5 billion .",
+   "passages": [
+    {
+     "id": "Q1",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 The provision for credit losses was $17.5 billion, up $11.9 billion from the prior year, driven by net additions to the allowance for credit losses of $12.2 billion due to the deterioration and increased uncertainty in the macroeconomic environment as a result of the impact of the COVID-19 pandemic."
+    }
+   ],
+   "label": "partial",
+   "reason": "Q1 ties the $12.2B COVID reserve build to the higher provision but never links it to the net income decline."
+  },
+  {
+   "sentence": "It rose 66% to $48.3 billion in FY2021  when a $12.1 billion reserve release on a better outlook made the provision a net benefit .",
+   "passages": [
+    {
+     "id": "Q2",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 The Firm had net income of $48.3 billion, up 66%, driven by a net benefit in the provision for credit losses, compared to an expense recorded in the prior year."
+    },
+    {
+     "id": "Q3",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "- a $12.1 billion reduction in the allowance for credit losses primarily reflecting improvements in the Firm\u2019s macroeconomic outlook, and"
+    }
+   ],
+   "label": "supported",
+   "reason": "Q2 credits the net provision benefit for the net income rise; Q3 attributes the $12.1B release to an improved macroeconomic outlook."
+  },
+  {
+   "sentence": "Higher rates then lifted net interest income 27.5% in FY2022 and 33.8% in FY2023, the latter helped by First Republic .",
+   "passages": [
+    {
+     "id": "Q4",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income of $66.7 billion, up 28%, driven by higher rates and loan growth, partially offset by lower Markets net interest income. Net interest income excluding Markets was $62.4 billion, up 40%."
+    },
+    {
+     "id": "Q5",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $89.3 billion, up 34%, driven by higher rates, the impact of First Republic, and higher revolving balances in Card Services, partially offset by lower Markets net interest income and lower average deposit balances. NII excluding Markets was $90.0 billion, up 44%."
+    }
+   ],
+   "label": "supported",
+   "reason": "Q4 and Q5 cite higher rates for both years and First Republic for FY2023."
+  },
+  {
+   "sentence": "In FY2025 revenue grew 2.8% : Markets and card balances lifted net interest income 3.1% despite deposit margin compression , and noninterest income rose 2.4% as a $7.9 billion Visa gain booked in FY2024 fell away .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    },
+    {
+     "id": "P27",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Noninterest revenue (\u201cNIR\u201d) was $87.0 billion, up 2%, reflecting higher Markets noninterest revenue, higher asset management fees in AWM and CCB, higher auto operating lease income, lower net investment securities losses in Treasury and CIO, higher Payments fees, higher investment banking fees, and a $588 million First Republic-related gain recorded in the first quarter of 2025. These increases were predominantly offset by the absence of the $7.9 billion net gain related to Visa shares recorded in the second quarter of 2024, as well as lower card income in the current year."
+    }
+   ],
+   "label": "partial",
+   "reason": "NII drivers match P28. P27 says the Visa gain's absence offset NIR growth; it did not drive the rise."
+  },
+  {
+   "sentence": "The ratio rose 0.7pp in FY2025 as expense grew 4.2% and revenue 2.8% , driven mainly by compensation .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense, including higher revenue-related compensation and growth in the number of employees. The increase in expense was also driven by higher brokerage expense and distribution fees, higher auto lease depreciation, and continued investments in technology and marketing, as well as higher occupancy expense. These factors were partially offset by FDIC special assessment accrual releases of $763 million compared with an increase of $725 million in the prior year, as well as the absence of a $1.0 billion contribution of Visa shares to the JPMorgan Chase Foundation recorded in the second quarter of 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P26 names higher compensation as the main driver of the 4% expense increase."
+  },
+  {
+   "sentence": "The largest move was a 7.5pp fall from FY2022 to FY2024 , mostly in FY2023, when revenue grew 22.9% and expense 14.5%, including a $2.9 billion FDIC special assessment .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $87.2 billion, up 14%, predominantly driven by higher compensation expense, reflecting an increase in employees, primarily in technology and front office, as well as wage inflation. The increase in expense also includes the $2.9 billion FDIC special assessment and costs associated with the First Republic acquisition."
+    }
+   ],
+   "label": "partial",
+   "reason": "P42 covers FY2023 expense drivers and the FDIC assessment; no cited passage explains the revenue growth behind the ratio fall."
+  },
+  {
+   "sentence": "Credit costs took 7.8% of revenue in FY2025 , the most since FY2020's 14.6% , as charge-offs rose $1.2 billion and reserves included $2.2 billion for the Apple Card transaction .",
+   "passages": [
+    {
+     "id": "Q8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022The provision for credit losses was $14.2 billion. Net charge-offs were $9.8 billion, up $1.2 billion, predominantly driven by Wholesale and Card Services. The net addition to the allowance for credit losses was $4.4 billion and consisted of $3.3 billion in consumer, which included $2.2 billion related to the Apple Card transaction, and $1.1 billion in wholesale."
+    }
+   ],
+   "label": "supported",
+   "reason": "Q8 states net charge-offs rose $1.2B and the allowance build included $2.2B for the Apple Card transaction."
+  },
+  {
+   "sentence": "Operating cash flow is not a meaningful earnings-quality measure for a bank: it swung from $107 billion in FY2022 to \u2212$148 billion in FY2025, when higher trading assets used cash .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "P21 states FY2025 cash use resulted from higher trading assets, among other factors."
+  },
+  {
+   "sentence": "Buybacks and dividends hit a window high of $48.2 billion in FY2025, 0.85x net income , after suspensions cut them to 0.66x in FY2020 and 0.44x in FY2022 .",
+   "passages": [
+    {
+     "id": "Q9",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 For both periods, cash was used for repurchases of common stock and cash dividends on common and preferred stock. On March 15, 2020, in response to the economic disruptions caused by the COVID-19 pandemic, the Firm temporarily suspended repurchases of its common stock. Subsequently, the Federal Reserve directed all large banks, including the Firm, to discontinue net share repurchases through the end of 2020."
+    },
+    {
+     "id": "Q10",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "On July 14, 2022, the Firm announced that it had temporarily suspended share repurchases in anticipation of the increase in the Firm's regulatory capital requirements. The Firm had set a target for achieving CET1 capital of 13.0% by the first quarter of 2023. The Firm met and exceeded that target in the fourth quarter of 2022, and resumed repurchasing shares under its common share repurchase program in the first quarter of 2023."
+    }
+   ],
+   "label": "supported",
+   "reason": "Q9 and Q10 document the repurchase suspensions in 2020 and 2022."
+  },
+  {
+   "sentence": "Loans fell to 43.1% of deposits in FY2021  after pandemic inflows lifted deposits 37.2% in FY2020 , and were 57.3% in FY2025 , when loans grew 10.9% against 6.4% for deposits .",
+   "passages": [
+    {
+     "id": "Q11",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 Firmwide average deposits of $1.9 trillion were up 25%, reflecting significant inflows across the Firm, primarily driven by the impact of the COVID-19 pandemic and the related effect of certain government actions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Q11 attributes FY2020 deposit inflows to COVID-19 and government actions; no other causes are claimed."
+  },
+  {
+   "sentence": "**Rising credit costs (medium, three years):** the provision's share of revenue rose each year from 5.0% in FY2022 to 7.8% in FY2025 , with card charge-offs reflecting \"credit normalization\" and the seasoning of recent vintages .",
+   "passages": [
+    {
+     "id": "Q16",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022The provision for credit losses was $10.7 billion, reflecting $8.6 billion of net charge-offs and a net addition to the allowance for credit losses of $2.0 billion. Net charge-offs increased by $2.4 billion, driven by Card Services, reflecting the seasoning of vintages originated in recent years, credit normalization, and balance growth. The net addition to the allowance for credit losses included a net addition of $2.1 billion in consumer, driven by Card Services, and a net reduction of $19 million in wholesale."
+    }
+   ],
+   "label": "partial",
+   "reason": "Q16 cites normalization and seasoning for FY2024 only, not the multi-year rise from FY2022 to FY2025."
+  }
+ ],
+ "cost_usd": 0.034087
+}

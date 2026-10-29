@@ -2,7 +2,7 @@ import { Badge, type BadgeStatusVariant } from '@/components/ui'
 
 /**
  * The summary status of a watched company's latest filing, read from the server's `summary_status`
- * (backend/app/routers/watchlist.py and dashboard_feed_service._summary_status): `ready`, `placeholder`,
+ * (the watchlist insights, backend/app/routers/watchlist.py): `ready`, `placeholder`,
  * `generating:<stage>`, `error` or `missing`. One source of truth for the badge and the watchlist card's
  * next-step sentence, so the Watchlist insights page and the dashboard "Your companies" rows can never
  * drift. The prefix decides both; `needs_regeneration` only breaks the tie for a prefix this list does

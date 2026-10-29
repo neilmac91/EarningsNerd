@@ -507,7 +507,7 @@ function SourceTraceInner({
               type="button"
               onClick={closePanel}
               aria-label="Close source detail"
-              className="absolute right-3 top-3 rounded p-1 text-text-tertiary-light hover:bg-border-light/40 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-dark"
+              className="absolute right-3 top-3 rounded p-1 text-text-tertiary-light hover:bg-border-light/40 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-tertiary-dark dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-dark"
             >
               <XIcon className="h-4 w-4" />
             </button>

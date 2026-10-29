@@ -84,7 +84,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
     <tr className="hover:bg-background-light dark:hover:bg-white/5">
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-primary-light dark:text-text-primary-dark">
         {invite.email ?? (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">Link only</span>
+          <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Link only</span>
         )}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -121,7 +121,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:cursor-not-allowed aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50"
             >
               {resendMutation.isPending ? (
-                <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                <CircleNotchIcon aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
               ) : (
                 <PaperPlaneTiltIcon className="h-3.5 w-3.5" />
               )}

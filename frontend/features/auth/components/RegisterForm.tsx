@@ -192,7 +192,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
       {collectionAvailable && !isInvited && inviteOnly && (
         <div className="mt-6">
           <Notice
-            variant="info"
+            variant="neutral"
             title="EarningsNerd is in private beta"
             description={
               <>
@@ -274,7 +274,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
                 htmlFor="fullName"
                 className="mb-1 block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark"
               >
-                Full name <span className="text-text-tertiary-light dark:text-text-secondary-dark">(optional)</span>
+                Full name <span className="text-text-tertiary-light dark:text-text-tertiary-dark">(optional)</span>
               </label>
               <Input
                 type="text"

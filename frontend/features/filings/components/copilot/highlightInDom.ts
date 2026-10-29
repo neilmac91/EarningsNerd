@@ -38,7 +38,7 @@ const FIND_HIGHLIGHT = 'copilot-find'
 /* eslint-disable no-restricted-syntax -- a constructed stylesheet has no Tailwind token: these are .en-mark's tint and hairline (brand-weak, brand-border and their dark pair) and the primary ink pair, and the find paint's brand sage at 22%, held to app/globals.css and tailwind.config.js by tests/unit/highlightInDom.spec.ts. */
 export const CITATION_HIGHLIGHT_CSS = [
   `::highlight(${LOCATED_HIGHLIGHT}) { background-color: #ECF2EE; color: #1A1A17; text-decoration: underline 2px #CFE0D6; text-decoration-skip-ink: none; text-underline-offset: calc(0.2632em - 2px); }`,
-  `.dark ::highlight(${LOCATED_HIGHLIGHT}) { background-color: rgba(127, 178, 149, 0.14); color: #D7DADC; text-decoration-color: rgba(127, 178, 149, 0.28); }`,
+  `.dark ::highlight(${LOCATED_HIGHLIGHT}) { background-color: rgba(127, 178, 149, 0.14); color: #EAECEF; text-decoration-color: rgba(127, 178, 149, 0.28); }`,
 ].join('\n')
 
 /**

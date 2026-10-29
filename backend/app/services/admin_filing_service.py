@@ -1,27 +1,51 @@
 """Admin maintenance of one filing's generated content, and the stale-XBRL audit / bulk reset.
 
 Called by ``routers/admin.py`` (DELETE /api/admin/filing/{id}/summary, /xbrl and /reset, GET
-/api/admin/filings/audit-xbrl, POST /api/admin/filings/bulk-reset-stale). Each write path commits
-once at the end, as the endpoints always did; the router keeps the admin gate, the 404 for
-``FilingNotFoundError``, the post-commit logs and the response shape.
+/api/admin/filings/audit-xbrl, POST /api/admin/filings/bulk-reset-stale). Each write path takes the
+admin maintenance lock (``lock_maintenance``) first and commits once at the end, as the endpoints always
+did; the router keeps the admin gate, the 404 for ``FilingNotFoundError``, the post-commit logs and the
+response shape.
 """
 from __future__ import annotations
 
 import logging
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Filing, FilingContentCache, Summary, SummaryGenerationProgress, User
 
 logger = logging.getLogger(__name__)
 
+# The key of the PostgreSQL advisory lock each admin maintenance write takes first: "MAINTAIN" in ASCII.
+MAINTENANCE_LOCK_KEY = 0x4D41494E5441494E
+
 
 class FilingNotFoundError(Exception):
     """No filing has the requested id (the admin router maps it to 404 "Filing not found")."""
 
 
+def lock_maintenance(db: Session) -> None:
+    """Take the admin maintenance lock for the rest of the caller's transaction (E171).
+
+    The summary delete, the XBRL clear, the filing reset, the stale-XBRL bulk reset and the summaries' reset-all
+    each read the rows they then delete or clear, and report what they read. The event loop ran them one at a time
+    within an instance; in the thread pool they overlap. Overlapping, a reset-all, which deletes progress rows
+    before summaries, deadlocked with a summary delete or filing reset, whose flush deletes the summary first, and
+    two of them each reported, and a reset-all audited, rows the other had deleted. Each takes this lock before its
+    first read of those rows, so they run one at a time across the API's instances, and each read sees the commit
+    of the one before it (READ COMMITTED). The admin router's units take it on the connection the auth lookup
+    checked out, with no other checkout before the commit that releases it, so no holder waits for a pool slot a
+    waiter holds. It is a transaction-level advisory lock: PostgreSQL releases it at the commit or rollback, so it
+    never outlives the unit on a pooled connection. SQLite has no advisory locks, so off PostgreSQL nothing is
+    locked."""
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(select(func.pg_advisory_xact_lock(MAINTENANCE_LOCK_KEY)))
+
+
 def delete_filing_summary(db: Session, filing_id: int, *, actor: User) -> bool:
     """Delete the filing's summary and generation progress, commit, and return whether a summary existed."""
+    lock_maintenance(db)
     # Find the filing
     filing = db.query(Filing).filter(Filing.id == filing_id).first()
     if not filing:
@@ -46,6 +70,7 @@ def delete_filing_summary(db: Session, filing_id: int, *, actor: User) -> bool:
 
 def clear_filing_xbrl(db: Session, filing_id: int) -> bool:
     """Clear the filing's stored XBRL data, commit, and return whether it had any."""
+    lock_maintenance(db)
     # Find the filing
     filing = db.query(Filing).filter(Filing.id == filing_id).first()
     if not filing:
@@ -61,6 +86,7 @@ def clear_filing_xbrl(db: Session, filing_id: int) -> bool:
 
 def reset_filing(db: Session, filing_id: int) -> dict[str, bool]:
     """Delete the summary, XBRL data, content cache and progress in one commit; report what existed."""
+    lock_maintenance(db)
     # Find the filing
     filing = db.query(Filing).filter(Filing.id == filing_id).first()
     if not filing:
@@ -173,7 +199,9 @@ def audit_stale_xbrl(db: Session, *, year_threshold: int) -> tuple[int, list[dic
 
 def bulk_reset_stale_xbrl(db: Session, *, year_threshold: int, dry_run: bool, actor: User) -> list[dict]:
     """Find the stale-XBRL filings; unless ``dry_run``, clear their XBRL data, summary and progress
-    and commit once. Returns the affected filings either way."""
+    and commit once, under the admin maintenance lock. Returns the affected filings either way."""
+    if not dry_run:
+        lock_maintenance(db)
     # Find all filings with XBRL data
     filings_with_xbrl = db.query(Filing).filter(
         Filing.xbrl_data.isnot(None)

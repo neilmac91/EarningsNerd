@@ -1,0 +1,106 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "ec2439c5efaf7ee9d14ef148e4d9e787dcacf3d1c1985eb46f11eeb579ebd51f",
+ "y_sha256": "9f793c90c35344d94d1fa966073930aad15bac0f4d82f2ab111c221bb0f6cb94",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts have grounding errors. A invents a 4% volume figure, calls 0.94x 'above' 1.02x, adds a $919m payables figure and safety-stock cause the passage lacks, and says payouts are 'debt-funded'. B misquotes the peer median (-19.2% vs -32.3% cited), garbles the 1.22x/1.25x comparison, and asserts unsourced 'interest and tax' and 'most years' claims. A edges ahead on depth (COVID volume, Glad gain, capex climb) and clarity. B labels its analysis more carefully."
+   },
+   "cost_usd": 0.151309,
+   "latency_s": 18.188,
+   "backend": "claude_cli",
+   "input_tokens": 15791,
+   "cached_input_tokens": 727,
+   "output_tokens": 1533,
+   "reasoning_tokens": 1258,
+   "meta": {
+    "duration_api_ms": 14442,
+    "cache_creation_input_tokens": 15062,
+    "list_cost_usd": 0.091061
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts have grounding errors. A invents a 4% volume figure, calls 0.94x 'above' 1.02x, adds a $919m payables figure and safety-stock cause the passage lacks, and says payouts are 'debt-funded'. B misquotes the peer median (-19.2% vs -32.3% cited), garbles the 1.22x/1.25x comparison, and asserts unsourced 'interest and tax' and 'most years' claims. A edges ahead on depth (COVID volume, Glad gain, capex climb) and clarity. B labels its analysis more carefully.\"}\n```",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts have sourcing errors. A misstates the peer median (-19.2% vs the cited -32.3%), garbles the OCF/NI comparison, and asserts 'most years' payout excess. B has more problems: FCF/NI 0.94x called 'above' the 1.02x median, payout 'funded partly by debt' while long-term debt fell, an unsupported 'highest in window' capex claim, and safety-stock/payables causes from truncated text. B is deeper and clearer, but A is better grounded."
+   },
+   "cost_usd": 0.147893,
+   "latency_s": 16.762,
+   "backend": "claude_cli",
+   "input_tokens": 15789,
+   "cached_input_tokens": 727,
+   "output_tokens": 1363,
+   "reasoning_tokens": 1122,
+   "meta": {
+    "duration_api_ms": 13183,
+    "cache_creation_input_tokens": 15060,
+    "list_cost_usd": 0.087653
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"Both drafts have sourcing errors. A misstates the peer median (-19.2% vs the cited -32.3%), garbles the OCF/NI comparison, and asserts 'most years' payout excess. B has more problems: FCF/NI 0.94x called 'above' the 1.02x median, payout 'funded partly by debt' while long-term debt fell, an unsupported 'highest in window' capex claim, and safety-stock/payables causes from truncated text. B is deeper and clearer, but A is better grounded.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.299202
+}

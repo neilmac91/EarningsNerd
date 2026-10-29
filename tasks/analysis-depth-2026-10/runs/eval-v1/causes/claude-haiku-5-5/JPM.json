@@ -1,0 +1,111 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 8,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The filing credits the 3.1% NII rise  to higher Markets NII, Card revolving balances and wholesale deposits, partly offset by deposit margin compression and lower rates .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states NII up 3% driven by higher Markets NII, Card revolving balances, wholesale deposits, offset by deposit margin compression and lower rates."
+  },
+  {
+   "sentence": "Noninterest revenue rose 2.4%  to $87.0 billion ; the absence of the $7.9 billion FY2024 Visa gain predominantly offset the increases .",
+   "passages": [
+    {
+     "id": "P27",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Noninterest revenue (\u201cNIR\u201d) was $87.0 billion, up 2%, reflecting higher Markets noninterest revenue, higher asset management fees in AWM and CCB, higher auto operating lease income, lower net investment securities losses in Treasury and CIO, higher Payments fees, higher investment banking fees, and a $588 million First Republic-related gain recorded in the first quarter of 2025. These increases were predominantly offset by the absence of the $7.9 billion net gain related to Visa shares recorded in the second quarter of 2024, as well as lower card income in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states NIR up 2% with increases predominantly offset by absence of $7.9B Visa gain."
+  },
+  {
+   "sentence": "Within Card Services, the filing links a $2.2 billion allowance addition to the Apple Card transaction .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The provision for credit losses was $11.5 billion. Net charge-offs were $8.2 billion, up $319 million, primarily driven by Card Services, reflecting loan growth. The net addition to the allowance for credit losses of $3.2 billion which was driven by $2.2 billion related to the Apple Card transaction, loan growth in Card Services and the impact of changes in the Firm's weighted-average macroeconomic outlook, partially offset by reduced borrower uncertainty."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net addition to allowance driven by $2.2B related to Apple Card transaction."
+  },
+  {
+   "sentence": "The filing attributes the FY2021 credit benefit, higher net recoveries, to home price improvement and reversals of prior write-downs .",
+   "passages": [
+    {
+     "id": "P55",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Retained loans were relatively flat compared to December 31, 2020 as the decline in Home Lending driven by paydowns outpacing originations of prime mortgage loans was predominantly offset by growth in AWM. Retained nonaccrual loans decreased from December 31, 2020 reflecting improved credit performance. Net recoveries for the year ended December 31, 2021 were higher when compared with the prior year as the current year benefited from further improvement in HPI and higher reversals of prior write-downs due to prepayments as a result of the low rate environment."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher net recoveries benefited from HPI improvement and higher reversals of prior write-downs."
+  },
+  {
+   "sentence": "The FY2025 operating outflow reflected higher trading assets, securities borrowed and loans held-for-sale purchases .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash used resulted from higher trading assets, securities borrowed, and loan purchases."
+  },
+  {
+   "sentence": "Net loans reached $1.47 trillion  after a $121 billion increase , mainly higher CIB Markets loans and AWM securities-based lending .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2025, loans increased by $121.1\u00a0billion, predominantly driven by higher loans in CIB, primarily in Markets, and higher securities-based lending in AWM, both associated with higher client demand. Lending-related commitments increased by $64.5\u00a0billion, predominantly driven by higher commitments in CIB, including held-for-sale commitments."
+    },
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2025, loans increased by $121.1\u00a0billion, predominantly driven by higher loans in CIB, primarily in Markets, and higher securities-based lending in AWM, both associated with higher client demand. Lending-related commitments increased by $64.5\u00a0billion, predominantly driven by higher commitments in CIB, including held-for-sale commitments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states loans increased $121.1B driven by higher CIB Markets loans and AWM securities-based lending."
+  },
+  {
+   "sentence": "Nonperforming exposure rose $478 million , primarily from downgrades in Technology, Media & Telecommunications, Oil & Gas and Utilities.",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2025, nonperforming exposure increased by $478 million, driven by certain exposures in Technology, Media & Telecommunications, Oil & Gas and Utilities, in each case primarily resulting from downgrades, largely offset by certain exposures in Healthcare and Consumer & Retail, primarily due to charge-off activity, upgrades, and loan sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states nonperforming exposure increased $478M driven by downgrades in TMT, Oil & Gas, Utilities."
+  },
+  {
+   "sentence": "The average LCR of JPMorgan Chase Bank, N.A. fell year on year in the fourth quarter, driven by higher lending and dividends to the parent .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "JPMorgan Chase Bank, N.A.\u2019s average LCR for the three months ended December\u00a031, 2025 decreased, compared with the three months ended December\u00a031, 2024, driven by higher lending levels and dividend payments to the Parent Company, largely offset by higher deposits and higher market values of HQLA-eligible investment securities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states average LCR decreased driven by higher lending and dividends to parent."
+  }
+ ],
+ "cost_usd": 0.001676
+}

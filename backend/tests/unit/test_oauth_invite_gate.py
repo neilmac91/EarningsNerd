@@ -10,7 +10,8 @@ mocked, mirroring test_apple_signin.py):
   - a provider claim with email_verified=false never seeds an account (error=email_unverified)
   - the Apple callback requires the browser-binding cookie set at GET /api/auth/apple
   - a lost invite-redemption race rolls the account back on both the social and the email path,
-    and the email path's response stays byte-identical to the success response
+    and the email path's response stays byte-identical to the success response; an invite an admin
+    revokes after the social gate validated it is refused and rolled back the same way (E201)
 
 Structural gate (CLAUDE.md rule 12): every ``User(`` construction anywhere in app/ sits in a
 function that calls the gate helper, or is services/auth_account_service.py::create_password_account,
@@ -281,6 +282,37 @@ def test_lost_invite_redemption_rolls_the_social_account_back(client, monkeypatc
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("provider", PROVIDERS)
+def test_invite_revoked_after_the_gate_validated_it_creates_no_social_account(
+    client, monkeypatch, invite_only, provider
+):
+    """E201: an admin's revoke that commits, on a session of its own, after the callback's gate validated the
+    invite wins: the redemption is refused, the account rolled back, and the sign-in answers invite_required."""
+    invite_id, raw = _mint_invite()
+    email = _email()
+    state = _start(client, provider, invite=raw)
+    validate = invite_service.validate_invite_hash
+    validated = []
+
+    def validated_then_revoked(db, code_hash, address):
+        invite = validate(db, code_hash, address)
+        validated.append(invite)
+        admin = SessionLocal()
+        try:
+            invite_service.revoke_invite(admin, invite_id)
+        finally:
+            admin.close()
+        return invite
+
+    monkeypatch.setattr(invite_service, "validate_invite_hash", validated_then_revoked)
+    resp = _callback(client, monkeypatch, provider, _claims(provider, email), state=state)
+    assert len(validated) == 1 and validated[0] is not None  # the gate validated the invite before the revoke
+    _assert_refused(resp, "invite_required", email)
+    invite = _invite(invite_id)
+    assert invite.is_revoked is True and invite.used_at is None and invite.user_id is None
+
+
+@pytest.mark.requires_db
 def test_register_rolls_the_account_back_when_the_invite_redemption_is_lost(client, monkeypatch, invite_only):
     # Reference: a registration whose redemption succeeds.
     _ok_id, ok_raw = _mint_invite()
@@ -541,10 +573,15 @@ def test_oauth_start_is_rate_limited_per_ip(client, monkeypatch, public_mode, pr
     for _ in range(limit - 1):
         assert client.get(f"/api/auth/{provider}", follow_redirects=False).status_code == 302
     assert client.post(f"/api/auth/{provider}/start", json={}).status_code == 200
+    with SessionLocal() as db:
+        stored = db.query(OAuthState).count()
     blocked = client.get(f"/api/auth/{provider}", follow_redirects=False)
     assert blocked.status_code == 429
     assert "Retry-After" in blocked.headers
     assert client.post(f"/api/auth/{provider}/start", json={"invite": "x"}).status_code == 429
+    # A refused start writes no state: the limit comes before the save, so a client over it cannot fill the table.
+    with SessionLocal() as db:
+        assert db.query(OAuthState).count() == stored
 
 
 def test_oauth_start_get_handlers_take_no_invite_parameter():

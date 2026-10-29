@@ -71,9 +71,9 @@ outside the ledger (before it, record 27's event 67 recorded one dependency swee
 row E23's request); whether the ledger should settle them is the founder's call
 (`tasks/code-red-20261004/runtime/control/DECISIONS-38.md`, founder action 10). §3 already
 authorizes that bounded spend after the balance read. A pull request whose diff touches
-`backend/app/`, `backend/evals/` or `backend/prompts/` also draws before the mark, on every push,
-draft or not, so the session reserves for that from its opening (`eval-baseline`;
-`ops-reserve-eval-baseline-before-each-push.md`). The session merges the pull request
+`backend/app/`, `backend/evals/` or `backend/prompts/` also draws `eval-baseline` at the mark and
+on every push while ready (since F55 a draft draws nothing), so the session reserves for that with
+the mark's draw (`ops-reserve-eval-baseline-before-each-push.md`). The session merges the pull request
 once Codex and CI are green and the draw is green or triaged as not the pull request's by
 `backend/evals/RUNBOOK.md`'s rule for a red `copilot-eval` run, never drawn again to get a green
 one; one that deploys the backend merges alone, after the previous deploy is verified, and its own

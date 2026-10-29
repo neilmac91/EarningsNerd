@@ -15,6 +15,7 @@ from app.services.facts.concepts import (
 from app.services.facts.currency import admitted_items, companyfacts_currencies
 from app.services.facts.derive import derive_same_period_metrics
 from app.services.facts.fiscal_naming import reported_fiscal_year, year_ending_on
+from app.services.facts.own_reports import own_report_history
 from app.services.facts.quarterly import (
     QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback, reported_fact,
 )
@@ -42,14 +43,14 @@ def _collect_companyfacts_values(
 ) -> dict[tuple[date, str], dict[str, Any]]:
     """Winning item per (period_end, klass) for one concept, across its candidate tags.
 
-    klass is "FY"/"Q" for durations, "I" for instants. Within a tag the LATEST-`filed` item wins a
-    period (restatement-aware; `filed` is ISO so lexical compare is safe, and a later list item wins
-    ties — companyfacts lists in filing order). Across tags, the FIRST tag with data wins a period
-    (priority order), so tag migrations merge into one continuous history without a stale tag
-    shadowing a newer one. Each winner also carries the EARLIEST-filed item's `fp`/`fy` — the one
-    case where those fields are trustworthy (the original filing that reported the period as its
-    own current period), used only as the in-progress-year quarter fallback. An item of a ``foreign``
-    accession, one whose own currency is not the series' (``filing_currencies``), is never read.
+    klass is "FY"/"Q" for durations, "I" for instants. Only ``admitted_items`` compete, never a proxy or
+    information statement's. Within a tag the LATEST-`filed` item wins a period (restatement-aware; `filed`
+    is ISO so lexical compare is safe, and a later list item wins ties — companyfacts lists in filing
+    order). Across tags, the FIRST tag with data wins a period (priority order), so tag migrations merge
+    into one continuous history without a stale tag shadowing a newer one. Each winner also carries the
+    EARLIEST-filed item's `fp`/`fy` — the one case where those fields are trustworthy (the original filing
+    that reported the period as its own current period), used only as the in-progress-year quarter fallback.
+    A ``foreign`` accession's item (``filing_currencies``) is never read: neither a winner nor a candidate.
     """
     claimed: dict[tuple[date, str], dict[str, Any]] = {}
     for tag in tags:
@@ -106,17 +107,17 @@ def normalize_companyfacts(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Classify a raw companyfacts payload into labelled fact dicts (pure; unit-testable).
 
-    Returns ``(facts, meta)`` where meta carries ``unsupported_ifrs`` (an ifrs-full-only filer —
-    out of v1 scope). Emits reported FY/quarter rows and compatible cumulative-flow
-    calculations with operand provenance. EPS is reported-only. Cumulative slices feed
-    calculations but are never stored as quarter facts. Direct rows are
-    ``source="companyfacts", reconciled=True`` — this is
-    SEC's own structured data, the same authority `cross_check_facts` treats as ground truth — with
-    only the NON_NEGATIVE hard-reject applied (a negative revenue/assets is corrupt regardless of
-    source). ``financial_sic`` skips the generic revenue concept (fee-income subset for banks — the
-    filing 528 / MCB class); the exact FI component tags still ingest.
+    Returns ``(facts, meta)`` where meta carries ``unsupported_ifrs`` (an ifrs-full-only filer — out of
+    v1 scope) and ``history``, each year's own-report values kept apart from ``facts`` (``own_reports``).
+    Emits reported FY/quarter rows and compatible cumulative-flow calculations with operand provenance.
+    EPS is reported-only. Cumulative slices feed calculations but are never stored as quarter facts.
+    Direct rows are ``source="companyfacts", reconciled=True`` — this is SEC's own structured data, the
+    same authority `cross_check_facts` treats as ground truth — with only the NON_NEGATIVE hard-reject
+    applied (a negative revenue/assets is corrupt regardless of source). ``financial_sic`` skips the
+    generic revenue concept (fee-income subset for banks — the filing 528 / MCB class); the exact FI
+    component tags still ingest.
     """
-    meta: dict[str, Any] = {"unsupported_ifrs": False}
+    meta: dict[str, Any] = {"unsupported_ifrs": False, "history": []}
     facts_root = companyfacts.get("facts") if isinstance(companyfacts, dict) else None
     usgaap = facts_root.get("us-gaap") if isinstance(facts_root, dict) else None
     if not isinstance(usgaap, dict) or not usgaap:
@@ -179,6 +180,7 @@ def normalize_companyfacts(
             continue
         seen.add(identity)
         kept.append(fact)
+    meta["history"] = own_report_history(kept, duration_values, instant_values)
     return kept, meta
 
 

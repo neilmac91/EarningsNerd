@@ -132,6 +132,29 @@ describe('KpiStrip', () => {
     expect(screen.getByText(/YoY \+4\.0pp/)).toBeInTheDocument()
   })
 
+  it('sets the value and its change line in the figure face, with tabular lining numerals', () => {
+    const { container } = render(<KpiStrip dataset={annualDataset} />)
+    for (const card of container.querySelectorAll('[data-analysis-kpi]')) {
+      expect(card.querySelector('[data-kpi-value]')).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
+      expect(card.querySelector('[data-kpi-value] button')).toHaveClass('tabular-nums', 'lining-nums')
+      expect(card.querySelector('dd:last-of-type')).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
+    }
+  })
+
+  it('announces a sign-flip change as not meaningful, keeping n/m on the card', () => {
+    const quarterly: AnalysisDataset = {
+      ...annualDataset,
+      mode: 'quarterly',
+      series: annualDataset.series.map((s) => ({ ...s, points: s.points.map((p, i) => (i === 1 ? { ...p, yoy: s.concept === 'net_income' ? 'nm' : 0.1 } : p)) })),
+    }
+    render(<KpiStrip dataset={quarterly} />)
+    const token = screen.getByText('n/m')
+    expect(token).toHaveAttribute('aria-hidden', 'true')
+    expect(token.nextElementSibling).toHaveClass('sr-only')
+    expect(token.nextElementSibling).toHaveTextContent(/^not meaningful$/)
+    expect(token.parentElement).toHaveTextContent(/^YoY n\/mnot meaningful/)
+  })
+
   it('names the actual period of an older available metric and retains zero in the selected latest period', () => {
     const quarterly: AnalysisDataset = {
       ...structuredClone(annualDataset), mode: 'quarterly', period_key: '2026Q1..2026Q2',
@@ -156,7 +179,8 @@ describe('KpiStrip', () => {
     const revenue = screen.getAllByRole('term').find((term) => term.textContent === 'Revenue')!.parentElement!
     expect(within(revenue).getByText('Q2 2026')).toBeInTheDocument()
     expect(within(revenue).queryByText(/latest available/)).not.toBeInTheDocument()
-    expect(within(revenue).getByRole('button', { name: /Revenue, Q2 2026: \$0\.00,/ })).toBeInTheDocument()
+    // Zero is a value. Its note (no check recorded) marks nothing, so the name names none (D-061).
+    expect(within(revenue).getByRole('button', { name: /^Revenue, Q2 2026: \$0\.00\. View source/ })).toBeInTheDocument()
     expect(screen.queryByText('Q3 2026')).not.toBeInTheDocument()
   })
 })

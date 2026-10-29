@@ -1,0 +1,104 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 7,
+ "output_sha256": "f30b943e12187403c90f06d85c21b7334025fda468296af9e430f59b5cd3e0c5",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2018 step came largely from the Wirtgen acquisition, which added 12% to net sales for the year .",
+   "passages": [
+    {
+     "id": "P72",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Worldwide net income attributable to Deere & Company in 2018 was $2,368 million, or $7.24 per share diluted ($7.34 basic), compared with $2,159 million, or $6.68 per share diluted ($6.76 basic), in 2017. Affecting 2018 net income were increases to the provision for income taxes of $704 million due to the enactment of U.S. tax reform legislation on December 22, 2017 (tax reform) (see Note 8). Worldwide net sales and revenues increased 26 percent to $37,358 million in 2018, compared with $29,738 million in 2017. Net sales of the worldwide equipment operations rose 29 percent in 2018 to $33,351 million from $25,885 million last year. The company's acquisition of the Wirtgen Group Holding GmbH (Wirtgen) (see Note 4) in December 2017 added 12 percent to net sales for the year. Sales included price realization of 1 percent with no significant currency translation effect. Equipment net sales in the United States and Canada increased 25 percent for 2018, with Wirtgen adding 4 percent. Outside the U.S. and Canada, net sales increased 34 percent for the year, with Wirtgen adding 22 percent."
+    }
+   ],
+   "label": "partial",
+   "reason": "Wirtgen added 12% of a 29% equipment sales rise. That is a minority of the growth, so 'largely' overstates the passage."
+  },
+  {
+   "sentence": "The FY2024 decline reflected lower shipment volumes across every equipment segment, driven by rising grain stocks, lower commodity prices, elevated interest rates and inventory management .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    }
+   ],
+   "label": "partial",
+   "reason": "Grain stocks, commodity prices and rates are cited only for agriculture. Construction declines are tied to housing, rental and commercial construction."
+  },
+  {
+   "sentence": "PPA sales volumes fell 30% in the U.S. and Canada, partly offset by a 22% increase in Brazil, with price realization up 1% in the U.S. and Canada .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states the 30% U.S./Canada volume decline offset by 22% Brazil growth, and 1% price realization."
+  },
+  {
+   "sentence": "FY2024 production costs were favorable on lower material and profit-sharing costs, partly offset by higher manufacturing overhead from lower volumes and production inefficiencies .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production costs were favorable in 2024 due to lower material and employee profit-sharing incentives costs, partially offset by higher manufacturing overhead costs driven by lower volumes and production inefficiencies."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage gives exactly these favorable and offsetting production cost drivers for 2024."
+  },
+  {
+   "sentence": "FY2025 operating inflows were driven by net income adjusted for non-cash provisions and a decrease in sales receivables, partly offset by an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes the 2025 operating inflows to these drivers, with the OPEB contribution as an offset."
+  },
+  {
+   "sentence": "The filings attribute the volume decline to moderating market conditions and lower U.S. and Canada volumes, partly offset by Brazil , and Small Agriculture & Turf also cites higher tariffs .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    },
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit decreased primarily due to lower sales volumes/ sales mix and higher tariffs, partially offset by price realization."
+    }
+   ],
+   "label": "partial",
+   "reason": "Moderating conditions explain rest-of-world pricing, not volume. Tariffs explain an operating profit decline, and the passage doesn't name Small Ag & Turf."
+  },
+  {
+   "sentence": "Management expects lower equipment-operations operating cash flow in FY2026 than FY2025, driven by lower net income adjusted for non-cash provisions, partly offset by inventory reductions .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "We closely monitor our cash requirements. Based on the available sources of liquidity, we expect to meet our funding needs in the short term (next 12 months) and long term (beyond 12 months). We are forecasting lower operating cash flows from equipment operations in 2026 compared with 2025, driven by a decrease in net income adjusted for non-cash provisions, partially offset by higher cash flows generated from inventory reductions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage forecasts lower 2026 equipment operating cash flow for these reasons, partly offset by inventory reductions."
+  }
+ ],
+ "cost_usd": 0.041764,
+ "backend": "claude_cli",
+ "input_tokens": 3394,
+ "cached_input_tokens": 0,
+ "output_tokens": 731
+}

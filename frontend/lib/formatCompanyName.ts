@@ -6,6 +6,9 @@
  * the raw name stays the data value everywhere it is sent onward (analytics, cache rows,
  * request payloads), so the backend and search never see a rewritten string.
  *
+ * The backend's analysis exports print through a Python port, backend/app/utils/company_names.py; both run
+ * backend/tests/fixtures/company_display_names.json, and its test holds the four word lists below equal.
+ *
  * THE RULE (one rule, applied consistently):
  *   1. A name whose BODY already contains a lowercase letter, in any script, is trusted as-cased and
  *      returned as-is ("Alphabet Inc." stays "Alphabet Inc."). The body is every token before the trailing

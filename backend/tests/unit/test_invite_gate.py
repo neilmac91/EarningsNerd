@@ -135,3 +135,41 @@ def test_email_bound_invite_requires_matching_email(client, invite_only):
     )
     assert ok.status_code == 200, ok.text
     client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_invite_revoked_while_registering_creates_no_account(client, invite_only, monkeypatch):
+    """E201: the invite validates, then an admin revokes it while the password is checked against breaches. The revoke
+    wins: the registration answers opaquely, as a lost redemption race does, and creates no account."""
+    from app.database import SessionLocal
+    from app.models import User, InviteCode
+    from app.routers import auth as auth_module
+    from app.services import invite_service
+
+    invite_id, raw = _mint_invite(email=None)
+    email = _unique_email()
+
+    async def revoked_meanwhile(_password: str) -> bool:
+        db = SessionLocal()
+        try:
+            invite_service.revoke_invite(db, invite_id)
+        finally:
+            db.close()
+        return False
+
+    monkeypatch.setattr(auth_module, "is_password_pwned", revoked_meanwhile)
+    resp = client.post(
+        "/api/auth/register",
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "invite_code": raw},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == auth_module._REGISTER_OPAQUE
+    client.cookies.clear()
+
+    db = SessionLocal()
+    try:
+        assert db.query(User).filter(User.email == email).first() is None
+        invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+        assert invite.is_revoked is True and invite.used_at is None and invite.user_id is None
+    finally:
+        db.close()

@@ -104,7 +104,7 @@ def reset_inflight():
 def reset_rate_limiters():
     """ONE public seam for clearing the auth rate limiters + the DB login-lockout before a test.
 
-    Anchors call this instead of reaching into five private ``_hits`` attributes on the limiter
+    Anchors call this instead of reaching into six private ``_hits`` attributes on the limiter
     singletons — so when S3 (auth extraction) moves those symbols, only this helper changes, not
     every auth anchor.
     """
@@ -114,7 +114,7 @@ def reset_rate_limiters():
 
     for name in (
         "LOGIN_LIMITER", "REGISTER_LIMITER", "RESET_REQUEST_LIMITER",
-        "RESEND_VERIFY_LIMITER", "RESET_RESEND_IP_LIMITER",
+        "RESEND_VERIFY_LIMITER", "RESET_RESEND_IP_LIMITER", "REFRESH_LIMITER",
     ):
         limiter = getattr(auth_module, name, None)
         if limiter is not None and hasattr(limiter, "_hits"):

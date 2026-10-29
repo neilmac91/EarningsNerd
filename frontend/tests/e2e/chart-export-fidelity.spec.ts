@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { crc32 } from 'node:zlib'
 import { expect, test } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { openAnalysis, type AnalysisGeometryState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
@@ -10,7 +11,8 @@ import { openAnalysis, type AnalysisGeometryState, type AnalysisTheme } from './
  * chartExport now carries the Geist Mono faces into that image. This gate takes each panel's plot
  * region out of the PNG the real export downloads and compares it with an element screenshot of the
  * on-screen SVG, both at the export's 2× scale. The plot region is where the export drew the SVG image,
- * read from a drawImage hook, so a header or footer change moves it without failing the gate.
+ * read from a drawImage hook, so a header or footer change moves it without failing the gate. It also reads the
+ * downloaded file's pHYs chunk: the export declares 144 dpi without changing that scale.
  */
 const THEMES: AnalysisTheme[] = ['light', 'dark']
 const SCALE = 2
@@ -24,6 +26,21 @@ declare global {
   interface Window {
     __plotDraws: number[][]
   }
+}
+
+/** The PNG's chunks in file order, each with its type, its data and whether its CRC-32 is right. */
+function pngChunks(png: Buffer): Array<{ type: string; data: Buffer; crcMatches: boolean }> {
+  const chunks: Array<{ type: string; data: Buffer; crcMatches: boolean }> = []
+  for (let offset = 8; offset + 12 <= png.length;) {
+    const length = png.readUInt32BE(offset)
+    chunks.push({
+      type: png.toString('latin1', offset + 4, offset + 8),
+      data: png.subarray(offset + 8, offset + 8 + length),
+      crcMatches: png.readUInt32BE(offset + 8 + length) === crc32(png.subarray(offset + 4, offset + 8 + length)),
+    })
+    offset += 12 + length
+  }
+  return chunks
 }
 
 // The screen may draw text with LCD subpixel antialiasing (CI's headless shell does), which text rasterized
@@ -80,6 +97,14 @@ for (const theme of THEMES) for (const [name, state, edit] of CASES) {
         const exported = readFileSync((await download.path())!)
         const draws = await page.evaluate(() => window.__plotDraws.splice(0))
         expect(draws, `${name}: the export draws its plot once`).toHaveLength(1)
+        // The file declares 144 dpi (5669 pixels a metre, unit 1) once, right after its header, so a document prints
+        // the 2× raster at 1 CSS px a point; the raster's scale is the one compared below.
+        const chunks = pngChunks(exported)
+        expect(chunks.map((chunk) => chunk.type).slice(0, 2), `${name}: pHYs follows IHDR`).toEqual(['IHDR', 'pHYs'])
+        expect(chunks.filter((chunk) => chunk.type === 'pHYs'), `${name}: one pHYs`).toHaveLength(1)
+        expect(chunks.every((chunk) => chunk.crcMatches), `${name}: every chunk's CRC`).toBe(true)
+        const pHYs = chunks[1].data
+        expect([pHYs.readUInt32BE(0), pHYs.readUInt32BE(4), pHYs[8]], `${name}: 144 dpi`).toEqual([5669, 5669, 1])
 
         const result = await page.evaluate(async ({ exported, screen, draw, scale, tolerance }) => {
           const load = (base64: string) => new Promise<HTMLImageElement>((resolve, reject) => {

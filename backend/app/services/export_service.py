@@ -6,18 +6,20 @@ import re
 from html import escape
 
 from app.models import Summary, Filing
-from app.services.pdf_branding import PALETTE, render_branded_pdf
+from app.services.pdf_branding import PALETTE, PDF_OPTIONS, render_branded_pdf
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, export_points, formula_text, note_index,
-    notes_summary, operand_records, period_label, point_method, raw_value_text, source_urls,
+    ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, PDF_CLOSING, QUARTER_LEGEND, calculated_sentence,
+    derived_quarters, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index, operand_records,
+    period_label, point_method, raw_value_text, source_urls,
 )
 from app.services.trend_analysis.data_notes import (
-    citation_data_notes, note_for_quality, resolve_data_notes,
+    citation_data_notes, marks_figure, note_for_quality, resolve_data_notes,
 )
 from app.services.trend_analysis.narrative_display import compact_narrative_text
 from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import export_raw_summary
-from app.utils.datetimes import ensure_utc, iso_z, utcnow
+from app.utils.company_names import display_company_name
+from app.utils.datetimes import utcnow
 
 # The filing-summary PDF's closing note, one paragraph each: the masthead line, then the
 # disclaimer. The CSV ends with the same paragraphs, one to a row, so a spreadsheet keeps the
@@ -30,6 +32,15 @@ SUMMARY_CLOSING_NOTE = (
     "always the original SEC filing. Use is subject to the EarningsNerd Terms of Service "
     "(earningsnerd.io/terms).",
 )
+
+# The sentence above the analysis grid, where the page's ends "Select any value for its source and full precision.",
+# which a file cannot offer: the PDF names where the full precision is.
+ANALYSIS_GRID_ROUNDING = "Figures are rounded for display."
+ANALYSIS_GRID_PRECISION = ("Sources & methods gives each figure’s full precision, with any recorded formula and inputs "
+                           "for a calculated figure.")
+# The lead of a citation's own notes under Narrative sources; the page's "Data notes for these sources" reads, to the
+# surface rules, as naming one place.
+ANALYSIS_SUPPLEMENTS_LEAD = "Data notes for narrative sources"
 
 # A PDF table aligns the same columns the page does. The metrics block (Financial Highlights) is
 # FinancialMetricsTable on the page, whose Current Period, Prior Period and Change columns are
@@ -72,6 +83,16 @@ def _num(numeric: list[bool], column: int) -> str:
     return ' class="num"' if column < len(numeric) and numeric[column] else ""
 
 
+def original_document_url(filing: Filing) -> str:
+    """The filing's original on SEC.gov, as the filing page's "Original on SEC.gov" opens it
+    (frontend/features/filings/lib/originalDocumentUrl.ts, EN-01): the primary document when it is an
+    http(s) URL, else the archive folder (sec_url)."""
+    for url in (filing.document_url, filing.sec_url):
+        if url and url.startswith(("https://", "http://")):
+            return url
+    return ""
+
+
 class ExportService:
     def __init__(self):
         pass
@@ -84,9 +105,10 @@ class ExportService:
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
             f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
             f"Generated {utcnow().strftime('%B %d, %Y')}"
+            # The filing page's words for its link to the primary document, with the address it opens (E190).
             # backend/evals/acceptance_readiness.py anchors its blinding of the generation date on
-            # "<br>Source: SEC EDGAR"; test_acceptance_readiness.py runs that blinding on this output.
-            f"<br>Source: SEC EDGAR · <span class=\"data\">{escape(filing.sec_url or '')}</span>"
+            # "<br>Original on SEC.gov"; test_acceptance_readiness.py runs that blinding on this output.
+            f"<br>Original on SEC.gov · <span class=\"data\">{escape(original_document_url(filing))}</span>"
         )
 
         # Render every structured section through the shared renderer so the PDF stays in
@@ -184,7 +206,7 @@ class ExportService:
         writer.writerow([f"{filing.company.name} · {filing.filing_type} summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
         writer.writerow([f"Generated: {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"])
-        writer.writerow([f"Source: SEC EDGAR · {filing.sec_url or ''}"])
+        writer.writerow([f"Original on SEC.gov · {original_document_url(filing)}"])
         writer.writerow([])
 
         # Render every structured section through the shared renderer (single source of truth)
@@ -241,9 +263,10 @@ class ExportService:
         """Export summary as PDF"""
         try:
             from weasyprint import HTML
-            html_content = self.generate_pdf_html(summary, filing)
+            # The HTML projects the filing's text, over a second on a cache holding only raw HTML: off the loop.
+            html_content = await asyncio.to_thread(self.generate_pdf_html, summary, filing)
             # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
-            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS))
         except ImportError:
             raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
         except Exception as e:
@@ -321,7 +344,9 @@ class ExportService:
 
     @staticmethod
     def _analysis_note_mark(note: dict | None) -> str:
-        if not note:
+        """A note's letter, raised and linked to its entry, only where the note questions the number (D-061): a
+        record-only note, a gap and a missing check record mark nothing, and each keeps its entry in the data notes."""
+        if not note or not marks_figure(note):
             return ""
         return (f'<sup class="data-note"><a href="#{escape(note["id"], quote=True)}">'
                 f'{escape(note["letter"])}</a></sup>')
@@ -335,24 +360,35 @@ class ExportService:
 
     def _analysis_grid(self, dataset: dict, indexed: dict) -> str:
         periods = [p.get("key", "") for p in dataset.get("periods", [])]
+        derived = derived_quarters(dataset)
         # Every period column holds figures (td.num below), so its header aligns with them.
-        headers = "".join(f'<th class="num">{escape(period_label(period))}</th>' for period in periods)
+        headers = "".join(f'<th class="num">{escape(period_label(period))}{" †" if period in derived else ""}</th>'
+                          for period in periods)
         rows = []
         for series in dataset.get("series", []):
             points = {p.get("period"): p for p in series.get("points", [])}
             cells = []
             for period in periods:
                 point = points.get(period) or {"value": None}
+                # No dagger: the sentence above the grid names the calculated metrics (D-061).
                 value = self._analysis_value_text(
                     point.get("value"), series.get("unit") or "USD", bool(series.get("percent"))
                 )
-                if point_method(point) == "calculated" and point.get("value") is not None:
-                    value += " †"
                 mark = self._analysis_note_mark(indexed.get((series["concept"], period, "value")))
                 cells.append(f'<td class="num">{escape(value)}{mark}</td>')
             label = escape(str(series.get("label", series.get("concept", ""))))
             rows.append(f"<tr><td>{label}</td>{''.join(cells)}</tr>")
         return f"<table><thead><tr><th>Metric</th>{headers}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
+
+    def _analysis_grid_lead(self, dataset: dict) -> str:
+        """The fine print above the grid, as on the page: the rounding and the calculated metrics, then, for a quarterly
+        run, the legend of its fiscal quarters and of a Q4 header's †."""
+        sentences = [ANALYSIS_GRID_ROUNDING, calculated_sentence(dataset), ANALYSIS_GRID_PRECISION]
+        lead = f'<p class="fine-print">{escape(" ".join(filter(None, sentences)))}</p>'
+        if dataset.get("mode") == "quarterly":
+            legend = [QUARTER_LEGEND, DERIVED_Q4_LEGEND if derived_quarters(dataset) else ""]
+            lead += f'<p class="fine-print">{escape(" ".join(filter(None, legend)))}</p>'
+        return lead
 
     # An operand's source fields under the workbook's column names, never the dataset's keys.
     _OPERAND_LABELS = (("accession", "Accession"), ("raw_tag", "Source tag"), ("filed_at", "Filed"))
@@ -414,20 +450,33 @@ class ExportService:
             )
         return "".join(items), marks
 
-    @staticmethod
-    def _analysis_data_notes(envelope: dict) -> str:
+    def _analysis_notes_list(self, notes: list[dict]) -> str:
+        """The data notes' open detail (DataNotesList): every note, the marked ones first, each in its anchored entry so a
+        letter's link lands, with its letter only where it marks, its message, places, counts and comparisons."""
         items = []
-        for note in envelope["notes"]:
-            # Singular at one, and a clause only for a count that is not zero (the page's form).
-            scope = " · ".join(
-                count_label(count, noun) for count, noun in
-                ((len(note["values"]), "figure"), (len(note["comparisons"]), "comparison")) if count
-            ) or "Narrative sources"
-            items.append(f'<li id="{escape(note["id"], quote=True)}"><strong>{escape(note["letter"])}.</strong> '
-                         f'{escape(note["message"])} <span class="ref">({scope})</span></li>')
-        summary = notes_summary(envelope)
-        line = f'<p class="footnote">{escape(summary)}</p>' if summary else ""
-        return f'<h2>Data notes</h2>{line}<ul class="data-notes">{"".join(items)}</ul>'
+        for entry in detail_entries(notes):
+            letter = f'{escape(entry["letter"])}.' if entry["letter"] else ""
+            # One run of text: the page's lines (message, places, counts, comparisons) read as sentences in print.
+            parts = (entry["message"], entry["places"], entry["counts"], entry["comparisons"])
+            items.append(f'<li id="{escape(entry["id"], quote=True)}"><span class="note-letter">{letter}</span>'
+                         f'{escape(" ".join(filter(None, parts)))}</li>')
+        return f'<ul class="data-notes">{"".join(items)}</ul>' if items else ""
+
+    def _analysis_fine_print(self, envelope: dict) -> str:
+        """The data notes under the grid, as the page's fine print: the summary line, kept on the grid's last page,
+        then the open detail and the closing line. A missing figure is the grid's dash itself, alone in its run."""
+        clauses = []
+        for clause in fine_print_summary(envelope):
+            text = escape(clause.words)
+            if clause.note:
+                text = f"{self._analysis_note_mark(clause.note)} {text}"
+            elif clause.gap:
+                # The grid's own dash, alone in its run, as the page's summary draws the table's (MissingValue).
+                text += f', shown as <span class="data">{self._analysis_value_text(None, "", False)}</span>'
+            clauses.append(text)
+        summary = " · ".join(["<strong>Data notes</strong>", *clauses])
+        return (f'<p class="fine-print data-notes-summary">{summary}</p>{self._analysis_notes_list(envelope["notes"])}'
+                f'<p class="fine-print">{escape(PDF_CLOSING)}</p>')
 
     def generate_analysis_pdf_html(self, analysis, company) -> str:
         """Render the saved financial snapshot; presentation fallback never consults current facts."""
@@ -446,28 +495,34 @@ class ExportService:
         narrative = self._narrative_to_html(period_label(compact_narrative_text(analysis.narrative_md or "")))
         narrative = re.sub(r"\[(\d+)\]", lambda match: match[0] + marks.get(match[1], ""), narrative)
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
-        generated = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"
         mode = "Annual" if analysis.mode == "annual" else "Quarterly"
+        # Instants read as words with their zone named ("October 24, 2026, 20:26 UTC"); a data-as-of value
+        # that is not an instant prints as stored. "Source data as of" is the page's words (DataNotes.tsx).
+        # Each instant's clause is one unbroken run, so the line breaks between clauses, never before "UTC".
+        data_as_of = dataset.get("data_as_of")
         meta_html = (
             f'<span class="data">{escape(company.ticker or "")}</span> · {mode} · '
             f'<span class="data">{escape(period_label(analysis.period_key))}</span> · '
-            f"Generated {generated} · Exported {iso_z(utcnow())}"
-            f"<br>Data as of: {escape(str(dataset.get('data_as_of') or 'Not recorded'))} · "
+            f'<span class="clause">Generated {display_instant(generated_at) or "Not recorded"}</span> · '
+            f'<span class="clause">Exported {display_instant(utcnow())}</span><br><span class="clause">Source data as of '
+            f"{escape(display_instant(data_as_of) or str(data_as_of or 'Not recorded'))}</span> · "
             f"Dataset version: {escape(str(dataset.get('dataset_version') or 'Legacy snapshot'))}"
             f'<br>Snapshot: <span class="snapshot">{escape(str(dataset.get("snapshot_id") or "Not recorded"))}</span>'
         )
+        # A citation's own concern that no report figure carries lists under its sources, as on the page.
+        report_keys = {note["key"] for note in report_notes["notes"]}
+        supplements = self._analysis_notes_list([note for note in notes["notes"] if note["key"] not in report_keys])
         body_html = f"""
-            {self._analysis_data_notes(notes)}
             {narrative}
             <section class="metrics-landscape">
                 <h2>Metrics by period</h2>
+                {self._analysis_grid_lead(dataset)}
                 {self._analysis_grid(dataset, indexed)}
-                <p class="footnote">Letters refer to Data notes. † Calculated figure;
-                    available formulas and operands appear in Sources &amp; methods. Calculation method is separate
-                    from whether source checks passed.</p>
+                {self._analysis_fine_print(report_notes)}
                 <p class="footnote">{escape(FCF_DEFINITION)}</p>
             </section>
             <h2>Narrative sources</h2><ol class="sources">{citation_items}</ol>
+            {f'<p class="fine-print"><strong>{ANALYSIS_SUPPLEMENTS_LEAD}</strong></p>{supplements}' if supplements else ""}
             <p class="footnote">Source entries identify reported or calculated figures.
                 Citation verification confirms traceability, not financial reconciliation.</p>
             <section class="methods"><h2>Sources &amp; methods</h2>
@@ -482,13 +537,32 @@ class ExportService:
             <p class="footnote">{escape(ANALYSIS_DISCLAIMER)}</p>
         """
         return render_branded_pdf(
-            title=f"{escape(company.name)} · Multi-Period Analysis", doc_kind="Multi-Period<br>Analysis",
+            # The page's display name, never EDGAR's capitals, wherever the shell prints the title.
+            title=f"{escape(display_company_name(company.name) or company.ticker or '')} · Multi-Period Analysis",
+            doc_kind="Multi-Period<br>Analysis",
             meta_html=meta_html, body_html=body_html,
+            subject=f"{company.ticker or ''} · {mode} · {period_label(analysis.period_key)}",
+            # The data notes are fine print in the secondary ink (data-notes-fine-print); a letter takes the note ink
+            # (note-light is the tertiary ink's value), and the summary line stays on the grid's last page (D-061).
+            # A full grid (20 or 22 metrics) prints whole on its landscape page with the lines above it and the summary
+            # under it: its rows take a pitch of about 14.5pt where the shell's report tables take 20.7pt, and the table
+            # keeps the shell's space below it (test_a_table_leaves_room_before_the_block_after_it).
             extra_css=("ol.sources, .data-notes, .methods { font-size: 8.5pt; } "
-                       ".data-notes { list-style: none; padding-left: 0; } "
+                       f".fine-print {{ color: {PALETTE['ink_secondary']}; font-size: 8.5pt; }} "
+                       f".data-notes-summary {{ break-before: avoid; }} .data-notes-summary strong {{ color: {PALETTE['ink']}; }} "
+                       ".data-notes { list-style: none; padding-left: 1.5em; } "
+                       ".note-letter { display: inline-block; width: 1.5em; margin-left: -1.5em; } "
                        ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "
                        ".metrics-landscape td.num { white-space: nowrap; padding-left: 4px; padding-right: 4px; } "
-                       ".data-note { margin-left: 2px; } .snapshot { overflow-wrap: anywhere; }"),
+                       ".metrics-landscape td { padding-top: 1.5px; padding-bottom: 1.5px; line-height: 1.25; } "
+                       ".metrics-landscape th { padding-top: 3px; padding-bottom: 3px; } "
+                       # A raised letter keeps to its line, in the grid's rows and the summary line under them, as the
+                       # page's mark takes zero line-height: with a line of its own a lettered row stood 14% taller.
+                       ".metrics-landscape sup.data-note { line-height: 0; } "
+                       ".metrics-landscape h2 { margin: 0 0 4px; } "
+                       ".metrics-landscape .fine-print { margin-bottom: 4px; line-height: 1.4; } "
+                       f".data-note {{ margin-left: 2px; color: {PALETTE['ink_tertiary']}; }} "
+                       ".snapshot { overflow-wrap: anywhere; }"),
         )
 
     async def export_analysis_pdf(self, analysis, company) -> bytes:
@@ -497,7 +571,7 @@ class ExportService:
             from weasyprint import HTML
             html_content = self.generate_analysis_pdf_html(analysis, company)
             # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
-            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS))
         except ImportError:
             raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
         except Exception as e:

@@ -1,8 +1,9 @@
 """Terminal failure handlers: the orchestrator's ``except TimeoutError`` and ``except Exception`` bodies.
 
 Each refunds a unit counted at provider start (never on cancellation, which skips both handlers),
-emits the funnel event, records the error progress in a fresh worker-owned transaction and returns
-the one terminal error event for the orchestrator to yield.
+emits the funnel event, records the error progress in a fresh worker-owned transaction (starting the
+row's clock when the error is a leader's first write, ``GenerationRun.error_starts_clock``) and
+returns the one terminal error event for the orchestrator to yield.
 """
 from __future__ import annotations
 
@@ -37,14 +38,16 @@ async def timed_out(run: GenerationRun) -> dict:
 
     # Each worker owns its session through cleanup, even if cancellation interrupts
     # its caller. Error reporting uses another short worker-owned transaction.
+    starts_run = run.error_starts_clock()
+
     def record_timeout_progress():
         with database.SessionLocal() as err_session:
-            pipeline.record_progress(err_session, filing_id, "error", error="Pipeline timeout")
+            pipeline.record_progress(err_session, filing_id, "error", error="Pipeline timeout", starts_run=starts_run)
     try:
         await run.run_sync_db(record_timeout_progress)
     except Exception as e:
         logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
-    return {'type': 'error', 'message': 'Summary generation timed out. Please try again.'}
+    return {'type': 'error', 'message': 'The summary timed out before it finished. Try again.'}
 
 
 async def failed(run: GenerationRun, e: Exception) -> dict:
@@ -65,9 +68,11 @@ async def failed(run: GenerationRun, e: Exception) -> dict:
     )
 
     # A failed worker closes its own transaction; error reporting owns another one.
+    starts_run = run.error_starts_clock()
+
     def record_stream_error_progress():
         with database.SessionLocal() as err_session:
-            pipeline.record_progress(err_session, filing_id, "error", error=error_msg[:200])
+            pipeline.record_progress(err_session, filing_id, "error", error=error_msg[:200], starts_run=starts_run)
     try:
         await run.run_sync_db(record_stream_error_progress)
     except Exception as e:
@@ -76,6 +81,6 @@ async def failed(run: GenerationRun, e: Exception) -> dict:
     if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
         error_message = error_msg[:200]
     else:
-        error_message = "Unable to retrieve this filing at the moment — please try again shortly."
+        error_message = "We could not generate this summary. Try again shortly."
 
     return {'type': 'error', 'message': error_message}

@@ -1,0 +1,86 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is accurate but only restates table values and offers generic watch items. B explains the FY2020 surge, the FY2022 markdown hit, the FY2025 traffic decline, cash conversion, capex guidance and payouts, mostly with supporting quotes. B has flaws: blaming the margin decline on SG&A deleveraging conflicts with its own cost-line split, and leaked pipeline notes ('R3\u2026 dropped') muddy the red flags. Its depth still outweighs these minor grounding slips."
+   },
+   "cost_usd": 0.097837,
+   "latency_s": 12.297,
+   "input_tokens": 10997,
+   "output_tokens": 777,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"A is accurate but only restates table values and offers generic watch items. B explains the FY2020 surge, the FY2022 markdown hit, the FY2025 traffic decline, cash conversion, capex guidance and payouts, mostly with supporting quotes. B has flaws: blaming the margin decline on SG&A deleveraging conflicts with its own cost-line split, and leaked pipeline notes ('R3\u2026 dropped') muddy the red flags. Its depth still outweighs these minor grounding slips.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains the FY2020 surge, the FY2022 markdown collapse, FY2025 traffic declines, SG&A one-offs, cash conversion, capex guidance and peer context, nearly all tied to quoted passages. It has a few loose links: SG&A 'deleveraging' conflicts with a flat reported rate, the interest-gap reasoning is weak, and internal notes like 'R3' leak through. B is grounded but only restates table values, has no causal insight, and gives vague watch items."
+   },
+   "cost_usd": 0.096685,
+   "latency_s": 12.501,
+   "input_tokens": 10993,
+   "output_tokens": 721,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains the FY2020 surge, the FY2022 markdown collapse, FY2025 traffic declines, SG&A one-offs, cash conversion, capex guidance and peer context, nearly all tied to quoted passages. It has a few loose links: SG&A 'deleveraging' conflicts with a flat reported rate, the interest-gap reasoning is weak, and internal notes like 'R3' leak through. B is grounded but only restates table values, has no causal insight, and gives vague watch items.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.194522
+}

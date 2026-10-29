@@ -1,0 +1,86 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values, with weak watch items and a trivial red flag. B explains segment drivers, Xilinx, export-control charges, tax and other-income effects, cash conversion, and peer context with cited passages. It has minor lapses: 'weak PC demand and inventory correction' is not in the passage, the $6.5B versus $7,709m OCF mismatch goes undisclosed, and its 'durable' watch claim is overconfident. Its substantive value still clearly outweighs those lapses."
+   },
+   "cost_usd": 0.104969,
+   "latency_s": 12.944,
+   "input_tokens": 11691,
+   "output_tokens": 856,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values, with weak watch items and a trivial red flag. B explains segment drivers, Xilinx, export-control charges, tax and other-income effects, cash conversion, and peer context with cited passages. It has minor lapses: 'weak PC demand and inventory correction' is not in the passage, the $6.5B versus $7,709m OCF mismatch goes undisclosed, and its 'durable' watch claim is overconfident. Its substantive value still clearly outweighs those lapses.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is accurate but only restates table values; its debt red flag ignores the Xilinx deal and the net cash position. A has real grounding slips: its FY2023 Client drop 'on weak PC demand and inventory correction' is not in the cited passage, the $6.5bn continuing-ops figure goes unreconciled with $7,709m, and 'durable' overreaches. Still, A gives sourced segment drivers, peer context, tax and other-income effects, and inventory signals."
+   },
+   "cost_usd": 0.107793,
+   "latency_s": 14.774,
+   "input_tokens": 11689,
+   "output_tokens": 998,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"B is accurate but only restates table values; its debt red flag ignores the Xilinx deal and the net cash position. A has real grounding slips: its FY2023 Client drop 'on weak PC demand and inventory correction' is not in the cited passage, the $6.5bn continuing-ops figure goes unreconciled with $7,709m, and 'durable' overreaches. Still, A gives sourced segment drivers, peer context, tax and other-income effects, and inventory signals.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.212762
+}

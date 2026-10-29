@@ -43,6 +43,24 @@ class FeedbackResponse(BaseModel):
         from_attributes = True
 
 
+class FeedbackSubmissionStatus(BaseModel):
+    submission_id: str
+    state: Literal["submitted", "processing", "retryable"]
+    retry_after_seconds: int | None = None
+    feedback: FeedbackResponse | None = None
+
+
+class FeedbackAttachmentItem(BaseModel):
+    id: str
+    content_type: str
+    width: int
+    height: int
+    byte_count: int
+    expires_at: datetime | None
+    availability: Literal["available", "expired", "deleted"]
+    download_path: str | None
+
+
 # Admin-side feedback status values. Kept as a Literal so an invalid status in a PATCH body is
 # rejected with a 422 by FastAPI/Pydantic before the handler runs.
 FeedbackStatus = Literal["new", "triaged", "resolved"]
@@ -59,6 +77,8 @@ class FeedbackAdminItem(BaseModel):
     page_url: Optional[str]
     status: FeedbackStatus
     created_at: datetime
+    attachment_count: int = 0
+    attachments: list[FeedbackAttachmentItem] = Field(default_factory=list)
 
 
 class FeedbackStatusUpdate(BaseModel):

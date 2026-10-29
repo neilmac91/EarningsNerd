@@ -17,8 +17,9 @@ provider's error text can quote the request body and so the token-bearing link, 
 sent nothing raises ``AccountMailNotSent``, whose message names only the failure's class, since a
 database error's text quotes its statement's parameters, the address among them. Registration's own
 verification mail, sent in its request, shares the send and its log line (``send_verification_link``).
-With durable tasks these lines are logged by the task worker, which reports to no Sentry (F50), so they
-surface in Cloud Logging only (``docs/OPERATIONS.md``, "Account mail (F60)").
+With durable tasks these lines are logged in a task child, so their text reaches Cloud Logging only: a child
+reports a failed task to Sentry by its exception's type and stack alone (F50, ``app/utils/telemetry_bootstrap.py``),
+and a send that failed after sending is not a failed task (``docs/OPERATIONS.md``, "Account mail (F60)").
 """
 from __future__ import annotations
 

@@ -27,7 +27,7 @@ export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHis
   // the company link the lead uses, so EDGAR's own defaults stand in for the old owner=include and count=40.
   const edgarUrl = edgarCompanyUrl(cik)
   return (
-    <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+    <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
       Showing filings since {filedSince}.{' '}
       <a
         href={edgarUrl}

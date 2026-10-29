@@ -11,6 +11,7 @@ import ConnectedAccounts from '@/features/settings/components/ConnectedAccounts'
 import BillingPanel from '@/features/settings/components/BillingPanel'
 import NotificationPreferencesForm from '@/features/settings/components/NotificationPreferencesForm'
 import SettingsPage from '@/app/dashboard/settings/page'
+import { resetAccountQueries } from '@/features/auth/lib/accountQueryState'
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
@@ -35,6 +36,7 @@ const api = vi.hoisted(() => ({
   createPortalSession: vi.fn(),
   getNotificationPreferences: vi.fn(),
   updateNotificationPreferences: vi.fn(),
+  deleteUserAccount: vi.fn(),
 }))
 vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: api.getCurrentUserSafe,
@@ -45,7 +47,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   logoutAllSessions: api.logoutAllSessions,
   LogoutAllSuperseded: class LogoutAllSuperseded extends Error {},
   exportUserData: vi.fn(),
-  deleteUserAccount: vi.fn(),
+  deleteUserAccount: api.deleteUserAccount,
 }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   getSubscriptionStatus: api.getSubscriptionStatus,
@@ -62,6 +64,13 @@ vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
     <a href={href} {...props}>{children}</a>
   ),
+}))
+// The foreign-issuer alert rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS (E33). Every case starts with it off, as the flag
+// ships; a case turns it on through the getter, as pricing-section.spec.tsx does.
+const flags = vi.hoisted(() => ({ ENABLE_FPI_FILINGS: false }))
+vi.mock('@/lib/featureFlags', async (original) => ({
+  ...(await original<typeof import('@/lib/featureFlags')>()),
+  get ENABLE_FPI_FILINGS() { return flags.ENABLE_FPI_FILINGS },
 }))
 
 const deferred = <T,>() => {
@@ -96,6 +105,7 @@ afterEach(() => {
   cleanup()
   onlineManager.setOnline(true)
   Object.values(api).forEach((mock) => mock.mockReset())
+  flags.ENABLE_FPI_FILINGS = false
 })
 
 describe('ProfileForm Save', () => {
@@ -580,6 +590,78 @@ describe('SettingsPage over a failed account check', () => {
   })
 })
 
+// E29 (2): the account sections wait for a reader, as the dashboard's do.
+describe('SettingsPage when the session is lost', () => {
+  it('sends the confirmed guest to /login, and Connected accounts and Filing alerts do not read again to show load errors', async () => {
+    router.push.mockClear() // another case's logout may have pushed /login already
+    api.getCurrentUserSafe.mockResolvedValue(user('Ada'))
+    api.getSubscriptionStatus.mockResolvedValue({
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    })
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockResolvedValue({
+      notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+      channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+    })
+    const { client } = renderWithClient(<SettingsPage />)
+    expect(await screen.findByRole('switch', { name: 'Annual reports (10-K)' })).toBeInTheDocument()
+    await waitFor(() => expect(api.getConnections).toHaveBeenCalledTimes(1))
+    expect(api.getNotificationPreferences).toHaveBeenCalledTimes(1)
+
+    // The session lapses: the API refuses what the sections would read now, and the reset settles the reader on null.
+    api.getConnections.mockRejectedValue(new Error('Not authenticated'))
+    api.getNotificationPreferences.mockRejectedValue(new Error('Not authenticated'))
+    act(() => resetAccountQueries(client, undefined, 'session-loss'))
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/login'))
+    await settle()
+    expect(api.getConnections).toHaveBeenCalledTimes(1)
+    expect(api.getNotificationPreferences).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Failed to load connected accounts.')).not.toBeInTheDocument()
+    expect(screen.queryByText("Couldn't load your alert preferences. Please refresh.")).not.toBeInTheDocument()
+  })
+
+  it('shows the bones while a first read of the account waits offline, not a blank page', async () => {
+    onlineManager.setOnline(false)
+    api.getCurrentUserSafe.mockResolvedValue(user('Ada'))
+    renderWithClient(<SettingsPage />)
+    expect(await screen.findByRole('status', { name: 'Loading your settings' })).toBeInTheDocument()
+    expect(api.getCurrentUserSafe).not.toHaveBeenCalled()
+  })
+
+  it('a deleted account leaves for the home page, not /login, though the /me after it answers no user', async () => {
+    router.push.mockClear() // another case's logout may have pushed /login already
+    api.getCurrentUserSafe.mockResolvedValue(user('Ada'))
+    api.getSubscriptionStatus.mockResolvedValue({
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    })
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockResolvedValue({
+      notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+      channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+    })
+    api.deleteUserAccount.mockResolvedValue({ message: 'Account deleted' })
+    const { client } = renderWithClient(<SettingsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete my account' }))
+    fireEvent.change(screen.getByPlaceholderText('delete my account'), { target: { value: 'delete my account' } })
+    // The deleted account's session is gone: the /me the cleared cache reads again answers no user.
+    api.getCurrentUserSafe.mockResolvedValue(null)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }))
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/'))
+    // The cleared cache reads /me again and settles on no user, a confirmed guest: unguarded, the redirect pushed /login.
+    await waitFor(() => {
+      const read = client.getQueryState(queryKeys.currentUser())
+      expect(read?.data).toBeNull()
+      expect(read?.fetchStatus).toBe('idle')
+    })
+    await settle()
+    expect(router.push).not.toHaveBeenCalledWith('/login')
+  })
+})
+
 describe('NotificationPreferencesForm', () => {
   const prefs: NotificationPreferences = {
     notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
@@ -623,5 +705,54 @@ describe('NotificationPreferencesForm', () => {
     expect(screen.getByText('Daily')).toHaveClass('font-data')
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Filing alerts' })).toBeInTheDocument()
+  })
+
+  // E33: the foreign-issuer rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS, the mirror of the API's ENABLE_FPI_FILINGS, as the
+  // plan lines do. Off, no row offers a form the API keeps off; on, each shows the preference the server stored.
+  const switchNames = () => screen.getAllByRole('switch').map((control) => control.getAttribute('aria-label'))
+  const TEN_K = 'Annual reports (10-K)'
+  const TWENTY_F = 'Foreign annual reports (20-F)'
+  const SIX_K = 'Foreign interim reports (6-K)'
+
+  it.each([false, true])('offers the foreign-issuer rows only while the FPI flag is on, each in its stored state (flag %s)', async (on) => {
+    flags.ENABLE_FPI_FILINGS = on
+    api.getNotificationPreferences.mockResolvedValue({ ...prefs, notify_20f: true, notify_6k: false })
+    const { container } = renderWithClient(<NotificationPreferencesForm />)
+
+    await screen.findByRole('switch', { name: TEN_K })
+    expect(switchNames()).toEqual([
+      TEN_K, 'Quarterly reports (10-Q)', 'Material events (8-K)', ...(on ? [TWENTY_F, SIX_K] : []), 'Real-time alerts',
+    ])
+    expect(screen.getByText('Daily')).toBeInTheDocument()
+    if (!on) {
+      expect(container).not.toHaveTextContent(/20-F|40-F|6-K|foreign/i)
+      return
+    }
+    expect(screen.getByRole('switch', { name: TWENTY_F })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: SIX_K })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  // E33: a hidden row keeps what the reader stored. Each switch saves its own field alone, so a save made while the
+  // foreign rows are hidden carries neither notify_20f nor notify_6k, and the API changes only the fields it is sent
+  // (users.py: model_dump(exclude_unset=True)), as the mock does. A build with the flag on shows them as stored.
+  it('a save while the foreign rows are hidden sends only its own field, and the flag turned on shows the stored values', async () => {
+    const stored: NotificationPreferences = { ...prefs, notify_20f: true, notify_6k: true }
+    api.getNotificationPreferences.mockResolvedValue(stored)
+    api.updateNotificationPreferences.mockImplementation(async (update: Partial<NotificationPreferences>) => ({ ...stored, ...update }))
+    const { client, rerender } = renderWithClient(<NotificationPreferencesForm />)
+
+    const annual = await screen.findByRole('switch', { name: TEN_K })
+    expect(screen.queryByRole('switch', { name: TWENTY_F })).toBeNull()
+    expect(screen.queryByRole('switch', { name: SIX_K })).toBeNull()
+    fireEvent.click(annual)
+    await waitFor(() => expect(annual).toHaveAttribute('aria-checked', 'true'))
+    expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
+    expect(api.updateNotificationPreferences.mock.calls[0][0]).toStrictEqual({ notify_10k: true })
+    expect(client.getQueryData(queryKeys.notificationPreferences())).toMatchObject({ notify_10k: true, notify_20f: true, notify_6k: true })
+
+    flags.ENABLE_FPI_FILINGS = true
+    rerender(<QueryClientProvider client={client}><NotificationPreferencesForm /></QueryClientProvider>)
+    expect(screen.getByRole('switch', { name: TWENTY_F })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: SIX_K })).toHaveAttribute('aria-checked', 'true')
   })
 })

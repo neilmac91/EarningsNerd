@@ -15,6 +15,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
 import ProfileForm from '@/features/settings/components/ProfileForm'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
+import NotificationBell from '@/features/notifications/components/NotificationBell'
+import * as notificationsApi from '@/features/notifications/api/notifications-api'
 
 const { identify } = vi.hoisted(() => ({ identify: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ analytics: { identify } }))
@@ -55,9 +57,30 @@ afterEach(() => {
   disposers.splice(0).forEach((dispose) => dispose())
   clients.splice(0).forEach((client) => client.clear())
   api.defaults.adapter = originalAdapter
+  vi.restoreAllMocks()
 })
 
 describe('account snapshots follow the resolved identity', () => {
+  it('a late mark-seen receipt cannot replace the next account’s notification list', async () => {
+    const client = newClient()
+    const first = { items: [], unread_count: 1 }
+    const second = { items: [], unread_count: 2 }
+    const receipt = deferred<notificationsApi.NotificationList>()
+    vi.spyOn(notificationsApi, 'getNotifications').mockResolvedValue(first)
+    vi.spyOn(notificationsApi, 'markNotificationsSeen').mockReturnValue(receipt.promise)
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    client.setQueryData(queryKeys.notifications(), first)
+    const view = render(<QueryClientProvider client={client}><NotificationBell /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications (1 unread)' }))
+    await waitFor(() => expect(notificationsApi.markNotificationsSeen).toHaveBeenCalledTimes(1))
+    view.unmount()
+    resetAccountQueries(client)
+    client.setQueryData(queryKeys.currentUser(), makeUser(2))
+    client.setQueryData(queryKeys.notifications(), second)
+    await act(async () => receipt.resolve({ items: [], unread_count: 0 }))
+    expect(client.getQueryData(queryKeys.notifications())).toEqual(second)
+  })
+
   it.each(['guest-first', 'login-first'])('guest /me cannot invalidate a successful password login (%s)', async (order) => {
     const client = newClient()
     disposers.push(subscribeAccountQueryReset(client))
@@ -122,9 +145,11 @@ describe('account snapshots follow the resolved identity', () => {
       throw Object.assign(new Error('expired A'), { config, response: { status: 401, data: { detail: 'Expired access' } } })
     }
     const explicitGeneration = getExplicitSessionGeneration()
-    const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
+    // The old identity's refresh is in flight when the login starts, and the login waits for its answer (E29 (4)): a
+    // refresh asked for once the login is under way would wait for the login's answer, so none could fail beside it.
     const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }).catch((error) => error)
     await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(1))
+    const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
     // The logout starts while that refresh is in flight and waits for its answer (E133); the refresh's 401 then
     // lands as a passive loss while the logout is under way, and the logout must still send its request.
     const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
@@ -369,6 +394,102 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.wordingReview.all() })).toHaveLength(0)
   })
 
+  it("a /me naming another reader than this tab showed drops the previous reader's snapshots, and no render pairs the new reader with them (E29 (3))", async () => {
+    const client = newClient()
+    // The watch starts from the reader the cache already holds.
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    disposers.push(subscribeAccountQueryReset(client))
+    const owned = [queryKeys.watchlist(), queryKeys.notifications(), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(7)]
+    for (const key of owned) client.setQueryData(key, { owner: 1 })
+    client.setQueryData(queryKeys.company('AAPL'), { shared: true })
+    const seen: string[] = []
+    function Pair() {
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: list } = useQuery({ queryKey: queryKeys.watchlist(), queryFn: () => new Promise<never>(() => {}), enabled: false })
+      seen.push(`${user?.id ?? null}:${(list as { owner?: number } | undefined)?.owner ?? null}`)
+      return null
+    }
+    render(<QueryClientProvider client={client}><Pair /></QueryClientProvider>)
+    const before = getSessionGeneration()
+    const explicit = getExplicitSessionGeneration()
+    // Another tab signed in as the second account; this tab's next /me (the Header's focus read) names it.
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    // TanStack tells the observers on a later tick: wait for the render that shows the new reader alone, then check
+    // that none before it paired the new reader with the previous one's list.
+    await waitFor(() => expect(seen.at(-1)).toBe('2:null'))
+    expect(seen).toContain('1:1')
+    expect(seen).not.toContain('2:1')
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
+    expect(client.getQueryData(queryKeys.company('AAPL'))).toEqual({ shared: true })
+    // One move, so the first reader's answers still in flight write nothing (E29 (1)), and of the session generation
+    // alone, so a login under way in this tab keeps its own.
+    expect(getSessionGeneration()).toBe(before + 1)
+    expect(getExplicitSessionGeneration()).toBe(explicit)
+  })
+
+  it('a read of the same reader again, a reset between two readers, and a stopped watch drop nothing more (E29 (3))', async () => {
+    const client = newClient()
+    disposers.push(subscribeAccountQueryReset(client))
+    api.defaults.adapter = async (config) => response(config, makeUser(1))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+    client.setQueryData(queryKeys.watchlist(), { owner: 1 })
+    // The same reader read again (the Header's focus read): its snapshots stay.
+    const start = getSessionGeneration()
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 1 })
+    expect(getSessionGeneration()).toBe(start)
+    // A login in this tab resets between the two readers, publishing null: the reset is the one move, and the new
+    // reader's own snapshots stay when its /me lands.
+    acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+    expect(getSessionGeneration()).toBe(start + 1)
+    client.setQueryData(queryKeys.watchlist(), { owner: 2 })
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 2 })
+    expect(getSessionGeneration()).toBe(start + 1)
+    // Stopped (the providers' cleanup), the watch drops nothing when another reader is named.
+    disposers.splice(0).forEach((dispose) => dispose())
+    api.defaults.adapter = async (config) => response(config, makeUser(3))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 2 })
+    expect(getSessionGeneration()).toBe(start + 1)
+  })
+
+  it("a /me that answers no one after another tab logged out drops the previous reader's snapshots, and no render shows a guest or the next reader beside them (E29 (3))", async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    disposers.push(subscribeAccountQueryReset(client))
+    client.setQueryData(queryKeys.earningsAlertTickers(), ['AAPL'])
+    const seen: string[] = []
+    function Bells() {
+      // As the calendar reads them: a guest's read is disabled, and a disabled read still returns what the cache holds.
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: tickers } = useQuery({ queryKey: queryKeys.earningsAlertTickers(), queryFn: () => new Promise<never>(() => {}), enabled: !!user })
+      seen.push(`${user?.id ?? null}:${(tickers as string[] | undefined)?.join() ?? null}`)
+      return null
+    }
+    render(<QueryClientProvider client={client}><Bells /></QueryClientProvider>)
+    const start = getSessionGeneration()
+    // Another tab logged out, clearing the shared session marker: this tab's /me 401 reads as a guest's, with no
+    // refresh and no lost session, so nothing resets.
+    api.defaults.adapter = async (config) => {
+      throw Object.assign(new Error('guest'), { config, response: { status: 401, data: { detail: 'Not authenticated' } } })
+    }
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    await waitFor(() => expect(seen.at(-1)).toBe('null:null'))
+    expect(getSessionGeneration()).toBe(start + 1)
+    // That tab then signed in as another account, and this tab's next /me names it: the families are already empty.
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    await waitFor(() => expect(seen.at(-1)).toBe('2:null'))
+    expect(seen).toContain('1:AAPL')
+    expect(seen.filter((pair) => pair.endsWith(':AAPL') && pair !== '1:AAPL')).toEqual([])
+    expect(getSessionGeneration()).toBe(start + 1)
+  })
+
   it('an account change removes every account-owned snapshot and keeps the shared ones', async () => {
     const client = newClient()
     // One entry in each account-owned family; most keys name no reader, so the next account would read them.
@@ -404,14 +525,15 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('account query ownership structural gate', () => {
+  const accountOwned = [
+    'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
+    'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
+    'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback', 'feedback',
+  ]
+
   it('every query family is classified, and an account change removes exactly the account-owned ones', () => {
     // A new family in lib/queryKeys.ts fails here until it is placed. An account-owned one joins
     // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
-    const accountOwned = [
-      'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
-      'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
-      'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback',
-    ]
     const identity = ['currentUser'] // the reset publishes null for it
     const shared = [
       'registrationConfig', 'turnstileScript', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
@@ -486,6 +608,68 @@ describe('account query ownership structural gate', () => {
     // current user null and its restore, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
     // wording review x3 (the label applied as it is pressed, its rollback, the server's state).
     expect(allWrites).toHaveLength(10)
+  })
+
+  it('every write into an account-owned family checks the session generation first, with no await after the check (E29)', () => {
+    // The reset removes the account families before the next account reads them, so a write that lands after it (a
+    // mutation's answer, or code after an await) would start that account's snapshot with this one's data. Each write
+    // is fenced in the function that makes it: an isSessionGenerationCurrent check (the write returns early when it
+    // fails) or assertSessionGeneration, with no await between the fence and the write, since an await can span a
+    // transition; an await in the write's receiver or arguments, or a `for await` loop, is one too. That the check's result guards
+    // the write is review-checked, and the gate reads source order, not control flow: a loop that awaits after its write,
+    // before its next turn, is outside its reach. The late answers themselves: tests/unit/lateMutationAnswers.spec.tsx and
+    // the mark-seen case above.
+    const fences = ['isSessionGenerationCurrent', 'assertSessionGeneration']
+    // Writes left unfenced, each at its count, so a second write beside an exempt one is not exempt by accident.
+    const exempt: Record<string, number> = {
+      // The saved-summary Delete: its updater returns nothing once the reset has removed the family, and otherwise keeps
+      // every row but the one it deleted, by that row's own id, so it cannot carry one account's rows into another's.
+      'app/dashboard/page.tsx:savedSummaries': 1,
+    }
+    const unfenced: string[] = []
+    const exemptions: Record<string, number> = {}
+    const waits = (inner: ts.Node) => ts.isAwaitExpression(inner) || (ts.isForOfStatement(inner) && inner.awaitModifier !== undefined)
+    /** An await in `inner` outside any function nested in it. */
+    const holdsWait = (inner: ts.Node): boolean =>
+      !ts.isFunctionLike(inner) && (waits(inner) || ts.forEachChild(inner, holdsWait) === true)
+    for (const file of ['app', 'components', 'features', 'hooks', 'lib'].flatMap((dir) => sourceFiles(path.join(frontend, dir)))) {
+      const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+      const relative = path.relative(frontend, file)
+      function visit(node: ts.Node) {
+        if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+          && ['setQueryData', 'setQueriesData'].includes(node.expression.name.text)) {
+          const key = node.arguments[0]?.getText(source) ?? ''
+          const family = /^queryKeys\.(\w+)/.exec(key)?.[1]
+          const site = `${relative}:${family}`
+          if (family && accountOwned.includes(family) && site in exempt) exemptions[site] = (exemptions[site] ?? 0) + 1
+          else if (family && accountOwned.includes(family)) {
+            // The function that makes the write; a function nested in it (the updater) runs inside the write.
+            let owner: ts.Node | undefined = node.parent
+            while (owner && !ts.isFunctionLike(owner)) owner = owner.parent
+            const write = node.getStart(source)
+            let fence = -1
+            let wait = -1
+            const scan = (inner: ts.Node): void => {
+              if (inner.getStart(source) >= write || (inner !== owner && ts.isFunctionLike(inner))) return
+              if (waits(inner)) wait = Math.max(wait, inner.getStart(source))
+              if (ts.isCallExpression(inner) && ts.isIdentifier(inner.expression) && fences.includes(inner.expression.text)) {
+                fence = Math.max(fence, inner.getStart(source))
+              }
+              ts.forEachChild(inner, scan)
+            }
+            if (owner) scan(owner)
+            // The write's receiver and arguments are evaluated before it, so an await among them comes after any fence ahead of it.
+            if (fence < 0 || wait > fence || [node.expression.expression, ...node.arguments].some(holdsWait)) {
+              unfenced.push(`${relative}:${source.getLineAndCharacterOfPosition(write).line + 1} ${key}`)
+            }
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+    }
+    expect(unfenced).toEqual([])
+    expect(exemptions).toEqual(exempt)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {

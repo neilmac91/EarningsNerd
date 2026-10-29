@@ -68,7 +68,8 @@ describe('NarrativePane readable evidence', () => {
     expect(evidence).toHaveLength(2)
     expect(within(evidence[0]).getAllByRole('button')).toHaveLength(2)
     expect(evidence[0]).toHaveTextContent('Free cash flow $1.7B, Q2 2026')
-    expect(evidence[0].querySelectorAll('[data-note-letter]')).toHaveLength(2)
+    // The citations record no check: their notes mark nothing, so no chip carries a letter (D-061).
+    expect(evidence[0].querySelectorAll('[data-note-letter]')).toHaveLength(0)
     expect(document.getElementById('analysis-source-1')).toHaveTextContent('1.7B (1,746,000,000)')
     expect(document.getElementById('analysis-source-2')).toHaveTextContent('15.8B (15,848,000,000)')
   })
@@ -107,7 +108,7 @@ describe('NarrativePane readable evidence', () => {
       const text = 'Free cash flow of **USD 19,960,000,000** [1] was below net income of _USD 20,040,000,000_ [2]. Source operands: Free cash flow USD 19,960,000,000 in 2026Q2 [1]; Net income USD 20,040,000,000 in 2026Q2 [2].'
       const { container, unmount } = render(<NarrativePane state={doneState({ text, completion: doneCompletion({ narrative: text, citations, grounded: 2 }) })} />)
       const prose = container.querySelector('.markdown-body')!
-      expect.soft(prose, '$19.96B below $20.04B: rendered relation').toHaveTextContent('Free cash flow of USD 19,960,000,000 [1]a was below net income of USD 20,040,000,000 [2]a')
+      expect.soft(prose, '$19.96B below $20.04B: rendered relation').toHaveTextContent('Free cash flow of USD 19,960,000,000 [1] was below net income of USD 20,040,000,000 [2]')
       expect.soft(prose, '$19.96B below $20.04B: no rounding collision').not.toHaveTextContent('$20.0B')
       const evidence = screen.getByRole('list', { name: 'Figures behind this finding', hidden: true })
       expect.soft(evidence, '$19.96B below $20.04B: free cash flow evidence').toHaveTextContent('Free cash flow USD 19,960,000,000')
@@ -119,7 +120,7 @@ describe('NarrativePane readable evidence', () => {
     expect(compactNarrativeText(exact)).toBe('In Q2 2026, free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2].')
     const { container } = renderText('In 2026Q2, free cash flow of **USD 1,001,000,000** [1] was below net income of _USD 1,004,000,000_ [2]. Source operands: Free cash flow USD 1,001,000,000 in 2026Q2 [1]; Net income USD 1,004,000,000 in 2026Q2 [2]. Revenue was USD 60,801,000,000. EPS EUR 6.231 per share was below EUR 6.234 per share.')
     const prose = container.querySelector('.markdown-body')!
-    expect(prose).toHaveTextContent('free cash flow of USD 1,001,000,000 [1]a was below net income of USD 1,004,000,000 [2]a')
+    expect(prose).toHaveTextContent('free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2]')
     expect(prose).not.toHaveTextContent('$1.0B')
     expect(prose).toHaveTextContent('Revenue was $60.8B')
     expect(prose).toHaveTextContent('EPS EUR 6.231 per share was below EUR 6.234 per share')
@@ -195,7 +196,9 @@ describe('NarrativePane readable evidence', () => {
     const evidence = container.querySelector('.markdown-body details')!
     expect(evidence).not.toHaveAttribute('open')
     const summary = evidence.querySelector('summary')!
-    expect(summary).toHaveTextContent('Show the 4 source figures behind this · figures carry notes a, b, c')
+    // c records no check: it marks no chip, so the fold names a and b (D-061).
+    expect(summary).toHaveTextContent('Show the 4 source figures behind this · figures carry notes a, b')
+    expect(summary).not.toHaveTextContent('a, b, c')
     expect(summary).not.toHaveClass('text-brand-strong')
     expect(within(evidence).getAllByRole('button', { hidden: true })).toHaveLength(4)
     const notes = container.querySelector<HTMLDetailsElement>('[data-analysis-data-notes] > details')!
@@ -266,14 +269,16 @@ describe('NarrativePane readable evidence', () => {
     render(<NarrativePane state={doneState({ completion: doneCompletion({ citations }) })} />)
     expect(document.getElementById('analysis-source-1')).toHaveTextContent('26.1% (26.065360767092645%)')
     expect(document.getElementById('analysis-source-2')).toHaveTextContent('1.00004× (1.00004 ratio)')
-    const chip = screen.getByRole('button', { name: 'Citation 1: XBRL · net_margin. Net margin · Q2 2026 · 26.1% (26.065360767092645%), data note a' })
+    // A legacy calculation's note is about its record, not its number: no letter on the chip or in its name (D-061).
+    const chip = screen.getByRole('button', { name: 'Citation 1: XBRL · net_margin. Net margin · Q2 2026 · 26.1% (26.065360767092645%)' })
     expect(chip).toHaveAttribute('title', 'Net margin · Q2 2026 · 26.1% (26.065360767092645%) · XBRL · net_margin')
-    expect(chip.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    expect(chip.querySelector('[data-note-kind]')).not.toBeInTheDocument()
     const source = document.getElementById('analysis-source-1')!
-    expect(source).toHaveTextContent('Calculated figure')
+    expect(source).toHaveTextContent('calculated before we kept its inputs')
+    expect(source).not.toHaveTextContent('Calculated figure')
     expect(source).not.toHaveTextContent('Calculated from filing figures')
     expect(source).not.toHaveTextContent('Calculated from recorded inputs')
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('This saved calculation predates the current source checks. Its inputs need review.')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.')
   })
 })
 
@@ -289,11 +294,12 @@ describe('NarrativePane citation chips', () => {
     const note = document.getElementById('analysis-data-note-a')!
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('A source check remains unresolved')
+    expect(note).toHaveTextContent('Not yet matched to the filing')
     expect(screen.getByText('Sources · filed and calculated figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
-    expect(document.querySelector('[data-note-kind="unknown"]')).toBeInTheDocument()
+    // A citation with no check recorded marks nothing.
+    expect(document.querySelector('[data-note-kind="unknown"]')).not.toBeInTheDocument()
   })
 
   it('retains a citation-only concern beside report notes without changing report counts or colliding IDs', () => {
@@ -307,8 +313,11 @@ describe('NarrativePane citation chips', () => {
     }
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
     const { rerender } = render(<DataNotesProvider dataset={dataset}><DataNotes dataset={dataset} /><NarrativePane state={state} /></DataNotesProvider>)
-    expect(screen.getByText(/1 figure needs review/)).toBeInTheDocument()
-    expect(screen.queryByText(/2 figures need review/)).not.toBeInTheDocument()
+    const reportSummary = document.querySelector('[data-analysis-data-notes] summary')!
+    expect(reportSummary).toHaveTextContent('Revenue FY2024: questioned by an automated check')
+    // The citation-only concern stays the narrative's: the report's line names one note.
+    expect(reportSummary).not.toHaveTextContent('not yet matched to the filing')
+    expect(reportSummary.querySelectorAll('[data-note-letter]')).toHaveLength(1)
     expect(screen.getByRole('button', { name: /Citation 1:.*data note b/ })).toBeInTheDocument()
     expect(document.querySelectorAll('#analysis-data-note-a')).toHaveLength(1)
     expect(document.querySelectorAll('#analysis-data-note-b')).toHaveLength(1)
@@ -316,7 +325,7 @@ describe('NarrativePane citation chips', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review data notes b' }))
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('A source check remains unresolved')
+    expect(note).toHaveTextContent('Not yet matched to the filing')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('The source inputs use different units or currencies')
     const passed = structuredClone(dataset)
     passed.series[0].points[0].provenance!.validation = 'passed'
@@ -324,7 +333,7 @@ describe('NarrativePane citation chips', () => {
     rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
     expect(screen.getByText(/No figures need review · 1 checked/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Not yet matched to the filing')
   })
 
   beforeEach(() => {
@@ -357,6 +366,18 @@ describe('NarrativePane citation chips', () => {
     render(<NarrativePane state={state} />)
     expect(screen.getByText(/\[2\]/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
+  })
+
+  it("says what the run is doing in its heading's group while it streams", () => {
+    const { rerender } = render(<NarrativePane state={{ status: 'streaming', text: '', stage: 'assembling' }} />)
+    const heading = screen.getByRole('heading', { name: 'AI trend analysis' })
+    // The words sit in the heading's group in the header row, beside the heading where both fit (DESIGN_SYSTEM.md §4 ›
+    // Activity line): one of the heading's siblings holds them.
+    const inHeadingGroup = (words: string) =>
+      [...heading.parentElement!.children].some((sibling) => sibling !== heading && sibling.contains(screen.getByText(words)))
+    expect(inHeadingGroup('Assembling the numbers…')).toBe(true)
+    rerender(<NarrativePane state={{ status: 'streaming', text: 'Revenue grew', stage: 'writing' }} />)
+    expect(inHeadingGroup('Writing…')).toBe(true)
   })
 
   it('does not inject chips while streaming (raw markers stay plain text)', () => {
@@ -392,7 +413,7 @@ describe('NarrativePane citation chips', () => {
     // A phone and a keyboard never show a title, so the explanation is on the page, in muted ink.
     expect(screen.getByText('Cached')).not.toHaveAttribute('title')
     const line = screen.getByText('Served from an earlier run · regenerates if these figures change')
-    expect(line).toHaveClass('text-text-tertiary-light', 'dark:text-text-secondary-dark')
+    expect(line).toHaveClass('text-text-tertiary-light', 'dark:text-text-tertiary-dark')
     expect(line.parentElement).toBe(screen.getByText('Cached').parentElement)
   })
 

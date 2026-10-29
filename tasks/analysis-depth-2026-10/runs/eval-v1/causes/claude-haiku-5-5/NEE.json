@@ -1,0 +1,111 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "NEE",
+ "split": "dev",
+ "claims": 8,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Revenue rose 7.8% in FY2023 , driven by $1,117 million of higher storm cost recovery revenue .",
+   "passages": [
+    {
+     "id": "P45",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in operating revenues in 2023 reflects higher storm cost recovery revenues of approximately $1,117 million primarily associated with Hurricanes Ian and Nicole, as discussed above. The increase in operating revenues in 2023 were partly offset by decreases in fuel cost recovery revenues of approximately $714 million primarily as a result of lower fuel and energy prices. In 2023 and 2022, cost recovery clauses contributed approximately $369 million and $261 million, respectively, to FPL\u2019s net income."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher storm cost recovery revenues of $1,117 million drove the increase."
+  },
+  {
+   "sentence": "The filing attributes that growth to $1,091 million of storm cost recovery and $217 million of storm protection plan revenue .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in operating revenues in 2025 reflects higher storm cost recovery revenues of approximately $1,091\u00a0million primarily associated with the completion of surcharges for Hurricanes Debby, Helene and Milton, as discussed above, as well as an increase of $217\u00a0million in revenues from the storm protection plan cost recovery clause as a result of increased investments. The increase in operating revenues in 2025 was partly offset by a decrease in fuel cost recovery revenues of approximately $353\u00a0million primarily as a result of lower fuel rates. In 2025 and 2024, cost recovery clauses contributed approximately $497\u00a0million and $417\u00a0million, respectively, to FPL\u2019s net income."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states $1,091 million storm cost recovery and $217 million storm protection plan revenue increases."
+  },
+  {
+   "sentence": "The filing ties NEER's higher results, to $2.98 billion of net income , to new investments, partly offset by higher financing costs .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's results increased in 2025 primarily reflecting higher earnings from new investments, partly offset by higher financing costs. In 2025, NEER added approximately 1,604 MW of new wind generating capacity, 2,859 MW of solar generating capacity and 1,799 MW of battery storage capacity and increased its backlog of contracted development projects."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states NEER results increased due to new investments, partly offset by higher financing costs."
+  },
+  {
+   "sentence": "Operating expenses rose $566 million that year, mainly O&M and depreciation tied to NEER's growth .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating expenses \u2013 net for 2023 increased $566 million primarily due to increases of $342 million in O&M expenses and $287 million in depreciation and amortization expenses, partly offset by decreases of $41 million in fuel, purchased power and interchange expenses. The increases were primarily associated with growth across the NEER businesses."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states $566 million increase due to O&M and depreciation from NEER growth."
+  },
+  {
+   "sentence": "The filing ties the negative FY2025 effective tax rate of -17.7%  to clean energy tax credits, which rose about $585 million .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's effective income tax rate for 2025 and 2024 was approximately (343)% and (165)%, respectively, and is primarily based on the composition of pretax income in 2025 and 2024 as well as the impact of clean energy tax credits. PTCs from wind and solar projects and ITCs from solar, battery storage and certain wind projects are included in NEER\u2019s earnings. PTCs are recognized as wind and solar energy is generated and sold based on a per kWh rate prescribed in applicable federal and state statutes. During the year ended December 31, 2025, clean energy tax credits increased by approximately $585\u00a0million reflecting growth in NEER's business. See Note\u00a01 \u2013 Income Taxes for a discussion of clean energy tax credits, Note\u00a05 and Note\u00a016."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states clean energy tax credits increased $585 million and impact effective tax rate."
+  },
+  {
+   "sentence": "Operating cash flow fell 5.8% ; the filing sizes a fuel-related clause swing at $89 million, a small part of the $775 million drop .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenues from fuel and other cost recovery clauses and pass-through costs, such as franchise fees, revenue taxes and storm-related surcharges, are largely a pass-through of costs. Such revenues also include a return on investment allowed to be recovered through the cost recovery clauses on certain assets, primarily related to certain solar, environmental projects, storm protection plan investments and the unamortized balance of the regulatory asset associated with FPL's acquisition of a generation facility. See Item\u00a01. Business \u2013 FPL \u2013 FPL Regulation \u2013 FPL Electric Rate Regulation \u2013 Cost Recovery Clauses. Under-recovery or over-recovery of cost recovery clause and other pass-through costs (deferred clause and franchise expenses and revenues) can significantly affect NEE's and FPL's operating cash flows. During 2025, the change from a net over-recovery of cost recovery clauses to a net under-recovery of cost recovery clauses impacted FPL's operating cash flows by approximately $89 million, primarily related to higher fuel prices."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports $89 million fuel clause swing but not the $775 million drop."
+  },
+  {
+   "sentence": "Net income fell 1.6%  mainly because Corporate and Other fell $1,256 million, including about $1,002 million of after-tax hedge losses .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results decreased $1,256 million during 2025 primarily due to unfavorable after-tax impacts of approximately $1,002 million, as compared to the prior year, related to non-qualifying hedge activity as a result of changes in the fair value of interest rate derivative instruments used to manage interest rate and foreign currency exchange rate risk associated primarily with outstanding and expected future debt issuances and borrowings (see Note\u00a03) as well as higher average debt balances."
+    },
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net income attributable to NEE for 2025 was $6.84 billion compared to $6.95 billion in 2024. In 2025, net income attributable to NEE decreased primarily due to lower results at Corporate and Other, partly offset by higher results at FPL and NEER. The comparison of the results of operations for the years ended December 31, 2024 and 2023 are included in Management's Discussion in NEE's and FPL's Annual Report on Form 10-K for the year ended December 31, 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages state Corporate and Other fell $1,256 million including $1,002 million hedge losses."
+  },
+  {
+   "sentence": "The FY2024 revenue fall of 5.2%  reflected lower storm and fuel recovery revenue , and FY2025's 9.8% growth  recovered it.",
+   "passages": [
+    {
+     "id": "P34",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The decrease in operating revenues in 2024 reflects lower storm cost recovery revenues of approximately $1,090 million primarily associated with the completion of surcharges for Hurricanes Ian and Nicole, as discussed above. The decrease in operating revenues in 2024 was also impacted by a decrease in fuel cost recovery revenues of approximately $526 million primarily as a result of lower fuel and energy prices. In 2024 and 2023, cost recovery clauses contributed approximately $417 million and $369 million, respectively, to FPL\u2019s net income."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states FY2024 revenue decrease from lower storm and fuel recovery revenues."
+  }
+ ],
+ "cost_usd": 0.001811
+}

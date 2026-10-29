@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "description": "The one case table for a company name's display casing, run by both copies of the rule: frontend/lib/formatCompanyName.ts (frontend/tests/unit/formatCompanyName.spec.ts) and backend/app/utils/company_names.py (backend/tests/unit/test_company_names.py). Each group names the part of the rule its cases pin; each case is [served name, display name].",
+  "groups": [
+    {
+      "rule": "title-cases the EDGAR form",
+      "why": "ALL-CAPS EDGAR names are title-cased per token with a small exceptions list.",
+      "cases": [
+        ["APPLE INC.", "Apple Inc."],
+        ["MICROSOFT CORP", "Microsoft Corp"],
+        ["JPMORGAN CHASE & CO", "JPMorgan Chase & Co"],
+        ["3M CO", "3M Co"],
+        ["AT&T INC.", "AT&T Inc."],
+        ["NVIDIA CORP", "NVIDIA Corp"],
+        ["REGENERON PHARMACEUTICALS, INC.", "Regeneron Pharmaceuticals, Inc."]
+      ]
+    },
+    {
+      "rule": "cases the body when only the legal suffix is cased",
+      "why": "Live sec.gov company_tickers.json: ~1,300-1,600 of 10,412 titles are ALL CAPS except the legal suffix. A cased suffix must not exempt the shouting body in front of it.",
+      "cases": [
+        ["ELI LILLY & Co", "Eli Lilly & Co"],
+        ["PROCTER & GAMBLE Co", "Procter & Gamble Co"],
+        ["NIKE, Inc.", "NIKE, Inc."],
+        ["CVS HEALTH Corp", "CVS Health Corp"],
+        ["RTX Corp", "RTX Corp"],
+        ["CARRIER GLOBAL Corp", "Carrier Global Corp"],
+        ["NEWMONT Corp /DE/", "Newmont Corp /DE/"],
+        ["NORTHERN TRUST Corp", "Northern Trust Corp"]
+      ]
+    },
+    {
+      "rule": "cases a legal form before its marker and keeps the marker",
+      "why": "Chief design on #1491 (6347648492): a legal form with EDGAR's marker glued on reads as the same legal form without one; the marker keeps its capitals, and a marker alone stays as served. Only letter case changes.",
+      "cases": [
+        ["QUALCOMM INC/DE", "Qualcomm Inc/DE"],
+        ["SHENANDOAH TELECOMMUNICATIONS CO/VA/", "Shenandoah Telecommunications Co/VA/"],
+        ["ACME HOLDINGS LLC/DE", "Acme Holdings LLC/DE"],
+        ["BANK OF AMERICA CORP /DE/", "Bank of America Corp /DE/"]
+      ]
+    },
+    {
+      "rule": "keeps a trailing group of tickers as served",
+      "why": "EDGAR's full-text search folds every ticker of a multi-class or warrant-carrying filer into its display name; the group is data, so it stays as served (the review of #1491, measured on live display names).",
+      "cases": [
+        ["BOEING CO (BA, BA-PA)", "Boeing Co (BA, BA-PA)"],
+        ["NEWS CORP (NWS, NWSA, NWSAL)", "News Corp (NWS, NWSA, NWSAL)"],
+        ["FLYEXCLUSIVE INC. (FLYX, FLYX-WT)", "Flyexclusive Inc. (FLYX, FLYX-WT)"],
+        ["Alphabet Inc. (GOOGL, GOOG)", "Alphabet Inc. (GOOGL, GOOG)"],
+        ["(BA, BA-PA)", "(BA, BA-PA)"]
+      ]
+    },
+    {
+      "rule": "resolves initialisms and overrides through glued punctuation",
+      "cases": [
+        ["INTERNATIONAL BUSINESS MACHINES CORP (IBM)", "International Business Machines Corp (IBM)"],
+        ["JPMORGAN CHASE & CO.", "JPMorgan Chase & Co."],
+        ["(JPMORGAN) HOLDINGS", "(JPMorgan) Holdings"],
+        ["IBM, LLC", "IBM, LLC"],
+        ["AT&T, INC.", "AT&T, Inc."],
+        ["BANK OF AMERICA, N.A.", "Bank of America, N.A."]
+      ]
+    },
+    {
+      "rule": "leaves an already-cased name untouched",
+      "cases": [
+        ["Alphabet Inc.", "Alphabet Inc."],
+        ["eBay Inc.", "eBay Inc."],
+        ["Nike, Inc.", "Nike, Inc."],
+        ["Alphabet Group Inc", "Alphabet Group Inc"]
+      ]
+    },
+    {
+      "rule": "keeps legal-form and brand initialisms upper-case",
+      "cases": [
+        ["UNILEVER PLC", "Unilever PLC"],
+        ["BLACKSTONE INC LLC", "Blackstone Inc LLC"],
+        ["INTERNATIONAL BUSINESS MACHINES CORP", "International Business Machines Corp"],
+        ["IBM", "IBM"]
+      ]
+    },
+    {
+      "rule": "lower-cases connectives mid-name but not when they lead",
+      "cases": [
+        ["BANK OF AMERICA CORP", "Bank of America Corp"],
+        ["THE HOME DEPOT INC", "The Home Depot Inc"]
+      ]
+    },
+    {
+      "rule": "cases hyphen, apostrophe and dotted segments individually",
+      "cases": [
+        ["COCA-COLA CO", "Coca-Cola Co"],
+        ["O'REILLY AUTOMOTIVE INC", "O'Reilly Automotive Inc"],
+        ["KOHL'S CORP", "Kohl's Corp"],
+        ["MCDONALD'S CORP", "McDonald's Corp"],
+        ["U.S. BANCORP", "U.S. Bancorp"]
+      ]
+    },
+    {
+      "rule": "cases the letters of any script",
+      "why": "Codex on #1491: a letter is any script's, with its accents, so an accented capital stays inside its word (a decomposed accent too), a word is lowercased whole (a Greek final sigma keeps its form) with its first letter's own capital, a name cased in another script is trusted, and a script without case is left as served.",
+      "cases": [
+        ["SOCIÉTÉ GÉNÉRALE", "Société Générale"],
+        ["L'ORÉAL", "L'Oréal"],
+        ["ÉLECTRICITÉ DE FRANCE SA", "Électricité de France SA"],
+        ["SOCIE\u0301TE\u0301 ANONYME", "Socie\u0301te\u0301 Anonyme"],
+        ["ГАЗПРОМ НЕФТЬ", "Газпром Нефть"],
+        ["ΟΣ", "Ος"],
+        ["ΕΘΝΙΚΗ ΤΡΑΠΕΖΑ ΤΗΣ ΕΛΛΑΔΟΣ", "Εθνικη Τραπεζα Της Ελλαδος"],
+        ["İSTANBUL", "İstanbul"],
+        ["ВКонтакте", "ВКонтакте"],
+        ["トヨタ自動車", "トヨタ自動車"]
+      ]
+    },
+    {
+      "rule": "applies brand overrides and preserves tokens with digits or ampersands",
+      "cases": [
+        ["EBAY INC", "eBay Inc"],
+        ["S&P GLOBAL INC", "S&P Global Inc"],
+        ["A O SMITH CORP", "A O Smith Corp"]
+      ]
+    },
+    {
+      "rule": "normalises whitespace and reads an empty name as empty",
+      "why": "Whitespace is JavaScript's \\s and trim() set: the ideographic space, the line separator, the no-break space, the Ogham space mark and the medium mathematical space among it, written as escapes.",
+      "cases": [
+        ["  APPLE   INC. ", "Apple Inc."],
+        ["\u3000APPLE INC.\u3000", "Apple Inc."],
+        ["APPLE\u2028INC.", "Apple Inc."],
+        ["\u00a0APPLE\u1680INC.\u205f", "Apple Inc."],
+        ["", ""]
+      ]
+    },
+    {
+      "rule": "reads space and lowercase as JavaScript does",
+      "why": "The Python copy's own pitfalls: trim() strips a byte-order mark, which str.strip() keeps, and \\p{Ll} is general category Ll, while str.islower() also counts Other_Lowercase letters such as the ordinal ª.",
+      "cases": [
+        ["\ufeffAPPLE INC.", "Apple Inc."],
+        ["ªBC CORP", "ªbc Corp"]
+      ]
+    }
+  ]
+}

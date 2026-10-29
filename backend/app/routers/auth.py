@@ -5,6 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictStr, field_validator, model_validator
 from typing import Optional
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
@@ -80,6 +81,10 @@ RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr pe
 # the service's two, and a flood costs that hour's reset and verification mail instead of the whole queue.
 # The same 429 answers every address.
 ACCOUNT_MAIL_LIMITER = RateLimiter(limit=60, window_seconds=3600)
+# POST /refresh per IP (E96). A browser single-flights its refresh per tab (``ensureRefreshed``), so N open tabs
+# waking at once send N; the cap leaves room for a burst of tabs behind one shared address, and a client looping
+# refreshes is refused within the minute. Checked before the rotation takes a connection or the users row lock.
+REFRESH_LIMITER = RateLimiter(limit=60, window_seconds=60)
 # Every OAuth start persists a single-use state row: bound the
 # unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
 OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
@@ -357,6 +362,7 @@ def issue_session(
     *,
     refresh_token: Optional[str] = None,
     commit: bool = True,
+    email: Optional[str] = None,
 ) -> str:
     """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
 
@@ -367,9 +373,11 @@ def issue_session(
     ``auth_account_service.record_password_login`` mints under the account's lock, the ``/refresh``
     endpoint, and the OAuth callbacks, whose ``oauth_account_service.mint_oauth_refresh_token`` turns a
     concurrent first-login ``IntegrityError`` into the conflict redirect. Returns the raw access token
-    (body responses echo it).
+    (body responses echo it). Pass ``email=`` when the caller read the address before a commit that
+    expired ``user``, as the OAuth callbacks do before their mint's: the access token then reads nothing
+    after that commit, so no failure there can turn a committed sign-in into an error (E121).
     """
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": email if email is not None else user.email})
     _set_auth_cookie(response, access_token)
     if refresh_token is None:
         refresh_token = refresh_token_service.mint_refresh_token(
@@ -536,7 +544,17 @@ async def _send_account_exists_email_safe(user: User) -> None:
         logger.warning("Account-exists email not sent: %s", e.__class__.__name__)
 
 
-async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
+@dataclass(frozen=True)
+class _SignedIn:
+    """What an OAuth callback's sign-in unit leaves the route once it has released its session: the account's
+    address and name for the linked-account notice, read before the unit's commits expired them (E121)."""
+
+    email: str
+    full_name: Optional[str]
+    linked_existing: bool
+
+
+async def _send_oauth_linked_email_safe(user: _SignedIn, provider: str) -> None:
     """Notify a user that a social identity was linked to their existing account.
 
     Best-effort: a federated identity attaching to a pre-existing account is exactly the event
@@ -653,7 +671,8 @@ async def register(
     except CollectionUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if user is None:
-        # A lost invite-redemption race or a lost concurrent-create race: stay opaque (rolled back).
+        # A refused invite redemption (redeemed or revoked since it validated) or a lost concurrent-create
+        # race: stay opaque (rolled back).
         return _REGISTER_OPAQUE
     redeemed = invite is not None
 
@@ -776,6 +795,12 @@ async def refresh(
     db: Session = Depends(get_db),
 ):
     """Exchange a valid refresh token for a new access token (and a rotated refresh token)."""
+    enforce_rate_limit(
+        request,
+        REFRESH_LIMITER,
+        "refresh",
+        error_detail="Too many session refreshes. Try again in a minute.",
+    )
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if not raw_token and body is not None:
         raw_token = body.refresh_token
@@ -794,11 +819,21 @@ async def refresh(
         finally:
             filing_list_service.release_request_session(db)
 
+    # A refusal sets no cookie, on purpose (E121). It cannot tell whether the cookies it refused are still the
+    # browser's: the request carries the cookies of the moment it was sent, and a login in another tab, an OAuth
+    # sign-in's redirect or another tab's refresh can have replaced them before this answer lands, so a deletion here
+    # could end that newer session. With nothing newer set, the browser keeps the refused cookies, en_session included,
+    # so the edge guard (frontend/middleware.ts) still lets it reach a protected page, whose /me read then finds no
+    # session. The refusing tab ends the session it knew and clears the session marker every tab reads
+    # (notifySessionLost, frontend/lib/api/session.ts); no tab then silently renews a newer login until a /me read
+    # succeeds and marks it again (getCurrentUser). A kept refresh cookie that was rotated away meets the replay sweep
+    # each time it is sent, which revokes that token's chain, the live tokens its rotations lead to; the account's other
+    # sessions keep theirs (E96, refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on
+    # the injected Response and then raised; FastAPI answers an exception with a fresh response, so they never reached
+    # the browser (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
     try:
         access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:
-        _clear_refresh_cookie(response)
-        _clear_auth_cookie(response)
         logger.warning(f"Refresh reuse detected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -806,8 +841,6 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except RefreshTokenError as exc:
-        _clear_refresh_cookie(response)
-        _clear_auth_cookie(response)
         logger.info(f"Refresh rejected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -854,7 +887,7 @@ async def verify_email(
                     )
                 except Exception:
                     logger.warning("Trial-started telemetry failed for user %s", user.id, exc_info=True)
-    return {"message": "Email verified. You can now use all features."}
+    return {"message": "Email verified."}
 
 
 @router.post("/resend-verification")
@@ -915,9 +948,19 @@ async def reset_password(
     payload: ResetPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    """Set a new password using the single-use token from the reset email."""
+    """Set a new password using the single-use token from the reset email.
+
+    Two units in the thread pool, the token's account read and the reset, each released before what follows
+    it, so the breached-password check and bcrypt hold no pooled connection and no statement or lock wait runs
+    on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    def find_account() -> int:
+        try:
+            return auth_account_service.find_password_reset_user(db, payload.token).id
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user = auth_account_service.find_password_reset_user(db, payload.token)
+        user_id = await run_in_threadpool(find_account)
     except auth_account_service.AccountTokenInvalidError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link.") from None
     except auth_account_service.AccountTokenExpiredError:
@@ -930,9 +973,21 @@ async def reset_password(
         )
 
     hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
-    # Sets the password, burns the token, confirms the email (the user proved control of the inbox)
-    # and revokes every session (account recovery evicts an attacker), in one commit.
-    auth_account_service.complete_password_reset(db, user, hashed_password)
+
+    def reset() -> None:
+        # Sets the password, burns the token, confirms the email (the user proved control of the inbox)
+        # and revokes every session (account recovery evicts an attacker), in one commit, under the
+        # account's users row lock (its revocation takes it before any token write).
+        try:
+            auth_account_service.complete_password_reset_by_id(db, user_id, hashed_password)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    try:
+        await run_in_threadpool(reset)
+    except auth_account_service.AccountTokenInvalidError:
+        # The account was deleted while this request hashed; nothing was written.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link.") from None
     return {"message": "Password updated. You can now log in with your new password."}
 
 
@@ -951,7 +1006,15 @@ async def change_password(
       email/password sign-in alongside their Google/Apple logins.
 
     Applies the same strength + breached-password (HIBP) checks as registration/reset.
+
+    Two units in the thread pool around the waits (E121): the auth lookup's read is released first, so no
+    pooled connection is out while bcrypt checks the current password, the breached-password check runs or
+    bcrypt hashes the new one; the change and this device's new session are then one unit, released before
+    the route returns (lessons/ops-release-cached-filing-reads-before-yield.md).
     """
+    # The release detaches the user without expiring it: the id, email and hash the lookup loaded stay
+    # readable with no query, here and in the unit below.
+    await run_in_threadpool(filing_list_service.release_request_session, db)
     # Keyed per-user so a logged-in attacker can't brute-force the current password.
     enforce_rate_limit(
         request,
@@ -975,19 +1038,29 @@ async def change_password(
         )
 
     new_password_hash = await asyncio.to_thread(get_password_hash, payload.new_password)
-    # A password change must evict every existing session (a stolen/old refresh token must not
-    # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
-    # moments later when their short-lived access token expires. No intermediate commit:
-    # stage_password_change only stages the new hash and the revocation, and the single commit
-    # inside issue_session (refresh_token_service.mint_refresh_token, default commit=True) commits
-    # them with the new token, so a failure there rolls the whole change back (no
-    # password-changed-but-500 inconsistency) and saves a commit round-trip.
-    if not auth_account_service.stage_password_change(db, current_user, new_password_hash, verified_hash):
+
+    def change() -> bool:
+        # A password change must evict every existing session (a stolen/old refresh token must not
+        # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
+        # moments later when their short-lived access token expires. No intermediate commit:
+        # stage_password_change only stages the new hash and the revocation, and the single commit
+        # inside issue_session (refresh_token_service.mint_refresh_token, default commit=True) commits
+        # them with the new token, so a failure there rolls the whole change back (no
+        # password-changed-but-500 inconsistency) and saves a commit round-trip. Nothing after that
+        # commit raises: the refresh cookie is set, and the release logs a failure instead.
+        try:
+            if not auth_account_service.stage_password_change(db, current_user, new_password_hash, verified_hash):
+                return False
+            issue_session(db, current_user, response, request)
+            return True
+        finally:
+            filing_list_service.release_request_session(db)
+
+    if not await run_in_threadpool(change):
         # A reset or another change committed while this request hashed (E121).
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
         )
-    issue_session(db, current_user, response, request)
     return {"message": "Password updated."}
 
 
@@ -1009,12 +1082,12 @@ def _apple_redirect(url: str) -> RedirectResponse:
 
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
-async def _start_google(
-    request: Request, db: Session, invite: Optional[str],
-    agreement: AcceptedAccountAgreement | None = None,
-) -> tuple[str, str]:
-    """Rate limit, save the state (with the invite's hash when the invite is live) and build
-    Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
+def _google_authorize_url(request: Request) -> tuple[str, str]:
+    """Answer 503 when Google is not configured, rate limit, then mint a state and build Google's
+    consent URL for it. Returns ``(url, state)``. The route saves the state
+    (``oauth_account_service.save_google_state``, with the invite's hash when the invite is live) in
+    the thread pool before it answers, then sets the state cookie: it hands its session to the thread
+    pool itself, and to nothing on the event loop (E121)."""
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Logging in with Google is not available.")
     enforce_rate_limit(
@@ -1022,9 +1095,6 @@ async def _start_google(
         error_detail="Too many login attempts. Try again shortly.",
     )
     state = secrets.token_urlsafe(32)
-    # Signup assent and any live invite are bound to this single-use state. Plain login also
-    # consumes state but needs no signup evidence for an existing account.
-    await run_in_threadpool(oauth_account_service.save_google_state, db, state, invite, agreement)
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -1051,7 +1121,9 @@ async def google_login(request: Request, db: Session = Depends(get_db)):
     An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
     token never appears in a request URL (request logs record query strings).
     """
-    url, state = await _start_google(request, db, None)
+    url, state = _google_authorize_url(request)
+    # Plain login consumes its state too, but needs no signup evidence for an existing account.
+    await run_in_threadpool(oauth_account_service.save_google_state, db, state, None, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_google_state_cookie(redirect, state)
     return redirect
@@ -1068,7 +1140,9 @@ async def google_start(body: OAuthStartRequest, request: Request, db: Session = 
     agreement = body.accepted_agreement()
     if agreement is not None:
         _require_new_collection()
-    url, state = await _start_google(request, db, body.invite, agreement)
+    url, state = _google_authorize_url(request)
+    # Signup assent and any live invite are bound to this single-use state.
+    await run_in_threadpool(oauth_account_service.save_google_state, db, state, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_google_state_cookie(response, state)
     return response
@@ -1134,57 +1208,65 @@ async def google_callback(
     if not google_sub or not email:
         return RedirectResponse(f"{frontend_url}/login?error=google_missing_claims", status_code=302)
 
-    # Existing link → existing verified account (linked) → new account through the invite gate;
-    # stages the link and last_login_at for the commit below.
+    redirect = RedirectResponse(url=frontend_url, status_code=302)
+    redirect.delete_cookie(_OAUTH_STATE_COOKIE)
+    user_agent, client_ip, hashed_ip = request.headers.get("user-agent"), _client_ip(request), _hashed_client_ip(request)
+
+    def sign_in() -> _SignedIn:
+        # One unit in the thread pool, released before the route awaits the linked-account notice (E121).
+        try:
+            # Existing link → existing verified account (linked) → new account through the invite gate;
+            # stages the link and last_login_at for the commit below.
+            user, linked_existing, created = oauth_account_service.resolve_google_user(
+                db,
+                subject=google_sub,
+                email=email,
+                email_verified=email_verified_by_google,
+                full_name=full_name,
+                invite_code_hash=invite_code_hash,
+                agreement=agreement,
+            )
+            # Read before the mint's commit expires the user: nothing after that commit reads it.
+            user_id, signed_in = user.id, _SignedIn(user.email, user.full_name, linked_existing)
+            # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
+            refresh_token = oauth_account_service.mint_oauth_refresh_token(
+                db, user, user_agent=user_agent, ip=client_ip
+            )
+            issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False, email=signed_in.email)
+            if created:
+                # A sign-up as well as a login: the register row a password sign-up writes, so the log tells
+                # this sign-up from a later login (D-054). Written only now, after the sign-in committed.
+                audit_service.log_register(db, user_id, signed_in.email, ip_address=hashed_ip)
+            audit_service.log_oauth_login(db, user_id, signed_in.email, provider="google", ip_address=hashed_ip)
+            if linked_existing:
+                # Security-relevant: a federated identity was just attached to a pre-existing account.
+                audit_service.log_oauth_linked(db, user_id, signed_in.email, provider="google", ip_address=hashed_ip)
+            return signed_in
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user, linked_existing, created = oauth_account_service.resolve_google_user(
-            db,
-            subject=google_sub,
-            email=email,
-            email_verified=email_verified_by_google,
-            full_name=full_name,
-            invite_code_hash=invite_code_hash,
-            agreement=agreement,
-        )
+        signed_in = await run_in_threadpool(sign_in)
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:
             logger.warning("%s OAuth IntegrityError creating account", "google")
         return RedirectResponse(f"{frontend_url}/login?error={refused.error_code}", status_code=302)
-
-    redirect = RedirectResponse(url=frontend_url, status_code=302)
-    redirect.delete_cookie(_OAUTH_STATE_COOKIE)
-    try:
-        # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
-        refresh_token = oauth_account_service.mint_oauth_refresh_token(
-            db, user, user_agent=request.headers.get("user-agent"), ip=_client_ip(request)
-        )
     except oauth_account_service.OAuthAccountConflictError:
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
-    issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False)
-
-    hashed_ip = _hashed_client_ip(request)
-    if created:
-        # A sign-up as well as a login: the register row a password sign-up writes, so the log tells
-        # this sign-up from a later login (D-054). Written only now, after the sign-in committed.
-        audit_service.log_register(db, user.id, user.email, ip_address=hashed_ip)
-    audit_service.log_oauth_login(db, user.id, user.email, provider="google", ip_address=hashed_ip)
-    if linked_existing:
-        # Security-relevant: a federated identity was just attached to a pre-existing account.
-        audit_service.log_oauth_linked(db, user.id, user.email, provider="google", ip_address=hashed_ip)
-        await _send_oauth_linked_email_safe(user, "Google")
+    if signed_in.linked_existing:
+        await _send_oauth_linked_email_safe(signed_in, "Google")
     return redirect
 
 
 # ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
 
-async def _start_apple(
-    request: Request, db: Session, invite: Optional[str],
-    agreement: AcceptedAccountAgreement | None = None,
-) -> tuple[str, str]:
-    """Rate limit, save the nonce row (with the invite's hash when the invite is live) and build
-    Apple's consent URL. Returns ``(url, state)``; the row is committed before the caller returns
-    the URL and sets the browser-binding cookie."""
+def _apple_authorize_url(request: Request) -> tuple[str, str, str]:
+    """Answer 503 when Apple is not configured, rate limit, then mint a state and a nonce and build
+    Apple's consent URL for them. Returns ``(url, state, raw_nonce)``. The route saves the nonce row
+    (``oauth_account_service.save_apple_state``, with the invite's hash when the invite is live) in the
+    thread pool, committed before it returns the URL and sets the browser-binding cookie: it hands its
+    session to the thread pool itself, and to nothing on the event loop (E121)."""
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Logging in with Apple is not available.")
     enforce_rate_limit(
@@ -1194,7 +1276,6 @@ async def _start_apple(
 
     state = secrets.token_urlsafe(32)
     raw_nonce = secrets.token_urlsafe(32)
-    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, invite, agreement)
 
     # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.
     params = {
@@ -1206,7 +1287,7 @@ async def _start_apple(
         "state": state,
         "nonce": hashlib.sha256(raw_nonce.encode()).hexdigest(),
     }
-    return f"{_APPLE_AUTH_URL}?{urlencode(params)}", state
+    return f"{_APPLE_AUTH_URL}?{urlencode(params)}", state, raw_nonce
 
 
 def _set_apple_state_cookie(response: Response, state: str) -> None:
@@ -1225,7 +1306,8 @@ def _set_apple_state_cookie(response: Response, state: str) -> None:
 async def apple_login(request: Request, db: Session = Depends(get_db)):
     """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
     sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
-    url, state = await _start_apple(request, db, None)
+    url, state, raw_nonce = _apple_authorize_url(request)
+    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, None, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_apple_state_cookie(redirect, state)
     return redirect
@@ -1238,7 +1320,8 @@ async def apple_start(body: OAuthStartRequest, request: Request, db: Session = D
     agreement = body.accepted_agreement()
     if agreement is not None:
         _require_new_collection()
-    url, state = await _start_apple(request, db, body.invite, agreement)
+    url, state, raw_nonce = _apple_authorize_url(request)
+    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_apple_state_cookie(response, state)
     return response
@@ -1300,41 +1383,50 @@ async def apple_callback(
         except (ValueError, AttributeError, KeyError):
             pass
 
-    # Resolve user: existing oauth link → existing verified account → new account
+    redirect = _apple_redirect(frontend_url)
+    user_agent, client_ip, hashed_ip = request.headers.get("user-agent"), _client_ip(request), _hashed_client_ip(request)
+
+    def sign_in() -> _SignedIn:
+        # One unit in the thread pool, released before the route awaits the linked-account notice (E121).
+        try:
+            # Resolve user: existing oauth link → existing verified account → new account
+            user_obj, linked_existing, created = oauth_account_service.resolve_apple_user(
+                db,
+                subject=apple_sub,
+                email=email,
+                email_verified=email_verified_by_apple,
+                full_name=full_name,
+                invite_code_hash=invite_code_hash,
+                agreement=agreement,
+            )
+            # Read before the mint's commit expires the user: nothing after that commit reads it.
+            user_id, signed_in = user_obj.id, _SignedIn(user_obj.email, user_obj.full_name, linked_existing)
+            # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
+            refresh_token = oauth_account_service.mint_oauth_refresh_token(
+                db, user_obj, user_agent=user_agent, ip=client_ip
+            )
+            issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False, email=signed_in.email)
+            if created:
+                # As for Google: the sign-up's register row, after the sign-in committed (D-054).
+                audit_service.log_register(db, user_id, signed_in.email, ip_address=hashed_ip)
+            audit_service.log_oauth_login(db, user_id, signed_in.email, provider="apple", ip_address=hashed_ip)
+            if linked_existing:
+                audit_service.log_oauth_linked(db, user_id, signed_in.email, provider="apple", ip_address=hashed_ip)
+            return signed_in
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user_obj, linked_existing, created = oauth_account_service.resolve_apple_user(
-            db,
-            subject=apple_sub,
-            email=email,
-            email_verified=email_verified_by_apple,
-            full_name=full_name,
-            invite_code_hash=invite_code_hash,
-            agreement=agreement,
-        )
+        signed_in = await run_in_threadpool(sign_in)
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:
             logger.warning("%s OAuth IntegrityError creating account", "apple")
         return _apple_redirect(f"{frontend_url}/login?error={refused.error_code}")
-
-    redirect = _apple_redirect(frontend_url)
-    try:
-        # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
-        refresh_token = oauth_account_service.mint_oauth_refresh_token(
-            db, user_obj, user_agent=request.headers.get("user-agent"), ip=_client_ip(request)
-        )
     except oauth_account_service.OAuthAccountConflictError:
         logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
         return _apple_redirect(f"{frontend_url}/login?error=apple_account_conflict")
-    issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False)
-
-    hashed_ip = _hashed_client_ip(request)
-    if created:
-        # As for Google: the sign-up's register row, after the sign-in committed (D-054).
-        audit_service.log_register(db, user_obj.id, user_obj.email, ip_address=hashed_ip)
-    audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
-    if linked_existing:
-        audit_service.log_oauth_linked(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
-        await _send_oauth_linked_email_safe(user_obj, "Apple")
+    if signed_in.linked_existing:
+        await _send_oauth_linked_email_safe(signed_in, "Apple")
     return redirect
 
 
@@ -1401,8 +1493,11 @@ async def logout(
             _clear_auth_cookie(incomplete)
             _clear_refresh_cookie(incomplete)
             return incomplete
-        # The revoke committed and a step after it raised (the audit write, the release): the session ended, so this
-        # is a logout that succeeded and answers as one. The audit row is whatever that step left.
+        # The revoke committed and something after it raised: the session ended, so this is a logout that succeeded
+        # and answers as one. Neither step after the commit lets its own failure out: create_audit_log catches it,
+        # logs it, rolls back and returns None, and the release logs a failed close. So this is reached only if that
+        # rollback itself raises, or when a step is made to raise, as test_logout_failure_clears_cookies.py makes
+        # each in turn; the audit row is whatever that step left.
         logger.exception("Logout ended the session, but a step after the revoke's commit failed")
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
@@ -1441,19 +1536,27 @@ async def list_connections(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List the user's sign-in methods: whether a password is set + any linked OAuth providers."""
-    rows = oauth_account_service.list_oauth_accounts(db, current_user.id)
-    return {
-        "has_password": bool(current_user.hashed_password),
-        "providers": [
-            {
-                "provider": r.provider,
-                "provider_email": r.provider_email,
-                "linked_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in rows
-        ],
-    }
+    """List the user's sign-in methods: whether a password is set + any linked OAuth providers.
+
+    One unit in the thread pool, the links' read, released before the route returns, so no statement or
+    release runs on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    user_id, has_password = current_user.id, bool(current_user.hashed_password)
+
+    def read_links() -> list[dict[str, Optional[str]]]:
+        try:
+            return [
+                {
+                    "provider": r.provider,
+                    "provider_email": r.provider_email,
+                    "linked_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in oauth_account_service.list_oauth_accounts(db, user_id)
+            ]
+        finally:
+            filing_list_service.release_request_session(db)
+
+    providers = await run_in_threadpool(read_links)
+    return {"has_password": has_password, "providers": providers}
 
 
 @router.delete("/connections/{provider}")
@@ -1463,14 +1566,40 @@ async def unlink_connection(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Unlink an OAuth provider — but never remove the user's only remaining sign-in method."""
+    """Unlink an OAuth provider — but never remove the user's only remaining sign-in method.
+
+    One unit in the thread pool, the unlink and its audit row, released before the route returns, so no
+    statement or release runs on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md).
+    In the thread pool two unlinks of one account can interleave, so the unlink takes the account's users row
+    lock before its guard reads. A provider the route does not know is refused before any unit; the dependency's
+    finalizer then ends the auth lookup's read, in the thread pool."""
     provider = provider.lower().strip()
     if provider not in {"google", "apple"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
+    # Read before the unlink commits: the commit expires the user, and a read after it refreshes the row.
+    user_id, user_email = current_user.id, current_user.email
+    hashed_ip = _hashed_client_ip(request)
+
+    def unlink() -> None:
+        # The link's delete commits on its own, then its oauth_unlinked audit row, which is best effort.
+        try:
+            # Lockout guard inside, under the account's users row lock: the user must keep a password or
+            # another linked provider, and a concurrent unlink waits for this one's commit.
+            oauth_account_service.unlink_oauth_provider(db, user_id, provider)
+            audit_service.create_audit_log(
+                db,
+                action="oauth_unlinked",
+                user_id=user_id,
+                user_email=user_email,
+                entity_type="user",
+                ip_address=hashed_ip,
+                details={"provider": provider},
+            )
+        finally:
+            filing_list_service.release_request_session(db)
 
     try:
-        # Lockout guard inside: the user must keep a password or another linked provider.
-        oauth_account_service.unlink_oauth_provider(db, current_user, provider)
+        await run_in_threadpool(unlink)
     except oauth_account_service.ProviderNotLinkedError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="That provider is not linked to your account."
@@ -1480,13 +1609,4 @@ async def unlink_connection(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You can't remove your only sign-in method. Set a password first, then unlink.",
         ) from None
-    audit_service.create_audit_log(
-        db,
-        action="oauth_unlinked",
-        user_id=current_user.id,
-        user_email=current_user.email,
-        entity_type="user",
-        ip_address=_hashed_client_ip(request),
-        details={"provider": provider},
-    )
     return {"status": "success", "unlinked": provider}

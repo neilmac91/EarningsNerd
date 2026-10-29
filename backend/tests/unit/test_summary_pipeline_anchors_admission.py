@@ -84,7 +84,7 @@ async def test_unknown_filing_yields_only_initializing_and_not_found_error(caplo
     evidence = _evidence(MISSING_FILING_ID)
     with stream_boundaries() as summarize:
         events = await _drain(MISSING_FILING_ID, request_evidence=evidence)
-    assert events == [INITIALIZING, {"type": "error", "message": "Filing not found"}]
+    assert events == [INITIALIZING, {"type": "error", "message": "This filing could not be found."}]
     assert (logging.WARNING, f"[stream:{MISSING_FILING_ID}] Filing not found during stream generation.") in _pipeline_logs(caplog)
     assert evidence.reason == "filing_not_found"
     assert evidence.summary_service_invoked is False
@@ -294,6 +294,6 @@ async def test_late_claim_fresh_reread_marks_evidence_coalesced_without_generati
     summary_id = next(f["summary_id"] for f in completed if f["type"] == "complete")
     assert [f["type"] for f in resumed] == ["progress", "progress", "complete"]
     assert resumed[1]["stage"] == "queued"
-    assert resumed[1]["message"] == "Another request is already generating this analysis — joining it..."
+    assert resumed[1]["message"] == "This summary is already being generated. Joining that run…"
     assert resumed[-1] == {"type": "complete", "summary": resumed[-1]["summary"], "summary_id": summary_id}
     assert filing_id not in summary_pipeline._inflight_generations

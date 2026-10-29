@@ -13,7 +13,37 @@ import TermsPage from '@/app/terms/page'
 import { CONSENT_VERSION } from '@/components/CookieConsent'
 import { ACCOUNT_EVENTS_DISCLOSURE, ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { LEGAL_DATES } from '@/lib/legalDates'
-import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, type Clause, type Condition, type NounPhrase, type Postmodifier, type Reading, type Token } from './clauseReader'
+import {
+  boundOperationsAt,
+  closingBracket,
+  complementAt,
+  conditionClauseAt,
+  conjunctsOf,
+  distributesNegation,
+  ellipsisAt,
+  formOf,
+  gerundsAt,
+  governingGroup,
+  knowsVerb,
+  matchAt,
+  negates,
+  nounPhraseAt,
+  readSentence,
+  sharedVerbsOf,
+  spanText,
+  startsVerbGroup,
+  verbGroupAt,
+  verbGroupOf,
+  type Clause,
+  type Condition,
+  type Ellipsis,
+  type NounPhrase,
+  type Operation,
+  type Postmodifier,
+  type Reading,
+  type Token,
+  type VerbGroup,
+} from './clauseReader'
 
 /**
  * The legal pages say what the code and the hosting do, and their dates move with their text (D-046; CLAUDE.md
@@ -89,28 +119,97 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    administrator flag); an adjective in place of a fact (enterprise, military or bank grade or level, industry
  *    standard or standards, hyphenated or not); no financial data stored, a negation, contracted or not, on either side
  *    (payment records are kept); post-incident reviews or post-mortems and vetting the providers (no process in the
- *    repository does either); and an analytics-consent promise not scoped to the browser in its own sentence
- *    (CONSENT_PROMISE; the API sends account events whatever the reader chose: D-051). That promise names the analytics
- *    by a name the F33 check reads them by (analytics, tracking, statistics, PostHog, telemetry, and usage as the
- *    analytics: usage data, statistics or events, product or anonymous usage, usage tracked or collected), or as the
- *    account's, the server's or the API's events ("your data", "event invitations" and "usage of this website" are not
- *    the analytics), and makes
- *    them wait for a yes: "only" up to 60 characters before "after (once, when, if or until) you allow" (accept, agree,
- *    consent, opt in, give consent, say yes, turn or switch on, enable), before "with (after, upon, on or by) your
- *    consent" with up to three words before the consent (permission, agreement, approval, opt-in, each read by its
- *    start, so "only after consenting" fails too), or before "once allowed", a sentence that names the browser ("in
- *    your browser") reading as scoped, and a negation on the verb passing (NOT_NEAR: "Analytics are not collected only
- *    with your consent."); or, in the forms the "only" ones miss, "until you allow", a negation, contracted
- *    or not, before "without your consent", "requires (needs, waits for, is or are subject to) your consent",
- *    "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics cookies or session
- *    recording (the consent dialog's own "Analytics cookies and session recording stay off until you allow them", and
- *    "Session recording with PostHog is opt-in"), reads as scoped, and where the verb says the promise, a denial before
- *    it, on the subject or on the consent passes ("No server events require your consent", "Server events do not need
- *    your consent", "Server events require no consent"), and so does consent bound to another operation, a gerund of
- *    one opening the sentence ("Sharing analytics data with another user requires your consent": ITS_OPERATION) but
- *    for one whose recipient is the analytics provider ("Sharing account events with PostHog requires your consent":
- *    TO_THE_ANALYTICS), while "No analytics run until you allow them" and "No usage data is sent without your
- *    permission" still promise.
+ *    repository does either); and an analytics-consent promise not scoped to the browser (consentPromise; the API sends
+ *    account events whatever the reader chose: D-051), read by clause through tests/unit/clauseReader.ts since E162's
+ *    stage 2, where patterns over the whole sentence read it before. The sentence names the analytics by a name the F33
+ *    check reads them by (analytics, tracking, statistics, PostHog, telemetry, and usage as the analytics: usage data,
+ *    statistics or events, product or anonymous usage, usage tracked or collected), or as the account's, the server's
+ *    or the API's events ("your data", "event invitations" and "usage of this website" are not the analytics), and
+ *    makes them wait for a yes (WAITS_FOR_A_YES): "only" up to 60 characters before "after (once, when, if or until)
+ *    you allow" (accept, agree, consent, opt in, give consent, say yes, turn or switch on, enable), before "with
+ *    (after, upon, on or by) your consent" with up to three words before the consent (permission, agreement, approval,
+ *    opt-in, each read by its start, so "only after consenting" fails too), or before "once allowed"; "until you
+ *    allow"; a negation before "without your consent"; "requires (needs, waits for, is or are subject to) your
+ *    consent"; "consent-gated" or "gated on consent"; or "is opt-in". Each wait is read in what a clause says of its
+ *    subject (Said: a clause, with the clauses the reader opens inside a gerund subject, the subjects named before its
+ *    predicate and the verbs that share its object; the clause a condition holds; or an ellipsis, said of its own
+ *    subject with the predicate it repeats), and it is the claim where four readings find it so. The analytics are what
+ *    it is said of: named in its subject, its predicate, its conditions or an operation it binds, or a pronoun or a
+ *    phrase that refers back there ("they", "the data", "these events") where the sentence named them before, so
+ *    "Analytics help us improve, and we delete your data only with your consent." passes. No denial takes it back where
+ *    the verb says the promise ("only", "wait until", "requires", "consent-gated", "opt-in"): a negation on the verb
+ *    group that governs the wait, with an object, an adverb, a prepositional phrase or an aside between ("We do not
+ *    collect analytics only with your consent.", "Analytics are not, as a rule, collected only with your consent.",
+ *    "Server events do not in any case require your consent."), a denied subject ("No analytics are collected only with
+ *    your consent.", "No server events require your consent."), "no" on the consent ("Server events require no
+ *    consent."), or a negated verb that asserts the clause it takes after "that" ("It is not true that analytics wait
+ *    for your consent.", "We do not promise that analytics wait for your consent."), but not a negation in a relative
+ *    or a complement clause ("Analytics that do not identify you are collected only with your consent." and "Nobody
+ *    doubts that analytics wait for your consent." fail), nor one in a relative, an adverbial or a bracketed clause
+ *    between the verb and the wait ("We collect analytics that do not identify you only with your consent." fails), nor
+ *    one in a clause a condition holds over the condition the reader sets after it, unless that clause is said of the
+ *    analytics ("We collect analytics when you are not signed in only with your consent." fails; "..., while server
+ *    events are not collected only after you consent." passes), nor one a "but", an exception ("unless", "except",
+ *    "other than") or a mark before "only" (a comma, a dash or a bracket) sets apart ("Analytics are not collected when
+ *    you visit, but only after you allow them." and "Analytics are not collected automatically, only after you
+ *    consent." fail: Codex on #1618), nor one before a verb a denial turns into a yes ("Server events never cease to
+ *    require your consent." fails). A negation on a verb before the wait's own that shares its object denies it only
+ *    where "or", with no comma before it, distributes it to another verb that opens its own predicate in the same form
+ *    ("PostHog never runs or requires your consent." passes; "PostHog never runs and requires your consent.",
+ *    "Analytics are not sold and are collected only with your consent.", "Server events are not shared and require your
+ *    consent." and "Server events never run, or run only after you consent." fail: Codex and the verification lens on
+ *    #1618), and only as the earlier verb's negations compose ("Analytics are never not sold or collected only with
+ *    your consent." fails: Codex on #1618). A negation on the verb or the subject makes "without your consent" the
+ *    promise ("No usage data is sent without your permission."), and so does one on a verb before it that shares its
+ *    object, which "and" does not distribute ("We never sell and collect analytics data ... without your consent.",
+ *    beyond main's 60 characters too). A negation from outside denies the promise only over a clause that makes it ("It
+ *    is not true that analytics are never collected without your consent." passes), and only where its own negations do
+ *    not cancel, two in its group or a denied subject on a denied verb ("It is never not true that analytics are
+ *    collected only with your consent." and "Nobody does not promise that analytics are collected only with your
+ *    consent." fail: Codex on #1618), and not past a second "that" before the wait ("It is not true that it is not true
+ *    that analytics are collected only with your consent." fails: Codex on #1618); over a clause that denies it, or
+ *    "without your consent" with no negation of its own, it says the promise again, and main's floor decides ("It is
+ *    not true that analytics are collected without your consent." and "It is not true that analytics are not collected
+ *    only with your consent." fail: Codex on #1618; "It is not true that server events do not require your consent."
+ *    passes, as on main). "until you allow" promises whatever its own negation ("No analytics run until you allow
+ *    them.", "We do not collect analytics until you allow them.").
+ *    The consent is bound to the analytics' own operation: another (ANOTHER_OPERATION: sharing, selling, exporting,
+ *    deleting, erasing, disclosing, transferring, publishing, showing, displaying, revealing, renting, licensing,
+ *    downloading), as a gerund subject in every form ("Sharing analytics data with another user requires your
+ *    consent.", "... is opt-in.", "... is consent-gated.", "Sharing and exporting analytics data require your
+ *    consent."), as an infinitive or a clause of time after the consent ("We require your consent to share analytics
+ *    data with another user."), or as the verb that governs a yes after it ("We never share analytics data with another
+ *    user without your consent."), is a different promise and passes, unless one of several is the analytics' own
+ *    ("Collecting and sharing analytics data require your consent.", "We require your consent to collect analytics
+ *    data." and "... before we collect analytics data." fail) or its recipient is the analytics provider, after "with",
+ *    "to", "into", "in", "via", "through", "inside", "within" or "onto" in the operation's clause or what a comma
+ *    carries on after it, past other recipients too (TO_THE_ANALYTICS, A_PROVIDER: "Sharing account events with PostHog
+ *    requires your consent.", "Server events require your consent before we display them in PostHog." and "We require
+ *    your consent to share account events with advertisers or PostHog." fail), or its verb is "show" as the verb of
+ *    appearing ("Server events need your consent to show up at all." fails); an ellipsis says the predicate it repeats
+ *    of its own subject, keeping the denial before it after "as", "so", "neither" or "nor", and its own after its
+ *    subject ("Sharing analytics data requires your consent, as does collecting it." and "Sharing analytics data does
+ *    not require your consent, but collecting it does." fail). The browser does not scope it in its own clause: "in
+ *    your browser" (and, for the forms
+ *    other than "only", as main read them, the browser's part, its analytics cookies or session recording, so the
+ *    consent dialog's own "Analytics cookies and session recording stay off until you allow them" and "Session
+ *    recording with PostHog is opt-in" pass) in the subject it is said of, its predicate or its conditions, in the
+ *    clause a carried subject comes from, or before a subject that refers back, while a clause with a subject of its
+ *    own is unscoped ("PostHog runs in your browser, and account events wait for your consent." fails), and so is one
+ *    of two subjects that a browser part does not name ("Analytics cookies and server events stay off until you allow
+ *    them." fails; "in your browser" after the last scopes them all).
+ *    Main's pattern is the floor of the family's recall (MAIN_CONSENT_PROMISE, since #1618's second round, as #1594
+ *    keeps main's for the endpoints): a sentence it refuses fails unless every wait a form says anywhere in it is one
+ *    the reader reads, each reading of it denied or bound to another operation, the latter only where the sentence
+ *    names none of the analytics' own (OWN_OPERATION: collecting or collection, running, sending, storing, using and
+ *    the like). So a subject the reader does not take for the analytics ("We use PostHog for product analytics, but
+ *    nothing is collected until you opt in."), a negation it does not read before "without your consent" ("Under no
+ *    circumstances will we collect analytics without your consent.", "We promise never to collect analytics without
+ *    your consent.") and an operation of the analytics' own beside another ("Collection and sharing of analytics data
+ *    require your consent.", "Sharing usage data, like collecting it, requires your consent.") fail as on main. Its
+ *    cost is main's: a sentence main refused that the reader reads as no claim for another reason fails ("We collect
+ *    analytics, and your data waits for your consent.", "Analytics are collected, and they are never sold without your
+ *    consent.").
  *    The scan reads /security's rendered tree, as one text (a heading runs into the body under it) and block by block
  *    (blockTexts: a list item or a paragraph on its own, so a provider's item is not read through the PostHog line's
  *    "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy carries the account-events
@@ -120,9 +219,12 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    run through the same render, text, blocks and splitter and score the reach: main's sentences and their close
  *    rewordings fail, the page's new sentences and class names pass, and so do true or unrelated sentences a wider
  *    reading once refused (#1456's review and Codex: "We delete your data only with your consent.", "Any endpoint may
- *    return 503."). Out of reach, planted as gaps: a claim split across two sentences, one said in other words
+ *    return 503."). Out of reach, planted as gaps: a claim split across two sentences, and one said in other words
  *    ("PostHog runs after you allow it", "the whole API sits behind authentication", "each endpoint checks that the
- *    caller holds a token"), and an unscoped consent promise in a sentence that also names the browser or its part.
+ *    caller holds a token"). Since E162's stage 2 the consent reading catches the two promises planted as gaps before
+ *    it, said by an ellipsis of the server events after a clause the browser scopes, and its own reach ends where the
+ *    clause reader's does: an aside in commas inside the subject that names the browser scopes it ("Server events,
+ *    like PostHog in your browser, wait for your consent." passes, as on main).
  *    Ambiguous, so left unplanted: "Every endpoint validates your token.", "Every endpoint checks your token.",
  *    "Every endpoint needs a valid session.", "Only signed-in users can reach every endpoint." and "Our gateway fronts
  *    every endpoint and requires a login." (all refused since #1594's fourth round, as main's blanket refused them).
@@ -228,11 +330,24 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential, beside the
  *    token too, ONE_TIME_OF_ANOTHER: "Refresh tokens are reusable, unlike one-time recovery codes."; a negation
  *    near "one-time", "good for one use" or "after one use" passes, NOT_NEAR: "Refresh tokens are not one-time
- *    credentials."), a reused one
+ *    credentials."; since E162's stage 3, read by clause through tests/unit/clauseReader.ts, with main's reading as its
+ *    floor: a form is another credential's, main's works-once phrases too, where nothing outside its clause says it
+ *    again, denies or speaks of use, and its clause has that credential as its own subject with every token set apart
+ *    from the clause, right after "unlike" or as the subject of a clause of its own that a contrast opens or sets
+ *    apart, or where "single-use" stands before that credential's noun right after "unlike", where the credential is
+ *    named as one no token is (since stage 4a: a recovery code, a magic link, a password; not a bare key, code or link,
+ *    nor an access key: namesACredential), and where the page says that noun of no token and, if it names a token, no
+ *    word points back to it, anotherCredentials: "A
+ *    recovery code is single-use.", "Refresh tokens are reusable, while recovery codes cannot be reused." and "Refresh
+ *    tokens are reusable, unlike single-use recovery codes." pass, "Recovery codes cannot be reused, and neither can
+ *    refresh tokens.", "Refresh tokens, single-use access keys, renew your session." and "Refresh tokens are
+ *    cryptographic keys. These keys are single-use." fail), a reused one
  *    revoking the account or sweeping its sessions (every session ended, signed out on every device; a session that
  *    ends on its own beside "again" is no sweep; read beyond main's words only in a sentence about the token, as the
  *    one-use forms are: "A verification code cannot be used more than once and can be revoked from settings." is
- *    another credential's), or a session that ends after logging out or a password change, within a time or with none
+ *    another credential's; since E162's stage 4c the sweep is read clause by clause, as below: "Nobody doubts that
+ *    reusing a refresh token signs everyone out." fails), or a session that ends after logging out or a password
+ *    change, within a time or with none
  *    named (every session, everywhere, a session token revoked), a logout in each spelling (logout,
  *    logged out, a sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named
  *    before its verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun
@@ -250,7 +365,19 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    "does not cause any noticeable delay to end every session" promises). A denial stops at "but" that goes on to a
  *    time or to what ends ("does not end your sessions in a day but within 30 minutes", "does not end this session but
  *    every session": BUT_AFFIRMS). Main's timed and untimed readings read the same denial, so "Logging out does not end
- *    every session within 30 minutes" passes, and every promise they refuse in main's spec is refused here too. The page is read on every run, whatever
+ *    every session within 30 minutes" passes, and every promise they refuse in main's spec is refused here too. Since
+ *    E162's stage 4b each clause is read alone as well (clauseByClause, through tests/unit/clauseReader.ts; the reuse
+ *    family's sweep since stage 4c): a clause
+ *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on (not one that shares a negated
+ *    auxiliary: "does not clear cookies and revoke ..."), a clause of time, cause or contrast and a clause after "that",
+ *    without the relative clauses, participles and asides on its subject (but for a phrase of time and a verb group the
+ *    reader reads as a relative clause on a participle in -ed it lacks after a noun, the clause's own: participleAt,
+ *    since stage 4c), so a negation outside a clause or nested in
+ *    its subject denies nothing there ("Logging out does not take long before it ends every session.", "Logging out of
+ *    a device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
+ *    session." fail), while "until", "if", "as long as", "or", "nor" and a verb that asserts the clause after "that"
+ *    still govern it ("Nothing guarantees that logging out ends every session." passes). The page is read on every
+ *    run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
  *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
@@ -265,8 +392,9 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    clause makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." and "Passwords are hashed and
  *    idle sessions end after 30 minutes." pass. Planted forms score the
  *    reach; out of reach, planted as gaps: a promise split across two
- *    items, one said in other words ("nobody stays signed in"), and a negation that only restricts where no reading
- *    sees it ("does not clear cookies and revokes your session tokens").
+ *    items, one said in other words ("nobody stays signed in"), a noun the lexicon also lists as a verb ("A password
+ *    reset on a device you do not own ends every session.") and a negated participle on the subject ("Sessions not
+ *    opened here end within 30 minutes of logging out.").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -311,6 +439,7 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
     { date: 'October 24, 2026', sha256: '41094b4709f20a10' },
     { date: 'October 24, 2026', sha256: 'db18a4591671aa83', sameDay: '#1547 changes the page after #1121 on the same day' },
     { date: 'October 24, 2026', sha256: '6ed68d37e514f0bd', sameDay: '#1552 changes the page after #1547 on the same day' },
+    { date: 'October 25, 2026', sha256: '1970c7741659bd5a' },
   ],
   security: [
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
@@ -374,8 +503,8 @@ const UNDENIED = String.raw`(?:stops?|stopped|prevents?|prevented|keeps?|kept|bl
     alone, or an aside with "is" in it, starts another clause ("No setup is needed, a logout ends every session"). */
 const SUBJECT_ASIDE = String.raw`,(?!\s*(?:and|but|so|or|nor|while|whereas|then|yet)\b)(?:(?!\b(?:is|are|was|were|be|been|has|have|had|do|does|did|will|would|can|could|may|might|must|should)\b)[^,.;:!?]){1,40},`
 /** A clause whose subject is denied, from its start up to the verb: "No sessions are ended", "None of your devices is
-    signed out", "Not every session ends", "No server events require your consent", "Nothing the API records waits
-    for your consent" ("no matter" and "no sooner" deny nothing). The subject runs through its own words, "or" and "nor"
+    signed out", "Not every session ends" ("no matter" and "no sooner" deny nothing); the consent family read it until
+    E162 stage 2, which reads a denied subject by clause. The subject runs through its own words, "or" and "nor"
     between them ("No session on your phone or laptop"), "and" before another denial ("No session and no device"), a
     relative clause ("None of the sessions that you open elsewhere") and an aside (SUBJECT_ASIDE), and stops where
     another clause starts: at a comma, at "and" before anything else ("No password is stored and logging out ends every
@@ -396,7 +525,9 @@ const REACH_WORD = String.raw`(?!(?:and|but|or|nor|so|then|yet|which|that|who|wh
     verb's own complement ("does not need to end", "does not have to end") is a denial, while a purpose infinitive
     after the verb's object ("does not take any time to end every session", "does not force a reload to end every
     session") promises the end, which main's reach refuses past three words. The one longer complement is the verb's
-    person and their own end ("does not require you to be signed out", "does not cause everyone to get logged out"). */
+    person and their own end ("does not require you to be signed out", "does not cause everyone to get logged out").
+    participleAt reads the same reach on the words between a negation and a verb (REACHES; the routine lens on bca1801a
+    and 8563d054). */
 const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|then)\s+(?:(?!to\b)${REACH_WORD}){0,3}|(?:(?!to\b)${REACH_WORD}){0,4}|(?:${REACH_WORD}){0,3}|${REACH_WORD}(?:you|everyone|everybody)\s+to\s+(?:be|get)\s+)`
 /** A word of a causative verb's object (CAUSED): no word that opens a clause of time or comparison, nor "to". */
 const OBJECT_WORD = String.raw`(?!(?:before|after|until|till|once|since|as|than|to)\b)${REACH_WORD}`
@@ -419,21 +550,20 @@ const ENDING_OBJECT = [0, 1, 2, 3, 4, 5].map((before) => String.raw`(?:(?!${PREP
     infinitive and the end its purpose, so "does not cause any noticeable delay to end every session" promises. */
 const CAUSED = String.raw`(?<!(?:\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot)\b|n['’]t\b)[^.;:!?]*)(?:\b(?:not|never|nor|cannot|no\s+longer)|n['’]t)\s+(?!(?:only|just|merely|simply)\b)(?:${REACH_WORD})?(?:(?:caus(?:e|es|ed|ing)|forc(?:e|es|ed|ing)|lead(?:s|ing)?|led)\s+(?:${ENDING_OBJECT})to\s+(?:(?:be|get)\s+)?|(?:mak(?:e|es|ing)|made)\s+(?:${ENDING_OBJECT}))`
 /** Not after a negation: "does not end your other sessions", "never signs you out", "does not by itself end a
-    session" (NEGATION_REACH), "does not, by itself, end a session" and "do not need your consent" deny what the verb
-    says, and so does a clause whose subject is denied (DENIED_SUBJECT) and a negation on a causative verb before it
-    (CAUSED: "does not cause your other sessions to end"). The end forms, main's timed and untimed readings among them,
-    and the consent forms whose verb says the promise read it. */
+    session" (NEGATION_REACH) and "does not, by itself, end a session" deny what the verb says, and so does a clause
+    whose subject is denied (DENIED_SUBJECT) and a negation on a causative verb before it (CAUSED: "does not cause your
+    other sessions to end"). The end forms, main's timed and untimed readings among them, read it; the consent forms
+    whose verb says the promise read it until E162 stage 2, which reads their denial by clause (consentPromise). */
 const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT}|${CAUSED})`
-/** A negation on the word itself (#1456's tenth round), for three branches that read no denial before: the consent
-    forms' "only" where the yes follows it at once, the login said as the subject before the endpoints, and the one-use
-    forms that are no denial themselves. One word at most stands between them (REACH_WORD), with "be", "been" or
-    "being" before it ("are not collected only with", "will not be collected only with", "are not one-time", "do not
-    expire after one use"), or "no" stands directly before it ("no login is required"; "no doubt" denies nothing);
-    the first word may not be "only", "just", "merely" or "simply" (NEGATION_REACH), and a negation earlier in the
-    sentence makes the two a promise ("It is not true that refresh tokens are not one-time."). NOT's four words and a
-    denied subject's clause would carry a negation from a relative or a complement clause to the verb after it:
-    "Analytics that do not identify you are collected only with your consent." and "Nobody doubts that refresh tokens
-    are one-time." still promise. */
+/** A negation on the word itself (#1456's tenth round), for the one-use forms that are no denial themselves; the
+    consent forms' "only" and the login said as the subject before the endpoints read it until E162 moved those families
+    onto the clause reader. One word at most stands between them (REACH_WORD), with "be", "been" or "being" before it
+    ("are not one-time", "will not be one-time", "do not expire after one use"), or "no" stands directly before it ("no
+    doubt" denies nothing); the first word may not be "only", "just", "merely" or "simply" (NEGATION_REACH), and a
+    negation earlier in the sentence makes the two a promise ("It is not true that refresh tokens are not one-time.").
+    NOT's four words and a denied subject's clause would carry a negation from a relative or a complement clause to the
+    verb after it: "Tokens that do not expire are one-time." and "Nobody doubts that refresh tokens are one-time." still
+    promise. */
 const NOT_NEAR = String.raw`(?<!(?<!(?:\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot)\b|n['’]t\b)[^.;:!?]*)(?:(?:\b(?:not|never|nor|cannot|no\s+longer)|n['’]t)\s+(?!(?:only|just|merely|simply)\b)(?:(?:be|been|being)\s+)?(?:${REACH_WORD})?|\bno\s+))`
 /** Usage as the analytics (#1456's eighth round): qualified ("usage data", "usage statistics", "product usage",
     "anonymous usage") or as what is tracked, collected or sent ("we track usage", "usage is collected", with a modal
@@ -461,43 +591,546 @@ const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|sa
 const YES_AFTER_ONLY = String.raw`(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)`
 
 /** The analytics provider as an operation's recipient (#1456's thirteenth round): "with PostHog", "to our analytics
-    provider", "with analytics", not a group the name only qualifies ("with PostHog users on your team"). Account
-    events shared with PostHog are the analytics D-051 records whatever the reader chose, so a consent bound to that
-    sharing is the contradiction itself, not another operation's. */
-const TO_THE_ANALYTICS = String.raw`\b(?:with|to)\s+(?:(?:our|the|its|an?|your)\s+)?(?:PostHog|(?:product\s+)?analytics(?:\s+(?:providers?|vendors?|services?|platforms?|partners?|tools?|compan(?:y|ies)))?)\b(?!\s+(?:users?|reports?|dashboards?|projects?|teams?|members?|accounts?|admins?|staff|customers?|employees?|colleagues?)\b)`
-/** Consent bound to another operation on the analytics (#1456's twelfth round): a sentence that opens with a gerund of
-    an operation other than collecting or running them, with "any" or "the" before it at most ("Sharing analytics data
-    with another user requires your consent.", "Any selling of usage data needs your permission."), puts the consent on
-    that operation, up to the verb with no comma, colon, semicolon or conjunction (and, but, or) between, and with no
-    recipient that is the analytics provider (TO_THE_ANALYTICS): "Sharing account events with PostHog requires your
-    consent." still promises. */
-const ITS_OPERATION = String.raw`(?<!^\s*(?:(?:any|the)\s+)?(?:sharing|selling|exporting|deleting|erasing|disclosing|transferring|publishing|showing|displaying|revealing|renting|licensing|downloading)\b(?![-'’])(?:(?!\b(?:and|but|or)\b|${TO_THE_ANALYTICS})[^,;:.!?])*)`
-/** An analytics-consent promise not scoped to the browser, in one sentence (header item 1 lists its forms). The
-    "only" forms read a sentence that names the browser as scoped, and read the consent word by its start, so "only
-    after consenting" fails as "only after consent" does; the forms that wait for a yes another way read the browser's
-    part (BROWSER_PART) as scoped too, so the consent dialog's own sentence and "Session recording with PostHog is
-    opt-in." pass. A negation before "without your consent" may be contracted ("doesn't", "won't") or fused with its
-    modal ("cannot"; #1456's ninth round). The forms whose verb says the promise (requires, needs, waits for or until,
-    is subject to, consent-gated, opt-in) read a denial as NOT does, before the verb or on the subject, so "No server
-    events require your consent." passes, and "no" before the consent denies it ("Server events require no consent.");
-    "until you allow" after another verb and "without your consent" take a denied subject as part of the promise ("No
-    analytics run until you allow them", "No usage data is sent without your permission"). Where the yes follows
-    "only" at once, the "only" forms read a negation on the verb before it (NOT_NEAR; #1456's tenth round), so
-    "Analytics are not collected only with your consent." passes. The forms with requires, needs, waits for or is
-    subject to read no consent bound to another operation (ITS_OPERATION), so "Collecting analytics data requires your
-    consent." still promises and "Sharing analytics data with another user requires your consent." passes. */
-const CONSENT_PROMISE = new RegExp(
+    provider", "with analytics", and since E162 stage 2, which reads an operation in every form, with one word before
+    the name and telemetry or tracking as the name ("with third-party analytics", "with Google Analytics", "to our
+    telemetry provider"), and after "into", "in", "via", "through", "inside", "within" or "onto" (the second round's
+    lens: "Account events are exported into PostHog only after you allow it."); not a group the name only qualifies
+    ("with PostHog users on your team"). Account events shared with PostHog are the analytics D-051 records whatever
+    the reader chose, so a consent bound to that sharing is the contradiction itself, not another operation's. Read in
+    the clause of an operation's verb (toTheAnalytics). */
+const TO_THE_ANALYTICS = String.raw`\b(?:with|to|into|in|via|through|inside|within|onto)\s+(?:(?:our|the|its|an?|your)\s+)?(?:PostHog|(?:[\w-]+\s+)?(?:analytics|telemetry|tracking)(?:\s+(?:providers?|vendors?|services?|platforms?|partners?|tools?|compan(?:y|ies)))?)\b(?!\s+(?:users?|reports?|dashboards?|projects?|teams?|members?|accounts?|admins?|staff|customers?|employees?|colleagues?)\b)`
+/** Another operation on the analytics than collecting or running them, by its verb in any form (#1456's twelfth round;
+    the gerunds main read at a sentence's start): sharing, selling, exporting, deleting, erasing, disclosing,
+    transferring, publishing, showing, displaying, revealing, renting, licensing and downloading. Any other verb is the
+    analytics' own operation ("collect", "run", "send", "track", "record"), and so is none. */
+const ANOTHER_OPERATION = /^(?:shar(?:e|es|ed|ing)|sell(?:s|ing)?|sold|export(?:s|ed|ing)?|delet(?:e|es|ed|ing)|eras(?:e|es|ed|ing)|disclos(?:e|es|ed|ing)|transfer(?:s|red|ring)?|publish(?:es|ed|ing)?|show(?:s|n|ed|ing)?|display(?:s|ed|ing)?|reveal(?:s|ed|ing)?|rent(?:s|ed|ing)?|licens(?:e|es|ed|ing)|download(?:s|ed|ing)?)$/i
+/** The analytics' own operation named anywhere in a sentence, as a verb or its noun (collecting or collection, running,
+    sending, storing or storage, using, ...): under main's floor, consent bound to another operation excuses nothing
+    where the sentence names one, so a conjunct, an aside or an ellipsis the reader does not bind the consent to still
+    counts (the second round's lens: "Collection and sharing of analytics data require your consent.", "Sharing usage
+    data, like collecting it, requires your consent.", "Sharing analytics data is opt-in and so is collection."). */
+const OWN_OPERATION = /\b(?:collect\w*|gather\w*|captur(?:e|es|ed|ing)|measur\w*|monitor\w*|record(?:ed|ing)|logg(?:ed|ing)|send(?:s|ing)?|sent|run(?:s|ning)?|ran|stor(?:e|es|ed|ing|age)|process(?:es|ed|ing)?|us(?:e|es|ed|ing))\b/i
+/** Main's analytics-consent pattern (until E162 stage 2's second round, its one reading), kept as the floor of the
+    family's recall, as stage 1 keeps main's blanket for the endpoints (MAIN_BLANKET): a sentence it refuses fails
+    unless the reader excuses every wait it says (consentPromise). Its own operation excuse, a gerund of another
+    operation opening the sentence up to the verb with no comma or conjunction between and no provider as the recipient
+    ("Sharing analytics data with another user requires your consent."), stands in it as main read it. */
+const MAIN_ITS_OPERATION = String.raw`(?<!^\s*(?:(?:any|the)\s+)?(?:sharing|selling|exporting|deleting|erasing|disclosing|transferring|publishing|showing|displaying|revealing|renting|licensing|downloading)\b(?![-'’])(?:(?!\b(?:and|but|or)\b|${TO_THE_ANALYTICS})[^,;:.!?])*)`
+const MAIN_CONSENT_PROMISE = new RegExp(
   String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*(?:${NOT_NEAR}\bonly\s+|\bonly\b(?!\s+${YES_AFTER_ONLY}).{0,60}?)${YES_AFTER_ONLY}` +
     String.raw`|^(?!.*(?:\bin your browser\b|${BROWSER_PART}))(?=.*${ANALYTICS_NAMES})(?:` +
     String.raw`.*(?<!\bwait(?:s|ing)?\s)\buntil you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*${NOT}\bwait(?:s|ing)?\s+until you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*(?:\b(?:never|not|no|nothing|none|cannot)\b|n['’]t\b).{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
-    String.raw`|.*${NOT}${ITS_OPERATION}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:(?!no\b)[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*${NOT}${MAIN_ITS_OPERATION}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:(?!no\b)[\w-]+ )?${CONSENT}\b` +
     String.raw`|.*${NOT}\bconsent[- ]gated\b|.*${NOT}\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
     String.raw`|.*${NOT}\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
     ')',
   'i',
 )
+/** The wait for a yes, each form read at the token it starts at (header item 1): the "only" forms' yes (YES_AFTER_ONLY,
+    "only" within 60 characters before it, as main read it), "until you allow" (not after "wait"), "wait until you
+    allow", "without your consent", "requires (needs, waits for, is subject to) your consent" ("no" before the consent
+    is no form: "Server events require no consent."), "consent-gated" or "gated on consent", and "is opt-in". */
+const WAITS_FOR_A_YES = [
+  { kind: 'only', form: new RegExp(`^${YES_AFTER_ONLY}`, 'i') },
+  { kind: 'until', form: new RegExp(String.raw`^until you(?: have|['’]ve)? ${YES}`, 'i') },
+  { kind: 'wait', form: new RegExp(String.raw`^wait(?:s|ing)?\s+until you(?: have|['’]ve)? ${YES}`, 'i') },
+  { kind: 'without', form: new RegExp(String.raw`^without (?:your )?(?:[\w-]+ )?${CONSENT}\b`, 'i') },
+  { kind: 'requires', form: new RegExp(String.raw`^(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:(?!no\b)[\w-]+ )?${CONSENT}\b`, 'i') },
+  { kind: 'gated', form: new RegExp(String.raw`^(?:consent[- ]gated\b|gated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b)`, 'i') },
+  { kind: 'opt-in', form: /^(?:is|are) (?:strictly |only )?opt[- ]in\b/i },
+] as const
+type Wait = { kind: (typeof WAITS_FOR_A_YES)[number]['kind']; at: number; end: number }
+/** "only" before the yes, within main's 60 characters, in the sentence's text before it. */
+const ONLY_BEFORE = /\bonly\b[\s\S]{0,60}$/i
+/** The analytics named, in a sentence (ANALYTICS_NAMES) and at a token, and the provider as a recipient at a token
+    (TO_THE_ANALYTICS). */
+const NAMES_THE_ANALYTICS = new RegExp(ANALYTICS_NAMES, 'i')
+const AN_ANALYTICS_NAME = new RegExp(`^${ANALYTICS_NAMES}`, 'i')
+const THE_PROVIDER = new RegExp(`^${TO_THE_ANALYTICS}`, 'i')
+/** The browser named at a token: "in your browser" for the "only" forms, as main read them, so the PostHog line main
+    removed ("Usage statistics, only after you allow analytics, and session recordings only if you allow those too")
+    still fails; and for the other forms its part too, its analytics cookies and session recording (BROWSER_PART: the
+    consent dialog's "Analytics cookies and session recording stay off until you allow them"). */
+const IN_YOUR_BROWSER = /^in your browser\b/i
+const THE_BROWSER = new RegExp(String.raw`^(?:in your browser\b|${BROWSER_PART})`, 'i')
+const browserFor = (wait: Wait) => (wait.kind === 'only' ? IN_YOUR_BROWSER : THE_BROWSER)
+/** A third-person pronoun, or "everything", which stands for what the sentence named before it ("they require your
+    consent", "as does collecting it", "and everything waits for your consent"). */
+const PRONOUN = /^(?:it|its|they|them|their|this|these|those|everything)$/i
+/** A word for what is collected, which a determiner that points back makes stand for what the sentence named before it
+    (refersBack: "We collect analytics, and the data waits for your consent."). */
+const COLLECTED = /^(?:data|events?|information|statistics|stats|metrics|records?|logs?|usage|details)$/i
+/** A noun phrase that stands for what the sentence named before it: a determiner that points back ("the", "our",
+    "this", "these", "that", "those", "such", "its", "their") before a word for what is collected alone (COLLECTED: "the
+    data", "these events", "their records"). */
+const refersBack = (phrase: NounPhrase | null) =>
+  !!phrase &&
+  !phrase.quantifier &&
+  !phrase.premodifiers.length &&
+  phrase.determiners.length === 1 &&
+  /^(?:the|our|this|these|that|those|such|its|their)$/.test(phrase.determiners[0]) &&
+  COLLECTED.test(phrase.head.text)
+/** A subject that stands for what the sentence named before it: a pronoun, a phrase that refers back (refersBack), or a
+    verb the lexicon knows read as a subject where a clause names none, after a label ("PostHog: Runs only after you
+    allow it"), but not a gerund. */
+const standsForWhatCameBefore = (subject: NounPhrase | null) =>
+  refersBack(subject) ||
+  (!!subject &&
+    !subject.quantifier &&
+    !subject.determiners.length &&
+    !subject.premodifiers.length &&
+    !subject.postmodifiers.length &&
+    (PRONOUN.test(subject.head.text) || (knowsVerb(subject.head) && !/ing$/i.test(subject.head.text))))
+
+/** What a sentence says of a subject, as the consent family reads it through the clause reader (E162 stage 2): a
+    clause, read with the clauses before it that name a subject and no verb group (conjunctsOf) or a verb that shares its
+    object (sharedVerbsOf), and with the clauses the reader opens inside a gerund subject ("Sharing and exporting
+    analytics data require ...": gerundsAt); the clause a condition holds (conditionClauseAt: "..., while server events
+    wait for your consent"); or an ellipsis, said of its own subject, its predicate the one it repeats (ellipsisAt). */
+type Said = {
+  /** Its own words, and where the clause it reads its predicate from starts. */
+  start: number
+  end: number
+  clauseStart: number
+  /** What it is said of: its subjects, first to last, the first with its clause's introduction ("In your browser,"), or
+      the ones a clause carrying them on takes from the one before. */
+  subjects: Array<{ start: number; end: number }>
+  /** Its own subject's phrase, for a denial on it (none where carried on). */
+  subject: NounPhrase | null
+  /** The one whose subject it carries on, or whose predicate it repeats; -1 for neither. */
+  from: number
+  ellipsis: boolean
+  /** Its subject stands for what the sentence named before it (standsForWhatCameBefore). */
+  pointsBack: boolean
+  /** The operations its subject names as gerunds, the verbs before its own that share its object (sharedVerbsOf), and
+      its verb group, resumed across an aside (verbGroupOf), denied where a verb that shares its object is, as its
+      negations compose (deniedPlainly), and "or" distributes the denial to its own (distributesNegation; Codex on
+      #1618), or as an ellipsis says it. */
+  gerunds: Operation[] | null
+  verbs: Token[]
+  group: VerbGroup
+  /** A verb before its own that shares its object is denied, as its negations compose, whether or not the denial
+      reaches its own verb: a negation there makes "without your consent" a promise ("We never sell and collect
+      analytics data without your consent."). */
+  negatedBefore: boolean
+  /** Its predicate's words and its conditions (an ellipsis's are the ones it repeats), and the spans of its
+      conditions that hold clauses of their own, whose waits those clauses say. */
+  predicate: number
+  predicateEnd: number
+  conditions: Condition[]
+  inner: Array<{ start: number; end: number }>
+}
+
+/** A sentence's predications for the consent family (Said), in order. */
+function saidIn(reading: Reading): Said[] {
+  const { tokens, clauses } = reading
+  const ellipses: Ellipsis[] = []
+  for (let k = 0; k < tokens.length; k++) {
+    const found = ellipsisAt(tokens, k, ANOTHER_OPERATION)
+    if (found) ellipses.push(found)
+    if (found) k = found.end - 1
+  }
+  const sharing = clauses.map((_, i) => sharedVerbsOf(reading, i, ANOTHER_OPERATION))
+  const absorbed = new Set([...clauses.flatMap((_, i) => conjunctsOf(reading, i).slice(0, -1)), ...sharing.flat()])
+  const conditionsRead = new Set<number>()
+  const said: Said[] = []
+  let last = -1
+  for (let i = 0; i < clauses.length; i++) {
+    const clause = clauses[i]
+    if (absorbed.has(i) || ellipses.some((e) => clause.start >= e.start && clause.start < e.end)) continue
+    const named = sharing[i][0] ?? i
+    const head = clauses[named]
+    // A clause the reader carries on at a gerund names a subject of its own where a verb group follows the gerund's
+    // phrase ("PostHog runs in your browser, and collecting analytics data requires your consent.").
+    const opened = head.carried && named === i ? gerundsAt(tokens, clause.predicate, ANOTHER_OPERATION) : null
+    const reopened = opened && startsVerbGroup(tokens, opened.end, ANOTHER_OPERATION) ? nounPhraseAt(tokens, clause.predicate) : null
+    const carried = head.carried && !reopened
+    const own = reopened ?? (head.carried ? null : head.subject)
+    let through = i
+    let predicate = clause.predicate
+    let group = verbGroupOf(reading, i)
+    // A verb before its own denies only as its negations compose (deniedPlainly: "never not sold" is sold).
+    const negatedBefore = sharing[i].filter((k) => deniedPlainly(reading, verbGroupAt(tokens, clauses[k].predicate)))
+    if (negatedBefore.some((k) => distributesNegation(reading, i, k))) group = { ...group, negated: true }
+    const gerunds = own && named === i ? gerundsAt(tokens, own.start, ANOTHER_OPERATION) : null
+    if (gerunds && gerunds.end !== clause.predicate) {
+      while (through + 1 < clauses.length && clauses[through].end <= gerunds.end) through++
+      predicate = gerunds.end
+      group = verbGroupAt(tokens, predicate)
+    }
+    const conjuncts = conjunctsOf(reading, named).slice(0, -1)
+    const subjects = own
+      ? [...conjuncts.map((k) => ({ start: clauses[k].start, end: clauses[k].end })), { start: conjuncts.length ? own.start : head.start, end: gerunds?.end ?? own.end }]
+      : said[last]?.subjects ?? []
+    const mine = ellipses.filter((e) => e.start >= clause.start && e.start <= clauses[through].end)
+    const end = Math.min(clauses[through].end, ...mine.map((e) => e.start))
+    const index = said.length
+    said.push({
+      start: conjuncts.length ? clauses[conjuncts[0]].start : head.start,
+      end,
+      clauseStart: clause.start,
+      subjects,
+      subject: own,
+      from: carried ? last : -1,
+      ellipsis: false,
+      pointsBack: standsForWhatCameBefore(own),
+      gerunds: gerunds?.operations ?? null,
+      verbs: sharing[i].map((k) => tokens[verbGroupAt(tokens, clauses[k].predicate).verb]),
+      group,
+      negatedBefore: negatedBefore.length > 0,
+      predicate,
+      predicateEnd: end,
+      conditions: clauses[through].conditions,
+      inner: [],
+    })
+    // An ellipsis repeats the predicate and the conditions before it, and the clauses those conditions hold with them,
+    // with the denial before it ("as does", "neither does"), or saying or denying the predicate itself ("but collecting
+    // it does", "but server events do not").
+    for (const e of mine) {
+      const subject = nounPhraseAt(tokens, e.subject.start)
+      said.push({
+        ...said[index],
+        start: e.start,
+        end: e.end,
+        subjects: [e.subject],
+        subject,
+        from: index,
+        ellipsis: true,
+        pointsBack: standsForWhatCameBefore(subject),
+        gerunds: gerundsAt(tokens, e.subject.start, ANOTHER_OPERATION)?.operations ?? null,
+        group: e.says === 'as before' ? group : { ...group, negated: e.says === 'denied' },
+        inner: said[index].inner,
+      })
+    }
+    // A condition that holds a clause of its own says what that clause says, with the conditions right after it that no
+    // comma or joining word sets apart ("..., while analytics stay off until you allow them"; not "..., but only after").
+    const conditions = clauses[through].conditions
+    conditions.forEach((c, k) => {
+      const inner = conditionsRead.has(c.start) ? null : conditionClauseAt(tokens, c, ANOTHER_OPERATION)
+      conditionsRead.add(c.start)
+      if (!inner) return
+      let next = k + 1
+      while (next < conditions.length && conditions[next].start >= c.end && !/^(?:[,;:]|and|but|or|nor)$/i.test(tokens[conditions[next].start - 1]?.text ?? ',')) next++
+      const end = conditions[next - 1].end
+      said[index].inner.push({ start: c.words, end })
+      said.push({
+        start: c.words,
+        end,
+        clauseStart: c.words,
+        subjects: [{ start: inner.subject.start, end: inner.subject.end }],
+        subject: inner.subject,
+        from: -1,
+        ellipsis: false,
+        pointsBack: standsForWhatCameBefore(inner.subject),
+        gerunds: gerundsAt(tokens, inner.subject.start, ANOTHER_OPERATION)?.operations ?? null,
+        verbs: [],
+        group: verbGroupAt(tokens, inner.predicate),
+        negatedBefore: false,
+        predicate: inner.predicate,
+        predicateEnd: c.end,
+        conditions: conditions.slice(k + 1, next),
+        inner: [],
+      })
+    })
+    last = index
+    i = through
+  }
+  return said
+}
+
+/** Each wait for a yes a predication says (WAITS_FOR_A_YES), in its own words (an ellipsis: the predicate it repeats)
+    and its conditions, but for one in the clause a condition holds after its subordinating word, which that clause
+    says (conditionClauseAt). */
+function waitsIn(reading: Reading, p: Said): Wait[] {
+  const at = new Set<number>()
+  const from = p.ellipsis ? p.predicate : p.start
+  const to = p.ellipsis ? p.predicateEnd : p.end
+  for (let k = from; k < to; k++) at.add(k)
+  for (const c of p.conditions) for (let k = c.start; k < c.end; k++) at.add(k)
+  for (const span of p.inner) for (let k = span.start; k < span.end; k++) at.delete(k)
+  return [...at].sort((a, b) => a - b).flatMap((k) => waitsAt(reading, k))
+}
+/** The waits a form says at a token (WAITS_FOR_A_YES), as main read them: an "only" form's yes with "only" within 60
+    characters before it, and "until you allow" not after "wait". */
+function waitsAt(reading: Reading, k: number): Wait[] {
+  const { tokens, sentence } = reading
+  const found: Wait[] = []
+  for (const { kind, form } of WAITS_FOR_A_YES) {
+    const end = matchAt(reading, k, form)
+    if (end < 0) continue
+    if (kind === 'only' && !ONLY_BEFORE.test(sentence.slice(0, tokens[k].start))) continue
+    if (kind === 'until' && /^wait(?:s|ing)?$/i.test(tokens[k - 1]?.text ?? '')) continue
+    found.push({ kind, at: k, end })
+  }
+  return found
+}
+
+/** The verb group that governs a token of a predication: its own, for a fronted condition; otherwise as the clause
+    reader reads it (governingGroup: its own where nothing between opens another clause or group, else the group of the
+    last verb before the token). */
+const governs = (reading: Reading, p: Said, at: number) =>
+  p.conditions.some((c) => c.start < p.predicate && at >= c.start && at < c.end)
+    ? { group: p.group, own: true }
+    : governingGroup(reading.tokens, p.clauseStart, p.group, at, ANOTHER_OPERATION)
+/** A subject that denies what its clause says: "no" or "none" on it, a quantifier taken back ("not every"), "nobody",
+    "nothing", "none", "neither". */
+const deniesItsClause = (subject: NounPhrase | null) =>
+  !!subject && (subject.takenBack || ['no', 'none', 'neither'].includes(subject.quantifier ?? '') || /^(?:nobody|nothing|none|neither)$/i.test(subject.head.text))
+/** Whether a wait is denied where the verb says the promise: the verb group that governs it negated, the predication's
+    own as the predication reads it (resumed across an aside, denied with the verbs that share its object, or as an
+    ellipsis says it) or, past another clause, only the group of the clause its verb takes after "that"
+    (clauseAfterThat), or, where that is the predication's own, its subject denied ("No analytics are collected only
+    with your consent.", "Analytics are not, as a rule, collected only with your consent.", "Server events do not in any
+    case require your consent."). "Not X but Y" affirms Y, as BUT_AFFIRMS reads it for logging out: a "but" or "yet"
+    between the verb and the wait takes the denial off ("Analytics are not collected when you visit, but only after you
+    allow them."), as an exception does ("unless", "except", "other than": "Analytics are not collected other than only
+    with your consent."), and so does "only" set off by a mark, a comma, a dash, a bracket, a semicolon or a colon, with
+    "rather", "instead" or "and" between at most, said in contrast with no "but" ("Analytics are not collected
+    automatically, only after you consent.": Codex on #1618; "- only", "(only", ", rather only"), while a mark before
+    anything else sets no contrast ("We do not collect analytics, usage data or events only with your consent."). */
+function denied(reading: Reading, p: Said, wait: Wait): boolean {
+  const governing = governs(reading, p, wait.at)
+  const between = reading.tokens.slice(governing?.group.verb ?? 0, wait.at)
+  const only = between.map((t) => t.lower).lastIndexOf('only')
+  let mark = only - 1
+  while (mark >= 0 && /^(?:rather|instead|and)$/i.test(between[mark].text)) mark--
+  const excepts = (t: Token, k: number) => /^(?:but|yet|unless|except|excepting)$/i.test(t.text) || (t.lower === 'than' && between[k - 1]?.lower === 'other')
+  const contrast = between.some(excepts) || (only > 0 && mark >= 0 && /^[,;:(\-\u2013\u2014]$/.test(between[mark].text))
+  if (!governing || contrast) return false
+  // A denied subject and a denied verb cancel ("No analytics are not collected only with your consent." promises). The
+  // reader composes a denying word in the subjects only as its own subject's quantifier or head; one it does not
+  // account for there (in a subject coordinated before its own, a carried subject, a determiner: "Nobody's analytics"),
+  // or a "nor" that joins its clause, leaves the wait to main's floor ("No analytics or server events are not collected
+  // ...", "Neither analytics nor server events are not collected ...": Codex on #1618).
+  const denying = p.subjects.flatMap(({ start, end }) => reading.tokens.slice(start, end)).filter((t) => /^(?:no|none|nobody|nothing|neither|nor)$/.test(t.lower.replace(/['’]s$/, '')))
+  const own = p.subject && (['no', 'none', 'neither'].includes(p.subject.quantifier ?? '') || /^(?:nobody|nothing|none|neither)$/i.test(p.subject.head.text)) ? 1 : 0
+  const unaccounted = reading.tokens[p.clauseStart - 1]?.lower === 'nor' || denying.length !== own
+  if (governing.own) return !unaccounted && deniedPlainly(reading, p.group) !== deniesItsClause(p.subject)
+  // Past the predication's own group, only the clause its verb takes after "that" says the wait, with its own subject
+  // and group ("It is not true that analytics are not collected only with your consent."). A negation in a relative,
+  // an adverbial or a bracketed clause between the verb and the wait denies nothing, as one before the verb does not
+  // ("We collect analytics that do not identify you only with your consent.": Codex's class on #1618).
+  const inner = clauseAfterThat(reading, p.group, wait.at)
+  return !!inner && deniedPlainly(reading, inner.group) !== deniesItsClause(inner.subject)
+}
+/** The clause a verb group takes after "that" (complementAt) where its own group governs a token: its subject and that
+    group, or null. */
+function clauseAfterThat(reading: Reading, group: VerbGroup, at: number): { subject: NounPhrase; group: VerbGroup } | null {
+  const { tokens } = reading
+  const complement = complementAt(tokens, group)
+  const subject = complement && at > complement.that ? nounPhraseAt(tokens, complement.that + 1) : null
+  if (!subject || !startsVerbGroup(tokens, subject.end, ANOTHER_OPERATION)) return null
+  const own = verbGroupAt(tokens, subject.end)
+  return governingGroup(tokens, subject.start, own, at, ANOTHER_OPERATION)?.own ? { subject, group: own } : null
+}
+/** A verb that a denial makes say what follows it ("never cease to", "do not fail to", "do not hesitate to": the
+    second round's verification lens on #1618). */
+const AFFIRMED_BY_A_DENIAL = /^(?:cease[sd]?|ceasing|fail(?:s|ed|ing)?|neglect(?:s|ed|ing)?|hesitate[sd]?|hesitating|forget|forgets|forgot|forgetting|stop(?:s|ped|ping)?)$/i
+/** A verb group's negation, unless a verb in it is one a denial affirms what follows of (AFFIRMED_BY_A_DENIAL), so
+    "Server events never cease to require your consent." promises, or a second negation in it cancels the first
+    ("Analytics are never not collected only with your consent." promises). A negation the group takes from a verb
+    that shares its object (distributesNegation) counts once. */
+const deniedPlainly = (reading: Reading, group: VerbGroup) => {
+  const words = reading.tokens.slice(group.start, group.verb + 1)
+  if (!group.negated || words.some((t) => AFFIRMED_BY_A_DENIAL.test(t.text))) return false
+  return (words.filter((t, k) => negates(t, words[k + 1])).length || 1) % 2 === 1
+}
+/** A verb that asserts the clause it takes after "that", or a word that completes "be" so ("true", "the case"): denied,
+    it governs that clause from outside (E162 stage 2: "We do not promise that analytics wait for your consent.", "It
+    is not true that ..."), while "Nobody doubts that analytics wait for your consent." asserts it. */
+const ASSERTS = /^(?:promise[sd]?|promising|say|says|said|claim(?:s|ed)?|guarantee[sd]?|state[sd]?|mean|means|meant|imply|implies|implied|suggest(?:s|ed)?|think|thinks|thought|believe[sd]?|assert(?:s|ed)?|pledge[sd]?|ensure[sd]?|warrant(?:s|ed)?|represent(?:s|ed)?|true|correct|accurate|case)$/i
+/** Whether a negation governs a wait from outside its clause (E162 stage 2): the wait stands in the clause a verb that
+    asserts it takes after "that" (complementAt, ASSERTS), in the predication's own words or in the clause the reader
+    opens there ("We do not promise that every server event waits ..."), and that verb's group or its subject denies
+    it, as denied() composes them: two negations in the group, or a denied subject on a denied verb, cancel ("It is
+    never not true that ..." and "Nobody does not promise that ..." assert the clause: Codex on #1618). A promise whose
+    negation is its own shape stays one: "We do not collect analytics until you allow them." takes no clause after
+    "that". A second "that" between the first and the wait ends the reading from outside, and main's floor decides
+    ("It is not true that it is not true that ...": Codex on #1618). */
+function deniedFromOutside(reading: Reading, said: Said[], index: number, wait: Wait): boolean {
+  const { tokens } = reading
+  const holds = (q: Said, inside: (that: number) => boolean) => {
+    const complement = complementAt(tokens, q.group)
+    // A second "that" before the wait may open a clause the negation does not reach as one, so main's floor decides
+    // there ("It is not true that it is not true that ...", "It is not true that we doubt that ...": Codex on #1618).
+    const nested = !!complement && tokens.slice(complement.that + 1, wait.at).some((t) => t.lower === 'that')
+    return !!complement && !nested && inside(complement.that) && ASSERTS.test(complement.verb.text) && deniedPlainly(reading, q.group) !== deniesItsClause(q.subject)
+  }
+  const p = said[index]
+  const before = said[index - 1]
+  return holds(p, (that) => wait.at > that) || (!!before && !p.ellipsis && p.from < 0 && holds(before, (that) => that === p.start - 1))
+}
+/** Whether "without your consent" promises: a negation on the verb group that governs it or on the subject ("PostHog
+    never runs without your consent.", "No usage data is sent without your permission."), a negation on a verb before
+    its own that shares its object, which "and" does not distribute (negatedBefore: "We never sell and collect
+    analytics data without your consent."), or a denied object between the verb and it ("We collect nothing without
+    your consent."). */
+function withoutPromises(reading: Reading, p: Said, wait: Wait): boolean {
+  const governing = governs(reading, p, wait.at)
+  if (denied(reading, p, wait)) return true
+  return !!governing?.own && (p.negatedBefore || reading.tokens.slice(p.group.verb, wait.at).some((t) => /^(?:no|none|nothing|nobody|neither|never)$/i.test(t.text)))
+}
+
+/** The operations a wait binds the consent to (E162 stage 2): an infinitive or a clause of time after the consent
+    ("We require your consent to share analytics data", "before we collect analytics data": boundOperationsAt); the
+    subject's gerunds, where the verb that says the promise is the predication's own ("Sharing and exporting analytics
+    data require your consent.", "Sharing analytics data is opt-in."); and for a yes after the verb ("only", "until",
+    "without"), the subject's gerunds or else the verb that governs the yes, with the verbs before it that share its
+    object ("We never share analytics data with another user without your consent.", "We collect and share analytics
+    data only with your consent."). None where the promise is said of the subject itself ("Server events require your
+    consent."). */
+function operationsOf(reading: Reading, p: Said, wait: Wait): Operation[] {
+  const { tokens } = reading
+  const bound = wait.kind === 'requires' ? boundOperationsAt(tokens, wait.end, ANOTHER_OPERATION) : null
+  if (bound) return bound.operations
+  const governing = governs(reading, p, wait.at)
+  if (!governing) return []
+  if (wait.kind !== 'only' && wait.kind !== 'until' && wait.kind !== 'without') return governing.own ? p.gerunds ?? [] : []
+  if (governing.own && p.gerunds) return p.gerunds
+  const verbs = [...(governing.own ? p.verbs : []), tokens[governing.group.verb]]
+  return verbs.filter((v) => !!v && /^[\p{L}]/u.test(v.text)).map((verb) => ({ verb, object: null, end: wait.at }))
+}
+/** An operation whose recipient is the analytics provider (TO_THE_ANALYTICS), named after its verb in its own words or
+    in the rest of the clause its verb stands in ("before we display them in PostHog": the second round's lens). */
+const toTheAnalytics = (reading: Reading, op: Operation) => {
+  const { clauses } = reading
+  const at = reading.tokens.indexOf(op.verb)
+  let c = clauses.findIndex((clause) => at >= clause.start && at < clause.end)
+  // The clause of the operation's verb, with what a comma carries on after it (", including PostHog").
+  while (c >= 0 && clauses[c + 1]?.carried && clauses[c + 1].joinedBy === ',') c++
+  let recipient = false
+  for (let k = at + 1; k < Math.max(op.end, clauses[c]?.end ?? op.end); k++) {
+    if (matchAt(reading, k, THE_PROVIDER) >= 0 || (recipient && matchAt(reading, k, A_PROVIDER) >= 0)) return true
+    recipient ||= RECIPIENT.test(reading.tokens[k].text)
+  }
+  return false
+}
+/** The provider named after the preposition that opens an operation's recipients, past the others ("with advertisers
+    or PostHog", "with anyone, including PostHog", "with partners like PostHog": the second round's verification lens
+    on #1618): PostHog, or an analytics, telemetry or tracking provider, vendor, service, platform, partner, tool or
+    company, not a group the name only qualifies. */
+const RECIPIENT = /^(?:with|to|into|in|via|through|inside|within|onto)$/i
+const A_PROVIDER = new RegExp(
+  String.raw`^(?:PostHog|(?:[\w-]+\s+)?(?:analytics|telemetry|tracking)\s+(?:providers?|vendors?|services?|platforms?|partners?|tools?|compan(?:y|ies)))\b(?!\s+(?:users?|reports?|dashboards?|projects?|teams?|members?|accounts?|admins?|staff|customers?|employees?|colleagues?)\b)`,
+  'i',
+)
+/** "show" as the verb of appearing, not of showing something: before "up", or with nothing after it ("Server events
+    need your consent to show up at all.", "Account events require your consent to show.": the second round's
+    verification lens on #1618). It binds the consent to no other operation. */
+const appears = (reading: Reading, op: Operation) => {
+  const at = reading.tokens.indexOf(op.verb)
+  return /^show(?:s|n|ed|ing)?$/i.test(op.verb.text) && (/^up$/i.test(reading.tokens[at + 1]?.text ?? '') || (!op.object && op.end <= at + 1))
+}
+/** Whether a form is named at a token of any of the spans. */
+const namedIn = (reading: Reading, form: RegExp, spans: Array<{ start: number; end: number }>) =>
+  spans.some(({ start, end }) => {
+    for (let k = start; k < end; k++) if (matchAt(reading, k, form) >= 0) return true
+    return false
+  })
+/** A predication's predicate and conditions, as spans. */
+const predicateOf = (p: Said) => [{ start: p.predicate, end: p.predicateEnd }, ...p.conditions]
+/** Whether a predication, whole, names the browser: its subjects, predicate and conditions, and those of the one it
+    carries its subject on from. */
+const scopedWhole = (reading: Reading, said: Said[], p: Said, browser: RegExp): boolean =>
+  namedIn(reading, browser, [...p.subjects, ...predicateOf(p)]) || (p.from >= 0 && !p.ellipsis && scopedWhole(reading, said, said[p.from], browser))
+/** Whether the browser (browserFor) scopes a wait said of one of a predication's subjects (E162 stage 2): named in that
+    subject, in the predicate or its conditions, after the last subject where an earlier one shares its predicate
+    ("Analytics and session recording in your browser stay off ..."; a browser part names only its own subject, so
+    "Analytics cookies and server events stay off ..." is unscoped for the server events), in the predication a carried
+    clause takes its subject from, whole ("PostHog runs in your browser and waits for your consent."), or, for a subject
+    that points back (standsForWhatCameBefore), in any predication before it. Not in another clause with a subject of
+    its own: "PostHog runs in your browser, and account events wait for your consent." promises. */
+function scoped(reading: Reading, said: Said[], index: number, subject: number, wait: Wait): boolean {
+  const p = said[index]
+  const browser = browserFor(wait)
+  const last = p.subject && subject < p.subjects.length - 1 ? p.subject.postmodifiers : []
+  if (namedIn(reading, browser, [p.subjects[subject], ...predicateOf(p), ...last])) return true
+  if (p.from >= 0 && !p.ellipsis) return scopedWhole(reading, said, said[p.from], browser)
+  return p.pointsBack && said.slice(0, index).some((q) => scopedWhole(reading, said, q, browser))
+}
+/** Whether the analytics are what a wait is said of: named in the subject, the predicate, its conditions or the words
+    of the operations it binds (which may run past the clause the reader reads: "We require your consent to share or
+    collect analytics data."), or a pronoun or a phrase that refers back (refersBack: "the data") in the subject, the
+    predicate before the wait or those operations, where the sentence named them before it ("they require your
+    consent", "as does collecting it", "and we keep the data only with your consent"). Where the subject stands for what
+    came before (standsForWhatCameBefore), one anywhere in them counts ("PostHog: Runs only after you allow it"); after a
+    subject of its own, one after the wait stands for that subject ("Your data stays private until you allow it."). */
+function analyticsIn(reading: Reading, p: Said, subject: number, wait: Wait, operations: Operation[]): boolean {
+  const { tokens, sentence } = reading
+  const bound = operations.map((op) => ({ start: tokens.indexOf(op.verb), end: op.end }))
+  if (namedIn(reading, AN_ANALYTICS_NAME, [p.subjects[subject], ...predicateOf(p), ...bound])) return true
+  const spans = p.pointsBack ? [p.subjects[subject], ...predicateOf(p), ...bound] : [p.subjects[subject], { start: p.predicate, end: Math.min(wait.at, p.predicateEnd) }, ...bound]
+  // A pronoun as a phrase of its own, not a determiner ("these settings" names its settings), or a phrase that refers back.
+  const back = (k: number) => {
+    const phrase = nounPhraseAt(tokens, k)
+    return (PRONOUN.test(tokens[k].text) && (phrase?.head === tokens[k] || startsVerbGroup(tokens, k + 1))) || refersBack(phrase)
+  }
+  return spans.some(({ start, end }) => {
+    for (let k = start; k < end; k++) if (back(k) && NAMES_THE_ANALYTICS.test(sentence.slice(0, tokens[k].start))) return true
+    return false
+  })
+}
+
+/** What the reader makes of a wait for a yes in a predication (E162 stage 2): denied, where a negation governs it from
+    outside its clause (deniedFromOutside) or a denial takes it back where the verb says the promise ("only", "wait",
+    "requires", "consent-gated", "opt-in": denied); bound to another operation whose recipient is not the analytics
+    provider (operationsOf, toTheAnalytics); the claim, where a negation makes it ("without": withoutPromises) or it
+    says the promise whatever its own negation ("until you allow"), said of a subject the browser does not scope
+    (scoped) where the analytics are what it is said of (analyticsIn); or unread, where the reader finds neither a
+    reason it is not the claim nor the claim ("without your consent" with no negation the reader reads, a subject it
+    does not take for the analytics, a scope). */
+type WaitReading = 'denied' | 'another operation' | 'claim' | 'unread'
+function readWait(reading: Reading, said: Said[], index: number, wait: Wait): WaitReading {
+  const p = said[index]
+  // A negation from outside denies the promise only where its clause makes the promise itself; over a clause that
+  // denies it, or "without your consent" with no negation of its own, it says the promise again ("It is not true that
+  // analytics are not collected only with your consent.", "It is not true that analytics are collected without your
+  // consent.": Codex on #1618). The reader excuses nothing there, and main's floor decides, since the clause's own
+  // operation is not read inside it ("It is not true that sharing analytics data does not require your consent.").
+  if (deniedFromOutside(reading, said, index, wait)) {
+    const promises = wait.kind === 'without' ? withoutPromises(reading, p, wait) : wait.kind === 'until' || !denied(reading, p, wait)
+    return promises ? 'denied' : 'unread'
+  }
+  if (wait.kind === 'without' && !withoutPromises(reading, p, wait)) return 'unread'
+  // A condition the reader sets after the predicate of a clause a condition holds may be the outer clause's ("We
+  // collect analytics when you are not signed in only with your consent."), so that clause's denial takes it back only
+  // where the clause is said of the analytics ("..., while server events are not collected only after you consent.").
+  const carried = p.conditions.some((c) => c.start >= p.predicateEnd && wait.at >= c.start && wait.at < c.end)
+  const ofTheAnalytics = () => p.subjects.some((_, subject) => analyticsIn(reading, p, subject, wait, []))
+  if (wait.kind !== 'without' && wait.kind !== 'until' && denied(reading, p, wait) && (!carried || ofTheAnalytics())) return 'denied'
+  const operations = operationsOf(reading, p, wait)
+  if (operations.length && operations.every((op) => ANOTHER_OPERATION.test(op.verb.text) && !appears(reading, op) && !toTheAnalytics(reading, op))) return 'another operation'
+  return p.subjects.some((_, subject) => !scoped(reading, said, index, subject, wait) && analyticsIn(reading, p, subject, wait, operations)) ? 'claim' : 'unread'
+}
+
+/** An analytics-consent promise not scoped to the browser, in one sentence (header item 1), read through the clause
+    reader since E162 stage 2. A sentence that names no analytics claims nothing. Otherwise it is the claim where the
+    reader reads a wait in one of its predications (saidIn, waitsIn) as the claim (readWait), which catches what main
+    passed: the promise in a clause of its own beside the browser, collecting said by ellipsis, the provider as a
+    recipient. And main's pattern is the floor of its recall (MAIN_CONSENT_PROMISE; the second round, after the lens
+    found the reader alone missing claims main refused, as stage 1 found for the endpoints): a sentence main refuses
+    fails unless every wait a form says anywhere in it (waitsAt) is one the reader reads, each reading of it denied or
+    bound to another operation, the latter only where the sentence names none of the analytics' own (OWN_OPERATION). So
+    a subject the reader does not take for the analytics ("..., but nothing is collected until you opt in."), a negation
+    it does not read before "without your consent" ("Under no circumstances will we collect analytics without your
+    consent.") and a wait it reads in no predication fail as on main, while "We require your consent to share analytics
+    data with another user." and "No analytics are collected only with your consent." pass. */
+const consentPromise = (sentence: string) => {
+  if (!NAMES_THE_ANALYTICS.test(sentence)) return false
+  const reading = readSentence(sentence)
+  const said = saidIn(reading)
+  const readings = new Map<number, WaitReading[]>()
+  said.forEach((p, index) => {
+    for (const wait of waitsIn(reading, p)) readings.set(wait.at, [...(readings.get(wait.at) ?? []), readWait(reading, said, index, wait)])
+  })
+  if ([...readings.values()].some((r) => r.includes('claim'))) return true
+  if (!MAIN_CONSENT_PROMISE.test(sentence)) return false
+  const excuses = (r: WaitReading) => r === 'denied' || (r === 'another operation' && !OWN_OPERATION.test(sentence))
+  const forms = reading.tokens.map((_, k) => k).filter((k) => waitsAt(reading, k).length)
+  return !forms.length || forms.some((k) => !readings.get(k)?.every(excuses))
+}
 
 /** A credential as the thing required, not a word before what it names: followed by an end, a comma or a word that
     does not take it as a modifier ("a token to call it", "an account first"; since the clause reader, E162, a
@@ -1021,7 +1654,7 @@ const REMOVED_CLAIMS: Array<[string, RegExp | ((sentence: string) => boolean)]> 
   ['no financial data stored', /(?:\b(?:no|never|not|none|cannot)\b|n['’]t\b)[^.]{0,40}\bfinancial data\b|\bfinancial data\b[^.]{0,40}(?:\b(?:never|not|cannot)\b|n['’]t\b)/i],
   ['post-incident reviews', /\bpost[- ]incident reviews?\b|\bpost[- ]?mortems?\b/i],
   ['vetting the providers', /\bvet(?:s|ted|ting)?\b/i],
-  ['an analytics-consent promise not scoped to the browser', CONSENT_PROMISE],
+  ['an analytics-consent promise not scoped to the browser', consentPromise],
 ]
 
 const claimsIn = (where: string, text: string) =>
@@ -1159,7 +1792,9 @@ const CREDENTIAL_NAME = String.raw`(?:recovery|verification|backup|login|log-in|
     after "like" or "as", where the token may be what is one-time ("Refresh tokens are one-time keys.", "Refresh
     tokens remain one-time access keys.", "Refresh tokens work like one-time codes."). Up to two words may stand
     between, an article, an adverb in -ly or one of a few others ("are still", "are effectively"). */
-const ONE_TIME_OF_ANOTHER = String.raw`(?<!\b(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|stays?|stayed|like|as)\s+(?:(?:a|an|each|all|both|always|only|just|also|still|simply|now|already|\w+ly)\s+){0,2})\bone-time\s+(?:${CREDENTIAL_NAME}\s+){0,2}${CREDENTIAL}\b`
+const BEFORE_ANOTHER_CREDENTIAL = (form: string) =>
+  String.raw`(?<!\b(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|stays?|stayed|like|as)\s+(?:(?:a|an|each|all|both|always|only|just|also|still|simply|now|already|\w+ly)\s+){0,2})\b${form}\s+(?:${CREDENTIAL_NAME}\s+){0,2}${CREDENTIAL}\b`
+const ONE_TIME_OF_ANOTHER = BEFORE_ANOTHER_CREDENTIAL('one-time')
 /** The one-use forms main's phrases miss ("one-time", "good for one use", "cannot be used twice", "cannot be reused",
     "after one use"), read only in a sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or
     one in a block that names it and names no other credential (OTHER_CREDENTIAL), as "Each one cannot be reused." in
@@ -1179,14 +1814,237 @@ const OTHER_CREDENTIAL = new RegExp(String.raw`\b${CREDENTIAL}\b`, 'i')
 /** A sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or one in a block that names it
     and that names no other credential (OTHER_CREDENTIAL). */
 const aboutTheToken = (block: string) => (sentence: string) => TOKEN_CONTEXT.test(sentence) || (TOKEN_CONTEXT.test(block) && !OTHER_CREDENTIAL.test(sentence))
-/** A one-use form about the refresh or session token, in one sentence of the block. */
-const oneUseOfTheToken = (block: string) => sentencesOf(block).some((sentence) => ONE_USE.test(sentence) && aboutTheToken(block)(sentence))
+/** Where the one-use forms start in a sentence, as main's family reads them (E162 stage 3: the floor): main's
+    works-once phrases anywhere (WORKS_ONCE), and the wider forms in a sentence about the token (ONE_USE, aboutTheToken). */
+const oneUseFormsIn = (block: string, sentence: string) => {
+  const starts = (re: RegExp) => [...sentence.matchAll(new RegExp(re.source, 'gi'))].map((m) => m.index ?? 0)
+  return [...starts(WORKS_ONCE), ...(aboutTheToken(block)(sentence) ? starts(ONE_USE) : [])]
+}
+/** "single-use" directly before another credential's noun (BEFORE_ANOTHER_CREDENTIAL), which is that credential's in an
+    "unlike" phrase ("Refresh tokens are reusable, unlike single-use recovery codes."). */
+const ONCE_OF_ANOTHER = new RegExp(BEFORE_ANOTHER_CREDENTIAL(String.raw`single[- ]use`), 'gi')
+/** A credential's noun as the head of a subject (CREDENTIAL). */
+const A_CREDENTIAL = new RegExp(String.raw`^${CREDENTIAL}$`, 'i')
+/** A credential's noun that names a credential no token is: a password, a passphrase, an OTP, a PIN, an invite. */
+const SELF_NAMED = /^(?:passwords?|passphrases?|OTPs?|PINs?|invit\w*)$/i
+/** A word of a credential's name that no token answers to: "recovery codes", "password reset links", "magic links".
+    Not the rest of CREDENTIAL_NAME ("access", "security", "auth", "authentication", "API", "login", "log-in",
+    "sign-in", "signin"), whose keys, codes and links may be the token ("access keys"). */
+const DISTINCT_NAME = /^(?:recovery|verification|backup|magic|reset|password|invite|invitation|confirmation|email|e-mail|SMS|text)$/i
+/** Whether a credential's words, its noun last, name a credential no token is (E162 stage 4a): a noun that names one
+    (SELF_NAMED), or a word of such a name before it (DISTINCT_NAME). A bare key, code or link, or an access key, may
+    be the token under a name the page gives it in words no reading reads ("Both kinds are cryptographic keys. Each key
+    works only once."). */
+const namesACredential = (words: string[]) => SELF_NAMED.test(words.at(-1) ?? '') || words.slice(0, -1).some((w) => DISTINCT_NAME.test(w))
+/** A token, named or bare ("refresh tokens", "token renewal", "each token", "access tokens"): the refresh or session
+    token, or a word a sentence may name it by. */
+const A_TOKEN = /\b(?:(?:refresh|session|access|auth|bearer|api|id)[- ])?tokens?\b(?:[- ]renewal\b)?/gi
+/** A determiner or a quantifier, which may stand between "unlike" and what it sets apart ("unlike your refresh
+    tokens"); not one that points back (POINTS_BACK). */
+const DETERMINER_WORDS = 'the|a|an|our|your|its|their|all|any|each|every|most|many|some|both|other'
+/** A word that points back to something named before, which may be the token ("Each renewal issues a new refresh
+    token. These keys are single-use."). */
+const POINTS_BACK = /^(?:this|that|these|those|such|said)$/i
+/** A subject's head that stands for something named before ("They are cryptographic keys.", "Each one is a key.", "The
+    latter are cryptographic keys."). */
+const STANDS_FOR = /^(?:it|they|them|these|those|this|that|one|ones|both|each|either|neither|former|latter)$/i
+/** A word that stands for something named before wherever it stands in a clause ("but we call them cryptographic
+    keys"). */
+const REFERS_BACK = /^(?:it|its|they|them|their|theirs|these|those)$/i
+/** A word that sets one clause apart from another. */
+const CONTRAST = /^(?:while|whereas|but|although|though|however|yet)$/i
+/** A word with which a clause says again what another said, or points back to it ("and neither can refresh tokens",
+    "so is a refresh token", "but refresh tokens are no different", "though refresh tokens are equivalent", "yet
+    refresh tokens obey this rule"). */
+const SAYS_AGAIN = new RegExp(
+  String.raw`^(?:neither|nor|either|too|also|likewise|so|same|different|differ|differs|similar|similarly|alike|equally|identical|identically|like|as|again|kind` +
+    String.raw`|share|shares|shared|follow|follows|followed|apply|applies|applied|match|matches|matched|mirror|mirrors|mirrored` +
+    String.raw`|this|that|these|those|such|it|equivalent|equivalently|comparable|comparably|analogous|analogously|akin|equal|parallel|corresponding|consistent|consistently` +
+    String.raw`|obey|obeys|obeyed|observe|observes|observed|respect|respects|respected|honou?rs?|honou?red|abide|abides|adhere|adheres|conform|conforms|comply|complies|inherit|inherits|inherited|resemble|resembles` +
+    String.raw`|include|includes|included|cover|covers|covered|count|counts|counted|qualify|qualifies|qualified|extend|extends|extended|subject|bound|governed|affected` +
+    String.raw`|rule|rules|limit|limits|restriction|restrictions|constraint|constraints)$`,
+  'i',
+)
+/** A word with which the form's own clause says it of something else too, or compares it ("A recovery code also works
+    only once.", "A recovery code, like it, works only once."). */
+const ALSO = /^(?:also|too|likewise|similarly|equally|alike|like|as|same|either|neither)$/i
+/** A negation, which may say the form again in other words ("but refresh tokens are not reusable"). */
+const DENIES = /^(?:not|never|no|none|neither|nor|cannot|n['’]t|can['’]t|won['’]t|isn['’]t|aren['’]t)$/i
+/** A word that speaks of use itself, which may say the form in words the family's lexicon does not read ("but refresh
+    tokens expire after use"). */
+const OF_USE = /^(?:use|uses|used|using|once|twice|single)$/i
+/** A word that opens a clause inside a phrase: a relative word ("unlike refresh tokens, which are single-use"). */
+const RELATIVE_WORD = /^(?:which|that|who|whom|whose)$/i
+/** A word that says no predicate of its own: an auxiliary, a modal or a negation ("but refresh tokens can"). */
+const NO_PREDICATE = /^(?:am|is|are|was|were|be|been|being|has|have|had|having|do|does|did|can|could|may|might|must|shall|should|will|would|not|never|n['’]t|cannot|can['’]t)$/i
+/** A sentence's units for the one-use family (E162 stage 3): each clause's own words, without the conditions that hold
+    clauses of their own, and each such condition (conditionClauseAt: ", while recovery codes cannot be reused"), with
+    its own subject (none where a clause carries one on, which `carried` holds), where its predicate starts and the word
+    that opens it. */
+type Unit = { start: number; end: number; holes: Array<[number, number]>; subject: NounPhrase | null; carried: NounPhrase | null; predicate: number; by: string | null }
+function unitsOf(reading: Reading): Unit[] {
+  const { tokens, clauses } = reading
+  return clauses.flatMap((clause) => {
+    const held = clause.conditions.flatMap((c): Unit[] => {
+      const inner = conditionClauseAt(tokens, c)
+      return inner ? [{ start: c.start, end: c.end, holes: [], subject: inner.subject, carried: null, predicate: inner.predicate, by: c.subordinator }] : []
+    })
+    const holes = held.map((u): [number, number] => [u.start, u.end])
+    return [
+      { start: clause.start, end: clause.end, holes, subject: clause.carried ? null : clause.subject, carried: clause.carried ? clause.subject : null, predicate: clause.predicate, by: clause.joinedBy },
+      ...held,
+    ]
+  })
+}
+const inUnit = (unit: Unit, k: number) => k >= unit.start && k < unit.end && !unit.holes.some(([from, to]) => k >= from && k < to)
+/** A word's noun without its plural "s". */
+const lemma = (t: Token) => t.lower.replace(/s$/, '')
+/** A word a noun may take between "unlike" and itself: a determiner, a name of a credential or a token, or a one-use
+    word ("unlike your refresh tokens", "unlike single-use recovery codes"). */
+const BEFORE_A_NOUN = new RegExp(String.raw`^(?:${DETERMINER_WORDS}|${CREDENTIAL_NAME}|refresh|session|single-use|one-time)$`, 'i')
+/** Whether a word stands right after "unlike", with only such words between (BEFORE_A_NOUN). */
+const afterUnlike = (tokens: Token[], j: number) => {
+  let u = j - 1
+  while (u > 0 && BEFORE_A_NOUN.test(tokens[u].text)) u--
+  return tokens[u]?.lower === 'unlike'
+}
+/** Whether a one-use form that starts at a character of a sentence is another credential's (E162 stage 3: credential
+    ownership; Codex's thread 4351169065 on #1456). Nothing outside the unit that holds it may say it again, deny or
+    speak of use, in a token's clause, its conditions or a clause that names no token ("..., and so does each one.",
+    "..., but refresh tokens expire once they are used."), nothing in it may say it of something else too (ALSO: "A
+    recovery code also works only once."), and every token the sentence names (A_TOKEN) is set apart from it.
+    "single-use" before another credential's noun (ONCE_OF_ANOTHER) is that credential's after "unlike", in a
+    phrase that names no token ("Refresh tokens are reusable, unlike single-use recovery codes."). A form is also
+    where the unit that holds it has a credential's noun as its own subject, and every token stands right after
+    "unlike" in that unit ("Unlike refresh tokens, recovery codes cannot be reused.") or is the own subject of another
+    unit, with a contrast opening one of the two and a predicate of its own ("Refresh tokens are reusable, while
+    recovery codes cannot be reused.", "Recovery codes cannot be reused, whereas refresh tokens rotate."). Otherwise the
+    form is read as main reads it ("Refresh tokens, single-use access keys, renew your session.", "..., and neither can
+    refresh tokens.", "..., but refresh tokens can."). The credential is named as one no token is (namesACredential,
+    E162 stage 4a): a bare key, code or link, or an access key, may be the token under a name the page gives it, so
+    "Each key works only once." and "Each access key works only once." are read as main reads them. A credential's noun
+    the page says of a token (`said`, nounsSaidOfAToken) may be the token's too: "Refresh tokens are backup codes. Each
+    backup code works only once." and "Each renewal issues a new refresh token. Such backup codes are single-use." are
+    read as main reads them, in one item or across two. */
+function anotherCredentials(sentence: string, at: number, said: Set<string>): boolean {
+  const reading = readSentence(sentence)
+  const { tokens } = reading
+  const tokenAt = (offset: number) => tokens.findIndex((t) => t.end > offset)
+  const units = unitsOf(reading)
+  const k = tokenAt(at)
+  const own = units.find((u) => inUnit(u, k))
+  if (!own || tokens.some((t, n) => (inUnit(own, n) ? ALSO.test(t.text) : SAYS_AGAIN.test(t.text) || DENIES.test(t.text) || OF_USE.test(t.text)))) return false
+  const { subject } = own
+  const mentions = [...sentence.matchAll(A_TOKEN)].map((m): [number, number] => [tokenAt(m.index ?? 0), tokenAt((m.index ?? 0) + m[0].length - 1)])
+  // An "unlike" phrase of the unit that sets apart its words from `from` to `to`: the unit's last "unlike" before them,
+  // the phrase fronted before the unit's subject, closed by a mark, or ending the unit, and nothing after them in it a
+  // verb, a clause of its own or a negation. A token or a credential's noun that does not stand right after "unlike"
+  // is the page's reading of its nouns to refuse (nounsSaidOfAToken).
+  const unlikePhrase = (from: number, to: number) => {
+    const unlike = own.start + tokens.slice(own.start, from).map((t) => t.lower).lastIndexOf('unlike')
+    if (unlike < own.start) return null
+    const end = subject && unlike < subject.start ? subject.start : own.end
+    const closed = end === own.end || !/\w/.test(tokens[end - 1].text)
+    const rest = tokens.slice(to + 1, end)
+    return closed && !rest.some((t) => knowsVerb(t) || NO_PREDICATE.test(t.text) || RELATIVE_WORD.test(t.text) || DENIES.test(t.text)) ? { unlike, end } : null
+  }
+  const attributive = [...sentence.matchAll(ONCE_OF_ANOTHER)].find((m) => m.index === at)
+  if (attributive) {
+    const noun = tokenAt(at + attributive[0].length - 1)
+    if (!namesACredential(attributive[0].split(/\s+/).slice(1)) || said.has(lemma(tokens[noun]))) return false
+    // A phrase that names a token says the noun beside it of the token, refused above (nounsSaidOfAToken).
+    if (unlikePhrase(k, noun)) return true
+    // Outside an "unlike" phrase, it is read as a form said of its unit's subject only where it stands in that subject.
+    if (!subject || k < subject.start || k >= subject.end) return false
+  }
+  if (!subject || !A_CREDENTIAL.test(subject.head.text) || !namesACredential([...subject.premodifiers.map((t) => t.text), subject.head.text]) || said.has(lemma(subject.head))) return false
+  return mentions.every(([j, named]) => {
+    if (inUnit(own, j)) {
+      const apart = unlikePhrase(j, named)
+      return !!apart && (k < apart.unlike || k >= apart.end)
+    }
+    const found = units.find((u) => inUnit(u, j))
+    // Where the reader carries the subject on and the token opens the predicate, it read "refresh" as a verb ("..., but
+    // refresh tokens rotate."): the token's noun phrase there is the unit's own subject.
+    const opened = found && !found.subject && j === found.predicate ? nounPhraseAt(tokens, j) : null
+    const other = found && opened ? { ...found, subject: opened, predicate: opened.end } : found
+    // The contrast between the two units is the page's to read (nounsSaidOfAToken): with none, the subject's noun is
+    // said of the token and refused above.
+    if (!other?.subject || j < other.subject.start || j >= other.subject.end) return false
+    const words = tokens.slice(other.predicate, other.end).filter((t, n) => inUnit(other, other.predicate + n) && /\w/.test(t.text))
+    return words.some((t) => !NO_PREDICATE.test(t.text))
+  })
+}
+/** The credential nouns a page says of a token (E162 stage 3): one in a sentence that names a token outside an "unlike"
+    phrase, in the token's unit or in one that no contrast sets apart from it ("Refresh tokens are cryptographic
+    keys.", "Refresh tokens: keys that renew your session."), one beside a token in an "unlike" phrase ("Recovery codes
+    rotate, unlike refresh tokens (cryptographic keys)."), or one in a unit that carries a token on as its subject
+    ("Refresh tokens rotate, but are cryptographic keys."), and, on a page that names a token, in a unit whose subject
+    may stand for one, or that holds a word that does (REFERS_BACK): a pronoun, a word that points back (POINTS_BACK)
+    or none ("..., although they are cryptographic keys.", "They are cryptographic keys.", "The latter are
+    cryptographic keys.", "These keys are single-use.", "..., but we call them cryptographic keys."). A noun so said
+    stands for the token in turn ("... Each key is an access code."). In another sentence or item, it may be the
+    token's ("Each key works only once."). "Refresh tokens are reusable, while recovery codes cannot be reused." and
+    "Unlike refresh tokens, recovery codes cannot be reused." say no noun of a token. */
+function nounsSaidOfAToken(blocks: string[]): Set<string> {
+  const said = new Set<string>()
+  const namesAToken = blocks.some((text) => new RegExp(A_TOKEN.source, 'i').test(text))
+  const sentences = blocks.flatMap(sentencesOf).map((sentence) => ({ sentence, reading: readSentence(sentence) }))
+  // A noun said of a token stands for it in turn, and says the nouns beside it of the token too ("Refresh tokens are
+  // cryptographic keys. Each key is an access code."): the page is read again until no noun is added.
+  let before: number
+  do {
+    before = said.size
+    sentences.forEach(({ sentence, reading }) => saidIn(sentence, reading))
+  } while (said.size > before)
+  return said
+  function saidIn(sentence: string, reading: Reading) {
+    const { tokens } = reading
+    const units = unitsOf(reading)
+    const unitOf = (k: number) => units.find((u) => inUnit(u, k))
+    const tokenAt = (offset: number) => tokens.findIndex((t) => t.end > offset)
+    const named = [...sentence.matchAll(A_TOKEN)].map((m) => tokenAt(m.index ?? 0))
+    const aliases = tokens.flatMap((t, n) => (A_CREDENTIAL.test(t.text) && said.has(lemma(t)) ? [n] : []))
+    const mentions = [...named, ...aliases].filter((j) => !afterUnlike(tokens, j))
+    // An "unlike" phrase, from "unlike" to its unit's subject where it is fronted, else to the unit's end, sets apart
+    // what it holds together: a noun in one that names a token is said of it, wherever each stands in it ("unlike
+    // refresh tokens (cryptographic keys)", "unlike access keys, your session tokens").
+    const phrases = units.flatMap((u) => tokens.flatMap((t, n): Array<[number, number]> => (inUnit(u, n) && t.lower === 'unlike' ? [[n, u.subject && n < u.subject.start ? u.subject.start : u.end]] : [])))
+    const besideAToken = (n: number) => phrases.some(([from, to]) => n >= from && n < to && [...named, ...aliases].some((j) => j >= from && j < to))
+    tokens.forEach((t, n) => {
+      const unit = unitOf(n)
+      const ofAToken = mentions.some((j) => {
+        const other = unitOf(j)
+        return !unit || !other || unit === other || !(CONTRAST.test(unit.by ?? '') || CONTRAST.test(other.by ?? ''))
+      })
+      const carried = unit?.carried
+      const carriesAToken = !!carried && mentions.some((j) => j >= carried.start && j < carried.end)
+      const subject = unit ? (unit.subject ?? carried) : null
+      const pointsBack = !!subject && [...subject.determiners, ...subject.premodifiers.map((word) => word.text)].some((word) => POINTS_BACK.test(word))
+      const refersBack = !!unit && tokens.some((word, m) => inUnit(unit, m) && REFERS_BACK.test(word.text))
+      const standsForAToken = namesAToken && (!subject || STANDS_FOR.test(subject.head.text) || pointsBack || refersBack)
+      if (A_CREDENTIAL.test(t.text) && (besideAToken(n) || (!afterUnlike(tokens, n) && (ofAToken || carriesAToken || standsForAToken)))) said.add(lemma(t))
+    })
+  }
+}
+/** A one-use form of the refresh or session token, in one sentence of the block (E162 stage 3): main's family as the
+    floor (oneUseFormsIn), where some form is not another credential's (anotherCredentials), read with what the page
+    around the block (its blocks) says of its tokens. */
+const oneUseOfARefreshToken = (block: string, blocks: string[]) => {
+  const said = nounsSaidOfAToken(blocks)
+  return sentencesOf(block).some((sentence) => {
+    const forms = oneUseFormsIn(block, sentence)
+    return forms.length > 0 && !forms.every((at) => anotherCredentials(sentence, at, said))
+  })
+}
 /** Main's reuse reading, as main reads it, in any sentence: a revocation beside main's reuse words. */
 const MAIN_REUSE = /^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?)\b/i
-/** The reuse forms this pull request reads beyond main's (REUSED's other words, a sweep or a lock as what follows),
-    read as the one-use forms are, only in a sentence about the refresh or session token (#1456's eighth round): "A
-    verification code cannot be used more than once and can be revoked from settings." is another credential's. */
-const REUSE_OF_THE_TOKEN = new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SWEEP}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')
+/** A reuse, as REUSED names it, in a sentence. */
+const A_REUSE = new RegExp(REUSED, 'i')
+/** What follows a reuse beyond main's words, other than a sweep: a revocation, or a lock on the account. */
+const REVOKED_OR_LOCKED = /\brevok|\block(?:s|ed)?\s+(?:the account|you out)\b/i
+/** A sweep of the account's sessions (SWEEP), read with the shared denial step. */
+const SWEPT = new RegExp(SWEEP, 'i')
 /** Main's timed and untimed readings on every logging-out word (LOGGING_OUT and PASSWORD, main's own words among
     them), with a denial read as SESSION_END_MORE reads one, before the verb or on the subject (NOT) or on its object
     (DENIED_OBJECT): "Logging out does not end every session within 30 minutes", "No session ends within 30 minutes of
@@ -1196,6 +2054,233 @@ const REUSE_OF_THE_TOKEN = new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok
 const deniable = (re: RegExp) => new RegExp(String.raw`${AFFIRMED}(?![\w'’-]+${DENIED_OBJECT})` + re.source, 'i')
 const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
 const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
+
+/** The units of time a passive participle takes after it in place of an object, one occasion each ("presented a second
+    time", "replayed the next day", "reused an hour later"), and the words the reader takes for the head of such a phrase
+    after one. A plural unit after "the" is a noun of its own ("the minutes", "the hours", "the Times": the routine lens
+    on 767a60d1). */
+const UNIT_OF_TIME = /^(?:time|second|minute|hour|day|night|week|weekend|month|year|morning|evening|afternoon|moment)$/i
+const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
+/** The phrases the reader leaves out of a verb group, so that its words stop before the verb ("does not by itself |
+    sign", "cannot on its own | end", "does not alone | sign"): a reflexive after "by", "in" or "of", "own" after a
+    possessive, and "alone". */
+const LEFT_OUT = /^(?:by (?:itself|themselves)|on (?:its|their) own|in (?:itself|themselves)|of itself|alone)$/
+/** A wait with "until" or "till" and a pronoun after it, the subject of the clause they open, whose verb group is the one
+    after the pronoun ("does not wait until it | ends every session"), as stage 4b reads "until": "wait" takes no object,
+    so no noun's relative clause ends so. A time after "until" takes no verb ("until noon | ends"), and a clause with a
+    verb of its own runs past it ("until it expired | ends"), so the verb group after either is the clause's own (Codex
+    on 120323a3). */
+const BOUNDS_A_WAIT = /^wait(?:s|ed|ing)? (?:until|till) (?:i|you|he|she|it|we|they|everyone|everybody|someone|somebody|anyone|anybody)$/
+/** An end the session-end readings and the reuse family's sweep read (END_VERB) at the start of a span's words, which
+    the lexicon may lack ("terminates", "kills", "invalidates", "times out"): a negation those readings read denies it
+    as it does a verb group (Codex on 8846ebfa). */
+const OPENS_AN_END = new RegExp(String.raw`^${END_VERB}`, 'i')
+/** What the end readings' denial step reads across from a negation to the verb it denies (NOT), on the words between
+    them as the sentence spaces them: up to four words (NEGATION_REACH), each whole however the reader splits it ("our
+    users' pages", "the '90s archive", "admin--level": the routine lens on 8563d054), or an aside in commas. */
+const REACHES = new RegExp(String.raw`^(?:\s+(?:${NEGATION_REACH})|\s*,[^,.;:!?]{1,40},\s*)$`, 'i')
+/** A negation as that step reads it: "not", "never", "nor", "cannot", a contraction in "n't" or "n’t", and "no longer",
+    read from "longer". */
+const DENIAL_WORD = /^(?:not|never|nor|cannot|[a-z]+n['’]t)$/i
+/** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase after
+    the noun it modifies, which the reader reads as a premodifier, with a phrase of time after it that the reader reads,
+    with a verb group, as a relative clause on it ("A refresh token presented a second time does not by itself sign you
+    out of every device." reads "a second time does not by itself" as one). A passive participle takes no object, so
+    what follows it there is a phrase of time: one headed by a unit of time, or by "later", "earlier" or "ago" after one
+    ("an hour later"). A noun's own relative clause keeps its reading: on a noun not in -ed ("a hotel booking the
+    weekend does not cover"), on one right after its determiner ("a feed the weekend does not cover"), or with a subject
+    that is no phrase of time, a time word only modifying it or a plural unit heading it ("a feed you do not own", "a
+    device the night shift does not own", "a meeting the minutes do not record": Codex and the routine lens on e03913eb,
+    78fcbd93 and 767a60d1). The first verb group after the phrase of time is the clause's own: read whole, its verb the
+    clause's ("a second time signs everyone out", "... ends when you log out"), or stopped at a phrase the reader leaves
+    out of a verb group (LEFT_OUT), its verb then where the misread clause ends ("a second time does not by itself |
+    sign"), as a wait's is after "until" or "till" and the pronoun that opens the clause holding the verb group there
+    (BOUNDS_A_WAIT: "does not wait until it | ends every session", not "until noon | ends": Codex on 120323a3), since
+    "wait" takes no object. Such a span runs to that group and nests what
+    the phrase of time nests, an agent's relative clause or its own ("a second time by a client you do not own", "a
+    second time that you did not send": the routine lens on c6060a93): where that group starts and those spans, or null.
+    The reading keeps a negation from that group on in the clause read alone, where main's cuts it, so it holds only
+    where that negation, as the denial step reads it, reaches no verb group past the clause's verb (REACHES: four words
+    between a negation, "no longer" whole, and the verb it denies, each whole however the reader splits it: Codex on
+    bca1801a, the routine lens on 8563d054), nor an end the lexicon lacks (OPENS_AN_END: "... does not by itself cover
+    terminates every session": Codex on 8846ebfa). One there is the clause's own, and the group found
+    another clause's, whose negation the reading would read as the clause's, so the reading stays main's: a clause the
+    phrase of time holds, after a word the reader takes for a preposition, however deep in the phrase it stands ("a
+    second time after it was not used ends", "on Monday after the launch did not succeed ends", "for it was not used
+    ends": the routine lens on 95be62e7, a5c5a491 and a033404c, Codex on a5c5a491 and a033404c), or after an -ing word
+    ("knowing it is not valid ends": the routine lens on 3b4b8a69), and a noun's relative clause whose subject is the
+    phrase of time, its group whole or split, a phrase after its verb or not ("a news feed the weekend does not cover
+    ends", "... does not run for you ends", "... does not by itself cover ends every session", "Logouts of ... does not
+    by itself cover all end ...", "... does not alone cover on Mondays ends ..."), where the misread's own verb takes
+    its object ("sign you out of every device"). Past that reach the negation denies nothing either way. Out of reach: a
+    participle right after a determiner keeps the misreading, as on main ("Those presented a second time do not by
+    themselves ..."), and a split by a phrase LEFT_OUT does not list, or with commas ("does not, by itself, sign"),
+    keeps main's reading. */
+const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } | null => {
+  const first = phrase.postmodifiers[0]
+  const time = first ? nounPhraseAt(tokens, first.start) : null
+  const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
+  if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !time || !unit || !UNIT_OF_TIME.test(unit.text)) return null
+  const words = (from: number, to: number) => tokens.slice(from, to).map((token) => token.lower).join(' ')
+  // The text between two tokens as the sentence spaces it, a space for any whitespace, the one before the second too.
+  const between = (from: number, to: number) =>
+    tokens.slice(from + 1, to + 1).map((token, i) => (token.start > tokens[from + i].end ? ' ' : '') + (from + 1 + i < to ? token.text : '')).join('')
+  for (let k = time.end; k < first.end; k++) {
+    if (!startsVerbGroup(tokens, k)) continue
+    const group = verbGroupAt(tokens, k)
+    const goesOn = LEFT_OUT.test(words(group.verb, first.end)) || BOUNDS_A_WAIT.test(words(group.verb, first.end))
+    if (goesOn && !startsVerbGroup(tokens, first.end)) return null
+    const verb = goesOn ? verbGroupAt(tokens, first.end).verb : group.verb
+    const denied = (j: number) => tokens.slice(k, first.end).some((token, i) => {
+      const last = token.lower === 'no' && tokens[k + i + 1]?.lower === 'longer' ? k + i + 1 : k + i
+      return (last > k + i || DENIAL_WORD.test(token.text)) && j > last && REACHES.test(between(last, j))
+    })
+    if (tokens.some((_, j) => j > verb && (startsVerbGroup(tokens, j) || OPENS_AN_END.test(words(j, j + 3))) && denied(j))) return null
+    return { end: k, nests: readOf(tokens, time).nests }
+  }
+  return null
+}
+/** Where a noun phrase ends, as a clause read alone reads it, and the spans it nests (E162 stage 4b): the relative
+    clauses, participles and asides after its head, and after the head of a phrase a preposition after it takes ("you
+    do not own" in "Logging out of a device you do not own"), which restrict it and deny nothing of its clause's verb.
+    Since stage 4c a phrase of time the reader reads as a relative clause ends the phrase at its clause's verb group,
+    and the phrase a preposition takes it in (participleAt), and nests only what the phrase of time nests. */
+const readOf = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } => {
+  const participle = participleAt(tokens, phrase)
+  if (participle) return participle
+  const nests: Array<[number, number]> = []
+  for (const m of phrase.postmodifiers) {
+    if (m.kind !== 'preposition') nests.push([m.start, m.end])
+    else if (m.object) {
+      const object = readOf(tokens, m.object)
+      nests.push(...object.nests)
+      if (object.end < m.object.end) return { end: object.end, nests }
+    }
+  }
+  return { end: phrase.end, nests }
+}
+/** A gerund's object (E162 stage 4b): the noun phrase after an -ing word no closed class holds, the lexicon's verb or
+    not ("resetting"), that opens its phrase alone or with what the reader reads as a relative clause on it, its object
+    and its clause's verb group ("Changing your password ends every session." reads "your password ends every session"
+    as one, and "Changing your password does not on its own end every session." "your password does not on its own").
+    null where none stands there. */
+const gerundAt = (tokens: Token[], at: number, phrase: NounPhrase): NounPhrase | null => {
+  const first = phrase.postmodifiers[0]
+  const gerund = phrase.head === tokens[at] && /^[a-z]+ing$/.test(phrase.head.lower) && knowsVerb(phrase.head, /./)
+  return gerund && (!first || (first.kind === 'relative' && first.start === at + 1)) ? nounPhraseAt(tokens, at + 1) : null
+}
+/** A clause's subject at a token, as a clause read alone reads it (E162 stage 4b): the reader's noun phrase, or a
+    gerund with its object (gerundAt); where it ends and the spans it nests (readOf). */
+const subjectAt = (tokens: Token[], at: number): { end: number; nests: Array<[number, number]> } | null => {
+  const phrase = nounPhraseAt(tokens, at)
+  const read = (phrase && gerundAt(tokens, at, phrase)) ?? phrase
+  return read && readOf(tokens, read)
+}
+/** A clause's words read alone, from a token to the token before another, without the spans its subject nests. */
+const readAlone = (reading: Reading, from: number, to: number) => {
+  const kept: string[] = []
+  let at = from
+  for (const [start, end] of subjectAt(reading.tokens, from)?.nests ?? []) {
+    if (start < at || end > to) continue
+    kept.push(spanText(reading, at, start))
+    at = end
+  }
+  return [...kept, spanText(reading, at, to)].join(' ').replace(/\s+/g, ' ').trim()
+}
+/** A word that opens a clause of time, cause or contrast, which says its clause happens, before a noun phrase and a
+    verb group or before a gerund ("before ending every session"): the reader's subordinating words, and "before",
+    "after" and "once" before a determiner ("once a logout ends ..."), which it takes for prepositions and an adverb,
+    read at the word, since a subject the reader runs on may take one in ("Changing your password is not slow because it
+    ..."), but not inside a clause's subject, where it is a preposition ("No session after a logout ends ..."). "If",
+    "unless", "as long as", "provided that" and "so that" only suppose their clause or aim at it, and "until" and "till"
+    only bound a wait ("Logging out does not wait until every session ends."). */
+const HAPPENS = /^(?:because|although|though|whereas|while|when|whenever|once|since|before|after)$/i
+/** The word before "that" in a purpose or a supposition ("so that", "provided that"), whose clause the sentence does not
+    say (E162 stage 4b). */
+const SUPPOSES = /^(?:so|provided|providing|assuming|supposing|order)$/i
+/** The verbs of doubt and dispute the lexicon lacks, which take a clause after "that" (E162 stage 4b; the routine lens
+    on #1683): the reader reads one as a noun with a relative clause after it, inside its subject ("No one doubts that
+    logging out ends every session."), so a "that" after one opens a clause wherever it stands. */
+const TAKES_A_CLAUSE = /^(?:doubts?|doubted|disputes?|disputed|questions?|questioned|contests?|contested|challenges?|challenged)$/i
+/** An auxiliary or a modal, a negated one fused or contracted too ("cannot", "doesn't"), which governs each verb "and"
+    carries on in its verb's form (E162 stage 4b; Codex on #1683). */
+const AUXILIARY = /^(?:am|is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|may|might|must|shall|should|will|would|cannot|[a-z]+n['’]t)$/i
+/** A sentence read whole and clause by clause (E162 stage 4b; #1456's Not in this PR): the session-end readings, and
+    since stage 4c the reuse family's sweep (reuseOfTheToken), read the sentence as before, and each clause in it alone
+    too, so a negation in another clause, or nested in a clause's subject, denies nothing in a clause read alone. Read
+    alone are: a clause with a subject of its own, opened at the
+    sentence's start, after a semicolon or a colon, or by "and", "but", "so", "yet" or a comma (a gerund the reader
+    carries a predicate on to counts: "..., and logging out of a device you do not own ends ..."); a predicate those
+    words but the comma carry on, where main's reach stops too ("Logging out does not clear cookies and revokes your
+    session tokens."; a comma may close an aside inside one verb group: "does not, as a rule, end"), unless it shares
+    the negation before it ("does not clear cookies and revoke ...": shares); a clause of time, cause or contrast
+    (HAPPENS, or after "as soon as"); and a clause after "that", wherever it stands, after a verb the lexicon lacks too
+    ("Passwords are hashed, and nobody doubts that logging out ends every session."), but not within two words of a verb
+    that asserts it, which a denial governs (ASSERTS, as the consent family reads it: "Nothing guarantees that logging
+    out ends every session." and "Nobody can promise you that ..." pass, while "Nobody doubts that ..." asserts it;
+    undenied, the sentence says the clause itself), nor in a purpose or a supposition (SUPPOSES), nor inside a clause's
+    subject, where "that" opens a relative clause, but after a verb of doubt the reader takes in (TAKES_A_CLAUSE: "No
+    one doubts that ..."). "Or" and "nor" say neither clause ("Neither logging out nor a password change ends every
+    session."). Each runs from its subject to the end of the clause the reader reads it in, without the spans its
+    subject nests (subjectAt). So "Logging out does not take long before it ends every session.", "Logging out of a
+    device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
+    session." fail, as main refuses them, while a denial on a clause's own verb, subject or object reads as before. The
+    readings only gain texts, so nothing main refuses passes, but for a phrase of time the reader reads as a relative
+    clause, which holds its clause's own denial (participleAt: "A refresh token presented a second time does not by
+    itself sign you out of every device." fails on stage 4b's reading and passes since stage 4c). */
+const clauseByClause = (sentence: string): string[] => {
+  const reading = readSentence(sentence)
+  const { tokens, clauses } = reading
+  const endOf = (k: number) => clauses.find((c) => k >= c.start && k < c.end)?.end ?? tokens.length
+  const holdsAClause = (at: number, to: number) => {
+    const subject = subjectAt(tokens, at)
+    return !!subject && subject.end < to && startsVerbGroup(tokens, subject.end)
+  }
+  // Where a clause's predicate starts, after its subject as a clause read alone reads it (subjectAt: past a gerund's
+  // object, where the reader takes the verb group into the subject).
+  const predicateOf = (c: Clause) => (c.carried || !c.subject ? c.predicate : (subjectAt(tokens, c.subject.start)?.end ?? c.predicate))
+  // Whether a predicate "and" carries on shares the negation of the verb group that heads its run, past the predicates
+  // a list carries on between them ("does not clear, keep and revoke"): it has no auxiliary or modal of its own ("and
+  // will revoke" says its verb in its own right), and its verb is in the form of the head's negated verb, which an
+  // auxiliary or a modal in that group governs ("Logging out does not clear cookies and revoke your session tokens.";
+  // "never clears cookies and revokes" says its second verb in its own right, as the consent family reads "and":
+  // distributesNegation).
+  const shares = (i: number) => {
+    const own = verbGroupAt(tokens, clauses[i].predicate)
+    if (!clauses[i].carried || clauses[i].joinedBy !== 'and' || tokens.slice(own.start, own.verb).some((t) => AUXILIARY.test(t.text))) return false
+    let head = i - 1
+    while (head > 0 && clauses[head].carried && /^(?:and|,)$/.test(clauses[head].joinedBy ?? '')) head--
+    const group = verbGroupAt(tokens, predicateOf(clauses[head]))
+    return group.negated && formOf(tokens[group.verb]) === formOf(tokens[own.verb]) && tokens.slice(group.start, group.verb).some((t) => AUXILIARY.test(t.text))
+  }
+  const texts = new Set([sentence])
+  clauses.forEach((clause, i) => {
+    const ownSubject = !clause.carried || (/ing$/.test(tokens[clause.start]?.lower ?? '') && holdsAClause(clause.start, clause.end))
+    const opened = i === 0 || /^[;:]$/.test(tokens[clause.start - 1]?.text ?? '') || (/^(?:and|but|so|yet|,)$/.test(clause.joinedBy ?? '') && (ownSubject || clause.joinedBy !== ',') && !shares(i))
+    if (opened) texts.add(readAlone(reading, clause.carried ? clause.start : (clause.subject?.start ?? clause.start), clause.end))
+  })
+  const inASubject = (k: number) => clauses.some((c) => !!c.subject && k >= c.subject.start && k < (subjectAt(tokens, c.subject.start)?.end ?? c.subject.end))
+  tokens.forEach((token, k) => {
+    const opens = HAPPENS.test(token.lower) || (token.lower === 'as' && tokens[k - 1]?.lower === 'soon' && tokens[k - 2]?.lower === 'as')
+    const that = token.lower === 'that' && ![tokens[k - 1], tokens[k - 2]].some((t) => ASSERTS.test(t?.text ?? '')) && !SUPPOSES.test(tokens[k - 1]?.text ?? '')
+    const gerund = /^[a-z]+ing$/.test(tokens[k + 1]?.lower ?? '') && knowsVerb(tokens[k + 1])
+    const inside = inASubject(k) && !(that && TAKES_A_CLAUSE.test(tokens[k - 1]?.text ?? ''))
+    if ((opens || that) && !inside && (gerund || holdsAClause(k + 1, endOf(k + 1)))) texts.add(readAlone(reading, k + 1, endOf(k + 1)))
+  })
+  return [...texts].filter(Boolean)
+}
+/** The reuse forms this pull request reads beyond main's (REUSED's other words, a sweep or a lock as what follows),
+    read as the one-use forms are, only in a sentence about the refresh or session token (#1456's eighth round): "A
+    verification code cannot be used more than once and can be revoked from settings." is another credential's. The
+    sweep, the one consequence the shared denial step reads, is read in the sentence whole and, since E162's stage 4c,
+    in each clause alone as well (clauseByClause), so a negation outside a clause or nested in its subject denies no
+    sweep there ("Nobody doubts that reusing a refresh token signs everyone out." and "Reusing a refresh token you do
+    not own signs everyone out." fail), but for one in a clause a subordinator opens before the clause's verb, which
+    the reader runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out." passes, as
+    on main: the routine lens on bca1801a), while the reuse may stand in another clause of the sentence ("If a refresh
+    token is reused, every session ends."). */
+const reuseOfTheToken = (sentence: string) =>
+  A_REUSE.test(sentence) && (REVOKED_OR_LOCKED.test(sentence) || clauseByClause(sentence).some((text) => SWEPT.test(text)))
 
 /** A logging-out action as a sentence names it: a logout or a sign-out in their spellings, or a password changed or
     reset. A password only named ("Passwords are hashed") is no action. */
@@ -1236,26 +2321,32 @@ const loggingOutSentences = (block: string) =>
       : clausesOf(sentence).filter((clause) => PASSWORD.test(clause)),
   )
 
-const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
+const E127_PROMISES: Array<[string, (block: string, blocks: string[]) => boolean]> = [
   [
     'a refresh token that works once',
-    (block) => inASentence(WORKS_ONCE)(block) || oneUseOfTheToken(block),
+    (block, blocks) => oneUseOfARefreshToken(block, blocks),
   ],
   [
     'a reused refresh token revoking the account',
     (block) =>
-      inASentence(MAIN_REUSE)(block) || sentencesOf(block).some((sentence) => REUSE_OF_THE_TOKEN.test(sentence) && aboutTheToken(block)(sentence)),
+      inASentence(MAIN_REUSE)(block) || sentencesOf(block).some((sentence) => reuseOfTheToken(sentence) && aboutTheToken(block)(sentence)),
   ],
   [
     'a session that ends after logging out, within a time or with none named',
     (block) =>
-      loggingOutSentences(block).some((sentence) => SESSION_END_TIMED_DENIABLE.test(sentence) || SESSION_END_UNTIMED_DENIABLE.test(sentence) || SESSION_END_MORE.test(sentence)) ||
-      sentencesOf(block).some((sentence) => ANY_NEW_PASSWORD.test(sentence) && (SESSION_END_TIMED_DENIABLE.test(sentence) || SESSION_END_UNTIMED_DENIABLE.test(sentence))),
+      loggingOutSentences(block).some((sentence) =>
+        clauseByClause(sentence).some((text) => SESSION_END_TIMED_DENIABLE.test(text) || SESSION_END_UNTIMED_DENIABLE.test(text) || SESSION_END_MORE.test(text)),
+      ) ||
+      sentencesOf(block).some(
+        (sentence) => ANY_NEW_PASSWORD.test(sentence) && clauseByClause(sentence).some((text) => SESSION_END_TIMED_DENIABLE.test(text) || SESSION_END_UNTIMED_DENIABLE.test(text)),
+      ),
   ],
 ]
 
-const e127PromisesIn = (where: string, block: string) =>
-  E127_PROMISES.filter(([, holds]) => holds(block)).map(([label]) => `${where} (${label}): ${JSON.stringify(block)}`)
+/** E127's promises in a block of a page, read with the page's blocks around it (the one-use family's reading of what the
+    page says of its tokens). */
+const e127PromisesIn = (where: string, block: string, blocks: string[]) =>
+  E127_PROMISES.filter(([, holds]) => holds(block, blocks)).map(([label]) => `${where} (${label}): ${JSON.stringify(block)}`)
 
 /** The JSX tags read inline, whose text runs on with their parent's: HTML's text-level elements and next/link's Link. */
 const INLINE_TAGS = new Set(['a', 'abbr', 'b', 'bdi', 'bdo', 'br', 'cite', 'code', 'data', 'dfn', 'em', 'i', 'kbd', 'mark', 'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr', 'Link'])
@@ -1302,8 +2393,21 @@ function literals(rel: string): string[] {
   return found
 }
 
-/** A case that parses every module under the scan directories: the default 5s times out on a loaded machine. */
+/** A case that parses every module under the scan directories, or walks every Python module of backend/app
+    (backendModules): the default 5s times out on a loaded machine (the audit-log walk, 1.3s alone, at 10.7s in a
+    full local run). */
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
+
+/** A case that reads every planted form of its families through their readers. The reuse and session-end families'
+    self-check (385 rows since E162 stage 4c, #1688) takes 3.5s alone, and the default 5s timed out in a full local
+    run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
+    0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
+const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
+
+/** A case that renders every legal page and reads its text, with the security and waitlist modules' copy, through
+    every removed claim: 0.8s alone, and 4.4s of the default 5s in this spec under twenty-four busy loops on four
+    cores. */
+const READS_EVERY_LEGAL_PAGE = { timeout: 30_000 }
 
 const copyModules = () =>
   execFileSync('git', ['ls-files', '--', ...SCAN_DIRS], { cwd: FRONTEND, encoding: 'utf8' })
@@ -1843,7 +2947,7 @@ const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, first: 1, tw
 const numberOf = (word: string) => (/^\d+$/.test(word) ? Number(word) : NUMBER_WORDS[word.toLowerCase()])
 
 describe("/security says what the code and the hosting do (D-046)", () => {
-  it('names none of the claims D-046 removed, and neither do /privacy, /terms or the waitlist page', () => {
+  it('names none of the claims D-046 removed, and neither do /privacy, /terms or the waitlist page', READS_EVERY_LEGAL_PAGE, () => {
     const { container, unmount } = render(<SecurityPage />)
     const text = pageText(container)
     const page = claimsInTree('/security', container)
@@ -1871,7 +2975,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     ]).toEqual([])
   })
 
-  it('reads each claim’s family through the page’s own render and splitter, and passes the new sentences (a self-check on planted forms)', () => {
+  it('reads each claim’s family through the page’s own render and splitter, and passes the new sentences (a self-check on planted forms)', READS_EVERY_PLANTED_FORM, () => {
     const planted: Array<[string, boolean | 'gap']> = [
       // Main's sentences.
       ['<p>Our Redis cache is configured with authentication and access controls to prevent unauthorized access.</p>', true],
@@ -1998,6 +3102,151 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Disclosing usage data to PostHog requires your consent.</p>', true],
       ['<p>Sharing usage data with our analytics provider requires your consent.</p>', true],
       ['<p>Sharing analytics data with PostHog users on your team requires your consent.</p>', false],
+      // E162 stage 2 reads the consent family by clause. Consent bound to another operation passes in every form: an
+      // infinitive after the consent (#1456's thread 4351169057), the "without your consent", opt-in and consent-gated
+      // forms, and "and" in the subject with every operation another (#1456's Not in this PR), and so does a clause of
+      // time and the verb a yes follows. One of them the analytics' own, collecting said by an infinitive, a clause of
+      // time, an ellipsis (#1456's Not in this PR, 16 generated then) or a coordinated verb, or the analytics provider as
+      // the recipient (a word before the name since stage 2), still promises.
+      ['<p>We require your consent to share analytics data with another user.</p>', false],
+      ['<p>We never share analytics data with another user without your consent.</p>', false],
+      ['<p>Sharing analytics data with another user is opt-in.</p>', false],
+      ['<p>Sharing analytics data with another user is consent-gated.</p>', false],
+      ['<p>Sharing and exporting analytics data require your consent.</p>', false],
+      ['<p>We require your consent before we share analytics data with partners.</p>', false],
+      ['<p>We share analytics data with another user only with your consent.</p>', false],
+      ['<p>Sharing analytics data requires your consent, as does collecting it.</p>', true],
+      // An ellipsis whose subject stands before its auxiliary says the predicate whatever the clause before denied, and
+      // denies it with a negation; one after "as", "so", "neither" or "nor" keeps that clause's denial.
+      ['<p>Sharing analytics data does not require your consent, but collecting it does.</p>', true],
+      ['<p>We do not promise that analytics wait for your consent, but they do.</p>', true],
+      ['<p>Sharing analytics data does not require your consent, and neither does exporting it.</p>', false],
+      ['<p>Collecting analytics data does not require your consent, and sharing it does not either.</p>', false],
+      ['<p>We require your consent to collect analytics data.</p>', true],
+      ['<p>We require your consent before we collect analytics data.</p>', true],
+      ['<p>Collecting and sharing analytics data require your consent.</p>', true],
+      ['<p>We require your consent to share or collect analytics data.</p>', true],
+      ['<p>We collect and share analytics data only with your consent.</p>', true],
+      ['<p>PostHog runs in your browser, and collecting analytics data requires your consent.</p>', true],
+      ['<p>We require your consent to share account events with PostHog.</p>', true],
+      ['<p>We share account events with third-party analytics only with your consent.</p>', true],
+      // The near reading's gaps (#1456's Not in this PR): a denied subject on the "only" forms, an aside or the object
+      // between the negation and the word, and words between a negation and a verb that says the promise, pass; a
+      // negation in a relative clause, or one a "but" sets apart, does not deny the promise.
+      ['<p>No analytics are collected only with your consent.</p>', false],
+      ['<p>Analytics are not, as a rule, collected only with your consent.</p>', false],
+      ['<p>We do not collect usage statistics only after you allow analytics.</p>', false],
+      ['<p>Server events do not at any point in time require your consent.</p>', false],
+      ['<p>Analytics that do not identify you are collected only with your consent.</p>', true],
+      ['<p>Analytics are not collected when you visit, but only after you allow them.</p>', true],
+      // A negation that governs the clause from outside denies its promise (the clause reader's out-of-reach list until
+      // stage 2), while one whose shape is the promise's own still promises, and so does a clause nobody doubts.
+      ['<p>It is not true that analytics wait for your consent.</p>', false],
+      ['<p>We do not promise that analytics wait for your consent.</p>', false],
+      ['<p>We do not collect analytics until you allow them.</p>', true],
+      ['<p>Nobody doubts that analytics wait for your consent.</p>', true],
+      // The browser scopes the clause that names it, a clause that carries its subject on and one whose subject refers
+      // back, not another clause with a subject of its own, the clause a condition holds, or a subject a browser part
+      // does not name. The analytics are what the clause says it of, named there or referred back to.
+      ['<p>PostHog runs in your browser, and account events wait for your consent.</p>', true],
+      ['<p>PostHog runs in your browser, while server events wait for your consent.</p>', true],
+      ['<p>Analytics cookies and server events stay off until you allow them.</p>', true],
+      ['<p>PostHog runs in your browser and waits for your consent.</p>', false],
+      ['<p>PostHog runs in your browser, and the data waits for your consent.</p>', false],
+      ['<p>We collect analytics, and the data waits for your consent.</p>', true],
+      ['<p>Analytics help us improve, and we delete your data only with your consent.</p>', false],
+      // The second round (Codex and the lens on #1618). A denial before "and", or before a predicate that restarts its
+      // verb group or puts its verb in another form, denies no promise after it, while "or" distributes it; a negation
+      // before "and" still makes "without your consent" the promise, beyond main's 60 characters too. Main's pattern is
+      // the floor: a subject the reader does not take for the analytics, a negation it does not read before "without
+      // your consent" and an operation the sentence also names as the analytics' own fail as on main, and so does the
+      // provider after "into" or later in the operation's clause.
+      ['<p>Analytics are not sold and are collected only with your consent.</p>', true],
+      ['<p>Server events are not shared and require your consent.</p>', true],
+      ['<p>PostHog never runs and requires your consent.</p>', true],
+      ['<p>PostHog never runs or requires your consent.</p>', false],
+      ['<p>We never sell and collect analytics data about your account, your devices or your activity on other websites without your consent.</p>', true],
+      ['<p>We use PostHog for product analytics, but nothing is collected until you opt in.</p>', true],
+      ['<p>We use analytics, and data is collected only with your consent.</p>', true],
+      ['<p>Under no circumstances will we collect analytics without your consent.</p>', true],
+      ['<p>We promise never to collect analytics without your consent.</p>', true],
+      ['<p>Not a single analytics event is sent without your consent.</p>', true],
+      ['<p>Collection and sharing of analytics data require your consent.</p>', true],
+      ['<p>Sharing usage data, like collecting it, requires your consent.</p>', true],
+      ['<p>Sharing analytics data is opt-in and so is collection.</p>', true],
+      ['<p>Account events are exported into PostHog only after you allow it.</p>', true],
+      ['<p>Server events require your consent before we display them in PostHog.</p>', true],
+      ['<p>Account events require your consent to show up in PostHog.</p>', true],
+      ['<p>We require your consent to share account events every day with PostHog.</p>', true],
+      ['<p>We never share account events without your consent with PostHog.</p>', true],
+      // The floor's cost: a wait the reader reads in no predication (here a condition after an ellipsis) fails as on
+      // main, whatever it binds the consent to.
+      ['<p>Sharing analytics data requires your consent, and so does exporting it, until you allow it.</p>', true],
+      // The second round's verification lens on #1618: the negated verb said again after "or", or "or" after a comma,
+      // keeps the promise after it; so do the provider listed after other recipients, "show" as the verb of appearing
+      // and a denial a verb turns into a yes. The provider named before the recipient's preposition and "show" with an
+      // object stay another operation's.
+      ['<p>Server events never run, or run only after you consent.</p>', true],
+      ['<p>Server events are not recorded or recorded only after you consent.</p>', true],
+      // Codex on #1618: every join after the denial counts, not only the last.
+      ['<p>Server events never run, or collect or require your consent.</p>', true],
+      // Codex on #1618: the verb a denial distributes from denies only as its negations compose.
+      ['<p>Analytics are never not sold or collected only with your consent.</p>', true],
+      // Codex on #1618: a negation from outside does not reach past a second "that" before the wait, and main's floor
+      // decides.
+      ['<p>It is not true that it is not true that analytics are collected only with your consent.</p>', true],
+      ['<p>It is not true that we doubt that analytics wait for your consent.</p>', true],
+      // An exception before "only" sets the promise apart from the denial, as "but" does.
+      ['<p>Analytics are not collected unless only with your consent.</p>', true],
+      ['<p>Analytics are not collected other than only with your consent.</p>', true],
+      // Codex on #1618: a denial on a coordinated subject is not composed with the verb's; main's floor decides.
+      ['<p>No analytics or server events are not collected only with your consent.</p>', true],
+      ['<p>Neither analytics nor server events are not collected only with your consent.</p>', true],
+      ['<p>No analytics, and no server events, are not collected only with your consent.</p>', true],
+      ['<p>Nobody’s analytics are not collected only with your consent.</p>', true],
+      // Codex on #1618: a negation from outside over "without your consent" with no negation of its own is the
+      // promise's own; over a clause that promises, it denies the promise.
+      ['<p>It is not true that analytics are collected without your consent.</p>', true],
+      ['<p>It is not true that analytics are never collected without your consent.</p>', false],
+      // Codex on #1618: over a clause that denies the promise, a negation from outside says it again.
+      ['<p>It is not true that analytics are not collected only with your consent.</p>', true],
+      ['<p>It is not the case that usage data is not sent without your permission.</p>', false],
+      // Codex on #1618: the negations on the verb that asserts the clause cancel as a clause's own do, two in its group
+      // or a denied subject on a denied verb, so the clause is asserted.
+      ['<p>It is never not true that analytics are collected only with your consent.</p>', true],
+      ['<p>Nobody does not promise that analytics are collected only with your consent.</p>', true],
+      ['<p>Nobody does not promise that analytics are collected until you allow them.</p>', true],
+      // A negation in a relative, an adverbial or a bracketed clause between the verb and the wait denies nothing, and
+      // one in a clause a condition holds takes back the condition the reader sets after it only where that clause is
+      // said of the analytics (the class of Codex's findings on #1618).
+      ['<p>We collect analytics that do not identify you only with your consent.</p>', true],
+      ['<p>Analytics are collected (we do not deny it) only with your consent.</p>', true],
+      ['<p>Analytics are collected where we do not use cookies only with your consent.</p>', true],
+      ['<p>We collect analytics when you are not signed in only with your consent.</p>', true],
+      ['<p>PostHog runs in your browser, while server events are not collected only after you consent.</p>', false],
+      // The clause after "that" says the wait with its own subject: denied there, the promise is taken back, and a
+      // negation from outside says it again.
+      ['<p>We promise that no analytics are collected only with your consent.</p>', false],
+      ['<p>It is not true that no analytics are collected only with your consent.</p>', true],
+      ['<p>We promise that nothing is collected only with your consent, analytics included.</p>', false],
+      ['<p>It is not true that nothing is collected only with your consent, analytics included.</p>', true],
+      // Codex on #1618: "only" set off by a mark sets the promise apart from the denial before it; a list before
+      // "only" sets nothing apart.
+      ['<p>Analytics are not collected automatically, only after you consent.</p>', true],
+      ['<p>Analytics are not collected automatically - only after you consent.</p>', true],
+      ['<p>Analytics are not collected automatically (only after you consent).</p>', true],
+      ['<p>We do not collect analytics, usage data or events only with your consent.</p>', false],
+      // Two negations in one clause cancel: a denied subject and a denied verb, or two in the verb group.
+      ['<p>No analytics are not collected only with your consent.</p>', true],
+      ['<p>Analytics are never not collected only with your consent.</p>', true],
+      ['<p>No server events do not require your consent.</p>', true],
+      ['<p>We require your consent to share account events with advertisers or PostHog.</p>', true],
+      ['<p>We require your consent to share account events with anyone, including PostHog.</p>', true],
+      ['<p>Account events require your consent before we share them with partners like PostHog.</p>', true],
+      ['<p>Server events need your consent to show up at all.</p>', true],
+      ['<p>Server events never cease to require your consent.</p>', true],
+      ['<p>Sharing PostHog data with another user requires your consent.</p>', false],
+      ['<p>Showing usage data to another user requires your consent.</p>', false],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
@@ -2488,9 +3737,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Out of reach.
       ['<p>Our pages use a Content Security Policy. It blocks XSS.</p>', 'gap'],
       ['<p>Nobody outside our network can reach the servers.</p>', 'gap'],
-      ['<p>PostHog in your browser runs only after you allow analytics, and so does every server event.</p>', 'gap'],
-      ['<p>Analytics cookies stay off until you allow them, and so do server events.</p>', 'gap'],
       ['<p>PostHog runs after you allow it.</p>', 'gap'],
+      ['<p>Server events, like PostHog in your browser, wait for your consent.</p>', 'gap'],
+      // Planted as gaps until E162 stage 2, an unscoped promise in a sentence that also names the browser or its part:
+      // the ellipsis says its own subject, the server events, which no browser scopes.
+      ['<p>PostHog in your browser runs only after you allow analytics, and so does every server event.</p>', true],
+      ['<p>Analytics cookies stay off until you allow them, and so do server events.</p>', true],
       ['<p>The whole API sits behind authentication.</p>', 'gap'],
       ['<p>Each endpoint checks that the caller holds a token.</p>', 'gap'],
     ]
@@ -2574,6 +3826,72 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(['All endpoints not only require authentication but also return JSON.', 'Each endpoint does not merely require a login.', 'Each endpoint does not require a login.'].map(negated)).toEqual([false, false, true])
   })
 
+  it('reads the shapes the consent family needs over the clauses (a self-check on the clause reader, E162 stage 2)', () => {
+    const read = (sentence: string) => {
+      const reading = readSentence(sentence)
+      const at = (word: string) => reading.tokens.findIndex((t) => t.lower === word)
+      return { reading, tokens: reading.tokens, at, text: (from: number, to: number) => spanText(reading, from, to) }
+    }
+    const verbs = (found: { operations: Operation[] } | null) => found?.operations.map((op) => op.verb.text) ?? []
+    // Gerunds sharing one object, across the clause the reader opens at the second; "of" before an object; an infinitive
+    // and a clause of time after the consent, each with its verbs.
+    const gerunds = read('Sharing and exporting analytics data require your consent.')
+    expect(verbs(gerundsAt(gerunds.tokens, 0, ANOTHER_OPERATION))).toEqual(['Sharing', 'exporting'])
+    expect(gerundsAt(gerunds.tokens, 0, ANOTHER_OPERATION)?.end).toBe(gerunds.at('require'))
+    expect(verbs(gerundsAt(read('Any selling of usage data needs your permission.').tokens, 0, ANOTHER_OPERATION))).toEqual(['selling'])
+    const infinitive = read('We require your consent to share or export analytics data and to collect usage statistics.')
+    expect(verbs(boundOperationsAt(infinitive.tokens, infinitive.at('to'), ANOTHER_OPERATION))).toEqual(['share', 'export', 'collect'])
+    const time = read('We require your consent before we disclose analytics data.')
+    expect(verbs(boundOperationsAt(time.tokens, time.at('before'), ANOTHER_OPERATION))).toEqual(['disclose'])
+    // An ellipsis names its own subject, inside the clause before it or in the clause the reader carries on; a verb form
+    // that is no gerund is no subject.
+    const subjectOf = (sentence: string) => {
+      const { tokens, text } = read(sentence)
+      for (let k = 0; k < tokens.length; k++) {
+        const found = ellipsisAt(tokens, k, ANOTHER_OPERATION)
+        if (found) return text(found.subject.start, found.subject.end)
+      }
+      return null
+    }
+    expect(['Sharing analytics data requires your consent, as does collecting it.', 'Analytics cookies stay off until you allow them, and so do server events.', 'Sharing analytics data does not require your consent, but collecting it does.', 'We keep your data as is required by law.'].map(subjectOf)).toEqual(['collecting it', 'server events', 'collecting it', null])
+    // A verb group an aside splits reads as one, and the group that governs a token reaches its verb across a phrase;
+    // "that" and another verb open what governs the token after them.
+    const aside = read('Analytics are not, as a rule, collected only with your consent.')
+    expect(aside.reading.clauses.length).toBe(2)
+    expect(verbGroupOf(aside.reading, 1)).toEqual({ start: aside.at('are'), verb: aside.at('collected'), negated: true })
+    const between = read('Server events do not in any case require your consent.')
+    expect(governingGroup(between.tokens, 0, verbGroupAt(between.tokens, between.reading.clauses[0].predicate), between.at('require'))?.own).toBe(true)
+    const relative = read('We do not collect analytics that run only after you allow them.')
+    const governing = governingGroup(relative.tokens, 0, verbGroupAt(relative.tokens, relative.reading.clauses[0].predicate), relative.at('after'))
+    expect([governing?.own, governing?.group.negated]).toEqual([false, false])
+    // Subjects named before one predicate, verbs that share an object, the clause a condition holds, and the clause a
+    // verb takes after "that".
+    expect(conjunctsOf(read('Analytics cookies and session recording stay off until you allow them.').reading, 1)).toEqual([0, 1])
+    expect(sharedVerbsOf(read('We never share or collect analytics data without your consent.').reading, 1)).toEqual([0])
+    // "or" distributes the denial to another verb that opens its predicate in the same form; "and", a verb group of the
+    // next predicate's own, another form (Codex on #1618), a comma before "or" and the negated verb said again (the
+    // second round's verification lens) do not.
+    const distributes = (sentence: string) => distributesNegation(read(sentence).reading, 1, 0)
+    expect(
+      [
+        'We never share or collect analytics data without your consent.',
+        'PostHog never runs and requires your consent.',
+        'Analytics are not sold and are collected only with your consent.',
+        'Server events are not shared and require your consent.',
+        'PostHog never runs, or requires your consent.',
+        'Server events are not recorded or recorded only after you consent.',
+      ].map(distributes),
+    ).toEqual([true, false, false, false, false, false])
+    // Every join after the denial counts: a comma before an earlier "or" stops it before the last.
+    expect(distributesNegation(read('Server events never run, or collect or require your consent.').reading, 2, 0)).toBe(false)
+    expect(distributesNegation(read('We never share or sell or collect analytics data without your consent.').reading, 2, 0)).toBe(true)
+    const condition = read('PostHog runs in your browser, while server events wait for your consent.')
+    const inner = conditionClauseAt(condition.tokens, condition.reading.clauses[0].conditions[0])
+    expect(inner && condition.text(inner.subject.start, inner.subject.end)).toBe('server events')
+    const complement = read('It is not true that analytics wait for your consent.')
+    expect(complementAt(complement.tokens, verbGroupAt(complement.tokens, complement.reading.clauses[0].predicate))?.verb.text).toBe('true')
+  })
+
   it('states each number the backend sets, as the backend sets it (a self-check on a changed constant)', () => {
     const text = rendered('security')
     const read = (file: string, value: RegExp) => Number(readFileSync(path.join(REPO, file), 'utf8').match(value)?.[1])
@@ -2598,12 +3916,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(sentence, 'the PostHog line scopes the consent to the browser').toBeDefined()
   })
 
-  it('promises nothing of refresh tokens or logging out that the code does not enforce, whatever the todo records (a self-check on planted forms)', () => {
+  it('promises nothing of refresh tokens or logging out that the code does not enforce, whatever the todo records (a self-check on planted forms)', READS_EVERY_PLANTED_FORM, () => {
     const { container, unmount } = render(<SecurityPage />)
     const blocks = blockTexts(container)
     unmount()
     expect(blocks.some((block) => block.startsWith('Logging out:'))).toBe(true)
-    expect(blocks.flatMap((block) => e127PromisesIn('/security', block))).toEqual([])
+    expect(blocks.flatMap((block) => e127PromisesIn('/security', block, blocks))).toEqual([])
     const planted: Array<[string, boolean | 'gap']> = [
       // Round 3's two items.
       ["<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each refresh token works once and is stored only as a hash; one presented a second time revokes all of that account's refresh tokens.</li>", true],
@@ -2742,6 +4060,13 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Refresh tokens stay one-time keys.</li>', true],
       ['<li>Refresh tokens are effectively one-time keys.</li>', true],
       ['<li>Refresh tokens are considered one-time keys.</li>', 'gap'],
+      // Set beside the token, "one-time" before a credential's noun is that credential's too, as on main
+      // (ONE_TIME_OF_ANOTHER); E162's stage 4 keeps the gap.
+      ['<li>Refresh tokens, one-time access keys, renew your session.</li>', 'gap'],
+      // A page that names the token as a credential no token is, in words no reading reads, passes, though main refuses
+      // the claim (E162 stage 4a). No page would call refresh tokens backup codes, so E162's row records the gap as
+      // accepted.
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are backup codes. Each backup code works only once.</li>', 'gap'],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -2773,6 +4098,131 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A verification code is good for one use.</li>', false],
       ['<li>Each magic link expires after one use.</li>', false],
       ['<li>Refresh tokens are stored only as hashes. A recovery code cannot be reused.</li>', false],
+      // E162 stage 3: a one-use form is the credential's whose clause has it as its own subject, where the token is set
+      // apart from that clause (Codex's thread 4351169065 on #1456), and "single-use" before another credential's noun
+      // is that credential's right after "unlike"; main's works-once phrases are read so too.
+      ['<li>Refresh tokens are reusable, while recovery codes cannot be reused.</li>', false],
+      ['<li>Recovery codes cannot be reused, whereas refresh tokens rotate.</li>', false],
+      ['<li>Unlike refresh tokens, recovery codes cannot be reused.</li>', false],
+      ['<li>Unlike your refresh tokens, recovery codes cannot be reused.</li>', false],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens.</li>', false],
+      ['<li>A recovery code is single-use.</li>', false],
+      ['<li>A verification code works only once.</li>', false],
+      ['<li>A magic link can be used only once.</li>', false],
+      ['<li>Refresh tokens are reusable, unlike single-use recovery codes.</li>', false],
+      ['<li>Single-use recovery codes cannot be reused, while refresh tokens rotate.</li>', false],
+      ['<li>Although refresh tokens rotate, recovery codes are single-use.</li>', false],
+      ['<li>Refresh tokens rotate, but recovery codes are single-use.</li>', false],
+      ['<li>A recovery code is single-use, but refresh tokens rotate.</li>', false],
+      ['<li>Refresh tokens rotate. A recovery code works only once.</li>', false],
+      ['<ul><li>Refresh tokens rotate.</li><li>Each recovery code works only once.</li></ul>', false],
+      ['<li>Unlike refresh tokens, recovery codes cannot be reused. Each recovery code works only once.</li>', false],
+      ['<li>Refresh tokens rotate, while recovery codes are single-use. Each recovery code works only once.</li>', false],
+      ['<li>Recovery codes are stored hashed. They are one-time codes. Each recovery code works only once.</li>', false],
+      // ... where nothing sets the token apart, or its clause says the form again, the form is read as main reads it.
+      ['<li>Recovery codes cannot be reused, and neither can refresh tokens.</li>', true],
+      ['<li>A recovery code is single-use, and so is a refresh token.</li>', true],
+      ['<li>Recovery codes cannot be reused, but refresh tokens are no different.</li>', true],
+      ['<li>Recovery codes, like refresh tokens, are single-use.</li>', true],
+      ['<li>Refresh tokens and recovery codes are single-use.</li>', true],
+      ['<li>Recovery codes are single-use, but refresh tokens are not reusable.</li>', true],
+      ['<li>Recovery codes are single-use, whereas refresh tokens share that rule.</li>', true],
+      ['<li>Unlike refresh tokens, which are single-use, recovery codes expire.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens, which also cannot be reused.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens, which are not reusable either.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens, which are not reusable.</li>', true],
+      ['<li>Recovery codes expire, unlike single-use refresh tokens.</li>', true],
+      ['<li>Unlike session cookies, recovery codes for refresh tokens are single-use.</li>', true],
+      ['<li>Recovery codes are not single-use, but refresh tokens are.</li>', true],
+      ['<li>Recovery codes are single-use, while the server revokes refresh tokens after their first redemption.</li>', true],
+      ['<li>Recovery codes cannot be reused, but refresh tokens expire after use.</li>', true],
+      // ... and where "single-use" before a credential's noun is set beside the token or said of it (Codex's thread
+      // 4371353880 on a072e79a), a clause or a condition outside the form's says it again in other words, "like" turns
+      // the "unlike" phrase, a bare token stands beside the form (the routine lens on a072e79a), "and" carries the
+      // "unlike" phrase on to the token, or the form's own clause compares it.
+      ['<li>Refresh tokens, single-use access keys, renew your session.</li>', true],
+      ['<li>Refresh tokens (single-use access keys) renew your session.</li>', true],
+      ['<li>Refresh tokens are the single-use keys that renew your session.</li>', true],
+      ['<li>Refresh tokens are considered single-use keys.</li>', true],
+      ['<li>Refresh tokens resemble single-use keys.</li>', true],
+      ['<li>Refresh tokens: single-use keys that renew your session.</li>', true],
+      ['<li>Recovery codes expire, unlike single-use access keys such as session tokens.</li>', true],
+      ['<li>Recovery codes expire, unlike single-use access keys, your session tokens.</li>', true],
+      ['<li>Recovery codes are reusable, unlike refresh tokens (single-use).</li>', true],
+      ['<li>Recovery codes are single-use, but refresh tokens expire once they are used.</li>', true],
+      ['<li>Recovery codes are single-use, whereas refresh tokens are revoked as soon as they are used.</li>', true],
+      ['<li>Recovery codes are single-use, though refresh tokens are equivalent.</li>', true],
+      ['<li>Recovery codes are single-use, yet refresh tokens obey this rule.</li>', true],
+      ['<li>Unlike passwords and like refresh tokens, recovery codes are single-use.</li>', true],
+      ['<li>Recovery codes are single-use, unlike passwords but like refresh tokens.</li>', true],
+      ['<li>A recovery code works only once, and so does each token.</li>', true],
+      ['<li>Recovery codes work only once, and so does each one.</li>', true],
+      ['<li>Recovery codes are single-use, as are the tokens.</li>', true],
+      ['<li>Recovery codes, along with tokens, are single-use.</li>', true],
+      ['<li>Recovery codes are single-use, but refresh tokens are included.</li>', true],
+      ['<li>Unlike single-use recovery codes and refresh tokens, passwords are reusable.</li>', true],
+      ['<li>Each refresh token is revoked after renewal. A recovery code, like it, works only once.</li>', true],
+      ['<li>Each refresh token is revoked after renewal. A recovery code also works only once.</li>', true],
+      // ... and where the credential's noun may be the token's on its page: said of a token in another sentence or item,
+      // or in its own sentence, or pointed back to on a page that names a token (Codex's thread 4371465223 on 81c0d9d9),
+      // or "single-use" before a noun outside its clause's subject and outside an "unlike" phrase.
+      ['<li>Refresh tokens are cryptographic keys. These keys are single-use.</li>', true],
+      ['<li>Refresh tokens are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Refresh tokens are cryptographic keys, while each key works only once.</li>', true],
+      ['<li>Each renewal issues a new refresh token. These keys are single-use.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Such keys are single-use.</li>', true],
+      ['<li>Refresh tokens are cryptographic keys. Recovery codes are reusable, unlike single-use keys.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes are reusable, unlike these single-use keys.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes stand in for the single-use keys.</li>', true],
+      ['<ul><li>Refresh tokens are cryptographic keys.</li><li>Each key works only once.</li></ul>', true],
+      ['<ul><li>Each renewal issues a new refresh token.</li><li>These keys are single-use.</li></ul>', true],
+      // ... and where a clause that carries the token on as its subject says the noun of it past a contrast (Codex's
+      // thread 4371545608 on c4d147ef), or a subject that may stand for the token does, on a page that names one.
+      ['<li>Refresh tokens rotate, but are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Refresh tokens rotate, although they are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Refresh tokens rotate. They are cryptographic keys. Each key works only once.</li>', true],
+      // ... and a pronoun that is no subject (Codex's thread 4371719132 on 65b5f67e).
+      ['<li>Refresh tokens rotate, but we call them cryptographic keys. Each key works only once.</li>', true],
+      // ... and a noun said of a noun the page says of a token (Codex's thread 4371778016 on 82c7cc9e).
+      ['<li>Refresh tokens are cryptographic keys. Each key is an access code. Each code works only once.</li>', true],
+      // ... and a noun beside the token in its own "unlike" phrase (Codex's thread 4371809274 on a709b130), and a
+      // subject that stands for the token as "the latter" does.
+      ['<li>Recovery codes rotate, unlike refresh tokens (cryptographic keys). Each key works only once.</li>', true],
+      ['<li>Recovery codes expire, unlike access keys, your session tokens. Each access key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens, which are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens. The latter are cryptographic keys. Each key works only once.</li>', true],
+      // E162 stage 4a: a bare key, code or link, or an access key, names no credential the token cannot be, so a
+      // one-use form on it is read as main reads it, whatever the page says of it: #1630's gap ("Both kinds are
+      // cryptographic keys."), the same with access keys, and a key the page never names.
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are access keys. Each access key works only once.</li>', true],
+      ['<li>Refresh tokens rotate. Each key works only once.</li>', true],
+      // ... and a token stays the token under any name before it, as its own subject (CREDENTIAL).
+      ['<li>Unlike passwords, email session tokens are single-use.</li>', true],
+      // ... while a noun that names a credential itself keeps its excuse (SELF_NAMED).
+      ['<li>Unlike refresh tokens, passwords cannot be reused.</li>', false],
+      // ... and the token's aliases above under a credential's name no token answers to, which only the page's reading
+      // of its nouns refuses.
+      ['<li>Refresh tokens are backup codes. Each backup code works only once.</li>', true],
+      ['<ul><li>Refresh tokens are backup codes.</li><li>Each backup code works only once.</li></ul>', true],
+      ['<li>Refresh tokens rotate, but are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Refresh tokens rotate, although they are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Refresh tokens rotate. They are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Refresh tokens rotate, but we call them backup codes. Each backup code works only once.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Such backup codes are single-use.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes are reusable, unlike these single-use reset links.</li>', true],
+      ['<li>Refresh tokens are backup codes. Each backup code is a recovery key. Each recovery key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens. The latter are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens (backup codes). Each backup code works only once.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes stand in for the single-use backup codes.</li>', true],
+      // The costs: "and" or a semicolon sets nothing apart, "single-use" before a credential's noun outside an "unlike"
+      // phrase is read as said of its clause's subject, a noun beside the token in its "unlike" phrase stands for it
+      // beside the credential the phrase sets apart, and a bare key after "unlike" names no other credential, so these
+      // fail as on main though the token is not one-use.
+      ['<li>Recovery codes cannot be reused, and refresh tokens rotate.</li>', true],
+      ['<li>Use a single-use recovery code.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens (cryptographic keys).</li>', true],
+      ['<li>Refresh tokens are reusable, unlike single-use keys.</li>', true],
       // A negation with an adverbial phrase between it and the verb, with no commas (#1456's fifth round, Codex's
       // thread 4336218364), up to four words, and past them with commas.
       ['<li>Logging out does not by itself end your other sessions.</li>', false],
@@ -2826,16 +4276,200 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out does not require you to be signed out of every device.</li>', false],
       ['<li>Logging out does not cause every session on your phone to end.</li>', false],
       ['<li>Logging out does not end your other sessions, but every session ends when its token expires.</li>', false],
+      // E162 stage 4b (#1456's Not in this PR): each clause is read alone too (clauseByClause), so a negation in another
+      // clause, or in a relative clause, a participle or an aside on the subject, denies nothing there: the shared
+      // step's three shapes, a clause of time or cause after the negation or a denied subject, the subject's restriction
+      // with "that", a participle or commas, a clause of its own after "and", a gerund's object, and the predicate "and"
+      // carries on, whose negation main's untimed reading read three words before "revokes" (a planted gap until 4b).
+      ['<li>Logging out does not take long before it ends every session.</li>', true],
+      ['<li>Logging out of a device you do not own ends every session within 30 minutes.</li>', true],
+      ['<li>Nobody doubts that logging out ends every session.</li>', true],
+      ['<li>Logging out does not take long before ending every session.</li>', true],
+      ['<li>Changing your password is not slow because it revokes your session tokens.</li>', true],
+      ['<li>Nobody stays signed in since logging out ends every session.</li>', true],
+      ['<li>Nothing remains once a logout ends every session.</li>', true],
+      ['<li>Nothing is stored after logging out ends every session.</li>', true],
+      ['<li>Nothing remains as soon as logging out ends every session.</li>', true],
+      ['<li>Every session that you do not keep open ends within 30 minutes of logging out.</li>', true],
+      ['<li>After a logout, every session that you do not keep open ends within 30 minutes.</li>', true],
+      ['<li>A logout made on a device you do not own ends every session.</li>', true],
+      ['<li>Logging out, which you do not need to confirm, revokes your session tokens.</li>', true],
+      ['<li>Passwords are hashed, and a logout on a device you do not own ends every session.</li>', true],
+      ['<li>Passwords are hashed, and logging out of a device you do not own ends every session.</li>', true],
+      // ... and in main's timed reading of a sentence that names a new password (ANY_NEW_PASSWORD), as main refuses "Our
+      // new password policy is documented and idle sessions end after 30 minutes."
+      ['<li>Our new password policy is documented and every session you do not close ends within 30 minutes.</li>', true],
+      ['<li>Nobody doubts that changing your password ends every session.</li>', true],
+      ['<li>Passwords are hashed, and nobody doubts that logging out ends every session.</li>', true],
+      ['<li>No one doubts that logging out ends every session.</li>', true],
+      ['<li>No setup is needed, logging out of a device you do not own ends every session.</li>', true],
+      ['<li>Resetting any password you do not use ends every session.</li>', true],
+      ['<li>Resetting your password on a device you do not own ends every session.</li>', true],
+      ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', true],
+      // ... and a finite verb "and" carries on after "never", in its own right, as the consent family reads "and", and a
+      // verb with an auxiliary of its own (the routine lens on c5db4552).
+      ['<li>Logging out never clears cookies and revokes your session tokens.</li>', true],
+      ['<li>Logging out does not wait and will revoke your session tokens.</li>', true],
+      // ... while what governs a clause from outside still denies it: "until" bounds a wait, "after" in a subject is its
+      // preposition, "as long as" and "provided that" suppose their clause, a verb that asserts the clause after "that"
+      // governs it (ASSERTS), "or" and "nor" say neither clause, and a participle after "once" or a clause the reader
+      // opens without "that" is not read alone.
+      ['<li>Logging out does not wait until every session ends.</li>', false],
+      ['<li>No session after a logout ends within 30 minutes.</li>', false],
+      ['<li>Nothing is stored as long as logging out ends every session.</li>', false],
+      ['<li>Nothing guarantees that logging out ends every session.</li>', false],
+      ['<li>Nobody can promise you that logging out ends every session.</li>', false],
+      ['<li>Nothing is stored provided that logging out ends every session.</li>', false],
+      ['<li>Nothing changes once logged out of every device.</li>', false],
+      // A verb "and" carries on in the form of a negated verb an auxiliary or a modal governs shares its negation (Codex on
+      // #1683).
+      ['<li>Logging out does not clear cookies and revoke your session tokens.</li>', false],
+      ['<li>Changing your password cannot clear cookies and revoke your session tokens.</li>', false],
+      ['<li>Logging out does not clear, keep and revoke your session tokens.</li>', false],
+      ['<li>Neither logging out nor a password change ends every session.</li>', false],
+      ['<li>Logging out ends no session, nor does a password change end every session.</li>', false],
+      ['<li>No password reset or password change ends every session.</li>', false],
+      ['<li>Logging out does not mean every session ends.</li>', false],
+      // Its cost: a word outside ASSERTS that does not assert its clause either reads as one that does, as main reads it.
+      ['<li>No one is sure that logging out ends every session.</li>', true],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
-      // And a negation that only restricts where no reading sees the restriction: main's untimed reading reads a
-      // negation up to three words before "revokes" as a denial.
-      ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', 'gap'],
+      // And, since stage 4b, a noun the lexicon also lists as a verb, which ends its phrase and reads as the clause's verb
+      // ("reset"), and a negated participle on the subject, which reads as the clause's verb group.
+      ['<li>A password reset on a device you do not own ends every session.</li>', 'gap'],
+      ['<li>Sessions not opened here end within 30 minutes of logging out.</li>', 'gap'],
+      // E162 stage 4c: the reuse family's sweep is read in each clause alone too (reuseOfTheToken), so #1456's three
+      // shapes of the shared step deny no sweep (a negation before a word of time, in a relative clause on the subject,
+      // a denied subject before "that"), nor does a participle on the subject, the lexicon's or one it lacks
+      // ("presented", read as a participle: participleAt) ...
+      ['<li>Nobody doubts that reusing a refresh token signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token does not take long before it signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token issued to a device you do not own logs everyone out.</li>', true],
+      ['<li>Nothing remains once a refresh token presented a second time signs everyone out.</li>', true],
+      ['<li>No one denies that a refresh token presented a second time ends every session on the account.</li>', true],
+      // ... while a denial on the sweep's own clause still passes, as does a verb that asserts the clause after "that",
+      // and a participle the lexicon lacks keeps the denial after it its clause's own: the reader reads it as the
+      // phrase's head with "a second time does not by itself" as a relative clause on it, and stage 4b's session-end
+      // family, cutting that span, refused these sentences, in a phrase a preposition takes too. With a phrase of its
+      // own after it ("presented by a client you do not own"), the reader's reading of the phrase stands (Codex on
+      // 48581661).
+      ['<li>Reusing a refresh token does not sign everyone out.</li>', false],
+      ['<li>Nothing guarantees that reusing a refresh token signs everyone out.</li>', false],
+      ['<li>A refresh token presented a second time does not by itself sign you out of every device.</li>', false],
+      ['<li>A refresh token replayed a second time does not by itself sign everyone out.</li>', false],
+      ['<li>A refresh token replayed an hour later does not by itself sign everyone out.</li>', false],
+      ['<li>One reused a second time does not by itself sign you out of every device.</li>', false],
+      ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
+      ['<li>A refresh token presented a second time does not wait until it ends every session.</li>', false],
+      ['<li>A refresh token presented a second time does not on its own sign you out of every device.</li>', false],
+      ['<li>A refresh token presented a second time has not by itself ended every session.</li>', false],
+      ['<li>Nothing remains once a logout on a session replayed a second time ends every session.</li>', true],
+      ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
+      // A phrase of time with an agent's relative clause or its own: what it nests is cut, as a noun's relative clause
+      // is, and the clause's verb group is the first after it (the routine lens on c6060a93). The reader takes a word
+      // after the phrase into it ("a second time today").
+      ['<li>A refresh token presented a second time by a client you do not own signs everyone out.</li>', true],
+      ['<li>A refresh token replayed a second time that you did not send signs everyone out.</li>', true],
+      ['<li>Logging out of a session presented a second time by a client you do not own ends every session.</li>', true],
+      ['<li>A refresh token presented a second time today does not by itself sign you out of every device.</li>', false],
+      // A clause of time or cause after the phrase of time, opened by a word the reader takes for a preposition, holds
+      // the verb group after the phrase, whatever its subject and however deep in the phrase it opens, and its negation
+      // reaches the clause's own verb group after it, so the reading there stays main's (the routine lens on 95be62e7,
+      // a5c5a491 and a033404c, Codex on a5c5a491 and a033404c).
+      ['<li>Logging out of a session replayed a second time after it was not used ends every session.</li>', true],
+      ['<li>A refresh token presented a second time after you did not log out signs everyone out.</li>', true],
+      ['<li>Logging out of a session replayed a second time before you could not log in ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time as it is not yours ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time after the weekend was not over ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time after the launch did not succeed ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time on Monday after the launch did not succeed ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time for it was not used ends every session.</li>', true],
+      ['<li>A refresh token presented a second time like you did not log out signs everyone out.</li>', true],
+      // A phrase after such a word that holds no verb group is the phrase of time's own, so the denial after it passes.
+      ['<li>A refresh token presented a second time after a week does not by itself sign you out of every device.</li>', false],
+      // So it does after an -ing word (the routine lens on 3b4b8a69), and for a noun in -ed whose relative clause's
+      // subject is a phrase of time, a phrase after its verb or not ("for you", or "until noon", after "wait" too), a
+      // plural subject's bare verb too; with no negation there, the clause's own verb group after a clause of time
+      // stays its own ("ends when you log out"). A wait's clause opens with a pronoun: past a time or a clause with a
+      // verb of its own after "until", the verb group is the clause's (Codex on 120323a3).
+      ['<li>Logging out of a session replayed a second time knowing it is not valid ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time knowing it is not valid will end every session.</li>', true],
+      ['<li>Logouts of a session replayed a second time knowing they are not valid end every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of one feed the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not run for you ends every session.</li>', true],
+      ['<li>Logouts of a news feed the weekend does not run end every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not hold until noon ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time after the client did not wait until noon ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time after the client did not wait until it expired ends every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not wait until noon ends every session.</li>', true],
+      // A pronoun after "until" takes the verb after it, so no relative clause ends at it, and the wait's denial
+      // passes ("until it ends": main cuts "the weekend does not wait until it" from "feed" and refuses it).
+      ['<li>Logging out of a news feed the weekend does not wait until it ends every session.</li>', false],
+      ['<li>Every session presented a second time by a client you do not own ends when you log out.</li>', true],
+      // A verb group of any form past the verb the misread clause ends at, within the reach of the negation before it
+      // (NEGATION_REACH), is the clause's own, so the reading stays main's; past that reach the negation denies nothing
+      // either way, and the misread's own denial passes.
+      ['<li>Logging out of a news feed the weekend does not by itself cover ends every session.</li>', true],
+      ['<li>Logouts of a news feed the weekend does not by itself cover all end every session.</li>', true],
+      ['<li>Logouts of a news feed the weekend cannot by itself cover alone end every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not alone cover on Mondays ends every session.</li>', true],
+      // So is an end the lexicon lacks that the end readings read (OPENS_AN_END: Codex on 8846ebfa).
+      ['<li>Logging out of a news feed the weekend does not by itself cover terminates every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not by itself cover kills every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not by itself cover times out every session.</li>', true],
+      // The reach runs from a negation's last word, "longer" in "no longer" (Codex on bca1801a).
+      ['<li>Logging out of a session replayed a second time after the launch no longer needs any extra effort ends every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend no longer covers in any way ends every session.</li>', true],
+      // The reach counts words as the denial step does, each whole however the reader splits it (the routine lens on
+      // 8563d054).
+      ["<li>Logging out of a news feed the weekend does not cover our users' pages ends every session.</li>", true],
+      ["<li>Logging out of a news feed the weekend does not cover the '90s archive ends every session.</li>", true],
+      ['<li>Logging out of a news feed the weekend does not cover our admin--level pages ends every session.</li>', true],
+      ["<li>Logging out of a session replayed a second time does not affect our users' pages ends every session.</li>", true],
+      ['<li>A refresh token presented a second time does not by itself sign you out of every device it covers.</li>', false],
+      // Its cost: a verb the lexicon lists right after the misread's verb reads as such a group ("end access"), so
+      // that denial is refused, as on main.
+      ['<li>A refresh token presented a second time does not by itself end access everywhere.</li>', true],
+      // A noun's own relative clause keeps its reading: on a noun not in -ed or right after its determiner, or with a
+      // subject that is no phrase of time, though a time word may modify it or a plural unit head it (Codex and the
+      // routine lens on e03913eb, 78fcbd93 and 767a60d1).
+      ['<li>Changing the password on a feed you do not own ends every session.</li>', true],
+      ['<li>Logging out of a feed you do not share with anyone ends every session.</li>', true],
+      ['<li>Logging out of a feed the account does not own ends every session.</li>', true],
+      ['<li>Logging out of a device the night shift does not own ends every session.</li>', true],
+      ['<li>Logging out of a device a second user does not own ends every session.</li>', true],
+      ['<li>Logging out of an app the launch did not include ends every session.</li>', true],
+      ['<li>Logging out of a meeting the minutes do not record ends every session.</li>', true],
+      ['<li>Logging out of a story the Times did not run ends every session.</li>', true],
+      ['<li>Logging out of a feed the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of a hotel booking the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of a news feed the night shift does not monitor ends every session.</li>', true],
+      ['<li>Logging out of a news feed the launch did not include ends every session.</li>', true],
+      ['<li>Logging out of a news feed the minutes do not mention ends every session.</li>', true],
+      // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone, and so is a
+      // phrase after "after", "before" or "since" that the reader reads as a clause of time, wherever it stands
+      // ("Nothing guarantees that logging out after a week ends every session." fails on main too).
+      ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
+      ['<li>Nothing guarantees that reusing a refresh token after a week signs everyone out.</li>', true],
+      // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
+      // so the gerund's object and its relative clause are not read; and a verb the lexicon lacks opens no clause after
+      // "and" and reads as a noun in a relative clause, so the phrase runs on over it ("reusing", "reuses").
+      ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
+      ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
+      ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
+      // And a negation in a clause a subordinator opens before the clause's verb, which the reader runs on to that
+      // verb, denies that verb in either family, as on main (the routine lens on bca1801a).
+      ['<li>Reusing a refresh token because it is not valid signs everyone out.</li>', 'gap'],
+      ['<li>Nobody doubts that a refresh token presented a second time when it was not expected signs everyone out.</li>', 'gap'],
+      ['<li>Logging out when it is not needed ends every session.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
-      const found = blockTexts(container).flatMap((block) => e127PromisesIn('planted', block))
+      const texts = blockTexts(container)
+      const found = texts.flatMap((block) => e127PromisesIn('planted', block, texts))
       unmount()
       return found.length > 0
     })
@@ -2894,7 +4528,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(notify(doc, '9')).toEqual(['r.md §3 has no step 9']) // a cited step that is not there
   })
 
-  it('the audit-log item names only what an audit_logs row records (a self-check on planted items and modules)', () => {
+  it('the audit-log item names only what an audit_logs row records (a self-check on planted items and modules)', SCANS_EVERY_MODULE, () => {
     const { container, unmount } = render(<SecurityPage />)
     const item = [...container.querySelectorAll('li')].map((li) => (li.textContent ?? '').replace(/\s+/g, ' ').trim()).find((t) => /\baudit log\b/.test(t))
     unmount()
@@ -3211,7 +4845,7 @@ describe('the account events have a sentence of their own, true of the API (D-05
     expect(typed).toEqual([])
   })
 
-  it('each example it gives stands on events the API sends with the account id, whatever the reader chose (a self-check on planted modules)', () => {
+  it('each example it gives stands on events the API sends with the account id, whatever the reader chose (a self-check on planted modules)', SCANS_EVERY_MODULE, () => {
     const examples = examplesOf(ACCOUNT_EVENTS_DISCLOSURE)
     expect(exampleFaults(examples, eventsSent(backendModules()))).toEqual([])
     expect(examples, 'EVENTS_BY_EXAMPLE lists the examples the sentence gives, no more').toEqual(Object.keys(EVENTS_BY_EXAMPLE))

@@ -10,6 +10,7 @@ import { PrivateAnalytics } from './private-analytics'
 import { fetchSignupConfig } from '@/lib/serverApi'
 import { resolveAccessMode } from '@/features/marketing/lib/access'
 import { SOCIAL_CARD } from '@/lib/socialCard'
+import { PublicAccessProvider } from '@/features/marketing/components/PublicAccessProvider'
 
 // Pre-paint theme script — mirrors ThemeProvider (saved 'theme' else light) and sets the
 // .dark class before first paint, so the (theme-responsive) pages don't flash the wrong theme
@@ -74,7 +75,8 @@ export default async function RootLayout({
   // The header's account CTA follows the backend's registration gate (invite-only vs open), read
   // through an hourly ISR fetch so a config flip on the service flips the chrome everywhere with
   // no redeploy (this fetch is the ISR floor for every route); unreachable backend = the
-  // conservative invite copy.
+  // conservative invite policy. PublicAccessProvider separately checks current legal readiness;
+  // a cached registration policy alone must never advertise available intake.
   const accessMode = resolveAccessMode(await fetchSignupConfig())
   return (
     // suppressHydrationWarning: the THEME pre-paint script sets the .dark class on
@@ -89,17 +91,19 @@ export default async function RootLayout({
       </head>
       <body>
         <Providers>
-          <SiteHeader accessMode={accessMode} />
-          <VerificationBanner />
-          {/* Skip-link target (SiteChrome.SkipToContent). A div, not <main>: pages render their own
-              single <main> landmark. tabIndex=-1 makes it programmatically focusable only. */}
-          <div id="main" tabIndex={-1} className="outline-none">
-            {children}
-          </div>
-          <SiteFooter />
-          <EmailVerificationModal />
-          <CookieConsent />
-          <PrivateAnalytics />
+          <PublicAccessProvider>
+            <SiteHeader accessMode={accessMode} />
+            <VerificationBanner />
+            {/* Skip-link target (SiteChrome.SkipToContent). A div, not <main>: pages render their own
+                single <main> landmark. tabIndex=-1 makes it programmatically focusable only. */}
+            <div id="main" tabIndex={-1} className="outline-none">
+              {children}
+            </div>
+            <SiteFooter />
+            <EmailVerificationModal />
+            <CookieConsent />
+            <PrivateAnalytics />
+          </PublicAccessProvider>
         </Providers>
       </body>
     </html>

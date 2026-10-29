@@ -1,0 +1,106 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "7a51e111b67ff985d816fd12071b7a46d96b0e7226fa296e58487b4fb184f53a",
+ "y_sha256": "ae1ff30fef9f92278436b2327f8f553585f987bbf820a6877caa069a4e26ecf9",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "B grounds more of its causes in matching passages: FY2024 earnings drivers, and the net-margin gap explained by interest and tax. A attributes FY2025 interest growth to a FY2024 passage and builds FY2022 revenue drivers from a cash-flow passage. B labels its interpretations, though calling the low ratio routine rollover is unsupported. A's restatement disclosure and threshold-based watch items partly offset this."
+   },
+   "cost_usd": 0.131945,
+   "latency_s": 13.652,
+   "backend": "claude_cli",
+   "input_tokens": 14698,
+   "cached_input_tokens": 727,
+   "output_tokens": 1002,
+   "reasoning_tokens": 785,
+   "meta": {
+    "duration_api_ms": 9289,
+    "cache_creation_input_tokens": 13969,
+    "list_cost_usd": 0.076069
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"B grounds more of its causes in matching passages: FY2024 earnings drivers, and the net-margin gap explained by interest and tax. A attributes FY2025 interest growth to a FY2024 passage and builds FY2022 revenue drivers from a cash-flow passage. B labels its interpretations, though calling the low ratio routine rollover is unsupported. A's restatement disclosure and threshold-based watch items partly offset this.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts misapply segment or cash-flow passages to explain FY2022 revenue growth. A says the 11.2% tax rate absorbed the margin gap, though a low rate narrows it. A's analysis lines on routine debt rollover and dividend dependence cite no support. B applies FY2024 interest-expense causes to FY2025, a lesser lapse. B also discloses the FY2021 restatement and the dividend data gap, and gives sharper peer context on net versus operating margin."
+   },
+   "cost_usd": 0.140001,
+   "latency_s": 17.577,
+   "backend": "claude_cli",
+   "input_tokens": 14700,
+   "cached_input_tokens": 727,
+   "output_tokens": 1404,
+   "reasoning_tokens": 1164,
+   "meta": {
+    "duration_api_ms": 13631,
+    "cache_creation_input_tokens": 13971,
+    "list_cost_usd": 0.084117
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts misapply segment or cash-flow passages to explain FY2022 revenue growth. A says the 11.2% tax rate absorbed the margin gap, though a low rate narrows it. A's analysis lines on routine debt rollover and dividend dependence cite no support. B applies FY2024 interest-expense causes to FY2025, a lesser lapse. B also discloses the FY2021 restatement and the dividend data gap, and gives sharper peer context on net versus operating margin.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.271946
+}

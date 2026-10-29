@@ -15,6 +15,7 @@ import {
   type FeedbackType,
 } from '@/features/admin/api/admin-api'
 import FeedbackRow from '@/features/admin/components/FeedbackRow'
+import FeedbackDetails from '@/features/admin/components/FeedbackDetails'
 import TableScroll from '@/features/admin/components/TableScroll'
 
 const LIST_LIMIT = 200
@@ -22,6 +23,8 @@ const LIST_LIMIT = 200
 export default function AdminFeedbackPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | FeedbackStatus>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | FeedbackType>('all')
+  const [selectedFeedback, setSelectedFeedback] = useState<FeedbackRecord | null>(null)
+  const detailsOpenerRef = useRef<HTMLButtonElement | null>(null)
 
   const filters = { status: statusFilter, type: typeFilter }
 
@@ -35,6 +38,17 @@ export default function AdminFeedbackPage() {
   // Holds the error card, and its focused Retry, through the refetch a Retry starts.
   const feedbackFailure = useRetainedFailure(feedbackQuery, queryKeys.adminFeedback.list(filters))
   const feedbackHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  const viewDetails = (report: FeedbackRecord, opener: HTMLButtonElement) => {
+    detailsOpenerRef.current = opener
+    setSelectedFeedback(report)
+  }
+  const closeDetails = () => {
+    setSelectedFeedback(null)
+    // A status refetch can remove the opener while its report is being read. Modal returns
+    // focus to connected openers; give a vanished one this stable, named fallback instead.
+    if (!detailsOpenerRef.current?.isConnected) feedbackHeadingRef.current?.focus()
+  }
 
   const hasFilters = statusFilter !== 'all' || typeFilter !== 'all'
 
@@ -127,7 +141,7 @@ export default function AdminFeedbackPage() {
                       <th
                         key={col}
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                       >
                         {col}
                       </th>
@@ -136,17 +150,19 @@ export default function AdminFeedbackPage() {
                 </thead>
                 <tbody className="divide-y divide-border-light bg-panel-light dark:divide-white/10 dark:bg-panel-dark">
                   {(feedback ?? []).map((item: FeedbackRecord) => (
-                    <FeedbackRow key={item.id} feedback={item} />
+                    <FeedbackRow key={item.id} feedback={item} detailsOpen={selectedFeedback?.id === item.id} onViewDetails={viewDetails} />
                   ))}
                 </tbody>
               </table>
             </TableScroll>
           )}
 
-          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
+          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-tertiary-dark">
             Showing the most recent {LIST_LIMIT} feedback items.
           </p>
         </section>
+        {/* Keep the selected report readable even when a refetch replaces the list or its error UI. */}
+        {selectedFeedback ? <FeedbackDetails feedback={selectedFeedback} open onClose={closeDetails} /> : null}
       </main>
     </>
   )

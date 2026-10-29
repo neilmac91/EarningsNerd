@@ -27,11 +27,11 @@ describe('MissingValue', () => {
   })
 
   it('reads the words a site passes, and takes the ink a site gives it', () => {
-    const { container } = render(<MissingValue label="no cohort" className="text-text-tertiary-light dark:text-text-secondary-dark" />)
+    const { container } = render(<MissingValue label="no cohort" className="text-text-tertiary-light dark:text-text-tertiary-dark" />)
     const element = container.firstElementChild as HTMLElement
     expect(element).toHaveTextContent(/^—no cohort$/)
     expect(within(element).getByText('no cohort')).toHaveClass('sr-only')
-    expect(element).toHaveClass('text-text-tertiary-light', 'dark:text-text-secondary-dark')
+    expect(element).toHaveClass('text-text-tertiary-light', 'dark:text-text-tertiary-dark')
   })
 
   // An sr-only box is absolutely positioned; inside a truncating cell or a table's scroll box it escapes an

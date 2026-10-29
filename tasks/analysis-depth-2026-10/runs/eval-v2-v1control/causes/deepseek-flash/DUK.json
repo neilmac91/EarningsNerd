@@ -1,0 +1,80 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 5,
+ "output_sha256": "3aa4589b20a9fd800a0b32c016d6fed0f4770c8f1673528471b8496baed998f9",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2022 revenue step came from rate cases, favorable weather and volumes, partly offset by the Commercial Renewables impairment , with EU&I income lifted by retail volumes and weather .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    },
+    {
+     "id": "P33",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "EU&I\u2019s higher segment income is due to higher retail sales volumes and favorable weather, partially offset by higher depreciation and higher interest expense. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "partial",
+   "reason": "P26 gives these drivers for adjusted net income in cash flow discussion, not revenue; the impairment offsets income. EU&I drivers in P33 are supported."
+  },
+  {
+   "sentence": "FY2020 was the trough, with net income down 63.3%  on coal-ash settlement impairment charges and pandemic-driven volume losses .",
+   "passages": [
+    {
+     "id": "P60",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Electric Utilities and Infrastructure\u2019s variance is primarily due to impairment charges and revenue reductions related to the CCR settlement agreement filed with the NCUC to resolve coal ash cost recovery issues, unfavorable weather and lower volumes driven by impacts from the COVID-19 pandemic, partially offset by base rate adjustments in various jurisdictions. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "partial",
+   "reason": "P60 gives the CCR impairment and COVID volume drivers for the EU&I segment variance, not for consolidated net income."
+  },
+  {
+   "sentence": "Interest expense rose on higher outstanding debt balances and interest rates , and the effective tax rate was 11.2% .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Interest Expense. The increase was primarily due to higher outstanding debt balances and interest rates at Duke Energy Progress and Duke Energy Florida."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 attributes the interest expense increase to higher debt balances and interest rates; tax rate is a figure, not checked."
+  },
+  {
+   "sentence": "Fuel undercollections from rising commodity costs increased borrowings to finance expenditures until recovery , weighing on FY2022 operating cash flow of $5.9 billion .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "supported",
+   "reason": "P36 says rising commodity costs caused fuel undercollections, which hurt cash flows and increased borrowings until recovery."
+  },
+  {
+   "sentence": "Duke Energy funds capital needs mainly from operations, debt and equity issuance , and dividends paid $3.2 billion in FY2022 .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Duke Energy relies primarily upon cash flows from operations, debt and equity issuances and its existing cash and cash equivalents to fund its liquidity and capital requirements. Duke Energy\u2019s capital requirements arise primarily from capital and investment expenditures, repaying long-term debt and paying dividends to shareholders. Additionally, due to its existing tax attributes and projected tax credits to be generated relating to the IRA, Duke Energy does not expect to be a significant federal cash taxpayer until around 2030. In 2024, Duke Energy Carolinas and Duke Energy Progress began recording nuclear PTC deferred tax assets related to the IRA and began monetizing the PTCs in the transferability markets established by the IRA beginning in October 2024. Duke Energy Carolinas and Duke Energy Progress are working with the state utility commissions on the appropriate regulatory process to pass the net realizable value back to customers over time. See Note 24 to the Consolidated Financial Statements, \"Income Taxes,\" for more information."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 says Duke relies primarily on operating cash flows, debt and equity issuances for capital needs; the dividend amount is a figure."
+  }
+ ],
+ "cost_usd": 0.038048,
+ "backend": "claude_cli",
+ "input_tokens": 2987,
+ "cached_input_tokens": 0,
+ "output_tokens": 708
+}

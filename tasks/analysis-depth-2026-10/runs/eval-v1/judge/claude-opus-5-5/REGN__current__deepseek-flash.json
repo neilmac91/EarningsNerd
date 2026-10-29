@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values, with no drivers, peer context or thresholds. B explains the REGEN-COV spike, the Sanofi/Dupixent shift, EYLEA erosion and R&D-driven margin pressure, and discloses the revenue recast. It has two stretches: calling EYLEA erosion 'structural' (the cited passage does not say so) and tying FY2025 capex to FY2023 guidance. These cost B on grounding but do not offset its far greater depth."
+   },
+   "cost_usd": 0.102993,
+   "latency_s": 12.587,
+   "input_tokens": 11884,
+   "output_tokens": 680,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully supported but only restates table values, with no drivers, peer context or thresholds. B explains the REGEN-COV spike, the Sanofi/Dupixent shift, EYLEA erosion and R&D-driven margin pressure, and discloses the revenue recast. It has two stretches: calling EYLEA erosion 'structural' (the cited passage does not say so) and tying FY2025 capex to FY2023 guidance. These cost B on grounding but do not offset its far greater depth.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A explains what drove the numbers: REGEN-COV's rise and fall, the Sanofi/Dupixent profit share, EYLEA erosion, R&D costs, buybacks and peer context. It also flags the revenue recast. It slips twice: calling EYLEA erosion 'structural' goes beyond its source, and it applies FY2023 capex guidance to FY2025. Draft B is fully supported but only restates table values, with generic watch items."
+   },
+   "cost_usd": 0.108509,
+   "latency_s": 14.226,
+   "input_tokens": 11886,
+   "output_tokens": 955,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft A explains what drove the numbers: REGEN-COV's rise and fall, the Sanofi/Dupixent profit share, EYLEA erosion, R&D costs, buybacks and peer context. It also flags the revenue recast. It slips twice: calling EYLEA erosion 'structural' goes beyond its source, and it applies FY2023 capex guidance to FY2025. Draft B is fully supported but only restates table values, with generic watch items.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.211502
+}
