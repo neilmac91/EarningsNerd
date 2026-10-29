@@ -1444,8 +1444,12 @@ Activity line    <ActivityLine>  (components/ui) — a run in progress in words 
                  until the coverage answer settles, a failed read included), so they are heard. The Copilot's reading
                  card is created with "Reading the filing…" in it, so the card does not announce that line; the
                  rail's own sr-only status region, mounted before any question, says it, and the card is a status
-                 region for the plan card's sentence, which replaces the line in the same element. A caller whose
-                 words must be heard mounts its region first (review-checked). Gate:
+                 region for the plan card's sentence, which replaces the line in the same element. The trend analysis's
+                 words sit in no live region, so the analysis page's sr-only status region beside Run analysis, mounted
+                 before any run, says them, and when the run completes "Analysis ready." (or the card's sentence for a
+                 range without enough history); it empties before each run, so the same words are heard again, on an
+                 error, which an alert says, and when the results reset. A caller whose words must be heard mounts its
+                 region first (review-checked). Gate:
                  tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list outside
                  ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a template, an
                  array literal joined into one string or a class attribute's parts included, wherever the list is
@@ -2394,6 +2398,13 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
+- **A bone never runs past its container (E233):** a bone keeps its rem width, so under enlarged text a
+  wide one (`w-56` is 448px under 200% text) ran past a phone's screen and scrolled the page sideways
+  while it showed. `Skeleton` adds `max-w-full` unless the caller sets its own `max-w-*`, which then
+  decides alone: `cx` only joins classes, so with both on the element Tailwind's emission order would
+  pick. A fixed-width bone with its own max width keeps the container's cap too (`max-w-full`, or a
+  `min(100%, …)` value). Gates: `skeletonCap.spec.tsx`, and `loading-and-motion.spec.ts`, which holds
+  the settings page's session and connections reads at 320px under 200% text.
 - **Evidence identity:** a provenance chip that cites a filing passage uses the Phosphor `quotes` glyph
   (braces for an XBRL figure, and on the Ask answer's XBRL source rows); the Ask tab, the Ask callout, the
   standalone Ask launcher and header (and the landing's Ask demo, which draws that header), "Ask about this"
