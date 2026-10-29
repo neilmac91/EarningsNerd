@@ -92,26 +92,28 @@ It runs these passes, in this order; the sets are those of `ops/detection/proxy_
 
 1. **Set 4: filing rows the old cross-check replaced with a proxy's figure** (a filing owner and source
    `companyfacts`, whose value a proxy figure holds: a stored proxy-form row, current or not, or a proxy
-   item in the payload; relative 1e-6). Left alone when a stored report row holds the value, or when the
-   value is 1,000 or 1,000,000 times the recorded original (the authority scaling up a parse read in
-   units, the replacement the check exists for). Kept, and counted `filing_rows_kept`, when it already
-   holds today's authority's figure, the 10-K's. Otherwise restored (`filing_rows_restored`) to its
-   recorded `original_value` and passed through today's cross-check, as the backfill stores it now
-   (source `edgar_xbrl`, its check recorded against the 10-K's figure), when that original is within 1%
-   of the 10-K's figure; where the
-   payload gives no figure (a year only a proxy tags), restored to the original with the local gate's
-   verdict and no authoritative check, as the backfill stores it with no authority. Refused when no
-   original was recorded (a replacement before #1191), or when the original is more than 1% off the
-   10-K's figure.
-2. **Set 5: filing rows the old cross-check confirmed against a proxy's figure** (a filing row of
-   another source whose recorded check confirmed it against an `authoritative_value` a proxy figure
-   holds). Left alone when a stored report row holds that figure (the confirmation may have come from
-   it). Kept, and counted `filing_rows_kept` (`kept_confirmed_by_10k`), when that figure is today's
-   authority's, the 10-K's: the proxy quoted the 10-K exactly, as CRM's, META's, NVDA's and REGN's do,
-   so the row and its record are right. Otherwise its value and source stay, and its check is recorded
-   again against today's authority, or, where the payload gives no figure, replaced by the local gate's
-   verdict (`filing_rows_reconfirmed`). Refused when the 10-K's figure is more than 1% off the row's
-   value: FedEx's proxy, in dollars, confirmed a parse that read millions as units.
+   item in the payload; relative 1e-6). Left alone when a stored report row holds the value (listed in
+   `left_report_backed`, below), or when the value is 1,000 or 1,000,000 times the recorded original (the
+   authority scaling up a parse read in units, the replacement the check exists for). Kept, and counted
+   `filing_rows_kept`, when it already holds today's authority's figure, the 10-K's. Otherwise restored
+   (`filing_rows_restored`) to its recorded `original_value` and passed through today's cross-check, as
+   the backfill stores it now (source `edgar_xbrl`, its check recorded against the 10-K's figure), when
+   that original is within 1% of the 10-K's figure; where the payload gives no figure (a year only a
+   proxy tags), restored to the original with the local gate's verdict and no authoritative check, as the
+   backfill stores it with no authority. Refused when no original was recorded (a replacement before
+   #1191), or when the original is more than 1% off the 10-K's figure. A row left because a report row
+   holds its figure that is the current row at the 10-K winner's identity and fails the agreement test
+   (below) with that winner also refuses the company: left, the company's figure would stay the proxy's
+   where the 10-K contradicts it.
+2. **Set 5: filing rows the old cross-check confirmed against a proxy's figure** (a filing row of another
+   source whose recorded check confirmed it against an `authoritative_value` a proxy figure holds). Left
+   alone when a stored report row holds that figure (the confirmation may have come from it), listed and
+   refused as in set 4. Kept, and counted `filing_rows_kept` (`kept_confirmed_by_10k`), when that figure
+   is today's authority's, the 10-K's: the proxy quoted the 10-K exactly, as CRM's, META's, NVDA's and
+   REGN's do, so the row and its record are right. Otherwise its value and source stay, and its check is
+   recorded again against today's authority, or, where the payload gives no figure, replaced by the local
+   gate's verdict (`filing_rows_reconfirmed`). Refused when the 10-K's figure is more than 1% off the
+   row's value: FedEx's proxy, in dollars, confirmed a parse that read millions as units.
 3. **Re-annotation.** Once both passes have run, each filing's calculations over a row they rewrote are
    recomputed once per filing scope by the per-filing writer's calculator (`facts/lineage.py`), so each
    operand's record in them is the operand's own record now (`filing_calculations_reannotated`, one per
@@ -160,6 +162,7 @@ positive evidence, with every reason in one error: `Proxy repair refused for thi
 | `a stored report row (fact N) has no fresh winner to agree with` | no fresh winner, but a stored report gives a figure |
 | `the winner's row (fact N) was rolled back; a reviewed reapplication is required` | as for any rolled-back identity (below) |
 | `the filing row holding the 10-K's identity (fact N) disagrees with the 10-K on: …` | the agreement test, naming each failing clause: `value`, `start`, `fiscal year` |
+| `a report row holds the proxy figure behind this filing row, which is current at the 10-K's identity and disagrees with the 10-K on: …` | sets 4 and 5: a row left because a report row holds its figure, current at the winner's identity, fails the agreement test |
 | `a row outside the repair's scope is built on a proxy figure` | set 3: a filing's calculation or a reported row |
 
 A postcondition then holds on the plan, before any write, and again on the apply's rows after its
@@ -210,43 +213,61 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
   `reconfirmed` (its new figure, the 10-K's, is also a proxy row's, as where a later proxy quotes the
   10-K exactly), or `report_backed` (a report row held its figure before the apply, and another
   correction of the same run changed that row). `unclassified` would be a defect of the step: report it.
+- `left_report_backed`: each row sets 4 and 5 leave because another stored report row holds its figure,
+  in the shape of a `rows` entry (action `left_report_backed`) with its `set`, the `figure` (set 4: its
+  value; set 5: the figure its check confirmed it against), today's 10-K figure (`authority`) and
+  `backed_by`, each backing row's fact id, accession, form, `is_latest`, `filing_id` and source. It is for
+  reading only: the step writes and journals nothing for these rows, and no counter, `detection_listed` or
+  residual counts them. Read each against its filing: a backing row at another accession (a demoted
+  winner, or a history row, below) may hold another report's figure, not this filing's.
 
 The CLI's report adds `proxy_totals`, each counter and each `other_*` entry summed over the companies
-that succeeded. Read each company's block this way: `inserted + promoted + corrected +
-retired_without_winner` equals `retired` (one proxy row per key, as the writers leave it);
-`retired_without_winner`, `dependents_retired` and `filing_calculations_held` are expected to be zero,
-and any other value is read row by row. A held calculation keeps its stored record, whose operand
-record still carries the old check against the proxy's figure, and nothing rewrites it later: a sync
-or backfill skips a stored identity, the lineage backfill records only a calculation with no record,
-and the step's later runs leave its operand as the apply wrote it, so only this preview and its apply
-name it. Give each company with a held calculation one `tasks/todo.md` line, as a refused company
-gets, naming its held calculations by fact id, and decide each from its filing by a reviewed repair
-(one line per company keeps the file within its 120 lines). Every `winner_form` is `10-K` (a 10-K/A
-that carries the pay-versus-performance table is a report, and admitted); `gap` measures each retired
-figure against its winner, the first measure for rows with no stored report behind them. Read
-`made_unavailable` row by row in `changes`: each such figure leaves the public pages. Read the other
-corrections against a baseline: a plain preview of the same tickers on the commit before the step,
-saved before it merged. A company only set 5 names is first known after the merge (set 5 is new with
-the step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
+that succeeded, and `left_report_backed`, how many rows their blocks list there. Read each company's
+block this way: `inserted + promoted + corrected + retired_without_winner` equals `retired` (one proxy
+row per key, as the writers leave it); `retired_without_winner`, `dependents_retired` and
+`filing_calculations_held` are expected to be zero, and any other value is read row by row. A held
+calculation keeps its stored record, whose operand record still carries the old check against the proxy's
+figure, and nothing rewrites it later: a sync or backfill skips a stored identity, the lineage backfill
+records only a calculation with no record, and the step's later runs leave its operand as the apply wrote
+it, so only this preview and its apply name it. Give each company with a held calculation one
+`tasks/todo.md` line, as a refused company gets, naming its held calculations by fact id, and decide each
+from its filing by a reviewed repair (one line per company keeps the file within its 120 lines). Every
+`winner_form` is `10-K` (a 10-K/A that carries the pay-versus-performance table is a report, and
+admitted); `gap` measures each retired figure against its winner, the first measure for rows with no
+stored report behind them. Read `made_unavailable` row by row in `changes`: each such figure leaves the
+public pages. Read the other corrections against a baseline: a plain preview of the same tickers on the
+commit before the step, saved before it merged. A company only set 5 names is first known after the merge
+(set 5 is new with the step), so it has no baseline: read its `other_*` corrections row by row in
+`changes` instead.
 
 **A company synced since #1682.** A sync since #1682 was deployed (2026-10-28 23:13Z) also stores, for
 each year a later report restated, the year's own report's figure as a non-current history row at that
 report's accession (`facts/own_reports.py`). The history writer reads no proxy's item and stores a row
 only where no row holds the identity, so a history row is never a proxy's figure and never takes a filing
-row's identity, and the step never writes one: its inserts and promotions, its journal, the detection
-listing and the rollback are those the same sync would leave without history rows. A fresh winner lands on
-a history row's identity only where the later reports' items for its year are gone from the payload; the
-step then promotes that row in place, as it promotes a demoted winner, and journals it, so the rollback
-restores it. A history row is a report row, though, as a demoted winner is, so it changes the plan in one way. Where it holds the figure
-the old cross-check took from a proxy (a proxy that quotes a year as first reported, which a later report
-then restated), sets 4 and 5 leave the filing row that holds that figure or was confirmed against it, and
-the detection file leaves it unlisted too: a re-recorded check stays as it was, and a replaced figure
-stays, or, on the row that holds the 10-K winner's identity, disagrees with the winner and refuses the
-company. Neither `rows` nor `detection_listed` names a row left this way. So read a company synced since
-the deploy against its own fresh dry run: beside a preview from before its sync, its
-`filing_rows_restored` and `filing_rows_reconfirmed` can be lower, and a refusal can appear. The other
-corrections never select a history row (the calendar correction reads current rows, the computed-metric
-correction calculations). Tests: `backend/tests/unit/test_quarterly_proxy_repair.py`, section "A sync
+row's identity. Beside history rows elsewhere in a company the step plans, writes, journals, lists and
+rolls back as without them, but they change its plan in three ways:
+
+- **A history row is a report row**, as a demoted winner is. Where it holds the figure the old
+  cross-check took from a proxy (a proxy that quotes a year as first reported, which a later report then
+  restated), sets 4 and 5 leave the filing row that holds that figure or was confirmed against it, and
+  the detection file leaves it unlisted too: a re-recorded check stays as it was, and a replaced figure
+  stays. `left_report_backed` lists each such row with the history row behind it. A history row holding
+  another figure backs nothing.
+- **The refusal at the winner's identity.** Where such a row is the year's current row at the 10-K
+  winner's identity and disagrees with the winner, the company is refused, whether or not a proxy row is
+  current at the key.
+- **Adoption.** A fresh winner lands on a history row's identity only where the later reports' items for
+  its year are gone from the payload. The step then promotes that row in place, as it promotes a demoted
+  winner, and journals it, so the rollback restores it: the preview's `inserted` for that key becomes
+  `promoted`.
+
+So read a company synced since the deploy against its own fresh dry run. Beside a preview from before its
+sync, `filing_rows_restored` and `filing_rows_reconfirmed` can be lower, with the rows they leave in
+`left_report_backed`; an `inserted` count can move to `promoted`; and a refusal can appear. The other
+corrections otherwise read current rows (the calendar correction) and calculations (the computed-metric
+correction), but the calendar correction admits its replacement winner as the step does, by its identity
+among every stored row, so where the same withdrawn items put that winner on a history row it corrects and
+promotes that row, journaled. Tests: `backend/tests/unit/test_quarterly_proxy_repair.py`, section "A sync
 since #1682".
 
 **The journal.** The apply journals the step's rows with the rest of the run, under
