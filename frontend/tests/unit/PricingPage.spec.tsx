@@ -7,7 +7,7 @@ import PricingSection from '@/features/marketing/components/PricingSection'
 import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
-import { PRO_FAIR_USE_LINE } from '@/lib/planLimits'
+import { ANALYSIS_LINES, proFairUseLine } from '@/lib/planLimits'
 
 const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
 const mockGetUsage = vi.fn<[], Promise<Usage>>()
@@ -528,13 +528,20 @@ describe('PricingPage', () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/waitlist'))
   })
 
-  // E58 (D-046): the plan cards keep "Unlimited", and the FAQ says what bounds it, in the one sentence lib/planLimits.ts
-  // builds from the mirrored cap (summaryPlanClaims.spec.ts holds it to that one source).
-  it('the FAQ states the Pro fair-use ceiling in its one sentence', async () => {
+  // E58 (D-046, D-050): the plan cards keep "Unlimited", and the FAQ says what bounds it, in the one sentence
+  // lib/planLimits.ts builds from the mirrored caps (summaryPlanClaims.spec.ts holds it to that one source): both
+  // ceilings while the analysis flag ships Multi-Period Analysis, the summary ceiling alone while not.
+  it.each([
+    ['off', false],
+    ['on', true],
+  ])('the FAQ states the Pro fair-use ceilings in its one sentence, with the analysis flag %s', async (_state, analysis) => {
+    flags.ENABLE_ANALYSIS = analysis
     mockGetCurrentUserSafe.mockResolvedValue(null)
     renderPricing()
-    const answer = await screen.findByText(PRO_FAIR_USE_LINE)
-    expect(answer.previousElementSibling).toHaveTextContent('Are Pro summaries unlimited?')
+    const sentence = analysis ? ANALYSIS_LINES.fairUse.text : ANALYSIS_LINES.fairUse.off
+    expect(proFairUseLine()).toBe(sentence)
+    const answer = await screen.findByText(sentence)
+    expect(answer.previousElementSibling).toHaveTextContent('What does “Unlimited” mean on Pro?')
   })
 
   it('a confirmed guest keeps registration routing on both cards', async () => {

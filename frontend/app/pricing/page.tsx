@@ -16,7 +16,7 @@ import { Button, Card, Notice, Switch, UsageMeter, cx, primaryUnavailableClass, 
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, PRO_FAIR_USE_LINE, TRIAL_DAYS, shipped } from '@/lib/planLimits'
+import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, TRIAL_DAYS, proFairUseLine, shipped } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
@@ -592,13 +592,14 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
                 You&apos;ll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
               </p>
             </div>
-            {/* The Pro fair-use guardrail, stated once app-wide (lib/planLimits.ts PRO_FAIR_USE_LINE, E58): the plan
-                cards keep "Unlimited", and this answer says what bounds it. */}
+            {/* Pro's fair-use guardrails, stated once app-wide (lib/planLimits.ts proFairUseLine(), E58, D-050):
+                the plan cards keep "Unlimited", and this answer says what bounds it, so the question asks what the
+                cards' word means, in both states of the analysis flag (chief design on #1790). */}
             <div>
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
-                Are Pro summaries unlimited?
+                What does “Unlimited” mean on Pro?
               </h3>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark">{PRO_FAIR_USE_LINE}</p>
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">{proFairUseLine()}</p>
             </div>
             {ENABLE_PRO_TRIAL && (
               <div>

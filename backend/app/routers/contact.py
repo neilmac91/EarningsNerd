@@ -12,7 +12,9 @@ from app.services import filing_list_service, legal_readiness_service
 from app.services.contact_submission_service import (
     ContactPersistenceError,
     persist_contact_submission,
+    sender_plan,
 )
+from app.services.entitlements import Plan
 from app.services.resend_service import ResendError, send_email
 from app.services.turnstile import enforce_turnstile
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit, get_client_ip as _trusted_client_ip
@@ -82,12 +84,12 @@ async def submit_contact_form(
     # Hash the client IP for the persisted row (privacy) — never store the raw address.
     hashed_ip = hash_ip_address(get_client_ip(request))
 
-    def persist() -> ContactSubmissionResponse:
-        # One unit in the thread pool: the insert and the response it echoes, released before the two
-        # mails go out, so neither send holds a pooled connection
+    def persist() -> tuple[ContactSubmissionResponse, tuple[str, str]]:
+        # One unit in the thread pool: the insert, the response it echoes and the sender's plan for the
+        # team's notice, released before the two mails go out, so neither send holds a pooled connection
         # (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
-            return ContactSubmissionResponse.model_validate(persist_contact_submission(
+            saved = ContactSubmissionResponse.model_validate(persist_contact_submission(
                 db,
                 name=submission.name,
                 email=submission.email,
@@ -96,11 +98,12 @@ async def submit_contact_form(
                 ip_address=hashed_ip,
                 logger=logger,
             ))
+            return saved, _plan_notes(db, submission.email)
         finally:
             filing_list_service.release_request_session(db)
 
     try:
-        saved = await run_in_threadpool(persist)
+        saved, (plan_tag, plan_line) = await run_in_threadpool(persist)
     except legal_readiness_service.CollectionUnavailable:
         raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE) from None
     except ContactPersistenceError as failure:
@@ -113,7 +116,7 @@ async def submit_contact_form(
 
     # Send email notifications (async, don't block on failure)
     try:
-        await send_contact_notifications(submission, saved.id)
+        await send_contact_notifications(submission, saved.id, plan_line, plan_tag)
     except Exception as e:
         # Log but don't fail the request - submission is already saved
         logger.exception(f"Failed to send contact notification emails: {str(e)}")
@@ -121,9 +124,27 @@ async def submit_contact_form(
     return saved
 
 
+def _plan_notes(db: Session, email: str) -> tuple[str, str]:
+    """The team notice's plan for the address the form was given (D-050's priority support, kept by hand): a
+    tag for its subject, so the inbox list shows a member's plan without opening the mail ("" unless an
+    account's plan was read), and a line for its body, which carries the caveat. Best-effort: the submission
+    is saved by now, so a failed read says so rather than failing it."""
+    try:
+        plan = sender_plan(db, email)
+    except Exception:  # noqa: BLE001 - the row is committed; the notice still goes out
+        logger.exception("Could not read the plan of the account that uses a contact form's address")
+        return "", "Not read (the lookup failed)"
+    if plan is None:
+        return "", "No account uses this address"
+    name = "Pro" if plan is Plan.PRO else "Free"
+    return f" ({name})", f"{name} (an account uses this address; the form does not verify it)"
+
+
 async def send_contact_notifications(
     submission: ContactSubmissionCreate,
     submission_id: int,
+    plan_line: str,
+    plan_tag: str,
 ):
     """Send email notifications for contact form submission"""
     # Escape all user-provided data to prevent HTML injection
@@ -133,7 +154,8 @@ async def send_contact_notifications(
     safe_message = html.escape(submission.message)
 
     # Email to admin
-    admin_subject = f"New Contact Form Submission from {safe_name}"
+    # The plan tag stands before the name the sender typed, so no name can fake it ("Bob (Pro)").
+    admin_subject = f"New Contact Form Submission{plan_tag} from {safe_name}"
     admin_html = f"""
     <html>
       <head>
@@ -165,6 +187,10 @@ async def send_contact_notifications(
             <div class="field">
               <div class="label">Email:</div>
               <div class="value"><a href="mailto:{safe_email}">{safe_email}</a></div>
+            </div>
+            <div class="field">
+              <div class="label">Plan:</div>
+              <div class="value">{html.escape(plan_line)}</div>
             </div>
             {f'<div class="field"><div class="label">Subject:</div><div class="value">{safe_subject}</div></div>' if safe_subject else ''}
             <div class="field">

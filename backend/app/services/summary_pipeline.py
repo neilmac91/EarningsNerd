@@ -335,8 +335,8 @@ def _get_generation_semaphore() -> asyncio.Semaphore:
     global _generation_semaphore, _generation_semaphore_loop
     loop = asyncio.get_running_loop()  # only called from async context
     if _generation_semaphore is None or _generation_semaphore_loop is not loop:
-        # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0. Using a large
-        # count rather than skipping acquire keeps the acquire/release bookkeeping uniform.
+        # <= 0 disables the ceiling (unbounded). Using a large count rather than skipping acquire
+        # keeps the acquire/release bookkeeping uniform.
         limit = settings.MAX_CONCURRENT_GENERATIONS
         _generation_semaphore = asyncio.Semaphore(limit if limit > 0 else 2**31)
         _generation_semaphore_loop = loop

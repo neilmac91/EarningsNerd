@@ -1,17 +1,22 @@
 """Pro summary fair-use ceiling (PRO_SUMMARY_MONTHLY_CAP).
 
 Pro is billing-unlimited (entitlements keep ``monthly_summary_limit=None`` — see
-``test_entitlements``), but ``check_usage_limit`` still applies an INVISIBLE anti-abuse ceiling so a
-single compromised/scripted account can't drive unbounded LLM spend. These tests pin that ceiling
-without touching a DB by stubbing the usage counter and the settings value.
+``test_entitlements``), but ``check_usage_limit`` still applies Pro's fair-use ceiling, the
+constant ``entitlements.PRO_SUMMARY_MONTHLY_CAP`` the pricing page states (D-050), so a single
+compromised/scripted account can't drive unbounded LLM spend. These tests pin that ceiling without
+touching a DB by stubbing the usage counter and the ceiling the usage service reads.
 """
 from types import SimpleNamespace
 
 import pytest
 
-from app.config import settings
 from app.services import subscription_service
+from app.services.entitlements import PRO_SUMMARY_MONTHLY_CAP
 from app.services.subscription_service import check_usage_limit
+
+# A ceiling other than the constant's own, so a check that typed the number in place of reading
+# PRO_SUMMARY_MONTHLY_CAP fails here.
+CEILING = 7
 
 
 def _pro_user():
@@ -31,45 +36,36 @@ def stub_usage(monkeypatch):
     return _set
 
 
-@pytest.mark.parametrize("count", [0, 5, 299])
+def test_pro_runs_up_to_the_plan_constant_the_pricing_page_states(stub_usage):
+    stub_usage(PRO_SUMMARY_MONTHLY_CAP - 1)
+    assert check_usage_limit(_pro_user(), db=None) == (True, PRO_SUMMARY_MONTHLY_CAP - 1, None)
+    stub_usage(PRO_SUMMARY_MONTHLY_CAP)
+    assert check_usage_limit(_pro_user(), db=None) == (False, PRO_SUMMARY_MONTHLY_CAP, PRO_SUMMARY_MONTHLY_CAP)
+
+
+@pytest.mark.parametrize("count", [0, 3, CEILING - 1])
 def test_pro_under_cap_is_allowed_and_reports_unlimited(monkeypatch, stub_usage, count):
-    monkeypatch.setattr(settings, "PRO_SUMMARY_MONTHLY_CAP", 300)
+    monkeypatch.setattr(subscription_service, "PRO_SUMMARY_MONTHLY_CAP", CEILING)
     stub_usage(count)
     can, current, limit = check_usage_limit(_pro_user(), db=None)
     assert can is True
-    # Under the ceiling Pro still reports as unlimited (None) so no UI advertises the invisible cap.
+    # Under the ceiling Pro still reports as unlimited (None): the plan is unlimited, the ceiling a fair-use bound.
     assert limit is None
 
 
-@pytest.mark.parametrize("count", [300, 301, 999])
+@pytest.mark.parametrize("count", [CEILING, CEILING + 1, 999])
 def test_pro_at_or_over_cap_is_blocked_with_cap_as_limit(monkeypatch, stub_usage, count):
-    monkeypatch.setattr(settings, "PRO_SUMMARY_MONTHLY_CAP", 300)
+    monkeypatch.setattr(subscription_service, "PRO_SUMMARY_MONTHLY_CAP", CEILING)
     stub_usage(count)
     can, current, limit = check_usage_limit(_pro_user(), db=None)
     assert can is False
     assert current == count
-    assert limit == 300  # the caller renders a generic message, never an upsell
-
-
-def test_pro_cap_zero_disables_the_ceiling(monkeypatch, stub_usage):
-    # 0 means "no ceiling" — truly unlimited, and it must not even hit the usage counter.
-    monkeypatch.setattr(settings, "PRO_SUMMARY_MONTHLY_CAP", 0)
-    called = {"n": 0}
-
-    def _boom(uid, month, db):
-        called["n"] += 1
-        return 10_000
-
-    monkeypatch.setattr(subscription_service, "get_user_usage_count", _boom)
-    can, current, limit = check_usage_limit(_pro_user(), db=None)
-    assert can is True
-    assert limit is None
-    assert called["n"] == 0  # short-circuited before counting
+    assert limit == CEILING  # the caller answers with the fair-use pause, never an upsell
 
 
 def test_free_cap_is_unchanged(monkeypatch, stub_usage):
     # Regression guard: the Free path still enforces the 5/mo billing cap exactly as before.
-    monkeypatch.setattr(settings, "PRO_SUMMARY_MONTHLY_CAP", 300)
+    monkeypatch.setattr(subscription_service, "PRO_SUMMARY_MONTHLY_CAP", CEILING)
     stub_usage(5)
     can, current, limit = check_usage_limit(_free_user(), db=None)
     assert can is False
