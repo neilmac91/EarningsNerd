@@ -59,7 +59,7 @@ from openpyxl.utils import get_column_letter
 
 from app.services.analysis_export_metadata import (
     AUTOMATED_CHECKS, DERIVED_Q4_LEGEND, FCF_DEFINITION, PDF_CLOSING, QUARTER_LEGEND, SUMMARY_PLACES, WORKBOOK_CLOSING,
-    _comparison_label, calculated_sentence, detail_entries, fine_print_summary, summary_places,
+    _comparison_label, calculated_sentence, derived_q4_sentence, detail_entries, fine_print_summary, summary_places,
 )
 from app.services.excel_export_service import build_analysis_workbook
 from app.services.export_service import ANALYSIS_GRID_PRECISION, ANALYSIS_GRID_ROUNDING, ExportService
@@ -589,13 +589,21 @@ def test_every_line_of_the_fine_print_holds_the_reason_words_surface_rules():
     assert len(lines) == 8 and "Data notes for narrative sources" in lines, lines
     assert any(line.endswith(DERIVED_Q4_LEGEND) for line in lines), lines
     assert {line: found for line in lines if (found := _held(line, " shown as —"))} == {}
-    overview = [str(row[0]) for row in load_workbook(io.BytesIO(build_analysis_workbook(deepcopy(
-        {**case["dataset"], "data_notes": case["expected"]}))))["Overview"].iter_rows(values_only=True) if row[0]]
-    printed = overview[overview.index(FCF_DEFINITION) + 1:overview.index(WORKBOOK_CLOSING) + 1]
-    entries = [line for line in printed if re.match(r"(?:[a-z]{1,2}\. )?[A-Z][^·]*\. .*\d+ (?:growth )?figures?", line)]
-    read = [line for line in printed if line not in entries]
+
+    def overview_lines(dataset: dict) -> tuple[list[str], list[str]]:
+        overview = [str(row[0]) for row in load_workbook(io.BytesIO(build_analysis_workbook(deepcopy(dataset))))[
+            "Overview"].iter_rows(values_only=True) if row[0]]
+        printed = overview[overview.index(FCF_DEFINITION) + 1:overview.index(WORKBOOK_CLOSING) + 1]
+        entries = [line for line in printed if re.match(r"(?:[a-z]{1,2}\. )?[A-Z][^·]*\. .*\d+ (?:growth )?figures?", line)]
+        return [line for line in printed if line not in entries], entries
+
+    read, entries = overview_lines({**case["dataset"], "data_notes": case["expected"]})
     assert len(read) == 5 and calculated_sentence(case["dataset"]) in read and len(entries) == 5, (read, entries)
-    assert {line: found for line in read if (found := _held(line, " left blank"))} == {}
+    # A quarterly run that computes a Q4 adds the line naming its columns (derived_q4_sentence).
+    quarterly = _quarterly_q4(True).dataset_json
+    quarterly_read, _ = overview_lines(quarterly)
+    assert derived_q4_sentence(quarterly) in quarterly_read, quarterly_read
+    assert {line: found for line in read + quarterly_read if (found := _held(line, " left blank"))} == {}
     # Planted: the page's own closing line and sentence ending, and the line this replaced, fail here.
     assert _held("Select any figure to see its source filing, method and inputs.", "")
     assert _held("Select any value for its source and full precision.", "")
@@ -621,17 +629,38 @@ def test_a_quarterly_workbook_names_the_fourth_quarters_the_pdf_marks():
     tail = " are calculated from annual totals less the first nine months."
 
     def said(dataset: dict) -> list[str]:
-        overview = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Overview"]
-        return [line for (line, *_rest) in overview.iter_rows(values_only=True) if str(line).endswith(tail)]
+        """The Overview's Q4 line, held beside the calculated sentence (or the FCF line when the run has none)."""
+        overview = [str(line) for (line, *_rest) in load_workbook(io.BytesIO(build_analysis_workbook(dataset)))[
+            "Overview"].iter_rows(values_only=True) if line]
+        lines = [line for line in overview if line.endswith(tail)]
+        for line in lines:
+            assert overview[overview.index(line) - 1] == (calculated_sentence(dataset) or FCF_DEFINITION), overview
+        return lines
 
     assert said(_quarterly_q4(True).dataset_json) == [f"Some flow figures in Q4 2024{tail}"]
     assert said(_quarterly_q4(False).dataset_json) == []
     # The page's own run: the workbook names the Q4 columns the PDF marks with its †, as one list.
     run = _layout_run("legacy", "quarterly", 20)
+    assert calculated_sentence(run.dataset_json), "this run holds the line's other neighbour"
     marked = re.findall(r'<th class="num">(Q4 \d{4}) †</th>', ExportService().generate_analysis_pdf_html(run, COMPANY))
     assert len(marked) > 1, marked
     assert said(run.dataset_json) == [f"Some flow figures in {', '.join(marked[:-1])} and {marked[-1]}{tail}"]
     assert said(_layout_run("legacy", "annual", 20).dataset_json) == []
+
+    # MetricsTable.tsx's derivedQuarter guards, which mark neither file: a Q4 its filing reports, a Q4 with no value,
+    # and a calculated figure in another quarter.
+    def changed(change) -> SimpleNamespace:
+        run = _quarterly_q4(True)
+        change(run.dataset_json["series"][0]["points"])
+        run.dataset_json["data_notes"] = data_notes(run.dataset_json)
+        return run
+
+    for run in (changed(lambda points: points[1].update(provenance={"method": "reported", "validation": "passed",
+                                                                     "reasons": []})),
+                changed(lambda points: points[1].update(value=None)),
+                changed(lambda points: (points[1].update(derived=False), points[0].update(derived=True)))):
+        assert said(run.dataset_json) == []
+        assert "†" not in ExportService().generate_analysis_pdf_html(run, COMPANY)
 
 
 # ---- The PDF's layout ---------------------------------------------------------------------------------------------

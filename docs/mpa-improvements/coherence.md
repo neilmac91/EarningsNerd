@@ -1108,7 +1108,10 @@ The PDF's key-on-another-page miss becomes fine print under the table, on the sa
   `0.0" pp a"`, and `@" a"` for "n/m"), so the cell stays a number; a chart's value axis carries the figures' own
   format, unlinked, since LibreOffice set a linked axis's letter on every tick. Every note stays a comment,
   naming its letter only where it marks. The Overview prints the fine print ("N not in our data, left blank"),
-  and the Metrics grid has under it, after a blank row and merged across its columns, the key to the letters it
+  and a quarterly run's Overview names, beside the calculated sentence, the Q4 columns the PDF marks with its †
+  ("Some flow figures in Q4 2023, Q4 2024 and Q4 2025 are calculated from annual totals less the first nine
+  months."; both files read one test, `derived_quarters`), since a current snapshot's comment on such a figure
+  reads "Calculated figure.". The Metrics grid has under it, after a blank row and merged across its columns, the key to the letters it
   prints, so the printed grid keeps the size it prints at with no key: a note marked only on a YoY or QoQ figure,
   which the grid does not show, stays out of the key. A period column widens to hold its longest figure, a letter
   included, where 14 characters printed "60,801,000,000 a" as "###".
