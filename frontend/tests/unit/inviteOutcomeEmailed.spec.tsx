@@ -105,7 +105,7 @@ describe("the share panel's warning for a link-only invite (E196 (2))", () => {
   it('is the warning Notice, its inset capped in the dialog body as a frame there must be (E229)', async () => {
     render(<ResendShareModal link="https://earningsnerd.io/invite/fresh" email={null} emailed={false} onClose={() => {}} />)
     const dialog = screen.getByRole('dialog')
-    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Show share options' }))
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Share invite', expanded: false }))
     const notice = within(dialog).getByText('Not bound to an email').closest('[role="status"]') as HTMLElement
     expect(notice).toHaveTextContent('Not bound to an emailAnyone with this link can redeem it. Share only with the intended person.')
     expect(notice.classList).toContain('border-warning-light/25')
