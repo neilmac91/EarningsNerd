@@ -5,7 +5,9 @@
    secondary ink (a run that reports how far it has got shows a bar instead, as
    the summary's generating card does). Activity is never a Notice, of any
    variant (DESIGN_SYSTEM.md §4 › Inline notice): the Copilot rail's "Reading
-   the filing…" and the analysis page's history fetch are this line.
+   the filing…", the analysis page's history fetch, the trend analysis's
+   "Assembling the numbers…" and "Writing…", and /delete-account's "Checking
+   whether you are logged in…" are this line.
 
    The dot sits in a box as tall as the line's own text-sm line (h-5 and the
    line height are both 1.25rem, so the two grow together under enlarged text)
