@@ -33,20 +33,21 @@ export const TRIAL_DAYS = 7
 export const FREE_COPILOT_QUESTIONS = 3
 
 /**
- * Pro's two monthly fair-use ceilings, mirrored from backend/app/services/entitlements.py's plan constants of the same
- * names (D-050). The lockstep spec holds both, and fails if backend/app/config.py declares a setting of either name, so
- * no deploy can move a ceiling the page states. Pro's summaries and Multi-Period Analysis are unlimited as a plan, and
- * these bound the generations one account runs in a calendar month (UTC), regenerations included, so the copy counts
- * generations, never new summaries or analyses. Every summary run the usage gate admits takes a unit when its provider
- * request is issued, a Pro regeneration among them; a provider failure, the pipeline's timeout or a partial verdict
- * under the quality gate gives the unit back, and a run the reader leaves after the request is issued keeps it; a
- * stored summary served or a run joined in flight never takes one. An analysis run takes a unit when its fresh
- * narrative completes, a reader's forced refresh among them; a cached re-serve, and a regeneration the system starts
- * after new facts or a prompt change, never take one (tests/unit/summaryPlanClaims.spec.ts holds the copy to both).
- * Both are stated once, in proFairUseLine() below, which the /pricing FAQ and the filing page's monthly-limit card
- * place (E58, D-046), while the plan cards, the dashboard strip, BillingPanel, the upgrade dialog and the signup gate
- * keep "Unlimited" (D-040). The filing page's card at the summary ceiling (features/summaries/lib/streamErrorCopy.ts)
- * names the same unit.
+ * Pro's summary and analysis fair-use ceilings, mirrored from backend/app/services/entitlements.py's plan constants of
+ * the same names (D-050; the Copilot's ceiling is a setting its usage response states). The lockstep spec holds both,
+ * and fails if backend/app/config.py binds either name to a setting (a field in any case, or an alias), so no deploy
+ * can move a ceiling the page states. Pro's summaries and Multi-Period Analysis are unlimited as a plan, and these
+ * bound the generations one account runs in a calendar month (UTC), regenerations included, so the copy counts
+ * generations, never new summaries or analyses. Every summary run the usage gate admits takes a unit when its
+ * provider request is issued, a Pro regeneration among them; a provider failure, the pipeline's timeout or a partial
+ * verdict under the quality gate gives the unit back, and a run the reader leaves after the request is issued keeps
+ * it; a stored summary served or a run joined in flight never takes one. An analysis run takes a unit when its fresh
+ * narrative completes, a reader's forced refresh among them; a cached re-serve never takes one, nor does a
+ * regeneration the system starts after new facts or a prompt change once its result is stored
+ * (tests/unit/summaryPlanClaims.spec.ts holds the copy to both). Both are stated once, in proFairUseLine() below,
+ * which the /pricing FAQ and the filing page's monthly-limit card place (E58, D-046), while the plan cards, the
+ * dashboard strip, BillingPanel, the upgrade dialog and the signup gate keep "Unlimited" (D-040). The filing page's
+ * card at the summary ceiling (features/summaries/lib/streamErrorCopy.ts) names the same unit.
  */
 export const PRO_SUMMARY_MONTHLY_CAP = 300
 export const ANALYSIS_MONTHLY_CAP = 1000
@@ -115,9 +116,9 @@ export const ANALYSIS_LINES = {
 } as const satisfies Record<string, PlanLine>
 
 /**
- * Pro's fair-use sentence (E58, D-050), the one place copy states Pro's monthly ceilings: both while the analysis flag
- * ships the feature, the summary ceiling alone while not. The /pricing FAQ and the filing page's monthly-limit card
- * place it (tests/unit/summaryPlanClaims.spec.ts).
+ * Pro's fair-use sentence (E58, D-050), the one place copy states Pro's summary and analysis ceilings before a reader
+ * reaches one: both while the analysis flag ships the feature, the summary ceiling alone while not. The /pricing FAQ
+ * and the filing page's monthly-limit card place it (tests/unit/summaryPlanClaims.spec.ts).
  */
 export function proFairUseLine(): string {
   return shipped([ANALYSIS_LINES.fairUse])[0]

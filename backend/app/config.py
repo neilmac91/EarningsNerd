@@ -542,7 +542,7 @@ class Settings(BaseSettings):
     # distinct filings would thrash the core and inflate everyone's latency toward the pipeline
     # timeout. This semaphore queues excess generations instead. Process-local (same scope as the
     # in-flight dedup + L1 caches); the dedup already collapses concurrent hits on the SAME filing.
-    # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0.
+    # <= 0 disables the ceiling (unbounded).
     MAX_CONCURRENT_GENERATIONS: int = 6
 
     # AI Recovery Settings

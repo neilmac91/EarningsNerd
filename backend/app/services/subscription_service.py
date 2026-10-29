@@ -224,7 +224,7 @@ def convert_reservation(token: Optional[str], db: Session) -> Optional[str]:
     Not committed: the caller increments that month's counter in the same transaction, so a
     generation admitted just before a UTC month rollover is charged to the month whose quota
     admitted it, never to the new month (whose admissions do not see the old lease). ``None``
-    when nothing was reserved (unlimited Pro) or the lease already expired and was swept.
+    when nothing was reserved or the lease already expired and was swept.
     """
     if not token:
         return None

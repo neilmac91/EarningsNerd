@@ -37,15 +37,16 @@ FREE_TIER_SUMMARY_LIMIT = 5
 FREE_EARNINGS_ALERT_LIMIT = 3
 PRO_EARNINGS_ALERT_LIMIT = 100
 
-# Pro's two monthly fair-use ceilings (D-050). Pro's summaries and Multi-Period Analysis are
-# unlimited as a plan (``monthly_summary_limit`` stays None, so the plan API states no summary
-# limit), and these bound the generations one account runs in a calendar month (UTC),
-# regenerations included: a summary run takes a unit once its provider request is issued, and an
-# analysis run takes one when its fresh narrative completes, a reader's forced refresh among them
-# (a cached re-serve, and a regeneration the system starts after new facts or a prompt change,
-# take none). The pricing page states both, through ``frontend/lib/planLimits.ts``'s mirror, which
-# ``tests/unit/planLimitsLockstep.spec.ts`` holds to these values, so they are constants here and
-# never settings a deploy could move.
+# Pro's summary and analysis fair-use ceilings (D-050; the Copilot's is a setting its usage
+# response states). Pro's summaries and Multi-Period Analysis are unlimited as a plan
+# (``monthly_summary_limit`` stays None, so the plan API states no summary limit), and these bound
+# the generations one account runs in a calendar month (UTC), regenerations included: a summary run
+# takes a unit once its provider request is issued, and an analysis run takes one when its fresh
+# narrative completes, a reader's forced refresh among them (a cached re-serve takes none, nor does
+# a regeneration the system starts after new facts or a prompt change once its result is stored).
+# The pricing page states them (the analysis one while the frontend's analysis flag is on), through
+# ``frontend/lib/planLimits.ts``'s mirror, which ``tests/unit/planLimitsLockstep.spec.ts`` holds to
+# these values, so they are constants here and never settings a deploy could move.
 PRO_SUMMARY_MONTHLY_CAP = 300
 ANALYSIS_MONTHLY_CAP = 1000
 

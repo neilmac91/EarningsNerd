@@ -201,16 +201,19 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
 
-**Pro's fair-use ceilings (not Settings fields).** `PRO_SUMMARY_MONTHLY_CAP` (300 summary generations a
-month) and `ANALYSIS_MONTHLY_CAP` (1,000 analysis generations a month) are constants in
-`backend/app/services/entitlements.py` (D-050), so an environment value of either name changes nothing. Each
+**Pro's summary and analysis ceilings (not Settings fields).** `PRO_SUMMARY_MONTHLY_CAP` (300 summary
+generations a month) and `ANALYSIS_MONTHLY_CAP` (1,000 analysis generations a month) are constants in
+`backend/app/services/entitlements.py` (D-050). A process environment variable of either name changes nothing;
+a `backend/.env` line with either name makes Settings fail at import (it forbids unknown keys), so delete it.
+Pro's Copilot ceiling stays the setting `COPILOT_MONTHLY_QUESTION_CAP`, which the usage response states. Each
 bounds one Pro account's generations in a calendar month (UTC), regenerations included, while billing stays
 unlimited. A summary run takes a unit when its provider request is issued and gives it back if it fails or
 comes back partial under `AI_QUALITY_GATE`; reading a stored summary takes none. An analysis run takes a unit
-when its fresh narrative completes, a reader's forced refresh among them; a cached re-serve, and a regeneration
-the system starts after new facts or a prompt change, take none. The /pricing FAQ and the filing page's limit
-card state both through `frontend/lib/planLimits.ts`. `planLimitsLockstep.spec.ts` holds that mirror to the
-constants, and fails if `config.py` declares a setting of either name again.
+when its fresh narrative completes, a reader's forced refresh among them; a cached re-serve takes none, nor does
+a regeneration the system starts after new facts or a prompt change once its result is stored. The /pricing FAQ
+and the filing page's limit card state them through `frontend/lib/planLimits.ts` (the analysis one while
+`NEXT_PUBLIC_ENABLE_ANALYSIS` is on). `planLimitsLockstep.spec.ts` holds that mirror to the constants, and fails
+if `config.py` binds either name to a setting again (a field of that name in any case, or an alias).
 
 **Library-read SEC budget (not a Settings field).** edgartools paces its own EDGAR HTTP (submissions,
 filing objects, XBRL) with a second process-global limiter, a sliding window read once at import:
@@ -273,6 +276,8 @@ TURNSTILE_SECRET_KEY=...          # Cloudflare Turnstile bot defense (no-op/dark
 INTERNAL_JOB_TOKEN=...            # Shared secret for /internal/jobs/* (endpoints 503 when unset)
 
 # Multi-Period Analysis (Pro flagship)
+# Removed 2026-10-29 (delete from any local .env — Settings forbids unknown keys and fails at import):
+# ANALYSIS_MONTHLY_CAP and PRO_SUMMARY_MONTHLY_CAP, now entitlements.py constants (D-050, above).
 ANALYSIS_MAX_TOKENS=3200
 ANALYSIS_MAX_ANNUAL_PERIODS=10
 ANALYSIS_MAX_QUARTERLY_PERIODS=12
