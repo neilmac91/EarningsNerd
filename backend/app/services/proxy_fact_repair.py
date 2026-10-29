@@ -10,8 +10,8 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
    ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row
    that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
    10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
-   left so, a current row at the 10-K winner's identity that disagrees with the winner refuses the company
-   (sets 4 and 5 alike).
+   left so, a row that is the company's current figure and disagrees with the fresh 10-K winner at its key
+   refuses the company (sets 4 and 5 alike).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -436,11 +436,11 @@ class _Planner:
                 if other_id != row_id and _is_report_row(self.before[other_id])
                 and _same(self.before[other_id]["value"], value)]
 
-    def _winner_at(self, state: State) -> State | None:
-        """The fresh winner whose identity ``state`` holds, or None."""
-        identity = qfr._identity(state)
-        return next((target for target in map(qfr._candidate_state, self.fresh.get(_key(state), ()))
-                     if qfr._identity(target) == identity), None)
+    def _contradicted(self, state: State) -> list[str]:
+        """The agreement test's failing clauses between ``state`` and the fresh 10-K winner at its key, whatever
+        that winner's identity, or none where the payload has no winner there or one agrees."""
+        clauses = [_disagreements(state, qfr._candidate_state(fact)) for fact in self.fresh.get(_key(state), ())]
+        return clauses[0] if clauses and all(clauses) else []
 
     def _authority(self, state: State) -> float | None:
         """Today's authority (``extract_authoritative_values``, which skips a proxy's item)."""
@@ -461,10 +461,11 @@ class _Planner:
 
     def _left(self, row_id: int, state: State, value: Any, number: int) -> bool:
         """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does.
-        A row left report-backed is listed in ``left_report_backed``. One that is current at the 10-K winner's
-        identity and fails the agreement test with it refuses the company: it is the company's current figure,
-        and the 10-K contradicts it (a report row elsewhere, a year's own report as first reported, may hold the
-        proxy's figure while the 10-K restated it)."""
+        A row left report-backed is listed in ``left_report_backed`` (its ``figure`` a decimal string, as rows
+        carry values). One that is the company's current figure at its key and fails the agreement test with the
+        fresh 10-K winner there, at any identity, refuses the company: left, the company's figure would stay the
+        proxy's where the 10-K contradicts it (a report row elsewhere, a year's own report as first reported, may
+        hold the proxy's figure while the 10-K restated it)."""
         if not self._witnessed(state, value):
             self.verdicts[row_id] = "no_proxy_figure"
             return True
@@ -473,16 +474,16 @@ class _Planner:
             return False
         self.verdicts[row_id] = "report_backed"
         authority = self._authority(state)
-        self.left.append(self._row(row_id, "left_report_backed", state, None, set=number, figure=value,
+        figure = value if isinstance(value, str) else qfr._json_value(Decimal(str(value)))
+        self.left.append(self._row(row_id, "left_report_backed", state, None, set=number, figure=figure,
                                    authority=authority, backed_by=[{
                                        "fact_id": other_id, **{name: self.before[other_id][name] for name in (
                                            "accession", "form", "is_latest", "filing_id", "source")}}
                                        for other_id in backers]))
-        winner = self._winner_at(state)
-        failed = _disagreements(state, winner) if state["is_latest"] and winner is not None else []
+        failed = self._contradicted(state) if state["is_latest"] else []
         if failed:
-            self.refuse(row_id, "a report row holds the proxy figure behind this filing row, which is current at the "
-                                f"10-K's identity and disagrees with the 10-K on: {', '.join(failed)}")
+            self.refuse(row_id, "a report row holds the proxy figure behind the filing row, which is the company's "
+                                f"current figure and disagrees with the 10-K on: {', '.join(failed)}")
         return True
 
     def _rewrote(self, row_id: int, state: State, verdict: str) -> None:
