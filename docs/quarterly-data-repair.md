@@ -94,18 +94,20 @@ It runs these passes, in this order; the sets are those of `ops/detection/proxy_
    `companyfacts`, whose value a proxy figure holds: a stored proxy-form row, current or not, or a proxy
    item in the payload; relative 1e-6). Left alone first when the value is 1,000 or 1,000,000 times the
    recorded original (the authority scaling up a parse read in units, the replacement the check exists
-   for), whether or not a report row holds it, unless today's 10-K figure agrees with the original within
-   1%: then the proxy was tagged at the wrong scale over a right parse (FedEx's error mirrored), and the
-   row takes the ordinary path below, where it is restored. Detection's set 4 keeps its scale-up
-   exclusion, since it cannot read the payload's 10-K figure; it never listed such a row, and after the
-   restore there is nothing to list, so the step restores a mirrored scale error detection cannot see.
-   Then left alone when a stored report row holds the value (listed in `left_report_backed`, below).
-   Kept, and counted `filing_rows_kept`, when it already holds today's authority's figure, the 10-K's.
-   Otherwise restored (`filing_rows_restored`) to its recorded `original_value` and passed through
-   today's cross-check, as the backfill stores it now (source `edgar_xbrl`, its check recorded against
-   the 10-K's figure), when that original is within 1% of the 10-K's figure; where the payload gives no
-   figure (a year only a proxy tags), restored to the original with the local gate's verdict and no
-   authoritative check, as the backfill stores it with no authority. Refused when no original was
+   for), whether or not a report row holds it, unless today's 10-K figure sits on the original's scale,
+   not the value's (nearer the original, by magnitude on a log scale): then the proxy was tagged at the
+   wrong scale over a right parse (FedEx's error mirrored), and the row takes the ordinary path below,
+   restored where the original is within 1% of the 10-K's figure and refused beyond (the 10-K having
+   restated the year), or left and listed, or refused when current, where a report row holds its value.
+   Detection's set 4 keeps its scale-up exclusion, since it cannot read the payload's 10-K figure, and
+   lists nothing for such a row before or after, so the step settles a mirrored scale error detection
+   cannot see. Then left alone when a stored report row holds the value (listed in `left_report_backed`,
+   below). Kept, and counted `filing_rows_kept`, when it already holds today's authority's figure, the
+   10-K's. Otherwise restored (`filing_rows_restored`) to its recorded `original_value` and passed
+   through today's cross-check, as the backfill stores it now (source `edgar_xbrl`, its check recorded
+   against the 10-K's figure), when that original is within 1% of the 10-K's figure; where the payload
+   gives no figure (a year only a proxy tags), restored to the original with the local gate's verdict and
+   no authoritative check, as the backfill stores it with no authority. Refused when no original was
    recorded (a replacement before #1191), or when the original is more than 1% off the 10-K's figure. A
    row left because a report row holds its figure refuses the company where it is the company's current
    figure at its key (`is_latest`) and its value is more than 1% off today's 10-K figure, the authority
@@ -170,7 +172,7 @@ positive evidence, with every reason in one error: `Proxy repair refused for thi
 | `a stored report row (fact N) has no fresh winner to agree with` | no fresh winner, but a stored report gives a figure |
 | `the winner's row (fact N) was rolled back; a reviewed reapplication is required` | as for any rolled-back identity (below) |
 | `the filing row holding the 10-K's identity (fact N) disagrees with the 10-K on: …` | the agreement test, naming each failing clause: `value`, `start`, `fiscal year` |
-| `a report row holds the proxy figure behind the filing row, which is the company's current figure, <value>, more than 1% off the 10-K's, <10-K figure>` | sets 4 and 5: a row left because a report row holds its figure is the company's current figure at its key (`is_latest`), and its value (set 5: the row's own, not the figure its check was confirmed against) is more than 1% off today's 10-K figure. Only a sync that finds the later 10-K's Filing stored clears it, and any sync can close that exit (below, "A company synced since #1682") |
+| `a report row holds the proxy figure behind the filing row, which is the company's current figure, <value>, more than 1% off the 10-K's, <10-K figure>` | sets 4 and 5: a row left because a report row holds its figure is the company's current figure at its key (`is_latest`), and its value (set 5: the row's own, not the figure its check was confirmed against) is more than 1% off today's 10-K figure. Once the later 10-K's Filing is stored, a sync or that 10-K's own per-filing write clears it; a sync before that Filing closes both exits (below, "A company synced since #1682") |
 | `a row outside the repair's scope is built on a proxy figure` | set 3: a filing's calculation or a reported row |
 
 A postcondition then holds on the plan, before any write, and again on the apply's rows after its
@@ -285,7 +287,10 @@ rolls back as without them, but they change its plan in these ways:
 - **A refusal can stay while its reason changes.** A current row its set's own check refuses before the
   sync (set 5: its value more than 1% off the 10-K's figure; set 4: no recorded original, or one the 10-K
   contradicts) is refused after it by the current-figure refusal where its value is more than 1% off the
-  10-K's figure (S5R: set 5's reason becomes the current-figure reason).
+  10-K's figure, once a history row holds its proxy figure and the row is still the company's current
+  figure after the sync (S5R: set 5's reason becomes the current-figure reason). Where no history row
+  holds the figure, its own check still refuses it, with the same reason; where the row has become
+  non-current, it is left and listed (the bullet above).
 - **Adoption.** A fresh winner lands on a history row's identity only where the later reports' items for
   its year are gone from the payload. The step then promotes that row in place, as it promotes a demoted
   winner, and journals it, so the rollback restores it: the preview's `inserted` for that key becomes
@@ -294,17 +299,19 @@ rolls back as without them, but they change its plan in these ways:
 So read a company synced since the deploy against its own fresh dry run. Beside a preview from before its
 sync, `filing_rows_restored` and `filing_rows_reconfirmed` can be lower, with the rows they leave in
 `left_report_backed`; an `inserted` count can move to `promoted`; and a refusal can appear, disappear or
-change its reason. A sync clears a current-figure refusal only if the later 10-K's Filing is stored
-first: the later 10-K's row then lands current (the upsert keeps the row of the later local Filing), and
-the left row stops being the company's current figure. Once a sync has stored that row behind the filing
-row, because the later 10-K had no local Filing, further syncs and that 10-K's own per-filing write skip
-its identity, and the refusal stays. Any sync closes that exit, not only an operator's: the coverage
-route syncs a company again once the 24-hour TTL lapses or as soon as a newer Filing is stored
-(`facts/ingest.py`, `COMPANYFACTS_SYNC_TTL_HOURS`), and the batch sync runs on its own schedule. So for a
-company in this shape the exit has usually closed before any preview, unless the app stored the later
-Filing first. The one exit is a later 10-K that also reports the year (the third year of a three-year
-income statement), with its Filing stored before the sync that reads it; a balance-sheet line, and a
-filer that presents two years, have none, and a company refused so waits on a reviewed repair. Read every
+change its reason. The current-figure refusal clears once the later 10-K's row lands current over the
+filing row, which then stops being the company's current figure. That needs the later 10-K's Filing
+stored first (the upsert keeps the row of the later local Filing); then either a sync or that 10-K's own
+per-filing write (`process_filing_facts`, from the post-summary hook and `backfill-facts`) clears the
+refusal. Once a sync has stored the later 10-K's row behind the filing row, because that 10-K had no
+local Filing yet, further syncs and its own per-filing write skip that identity, and the refusal stays.
+Any sync can close the exit this way, not only an operator's: the coverage route syncs a company again
+once the 24-hour TTL lapses (`COMPANYFACTS_SYNC_TTL_HOURS`) or once a newer Filing is stored
+(`facts/ingest.py`). A re-sync for the later 10-K's own Filing is the exit, not a closer; one before it,
+for the TTL or another Filing, closes it. So for a company in this shape the exit has usually closed
+before any preview, unless the app stored the later Filing first. The one exit is a later 10-K that also
+reports the year (the third year of a three-year income statement); a balance-sheet line, and a filer
+that presents two years, have none, and a company refused so waits on a reviewed repair. Read every
 listed row against its filing, as above: none is the company's current figure where today's 10-K figure
 contradicts it by more than 1%, but a non-current one may still be the figure a filing's own chart shows.
 The other corrections otherwise read current rows (the calendar correction) and calculations (the

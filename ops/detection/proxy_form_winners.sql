@@ -188,9 +188,10 @@ LIMIT 200;
 \echo '   #1191 (2026-10-10) it also records provenance.checks.authoritative, with outcome replaced and the'
 \echo '   parsed original_value. why = proxy row: a stored proxy-form row of the company, concept and period'
 \echo '   end, current or not, holds the same value (relative 1e-6; its accession is proxy_witness), and the'
-\echo '   value is not 1,000 or 1,000,000 times the original, which is the authority multiplying up a figure'
-\echo '   in millions read as units, the parse bug the check exists for. why = scale: no such row, and the'
-\echo '   value is 1/1,000 or 1/1,000,000 of the original (within 1%, same sign), the FDX shape.'
+\echo '   value is not 1,000 or 1,000,000 times the original, which is most often the authority multiplying up'
+\echo '   a figure in millions read as units, the parse bug the check exists for (see Limits for the mirror).'
+\echo '   why = scale: no such row, and the value is 1/1,000 or 1/1,000,000 of the original (within 1%, same'
+\echo '   sign), the FDX shape.'
 \echo '   original_backed: a stored report row holds the original, so the replacement overwrote a figure a'
 \echo '   report gives. Left out: a row whose value a stored report row holds. report row here: a row of a'
 \echo '   report form, other than this one, that the cross-check did not replace. Limits: alone, a witness'
@@ -204,7 +205,12 @@ LIMIT 200;
 \echo '   the scale-up guard cannot apply. Scale also lists a parse that was itself 1,000 or 1,000,000 times'
 \echo '   too large: no proxy figure is behind it, and the repair leaves it (verdict no_proxy_figure). The'
 \echo '   repair also keeps a row that already holds the 10-K''s figure (kept_agrees_with_authority); it stays'
-\echo '   listed while no other stored report row holds that figure.'
+\echo '   listed while no other stored report row holds that figure. The scale-up exclusion also hides a proxy'
+\echo '   tagged 1,000 or 1,000,000 times a right parse (FedEx''s error mirrored), which this file cannot tell'
+\echo '   apart without the payload''s 10-K figure. The repair reads that figure: where it sits on the'
+\echo '   original''s scale, the row takes set 4''s ordinary path (restored where the original is within 1% of'
+\echo '   the 10-K''s figure, refused beyond; left and listed, or refused when current, where a report row'
+\echo '   holds its value), and this file lists nothing for it before or after.'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
