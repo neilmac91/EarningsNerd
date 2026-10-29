@@ -1,6 +1,7 @@
 import { fmtCount, formatLocalDate } from '@/lib/format'
 import type { AnalysisDataset, AnalysisPoint, AnalysisSeries, FirstReported, GrowthValue } from '@/features/analysis/api/analysis-api'
 import { compactFigure, exactFigure } from '@/features/analysis/lib/figureDisplay'
+import { formatGrowth } from '@/features/analysis/lib/growth'
 import type { FactInput, FactProvenance } from '@/features/analysis/lib/provenance'
 
 /**
@@ -132,9 +133,14 @@ export function decodeLaterFilings<T extends Pick<AnalysisDataset, 'series'>>(da
 export const basisChanged = (point: Pick<AnalysisPoint, LaterFilingBasis | `${LaterFilingBasis}_first_reported`> | null | undefined, basis: LaterFilingBasis): boolean =>
   point?.[basis] === 'nm' && point[`${basis}_first_reported`] !== undefined
 
-/** The growth as first reported where `basis` changed (a number, "nm", or null where the own reports give none). */
-export const growthAsFirstReported = (point: Pick<AnalysisPoint, `${LaterFilingBasis}_first_reported`>, basis: LaterFilingBasis): GrowthValue | null =>
-  point[`${basis}_first_reported`] ?? null
+/** What the evidence dialog's comparison says of a basis n/m (D12): nothing (undefined) unless `basis` changed, else
+ *  the growth as first reported in the comparison's own form ("+14.3%", "+16.0pp", "n/m"), or null where the own
+ *  reports give none. */
+export function comparisonLaterFiling(point: Pick<AnalysisPoint, LaterFilingBasis | `${LaterFilingBasis}_first_reported`>, basis: LaterFilingBasis, isPercent: boolean): { asFirstReported: string | null } | undefined {
+  if (!basisChanged(point, basis)) return undefined
+  const first: GrowthValue | null | undefined = point[`${basis}_first_reported`]
+  return { asFirstReported: formatGrowth(first, isPercent).text || null }
+}
 
 type Figure = { concept?: string; unit?: string | null }
 

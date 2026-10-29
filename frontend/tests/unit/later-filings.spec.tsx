@@ -16,7 +16,11 @@ import api from '@/lib/api/client'
 import { getAnalysisDataset, type AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { decodeLaterFilings, LaterFilingsRejection } from '@/features/analysis/lib/laterFilings'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
+import KpiStrip from '@/features/analysis/components/KpiStrip'
 import MetricsTable from '@/features/analysis/components/MetricsTable'
+import { buildToplineModel } from '@/features/analysis/lib/charts/model'
+import { chartReadouts } from '@/features/analysis/lib/charts/readout'
+import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 
 type Ref = { concept: string; label: string; period: string; basis?: string }
 interface LaterFilingsCase {
@@ -198,5 +202,76 @@ describe('the evidence dialog gives both filings (D11)', () => {
     expect(netIncome).not.toHaveTextContent('First reported')
     expect(within(netIncome).getByRole('link', { name: /^Open original SEC filing for net income/ })).toBeInTheDocument()
     expect(dialog.querySelector('[data-note-letter]')).toBeNull()
+  })
+})
+
+/** The comparison section of an open evidence dialog. */
+const comparisonOf = (dialog: HTMLElement) => within(dialog).getByRole('heading', { name: /comparison$/ }).closest('section')!
+const CAUSE = 'Not meaningful: a later filing reports a different value for one or both of the two years.'
+
+describe('a basis n/m says its cause (D12)', () => {
+  it('in the dialog: the cause, then the growth as first reported, a sign change’s n/m keeping no such sentence', async () => {
+    const dataset = planted(REGN)
+    const fy2018 = comparisonOf(await dialogFor(dataset, /^Revenue, FY2018: /))
+    expect(fy2018).toHaveTextContent(`YoY comparisonn/mnot meaningful${CAUSE}As first reported: +14.3%`)
+    // The calculation passed and says so; the cause stands above it.
+    expect(fy2018).toHaveTextContent('Automated checks passed')
+    cleanup()
+    // FY2020's own value is the one shown, but its prior year's is not: the growth still crosses the change.
+    expect(comparisonOf(await dialogFor(dataset, /^Revenue, FY2020: /))).toHaveTextContent(`${CAUSE}As first reported: +8.1%`)
+    cleanup()
+    // A margin's change is in percentage points, as first reported too.
+    expect(comparisonOf(await dialogFor(dataset, /^Net margin, FY2018: /))).toHaveTextContent(`${CAUSE}As first reported: +16.0pp`)
+    cleanup()
+    // An n/m with no growth as first reported is a sign change's: no cause sentence of this kind.
+    delete pointOf(dataset, 'revenue', 'FY2018').yoy_first_reported
+    const signChange = comparisonOf(await dialogFor(dataset, /^Revenue, FY2018: /))
+    expect(signChange).toHaveTextContent('n/m')
+    expect(signChange).not.toHaveTextContent(/later filing|As first reported/)
+  })
+
+  it('in the dialog: own reports that give no growth leave the cause alone; values of opposite signs give n/m, read in words', async () => {
+    const dataset = planted(REGN)
+    pointOf(dataset, 'revenue', 'FY2018').yoy_first_reported = null
+    const none = comparisonOf(await dialogFor(dataset, /^Revenue, FY2018: /))
+    expect(none).toHaveTextContent(CAUSE)
+    expect(none).not.toHaveTextContent('As first reported')
+    cleanup()
+    const flip = comparisonOf(await dialogFor(planted(SIGN_AND_SCALE), /^Financing cash flow, FY2020: /))
+    expect(flip).toHaveTextContent(`${CAUSE}As first reported: n/mnot meaningful`)
+    expect(within(flip).getAllByText('not meaningful').every((words) => words.classList.contains('sr-only'))).toBe(true)
+  })
+
+  it('keeps the table legend and a quarterly card names quarters', async () => {
+    const dataset = planted(REGN)
+    const { container } = render(<DataNotesProvider dataset={dataset}><KpiStrip dataset={dataset} /><MetricsTable dataset={dataset} /></DataNotesProvider>)
+    expect(container).toHaveTextContent('n/m means not meaningful.')
+    // An annual card's change is the window's growth, which carries no evidence yet (D5).
+    await userEvent.click(within(container.querySelector('[data-analysis-kpi]') as HTMLElement).getByRole('button'))
+    expect(screen.getByRole('dialog')).not.toHaveTextContent(/one or both/)
+    cleanup()
+    const quarterly: AnalysisDataset = {
+      ...planted('no_evidence'), mode: 'quarterly', period_key: '2025Q4',
+      periods: [{ key: '2025Q4', fiscal_year: 2025, fiscal_period: 'Q4', period_end: '2025-12-31' }],
+      series: [{ concept: 'revenue', label: 'Revenue', unit: 'USD', percent: false, cagr: null, points: [
+        { period: '2025Q4', value: 4_000_000_000, unit: 'USD', yoy: 'nm', yoy_first_reported: 0.05 },
+      ] }],
+    }
+    render(<DataNotesProvider dataset={quarterly}><KpiStrip dataset={quarterly} /></DataNotesProvider>)
+    await userEvent.click(screen.getByRole('button', { name: /^Revenue, Q4 2025: / }))
+    expect(comparisonOf(screen.getByRole('dialog'))).toHaveTextContent('Not meaningful: a later filing reports a different value for one or both of the two quarters.As first reported: +5.0%')
+  })
+
+  it('in the chart: a footnote line of its own for those periods, never the sign change’s, no letter, the tooltip as it was', () => {
+    const dataset = planted(REGN)
+    const notes = resolveDataNotes(dataset)
+    const model = buildToplineModel(dataset, notes)
+    const growth = model.panels[1].marks[0].points
+    expect(growth.filter((point) => point.nm).map((point) => point.period)).toEqual(['FY2018', 'FY2019', 'FY2020'])
+    expect(model.footnotes).toContainEqual({ mark: 'n/m', text: 'Not meaningful: a later filing reports a different value for one or both years (FY2018–FY2020).' })
+    expect(model.footnotes.map((footnote) => footnote.text).join(' ')).not.toMatch(/zero or of the opposite sign/)
+    expect(model.notesBand).toBeNull()
+    const fy2018 = chartReadouts(model, dataset, notes).find((period) => period.period === 'FY2018')!
+    expect(fy2018.rows.find((row) => row.label === 'YoY growth')!.text).toBe('n/m · not meaningful')
   })
 })

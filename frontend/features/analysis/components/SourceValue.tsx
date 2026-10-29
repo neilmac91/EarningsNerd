@@ -110,6 +110,10 @@ export interface SourceComparison extends QualityValue {
   label: string
   display: string
   note?: DataNote | null
+  /** Set where the comparison reads n/m because a later filing reports a different value for one or both of its
+   *  periods, not because its values change sign (MPA WP5a, D12; laterFilings.ts comparisonLaterFiling): the growth as
+   *  first reported, formatted as `display` is, or null where the own reports give none. */
+  laterFiling?: { asFirstReported: string | null }
 }
 
 function inheritedComparisonNote(comparison: SourceComparison) {
@@ -155,6 +159,7 @@ export default function SourceValue({ point, label, concept, children, note, com
   const figure = { concept, unit: point.unit }
   const display = compactFigure(point.value, figure)
   const period = formatAnalysisPeriod(point.period)
+  const quarterly = /^\d{4}Q[1-4]$/.test(point.period)
   const arithmetic = substitutedFormula(provenance)
   // A later filing's value beside the year's own annual report's (MPA WP5a): both filings in the source section.
   const first = point.value != null ? point.first_reported ?? null : null
@@ -217,6 +222,10 @@ export default function SourceValue({ point, label, concept, children, note, com
           {comparison && <section className="space-y-2 border-t border-border-light pt-3 dark:border-white/10">
             <h3 className="font-semibold">{comparison.label} comparison</h3>
             <p className="relative font-figure tabular-nums lining-nums"><GrowthText text={comparison.display} /></p>
+            {/* A basis n/m says its cause, then the growth the two periods' own annual reports give (D12); a sign change's
+                n/m needs no sentence. The checks below stand: the calculation passed. */}
+            {comparison.laterFiling && <p>{`Not meaningful: a later filing reports a different value for one or both of the two ${quarterly ? 'quarters' : 'years'}.`}</p>}
+            {comparison.laterFiling?.asFirstReported && <p className="relative font-figure tabular-nums lining-nums">As first reported: <GrowthText text={comparison.laterFiling.asFirstReported} /></p>}
             <Checks value={comparison} note={comparison.note} />
             {comparison.note && <p>{inheritedComparisonNote(comparison)}</p>}
             {comparison.provenance?.formula && <p>Calculation: {formulaWords(comparison.provenance.formula)}</p>}
