@@ -8,8 +8,12 @@ the app's key (the backend outside its tests, and `ops/`) and holds each such ca
 function and call. A new one fails here until it is reviewed and listed.
 
 It matches the SDK's two spellings by name: the resource classes (`stripe.Subscription.delete`, `stripe.Refund.create`)
-and the client services (`client.subscriptions.cancel`, `client.refunds.create`). It cannot see a call made through
-`getattr` or a name computed at run time, or a raw HTTP request to Stripe's API.
+and the client services (`client.subscriptions.cancel`, `client.v1.refunds.create`), each with or without the SDK's
+`_async` suffix, and a call on a resource fetched in the same expression (`stripe.Subscription.retrieve(x).delete()`).
+`void_invoice` and `mark_uncollectible`, which only Stripe's invoices have, count on any receiver. What it cannot see,
+left to review: an instance's `cancel()` or `delete()` on a name (`subscription.cancel()`), which reads like any other
+object's `delete` (a session's, for one); a call made through `getattr` or a name computed at run time; and a raw HTTP
+request to Stripe's API.
 """
 import ast
 from pathlib import Path
@@ -36,6 +40,18 @@ ALLOWED = {
 }
 
 
+# Invoice methods only Stripe has: a call of either moves money whatever the receiver.
+STRIPE_ONLY_METHODS = {"void_invoice", "mark_uncollectible"}
+
+
+def _resource(owner: ast.AST):
+    """The resource a method is called on: `stripe.Subscription`, `client.v1.subscriptions`, or the resource a
+    same-expression fetch returns (`stripe.Subscription.retrieve(x)`)."""
+    if isinstance(owner, ast.Call) and isinstance(owner.func, ast.Attribute):
+        owner = owner.func.value
+    return owner.attr if isinstance(owner, ast.Attribute) else getattr(owner, "id", None)
+
+
 def _money_moves(source: str) -> list[tuple[str, str]]:
     """Each (enclosing function, `Resource.method`) call in ``source`` that MONEY_MOVES names."""
     found: list[tuple[str, str]] = []
@@ -46,9 +62,10 @@ def _money_moves(source: str) -> list[tuple[str, str]]:
                 visit(child, child.name)
                 continue
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
-                method, owner = child.func.attr, child.func.value
-                resource = owner.attr if isinstance(owner, ast.Attribute) else getattr(owner, "id", None)
-                if (resource, method) in MONEY_MOVES or (resource, None) in MONEY_MOVES:
+                method = child.func.attr.removesuffix("_async")
+                resource = _resource(child.func.value)
+                if ((resource, method) in MONEY_MOVES or (resource, None) in MONEY_MOVES
+                        or method in STRIPE_ONLY_METHODS):
                     found.append((function, f"{resource}.{method}"))
             visit(child, function)
 
@@ -74,15 +91,33 @@ def client_forms(client):
     client.subscriptions.cancel("sub_1")
     client.v1.refunds.create(params={})
     client.invoices.void_invoice("in_1")
-def reads(client):
+async def async_forms(client):
+    await stripe.Subscription.cancel_async("sub_1")
+    await stripe.Customer.delete_async("cus_1")
+    await client.v1.subscriptions.cancel_async("sub_1")
+    await stripe.Invoice.void_invoice_async("in_1")
+def fetched_then_moved(invoice):
+    stripe.Subscription.retrieve("sub_1").delete()
+    invoice.void_invoice()
+    invoice.mark_uncollectible_async()
+def reads(client, db, row):
     stripe.Subscription.list(customer="cus_1")
     stripe.Subscription.retrieve("sub_1")
     client.customers.retrieve("cus_1")
+    db.delete(row)
+def stated_gaps(subscription):
+    subscription.cancel()
+    subscription.delete()
+    getattr(stripe.Subscription, "del" + "ete")("sub_1")
 '''
     assert _money_moves(planted) == [
         ("resource_forms", "Subscription.delete"), ("resource_forms", "Refund.create"),
         ("resource_forms", "Customer.delete"), ("client_forms", "subscriptions.cancel"),
         ("client_forms", "refunds.create"), ("client_forms", "invoices.void_invoice"),
+        ("async_forms", "Subscription.cancel"), ("async_forms", "Customer.delete"),
+        ("async_forms", "subscriptions.cancel"), ("async_forms", "Invoice.void_invoice"),
+        ("fetched_then_moved", "Subscription.delete"), ("fetched_then_moved", "invoice.void_invoice"),
+        ("fetched_then_moved", "invoice.mark_uncollectible"),
     ]
 
 
