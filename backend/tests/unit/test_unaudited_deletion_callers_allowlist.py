@@ -6,15 +6,17 @@ accounts no person asked to delete (the feedback-media verifier's fixtures), and
 ``_delete_locked_account``. A route or job that reached either unaudited path for a person's own deletion would
 delete them unaudited, which F19 forbids. So this gate counts, per file, every reference to ``delete_user`` or
 ``_delete_locked_account`` (a name, an attribute, an import, or the name as a string constant, as ``getattr`` and
-``vars()`` take it), and every direct ORM delete of ``User`` rows (``query(User)...delete()``, ``delete(User)`` however
-``delete`` or ``User`` is imported or qualified, and ``User.__table__.delete()``),
+``vars()`` take it), and every direct ORM delete of ``User`` rows (``query(User)...delete()``, ``delete(User)`` or
+``delete(User.__table__)`` however ``delete`` or ``User`` is imported or qualified, and ``User.__table__.delete()``),
 in every Python file the repository holds outside the browser app and the test homes, the defining module included,
 and holds the counts to the reviewed allowlist below: a new one fails until it is reviewed and listed.
 
 The walk is ``test_replaced_by_id_writers_allowlist.py``'s (``_scanned_files``), Python files only. What it cannot
 see, left to review: the name built at run time (``'delete_' + 'user'``), and an instance delete through the session
-(``db.delete(account)``), which reads like any other row's delete, each planted in ``PLANTED_GAPS``; and a caller in a
-folder named ``tests`` outside the test homes (``backend/app/tests/``), which the shared walk skips.
+(``db.delete(account)``), which reads like any other row's delete, and the table or the ``delete`` bound to a name first
+(``table = User.__table__``, then ``table.delete()``; ``drop = sa.delete``, then ``drop(User)``), each planted in
+``PLANTED_GAPS``; and a caller in a folder named ``tests`` outside the test homes (``backend/app/tests/``), which the
+shared walk skips.
 """
 import ast
 from pathlib import Path
@@ -33,7 +35,10 @@ ALLOWED_REFERENCES = {
 
 
 def _is_user(node: ast.AST, user_names: set[str]) -> bool:
-    """Whether an expression names the ``User`` model: ``User``, a name it is imported as, ``models.User``."""
+    """Whether an expression names the ``User`` model or its table: ``User``, a name it is imported as,
+    ``models.User``, or any of those's ``__table__``."""
+    if isinstance(node, ast.Attribute) and node.attr == "__table__":
+        node = node.value
     return (isinstance(node, ast.Name) and node.id in user_names) or (
         isinstance(node, ast.Attribute) and node.attr == "User")
 
@@ -76,10 +81,10 @@ def references(source: str) -> int:
             if isinstance(func, ast.Attribute) and (
                     _query_of_user(func.value, user_names)
                     or (isinstance(func.value, ast.Attribute) and func.value.attr == "__table__"
-                        and _is_user(func.value.value, user_names))):
+                        and _is_user(func.value, user_names))):
                 count += 1  # query(User)...delete(), User.__table__.delete()
             elif any(_is_user(arg, user_names) for arg in node.args):
-                count += 1  # delete(User), sa.delete(User), an alias of delete
+                count += 1  # delete(User), sa.delete(User), delete(User.__table__), an alias of delete
     return count
 
 
@@ -115,6 +120,7 @@ PLANTED_COUNTED = {
     "a module-qualified core delete": "db.execute(sa.delete(User).where(User.id == 1))\n",
     "an aliased core delete": "from sqlalchemy import delete as sa_delete\ndb.execute(sa_delete(User))\n",
     "the table's own delete": "db.execute(User.__table__.delete())\n",
+    "a core delete of the table": "db.execute(delete(User.__table__).where(User.__table__.c.id == 1))\n",
     "an aliased model's query delete": "from app.models import User as Account\ndb.query(Account).delete()\n",
     "a module-qualified model's query delete": "db.query(models.User).filter(models.User.id == 1).delete()\n",
 }
@@ -130,6 +136,8 @@ PLANTED_LOOK_ALIKES = {
 PLANTED_GAPS = {
     "a name built at run time": "getattr(user_account_service, 'delete_' + 'user')(db, 1)\n",
     "an instance delete through the session": "db.delete(account)\ndb.commit()\n",
+    "the table bound to a name": "table = User.__table__\ndb.execute(table.delete())\n",
+    "the delete bound to a name": "drop = sa.delete\ndb.execute(drop(User))\n",
 }
 
 
