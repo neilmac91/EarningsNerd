@@ -1062,17 +1062,10 @@ def _refusal(db, *reasons):
     return "^" + re.escape(f"Proxy repair refused for this company ({len(parts)}): " + "; ".join(parts)) + "$"
 
 
-CURRENT_FIGURE = ("a report row holds the proxy figure behind the filing row, which is the company's current figure "
-                  "and disagrees with the 10-K on: {}")
-
-
-@pytest.mark.parametrize("clauses", ["value", "start", "fiscal year", "value, start, fiscal year"])
-def test_the_current_figure_refusal_holds_the_surface_rules(clauses):
-    # The refusal's words, which the refusal tests match in full, hold the data notes' surface rules
-    # (test_analysis_data_notes.py, #1659): no page action, no drawing, no bare "this" naming one figure, no semicolon.
-    from tests.unit.test_analysis_data_notes import _surface_problems
-
-    assert _surface_problems(CURRENT_FIGURE.format(clauses)) == []
+def _current_figure(value, authority):
+    """The refusal of a left row that is the company's current figure and more than 1% off the 10-K's figure."""
+    return (f"a report row holds the proxy figure behind the filing row, which is the company's current figure, {value}, "
+            f"more than 1% off the 10-K's, {authority}")
 
 
 def test_a_proxy_replacement_with_no_recorded_original_refuses(db, monkeypatch):
@@ -1833,8 +1826,8 @@ def _comparative_checked_against_a_later_proxy(db, monkeypatch, ticker="LTR", *,
 
 @pytest.mark.parametrize(("parsed", "number"), [(18_345_270_000.0, 5), (18_600e6, 4)], ids=["confirmed", "replaced"])
 def test_a_history_row_holding_a_proxy_figure_backs_a_filing_row_as_any_report_row_does(monkeypatch, parsed, number):
-    # One of the three ways a sync since #1682 changes the step's plan (this one, the adoption and the current
-    # winner-identity refusal below). The FY2025 10-K's own figure, which the FY2026 10-K restated and P27 quotes,
+    # One of the ways a sync since #1682 changes the step's plan (the docs' "A company synced since #1682" lists them:
+    # this one, a refusal that appears, disappears or changes its reason, and the adoption). The FY2025 10-K's own figure, which the FY2026 10-K restated and P27 quotes,
     # becomes a history row: a report row holding the figure the old cross-check took from P27, so sets 4 and 5 leave
     # the FY2026 10-K's comparative and the preview lists it (detection's rule and the step's, as for a demoted winner
     # a sync stored while the FY2025 10-K was the newest). Without that row the step re-records the check (set 5) or
@@ -2009,7 +2002,7 @@ def test_a_current_row_left_at_a_proxy_figure_at_the_winners_identity_refuses_th
         assert not [r for r in _rows(old, company) if r.form == "DEF 14A"]  # P27's figure is a payload witness alone
         plan = _preview(old, company, payload)["proxy"]
         assert (plan["filing_rows_restored"], plan["left_report_backed"]) == (1, [])
-        _refuses(new, company, payload, _refusal(new, (row.id, CURRENT_FIGURE.format("value"))))
+        _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("18254000000", "18600000000"))))
         _apply(old, company, payload)
         restored = old.get(FinancialFact, row.id)
         assert (restored.is_latest, restored.source, float(restored.value)) == (True, "edgar_xbrl", 18_600e6)
@@ -2139,7 +2132,7 @@ def test_a_current_row_left_at_a_proxy_figure_below_a_later_winner_refuses_the_c
             [(_accn(company, "K27"), False), (_accn(company, "K25"), False)] if winner == "stored_behind"
             else [(_accn(company, "K25"), False)])
         assert _preview(old, company, payload)["proxy"]["filing_rows_restored"] == 1
-        _refuses(new, company, payload, _refusal(new, (row.id, CURRENT_FIGURE.format("value"))))
+        _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("18254000000", "18600000000"))))
 
 
 def _set5_current(db, monkeypatch, ticker="S5R"):
@@ -2154,7 +2147,8 @@ def _set5_current(db, monkeypatch, ticker="S5R"):
 
 def test_a_set5_row_left_as_the_companys_current_figure_refuses_the_company(monkeypatch):
     # Set 5 alike: synced as before #1682, set 5's own check refuses the row the 10-K contradicts; since, the history
-    # row backs the figure it was confirmed against, and the refusal of a row left so refuses it instead.
+    # row backs the figure it was confirmed against, and the refusal of a row left so refuses it instead. The company
+    # stays refused, its reason changed.
     with _synced_before_and_since_1682(monkeypatch, _set5_current) as states:
         (old, company, payload), new = states[False][:3], states[True][0]
         [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
@@ -2163,7 +2157,7 @@ def test_a_set5_row_left_as_the_companys_current_figure_refuses_the_company(monk
         _refuses(old, company, payload, _refusal(old, (row.id, "the old cross-check confirmed this filing row against "
                                                                "a proxy's figure, and the 10-K's figure disagrees with it "
                                                                "by more than 1%")))
-        _refuses(new, company, payload, _refusal(new, (row.id, CURRENT_FIGURE.format("value"))))
+        _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("18300000000", "18600000000"))))
 
 
 def _behind_a_stale_own_report(db, monkeypatch, ticker="DWB"):
@@ -2210,15 +2204,13 @@ def test_a_row_left_report_backed_that_is_not_current_stays_left_at_the_winners_
             assert repair.snapshot(_filing_row(db, filing)) == stored
 
 
-@pytest.mark.parametrize(("clause", "start", "fiscal_year"), [
-    (None, "2025-01-01", 2025), ("start", "2025-01-02", 2025), ("fiscal year", "2025-01-01", 2024),
-], ids=["agrees", "start", "fiscal-year"])
-def test_the_refusal_of_a_current_left_row_reads_every_clause_of_the_agreement_test(monkeypatch, clause, start,
-                                                                                    fiscal_year):
-    # P27 quotes FY2025 as the FY2025 10-K first reported it, 18,560 million, 0.2% under the FY2026 10-K's 18,600: the
-    # FY2026 10-K's comparative, parsed 17,000 and replaced with P27's figure, is FY2025's current row. Since #1682 the
-    # history row backs it. Its value agrees with the 10-K winner within the test, so it is left and listed, unless its
-    # start or fiscal year differs from the winner's, when the company is refused naming that clause.
+@pytest.mark.parametrize(("start", "fiscal_year"), [("2025-01-01", 2025), ("2025-01-02", 2025), ("2025-01-01", 2024)],
+                         ids=["labels-agree", "start-differs", "fiscal-year-differs"])
+def test_a_current_left_row_within_1pct_of_the_10k_is_left_whatever_its_labels(monkeypatch, start, fiscal_year):
+    # P27 quotes FY2025 as the FY2025 10-K first reported it, 18,560 million, 0.2% under the 10-K's 18,600: the FY2026
+    # 10-K's comparative, parsed 17,000 and replaced with P27's figure, is FY2025's current row. Since #1682 the history
+    # row backs it. The current-figure refusal reads the value alone, which the old cross-check changed, never a start
+    # or fiscal year, so the row is left and listed whatever its labels.
     def build(db, monkeypatch):
         company = _company(db, "AGR")
         payload, filing = _restated_and_quoted_as_first_reported(
@@ -2232,11 +2224,146 @@ def test_the_refusal_of_a_current_left_row_reads_every_clause_of_the_agreement_t
         [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
         assert (row.is_latest, float(row.value), row.period_start.isoformat(), row.fiscal_year) == (
             True, 18_560e6, start, fiscal_year)
-        if clause is None:
-            plan = _preview(new, company, payload)["proxy"]
-            assert [(e["fact_id"], e["set"]) for e in plan["left_report_backed"]] == [(row.id, 4)]
-        else:
-            _refuses(new, company, payload, _refusal(new, (row.id, CURRENT_FIGURE.format(clause))))
+        plan = _preview(new, company, payload)["proxy"]
+        assert [(e["fact_id"], e["set"], e["authority"]) for e in plan["left_report_backed"]] == [
+            (row.id, 4, 18_600e6)]
+
+
+def _labelled_apart(db, monkeypatch, ticker, *, backed, start, fiscal_year):
+    """The FY2026 10-K repeats FY2025 unchanged (18,254 million), P27 quotes it exactly, and the backfill before the fix
+    confirmed the FY2026 10-K's parse of its FY2025 comparative against P27's figure (set 5), the per-filing writer
+    naming its start and fiscal year ``start`` and ``fiscal_year``. K27 repeats FY2025 unchanged; ``backed``: a fixed
+    sync stored K27's row (behind the filing row, K27 having no local Filing), a report row holding the figure."""
+    company = _company(db, ticker)
+    payload = _for(company, _mrk_payload())
+    _items(payload).extend([
+        _item(18_254e6, "2025-12-31", start="2025-01-01", accn=_accn(company, "K26"), fy=2026, filed="2027-02-25"),
+        _item(19_000e6, "2026-12-31", start="2026-01-01", accn=_accn(company, "K26"), fy=2026, filed="2027-02-25"),
+        _item(18_254e6, "2025-12-31", start="2025-01-01", accn=_accn(company, "P27"), fy=2026, form="DEF 14A",
+              filed="2027-04-08"),
+    ])
+    filing = _filing(db, company, "K26", "2026-12-31", "2027-02-25")
+    with _before_the_fix(monkeypatch):
+        svc.process_filing_facts(db, filing, authoritative=svc.extract_authoritative_values(payload), standardized={
+            "net_income": {"series": [{"period": "2025-12-31", "period_start": start, "value": 18_254e6,
+                                       "fiscal_period": "FY", "fiscal_year": fiscal_year}]}})
+    _items(payload).extend(_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=_accn(company, "K27"), fy=2027,
+                                 filed="2028-02-25") for year, value in ((2025, 18_254e6), (2026, 19_000e6),
+                                                                         (2027, 20_000e6)))
+    synced = copy.deepcopy(payload)
+    if not backed:
+        _items(synced)[:] = [item for item in _items(synced) if item["accn"] != _accn(company, "K27")]
+    _sync(db, monkeypatch, company, synced)
+    return company, payload, filing
+
+
+@pytest.mark.parametrize(("start", "fiscal_year"), [("2025-01-02", 2025), ("2025-01-01", 2024)],
+                         ids=["start-differs", "fiscal-year-differs"])
+def test_a_row_holding_the_10ks_figure_is_never_refused_for_its_labels(monkeypatch, start, fiscal_year):
+    # The FY2026 10-K's FY2025 comparative holds the 10-K's own figure, 18,254 million, the year's current row, but the
+    # per-filing writer named its start or fiscal year apart from companyfacts (a gap between the writers that can stay
+    # open, docs/fiscal-year-label-repair.md). Unbacked, set 5 keeps it, confirmed by the 10-K. Backed by K27's
+    # unchanged comparative, it is left and listed: the same verdict against the same figure, never a refusal over a
+    # label the proxy did not write and the step cannot fix.
+    for backed in (False, True):
+        with _database() as db:
+            company, payload, filing = _labelled_apart(db, monkeypatch, f"LB{int(backed)}", backed=backed,
+                                                       start=start, fiscal_year=fiscal_year)
+            row = _filing_row(db, filing)
+            assert (row.is_latest, row.source, float(row.value), row.period_start.isoformat(), row.fiscal_year,
+                    _check(row)["outcome"]) == (True, "edgar_xbrl", 18_254e6, start, fiscal_year, "confirmed")
+            plan = _preview(db, company, payload)["proxy"]
+            assert (plan["filing_rows_kept"], [e["fact_id"] for e in plan["left_report_backed"]]) == (
+                (0, [row.id]) if backed else (1, []))
+
+
+def test_a_current_left_row_with_no_10k_figure_is_left_and_listed(db, monkeypatch):
+    # Only a proxy tags FY2021's net income, so the payload gives no 10-K figure: the replaced row, FY2021's current
+    # row, is restored to its parse when nothing backs it (the payload-witness test above). An earnings release holding
+    # the proxy's figure backs it here, so it is left and listed, and with no 10-K figure to contradict it, never refused.
+    company, payload, filing = _only_a_proxy_tags_2021_and_the_10k_was_replaced(db, monkeypatch, "NAU")
+    row = _filing_row(db, filing)
+    assert (row.is_latest, row.source, float(row.value)) == (True, "companyfacts", 90e6)
+    release = FinancialFact(company_id=company.id, concept="net_income", raw_tag="us-gaap:NetIncomeLoss", unit="USD",
+                            period_start=date(2021, 1, 1), period_end=date(2021, 12, 31), fiscal_year=2021,
+                            fiscal_period="FY", value=Decimal("90000000"), form="8-K", accession=_accn(company, "E22"),
+                            source="companyfacts", reconciled=True, is_latest=False)
+    db.add(release)  # planted as a row: a sync that read the release
+    db.commit()
+    plan = _preview(db, company, payload)["proxy"]
+    assert plan["filing_rows_restored"] == 0
+    assert [(e["fact_id"], e["set"], e["authority"], [b["fact_id"] for b in e["backed_by"]])
+            for e in plan["left_report_backed"]] == [(row.id, 4, None, [release.id])]
+
+
+def test_the_current_figure_refusal_reads_todays_10k_figure_where_no_winner_is_kept(monkeypatch):
+    # A pure test of the planner. A bank's revenue: normalize_companyfacts keeps no revenue winner for a financial SIC,
+    # while extract_authoritative_values, which sets 4 and 5 read for every verdict, keeps the 10-K's figure. The
+    # current-figure refusal reads that figure too, so a backed row and its unbacked twin are judged against the same
+    # number: the current row, 18,300 million, is 1.6% off the 10-K's 18,600, and the company is refused.
+    row = {**_state(concept="revenue", raw_tag="us-gaap:Revenues", period_start=date(2025, 1, 1),
+                    period_end=date(2025, 12, 31), fiscal_year=2025, value=18_300e6, accession="K26",
+                    source="edgar_xbrl", filing_id=3)[1],
+           "provenance": {"version": 1, "checks": {"authoritative": {"outcome": "confirmed",
+                                                                     "authoritative_value": 18_254e6}}}}
+    backer = {**row, "filing_id": None, "accession": "K25", "source": "companyfacts", "is_latest": False,
+              "value": "18254000000", "provenance": None}
+    proxy_row = {**backer, "form": "DEF 14A", "accession": "P27"}
+    payload = _payload({"Revenues": {"units": {"USD": [
+        _item(18_600e6, "2025-12-31", start="2025-01-01", accn="K26", fy=2026, filed="2027-02-25")]}}})
+    assert row["is_latest"] and proxy.facts_service.extract_authoritative_values(payload)[
+        ("revenue", date(2025, 12, 31))] == 18_600e6
+    with pytest.raises(proxy.ProxyRepairRefused, match=r"^" + re.escape(
+            "Proxy repair refused for this company (1): revenue FY 2025-12-31 (fact 1): "
+            + _current_figure("18300000000", "18600000000")) + "$"):
+        proxy.plan({1: row, 2: backer, 3: proxy_row}, {}, [], {}, payload)
+
+
+def _own_figure_scaled_up(db, monkeypatch, ticker, *, backed):
+    """The FY2026 10-K's own FY2026, 19,000 million, parsed as 19,000 thousand; P27 quotes the figure, and the backfill
+    before the fix scaled the parse up to it (the cross-check's own unit fix). K27 repeats FY2026 unchanged (``backed``:
+    a fixed sync stored it); K28, in the repair's payload only, restates FY2026 as 19,500 million."""
+    company = _company(db, ticker)
+    payload = _for(company, _mrk_payload())
+    _items(payload).extend([
+        _item(18_254e6, "2025-12-31", start="2025-01-01", accn=_accn(company, "K26"), fy=2026, filed="2027-02-25"),
+        _item(19_000e6, "2026-12-31", start="2026-01-01", accn=_accn(company, "K26"), fy=2026, filed="2027-02-25"),
+        _item(19_000e6, "2026-12-31", start="2026-01-01", accn=_accn(company, "P27"), fy=2026, form="DEF 14A",
+              filed="2027-04-08"),
+    ])
+    filing = _filing(db, company, "K26", "2026-12-31", "2027-02-25")
+    with _before_the_fix(monkeypatch):
+        svc.process_filing_facts(db, filing, authoritative=svc.extract_authoritative_values(payload), standardized={
+            "net_income": {"series": [{"period": "2026-12-31", "period_start": "2026-01-01", "value": 19_000e3,
+                                       "fiscal_period": "FY", "fiscal_year": 2026}]}})
+    _items(payload).extend(_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=_accn(company, "K27"), fy=2027,
+                                 filed="2028-02-25") for year, value in ((2026, 19_000e6), (2027, 20_000e6)))
+    synced = copy.deepcopy(payload)
+    if not backed:
+        _items(synced)[:] = [item for item in _items(synced) if item["accn"] != _accn(company, "K27")]
+    _sync(db, monkeypatch, company, synced)
+    _items(payload).extend(_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=_accn(company, "K28"), fy=2028,
+                                 filed="2029-02-25") for year, value in ((2026, 19_500e6), (2027, 20_000e6),
+                                                                         (2028, 21_000e6)))
+    return company, payload, filing
+
+
+@pytest.mark.parametrize("backed", [False, True], ids=["unbacked", "backed"])
+def test_a_scaled_up_replacement_is_left_alone_backed_or_not(monkeypatch, backed):
+    # The cross-check scaling up a parse read in units is its own job, which detection never lists: set 4 leaves such
+    # a row before it asks whether a report row backs it, so a backing row neither lists nor refuses it, though K28's
+    # restatement puts today's 10-K figure 2.6% off. Alike before and since #1682.
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _own_figure_scaled_up(
+            db, monkeypatch, "SUP", backed=backed)) as states:
+        for db, company, payload, filing in states.values():
+            row = _filing_row(db, filing)
+            assert (row.is_latest, row.source, float(row.value), _check(row)["original_value"]) == (
+                True, "companyfacts", 19_000e6, 19_000e3)
+            assert bool([r for r in _rows(db, company, concept="net_income", period_end=date(2026, 12, 31),
+                                          filing_id=None) if r.accession == _accn(company, "K27")]) == backed
+            plan = _preview(db, company, payload)["proxy"]
+            assert (plan["filing_rows_restored"], plan["left_report_backed"], plan["detection_listed"]) == (0, [], [])
+            assert row.id not in {entry["fact_id"] for entry in plan["rows"]}
 
 
 def test_the_cli_totals_count_the_rows_left_report_backed(db, monkeypatch, tmp_path):
@@ -2253,3 +2380,29 @@ def test_the_cli_totals_count_the_rows_left_report_backed(db, monkeypatch, tmp_p
     assert report["failed"] == 0
     assert [len(c["proxy"]["left_report_backed"]) for c in report["companies"]] == [1, 1]
     assert report["proxy_totals"]["left_report_backed"] == 2
+
+
+@pytest.mark.parametrize("filing_first", [True, False], ids=["filing-stored-first", "synced-first"])
+def test_a_sync_clears_the_current_figure_refusal_only_after_the_later_10ks_filing(monkeypatch, filing_first):
+    # NSB's company, synced since #1682, with K27 filed after its last sync: refused (the current-figure refusal).
+    # With K27's Filing stored before the next sync, K27's row lands current, the filing row stops being the company's
+    # current figure, and the step leaves and lists it. Synced first, K27's row is stored behind the filing row (no
+    # local Filing), and no later sync, Filing or not, moves it: the refusal stays (docs, "A company synced since #1682").
+    with _database() as db:
+        company, payload, filing = _replaced_at_the_winners_identity(db, monkeypatch)
+        _resync(db, company, payload)
+        later = _with_k27(company, payload)
+        [row] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        refused = _refusal(db, (row.id, _current_figure("18254000000", "18600000000")))
+        _refuses(db, company, later, refused)
+        if not filing_first:
+            _resync(db, company, later)
+        _filing(db, company, "K27", "2027-12-31", "2028-02-25")
+        _resync(db, company, later)
+        [k27] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31), fiscal_period="FY")
+                 if r.accession == _accn(company, "K27")]
+        assert (db.get(FinancialFact, row.id).is_latest, k27.is_latest) == (not filing_first, filing_first)
+        if filing_first:
+            assert [e["fact_id"] for e in _preview(db, company, later)["proxy"]["left_report_backed"]] == [row.id]
+        else:
+            _refuses(db, company, later, refused)

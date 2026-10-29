@@ -10,8 +10,8 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
    ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row
    that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
    10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
-   left so, a row that is the company's current figure and disagrees with the fresh 10-K winner at its key
-   refuses the company (sets 4 and 5 alike).
+   left so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
+   company (sets 4 and 5 alike).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -436,12 +436,6 @@ class _Planner:
                 if other_id != row_id and _is_report_row(self.before[other_id])
                 and _same(self.before[other_id]["value"], value)]
 
-    def _contradicted(self, state: State) -> list[str]:
-        """The agreement test's failing clauses between ``state`` and the fresh 10-K winner at its key, whatever
-        that winner's identity, or none where the payload has no winner there or one agrees."""
-        clauses = [_disagreements(state, qfr._candidate_state(fact)) for fact in self.fresh.get(_key(state), ())]
-        return clauses[0] if clauses and all(clauses) else []
-
     def _authority(self, state: State) -> float | None:
         """Today's authority (``extract_authoritative_values``, which skips a proxy's item)."""
         return self.authority.get((state["concept"], date.fromisoformat(state["period_end"])))
@@ -462,10 +456,12 @@ class _Planner:
     def _left(self, row_id: int, state: State, value: Any, number: int) -> bool:
         """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does.
         A row left report-backed is listed in ``left_report_backed`` (its ``figure`` a decimal string, as rows
-        carry values). One that is the company's current figure at its key and fails the agreement test with the
-        fresh 10-K winner there, at any identity, refuses the company: left, the company's figure would stay the
-        proxy's where the 10-K contradicts it (a report row elsewhere, a year's own report as first reported, may
-        hold the proxy's figure while the 10-K restated it)."""
+        carry values). One that is the company's current figure at its key and more than 1% off today's 10-K
+        figure (``_authority``, which the rest of sets 4 and 5 read) refuses the company: left, the company's figure
+        would stay the proxy's where the 10-K contradicts it (a report row elsewhere, a year's own report as first
+        reported, may hold the proxy's figure while the 10-K restated it). Only the value is read: the old
+        cross-check changed a row's value and source, never its start or fiscal year. With no 10-K figure, the row
+        is left and listed."""
         if not self._witnessed(state, value):
             self.verdicts[row_id] = "no_proxy_figure"
             return True
@@ -480,10 +476,10 @@ class _Planner:
                                        "fact_id": other_id, **{name: self.before[other_id][name] for name in (
                                            "accession", "form", "is_latest", "filing_id", "source")}}
                                        for other_id in backers]))
-        failed = self._contradicted(state) if state["is_latest"] else []
-        if failed:
+        if state["is_latest"] and authority is not None and not _agrees(float(state["value"]), authority):
             self.refuse(row_id, "a report row holds the proxy figure behind the filing row, which is the company's "
-                                f"current figure and disagrees with the 10-K on: {', '.join(failed)}")
+                                f"current figure, {state['value']}, more than 1% off the 10-K's, "
+                                f"{qfr._json_value(Decimal(str(authority)))}")
         return True
 
     def _rewrote(self, row_id: int, state: State, verdict: str) -> None:
@@ -498,12 +494,12 @@ class _Planner:
             if state["filing_id"] is None or state["source"] != "companyfacts":
                 continue
             value = state["value"]
-            if self._left(row_id, state, value, 4):
-                continue
             check = _authoritative_check(state)
             original = _number(check.get("original_value"))
-            if _scale_up(value, original):  # the authority scaled up a parse in units: the check's job,
-                continue  # and no verdict, since detection never lists it (scaled up is never scaled down)
+            if _scale_up(value, original):  # the authority scaled up a parse in units: the check's job, backed or
+                continue  # not, and no verdict, since detection never lists it (scaled up is never scaled down)
+            if self._left(row_id, state, value, 4):
+                continue
             authority = self._authority(state)
             if authority is not None and _same(value, authority):
                 self.verdicts[row_id] = "kept_agrees_with_authority"
