@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 
 /**
  * An email chip on /admin/invites (features/admin/components/EmailChipsInput.tsx) keeps its "already invited" marker
@@ -31,6 +31,13 @@ import { test, expect, type Page } from '@playwright/test'
  * address shows whole, wrapped inside its cell, and the table fits its box (with the cell nowrap it was 1264px in
  * 1214px), while a short address and "Anonymous" keep one line each.
  *
+ * The resend dialog's share options (features/admin/components/ShareInvite.tsx, opened in ResendShareModal.tsx) fit the
+ * dialog at 390, 360 and 320px under the browser's own 200% text setting, in both themes (E240): no element inside the
+ * dialog scrolls sideways, the dialog's own scroller included, the share panel ends inside the dialog body's content
+ * box, and the page does not scroll sideways. Its minimum width once held it at 512px, wider than the dialog, and below
+ * 390px "Copy for DM/LinkedIn" (unbroken) and the WhatsApp button inside uncapped insets still did. These cases set the
+ * browser's text size (CDP), as email-verification-resend does, since the dialog's measure is the viewport's.
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
  * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
  * middleware's session gate is satisfied by its non-credential presence cookie.
@@ -53,8 +60,9 @@ const FEEDBACK_LINK = `https://evidence.example.test/report/${'long-filing-refer
 type Theme = 'light' | 'dark'
 type Box = { left: number; right: number; top: number; bottom: number }
 
-/** Opens an admin page as an admin, the API answered in the browser. */
-async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string) {
+/** Opens an admin page as an admin, the API answered in the browser; `answers` replaces or adds an endpoint's answer,
+ *  by its path. */
+async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string, answers: Record<string, unknown> = {}) {
   const origin = new URL(baseURL).origin
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
   await page.addInitScript((theme: Theme) => {
@@ -67,7 +75,9 @@ async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string
   const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
   await page.route((url) => url.origin === API_ORIGIN, (route) => {
     const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
-    switch (new URL(route.request().url()).pathname) {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname in answers) return json(200, answers[pathname])
+    switch (pathname) {
       case '/api/auth/me':
         return json(200, { id: 1, email: 'ada@example.com', full_name: 'Ada', is_pro: false, is_beta: false, is_admin: true, email_verified: true })
       case '/api/admin/invites':
@@ -185,6 +195,38 @@ function expectClear(m: Measure, label: string) {
  */
 function expectNoSidewaysScroll(m: Measure, label: string) {
   expect(m.page.withChips, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+}
+
+/** One link-only invite, and its resend's answer: a link-only invite's share options show the warning Notice too. */
+const LINK_ONLY_ANSWERS = {
+  '/api/admin/invites': {
+    invites: [{ id: 7, email: null, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' }],
+  },
+  '/api/admin/invites/7/resend': {
+    id: 8, email: null, invite_link: 'https://earningsnerd.io/register?invite=abc123', expires_at: '2026-11-08T00:00:00Z', emailed: false, cohort: 'beta', revoked_invite_id: 7,
+  },
+}
+
+/** Every element in the dialog that scrolls sideways (its scroll width past its client width), the share panel's box
+ *  against the dialog body's content box, and the page's widths. */
+async function measureShareOptions(dialog: Locator) {
+  return dialog.evaluate((d) => {
+    const scrolling = [d, ...d.querySelectorAll('*')]
+      .filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible')
+      .map((el) => `${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 3).join('.')}: ${el.scrollWidth}px in ${el.clientWidth}px`)
+    // The share panel holds the message field; the dialog's body is ModalBody's recipe (px-cap-6 py-4).
+    const sharePanel = d.querySelector('textarea')!.closest('.shadow-e2')!
+    const panel = sharePanel.getBoundingClientRect()
+    const body = sharePanel.closest('.px-cap-6.py-4')!
+    const style = getComputedStyle(body)
+    const outer = body.getBoundingClientRect()
+    return {
+      scrolling,
+      panel: { left: panel.left, right: panel.right, width: panel.width },
+      body: { left: outer.left + parseFloat(style.paddingLeft), right: outer.right - parseFloat(style.paddingRight) },
+      page: { scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth },
+    }
+  })
 }
 
 /** The document's width and the viewport's once the root font is set (figure-receipt-reflow's 200% method). */
@@ -336,6 +378,29 @@ for (const theme of ['light', 'dark'] as const) {
       expectNoSidewaysScroll(m, '1440px, default text')
       expectOneLine(m, '1440px, default text')
     })
+  })
+
+  test.describe(`the resend dialog's share options, ${theme} theme`, () => {
+    for (const width of [390, 360, 320]) {
+      test(`at ${width}px under 200% text nothing in the dialog scrolls sideways, and the share panel ends inside its body (E240)`, async ({ page, baseURL }) => {
+        await page.setViewportSize({ width, height: 900 })
+        const cdp = await page.context().newCDPSession(page)
+        await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+        await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+        expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe('32px')
+        await page.getByRole('button', { name: /Resend/ }).first().click()
+        const dialog = page.getByRole('dialog')
+        await dialog.getByRole('button', { name: 'Show share options' }).click()
+        await expect(dialog.getByText('Not bound to an email')).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        const m = await measureShareOptions(dialog)
+        const label = `${width}px, 200% text, ${theme}`
+        expect(m.scrolling, `${label}: an element in the dialog scrolls sideways`).toEqual([])
+        expect(m.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(m.body.left - 0.5)
+        expect(m.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(m.body.right + 0.5)
+        expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+      })
+    }
   })
 
   test.describe(`the feedback list, ${theme} theme`, () => {

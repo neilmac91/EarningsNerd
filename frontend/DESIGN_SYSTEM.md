@@ -332,7 +332,7 @@ rule `earningsnerd/responsive-grid-base-track` (`eslint.gridBaseTrack.mjs`); rul
 
 A surface's inset stops growing at narrow widths under enlarged text (E120, chief design's rule): on a surface,
 padding step N is the capped step `p-cap-N`, `min(N × 0.25rem, N vw)`, on every side (`px-cap-6`, `pt-cap-6`,
-`sm:p-cap-8`; `tailwind.config.js` PADDING_CAP_STEPS: 3, 4, 5, 6, 8 and 10, and `scroll-py-cap-6` for a scroll padding
+`sm:p-cap-8`; `tailwind.config.js` PADDING_CAP_STEPS: 2.5, 3, 4, 5, 6, 8 and 10, and `scroll-py-cap-6` for a scroll padding
 that matches a capped inset). From a 25rem viewport up (400px at the default text size, 800px under a 200% text
 setting) it is the step itself, so nothing moves at the default size from 400px up, nor under a 200% text setting from
 800px up; below that it is N% of the viewport: a `p-6` card keeps 23.4px at 390px and 19.2px at 320px, at 320px under
@@ -346,7 +346,10 @@ body takes it from step 4, since the dialog's own inset already halves the measu
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
 ("Essen" over "tial"), and with the body's and the cards' caps keep 188, 220 and 244px and break none. A step under the
 threshold stays as it is (a Notice's `px-4` on a page, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give
-way by their own rule, §7), and a page's gutter is no surface. A Notice is a frame wherever it is written (its recipe draws
+way by their own rule, §7), unless a measure shows a narrow column still too tight: then it takes the cap too, as the
+invite share panel in the resend dialog caps its `p-3` and its buttons' `px-2.5` (E240), since at 320px under 200% text
+the dialog body's column is about 216px and its WhatsApp button alone 200px at its narrowest. A page's gutter is no
+surface. A Notice is a frame wherever it is written (its recipe draws
 a full border and a radius at `px-4`), so inside a dialog's body its own `px-4` is at the threshold, and its className
 caps it with `px-cap-4`, which the stylesheet emits after Notice's own (E229): the day dialog's holiday line broke
 "Thanksgiving" inside the word at 390px under 200% text until it did, and the verify-email dialog's two failures take it

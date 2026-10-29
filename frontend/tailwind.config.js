@@ -58,7 +58,7 @@ const flat = {
 // instead of 48px. A Card, a frame and a dialog's sections take it from step 5, a frame inside a dialog's
 // body from step 4 (gate: the ESLint rule earningsnerd/surface-padding-cap, eslint.designRules.mjs, which
 // reads these keys). The Modal panel's scroll padding takes the same value as its capped inset.
-const PADDING_CAP_STEPS = [3, 4, 5, 6, 8, 10]
+const PADDING_CAP_STEPS = [2.5, 3, 4, 5, 6, 8, 10]
 const paddingCap = Object.fromEntries(PADDING_CAP_STEPS.map((n) => [`cap-${n}`, `min(${n * 0.25}rem, ${n}vw)`]))
 
 module.exports = {
