@@ -11,10 +11,12 @@ maps them to HTTP.
 An AST walk over ``app/services/**/*.py`` collects every ``fastapi``/``starlette`` import and
 compares the importing files against a checked-in allow-list. A new importer fails with file:line;
 an allow-listed file that stops importing fails too, so the list cannot go stale.
-``fastapi.concurrency`` is exempt everywhere: ``run_in_threadpool`` offloads blocking work and
-carries no HTTP meaning. A bare ``import fastapi.concurrency`` binds ``fastapi`` itself, so it counts as ``fastapi``.
-The app's own HTTP modules count too: ``app.api_errors`` (E31), which holds ``CodedHTTPException``, so a service
-imports the HTTP-free ``app.error_codes`` instead, ``app.dependencies`` and the ``app.routers`` package. A relative
+``fastapi.concurrency`` is exempt everywhere, imported as ``from fastapi.concurrency import ...`` or ``import
+fastapi.concurrency as ...``: ``run_in_threadpool`` offloads blocking work and carries no HTTP meaning. A bare
+``import fastapi.concurrency`` binds ``fastapi`` itself, so it counts as ``fastapi``, and so does ``from fastapi import
+concurrency``, which the walk reads as an import from ``fastapi``. The app's own HTTP modules count too:
+``app.api_errors``, ``app.dependencies`` and the ``app.routers`` package. ``app.api_errors`` (E31) holds
+``CodedHTTPException``, so a service imports the HTTP-free ``app.error_codes`` instead. A relative
 import is resolved against the importing file's package before it is compared (``from ...api_errors import
 CodedHTTPException`` in ``app/services/summary_stages/`` is ``app.api_errors``).
 
@@ -142,7 +144,7 @@ def test_services_import_no_http_layer_outside_the_allowlist():
     unexpected = sorted(loc for rel, locs in found.items() if rel not in ALLOWED_HTTP_IMPORTERS for loc in locs)
     stale = sorted(rel for rel in ALLOWED_HTTP_IMPORTERS if rel not in found)
     assert not unexpected and not stale, (
-        "app/services/ imports of fastapi/starlette drifted from the allow-list.\n"
+        "app/services/ imports of the HTTP layer (fastapi, starlette, the app's HTTP modules) drifted from the allow-list.\n"
         f"  unexpected: {unexpected}\n"
         f"  stale (no longer imports the HTTP layer — prune it): {stale}\n"
         "Keep HTTP in the router: return a value or raise a domain exception from the service, and "
