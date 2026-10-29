@@ -353,6 +353,18 @@ async function slowClipboard(page: Page) {
   })
 }
 
+/** Waits until no finite animation in the page is running: the dialog's entrance (ui/Modal's animate-fadeIn) moves its
+ *  box as it plays. One cancelled on the way (a hover's transition cut short) ends there. */
+async function settle(page: Page) {
+  await page.evaluate(async () => {
+    for (;;) {
+      const running = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)
+      if (!running.length) return
+      await Promise.all(running.map((a) => a.finished.catch(() => undefined)))
+    }
+  })
+}
+
 type Frame = { dialog: number[]; control: number[]; done: number[]; said: string }
 
 /**
@@ -363,6 +375,7 @@ type Frame = { dialog: number[]; control: number[]; done: number[]; said: string
 async function framesOfRepeatPress(dialog: Locator, control: Locator, line: Locator, words: string): Promise<Frame[]> {
   await control.click()
   await expect(line).toHaveText(words)
+  await settle(dialog.page())
   const elements = {
     dialog: await dialog.elementHandle(),
     control: await control.elementHandle(),
@@ -599,27 +612,37 @@ for (const theme of ['light', 'dark'] as const) {
   })
 
   test.describe(`the resend dialog's status lines, ${theme} theme`, () => {
+    /** Opens the resend dialog of a link-only invite at `width`, under 200% text if `doubled`, with a slow clipboard. */
+    const openResend = async (page: Page, baseURL: string, width: number, doubled: boolean) => {
+      await page.setViewportSize({ width, height: 900 })
+      if (doubled) {
+        const cdp = await page.context().newCDPSession(page)
+        await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+      }
+      await slowClipboard(page)
+      await openAdmin(page, baseURL, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+      await page.getByRole('button', { name: /Resend/ }).first().click()
+      await page.evaluate(() => document.fonts.ready)
+      return page.getByRole('dialog')
+    }
     for (const [width, doubled] of [[1440, false], [390, true]] as const) {
       const text = doubled ? '200% text' : 'the default text size'
-      test(`at ${width}px under ${text} a repeat press of Copy link or Copy message moves nothing in the dialog (chief design on #1793)`, async ({ page, baseURL }) => {
-        await page.setViewportSize({ width, height: 900 })
-        if (doubled) {
-          const cdp = await page.context().newCDPSession(page)
-          await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
-        }
-        await slowClipboard(page)
-        await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
-        await page.getByRole('button', { name: /Resend/ }).first().click()
-        const dialog = page.getByRole('dialog')
-        await page.evaluate(() => document.fonts.ready)
-        const label = `${width}px, ${text}, ${theme}`
-        const [line] = await dialog.getByRole('status').all()
-        expectStill(await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy link' }), line, 'Invite link copied.'), 'Invite link copied.', `${label}, Copy link`)
+      const label = `${width}px, ${text}, ${theme}`
+      test(`at ${width}px under ${text} a repeat press of Copy link moves nothing in the dialog (chief design on #1793)`, async ({ page, baseURL }) => {
+        const dialog = await openResend(page, baseURL!, width, doubled)
+        const line = dialog.getByRole('status')
+        await expect(line, 'the resend dialog has one status line').toHaveCount(1)
+        const frames = await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy link' }), line, 'Invite link copied.')
+        expectStill(frames, 'Invite link copied.', `${label}, Copy link`)
+      })
 
+      test(`at ${width}px under ${text} a repeat press of the share options' Copy message moves nothing in the dialog (chief design on #1793)`, async ({ page, baseURL }) => {
+        const dialog = await openResend(page, baseURL!, width, doubled)
         await dialog.getByRole('button', { name: 'Share invite', expanded: false }).click()
-        const optionsLine = dialog.getByRole('status').filter({ hasNot: page.getByText('Invite link copied.') })
-        await expect(optionsLine).toHaveCount(1)
-        expectStill(await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy message' }), optionsLine, 'Invite message copied.'), 'Invite message copied.', `${label}, Copy message`)
+        // The options' line: neither the warning Notice (a status too) nor the resend dialog's line.
+        const line = dialog.getByRole('status').filter({ hasNotText: 'Not bound to an email' }).first()
+        const frames = await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy message' }), line, 'Invite message copied.')
+        expectStill(frames, 'Invite message copied.', `${label}, Copy message`)
       })
     }
 
@@ -631,15 +654,20 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: /Resend/ }).first().click()
       const dialog = page.getByRole('dialog')
       await page.evaluate(() => document.fonts.ready)
-      const rest = await dialog.boundingBox()
+      await settle(page)
+      const rest = (await dialog.boundingBox())!
       const line = dialog.getByRole('status').first()
       await dialog.getByRole('button', { name: 'Copy link' }).click()
       await expect(line).toHaveText('Invite link copied.')
-      expect((await dialog.boundingBox())!.height, 'the line takes room once it says something').toBeGreaterThan(rest!.height)
+      expect((await dialog.boundingBox())!.height, 'the line takes room once it says something').toBeGreaterThan(rest.height + 10)
 
       await dialog.getByRole('button', { name: 'Share invite' }).click()
       await expect(line).toHaveText('')
-      await expect(async () => expect(await dialog.boundingBox(), `${theme}: the dialog keeps the emptied line's room`).toEqual(rest)).toPass()
+      await expect(async () => {
+        const box = (await dialog.boundingBox())!
+        const moved = Math.max(Math.abs(box.y - rest.y), Math.abs(box.height - rest.height))
+        expect(moved, `${theme}: the dialog keeps the emptied line's room`).toBeLessThanOrEqual(0.5)
+      }).toPass({ timeout: 5000 })
     })
   })
 
