@@ -92,7 +92,7 @@ const CEILING_CUES = /\bfair[- ]use\b|\b(?:limits?|ceilings?|caps?|capped|allowa
 const NEW_SUMMARIES = /\bnew[- ](?:AI )?summar(?:y|ies)\b/i
 /** The same for the analysis ceiling: new analyses, while a reader's forced refresh takes a unit too, under the
     feature's own name among them ("new Multi-Period Analyses"). */
-const NEW_ANALYSES = /\bnew[-\u2010-\u2015\s]+(?:(?:AI|multi[-\u2010-\u2015]period|trend)[-\u2010-\u2015\s]+)*analys[ie]s\b/i
+const NEW_ANALYSES = /\bnew[-\u2010-\u2015\s]+(?:(?:AI|multi[-\u2010-\u2015\s]?period|trend)[-\u2010-\u2015\s]+)*analys[ie]s\b/i
 
 /** Where the summary pipeline reads its force flag today, as code, per module under backend/app: the orchestrator's
  * parameter and its pass-through, the run's field, the stored-summary short-circuit (load_filing), the in-place
@@ -308,6 +308,13 @@ describe("Pro's fair-use guardrail is one sentence, read at the FAQ and the limi
       capReads(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel, USAGE_ANALYSIS_LIMIT).map((line) => `${rel}:${line}`),
     )
     expect(usageReads, "state Pro's analysis ceiling by placing proFairUseLine(), never by reading the usage response's analysis_limit").toEqual([])
+    // The field read is the one the usage response carries the ceiling in, so a rename cannot leave the check reading nothing.
+    expect(readFileSync(path.join(FRONTEND, 'features/subscriptions/api/subscriptions-api.ts'), 'utf8'), 'the usage type declares analysis_limit').toMatch(
+      /^\s*analysis_limit\s*:\s*number\b/m,
+    )
+    expect(readFileSync(path.join(BACKEND_APP, 'routers/subscriptions.py'), 'utf8'), 'the usage response sends the ceiling as analysis_limit').toMatch(
+      /\banalysis_limit=ANALYSIS_MONTHLY_CAP\b/,
+    )
   })
 
   it("reads the usage response's analysis_limit as any read but its type's own member (a self-check on planted forms)", () => {

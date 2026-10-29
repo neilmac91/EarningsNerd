@@ -78,14 +78,15 @@ const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   // Copy: the caps written out in prose. The summary pattern also reads Pro's ceiling typed, in the fair-use sentence's
   // form ("300 summary generations") or with "new" ("300 new summaries"), and the analysis pattern Pro's other
   // ceiling, in the sentence's form ("1,000 analysis generations") or as analyses ("1000 new analyses"), under the
-  // feature's own name ("1,000 Multi-Period Analysis generations"), in words ("a thousand analyses") or spliced in as a
-  // number (`{1000} analyses`). Out of reach, planted as gaps below: another count in words ("ten thousand analyses")
-  // and another word between the count and the noun ("1,000 monthly analyses").
+  // feature's own name ("1,000 Multi-Period Analysis generations"), in words ("a thousand analyses"), spliced in as a
+  // number (`{1000} analyses`) or joined by a no-break space (`1,000&nbsp;analyses`). Out of reach, planted as gaps
+  // below: another count in words ("ten thousand analyses"), another word between the count and the noun ("1,000
+  // monthly analyses"), and a count the source wraps onto the next line (capLiterals reads a line at a time).
   { label: SUMMARY_CAP_LABEL, pattern: /\b\d+ (?:new )?(?:free )?(?:AI )?summar(?:y|ies)\b/i },
   {
     label: ANALYSIS_CAP_LABEL,
     pattern:
-      /(?:\b\d[\d,]*\}?|\b(?:a|one) thousand)[-\u2010-\u2015\s]+(?:new[-\u2010-\u2015\s]+)?(?:(?:AI|multi[-\u2010-\u2015]period|trend)[-\u2010-\u2015\s]+)*analys[ie]s\b/i,
+      /(?:\b\d[\d,]*|\{\s*\d[\d,]*\s*\}|\b(?:a|one) thousand)(?:[-\u2010-\u2015\s]|&nbsp;)+(?:new(?:[-\u2010-\u2015\s]|&nbsp;)+)?(?:(?:AI|multi[-\u2010-\u2015\s]?period|trend)(?:[-\u2010-\u2015\s]|&nbsp;)+)*analys[ie]s\b/i,
   },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
@@ -211,6 +212,8 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
       '1,000 trend analyses',
       '<p>Up to {1000} analysis generations a month</p>',
       'a thousand analyses a month',
+      '<p>Up to 1,000&nbsp;analysis generations a month</p>',
+      'up to 1,000 Multi Period Analysis generations a month',
     ]) {
       expect(pattern.test(typed), typed).toBe(true)
     }
@@ -218,6 +221,8 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
       'up to {PRO_SUMMARY_MONTHLY_CAP} summary and {ANALYSIS_MONTHLY_CAP} analysis generations a month',
       'Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
       'A 10-year analysis of the filed data',
+      'You have run {used ?? 0} analyses this month.',
+      'Your last {n - 1} analyses are saved.',
     ]) {
       expect(pattern.test(prose), prose).toBe(false)
     }
@@ -225,6 +230,8 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     for (const gap of ['ten thousand analyses a month', '1,000 monthly analyses']) {
       expect(pattern.test(gap), gap).toBe(false)
     }
+    // And a count the source wraps onto the next line: the scan reads one line at a time.
+    expect(capLiterals('features/probe/Wrapped.tsx', 'export const W = () => (\n  <p>Up to 1,000\n    analysis generations a month</p>\n)')).toEqual([])
   })
 
   it('mirrors the waitlist REFERRAL_BONUS, which the referral sentence reads', () => {
