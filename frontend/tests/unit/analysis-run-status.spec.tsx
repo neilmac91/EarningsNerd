@@ -116,7 +116,7 @@ describe("the trend analysis's status line", () => {
 
   it.each([
     ['a completion', 'Analysis ready.'],
-    ['a completion with too little history', 'Not enough reported history in the selected range for a meaningful analysis.'],
+    ['a completion with too little history', 'Not enough reported history in the selected range for a meaningful analysis. Try widening the period range.'],
     ['a completion over changed figures', ''],
     ['an error', ''],
     ['a failed dataset', ''],
@@ -127,8 +127,8 @@ describe("the trend analysis's status line", () => {
     else vi.mocked(getAnalysisDataset).mockResolvedValue(dataset)
     vi.mocked(streamAnalysis).mockImplementation(async (_ticker, _range, handlers) => {
       if (ending === 'a completion') handlers.onComplete(completion(false))
-      // Over the figures shown, so it ends the run (the server sends no snapshot with one today: tasks/todo.md E239).
-      else if (ending === 'a completion with too little history') handlers.onComplete({ ...completion(false), kind: 'not_enough_data', analysis_id: null, narrative: '', n_periods: 1 })
+      // As the stream sends it, with no snapshot: it carries no commentary to hold to the figures shown.
+      else if (ending === 'a completion with too little history') handlers.onComplete({ kind: 'not_enough_data', analysis_id: null, narrative: '', citations: [], grounded: 0, cached: false, n_periods: 1 })
       // The figures changed under the run: the card's alert says so, as for an error.
       else if (ending === 'a completion over changed figures') handlers.onComplete({ ...completion(false), snapshot_id: 'a-newer-snapshot' })
       else handlers.onError('The analysis could not be written.')

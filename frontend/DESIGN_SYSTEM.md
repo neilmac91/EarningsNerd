@@ -1434,10 +1434,10 @@ Activity line    <ActivityLine>  (components/ui) — a run in progress in words 
                  rail's own sr-only status region, mounted before any question, says it, and the card is a status
                  region for the plan card's sentence, which replaces the line in the same element. The trend analysis's
                  words sit in no live region, so the analysis page's sr-only status region beside Run analysis, mounted
-                 before any run, says them, and when the run completes "Analysis ready." (or the card's sentence for a
-                 range without enough history); it empties before each run, so the same words are heard again, on an
-                 error, which an alert says, and when the results reset. A caller whose words must be heard mounts its
-                 region first (review-checked). Gate:
+                 before any run, says them, and when the run completes "Analysis ready." (or the card's notice, whole,
+                 for a range without enough history). It empties before each run, so the same words are heard again; on
+                 an error, which an alert says; and when the results reset. A caller whose words must be heard mounts
+                 its region first (review-checked). Gate:
                  tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list outside
                  ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a template, an
                  array literal joined into one string or a class attribute's parts included, wherever the list is
