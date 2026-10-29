@@ -27,8 +27,7 @@ import { describe, expect, it } from 'vitest'
  * words), and no words inside a button there say it was copied: a label that flips renames its control. Any other reach
  * for the clipboard (an alias, a destructured `clipboard`, `['clipboard']`, `execCommand('copy')`) fails until the
  * scan learns it, so no write hides from it. PRESSED_BY names the spec that presses each writer and reads the words it
- * says, in code, not in a comment. The waitlist's referral Copy still flips and is said nowhere; RESIDUE holds it to
- * E244.
+ * says, in code, not in a comment.
  */
 
 const ROOT = join(__dirname, '..', '..')
@@ -223,10 +222,7 @@ function copyFaults(source: string, fileName = join(ROOT, 'features', 'source.ts
 }
 
 /** The files the rule still finds at fault, each with its row. Equal, not a cap: a fix takes its entry out. */
-const RESIDUE: Record<string, string[]> = {
-  // E244: the waitlist success card's referral Copy flips to "Copied" and is said nowhere a screen reader hears.
-  'features/waitlist/components/WaitlistForm.tsx': [NO_CONFIRMATION, FLIPS],
-}
+const RESIDUE: Record<string, string[]> = {}
 
 /**
  * The spec that presses each writer and reads the words it says (chief design on #1793): the scan reads where a press
@@ -247,7 +243,10 @@ const PRESSED_BY: Record<string, { spec: string; words: string[] } | null> = {
     spec: 'tests/unit/filing-link-copy.spec.tsx',
     words: ['Filing link copied.', 'Could not copy the link.'],
   },
-  'features/waitlist/components/WaitlistForm.tsx': null,
+  'features/waitlist/components/WaitlistForm.tsx': {
+    spec: 'tests/unit/waitlistSuccessCard.spec.tsx',
+    words: ['Referral link copied.', 'Could not copy the link. Select it above instead.'],
+  },
 }
 
 const files = DIRS.flatMap((dir) => sourcesUnder(join(ROOT, dir)))

@@ -377,8 +377,9 @@ billing and ticker filings cards' Notices keep their Retry and every text run in
 text, and the cookie dialog's cards break no word at 320, 360 and 390px.
 
 A control that copies to the clipboard keeps its words and says a press where a screen reader hears it: a
-`role="status"` line beside it, as Copy filing link, Copy receipt and the invite share options' Copy message have
-("Filing link copied.", "Invite message copied."), or, outside a dialog and where its surface already confirms through
+`role="status"` line beside it, as Copy filing link, Copy receipt, the waitlist's referral Copy and the invite share
+options' Copy message have ("Filing link copied.", "Referral link copied.", "Invite message copied."), or,
+outside a dialog and where its surface already confirms through
 the toast region, a success toast, as Copy link does in the bulk invite summary ("Invite link copied"). Inside a modal
 dialog the page's toast region lies outside the dialog, and `aria-modal` hides it from VoiceOver, so there a press is
 said in a status line inside the dialog: a control that confirms through a toast takes `onStatus`, the line of the
@@ -393,7 +394,7 @@ and outside a catch clause or a rejection handler, calls the setter of a state a
 `onStatus`, or `toast.success` with `onStatus` beside it; a dialog passes `onStatus` to each control it renders that
 takes one, and each `onStatus` passed reaches what a status line shows; no words in a file that writes read "Copied",
 nor a button's words there say it was copied; a reach for the clipboard the scan cannot follow fails; and each writer
-names the spec that presses it and reads its words, in code; the waitlist's referral Copy is its residue, E244) and `tests/unit/inviteCopyConfirmations.spec.tsx` (Copy link's name
+names the spec that presses it and reads its words, in code) and `tests/unit/inviteCopyConfirmations.spec.tsx` (Copy link's name
 through a press; in the bulk summary one toast and no words changed in its live region; in the resend dialog and a
 summary row's share dialog, each press said in a status line inside the dialog and nothing in the toast region).
 
