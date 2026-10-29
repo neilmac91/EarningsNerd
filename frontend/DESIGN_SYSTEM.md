@@ -391,9 +391,9 @@ name lacked the word shown and a press in the resend dialog said nothing a scree
 `tests/unit/copyConfirmations.spec.ts` (read as TypeScript: each clipboard write, after it in the function that writes
 and outside a catch clause or a rejection handler, calls the setter of a state a `role="status"` line reads,
 `onStatus`, or `toast.success` with `onStatus` beside it; a dialog passes `onStatus` to each control it renders that
-takes one, and each `onStatus` passed reaches a status line; no words in a file that writes read "Copied"; a reach for
-the clipboard the scan cannot follow fails; and each writer names the spec that presses it and reads its words; the
-waitlist's referral Copy is its residue, E244) and `tests/unit/inviteCopyConfirmations.spec.tsx` (Copy link's name
+takes one, and each `onStatus` passed reaches what a status line shows; no words in a file that writes read "Copied",
+nor a button's words there say it was copied; a reach for the clipboard the scan cannot follow fails; and each writer
+names the spec that presses it and reads its words, in code; the waitlist's referral Copy is its residue, E244) and `tests/unit/inviteCopyConfirmations.spec.tsx` (Copy link's name
 through a press; in the bulk summary one toast and no words changed in its live region; in the resend dialog and a
 summary row's share dialog, each press said in a status line inside the dialog and nothing in the toast region).
 

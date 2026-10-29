@@ -21,11 +21,14 @@ import { describe, expect, it } from 'vitest'
  * - or `onStatus(…)`, the status line of the dialog the control sits in.
  * A toast is never all: a write said in the toast region also calls `onStatus`, so a dialog can take its press. A
  * dialog (a file that renders ui/Modal) passes `onStatus` to each component it renders that takes one, and an `onStatus`
- * passed anywhere is the setter of a state a `role="status"` element of the passing file reads. No words in a file that
- * writes read "Copied", with or without a stop, as a label would (a state named 'copied' is no words). Any other reach
- * for the clipboard (an alias, a destructured `clipboard`) fails until the scan learns it, so no write hides from it.
- * PRESSED_BY names the spec that presses each writer and reads the words it says. The waitlist's referral Copy still
- * flips and is said nowhere; RESIDUE holds it to E244.
+ * passed anywhere is the setter of a state a `role="status"` element of the passing file shows (in its children: a
+ * class that reads the state says nothing). A dialog is a file that renders ui/Modal by name, held for the controls it
+ * renders itself. No words in a file that writes read "Copied", with or without a stop (a state named 'copied' is no
+ * words), and no words inside a button there say it was copied: a label that flips renames its control. Any other reach
+ * for the clipboard (an alias, a destructured `clipboard`, `['clipboard']`, `execCommand('copy')`) fails until the
+ * scan learns it, so no write hides from it. PRESSED_BY names the spec that presses each writer and reads the words it
+ * says, in code, not in a comment. The waitlist's referral Copy still flips and is said nowhere; RESIDUE holds it to
+ * E244.
  */
 
 const ROOT = join(__dirname, '..', '..')
@@ -62,6 +65,9 @@ function clipboardReach(sf: ts.SourceFile): { writes: ts.CallExpression[]; unrea
       else if (member.name.text.startsWith('write')) writes.push(call)
     }
     if (ts.isBindingElement(node) && (node.propertyName ?? node.name).getText() === 'clipboard') unread = true
+    if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && node.argumentExpression.text === 'clipboard') unread = true
+    if (ts.isCallExpression(node) && /(^|\.)execCommand$/.test(node.expression.getText()) && node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])
+      && node.arguments[0].text === 'copy') unread = true
     ts.forEachChild(node, visit)
   }
   visit(sf)
@@ -142,6 +148,7 @@ function copyFaults(source: string, fileName = join(ROOT, 'features', 'source.ts
   const setters = new Map<string, string>()
   const spoken = new Set<string>()
   const elements: (ts.JsxOpeningElement | ts.JsxSelfClosingElement)[] = []
+  const buttons: ts.JsxElement[] = []
   let flips = false
   const visit = (node: ts.Node) => {
     // const [value, setValue] = useState(…)
@@ -154,13 +161,15 @@ function copyFaults(source: string, fileName = join(ROOT, 'features', 'source.ts
     }
     const element = ts.isJsxElement(node) ? node.openingElement : ts.isJsxSelfClosingElement(node) ? node : null
     if (element) elements.push(element)
-    // Every name a status line reads.
-    if (element && hasStatusRole(element.attributes)) {
+    if (ts.isJsxElement(node) && /^(button|Button)$/.test(node.openingElement.tagName.getText())) buttons.push(node)
+    // Every name a status line shows: in its children, not its attributes, so a class that reads the state says nothing
+    // (the tier review on #1793).
+    if (ts.isJsxElement(node) && hasStatusRole(node.openingElement.attributes)) {
       const read = (n: ts.Node) => {
         if (ts.isIdentifier(n)) spoken.add(n.text)
         ts.forEachChild(n, read)
       }
-      read(node)
+      node.children.forEach(read)
     }
     if ((ts.isStringLiteralLike(node) || ts.isJsxText(node)) && /^Copied[.!]?$/.test(node.text.trim())) flips = true
     ts.forEachChild(node, visit)
@@ -190,9 +199,15 @@ function copyFaults(source: string, fileName = join(ROOT, 'features', 'source.ts
     element.attributes.properties.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText() === name)
   const dialog = elements.some((element) => isUiModal(tag(element)))
   const passed = elements.map((element) => attribute(element, 'onStatus')).filter((a) => a !== undefined)
-  const reachesStatus = (a: ts.JsxAttribute) =>
-    !!a.initializer && ts.isJsxExpression(a.initializer) && !!a.initializer.expression && ts.isIdentifier(a.initializer.expression)
-    && spoken.has(setters.get(a.initializer.expression.text) ?? '')
+  const shownBy = (setter: ts.Node | undefined): boolean => !!setter && ts.isIdentifier(setter) && spoken.has(setters.get(setter.text) ?? '')
+  // onStatus={setStatus}, or onStatus={(message) => setStatus(message)}
+  const reachesStatus = (a: ts.JsxAttribute) => {
+    const passed = a.initializer && ts.isJsxExpression(a.initializer) ? a.initializer.expression : undefined
+    if (passed && ts.isArrowFunction(passed) && ts.isCallExpression(passed.body)) return shownBy(passed.body.expression)
+    return shownBy(passed)
+  }
+  const saysCopied = (n: ts.Node) => (ts.isStringLiteralLike(n) || ts.isJsxText(n)) && /\bcopied\b/i.test(n.text)
+  if (buttons.some((button) => button.children.some((child) => contains(child, saysCopied)))) flips = true
 
   return [
     ...(ways.every((w) => w.size > 0) ? [] : [NO_CONFIRMATION]),
@@ -237,6 +252,11 @@ const PRESSED_BY: Record<string, { spec: string; words: string[] } | null> = {
 
 const files = DIRS.flatMap((dir) => sourcesUnder(join(ROOT, dir)))
 
+/** Whether a source says the words in code, a string or the text of an element, not in a comment. */
+function saysWords(source: string, words: string, fileName = 'source.tsx'): boolean {
+  return contains(parse(fileName, source), (n) => (ts.isStringLiteralLike(n) || ts.isJsxText(n)) && n.text.includes(words))
+}
+
 describe('a clipboard write is said where a screen reader hears it, and its control keeps its words', () => {
   it('holds every source file, the residue named exactly', () => {
     const found = Object.fromEntries(
@@ -260,10 +280,13 @@ describe('a clipboard write is said where a screen reader hears it, and its cont
       const source = readFileSync(join(ROOT, writer), 'utf8')
       const spec = readFileSync(join(ROOT, entry.spec), 'utf8')
       for (const word of entry.words) {
-        expect(source, `${writer} says "${word}"`).toContain(word)
-        expect(spec, `${entry.spec} reads "${word}"`).toContain(word)
+        expect(saysWords(source, word, writer), `${writer} says "${word}"`).toBe(true)
+        expect(saysWords(spec, word, entry.spec), `${entry.spec} reads "${word}"`).toBe(true)
       }
     }
+    // Words in a comment are no words.
+    expect(saysWords("// 'Invite link copied.'\nconst words = 'Copy link'", 'Invite link copied.')).toBe(false)
+    expect(saysWords("const words = 'Invite link copied.'", 'Invite link copied.')).toBe(true)
   })
 
   it('finds each fault in planted sources, write by write, and passes over comments and strings', () => {
@@ -284,12 +307,19 @@ describe('a clipboard write is said where a screen reader hears it, and its cont
       NO_CONFIRMATION,
       FLIPS,
     ])
+    // A button's words that say it was copied, in other words.
+    expect(copyFaults(copy('await navigator.clipboard.writeText(link)').replace('>Copy link<', ">{copied ? 'Link copied!' : 'Copy link'}<"))).toEqual([
+      NO_CONFIRMATION,
+      FLIPS,
+    ])
     // A write the scan reads however it is spelled: an optional chain, the window's navigator.
     expect(copyFaults(copy('await navigator.clipboard?.writeText(link)'))).toEqual([NO_CONFIRMATION])
     expect(copyFaults(copy('await window.navigator?.clipboard.write([item])'))).toEqual([NO_CONFIRMATION])
     // A reach it cannot follow fails until it learns it: an alias, a destructured clipboard. A read is no write.
     expect(copyFaults(copy('const board = navigator.clipboard; await board.writeText(link)'))).toEqual([UNREAD])
     expect(copyFaults(copy('const { clipboard } = navigator; await clipboard.writeText(link)'))).toEqual([UNREAD])
+    expect(copyFaults(copy("await navigator['clipboard'].writeText(link)"))).toEqual([UNREAD])
+    expect(copyFaults(copy("document.execCommand('copy'); onStatus('Invite link copied.')"))).toEqual([UNREAD])
     expect(copyFaults(copy('setText(await navigator.clipboard.readText())'))).toEqual([])
     // Said in the toast region and through onStatus, the dialog's line: heard outside a dialog and in one.
     expect(copyFaults(copy("await navigator.clipboard.writeText(link); if (onStatus) onStatus('Invite link copied.'); else toast.success('Invite link copied')"))).toEqual([])
@@ -310,6 +340,10 @@ describe('a clipboard write is said where a screen reader hears it, and its cont
     expect(copyFaults(status('await navigator.clipboard.writeText(text)'))).toEqual([NO_CONFIRMATION])
     expect(copyFaults(status('await navigator.clipboard.writeText(text); setOther(true)'))).toEqual([NO_CONFIRMATION])
     expect(copyFaults(status("await navigator.clipboard.writeText(text); setCopyState('copied')", '<p role="status" />'))).toEqual([NO_CONFIRMATION])
+    // A line that reads the state in its class alone shows nothing (the tier review on #1793).
+    expect(copyFaults(status("await navigator.clipboard.writeText(text); setCopyState('copied')", '<p role="status" className={copyState}></p>'))).toEqual([
+      NO_CONFIRMATION,
+    ])
     // A setter or a toast before the write says nothing of it; on the failure's path, a catch clause or a rejection
     // handler, it is not the copy's.
     expect(copyFaults(status("setCopyState('copied'); await navigator.clipboard.writeText(text)"))).toEqual([NO_CONFIRMATION])
@@ -345,6 +379,11 @@ export function D() {
     // An onStatus no status line reads: another state's setter, or the line gone.
     expect(copyFaults(dialog('<CopyLinkButton link={link} onStatus={setOther} />'))).toEqual([STATUS_NOWHERE])
     expect(copyFaults(dialog('<CopyLinkButton link={link} onStatus={setStatus} />', ''))).toEqual([STATUS_NOWHERE])
+    expect(copyFaults(dialog('<CopyLinkButton link={link} onStatus={setStatus} />', "<p role=\"status\" className={status ? 'mt-3' : ''}></p>"))).toEqual([
+      STATUS_NOWHERE,
+    ])
+    // A setter passed through an arrow reaches the line as well.
+    expect(copyFaults(dialog('<CopyLinkButton link={link} onStatus={(message) => setStatus(message)} />'))).toEqual([])
     // Outside a dialog the control says its press in the toast region.
     expect(copyFaults(dialog('<CopyLinkButton link={link} />').replace(/<\/?Modal[^>]*>/g, ''))).toEqual([])
   })
