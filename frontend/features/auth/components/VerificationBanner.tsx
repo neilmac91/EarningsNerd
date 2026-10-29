@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
+import { CircleNotchIcon, WarningIcon, XIcon } from '@/lib/icons'
+import { cx, noticeTint } from '@/components/ui'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { isAuthRoute } from '@/components/SiteChrome'
 import { queryKeys } from '@/lib/queryKeys'
@@ -76,11 +77,13 @@ export default function VerificationBanner() {
   }
 
   return (
-    <div className="border-b border-warning-light/30 bg-warning-light/10 text-warning-light dark:border-warning-dark/20 dark:bg-warning-dark/10 dark:text-warning-dark">
+    // An unverified address is a state, so the strip takes the warning Notice's tint by name, and as in a Notice its
+    // words rest in the ink and the warning ink is the glyph's alone (E196 (2); DESIGN_SYSTEM.md §4 › Inline notice).
+    <div className={cx('border-b text-text-primary-light dark:text-text-primary-dark', noticeTint('warning'))}>
       {/* One row while it fits. With enlarged text on a phone, "Resend link" and the dismiss wrap onto
           a second row, the dismiss at its right end, rather than pushing past the viewport. */}
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
-        <WarningCircleIcon className="h-4 w-4 shrink-0" />
+        <WarningIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-warning-light dark:text-warning-dark" />
         <p ref={statusRef} tabIndex={-1} className="flex-1 outline-none">
           {resent ? (
             <>Verification email sent. Check your inbox.</>
@@ -98,7 +101,7 @@ export default function VerificationBanner() {
             onClick={handleResend}
             aria-disabled={loading || limited || undefined}
             aria-busy={loading || undefined}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg font-semibold underline-offset-2 hover:underline aria-disabled:text-warning-light/50 dark:aria-disabled:text-warning-dark/50 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg font-semibold underline-offset-2 hover:underline aria-disabled:text-text-primary-light/50 dark:aria-disabled:text-text-primary-dark/50 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             {loading && <CircleNotchIcon aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />}
             Resend link
@@ -108,9 +111,10 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="ml-auto shrink-0 rounded p-1 transition-colors hover:bg-warning-light/15 dark:hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          // A dialog's close: the tertiary ink, the primary on hover, no ground of its own on the strip's tint.
+          className="ml-auto shrink-0 rounded p-1 text-text-tertiary-light transition-colors hover:text-text-primary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
-          <XIcon className="h-4 w-4" />
+          <XIcon aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
       {failure ? (

@@ -11,7 +11,7 @@ import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircleIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
+import { CheckCircleIcon, LightningIcon, TrashIcon, WarningCircleIcon, WarningIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { formatLocalDate } from '@/lib/format'
 import { toast } from 'sonner'
@@ -24,7 +24,7 @@ import EarningsCalendar from '@/features/dashboard/components/EarningsCalendar'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
-import { Badge, Button, buttonVariants, Card, GuidanceCard, Notice, SkeletonStat, SkeletonText, UsageMeter } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, cx, GuidanceCard, Notice, noticeTint, SkeletonStat, SkeletonText, UsageMeter } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
@@ -301,19 +301,21 @@ export default function DashboardPage() {
         <TrialBanner isPro={subscription?.is_pro} status={subscription?.status} trialEnd={subscription?.trial_end} className="mb-6" />
 
         {/* Usage-warning banner surfaced at the top where it will actually be seen (the plan/usage
-            strip lives in the side column). */}
+            strip lives in the side column). A limit near or reached is a state, so the banner takes the warning
+            Notice's tint by name and keeps its own shape, the upgrade at its end from sm, as the trial banner above
+            it; as in a Notice, its words rest in the ink and the warning ink is the glyph's alone (E196 (2)). */}
         {showUsageWarning && (
           <div
             role="status"
-            className="mb-6 flex flex-col gap-3 rounded-xl border border-warning-light/30 bg-warning-light/10 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-warning-dark/30 dark:bg-warning-dark/10"
+            className={cx('mb-6 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between', noticeTint('warning'))}
           >
             <div className="flex items-start gap-3">
-              <WarningCircleIcon className="h-5 w-5 flex-shrink-0 text-warning-light dark:text-warning-dark" />
+              <WarningIcon aria-hidden="true" className="h-5 w-5 flex-shrink-0 text-warning-light dark:text-warning-dark" />
               <div>
-                <p className="text-sm font-semibold text-warning-light dark:text-warning-dark">
+                <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {usagePercentage >= 100 ? 'Limit reached' : 'Almost at your limit'}
                 </p>
-                <p className="mt-0.5 text-sm text-warning-light dark:text-warning-dark">
+                <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   {usagePercentage >= 100
                     ? `You've used all ${summariesLimit} summaries this month.`
                     : `You have ${summariesLeft} ${summariesLeft === 1 ? 'summary' : 'summaries'} left this month.`}
