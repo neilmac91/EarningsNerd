@@ -16,6 +16,7 @@ import { Badge, Button } from '@/components/ui'
 import CopilotMessage, { READING_LINE, type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
 import { useFilingViewer } from './FilingViewerContext'
+import { usePaneStatus } from './PaneStatusContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
@@ -118,23 +119,30 @@ export default function AskCopilotRail({
     setMessages(next)
   }
 
-  // The rail's status line, sr-only, mounted with the conversation before any question. The reading card is created
-  // with its words in it, so the card never says them; this line says READING_LINE when a question is sent and
-  // "Answer ready." when the answer completes. It empties before each question, so the same words are heard again,
-  // on an error, which the card says itself (its alert, or the plan card's sentence in its region), and on a cancel (a
-  // close mid-question), whose card shows it when the rail is next in view. It lives in the conversation, so in the
-  // filing workspace's pane it is heard only while the Ask tab shows (tasks/todo.md E238).
-  const [statusLine, setStatusLine] = useState('')
+  // The rail's status line, sr-only. The reading card is created with its words in it, so the card never says them;
+  // the line says READING_LINE when a question is sent and "Answer ready." when the answer completes. It empties
+  // before each question, so the same words are heard again; on an error, which the card says itself (its alert, or
+  // the plan card's sentence in its region), heard while the Ask tab shows (tasks/todo.md E241); and on a cancel (a
+  // close mid-question), whose card shows it when the rail is next in view. In the filing workspace the line is the
+  // pane's (PaneStatusContext), between the tabs and the panels, so it is heard whichever tab shows; elsewhere the
+  // rail keeps one of its own, mounted with the conversation before any question.
+  const setPaneStatus = usePaneStatus()
+  const [ownStatus, setOwnStatus] = useState('')
+  const setStatusLine = setPaneStatus ?? setOwnStatus
   // A question's words, set a frame after the line empties: an answer, an error or a cancel before then drops them.
   const statusFrame = useRef<number | null>(null)
   const sayStatus = useCallback((words: string) => {
     if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
     statusFrame.current = null
     setStatusLine(words)
-  }, [])
+  }, [setStatusLine])
+  // An unmount drops the pending words, then empties the line: the pane's outlives the rail (another filing's rail,
+  // or the summary gone and back), and a new conversation never sits under the last one's words. Words still a frame
+  // away would land after the emptying, so the frame goes first.
   useEffect(() => () => {
     if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
-  }, [])
+    setStatusLine('')
+  }, [setStatusLine])
 
   // Abort any in-flight stream when the panel closes or the component unmounts.
   const abortStream = useCallback((clearPending = false) => {
@@ -450,11 +458,14 @@ export default function AskCopilotRail({
     // 192px, so a sheet the consent bar and a bottom inset have shortened still fits the composer above
     // the bar (tests/e2e/consent-bar-yields.spec.ts).
     <div ref={columnRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      {/* The column clips, so a positioned box inside it holds the status line's sr-only box; nothing else in the column
-          changes its containing block (lessons/frontend-sr-only-needs-a-positioned-clip.md). */}
-      <div className="relative">
-        <p role="status" className="sr-only">{statusLine}</p>
-      </div>
+      {/* The rail's own status line, outside the filing workspace (whose pane holds the line there). The column clips,
+          so a positioned box inside it holds the line's sr-only box; nothing else in the column changes its
+          containing block (lessons/frontend-sr-only-needs-a-positioned-clip.md). */}
+      {!setPaneStatus && (
+        <div className="relative">
+          <p role="status" className="sr-only">{ownStatus}</p>
+        </div>
+      )}
       {/* Messages / empty state */}
       <div ref={scrollRef} className="min-h-[min(40vh,12rem)] flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
