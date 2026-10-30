@@ -160,6 +160,21 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     filing_id, user_id = run.filing_id, run.user_id
     request_evidence = run.request_evidence
 
+    # load_filing/join_or_lead have already served a ready result or joined its
+    # existing producer. Pausing admissions must not interrupt a durable worker.
+    if pipeline.settings.SUMMARY_NEW_JOBS_PAUSED and run.durable_lease is None:
+        if request_evidence is not None:
+            request_evidence.reason = pipeline.ErrorCode.GENERATION_PAUSED.value
+        yield {"type": "error", "code": pipeline.ErrorCode.GENERATION_PAUSED.value,
+               "message": "New summary generation is temporarily paused. Try again shortly."}
+        return
+
+    if run.admit_generation is not None:
+        refusal = run.admit_generation()
+        if refusal is not None:
+            yield {**refusal, "type": "error"}
+            return
+
     # Cache company data and filing attributes from the fetched filing
     run.company_name = run.filing_fields["company_name"]
     run.company_cik = run.filing_fields["company_cik"]
@@ -167,6 +182,12 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     run.filing_document_url = run.filing_fields["document_url"]
     run.filing_type = run.filing_fields["filing_type"]
     run.filing_accession_number = run.filing_fields["accession_number"]
+
+    if (run.filing_type or "").upper().split("/")[0] == "8-K":
+        # Legacy excerpts contain only the cover/current report. Every new 8-K
+        # generation resolves its advertised earnings exhibits before building an
+        # excerpt. Completed summaries still take load_filing's normal cache hit.
+        run.rebuild_excerpt = True
 
     # Check the plain cached-content snapshot (no ORM reads after session closure).
     cached_excerpt = run.filing_fields["cache_excerpt"]
@@ -196,6 +217,9 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
         current_user = run.current_user
 
         def check_usage_sync() -> tuple[bool, int, Optional[int], bool, Optional[str]]:
+            if run.durable_lease is not None:
+                from app.services.summary_job_store import reserve_job_usage
+                return reserve_job_usage(run.durable_lease)
             with database.SessionLocal() as usage_session:
                 return pipeline._check_usage_and_plan(current_user, usage_session)
 

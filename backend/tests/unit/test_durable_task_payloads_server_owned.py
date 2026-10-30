@@ -72,6 +72,11 @@ SERVER_OWNED_CALLS = {
     "other_filing_forms": "app.services.filing_list_service",
 }
 EXEMPT = {
+    ("services/summary_jobs.py", "dispatch_job"): (
+        "durable summary dispatch carries only a persisted server job UUID and generation; "
+        "ensure_job authenticates/serializes bounded account admission and exact filing identity; "
+        "private recovery and worker retries reuse or rotate the stored dispatch intent"
+    ),
     ("services/internal_task_runner.py", "enqueue_internal_job"): "operator routes (_require_internal_token)",
     ("services/internal_task_runner.py", "run_internal_task"): "worker-side fan-out of an operator job",
     ("services/account_mail_service.py", "queue_account_mail"): (
@@ -98,6 +103,7 @@ def _module_of(rel: str) -> str:
 # caps test_filings_routes.py sums, times the API's instances, against the drain of the one queue every
 # durable task shares, so a new EXEMPT site must say here whether such a request reaches it, and what caps it.
 EXEMPT_PUBLIC_CAPS = {
+    ("services/summary_jobs.py", "dispatch_job"): None,  # authenticated creation / private recovery only
     ("services/internal_task_runner.py", "enqueue_internal_job"): None,  # its routes take the internal token
     ("services/internal_task_runner.py", "run_internal_task"): None,  # the worker's fan-out of an operator job
     ("services/account_mail_service.py", "queue_account_mail"): (

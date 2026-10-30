@@ -19,6 +19,8 @@
  * two matchers route on still occur in the sentences that must trigger them.
  */
 export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
+  'New summary generation is temporarily paused. Try again shortly.':
+    'New summary generation is temporarily paused. Try again shortly.',
   // fetch.py: a 6-K's exhibits could not be fetched from EDGAR.
   'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.':
     'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.',

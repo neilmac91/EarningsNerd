@@ -77,6 +77,20 @@ async def trigger_filing_scan(background: BackgroundTasks):
     return {"status": "accepted", "job": "filing-scan"}
 
 
+@router.post("/jobs/summary-recovery", dependencies=[Depends(_require_internal_token)])
+async def recover_summary_jobs():
+    """Confirm up to twenty durable handoffs; never run paid generation here."""
+    if not settings.SUMMARY_DURABLE_GENERATION_ENABLED or not settings.DURABLE_TASKS_ENABLED:
+        raise HTTPException(status_code=409, detail="Durable summary generation is disabled.")
+    from app.services.summary_jobs import recover_due_jobs
+
+    try:
+        dispatched = await recover_due_jobs(limit=20)
+    except TaskUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Summary recovery could not reach the queue.") from exc
+    return {"status": "completed", "dispatched": dispatched}
+
+
 @router.post("/jobs/filing-digest", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_filing_digest(background: BackgroundTasks):
     if settings.DURABLE_TASKS_ENABLED:

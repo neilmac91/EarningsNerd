@@ -3,11 +3,46 @@ from __future__ import annotations
 import time
 from collections import OrderedDict, deque
 from threading import Lock
-from typing import Deque, Optional
+from typing import Callable, Deque, Optional
 
 from fastapi import HTTPException, Request, status
 
 from app.config import settings
+
+
+class ActiveStreamLimiter:
+    """Bound live responses per account in this process, independently of request rate.
+
+    A lease lasts until its response exits, including send failure before iteration starts.
+    The returned release is idempotent; idle account keys never remain in memory.
+    """
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self._active: dict[str, int] = {}
+        self._lock = Lock()
+
+    def try_acquire(self, key: str) -> Optional[Callable[[], None]]:
+        with self._lock:
+            count = self._active.get(key, 0)
+            if count >= self.limit:
+                return None
+            self._active[key] = count + 1
+        released = False
+
+        def release() -> None:
+            nonlocal released
+            with self._lock:
+                if released:
+                    return
+                released = True
+                remaining = self._active[key] - 1
+                if remaining:
+                    self._active[key] = remaining
+                else:
+                    del self._active[key]
+
+        return release
 
 
 class RateLimiter:

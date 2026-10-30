@@ -98,13 +98,13 @@ describe('the summary stream client prints its own fallbacks in the voice', () =
 
   it('an invalid completion frame', async () => {
     const result = await failureOf(async () => stream([frame({ type: 'complete', summary_id: '42' })]))
-    expect(result).toEqual({ shown: 'The summary ended with an invalid completion. Try again.', requests: 2 })
+    expect(result).toEqual({ shown: 'The summary ended with an invalid completion. Try again.', requests: 1 })
     inTheVoice(result.shown)
   })
 
   it('an error frame with no message of its own', async () => {
     const result = await failureOf(async () => stream([frame({ type: 'error' })]))
-    expect(result).toEqual({ shown: 'We could not generate this summary. Try again shortly.', requests: 2 })
+    expect(result).toEqual({ shown: 'We could not generate this summary. Try again shortly.', requests: 1 })
     inTheVoice(result.shown)
   })
 

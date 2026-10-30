@@ -232,7 +232,6 @@ describe('StreamingSummaryDisplay status line', () => {
 
   it.each([
     ['initializing', 'fetching'],
-    ['queued', 'fetching'],
     ['fetching', 'fetching'],
     ['parsing', 'parsing'],
     ['analyzing', 'summarizing'],
@@ -245,6 +244,15 @@ describe('StreamingSummaryDisplay status line', () => {
     expect(text.startsWith('10-K · ')).toBe(true)
     expect(LINES[pool]).toContain(text.slice('10-K · '.length))
     expect(meta.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-sm', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+  })
+
+  it('keeps a queued job at zero and shows its preparation state without claiming a source fetch', async () => {
+    render(<StreamingSummaryDisplay streamingText="" stage="queued" message="Waiting to retry the source…" filing={filing} elapsedSeconds={90} />)
+    await act(async () => {})
+    expect(screen.getByText('Waiting to retry the source…')).toBeInTheDocument()
+    expect(screen.queryByText('Opening the filing…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Taking longer than usual. Still working on it.')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
   })
 
   // A line says what the step beside it does not: the summarizing pool's "Checking the figures against the filing's
