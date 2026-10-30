@@ -1611,9 +1611,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
-                 A long option set is not a segmented control: the company page's peer and trend
-                 metric pickers (nine and up to 23 options) are a raw compact select beside a visible
-                 "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 A long option set is not a segmented control: the company page's peer metric picker (nine
+                 options) and the filing page's trend metric picker (up to 23) are a raw compact select beside
+                 a visible "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
                  options in sentence case; the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
