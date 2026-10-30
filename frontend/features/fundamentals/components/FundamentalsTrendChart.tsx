@@ -11,23 +11,20 @@
 import { useContext, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
-import {
-  getFilingFundamentals,
-  type FundamentalPoint,
-  type FundamentalsResponse,
-} from '@/features/fundamentals/api/fundamentals-api'
+import { getFilingFundamentals, type FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { Card, Skeleton, inputClasses } from '@/components/ui'
 import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
 import { useChartFont } from '@/features/analysis/components/useChartFont'
-import { buildBarChart, unitCurrency, type BarAxis, type BarCategory } from '@/features/analysis/lib/charts/barChart'
+import { buildBarChart, unitCurrency, type BarAxis } from '@/features/analysis/lib/charts/barChart'
 import { CARD_HEIGHT } from '@/features/analysis/lib/charts/layout'
-import { periodHeader, readouts } from '@/features/analysis/lib/charts/readout'
+import { readouts } from '@/features/analysis/lib/charts/readout'
 import { chartTokens } from '@/features/analysis/lib/charts/theme'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
+import { slotsOf, trendDescriber } from '@/features/fundamentals/lib/trendChart'
 
 type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 
@@ -74,22 +71,6 @@ const VALUES_DONT_FIT_HERE = 'Values don’t fit at this width.'
  *  "USD/shares" is a per-share amount, in cents), a margin in percentage points, or a multiple. */
 const axisOf = (fmt: FmtKind, unit: string): BarAxis =>
   fmt === 'pct' ? { kind: 'percent' } : fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit }
-
-/** Each point's slot: its fiscal year names it ("FY2025", ticked "2025"), and a point the backend names no year for
- *  takes its period end's year, as the axis has always ticked it. The engine places a bar and reads a year by its key,
- *  so a key is never given twice (buildBarChart refuses it): a name two points share keys each by its place. */
-function slotsOf(points: FundamentalPoint[]): BarCategory[] {
-  const names = points.map((point) => (point.fiscal_year != null ? `FY${point.fiscal_year}` : point.period_end?.slice(0, 4) ?? ''))
-  return points.map((point, i) => {
-    const name = names[i]
-    const own = name !== '' && names.indexOf(name) === names.lastIndexOf(name)
-    return {
-      key: own ? name : `${name || 'period'}#${i}`,
-      tick: point.fiscal_year != null ? String(point.fiscal_year) : name,
-      long: name || 'Period unavailable',
-    }
-  })
-}
 
 export default function FundamentalsTrendChart({
   filingId,
@@ -142,13 +123,8 @@ export default function FundamentalsTrendChart({
       axis: axisOf(active.fmt, series.unit),
       unavailable: series.points.some((point) => point.value != null) ? null : NO_FIGURES,
     })
-    const pointAt = new Map(slots.map((slot, i) => [slot.key, series.points[i]]))
-    // Each year as the tooltip prints it and the values stop says it ("FY2025 · year ended Sep 27, 2025"), and a figure
-    // the backend derived (a margin, working capital, the current ratio) read as calculated from its own provenance.
-    const reads = readouts(model, {
-      header: (period) => periodHeader(period.long, 'year', pointAt.get(period.key)?.period_end),
-      calculated: (_mark, key) => pointAt.get(key)?.provenance?.method === 'calculated',
-    })
+    // Each year as the tooltip prints it and the values stop says it ("FY2025 · year ended Sep 27, 2025").
+    const reads = readouts(model, trendDescriber(slots, series.points))
     return { model, reads }
   }, [active, series])
   // Reporting currency of an amount (CNY for an FPI like Alibaba), named in the footnote; a margin or a multiple has none.

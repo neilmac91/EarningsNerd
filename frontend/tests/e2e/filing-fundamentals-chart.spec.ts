@@ -136,6 +136,7 @@ async function expectEngineDrawing(card: Locator, plot: Locator, concept: string
   expect(drawing.fills, `${concept}: every bar in chart-1`).toEqual(points.map(() => CHART_TOKENS[theme].series[0]))
   expect(drawing.labels, `${concept}: every value printed on its bar`).toHaveLength(points.length)
   if (concept === 'net_margin') {
+    expect(drawing.ticks, 'net margin redraws on a percent axis, from its zero').toContain('0%')
     expect(drawing.ticks.every((tick) => tick.endsWith('%')), `net margin redraws on a percent axis: ${drawing.ticks.join(', ')}`).toBe(true)
     expect(drawing.labels.every((value) => value.endsWith('%')), `net margin prints percents: ${drawing.labels.join(', ')}`).toBe(true)
   }

@@ -427,10 +427,11 @@ says so; everything else follows the spec.
     current ratio, negative working capital and four years of equity) and synthetic filings (CNY, a bank's net interest
     income, one year, every year withheld, EPS under a dollar, a clipped margin). M3's bare zero and M12's glyphs widen
     for them only by what such an axis prints: its currency's sign before `0`, `0×`, and the `DATA_FACE_GLYPHS`
-    characters, × among them. Every model's period keys must be unique. `chart-readout.spec.ts` reads every case through
-    Financial trends' describer.
-  - Financial trends (`features/fundamentals/components/FundamentalsTrendChart.tsx`) builds the chosen metric's chart
-    from its filing-scoped series: a slot per year the filing reports, withheld years included, keyed `FY2025` and
+    characters, × among them. Every model's period keys must be unique. `barCases` keys every case with Financial
+    trends' own slots, and `chart-readout.spec.ts` reads every case through its own describer (both in
+    `features/fundamentals/lib/trendChart.ts`).
+  - Financial trends (`features/fundamentals/components/FundamentalsTrendChart.tsx`, its slots and describer in
+    `features/fundamentals/lib/trendChart.ts`) builds the chosen metric's chart from its filing-scoped series: a slot per year the filing reports, withheld years included, keyed `FY2025` and
     ticked `2025` (a point with no fiscal year takes its period end's year, and a name two points share keys each by
     its place, since a key given twice is refused), on a money axis in the series' own unit (a per-share unit in cents),
     a percent axis or a ratio axis by the metric's kind, chart-1 whatever the metric. Its describer heads a year
@@ -439,8 +440,8 @@ says so; everything else follows the spec.
     takes `unavailable` and says so at the card's height. The card prints the model's footnotes under the plot in the
     `note` ink; where A4 finds no tier it says only "Values don’t fit at this width.", since no metrics table on the
     filing page lists the series' years. `tests/unit/fundamentals-trend-chart.spec.tsx` reads the engine's DOM, and
-    `tests/e2e/filing-fundamentals-chart.spec.ts` holds the card on a production build: the named SVG, chart-1 bars with
-    their values printed, the values stop at the newest fiscal year, net margin on a percent axis and the DOM checks of
+    `tests/e2e/filing-fundamentals-chart.spec.ts` holds the card on a production build: the named SVG, chart-1 bars, each
+    printed value the fixture's own to its last digit, the values stop at the newest fiscal year, net margin on a percent axis and the DOM checks of
     `fixtures/chartChecks.ts` for one card (whose zero rule now reads a ratio axis's `0×`), in both themes at 390 and
     1280 px, and every series at 390, 360 and 320 px under 200% text.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
