@@ -98,9 +98,9 @@ describe('PeerComparisonPanel', () => {
 
     expect(await screen.findByText('Sector peers')).toBeInTheDocument()
     expect(screen.getByText(/#3/)).toBeInTheDocument()
-    expect(screen.getByText(/of 3 on Revenue/)).toBeInTheDocument()
+    expect(screen.getByText(/of 3 on revenue/)).toBeInTheDocument()
     // The percentile reads as an ordinal (CO-13): 0 is "0th", and 1, 2, 3 and 21 take st, nd, rd, st.
-    expect(screen.getByText(/of 3 on Revenue/)).toHaveTextContent('· 0th percentile')
+    expect(screen.getByText(/of 3 on revenue/)).toHaveTextContent('· 0th percentile')
     expect(screen.getByTestId('peers-chart')).toBeInTheDocument()
     // Clean data → no honesty badge.
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
@@ -140,7 +140,27 @@ describe('PeerComparisonPanel', () => {
   it('reads a percentile as an English ordinal', async () => {
     getPeers.mockResolvedValue({ ...RESP, subject: peer('AAPL', 100, true, 3, 21.4) })
     renderPanel()
-    expect(await screen.findByText(/of 3 on Revenue/)).toHaveTextContent('· 21st percentile')
+    expect(await screen.findByText(/of 3 on revenue/)).toHaveTextContent('· 21st percentile')
+  })
+
+  it('reads the metric inside its sentences in lower case, an acronym as written (E34)', async () => {
+    getPeers.mockImplementation(async (_ticker: string, metric: string) => {
+      if (metric === 'revenue') return RESP
+      if (metric === 'eps_diluted') return { ...RESP, concept: metric, unit: 'USD/shares' }
+      if (metric === 'net_income') return { ...RESP, concept: metric, peer_count: 1, peers: [peer('AAPL', 100, true, 1, 0)] }
+      throw new Error('unavailable')
+    })
+    renderPanel()
+    // The first metric that loads keeps the panel up, so the sparse and failed metrics show their lines in it.
+    expect(await screen.findByText(/of 3 on revenue/)).toBeInTheDocument()
+    expect(screen.getByText('Same-SIC peers, most recent annual revenue from SEC filings. Coverage grows over time.')).toBeInTheDocument()
+    const picker = screen.getByRole('combobox', { name: 'Metric' })
+    fireEvent.change(picker, { target: { value: 'eps_diluted' } })
+    expect(await screen.findByText(/of 3 on diluted EPS/)).toBeInTheDocument()
+    fireEvent.change(picker, { target: { value: 'net_income' } })
+    expect(await screen.findByText('Not enough sector peers with net income data yet.')).toBeInTheDocument()
+    fireEvent.change(picker, { target: { value: 'total_assets' } })
+    expect(await screen.findByText('Couldn’t load peer data for total assets. Try another metric.')).toBeInTheDocument()
   })
 
   it('picks the metric through a compact select beside its "Metric" label (CO-15), its options in sentence case', async () => {

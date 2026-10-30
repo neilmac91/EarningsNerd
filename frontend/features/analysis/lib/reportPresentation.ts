@@ -2,6 +2,7 @@ import type { AnalysisDataset, AnalysisPoint, AnalysisSeries } from '@/features/
 import type { DataNote, DataNotesModel } from './dataNotes'
 import { chartTopLine, fullyCalculated } from './charts/model'
 import { windowGrowth } from './growth'
+import { inSentence } from '@/lib/format'
 
 export const reportIdentity = (dataset: AnalysisDataset) =>
   JSON.stringify([dataset.ticker, dataset.mode, dataset.period_key, dataset.snapshot_id ?? null])
@@ -46,10 +47,10 @@ export function tablePresentation(dataset: AnalysisDataset, notes: DataNotesMode
   return { notes: notes.notes.filter(note => letters.has(note.key)) }
 }
 
-/** A metric's label inside a sentence: its first letter lowercased, unless it opens an abbreviation ("EPS (diluted)");
- *  a ratio takes its article ("the current ratio"). */
-const inSentence = (label: string) => {
-  const name = /^.[A-Z]/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1)
+/** A metric's label inside a sentence, on lib/format's rule ("net income", "EPS (diluted)"); a ratio takes its article
+ *  ("the current ratio"). */
+const metricInSentence = (label: string) => {
+  const name = inSentence(label)
   return / ratio$/.test(name) ? `the ${name}` : name
 }
 const isMargin = (series: AnalysisSeries) => /\bmargin$/i.test(series.label)
@@ -65,7 +66,7 @@ export function calculatedMetricsSentence(dataset: AnalysisDataset): string {
   const margins = dataset.series.filter(isMargin)
   const grouped = margins.length > 1 && margins.every(series => calculated.includes(series))
   // "Margins" stands where the run's first margin would.
-  const names = calculated.flatMap(series => !grouped || !isMargin(series) ? [inSentence(series.label)] : series === margins[0] ? ['margins'] : [])
+  const names = calculated.flatMap(series => !grouped || !isMargin(series) ? [metricInSentence(series.label)] : series === margins[0] ? ['margins'] : [])
   const list = names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
   return `Figures are rounded for display${list ? `; ${list} ${names.length > 1 || grouped ? 'are' : 'is'} calculated from filed figures` : ''}. Select any value for its source and full precision.`
 }
