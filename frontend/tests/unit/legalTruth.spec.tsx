@@ -2536,10 +2536,12 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (498 rows since E162 stage 4e) takes 3.5s alone, and the default 5s timed out in a full local
-    run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
-    0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
-const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
+    self-check (498 rows since E162 stage 4e) takes 4.2s alone: the default 5s timed out in a full local run on a
+    loaded machine, a 30s budget timed out at 32s in this spec under twenty-four busy loops on four cores, and it took
+    46s under thirty-two, so the budget is 90s, about twice that. The removed claims' self-check (573 rows, through
+    the page's render and splitter) takes 0.8s alone, and the default 5s timed out in this spec under twenty-four busy
+    loops. */
+const READS_EVERY_PLANTED_FORM = { timeout: 90_000 }
 
 /** A case that renders every legal page and reads its text, with the security and waitlist modules' copy, through
     every removed claim: 0.8s alone, and 4.4s of the default 5s in this spec under twenty-four busy loops on four
