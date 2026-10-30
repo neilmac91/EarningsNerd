@@ -29,7 +29,9 @@ from app.models import (
 )
 from app.routers.auth import get_current_user, get_current_user_optional
 from app.dependencies import copilot_taste_exhausted_detail, require_copilot_or_taste
-from app.services import filing_list_service
+from app.services import filing_list_service, summary_job_store, summary_jobs
+from app.services.request_work import run_owned_sync
+from app.services.summary_job_progress import durable_progress_answer
 from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
 from app.services.rate_limiter import ActiveStreamLimiter, RateLimiter, enforce_rate_limit
@@ -189,6 +191,10 @@ async def get_summary_progress(
     """
     def progress_for_reader() -> dict[str, Any]:
         try:
+            if settings.SUMMARY_DURABLE_GENERATION_ENABLED and settings.DURABLE_TASKS_ENABLED:
+                durable = durable_progress_answer(db, filing_id)
+                if durable is not None:
+                    return durable
             return progress_poll_answer(db, filing_id)
         finally:
             filing_list_service.release_request_session(db)
@@ -200,6 +206,7 @@ async def generate_summary_stream(
     filing_id: int,
     request: Request,
     force: bool = False,
+    retry_failed: bool = False,
     entry_point: Optional[str] = None,
     ph_id: Optional[str] = None,
     analytics_consent: bool = False,
@@ -220,6 +227,8 @@ async def generate_summary_stream(
         force: If True, regenerate a stored summary in place ("Regenerate Analysis"; Pro-only
                while the stored summary is one the filing page shows). A stored row the page
                cannot show is regenerated in place for any caller, with or without force.
+        retry_failed: An explicit Retry action may reopen a failed durable job after its cooldown.
+            A page-load or transport reconnect only observes it; this never bypasses admission.
         entry_point: Where the visitor entered the funnel (forwarded by the
                      frontend for activation analytics, e.g. "homepage").
         ph_id: Legacy client hint, accepted for compatibility but never used as account identity.
@@ -235,6 +244,7 @@ async def generate_summary_stream(
     )
     evidence.start()
     release_stream_slot = None
+    durable_enabled = settings.SUMMARY_DURABLE_GENERATION_ENABLED and settings.DURABLE_TASKS_ENABLED
     try:
         # The admission's unit releases the request's session, which detaches the user: read its id first.
         user_id = current_user.id
@@ -335,13 +345,14 @@ async def generate_summary_stream(
                         # admission: no reader shows the progress row while the summary exists (it is kept).
                         # One DELETE with no read before it: off the loop two forces of one filing clear it at
                         # once, and a read, then a delete, left the second deleting a row already gone.
-                        db.query(SummaryGenerationProgress).filter(
-                            SummaryGenerationProgress.filing_id == filing_id
-                        ).delete(synchronize_session=False)
+                        if not durable_enabled:
+                            db.query(SummaryGenerationProgress).filter(
+                                SummaryGenerationProgress.filing_id == filing_id
+                            ).delete(synchronize_session=False)
 
                         # Committed below, once the stream's inputs are read: the commit expires the user
                         # and the filing, and a read of either after it would refresh its row.
-                        cleared_for_regeneration = True
+                        cleared_for_regeneration = not durable_enabled
                     else:
                         # The replay's response, captured before the release.
                         return _StreamAdmission(replay={
@@ -378,6 +389,10 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps(payload)}\n\n"
             return SummaryStreamResponse(existing_summary(), evidence)
 
+        if settings.SUMMARY_DURABLE_GENERATION_ENABLED and not settings.DURABLE_TASKS_ENABLED:
+            # A half-enabled deployment must not bypass durable ownership with a legacy writer.
+            raise CodedHTTPException(ErrorCode.GENERATION_PAUSED, "Summary preparation is temporarily unavailable.")
+
         release_stream_slot = SUMMARY_STREAM_LIMITER.try_acquire(f"summary:{user_id}")
         if release_stream_slot is None:
             raise CodedHTTPException(
@@ -385,6 +400,89 @@ async def generate_summary_stream(
                 "Too many summary requests. Try again shortly.",
                 headers={"Retry-After": "5"},
             )
+
+        if durable_enabled:
+            def admit_durable_generation() -> None:
+                refusal = admit_generation()
+                if refusal:
+                    raise CodedHTTPException(
+                        ErrorCode.SUMMARY_RATE_LIMITED, refusal["message"],
+                        headers={"Retry-After": str(refusal["retry_after_seconds"])},
+                    )
+
+            try:
+                view = await run_owned_sync(
+                    summary_job_store.ensure_job, filing_id, user_id, force=force,
+                    retry_failed=retry_failed, admit_new=admit_durable_generation,
+                )
+            except summary_job_store.SummaryJobUnavailable as exc:
+                aliases = {
+                    "summary_account_required": ErrorCode.AUTH_REQUIRED,
+                    "summary_refresh_requires_pro": ErrorCode.PLAN_REQUIRED,
+                    "summary_retry_wait": ErrorCode.SUMMARY_RATE_LIMITED,
+                    "summary_pending_limit": ErrorCode.SUMMARY_RATE_LIMITED,
+                    "free_allowance_exhausted": ErrorCode.FREE_ALLOWANCE_EXHAUSTED,
+                    "pro_fair_use_limit": ErrorCode.PRO_FAIR_USE_LIMIT,
+                    "summary_unavailable": ErrorCode.GENERATION_PAUSED,
+                }
+                headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else None
+                if exc.code in aliases:
+                    raise CodedHTTPException(aliases[exc.code], str(exc), headers=headers) from exc
+                if exc.code == "filing_not_found":
+                    raise HTTPException(status_code=404, detail="Filing not found") from exc
+                if exc.code == "summary_account_unavailable":
+                    raise HTTPException(status_code=403, detail="This account is inactive. Contact support with any questions.") from exc
+                raise HTTPException(status_code=503, detail="Summary preparation is unavailable. Try again shortly.", headers=headers) from exc
+
+            evidence.delivery_path = "durable_created" if view.created else "durable_join"
+            evidence.properties["generation_ownership"] = "durable_worker"
+            # Every request may repair the same unacknowledged outbox intent using its stable task key.
+            # A failed handoff never falls through to the request-owned provider pipeline.
+            if view.job_id and view.status in {"queued", "retry_wait"} and view.last_dispatched_at is None:
+                try:
+                    await summary_jobs.dispatch_job(view.job_id, view.generation)
+                    refreshed = await run_owned_sync(summary_job_store.read_job, view.job_id, view.generation)
+                    if refreshed is None or (refreshed.status in {"queued", "retry_wait"} and refreshed.last_dispatched_at is None):
+                        raise RuntimeError("Summary dispatch has not been acknowledged")
+                    view = refreshed
+                except Exception as exc:
+                    logger.warning("[stream:%s] Durable dispatch unavailable exception_class=%s", filing_id, type(exc).__name__)
+                    raise HTTPException(
+                        status_code=503, detail="Summary preparation could not start. Try again shortly.",
+                        headers={"Retry-After": "5"},
+                    ) from exc
+
+            async def durable_events():
+                # Request evidence measures only this observer. Closing it cannot revoke the job lease.
+                evidence.reason = "observer_disconnected"
+                deadline = asyncio.get_running_loop().time() + min(settings.STREAM_TIMEOUT, 240)
+                try:
+                    async with aclosing(summary_jobs.observe_job(view)) as events:
+                        while True:
+                            remaining = deadline - asyncio.get_running_loop().time()
+                            if remaining <= 0:
+                                raise TimeoutError
+                            try:
+                                # Only the iterator wait is cancelled at the deadline. A timeout context
+                                # spanning yield would cancel Starlette's send and swallow our final frame.
+                                event = await asyncio.wait_for(anext(events), timeout=remaining)
+                            except StopAsyncIteration:
+                                break
+                            if event.get("type") in {"complete", "partial", "error"}:
+                                evidence.reason = event.get("code") if event["type"] == "error" else None
+                            evidence.observe_terminal(event)
+                            yield to_sse(event)
+                except TimeoutError:
+                    evidence.reason = "observer_timeout"
+                    evidence.finish("timed_out")
+                    yield to_sse({
+                        "type": "error", "message": "The summary is still preparing. Try again to reconnect.",
+                        "retry_after_seconds": 5, "request_id": evidence.properties["request_id"],
+                    })
+
+            response = SummaryStreamResponse(durable_events(), evidence, release_stream_slot)
+            release_stream_slot = None
+            return response
 
         logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 

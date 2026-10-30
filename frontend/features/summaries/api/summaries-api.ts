@@ -101,8 +101,14 @@ export interface Summary {
 export interface SummaryProgressData {
   // `partial` is a real terminal stage the backend writes (record_progress(..., "partial") on the
   // timeout / low-coverage path) — it was missing here, which is what stranded the L1 poll.
-  stage: 'pending' | 'fetching' | 'parsing' | 'analyzing' | 'summarizing' | 'completed' | 'error' | 'partial'
+  stage: 'pending' | 'queued' | 'fetching' | 'parsing' | 'analyzing' | 'summarizing' | 'completed' | 'error' | 'partial'
   elapsedSeconds: number
+  // Present only when durable generation owns this filing. Legacy polling remains compatible.
+  job_id?: string
+  generation?: number
+  status?: 'dispatch_pending' | 'queued' | 'running' | 'retry_wait' | 'complete' | 'partial' | 'failed'
+  summary_id?: number
+  retry_after_seconds?: number
 }
 
 export interface SavedSummary {
@@ -184,6 +190,7 @@ export class SummaryStreamError extends Error {
 
 interface SummaryStreamOptions {
   force?: boolean
+  retryFailed?: boolean
   entryPoint?: string
   signal?: AbortSignal
   /** Read authoritative persisted state before retrying a transport or showing a failure. */
@@ -287,6 +294,7 @@ const runStreamAttempt = async (
   const apiUrl = getApiUrl()
   const params = new URLSearchParams()
   if (options?.force) params.set('force', 'true')
+  if (options?.retryFailed) params.set('retry_failed', 'true')
   if (options?.entryPoint) params.set('entry_point', options.entryPoint)
 
   const controller = new AbortController()

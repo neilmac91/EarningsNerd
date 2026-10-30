@@ -12,6 +12,8 @@ The job row journals reservation, charged month and charge state. Conversion of 
 
 A browser is only an observer. Closing its SSE stream neither cancels the private worker nor consumes another generation. Explicit authenticated retry can reopen a failed job after a persisted 60-second cooldown, subject to the same quotas/backlog/admission; it does not request a paid refresh of an already ready result. Automatic retries have their own finite attempt and age limits.
 
+The authenticated generation POST accepts `retry_failed=true` for the reader's explicit Retry or Regenerate action; page-load and transport reconnects omit it and observe a failed job without reopening work. `force=true` retains the separate Pro refresh policy. A pending dispatch that cannot be acknowledged returns HTTP 503 with `Retry-After: 5`, retaining the same job for repair. Each SSE observer has at most 240 seconds before an actionable reconnect response; the worker remains independent. Request evidence names observer disconnection rather than generation cancellation. The public progress GET reports persisted job identity/status and accepts a terminal result only when its matching Summary is ready; a retained older Summary cannot complete an active refresh.
+
 ## Delivery and bounded recovery
 
 A queued database row is the dispatch intent. Cloud Tasks creation uses a stable job/generation/dispatch identity, so an ambiguous response can be retried with the same task name. An acknowledged delivery is recorded only after task creation confirms success or the same-name task exists. A failed task creation leaves the intent for recovery and must not be presented as an acknowledged running worker.
@@ -34,3 +36,5 @@ Rollback stops new admissions by disabling the flag. Drain or deliberately fail/
 ## Verification
 
 `tests/unit/test_summary_jobs.py` exercises the real database receipt and existing orchestrator offline, including duplicate task delivery, observer disconnect, cooldown, outbox repair and billing rollback. `tests/integration/test_summary_job_transactions.py` uses independent PostgreSQL sessions in disposable schemas to establish create/claim exclusivity, cross-filing account limits, idempotent concurrent charge/refund, stale-owner fencing and result-commit versus reclaim behavior. Its required CI step sets `SUMMARY_JOB_TEST_DATABASE_URL`, and the PostgreSQL gate fails if configured cases skip or use sessions unlike production.
+
+`tests/unit/test_summary_durable_route.py` exercises the authenticated route through real persisted jobs, queue acknowledgment failures and repair, ready recovery, explicit failed-job retry, stale progress, observer disconnect/deadline and both disabled-flag fallbacks. The frontend recovery flow and queued-state tests keep Retry separate from refresh and prevent a queued job from claiming that SEC retrieval has begun.

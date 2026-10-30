@@ -92,7 +92,7 @@ export interface SummaryGeneration {
   hasStartedGeneration: boolean
   isGenerating: boolean
   hasSummaryContent: boolean
-  handleGenerateSummary: (options?: { force?: boolean }) => Promise<void>
+  handleGenerateSummary: (options?: { force?: boolean; retryFailed?: boolean }) => Promise<void>
   handleRegenerateSummary: () => void
   handleRetrySummary: () => void
   refetchSummary: () => void
@@ -208,7 +208,7 @@ export function useSummaryGeneration({
   }, [filingId, isGenerating, progress.data?.stage, progress.dataUpdatedAt, queryClient])
 
   const handleGenerateSummary = useCallback(
-    async (options?: { force?: boolean }) => {
+    async (options?: { force?: boolean; retryFailed?: boolean }) => {
       // The ref closes the gap before React commits busy state (double taps and effect replay).
       if (activeRequest.current || Date.now() < retryUntil.current) return
       // Generation requires an account (the backend 401s guests). The page renders a signup gate
@@ -307,7 +307,7 @@ export function useSummaryGeneration({
             })()
           },
           fail,
-          { force: options?.force, entryPoint, signal: controller.signal, recover },
+          { force: options?.force, retryFailed: options?.retryFailed, entryPoint, signal: controller.signal, recover },
         )
         await completion
       } catch (error: unknown) {
@@ -329,10 +329,10 @@ export function useSummaryGeneration({
   )
 
   const handleRegenerateSummary = useCallback(() => {
-    handleGenerateSummary({ force: true })
+    handleGenerateSummary({ force: true, retryFailed: true })
   }, [handleGenerateSummary])
   const handleRetrySummary = useCallback(() => {
-    void handleGenerateSummary()
+    void handleGenerateSummary({ retryFailed: true })
   }, [handleGenerateSummary])
 
   // Auto-generate summary when page loads if no summary exists. Signed-in users only, and only

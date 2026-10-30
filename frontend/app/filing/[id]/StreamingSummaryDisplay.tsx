@@ -254,7 +254,7 @@ export default function StreamingSummaryDisplay({
   // Stalled: derived in render, not stored, so the stage and the stall land in one commit and the live region
   // below changes once per transition. Normal generation runs ~30-60s; only flag a genuine stall well past that
   // window, and never while the summary is being written, so we never signal "failure" during a healthy run.
-  const isStalled = elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError
+  const isStalled = elapsedSeconds > 45 && stage !== 'queued' && stage !== 'completed' && stage !== 'summarizing' && !isError
   // A failed generation (or the monthly limit) ends the run the user is waiting on, often from page load
   // with focus on <body>: its card's heading takes focus then, so the next Tab is the card's action, not
   // the site header. Gated on isClient: the first client render is the skeleton, with no card to focus.
@@ -273,6 +273,11 @@ export default function StreamingSummaryDisplay({
       return
     }
     if (isError) return
+    if (stage === 'queued') {
+      // A durable queue or source retry has no measured completion percentage yet.
+      setOptimisticProgress(0)
+      return
+    }
 
     // Get base progress for current stage
     const baseProgress = STAGE_PROGRESS_MAP[stage] || 0
@@ -346,7 +351,7 @@ export default function StreamingSummaryDisplay({
   // The live-status line: the stage's line of the voice while healthy, the stalled sentence when stalled.
   // Only rendered inside the progress card, which is itself hidden on error — so the GuidanceCard is the
   // single failure surface (one error surface, not two).
-  const line = statusLine(stage, filing.id, isStalled)
+  const line = stage === 'queued' ? message || 'Preparing this summary…' : statusLine(stage, filing.id, isStalled)
   // The trial sentence is true only while the trial ships (ENABLE_PRO_TRIAL, flipped with the backend's
   // PRO_TRIAL_DAYS) and this user would get it (trialEligible, from the page).
   const showTrial = ENABLE_PRO_TRIAL && trialEligible
