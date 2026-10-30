@@ -384,6 +384,74 @@ async def test_postgres_provider_read_holds_lock_through_completion_and_retry(po
     assert reads == [("sub_test", "cus_test")]
 
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_second", [False, True])
+@pytest.mark.parametrize("cancel_request", [False, True])
+async def test_postgres_cross_subscription_reads_hold_the_lock_and_fail_without_mutation(
+        postgres_engine, monkeypatch, cancel_request, fail_second):
+    """An event for another subscription reads the bound one, then its own, both under the account lock and
+    before any write (E98). A concurrent delivery meets the held lock (503, nothing changed), cancelling the
+    request never abandons the worker, a failed second read leaves billing and the ledger as they were, and
+    the lock is released afterwards."""
+    user_id = _seed(postgres_engine)
+    _install_factory(monkeypatch, postgres_engine)
+    await _deliver(_event(user_id))  # binds sub_test, active
+    payload = _event(user_id, "customer.subscription.updated")
+    payload["data"]["object"]["id"] = "sub_old"  # old sub_old's late "active" update
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+    reads = []
+
+    def read(subscription_id, customer_id, *, require_created=False):
+        reads.append((subscription_id, customer_id, require_created))
+        if subscription_id == "sub_test":
+            entered.set()
+            assert release.wait(5), "test did not release the bound read"
+            return {"id": "sub_test", "customer": "cus_test", "status": "active", "created": 2000}
+        if fail_second:
+            raise service.SubscriptionReconciliationUnavailable("Current Stripe subscription state is unavailable")
+        return {"id": "sub_old", "customer": "cus_test", "status": "canceled", "created": 1000}
+
+    def finish_worker(event):
+        first_request = not entered.is_set()
+        try:
+            return service.process_stripe_event(event)
+        finally:
+            if first_request:
+                finished.set()
+
+    monkeypatch.setattr(service, "retrieve_subscription_snapshot", read)
+    monkeypatch.setattr(subscriptions, "process_stripe_event", finish_worker)
+    first = asyncio.create_task(_deliver(payload))
+    try:
+        assert await asyncio.to_thread(entered.wait, 5)
+        with pytest.raises(HTTPException) as error:
+            await _deliver(payload)
+        assert error.value.status_code == 503
+        assert _billing(postgres_engine, user_id) == (True, "active", 1, 1)
+        if cancel_request:
+            first.cancel()
+            await asyncio.sleep(0)
+            assert not finished.is_set(), "cancellation abandoned the running provider transaction"
+    finally:
+        release.set()
+        if cancel_request:
+            with pytest.raises(asyncio.CancelledError):
+                await first
+        elif fail_second:
+            with pytest.raises(HTTPException) as error:
+                await first
+            assert error.value.status_code == 503
+        else:
+            assert await first == {"status": "success"}
+        assert await asyncio.to_thread(finished.wait, 5)
+    assert _billing(postgres_engine, user_id) == (True, "active", 1, 1 if fail_second else 2)
+    with _session(postgres_engine) as db:
+        assert db.get(User, user_id).stripe_subscription_id == "sub_test"
+        db.query(User).filter_by(id=user_id).with_for_update(nowait=True).one()  # the lock was released
+        db.rollback()
+    assert reads == [("sub_test", "cus_test", True), ("sub_old", "cus_test", True)]
+
 def _payment_event(event_id="evt_payment"):
     return {"id": event_id, "type": "invoice_payment.paid", "livemode": True,
             "data": {"object": {"id": "inpay_test", "object": "invoice_payment", "invoice": "in_test",
