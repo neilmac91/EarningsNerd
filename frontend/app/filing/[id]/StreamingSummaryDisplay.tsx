@@ -24,7 +24,8 @@ import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, SkeletonText, buttonVariants } from '@/components/ui'
 import { CheckIcon } from '@/lib/icons'
-import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import { isNonRetryableStreamError, isPaywallStreamError, type SummaryStreamFailure } from '@/features/summaries/api/summaries-api'
+import { secondaryUnavailableClass } from '@/components/ui/Button'
 import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { TRIAL_DAYS, proFairUseLine } from '@/lib/planLimits'
@@ -207,10 +208,12 @@ export default function StreamingSummaryDisplay({
   message,
   filing,
   error,
-  onRetry,
+  onRetry: requestRetry,
   elapsedSeconds = 0,
   trialEligible = false,
   afterFailure,
+  failure,
+  retryAfterSeconds = 0,
 }: {
   streamingText: string
   stage: string
@@ -227,7 +230,13 @@ export default function StreamingSummaryDisplay({
   /** Shown under the failure surface once the run has ended without a summary (an error, or the
    * monthly limit): the filing page passes its change report, which needs no summary. */
   afterFailure?: ReactNode
+  failure?: SummaryStreamFailure
+  retryAfterSeconds?: number
 }) {
+  const onRetry = requestRetry ? () => {
+    if (retryAfterSeconds > 0) return
+    requestRetry()
+  } : undefined
   const [isClient, setIsClient] = useState(false)
   const [optimisticProgress, setOptimisticProgress] = useState(0)
   // Focus targets: the progress card's heading takes focus from a Retry that leaves (RetryButton's
@@ -387,7 +396,7 @@ export default function StreamingSummaryDisplay({
               </span>
               {isGenerating && (
                 <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-                  Usually 30–60s
+                  Estimated progress
                 </span>
               )}
             </div>
@@ -423,7 +432,7 @@ export default function StreamingSummaryDisplay({
           pitch renders ONLY for trial-eligible users — a churned ex-Pro hitting this card gets a
           plain upgrade CTA, because checkout would charge them immediately (staff review, #619).
           Everything else keeps the honest error, and a retry where one can help. */}
-      {isError && isPaywallStreamError(error || message || '') ? (
+      {isError && isPaywallStreamError(error || message || '', failure?.code) ? (
         <GuidanceCard
           title="You've hit this month's free limit"
           headingLevel="h2"
@@ -449,12 +458,19 @@ export default function StreamingSummaryDisplay({
           title="Generation interrupted"
           headingLevel="h2"
           headingRef={failureHeadingRef}
-          description={failureReason}
+          description={
+            <>
+              {failureReason}
+              {retryAfterSeconds > 0 && (
+                <span className="mt-2 block">Available in {retryAfterSeconds} seconds.</span>
+              )}
+            </>
+          }
           action={
             // Only for a failure a retry can help. The raw message decides, read by the matcher that also stops
             // the stream's automatic retry: Pro's fair-use pause, a sign-in or a permission error keeps its
             // sentence and offers no Retry, since a press would only repeat the blocked request.
-            onRetry && !isNonRetryableStreamError(error || message || '') ? (
+            onRetry && !isNonRetryableStreamError(error || message || '', failure?.code) ? (
               // RetryButton (secondary by default: an error retry is never the page's primary action).
               // It restarts the SSE stream, not a query, so its failure is the stream's own state, not
               // useRetainedFailure's hold: a press clears the error in the render that starts the stream,
@@ -463,6 +479,8 @@ export default function StreamingSummaryDisplay({
               // this one. A signed-out press starts no run: the card stays with the sign-in sentence, which
               // no retry can help, so the Retry leaves and focus goes to this card's heading.
               <RetryButton
+                aria-disabled={retryAfterSeconds > 0 || undefined}
+                className={secondaryUnavailableClass}
                 failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
                 focusTarget={retryFocusTarget}
               />

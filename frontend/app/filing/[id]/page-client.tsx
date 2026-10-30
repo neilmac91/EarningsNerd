@@ -111,10 +111,13 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
     elapsedSeconds,
     generationError,
     activeErrorMessage,
+    generationFailure,
+    retryAfterSeconds,
     isStreaming,
     hasStartedGeneration,
     hasSummaryContent,
     handleRegenerateSummary,
+    handleRetrySummary,
   } = useSummaryGeneration({ filingId, filing, isAuthenticated, isAuthResolved, entryPoint, initialSummary })
 
   // This owner survives the progress-to-summary swap. Cached reads never claim focus, and a
@@ -363,7 +366,9 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
               message={streamingMessage}
               filing={filing}
               error={generationError}
-              onRetry={handleRegenerateSummary}
+              onRetry={handleRetrySummary}
+              failure={generationFailure}
+              retryAfterSeconds={retryAfterSeconds}
               elapsedSeconds={elapsedSeconds}
               trialEligible={trialEligible}
               afterFailure={changeReportCard}
@@ -378,7 +383,8 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
               debug={debugSummary}
               demoMode={demoMode}
               isAuthenticated={isAuthenticated}
-              onRetry={handleRegenerateSummary}
+              onRetry={handleRetrySummary}
+              onRegenerate={handleRegenerateSummary}
               onAsk={handleAskCopilot}
               initialChangeReport={initialChangeReport}
               headingRef={completedSummaryHeadingRef}
@@ -412,7 +418,9 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
               message={activeErrorMessage || 'Reading the filing…'}
               filing={filing}
               error={activeErrorMessage}
-              onRetry={handleRegenerateSummary}
+              onRetry={handleRetrySummary}
+              failure={generationFailure}
+              retryAfterSeconds={retryAfterSeconds}
               elapsedSeconds={0}
               trialEligible={trialEligible}
               afterFailure={changeReportCard}
@@ -442,6 +450,7 @@ export default function FilingPageClient({ initialFiling, initialSummary, initia
   const filingId = parseInt(identifier, 10)
   return (
     <FilingDetailView
+      key={filingId}
       filingId={filingId}
       initialFiling={initialFiling}
       initialSummary={initialSummary}
