@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { PaperPlaneTiltIcon } from '@/lib/icons'
 import { Button, Textarea, cx, inputClasses, primaryUnavailableClass } from '@/components/ui'
 
@@ -26,18 +26,16 @@ export interface CopilotComposerHandle {
 
 const SCROLLS = /^(auto|scroll|hidden)$/
 
-/**
- * Brings `el`, its scroll margin included, to the nearest edge of the box that scrolls it (the rail's column), the
- * least distance, and scrolls nothing else: not the boxes around that box, and never the page. A focus's own scroll
- * and scrollIntoView move every scrolling ancestor, and the desktop pane's lower part can sit below the fold for a
- * frame, before it measures its top, so focusing the composer as the pane opened moved the page under the reader
- * (E248; chief design on #1813: "A press on Source should never move the page under the reader"). Instant, as that
- * scroll was.
- */
-function revealInScrollBox(el: HTMLElement) {
+/** The box that scrolls `el` (the rail's column): its nearest scrolling ancestor, never the page. */
+function scrollBoxOf(el: HTMLElement): HTMLElement | null {
   let box = el.parentElement
   while (box && box !== document.body && !SCROLLS.test(getComputedStyle(box).overflowY)) box = box.parentElement
-  if (!box || box === document.body) return
+  return box === document.body ? null : box
+}
+
+/** How far `box` scrolls to bring `el`, its scroll margin included, to its nearest edge, the least distance: 0 when `el`
+ *  is in view. */
+function distanceToReveal(el: HTMLElement, box: HTMLElement) {
   const boxStyle = getComputedStyle(box)
   const elStyle = getComputedStyle(el)
   const b = box.getBoundingClientRect()
@@ -46,27 +44,49 @@ function revealInScrollBox(el: HTMLElement) {
   const bottom = b.top + box.clientTop + box.clientHeight - (parseFloat(boxStyle.scrollPaddingBottom) || 0)
   const elTop = r.top - (parseFloat(elStyle.scrollMarginTop) || 0)
   const elBottom = r.bottom + (parseFloat(elStyle.scrollMarginBottom) || 0)
-  if (elBottom > bottom) box.scrollTop += Math.min(elBottom - bottom, elTop - top)
-  else if (elTop < top) box.scrollTop -= top - elTop
+  if (elBottom > bottom) return Math.min(elBottom - bottom, elTop - top)
+  if (elTop < top) return elTop - top
+  return 0
+}
+
+/**
+ * Brings `el` to the nearest edge of the box that scrolls it, the least distance, and scrolls nothing else: not the
+ * boxes around that box, and never the page. A focus's own scroll and scrollIntoView move every scrolling ancestor. The
+ * desktop pane's height follows its top a frame late, so after the page above it moves its lower part can sit below the
+ * fold, and focusing the composer then moved the page under the reader (E248; chief design on #1813: "A press on Source
+ * should never move the page under the reader"). Instant, as that scroll was.
+ */
+function revealInScrollBox(el: HTMLElement, box = scrollBoxOf(el)) {
+  const by = box ? distanceToReveal(el, box) : 0
+  if (box && by) box.scrollTop += by
 }
 
 /**
  * Bottom-pinned input for the Copilot rail. Enter submits, Shift+Enter inserts a newline.
  * Send is unavailable (aria-disabled, still focusable) while a stream is in flight or the input is
  * empty. Exposes `focus()` / `prefill()` handles so the rail can focus it on open (⌘K) or pre-fill
- * it from a "Ask about this" text selection; neither moves the page (revealInScrollBox).
+ * it from a "Ask about this" text selection; neither moves the page (revealInScrollBox), and a
+ * focused composer that stood in view stays in view as its column settles.
  */
 const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   function CopilotComposer({ onSubmit, locked }, ref) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const shellRef = useRef<HTMLDivElement>(null)
+  // Whether the shell stood in view in its box the last time either moved: a reveal leaves it there, and the reader's
+  // own scroll of the box can take it away.
+  const shownRef = useRef(true)
 
   useImperativeHandle(ref, () => {
+    const reveal = () => {
+      if (!shellRef.current) return
+      revealInScrollBox(shellRef.current)
+      shownRef.current = true
+    }
     // preventScroll, then the shell (the ring's box, as revealFocus brings) into view inside its column: the page stays.
     const focusField = (el: HTMLTextAreaElement) => {
       el.focus({ preventScroll: true })
-      if (shellRef.current) revealInScrollBox(shellRef.current)
+      reveal()
     }
     return {
       focus: () => {
@@ -82,11 +102,37 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         el.value = text
         focusField(el)
         el.setSelectionRange(text.length, text.length)
+        // The caret at the end, in view inside the field's own scroll (its 120px cap): a focus without the browser's
+        // scroll leaves a long excerpt showing its start.
+        el.scrollTop = el.scrollHeight
       },
       revealFocus: () => {
-        const shell = shellRef.current
-        if (shell?.contains(document.activeElement)) revealInScrollBox(shell)
+        if (shellRef.current?.contains(document.activeElement)) reveal()
       },
+    }
+  }, [])
+
+  // The box and the shell can still change size under a focused composer: the desktop pane's height follows its top a
+  // frame late, the text size or the consent bar can shrink it later, and a pre-fill grows the field after it takes
+  // focus. A shell that stood in view comes back to the box's nearest edge each time, while focus is in the composer;
+  // one the reader scrolled away stays where they put it.
+  useEffect(() => {
+    const shell = shellRef.current
+    const box = shell && scrollBoxOf(shell)
+    if (!shell || !box || typeof ResizeObserver === 'undefined') return
+    const look = () => {
+      shownRef.current = Math.abs(distanceToReveal(shell, box)) < 1
+    }
+    const observer = new ResizeObserver(() => {
+      if (shownRef.current && shell.contains(document.activeElement)) revealInScrollBox(shell, box)
+      look()
+    })
+    observer.observe(box)
+    observer.observe(shell)
+    box.addEventListener('scroll', look, { passive: true })
+    return () => {
+      observer.disconnect()
+      box.removeEventListener('scroll', look)
     }
   }, [])
 
@@ -119,10 +165,11 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
     >
       {/* DS "Chat composer" pattern: the shell carries the field recipe, its focus
           border and ring keyed to focus-within (`shell: true`); the composer-variant
-          Textarea inside stays chrome-free. scroll-mb-1 keeps the 3px ring in view when
-          revealFocus brings the shell to the bottom edge, where the rail's reveal lands (its
-          column has just returned to the top); a top scroll margin here would read as a
-          site-header offset, which is what this codebase's top scroll margins are. */}
+          Textarea inside stays chrome-free. scroll-mb-1 keeps the 3px ring in view when the
+          reveal (on focus, a pre-fill or revealFocus) brings the shell to the bottom edge, where
+          the rail's reveal lands (its column has just returned to the top); a top scroll margin
+          here would read as a site-header offset, which is what this codebase's top scroll
+          margins are. */}
       <div ref={shellRef} className={inputClasses({ shell: true, className: 'flex items-end gap-2 scroll-mb-1' })}>
         <Textarea
           variant="composer"

@@ -295,14 +295,15 @@ describe('AskCopilotRail', () => {
       await user.type(field, 'What changed?{Enter}')
       expect(column.writes).toEqual([0, 70])
 
-      // The reader scrolls back up the column while the answer is read; the server's heartbeats keep coming.
-      column.set(120)
+      // The reader scrolls back up the column while the answer is read, the composer's shell below its foot again; the
+      // server's heartbeats keep coming. A stray anchor would write 0, a stray reveal 70.
+      column.set(0)
       act(() => {
         captured.onProgress?.('reading')
         captured.onProgress?.('reading')
       })
       expect(column.writes).toEqual([0, 70])
-      expect(column.scrollTop).toBe(120)
+      expect(column.scrollTop).toBe(0)
 
       // The next question is a new turn, and anchors again.
       act(() => captured.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))

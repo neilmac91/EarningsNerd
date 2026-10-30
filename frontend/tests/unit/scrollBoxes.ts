@@ -1,19 +1,22 @@
 import { vi } from 'vitest'
 
 /**
- * jsdom lays nothing out and scrolls nothing. These give the specs the geometry a scroll box has and a watch on every way
- * the page could move, so a reveal can be read as what it scrolls (CopilotComposer's revealInScrollBox, E248).
+ * jsdom lays nothing out and scrolls nothing. These give the specs the geometry a scroll box has, a watch on the calls
+ * that move the page and on each focus's options, and ResizeObservers that report when told, so a reveal can be read as
+ * what it scrolls (CopilotComposer's revealInScrollBox, E248).
  */
 
 export const rect = (top: number, height: number) =>
   ({ x: 0, y: top, top, bottom: top + height, left: 0, right: 300, width: 300, height, toJSON: () => ({}) }) as DOMRect
 
 /** Give `box` a scroll box's overflow and on-screen rect, and record each write to its scrollTop. `set` moves it without
- *  a write, as the reader's own scroll does. */
+ *  a write, as the reader's own scroll does; `resize` changes its height with its top in place, as a pane that settles
+ *  does. */
 export function scrollBox(box: HTMLElement, top: number, height: number) {
   box.style.overflowY = 'auto'
   const writes: number[] = []
   let scrollTop = 0
+  let clientHeight = height
   Object.defineProperty(box, 'scrollTop', {
     configurable: true,
     get: () => scrollTop,
@@ -22,8 +25,8 @@ export function scrollBox(box: HTMLElement, top: number, height: number) {
       writes.push(value)
     },
   })
-  Object.defineProperty(box, 'clientHeight', { configurable: true, get: () => height })
-  box.getBoundingClientRect = () => rect(top, height)
+  Object.defineProperty(box, 'clientHeight', { configurable: true, get: () => clientHeight })
+  box.getBoundingClientRect = () => rect(top, clientHeight)
   return {
     writes,
     get scrollTop() {
@@ -32,6 +35,9 @@ export function scrollBox(box: HTMLElement, top: number, height: number) {
     set: (value: number) => {
       scrollTop = value
     },
+    resize: (value: number) => {
+      clientHeight = value
+    },
     reset: () => {
       scrollTop = 0
       writes.length = 0
@@ -39,8 +45,9 @@ export function scrollBox(box: HTMLElement, top: number, height: number) {
   }
 }
 
-/** Every way the page itself could move (the browser's own reveal, which jsdom lacks, and the window's scroll), and the
- *  options each focus was given. `restore` undoes the watch. */
+/** The calls that move the page (scrollIntoView, and the window's scrollTo and scrollBy), and the options each focus was
+ *  given: a focus without preventScroll is the browser's own reveal, which jsdom lacks. A write to the document's own
+ *  scrollTop goes unwatched; the e2e reads the page's scroll. `restore` undoes the watch. */
 export function watchThePage() {
   const moves: string[] = []
   const jsdomScrollIntoView = Element.prototype.scrollIntoView
@@ -63,5 +70,30 @@ export function watchThePage() {
       scrollBy.mockRestore()
       focus.mockRestore()
     },
+  }
+}
+
+/** ResizeObservers that report when a spec says so: `resize(el)` runs each one watching `el`, as the browser does once
+ *  `el` changes size. Install before render; `restore` brings back the setup's observer. */
+export function watchResizes() {
+  let watching: { target: Element; observer: ResizeObserver; callback: ResizeObserverCallback }[] = []
+  class Observer {
+    constructor(private readonly callback: ResizeObserverCallback) {}
+    observe(target: Element) {
+      watching.push({ target, observer: this as unknown as ResizeObserver, callback: this.callback })
+    }
+    unobserve(target: Element) {
+      watching = watching.filter((w) => w.observer !== (this as unknown) || w.target !== target)
+    }
+    disconnect() {
+      watching = watching.filter((w) => w.observer !== (this as unknown))
+    }
+  }
+  vi.stubGlobal('ResizeObserver', Observer)
+  return {
+    resize: (el: Element) => {
+      for (const { target, observer, callback } of watching) if (target === el) callback([], observer)
+    },
+    restore: () => vi.unstubAllGlobals(),
   }
 }

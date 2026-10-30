@@ -4,7 +4,7 @@ import { act, render, screen, fireEvent } from '@testing-library/react'
 import CopilotComposer, {
   type CopilotComposerHandle,
 } from '@/features/filings/components/copilot/CopilotComposer'
-import { rect, scrollBox, watchThePage } from './scrollBoxes'
+import { rect, scrollBox, watchResizes, watchThePage } from './scrollBoxes'
 
 function Harness() {
   const ref = useRef<CopilotComposerHandle>(null)
@@ -32,26 +32,33 @@ describe('CopilotComposer prefill handle', () => {
 
 /**
  * The composer inside a column (its form's parent, as in the rail), on screen from 100 to 400px, with the shell that
- * draws the focus ring at 420 to 470px of the column's content: below the column's foot until the column scrolls. A box
- * around the column scrolls too, and the column runs past it (the page's own layout, as the desktop pane can before it
- * measures its top): the reveal stops at the column and never moves that box or the page.
+ * draws the focus ring at 420 to 470px of the column's content: below the column's foot until the column scrolls. The
+ * column scrolls from the start (its overflow inline, as the rail's class gives it), so the composer finds it on mount.
+ * A box around the column scrolls too, and the column runs past it, as the desktop pane's lower part can run below the
+ * fold: the reveal stops at the column and never moves that box or the page. `growShell` changes the shell's height,
+ * its top in place, as a field that grows does.
  */
 function renderInColumn({ shellTop = 420 }: { shellTop?: number } = {}) {
   const ref = createRef<CopilotComposerHandle>()
   render(
     <div data-testid="outer">
       <button type="button">elsewhere</button>
-      <div data-testid="column">
+      <div data-testid="column" style={{ overflowY: 'auto' }}>
         <CopilotComposer ref={ref} onSubmit={() => {}} locked={false} />
       </div>
     </div>,
   )
   const field = screen.getByLabelText(/ask about this filing/i)
-  const column = scrollBox(screen.getByTestId('column'), 100, 300)
+  const box = screen.getByTestId('column')
+  const column = scrollBox(box, 100, 300)
   const outer = scrollBox(screen.getByTestId('outer'), 0, 200)
   const shell = field.closest('.scroll-mb-1') as HTMLElement
-  shell.getBoundingClientRect = () => rect(shellTop - column.scrollTop, 50)
-  return { ref, field, send: screen.getByRole('button', { name: /^send$/i }), shell, column, outer }
+  let shellHeight = 50
+  shell.getBoundingClientRect = () => rect(shellTop - column.scrollTop, shellHeight)
+  const growShell = (height: number) => {
+    shellHeight = height
+  }
+  return { ref, field, send: screen.getByRole('button', { name: /^send$/i }), shell, box, column, outer, growShell }
 }
 
 describe('CopilotComposer focus handles never move the page (E248)', () => {
@@ -107,16 +114,150 @@ describe('CopilotComposer focus handles never move the page (E248)', () => {
   it('a shell above the column comes down to its top edge', () => {
     const page = watchThePage()
     try {
-      const { ref, column, outer } = renderInColumn({ shellTop: 40 })
-      // The column has been scrolled 100px, so the shell's content at 140px shows at 40px, above the column's top.
-      Object.defineProperty(screen.getByTestId('column'), 'scrollTop', { configurable: true, writable: true, value: 100 })
+      const { ref, column, outer } = renderInColumn({ shellTop: 140 })
+      // The column scrolled 100px down: the shell, 140px into its content, shows at 40px, above the column's top (100px).
+      column.set(100)
       ref.current?.focus()
-      expect(screen.getByTestId('column').scrollTop).toBe(40)
-      expect(column.writes).toEqual([])
+      expect(column.writes).toEqual([40])
       expect(outer.writes).toEqual([])
       expect(page.moves).toEqual([])
     } finally {
       page.restore()
+    }
+  })
+
+  it("prefill: a long excerpt shows its end, the caret's place, inside the field's own scroll", () => {
+    const page = watchThePage()
+    try {
+      const { ref, field } = renderInColumn({ shellTop: 300 })
+      // The field caps at 120px and scrolls its own text: 600px of excerpt.
+      let fieldTop = 0
+      Object.defineProperty(field, 'scrollHeight', { configurable: true, get: () => 600 })
+      Object.defineProperty(field, 'scrollTop', {
+        configurable: true,
+        get: () => fieldTop,
+        set: (value: number) => {
+          fieldTop = value
+        },
+      })
+      act(() => ref.current?.prefill('A long excerpt '.repeat(80)))
+      expect(fieldTop).toBe(600)
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+    }
+  })
+
+  it("counts the column's border and scroll padding and the shell's scroll margins, at either edge", () => {
+    const page = watchThePage()
+    try {
+      const { ref, shell, box, column } = renderInColumn()
+      // A 2px border (clientTop, the content 296px tall), 6px and 8px of scroll padding, and the shell's own margins
+      // (scroll-mb-1 gives it 4px below, for the focus ring).
+      Object.defineProperty(box, 'clientTop', { configurable: true, get: () => 2 })
+      column.resize(296)
+      box.style.setProperty('scroll-padding-top', '6px')
+      box.style.setProperty('scroll-padding-bottom', '8px')
+      shell.style.setProperty('scroll-margin-top', '3px')
+      shell.style.setProperty('scroll-margin-bottom', '4px')
+      // Below: the shell's foot and margin (474px) to the padding's edge (100 + 2 + 296 - 8 = 390px).
+      ref.current?.focus()
+      expect(column.writes).toEqual([84])
+      // Above: scrolled to 400px, the shell's top less its margin (17px) to the padding's edge (100 + 2 + 6 = 108px).
+      column.set(400)
+      ref.current?.focus()
+      expect(column.writes).toEqual([84, 309])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+    }
+  })
+})
+
+describe('CopilotComposer keeps a focused composer in view as its column settles (E248)', () => {
+  it('a column that shrinks under the focused composer brings it back to its foot, never the page', () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, field, box, column, outer } = renderInColumn()
+      ref.current?.focus()
+      expect(column.writes).toEqual([70])
+      // The pane settles 100px shorter: the column now ends at 300px, the shell's foot still at 400px.
+      column.resize(200)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70, 170])
+      // Settled: another report moves nothing.
+      resizes.resize(box)
+      expect(column.writes).toEqual([70, 170])
+      expect(document.activeElement).toBe(field)
+      expect(outer.writes).toEqual([])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
+  it("a pre-fill whose field grows after it takes focus keeps the shell's foot in view", () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, shell, column, growShell } = renderInColumn()
+      act(() => ref.current?.prefill('A long excerpt '.repeat(20)))
+      expect(column.writes).toEqual([70])
+      // The field grows to its 120px cap on the next layout: the shell, 50px tall when revealed, is now 126px.
+      growShell(126)
+      resizes.resize(shell)
+      expect(column.writes).toEqual([70, 146])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
+  it('a composer the reader scrolled away stays where they put it, until they scroll it back into view', () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, box, column } = renderInColumn()
+      ref.current?.focus()
+      expect(column.writes).toEqual([70])
+      // The reader scrolls the column back up to read, focus still in the field: the shell below its foot again.
+      column.set(0)
+      fireEvent.scroll(box)
+      column.resize(200)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70])
+      expect(column.scrollTop).toBe(0)
+      // They scroll down to the composer (its shell at 200 to 250px, inside the column), and the next resize keeps it
+      // in view: the column, now ending at 200px, comes 50px further.
+      column.set(220)
+      fireEvent.scroll(box)
+      column.resize(100)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70, 270])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
+  it('with focus elsewhere, a resize moves nothing', () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, box, column } = renderInColumn()
+      ref.current?.focus()
+      screen.getByRole('button', { name: 'elsewhere' }).focus()
+      column.resize(200)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
     }
   })
 })

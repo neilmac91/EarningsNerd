@@ -1,0 +1,176 @@
+/* =============================================================================
+   copilotFocusKeepsThePage.spec.ts — a focus the pane's code moves keeps the page
+   -----------------------------------------------------------------------------
+   The filing page's pane (features/filings/components/copilot/) can run below
+   the fold: the desktop pane's height follows its top a frame late. A focus's
+   own scroll moves every scrolling ancestor, the page included, so the press on
+   Source that focused the composer moved the page under the reader (E248; chief
+   design on #1813: "A press on Source should never move the page under the
+   reader"). A focus the pane's code moves passes `{ preventScroll: true }` and
+   brings its target into view inside the box that scrolls it, never the page
+   (CopilotComposer's revealInScrollBox;
+   lessons/frontend-programmatic-focus-never-moves-the-page.md).
+
+   Sites: every call of a member named `focus` in the folder, `?.` included. It
+   passes when its first argument is an object literal holding
+   `preventScroll: true`. The rail's calls on `composerRef.current` are the
+   composer's handle, whose field takes focus that way; each file that calls it
+   holds composerRef as a `useRef<CopilotComposerHandle>`. Any other site is
+   pinned here by file, with why its focus keeps the browser's scroll: a focus
+   the user moves (Tab, Shift+Tab, the arrow keys, Escape's return), which the
+   browser brings into view as a native Tab would, or the phone's sheet, a
+   modal, whose focus stays inside it (fixed, so no page scroll moves it) until
+   its close returns focus to the control that opened it.
+   And no code in the folder names scrollIntoView or scrollIntoViewIfNeeded,
+   which scroll every ancestor; a comment may.
+   Read strictly, and planted: options held in a variable or spread in, a
+   shorthand `preventScroll`, and `preventScroll: false` do not count as passing.
+   Missed, stated: a focus passed as a value (`requestAnimationFrame(el.focus)`),
+   and a focus moved from outside the folder (ui/Modal's, the reader's).
+============================================================================= */
+
+import fs from 'node:fs'
+import path from 'node:path'
+import ts from 'typescript'
+import { describe, expect, it } from 'vitest'
+import { parse, sourceFiles } from './classListScan'
+
+const ROOT = path.join(__dirname, '../..')
+const PANE = 'features/filings/components/copilot'
+const HANDLE = 'composerRef.current'
+const ANCESTOR_SCROLLS = new Set(['scrollIntoView', 'scrollIntoViewIfNeeded'])
+const USER = 'a focus the user moves, which the browser brings into view as a native Tab would:'
+// Equal to the sites found (lessons/test-allowlist-caps-are-equalities.md): a new site raises its count in the same
+// change, its reason naming why that focus keeps the browser's scroll.
+const ALLOW: Record<string, { sites: number; reason: string }> = {
+  [`${PANE}/useEvidencePopoverKeys.ts`]: {
+    sites: 4,
+    reason: `${USER} Tab from a citation's chip into its popover, Shift+Tab back, Tab past it, and Escape's return to the chip`,
+  },
+  [`${PANE}/SecondaryPaneTabs.tsx`]: { sites: 1, reason: `${USER} the arrow keys, Home and End between the pane's tabs` },
+  [`${PANE}/useSheetFocusTrap.ts`]: {
+    sites: 6,
+    reason:
+      "the phone's sheet, a modal: its open focus and Tab's wrap stay inside it, fixed, so no page scroll moves them, " +
+      'and its close returns focus to the control that opened it, as a dialog does',
+  },
+}
+
+interface Sites {
+  /** Focus calls with `{ preventScroll: true }`. */
+  prevented: number
+  /** Focus calls without it, the handle's aside. */
+  unprevented: number
+  /** Calls of the composer's handle (`composerRef.current?.focus()`). */
+  handle: number
+  /** Each name in the code that scrolls every ancestor. */
+  ancestorScrolls: string[]
+}
+
+const propertyName = (name: ts.PropertyName) =>
+  ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name) ? name.text : null
+
+function sitesIn(source: string, fileName: string): Sites {
+  const sourceFile = parse(source, fileName)
+  const sites: Sites = { prevented: 0, unprevented: 0, handle: 0, ancestorScrolls: [] }
+  const member = (callee: ts.Expression): { name: string; receiver: ts.Expression } | null => {
+    if (ts.isPropertyAccessExpression(callee)) return { name: callee.name.text, receiver: callee.expression }
+    if (ts.isElementAccessExpression(callee) && ts.isStringLiteralLike(callee.argumentExpression)) {
+      return { name: callee.argumentExpression.text, receiver: callee.expression }
+    }
+    return null
+  }
+  const preventsScroll = (call: ts.CallExpression) => {
+    const [options] = call.arguments
+    return (
+      !!options &&
+      ts.isObjectLiteralExpression(options) &&
+      options.properties.some(
+        (p) =>
+          ts.isPropertyAssignment(p) &&
+          propertyName(p.name) === 'preventScroll' &&
+          p.initializer.kind === ts.SyntaxKind.TrueKeyword,
+      )
+    )
+  }
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const callee = member(node.expression)
+      if (callee?.name === 'focus') {
+        if (callee.receiver.getText(sourceFile) === HANDLE) sites.handle += 1
+        else if (preventsScroll(node)) sites.prevented += 1
+        else sites.unprevented += 1
+      }
+    }
+    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && ANCESTOR_SCROLLS.has(node.text)) {
+      sites.ancestorScrolls.push(node.text)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return sites
+}
+
+const files = sourceFiles(ROOT, [PANE])
+const scanned = Object.fromEntries(
+  files.map((file) => [file, { source: fs.readFileSync(path.join(ROOT, file), 'utf8'), sites: sitesIn(fs.readFileSync(path.join(ROOT, file), 'utf8'), file) }]),
+)
+
+describe('a focus the pane moves keeps the page (E248)', () => {
+  it('reads the pane', () => {
+    expect(files.length).toBeGreaterThan(10)
+    expect(files).toContain(`${PANE}/CopilotComposer.tsx`)
+    expect(files).toContain(`${PANE}/AskCopilotRail.tsx`)
+  })
+
+  it("every focus the pane's code moves passes preventScroll, or is pinned with why it keeps the browser's scroll", () => {
+    const unprevented = Object.fromEntries(
+      Object.entries(scanned).flatMap(([file, { sites }]) => (sites.unprevented ? [[file, sites.unprevented]] : [])),
+    )
+    expect(unprevented).toEqual(Object.fromEntries(Object.entries(ALLOW).map(([file, { sites }]) => [file, sites])))
+    for (const { reason } of Object.values(ALLOW)) expect(reason.length).toBeGreaterThan(40)
+  })
+
+  it("the rail's focus goes through the composer's handle, whose field takes focus with preventScroll", () => {
+    const composer = scanned[`${PANE}/CopilotComposer.tsx`].sites
+    expect(composer).toMatchObject({ unprevented: 0, handle: 0 })
+    expect(composer.prevented).toBeGreaterThan(0)
+    const callers = Object.entries(scanned).filter(([, { sites }]) => sites.handle > 0)
+    expect(callers.map(([file]) => file)).toEqual([`${PANE}/AskCopilotRail.tsx`])
+    for (const [, { source }] of callers) expect(source).toMatch(/\bcomposerRef = useRef<CopilotComposerHandle>\(null\)/)
+  })
+
+  it('no code in the pane scrolls every ancestor', () => {
+    const found = Object.entries(scanned).flatMap(([file, { sites }]) => sites.ancestorScrolls.map((name) => `${file}: ${name}`))
+    expect(found).toEqual([])
+  })
+
+  it('reads what it states, planted', () => {
+    const planted = (code: string) => sitesIn(code, 'planted.tsx')
+    expect(planted('el.focus({ preventScroll: true })')).toMatchObject({ prevented: 1, unprevented: 0 })
+    expect(planted("el?.focus({ focusVisible: true, 'preventScroll': true })")).toMatchObject({ prevented: 1, unprevented: 0 })
+    for (const strict of [
+      'el.focus()',
+      'el?.focus()',
+      'el.focus?.()',
+      "el['focus']()",
+      'el.focus({ preventScroll: false })',
+      'el.focus(options)',
+      'el.focus({ ...options })',
+      'el.focus({ preventScroll })',
+      'other.current?.focus()',
+    ]) {
+      expect(planted(strict), strict).toMatchObject({ prevented: 0, unprevented: 1 })
+    }
+    expect(planted('composerRef.current?.focus()')).toMatchObject({ handle: 1, unprevented: 0 })
+    for (const scroll of ['el.scrollIntoView()', "el.scrollIntoViewIfNeeded?.()", "el['scrollIntoView']({ block: 'nearest' })"]) {
+      expect(planted(scroll).ancestorScrolls, scroll).toHaveLength(1)
+    }
+    expect(planted('// el.scrollIntoView() moved the page\n/* el.focus() */ const a = 1')).toEqual({
+      prevented: 0,
+      unprevented: 0,
+      handle: 0,
+      ancestorScrolls: [],
+    })
+  })
+})
