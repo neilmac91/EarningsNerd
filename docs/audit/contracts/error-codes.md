@@ -139,7 +139,11 @@ headers and no code, so the order is safe in both directions.
   keeping status and old-client fallback), `get_current_user`'s 401, `client.ts`, `types.ts` and
   `app/dashboard/error.tsx`.
 - **B**: `create_checkout_session`'s 403 and any other entitlement or billing refusal B owns, as rows of §3.
-- **C**: the admission SSE errors, the summary, analysis and Copilot HTTP refusals, and the three readers.
+- **C**: the admission SSE errors, the summary, analysis and Copilot HTTP refusals, and the three readers. An
+  admission refusal carries its account code on a reader's own stream only: a durable worker's job belongs to the
+  filing, `summary_job_store.finish_job` stores its terminal event's code and `summary_jobs.observe_job` replays it
+  to every later observer, so there the refusal stays code-less (`summary_generation_failed`), never one account's
+  paywall shown to another.
 - **E**: the `main.py` handler of §4.
 - **No owner** rewrites a `detail` or `message` in the pull request that adds its code. Copy changes follow under
   their own items once §6 passes.

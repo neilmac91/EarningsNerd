@@ -155,6 +155,16 @@ async def join_or_lead(run: GenerationRun) -> AsyncIterator[dict]:
         logger.info(f"[stream:{filing_id}] No shared result yet; rechecking generation ownership.")
 
 
+def _account_code(run: GenerationRun, code: "pipeline.ErrorCode") -> dict:
+    """E31's code for a refusal of this account (its allowance, its fair-use cap), as the stream event's ``code``.
+
+    None for a durable worker's run: its job belongs to the filing, and ``summary_job_store.finish_job`` stores the
+    event's code on it, which ``summary_jobs.observe_job`` replays to every later observer of the failed job, other
+    accounts among them. One account's paywall must not reach them, so that refusal stays filed under
+    ``summary_generation_failed``, as before E31."""
+    return {} if run.durable_lease is not None else {"code": code.value}
+
+
 async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     """Filing attributes, 24-hour cache validity, the usage/fair-use gate and the generation slot."""
     filing_id, user_id = run.filing_id, run.user_id
@@ -241,6 +251,7 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
                         "We've temporarily paused new summary generation on your account due "
                         "to unusually high recent volume. Please try again later or contact support."
                     ),
+                    **_account_code(run, pipeline.ErrorCode.PRO_FAIR_USE_LIMIT),
                 }
                 return
             logger.warning(f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit ({limit}).")
@@ -256,7 +267,7 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
                 "You've reached your monthly limit of "
                 f"{limit} summaries. Upgrade to Pro for unlimited summaries."
             )
-            yield {"type": "error", "message": message}
+            yield {"type": "error", "message": message, **_account_code(run, pipeline.ErrorCode.FREE_ALLOWANCE_EXHAUSTED)}
             return
         logger.info(f"[stream:{filing_id}] Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
     else:

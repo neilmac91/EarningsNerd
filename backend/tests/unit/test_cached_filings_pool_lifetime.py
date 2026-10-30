@@ -4416,7 +4416,9 @@ async def test_summary_exports_release_their_connection_off_the_loop(monkeypatch
                 "no_summary": "Summary not found",
                 "no_filing": "Filing not found",
             }[case]
-            assert [response.json() for response in responses] == [{"detail": detail}] * 8
+            # E31's code beside the unchanged words of the plan gate (an additive contract change); a 404 has none.
+            body = {"detail": detail, "code": "plan_required"} if case == "free" else {"detail": detail}
+            assert [response.json() for response in responses] == [body] * 8
             assert renders == []
     finally:
         engine.dispose()

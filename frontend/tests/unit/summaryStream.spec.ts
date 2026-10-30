@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { generateSummaryStream } from '@/features/summaries/api/summaries-api'
+import { generateSummaryStream, isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 
 declare global {
@@ -122,6 +122,67 @@ describe('generateSummaryStream', () => {
       'Please try again later or contact support.'
     expect(await attempts(pause)).toEqual({ requests: 1, shown: [[pause]] })
     expect(await attempts('Provider unavailable')).toEqual({ requests: 1, shown: [['Provider unavailable']] })
+  })
+
+  // E31 (docs/audit/contracts/error-codes.md §6): admission's account refusals carry their code on the stream, and a known
+  // code decides the card whatever its words; an absent code (a server before E31), an unknown one, or an HTTP-only code
+  // on the stream reads as none, and the words decide as before.
+  const refusedOnStream = async (frame: Record<string, unknown>) => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const fetchMock = vi.fn(async () => new Response(`data: ${JSON.stringify({ type: 'error', ...frame })}\n\n`))
+    global.fetch = fetchMock as unknown as typeof fetch
+    const errorSpy = vi.fn()
+    const run = generateSummaryStream(303, vi.fn(), vi.fn(), vi.fn(), errorSpy).catch(() => undefined)
+    await vi.runAllTimersAsync()
+    await run
+    return { requests: fetchMock.mock.calls.length, calls: errorSpy.mock.calls }
+  }
+
+  it.each([
+    ['the free allowance, in words that name no limit', 'Your free summaries are used up.', 'free_allowance_exhausted', true],
+    ["Pro's fair-use cap, in words that name Pro", 'Upgrade to Pro will not lift this.', 'pro_fair_use_limit', false],
+  ])('answers %s by its code', async (_, message, code, paywall) => {
+    const { requests, calls } = await refusedOnStream({ message, code })
+    expect(requests).toBe(1)
+    expect(calls).toHaveLength(1)
+    const [shown, failure] = calls[0]
+    expect([shown, failure?.code]).toEqual([message, code])
+    expect(isPaywallStreamError(shown, failure?.code)).toBe(paywall)
+    expect(isNonRetryableStreamError(shown, failure?.code)).toBe(true)
+  })
+
+  it.each([
+    ['no code (a server before E31)', {}],
+    ['an unknown code', { code: 'quota_v9' }],
+    ['an HTTP-only code on the stream', { code: 'plan_required' }],
+  ])('reads %s on the stream as none, and the words decide', async (_, extra) => {
+    const quota = "You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries."
+    const { calls } = await refusedOnStream({ message: quota, ...extra })
+    expect(calls).toEqual([[quota]])
+    expect(isPaywallStreamError(quota)).toBe(true)
+  })
+
+  it('keeps a 401 retryable by its words whatever its code, as the contract keeps its Retry', () => {
+    expect(isNonRetryableStreamError('You are not logged in.', 'auth_required')).toBe(false)
+    expect(isNonRetryableStreamError('You are not logged in.')).toBe(false)
+    expect(isNonRetryableStreamError('Regenerating a summary is a Pro feature.', 'plan_required')).toBe(true)
+  })
+
+  it.each([
+    ['the fair-use cap, coded', { detail: 'Summary generation allowance is exhausted', code: 'pro_fair_use_limit' }, undefined],
+    ['a plain rate limit', { detail: 'Too many summary requests. Try again shortly.' }, 60],
+  ])('gives %s on a 429 the wait it lifts after', async (_, body, wait) => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    global.fetch = vi.fn(async () => new Response(JSON.stringify(body), { status: 429 })) as unknown as typeof fetch
+    const errorSpy = vi.fn()
+    const run = generateSummaryStream(303, vi.fn(), vi.fn(), vi.fn(), errorSpy).catch(() => undefined)
+    await vi.runAllTimersAsync()
+    await run
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    // Pro's monthly cap lifts when the month turns, never in a minute; a plain 429 keeps its moment's wait.
+    expect(errorSpy.mock.calls[0][1]?.retryAfterSeconds).toBe(wait)
   })
 })
 

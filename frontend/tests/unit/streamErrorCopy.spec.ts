@@ -240,7 +240,73 @@ const ENDPOINT = [
   { file: 'backend/app/routers/auth.py', fn: 'get_current_user' },
 ]
 
-interface Raised { file: string; line: number; status: number; text: string }
+interface Raised { file: string; line: number; status: number; text: string; opaque?: string }
+
+/** The HTTP status each E31 code answers with: backend/app/error_codes.py's REGISTERED_STATUS, read from its source, so a
+    `CodedHTTPException(ErrorCode.X, …)` reads at the status the server sends it with (app/api_errors.py). */
+const REGISTERED_STATUS: Record<string, number> = (() => {
+  const src = readFileSync(path.join(REPO, 'backend/app/error_codes.py'), 'utf8')
+  const start = src.indexOf('REGISTERED_STATUS')
+  const block = src.slice(start, src.indexOf('}', start))
+  return Object.fromEntries([...block.matchAll(/ErrorCode\.(\w+):\s*(\d{3})/g)].map(([, name, code]) => [name, Number(code)]))
+})()
+
+/** The coded raises whose detail is no literal: words written elsewhere and passed through (#1824's rate limit, its
+    preparation refusal and its durable job's refusals, in generate_summary_stream). Each is named here by its
+    expression, so a new one fails the reader until it is named, and none is held to the word legs below. */
+const OPAQUE_CODED_DETAILS = ['exc.detail', 'refusal["message"]', 'str(exc)']
+
+/** The [start, end) token ranges of the depth-0 arguments of the call whose `(` is at `open` and `)` at `close`. */
+function callArgs(toks: Token[], open: number, close: number): Array<[number, number]> {
+  const args: Array<[number, number]> = []
+  let depth = 0
+  let start = open + 1
+  for (let i = open + 1; i < close; i++) {
+    if (toks[i].kind === 'op' && OPENERS.includes(toks[i].text)) depth++
+    else if (toks[i].kind === 'op' && CLOSERS.includes(toks[i].text)) depth--
+    else if (depth === 0 && isOp(toks[i], ',')) {
+      if (i > start) args.push([start, i])
+      start = i + 1
+    }
+  }
+  if (close > start) args.push([start, close])
+  return args
+}
+
+/** An expression's tokens as its source spells it (a string with its quotes), to name it. */
+const spelled = (toks: Token[], [start, end]: [number, number]) =>
+  toks.slice(start, end).map((t) => (t.kind === 'str' ? JSON.stringify(t.text) : t.text)).join('')
+
+/** A `CodedHTTPException(...)` at `k`: its status, from the code's registered one (the code by `code=` or first; a
+    conditional only where its arms agree), and its detail (by `detail=` or second), or the name of a detail in
+    OPAQUE_CODED_DETAILS. Anything else it cannot read fails it. */
+function codedRaise(toks: Token[], k: number, where: string): { status: number; text: string } | { opaque: string } {
+  const close = closing(toks, k + 1)
+  const args = callArgs(toks, k + 1, close)
+  const keyword = (name: string) =>
+    args.find(([a]) => toks[a].kind === 'name' && toks[a].text === name && isOp(toks[a + 1], '=') && !isOp(toks[a + 2], '='))
+  const positional = args.filter(([a]) => !(toks[a].kind === 'name' && isOp(toks[a + 1], '=') && !isOp(toks[a + 2], '=')))
+  const valueOf = (arg: [number, number] | undefined, name: string): [number, number] | undefined =>
+    arg && keyword(name) === arg ? [arg[0] + 2, arg[1]] : arg
+  const detail = valueOf(keyword('detail') ?? positional[1], 'detail')
+  if (!detail) throw new Error(`${where}: a coded error with no detail the reader can read`)
+  const lit = literalAt(toks, detail[0])
+  if (!lit) {
+    if (OPAQUE_CODED_DETAILS.includes(spelled(toks, detail))) return { opaque: spelled(toks, detail) }
+    throw new Error(`${where}: a detail the reader cannot key by its text`)
+  }
+  const code = valueOf(keyword('code') ?? positional[0], 'code')
+  const statuses = new Set<number>()
+  for (let i = code ? code[0] : close; code && i < code[1]; i++) {
+    if (toks[i].kind === 'name' && toks[i].text === 'ErrorCode' && isOp(toks[i + 1], '.') && toks[i + 2]?.kind === 'name') {
+      const registered = REGISTERED_STATUS[toks[i + 2].text]
+      if (registered === undefined) throw new Error(`${where}: ErrorCode.${toks[i + 2].text} is not registered`)
+      statuses.add(registered)
+    }
+  }
+  if (statuses.size !== 1) throw new Error(`${where}: a coded error with no status the reader can read`)
+  return { status: [...statuses][0], text: lit.text }
+}
 
 /** The index of the bracket that closes the one at `open`. */
 function closing(toks: Token[], open: number): number {
@@ -264,8 +330,9 @@ function statusAt(toks: Token[], k: number): number | null {
 }
 
 /** The errors one function of a Python module raises: each `HTTPException(...)` in its body (its status as digits
-    or `status.HTTP_<code>_…`, its detail a literal, adjacent literals joined), raised there or held in a name, and
-    each `enforce_rate_limit(...)`'s `error_detail` (a 429). The body ends at the first line after the `def` indented
+    or `status.HTTP_<code>_…`, its detail a literal, adjacent literals joined), raised there or held in a name, each
+    `CodedHTTPException(...)` (E31) at its code's registered status (codedRaise), and each `enforce_rate_limit(...)`'s
+    `error_detail` (a 429). The body ends at the first line after the `def` indented
     no deeper than it (a signature's closing bracket aside). A detail the reader cannot key by its text fails it. */
 export function raisedErrors(src: string, file: string, fn: string): Raised[] {
   const lines = src.split('\n')
@@ -284,6 +351,11 @@ export function raisedErrors(src: string, file: string, fn: string): Raised[] {
   const toks = pythonTokens(lines.slice(at, end).join('\n'))
   const out: Raised[] = []
   toks.forEach((t, k) => {
+    if (t.kind === 'name' && t.text === 'CodedHTTPException' && isOp(toks[k + 1], '(')) {
+      const coded = codedRaise(toks, k, `${file}:${at + t.line} ${fn}`)
+      out.push('opaque' in coded ? { file, line: at + t.line, status: 0, text: '', opaque: coded.opaque } : { file, line: at + t.line, ...coded })
+      return
+    }
     const limit = t.text === 'enforce_rate_limit'
     if (t.kind !== 'name' || !(limit || t.text === 'HTTPException') || !isOp(toks[k + 1], '(')) return
     let status: number | null = limit ? 429 : null
@@ -304,7 +376,9 @@ export function raisedErrors(src: string, file: string, fn: string): Raised[] {
   return out
 }
 
-const endpointErrors = () => ENDPOINT.flatMap(({ file, fn }) => raisedErrors(readFileSync(path.join(REPO, file), 'utf8'), file, fn))
+const endpointRaises = () => ENDPOINT.flatMap(({ file, fn }) => raisedErrors(readFileSync(path.join(REPO, file), 'utf8'), file, fn))
+/** The endpoint's answers whose words the reader shows: an opaque coded raise passes through words written elsewhere. */
+const endpointErrors = () => endpointRaises().filter((answer) => !answer.opaque)
 
 /** The error sentences a module streams inside the block under its first `if <condition>:` line, the block
     read by indentation (blank and comment lines inside it skipped), or null when no such line exists. */
@@ -512,6 +586,32 @@ describe('the summary stream error sentences the filing page maps', () => {
       { file: 'p.py', line: 7, status: 403, text: 'A Pro feature.' },
     ])
     expect(() => raisedErrors('def f():\n    raise HTTPException(status_code=403, detail=reason)', 'q.py', 'f')).toThrow(/cannot key/)
+    // E31's coded raises, at their code's registered status, the detail by keyword or second; the opaque ones named.
+    const coded = [
+      'def stream():',
+      '    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail="A Pro feature.")',
+      '    raise CodedHTTPException(code=ErrorCode.AUTH_REQUIRED, detail="Sign in.")',
+      '    raise CodedHTTPException(ErrorCode.PRO_FAIR_USE_LIMIT, ("Capped " "now."), headers=h)',
+      '    raise CodedHTTPException(ErrorCode.FREE_ALLOWANCE_EXHAUSTED if n else ErrorCode.PLAN_REQUIRED, detail="Spent.")',
+      '    raise CodedHTTPException(aliases[exc.code], str(exc), headers=headers)',
+    ].join('\n')
+    expect(raisedErrors(coded, 'c.py', 'stream')).toEqual([
+      { file: 'c.py', line: 2, status: 403, text: 'A Pro feature.' },
+      { file: 'c.py', line: 3, status: 401, text: 'Sign in.' },
+      { file: 'c.py', line: 4, status: 429, text: 'Capped now.' },
+      { file: 'c.py', line: 5, status: 403, text: 'Spent.' },
+      { file: 'c.py', line: 6, status: 0, text: '', opaque: 'str(exc)' },
+    ])
+    // The real route holds each named opaque detail, and no other: a new one fails the reader until it is named.
+    expect([...new Set(endpointRaises().flatMap((answer) => (answer.opaque ? [answer.opaque] : [])))].sort())
+      .toEqual([...OPAQUE_CODED_DETAILS].sort())
+    // And it reads the route's coded plan gate (the force regeneration's), not only its uncoded 403s.
+    expect(endpointErrors()).toContainEqual(expect.objectContaining({ status: 403, text: 'Regenerating a summary is a Pro feature.' }))
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail=reason)', 'q.py', 'f')).toThrow(/cannot key/)
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.GENERATION_PAUSED if n else ErrorCode.PLAN_REQUIRED, detail="x")', 'q.py', 'f'))
+      .toThrow(/no status/)
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(code, detail="x")', 'q.py', 'f')).toThrow(/no status/)
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.NOT_A_CODE, detail="x")', 'q.py', 'f')).toThrow(/not registered/)
     expect(() => raisedErrors('def f():\n    raise HTTPException(detail="No status")', 'q.py', 'f')).toThrow(/no status/)
     expect(() => raisedErrors('def g():\n    pass', 'q.py', 'f')).toThrow(/is gone/)
   })
