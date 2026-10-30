@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 from typing import Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -20,6 +20,7 @@ import httpx
 import jwt
 
 from app.database import get_db
+from app.dependencies import resolve_current_user_or_none
 from app.models import User
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -190,6 +191,15 @@ def _require_new_collection() -> None:
 class RefreshRequest(BaseModel):
     # Optional body fallback for non-browser clients; browsers use the HttpOnly cookie.
     refresh_token: Optional[str] = None
+
+
+class LogoutAllRequest(BaseModel):
+    """The account the tab shows (E157 (2)). A tab learns of another tab's login only through /me (E29 (3)), so a
+    stale tab posts with the cookies of the account the browser holds now; naming its own lets the route refuse to end
+    that account's sessions, and to end its own from the refresh cookie once the access token has lapsed. Optional, so
+    a page loaded before the field logs out as before."""
+
+    account_id: Optional[StrictInt] = None
 
 
 class VerifyEmailRequest(BaseModel):
@@ -405,16 +415,22 @@ def _get_token_from_request(
     return cookie_token
 
 
+def _not_logged_in() -> HTTPException:
+    """The refusal of a request no live credential authenticates: ``get_current_user``'s, and the logout of every
+    session's when no credential it reads names a user (E157 (2))."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="You are not logged in.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="You are not logged in.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    credentials_exception = _not_logged_in()
     token = _get_token_from_request(credentials, request)
     if not token:
         raise credentials_exception
@@ -1547,19 +1563,43 @@ async def logout(
 async def logout_all(
     request: Request,
     response: Response,
+    payload: Optional[LogoutAllRequest] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(resolve_current_user_or_none),
 ):
-    """Revoke every refresh token for the user (sign out all devices) and clear this session."""
+    """Revoke every refresh token of the logged-in user (log out all devices) and clear this session.
+
+    The user is the access token's, read as ``get_current_user`` reads it on every route: a bearer before the access
+    cookie, and an inactive account refused with 403. When no access token names a user (none came, or it has lapsed
+    after its 30 minutes, does not verify or names no account), a request that names the account its tab shows
+    (``account_id``) finds its user from the same cookie a logout reads, if it carries a live refresh token (E157 (2));
+    one that names none, from a page loaded before the field, is answered as before it. With no user, 401. A request
+    that names another account than the user's is refused with 409: nothing is revoked and the cookies stay."""
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
-    user_id, user_email = current_user.id, current_user.email
+    actor = (current_user.id, current_user.email) if current_user else None
+    shown = payload.account_id if payload is not None else None
     hashed_ip = _hashed_client_ip(request)
 
     def revoke_all() -> int:
-        # One unit in the thread pool, released before the route returns (see ``logout``).
+        # One unit in the thread pool, released before the route returns (see ``logout``): the refresh token's owner,
+        # read when the access token named no one, the revocation under the users row lock, and the audit row.
         try:
-            revoked = refresh_token_service.revoke_all_and_commit(db, user_id)
-            audit_service.log_logout(db, user_id, user_email, ip_address=hashed_ip)
+            user = actor
+            if user is None and shown is not None:
+                user = refresh_token_service.live_token_owner(db, raw_token)
+            if user is None:
+                raise _not_logged_in()
+            if shown is not None and shown != user[0]:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "This browser is logged in to a different account from the one this page shows, "
+                        "so no devices were logged out."
+                    ),
+                )
+            revoked = refresh_token_service.revoke_all_and_commit(db, user[0])
+            audit_service.log_logout(db, user[0], user[1], ip_address=hashed_ip)
             return revoked
         finally:
             filing_list_service.release_request_session(db)

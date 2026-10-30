@@ -891,6 +891,81 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_logout_all_with_only_the_refresh_cookie_releases_its_connection_off_the_loop(monkeypatch, tmp_path):
+    """Past the access token, a logout-all that names its account finds its user from the refresh cookie (E157 (2)):
+    that read joins the revocation and the audit row in the route's one thread-pool unit, released before it returns.
+    Eight readers' logouts on four slots each end their own sessions, and nothing checks out on the loop."""
+    from app.config import settings
+    from app.models import AuditLog, RefreshToken, User
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'logout-all-cookie.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        readers = [User(email=f"reader-{i}@example.com", is_active=True) for i in range(8)]
+        db.add_all(readers)
+        db.flush()
+        reader_ids = [reader.id for reader in readers]
+        raw_tokens = [refresh_token_service.create_refresh_token(db, reader)[1] for reader in readers]
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(
+                "/api/auth/logout-all",
+                headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}={raw_tokens[i]}"},
+                json={"account_id": reader_ids[i]},
+            )
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert [response.status_code for response in responses] == [200] * 8
+        assert [response.json() for response in responses] == [{"status": "success", "sessions_revoked": 1}] * 8
+        assert engine.pool.checkedout() == 0
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        with sessions() as db:
+            assert db.query(RefreshToken).filter(RefreshToken.revoked_at.is_(None)).count() == 0
+            logged = sorted(int(row.user_id) for row in db.query(AuditLog).filter(AuditLog.action == "logout"))
+        assert logged == sorted(reader_ids)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["right_password", "wrong_password", "locked_out"])
 async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_loop(
     monkeypatch, tmp_path, outcome,
