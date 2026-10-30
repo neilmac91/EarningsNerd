@@ -823,6 +823,8 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  A feature module writes the props out on the box (`role={overflowing ? 'region' :
                  undefined}`, `tabIndex`, `aria-label`, `aria-describedby`), never as a spread, so the focus
                  ring gate reads the box's Tab stop and holds it to the ring, and the dialog gate reads its role.
+                 DataTable, a primitive that gate does not read, spreads them on its own box, and
+                 tests/unit/data-table-scroll.spec.tsx holds that region to the ring in both themes.
                  The Analysis table's named region supports Left/Right by one measured column,
                  Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
                  number of columns. A layout effect measures before paint; resize and enlarged text
