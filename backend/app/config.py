@@ -119,6 +119,16 @@ class Settings(BaseSettings):
 
     # Opt-in rollout: queue delivery must be verified before enabling request-based CPU billing.
     DURABLE_TASKS_ENABLED: bool = False
+    # Requires validated worker/schema rollout. Existing SSE behavior remains the default.
+    SUMMARY_DURABLE_GENERATION_ENABLED: bool = False
+    SUMMARY_JOB_FAILED_RETRY_SECONDS: int = Field(default=60, ge=15, le=3600)
+    SUMMARY_JOB_MAX_PENDING_PER_ACCOUNT: int = Field(default=3, ge=1, le=20)
+    SUMMARY_JOB_MAX_ATTEMPTS: int = Field(default=4, ge=1, le=8)
+    SUMMARY_JOB_LEASE_SECONDS: int = Field(default=90, ge=30, le=300)
+    SUMMARY_JOB_RECOVERY_SECONDS: int = Field(default=300, ge=60, le=1800)
+    SUMMARY_JOB_MAX_AGE_SECONDS: int = Field(default=3600, ge=300, le=86400)
+    # Zero prevents alert discovery from creating system-funded model work.
+    SUMMARY_PREWARM_MAX_PER_SCAN: int = Field(default=0, ge=0, le=20)
     TASKS_PROJECT_ID: str = ""
     TASKS_LOCATION: str = "us-west1"
     TASKS_QUEUE: str = "earningsnerd-background"

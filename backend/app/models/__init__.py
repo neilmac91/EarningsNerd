@@ -25,6 +25,7 @@ from app.models.notification_delivery import DeliveryBatch, DeliveryItem
 from app.models.filing_section_text import FilingSectionText
 from app.models.section_review import SectionReview
 from app.models.account_agreement import AccountAgreement
+from app.models.summary_job import SummaryJob
 
 logger = logging.getLogger(__name__)
 
@@ -374,6 +375,7 @@ __all__ = [
     "StripeEvent",
     "Subscription",
     "Summary",
+    "SummaryJob",
     "SummaryGenerationProgress",
     "TrendAnalysis",
     "User",

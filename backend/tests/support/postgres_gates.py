@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 # Each PostgreSQL gate's test home, and the variable its CI step sets.
 POSTGRES_GATES = {
+    "test_summary_job_transactions.py": "SUMMARY_JOB_TEST_DATABASE_URL",
     "test_subscription_event_transactions.py": "STRIPE_CONCURRENCY_TEST_DATABASE_URL",
     "test_usage_counter_transactions.py": "USAGE_CONCURRENCY_TEST_DATABASE_URL",
     "test_login_lockout_transactions.py": "LOGIN_CONCURRENCY_TEST_DATABASE_URL",

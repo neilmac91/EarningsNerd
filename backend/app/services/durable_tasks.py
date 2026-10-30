@@ -12,6 +12,7 @@ import hashlib
 import json
 import time
 import uuid
+from datetime import datetime
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -21,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import settings
 from app.services.oauth_verify import _get_google_jwks, _GOOGLE_ISSUERS
+from app.utils.datetimes import iso_z
 
 
 class TaskUnavailable(RuntimeError):
@@ -29,7 +31,7 @@ class TaskUnavailable(RuntimeError):
 
 class TaskEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["filings", "history", "companyfacts", "account_mail", "internal_job", "probe"]
+    kind: Literal["filings", "history", "companyfacts", "account_mail", "internal_job", "summary", "probe"]
     payload: dict
 
 
@@ -40,6 +42,12 @@ class CompanyTask(BaseModel):
 
 class FilingsTask(CompanyTask):
     filing_types: list[str] = Field(min_length=1)
+
+
+class SummaryTask(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    generation: int = Field(gt=0)
 
 
 AccountMail = Literal["password_reset", "verification"]
@@ -97,6 +105,7 @@ async def _access_token() -> str:
 async def enqueue_task(
     kind: str, payload: dict, *, dedupe_key: str | None = None,
     dedupe_seconds: int | None = None,
+    schedule_at: datetime | None = None,
 ) -> str:
     """Confirm creation (or an existing same-name task) before returning to the caller.
 
@@ -112,6 +121,8 @@ async def enqueue_task(
         CompanyTask.model_validate(payload)
     elif kind == "account_mail":
         AccountMailTask.model_validate(payload)
+    elif kind == "summary":
+        SummaryTask.model_validate(payload)
     elif kind == "probe" and payload:
         raise ValueError("Probe tasks contain no business payload")
     body = json.dumps(envelope.model_dump(), sort_keys=True, separators=(",", ":"))
@@ -139,6 +150,8 @@ async def enqueue_task(
             },
         },
     }
+    if schedule_at is not None:
+        task["scheduleTime"] = iso_z(schedule_at)
     try:
         token = await _access_token()
         async with httpx.AsyncClient(timeout=3.0) as client:

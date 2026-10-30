@@ -26,6 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstr
     from app.services.request_work import RequestWork
     from app.services.summary_pipeline import GenerationUserSnapshot
     from app.services.summary_request_evidence import SummaryRequestEvidence
+    from app.services.summary_job_store import SummaryJobLease
 
 logger = logging.getLogger(pipeline.__name__)
 
@@ -50,6 +51,7 @@ class GenerationRun:
     # Optional caller policy for starting NEW work; followers and ready cache reads never call it.
     # A synchronous decision cannot race another coroutine between the local claim and its spend.
     admit_generation: Callable[[], Optional[dict]] | None = None
+    durable_lease: SummaryJobLease | None = None
 
     # Timing: ``mark_stage`` closes the current stage and ``release`` logs the breakdown.
     pipeline_started_at: float = field(init=False)
@@ -145,6 +147,11 @@ class GenerationRun:
         provider-failure, timeout and partial-verdict paths — never from cancellation (client
         disconnect)."""
         await self.settle_charge()
+        if self.durable_lease is not None:
+            from app.services.summary_job_store import refund_job_usage
+            await self.run_sync_db(refund_job_usage, self.durable_lease)
+            self.charged_month, self.charge_future = None, None
+            return
         if self.charged_month is None:
             return
         month, self.charged_month = self.charged_month, None
@@ -195,6 +202,11 @@ class GenerationRun:
         signal, inside the provider task, at the instant the request is issued: the write
         exists before this generator can be cancelled, so a disconnect in the gap between the
         signal and the heartbeat loop's next turn still finds it in `release`."""
+        if self.durable_lease is not None:
+            if self.charged_month is None and self.charge_future is None:
+                from app.services.summary_job_store import charge_job_usage
+                self.charge_future = asyncio.ensure_future(self.run_sync_db(charge_job_usage, self.durable_lease))
+            return
         if self.usage_reservation_token is None or self.charged_month is not None or self.charge_future is not None:
             return
         token_to_convert = self.usage_reservation_token
@@ -272,6 +284,10 @@ class GenerationRun:
                 self.usage_reservation_token = None
 
                 def release_reservation_sync() -> None:
+                    if self.durable_lease is not None:
+                        from app.services.summary_job_store import release_job_reservation
+                        release_job_reservation(self.durable_lease)
+                        return
                     with database.SessionLocal() as session:
                         pipeline.release_reservation(token_to_release, session)
 

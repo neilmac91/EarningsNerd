@@ -202,6 +202,9 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
         current_user = run.current_user
 
         def check_usage_sync() -> tuple[bool, int, Optional[int], bool, Optional[str]]:
+            if run.durable_lease is not None:
+                from app.services.summary_job_store import reserve_job_usage
+                return reserve_job_usage(run.durable_lease)
             with database.SessionLocal() as usage_session:
                 return pipeline._check_usage_and_plan(current_user, usage_session)
 

@@ -16,7 +16,7 @@ import datetime
 import json
 import logging
 from dataclasses import dataclass, replace
-from typing import AsyncIterator, Callable, Optional
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -93,6 +93,9 @@ from app.services.summary_versioning import SUMMARY_PROMPT_VERSION  # noqa: F401
 from app.services.summary_stages import (
     admission, enrichment, failure, fetch, finalize, generation, generation_run,
 )
+
+if TYPE_CHECKING:
+    from app.services.summary_job_store import SummaryJobLease
 
 logger = logging.getLogger(__name__)
 
@@ -407,6 +410,7 @@ async def stream_filing_summary(
     rebuild_excerpt: bool = False,
     request_evidence: SummaryRequestEvidence | None = None,
     admit_generation: Callable[[], Optional[dict]] | None = None,
+    durable_lease: SummaryJobLease | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
@@ -453,6 +457,7 @@ async def stream_filing_summary(
         rebuild_excerpt=rebuild_excerpt,
         request_evidence=request_evidence,
         admit_generation=admit_generation,
+        durable_lease=durable_lease,
     )
     run.emit_funnel(
         telemetry_distinct_id,

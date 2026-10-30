@@ -1,0 +1,36 @@
+# Durable exact-filing summary generation
+
+This is an additive, disabled-by-default generation path using the existing PostgreSQL database, Cloud Tasks queue and `stream_filing_summary` orchestrator. Enablement requires both `SUMMARY_DURABLE_GENERATION_ENABLED` and `DURABLE_TASKS_ENABLED`; no deployment or production setting is changed by this code.
+
+## Ownership and billing
+
+`ensure_job` takes the filing lock, serves a ready source-safe summary or joins its existing job, then admits new work. The job table has one unique filing ID across all prompt versions. Task payloads contain only the server-generated job ID and generation number, never client-supplied source URLs, user snapshots or force flags. The private worker loads these from the persisted job and revalidates the account.
+
+An account lock serializes new jobs for different filings. Creation checks current allowance and a bounded pending backlog (default three). It does not consume a quota unit while waiting in the queue. The worker obtains the existing short usage reservation immediately before generation; an entitlement change or exhausted quota can therefore refuse a previously queued job before provider work. Ready reads and shared joins do not consume generation admission or usage.
+
+The job row journals reservation, charged month and charge state. Conversion of a reservation, the monthly counter increment and the receipt commit in one transaction. Recovery of a charged job reuses its receipt. Refunds are idempotent and use the original charged month. The final Summary write holds the same job lock while validating the generation and lease token, and commits its terminal job receipt and usage settlement together. An expired worker cannot charge, refund or publish another owner's result. Short transactions never span SEC, provider or queue network calls.
+
+A browser is only an observer. Closing its SSE stream neither cancels the private worker nor consumes another generation. Explicit authenticated retry can reopen a failed job after a persisted 60-second cooldown, subject to the same quotas/backlog/admission; it does not request a paid refresh of an already ready result. Automatic retries have their own finite attempt and age limits.
+
+## Delivery and bounded recovery
+
+A queued database row is the dispatch intent. Cloud Tasks creation uses a stable job/generation/dispatch identity, so an ambiguous response can be retried with the same task name. An acknowledged delivery is recorded only after task creation confirms success or the same-name task exists. A failed task creation leaves the intent for recovery and must not be presented as an acknowledged running worker.
+
+The worker holds a renewable 90-second lease, heartbeats every 30 seconds, and can be replaced only after expiry. Transient typed failures schedule a new task after the greater of the source cooldown and exponential backoff, with bounded jitter. Default limits are four attempts and one hour from admission. Exhaustion becomes a terminal failure; reconnecting does not silently start a fresh paid job.
+
+`recover_due_jobs(limit=20)` repairs unacknowledged intents, sufficiently stale acknowledged intents, and expired worker leases. Its batch is capped at 50; acknowledged future retries do not crowd out due work. The stale dispatch threshold defaults to 300 seconds. This function requires a caller: the existing scheduled filing scan and authenticated internal recovery endpoint are the integration seams. There is no independent recovery scheduler created by this module. The actual failure-to-recovery latency includes the configured scan/recovery cadence, queue delay and lease expiry. Verify that cadence before enabling; a five-minute threshold does not itself guarantee a five-minute recovery time.
+
+## Activation requirements
+
+1. Apply the additive migration with the normal migration runner. Leave the feature flag and all paid prewarm caps disabled.
+2. Deploy compatible API and private worker revisions. Drain old browser-owned generation and legacy direct precompute writers before activation: old binaries cannot honor a new fencing row. Route all paid production generation producers through the coordinator when the flag is enabled.
+3. Confirm the scheduled recovery caller, private worker authentication, queue acknowledgment, redelivery, and staged worker restart behavior. The queue also carries account mail; measure service time and protect mail latency before adding summary load.
+4. Establish global SEC physical-request pacing across every API/worker/library path. A shared job deduplicates popular filings; it does not enforce an aggregate SEC request limit for distinct filings or enrichment siblings.
+5. Validate source readiness, exact-accession 8-K exhibit coverage, failure visibility, charge/refund receipts, and fleet concurrency in a controlled canary before expanding. Size queue/worker capacity from observed latency and burst demand, not solely from per-instance concurrency.
+6. System preparation requires an explicit bounded watched-filings cohort and a configured spend budget. `SUMMARY_PREWARM_MAX_PER_SCAN` defaults to zero. Keep it zero until the global daily admissions guard and a conservative per-job provider-cost ceiling are reviewed; user usage counters are never charged for system jobs.
+
+Rollback stops new admissions by disabling the flag. Drain or deliberately fail/reconcile already queued/running jobs and their receipts before routing generation back to legacy writers; do not run both ownership protocols against the same filing.
+
+## Verification
+
+`tests/unit/test_summary_jobs.py` exercises the real database receipt and existing orchestrator offline, including duplicate task delivery, observer disconnect, cooldown, outbox repair and billing rollback. `tests/integration/test_summary_job_transactions.py` uses independent PostgreSQL sessions in disposable schemas to establish create/claim exclusivity, cross-filing account limits, idempotent concurrent charge/refund, stale-owner fencing and result-commit versus reclaim behavior. Its required CI step sets `SUMMARY_JOB_TEST_DATABASE_URL`, and the PostgreSQL gate fails if configured cases skip or use sessions unlike production.
