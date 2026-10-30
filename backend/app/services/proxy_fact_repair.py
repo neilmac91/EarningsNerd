@@ -12,10 +12,13 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
    10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
    left so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
    company (sets 4 and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own
-   unit fix and left first only where today's 10-K figure is on the value's scale step (within half a step,
-   about 31.6 times, of it) or there is none. Otherwise, as where the proxy was tagged at the wrong scale over
-   a right parse, the row takes set 4's ordinary path (restored where the original is within 1% of the 10-K's
-   figure, refused beyond; left and listed, or refused when current, where a report row holds its value).
+   unit fix and left first only where today's 10-K figure is of the value's sign and on its scale step
+   (strictly within half a step, about 31.6 times, of it) or there is none; a row so left is listed in
+   ``scale_up_retained`` where there is none, or where the 10-K's figure is more than 1% off its value.
+   Otherwise, as where the proxy was tagged at the wrong scale over a right parse, or the 10-K's figure is
+   of the other sign or zero, the row takes set 4's ordinary path (restored where the original is within 1%
+   of the 10-K's figure, refused beyond; left and listed, or refused when current, where a report row holds
+   its value).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -32,7 +35,8 @@ writes only into the repair's ``updates`` and its own inserts, so the repair's a
 evidence refuses the whole company before any write, every reason in one error. The report names, by
 fact id and with the step's verdict, each row the detection file's sets 4 and 5 will still list
 (``detection_listed``), so the apply's done criterion is a comparison; it also names, to be read and never
-checked, each row sets 4 and 5 leave because a report row holds its figure (``left_report_backed``). The
+checked, each row sets 4 and 5 leave because a report row holds its figure (``left_report_backed``) and each
+scale-up set 4 leaves that today's 10-K figure does not confirm (``scale_up_retained``). The
 file's tests (a witness within 1e-6, a scale band of 1%) are computed exactly, as PostgreSQL's numeric
 computes them. Temporary: removed once the E211 cohort closes (``docs/quarterly-data-repair.md``,
 "Proxy-statement values (E211)").
@@ -70,6 +74,7 @@ COUNTERS = (
     "filing_rows_reconfirmed",
 )
 OTHER_KINDS = ("made_unavailable", "is_latest", "value", "label", "provenance_only")
+LISTINGS = ("left_report_backed", "scale_up_retained")  # the preview's read-only listings of rows sets 4 and 5 leave
 _KEY = ("concept", "period_end", "fiscal_period", "unit")
 _LABELS = ("fiscal_year", "fiscal_period", "period_start", "raw_tag", "form")
 _FACT_FIELDS = (
@@ -145,16 +150,19 @@ def _scale_up(value: Any, original: Any) -> bool:
 
 
 def _scale_up_stands(value: Any, authority: float | None) -> bool:
-    """Whether a scale-up of the stored ``value`` stays the old check's own unit fix: where there is no 10-K figure, or
-    one of zero (no scale to read), or where today's 10-K figure ``authority`` is on the value's scale step, within
-    half a step of it by magnitude on a log scale: ``|log(|authority / value|)| < log(1,000) / 2``, a factor of
-    about 31.6 either way. A figure of the other sign is read for its magnitude. The boundary is deliberate: a figure
-    exactly half a step from the value is not on its scale, and its row takes set 4's ordinary path, which then
-    refuses it (its original is as far off the 10-K's figure). A figure on any other step, the original's or one
-    between (a parse and a proxy each 1,000 times off, in opposite directions), is not on the value's either."""
-    if not authority:
+    """Whether a scale-up of the stored ``value`` stays the old check's own unit fix: where there is no 10-K figure
+    (``authority`` None: nothing to read a scale from, and the planner lists the row in ``scale_up_retained``), or
+    where today's 10-K figure is of the value's sign and on its scale step, strictly within half a step of it on a log
+    scale: ``|log(authority / value)| < log(1,000) / 2``, a factor of about 31.6 either way (half a step itself is
+    irrational, so no stored figure sits on it). A figure on any other step, the original's or one between (a parse
+    and a proxy each 1,000 times off, in opposite directions), is not on the value's. Nor is a figure of the other
+    sign, or one of zero: the rest of sets 4 and 5 read a zero 10-K figure as a figure (``_authority`` returns it,
+    ``_agrees`` and ``cross_check_facts`` compare against it), so its row takes set 4's ordinary path too, which
+    refuses a nonzero original more than 1% off it."""
+    if authority is None:
         return True
-    return abs(math.log(abs(authority / float(value)))) < HALF_STEP
+    ratio = authority / float(value)
+    return ratio > 0 and abs(math.log(ratio)) < HALF_STEP
 
 
 def _scale_down(value: Any, original: Any) -> bool:
@@ -326,14 +334,16 @@ def other_kinds(before: dict[int, State], updates: dict[int, State], tagged: set
 
 def totals(blocks: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """A batch's ``proxy_totals``: each counter and each other-correction entry, summed over the
-    companies' ``proxy`` blocks, and how many rows they list in ``left_report_backed``."""
+    companies' ``proxy`` blocks, and how many rows they list in ``left_report_backed`` and in
+    ``scale_up_retained``."""
     out: dict[str, Any] = {**dict.fromkeys(COUNTERS, 0), "other_planned_updates": 0,
                            "other_planned_inserts": 0, "other_updates_by_kind": dict.fromkeys(OTHER_KINDS, 0),
-                           "other_inserts_by_concept": {}, "left_report_backed": 0}
+                           "other_inserts_by_concept": {}, **dict.fromkeys(LISTINGS, 0)}
     for block in blocks:
         for name in (*COUNTERS, "other_planned_updates", "other_planned_inserts"):
             out[name] += block[name]
-        out["left_report_backed"] += len(block["left_report_backed"])
+        for name in LISTINGS:
+            out[name] += len(block[name])
         for name in ("other_updates_by_kind", "other_inserts_by_concept"):
             for entry, count in block[name].items():
                 out[name][entry] = out[name].get(entry, 0) + count
@@ -362,15 +372,17 @@ class ProxyPlan:
     stored_keys: set[tuple] = field(default_factory=set)  # settled in place: no upsert decides them
     verdicts: dict[int, str] = field(default_factory=dict)  # each set 4 and 5 candidate detection may list
     left: list[dict[str, Any]] = field(default_factory=list)  # the rows sets 4 and 5 leave report-backed
+    retained: list[dict[str, Any]] = field(default_factory=list)  # the scale-ups set 4 leaves that the 10-K doesn't confirm
     own: set[tuple] = field(init=False)  # the identities of the step's inserts
 
     def __post_init__(self) -> None:
         self.own = {qfr._identity(qfr._candidate_state(fact)) for fact in self.inserts}
 
     def summary(self, before: dict[int, State], updates: dict[int, State], inserts: list[dict]) -> dict[str, Any]:
-        """The company's ``proxy`` block; ``other_*`` describe the corrections one approval also applies, and
-        ``left_report_backed`` the rows sets 4 and 5 leave because a report row holds their figure: it informs
-        the reading of the preview, and nothing writes, journals or checks it."""
+        """The company's ``proxy`` block; ``other_*`` describe the corrections one approval also applies,
+        ``left_report_backed`` the rows sets 4 and 5 leave because a report row holds their figure, and
+        ``scale_up_retained`` the scale-ups set 4 leaves where the payload gives no 10-K figure or one more than
+        1% off the value: both inform the reading of the preview, and nothing writes, journals or checks them."""
         others = [fact for fact in inserts if qfr._identity(qfr._candidate_state(fact)) not in self.own]
         return {
             "version": PROXY_REPAIR_VERSION, **self.counts,
@@ -381,6 +393,7 @@ class ProxyPlan:
                 f"{fact['concept']} {fact['fiscal_period']}" for fact in others).items())),
             "rows": self.rows,
             "left_report_backed": self.left,
+            "scale_up_retained": self.retained,
         }
 
     def residual(self, states: list[State], *, twins_at: Iterable[tuple]) -> dict[str, Any]:
@@ -425,6 +438,7 @@ class _Planner:
         self.stored_keys: set[tuple] = set()
         self.verdicts: dict[int, str] = {}
         self.left: list[dict[str, Any]] = []
+        self.retained: list[dict[str, Any]] = []
         self.rechecked: dict[tuple, set[str]] = {}  # scope -> the concepts sets 4 and 5 rewrote there
         self.touched: set[int] = set()
         self.counts = dict.fromkeys(COUNTERS, 0)
@@ -501,6 +515,19 @@ class _Planner:
                                 f"{qfr._json_value(Decimal(str(authority)))}")
         return True
 
+    def _retained(self, row_id: int, state: State, value: Any, original: float | None,
+                  authority: float | None) -> None:
+        """List a scale-up set 4 leaves (a proxy figure holds its value) in ``scale_up_retained`` unless today's 10-K
+        figure confirms it, within 1% (``_agrees``, set 4's own test): reason ``no_10k_figure`` where the payload gives
+        none, and ``off_10k_figure`` where it is more than 1% off the value, with ``gap`` the ratio value / 10-K
+        figure. The listing writes, journals and checks nothing, and no counter of the block counts it."""
+        if not self._witnessed(state, value) or (authority is not None and _agrees(float(value), authority)):
+            return
+        self.retained.append(self._row(
+            row_id, "scale_up_retained", state, None, set=4, is_latest=state["is_latest"], original=original,
+            authority=authority, gap=None if authority is None else round(float(value) / authority, 6),
+            reason="no_10k_figure" if authority is None else "off_10k_figure"))
+
     def _rewrote(self, row_id: int, state: State, verdict: str) -> None:
         self.write(row_id, state)
         self.verdicts[row_id] = verdict
@@ -521,8 +548,13 @@ class _Planner:
             # value's scale step, or there is none: otherwise (a proxy tagged at the wrong scale over a right parse,
             # FedEx's error mirrored, or a parse and a proxy each off by a step), which detection's set 4 cannot see
             # without the payload, the row takes the ordinary path below, where the original against today's 10-K
-            # figure decides, restored or refused, the 10-K having restated the year or not.
+            # figure decides, restored or refused, the 10-K having restated the year or not. A row so left that a
+            # proxy figure holds (set 4's) is listed where the 10-K does not confirm it: with no 10-K figure, the step
+            # cannot tell a parse read in units (SSS) from a right parse a proxy tagged at the wrong scale replaced;
+            # with one on the value's step but more than 1% off it, a unit fix and a later restatement may justify the
+            # value as filed, or may not. Neither is replaced or refused; each is read against its filing.
             if _scale_up(value, original) and _scale_up_stands(value, authority):
+                self._retained(row_id, state, value, original, authority)
                 continue
             if self._left(row_id, state, value, 4):
                 continue
@@ -766,4 +798,5 @@ def plan(before: dict[int, State], updates: dict[int, State], facts: list[dict],
                                 if is_proxy_form(state["form"]) or _quotes(state, planner.accessions)}
     return ProxyPlan(inserts=list(planner.inserts.values()), tagged=tagged, accessions=planner.accessions,
                      keys=planner.keys, counts=planner.counts, rows=planner.rows,
-                     stored_keys=planner.stored_keys, verdicts=planner.verdicts, left=planner.left)
+                     stored_keys=planner.stored_keys, verdicts=planner.verdicts, left=planner.left,
+                     retained=planner.retained)

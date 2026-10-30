@@ -12,7 +12,6 @@ planted as a row, and says so.
 """
 import copy
 import json
-import math
 import re
 import sys
 from collections import Counter
@@ -242,12 +241,13 @@ def _only_a_proxy_tags_2021(db, monkeypatch, ticker="EEE"):
     return company, payload
 
 
-def _only_a_proxy_tags_payload():
+def _only_a_proxy_tags_payload(fy2021=90e6):
+    """``fy2021``: the proxy's FY2021 net income."""
     return _payload({
         REV_TAG: {"units": {"USD": _ten_ks({2021: 900e6, 2022: 1_000e6, 2023: 1_100e6})}},
         "NetIncomeLoss": {"units": {"USD": _ten_ks({2023: 130e6}) + [
             _item(value, f"{year}-12-31", start=f"{year}-01-01", accn="P24", fy=2023, form="DEF 14A",
-                  filed="2024-04-20") for year, value in ((2021, 90e6), (2022, 100e6), (2023, 130e6))
+                  filed="2024-04-20") for year, value in ((2021, fy2021), (2022, 100e6), (2023, 130e6))
         ]}},
         "ProfitLoss": {"units": {"USD": _ten_ks({2022: 110e6})}},
     })
@@ -387,13 +387,13 @@ def _restated_after_the_proxy(db, monkeypatch, ticker="RST"):
 
 
 def _only_a_proxy_tags_2021_and_the_10k_was_replaced(db, monkeypatch, ticker="ZAA", *, proxy_rows=False,
-                                                     parsed=85e6):
-    """FY2021's net income only a proxy tags (90 million), so today's payload has no 10-K figure there.
+                                                     parsed=85e6, quoted=90e6):
+    """FY2021's net income only a proxy tags (``quoted``, 90 million), so today's payload has no 10-K figure there.
     The FY2021 10-K's parse was cross-checked against the proxy's figure before the fix: replaced when
     it differed, confirmed when it agreed. ``proxy_rows``: a sync before the fix also stored the proxy's
     rows; otherwise the sync ran before the proxy was filed and only the payload holds its figure."""
     company = _company(db, ticker)
-    payload = _for(company, _only_a_proxy_tags_payload())
+    payload = _for(company, _only_a_proxy_tags_payload(quoted))
     if proxy_rows:
         _old_sync(db, monkeypatch, company, payload)
     else:
@@ -762,6 +762,11 @@ def test_legitimate_replacements_are_left_alone(db, monkeypatch, shape, kept):
     report_backed = shape in ("holds_10k_report_backed", "report_backed_restated")
     assert [(entry["fact_id"], entry["set"], entry["action"]) for entry in plan["proxy"]["left_report_backed"]] == (
         [(row.id, 4, "left_report_backed")] if report_backed else [])
+    # A scale-up with no 10-K figure to read its scale from is left, and listed: the step cannot tell SSS's parse
+    # read in units from a right parse a proxy tagged at the wrong scale replaced (review 5718798403, item 2). One the
+    # 10-K's figure confirms within 1% (NNN's) is not listed.
+    assert [(entry["fact_id"], entry["original"], entry["reason"]) for entry in plan["proxy"]["scale_up_retained"]] == (
+        [(row.id, 90.0, "no_10k_figure")] if shape == "scale_up_no_authority" else [])
     _apply(db, company, payload)
     assert repair.snapshot(_filing_row(db, filing)) == stored
     if kept:  # the 10-K winner the apply stored now backs the row, so the next run passes it silently
@@ -949,7 +954,8 @@ def test_the_cli_preview_reports_proxy_totals(db, monkeypatch, tmp_path):
     assert report["proxy_totals"] == {**_STEP_ZERO, "retired": 6, "inserted": 6, "dependents_recomputed": 5,
                                       "other_planned_updates": 0, "other_planned_inserts": 0,
                                       "other_updates_by_kind": dict.fromkeys(proxy.OTHER_KINDS, 0),
-                                      "other_inserts_by_concept": {}, "left_report_backed": 0}
+                                      "other_inserts_by_concept": {}, "left_report_backed": 0,
+                                      "scale_up_retained": 0}
     db.expire_all()
     assert _snapshots(db, company) == planted and db.query(FinancialFactRevision).count() == 0
 
@@ -2357,8 +2363,11 @@ def _own_figure_scaled_up(db, monkeypatch, ticker, *, backed):
 @pytest.mark.parametrize("backed", [False, True], ids=["unbacked", "backed"])
 def test_a_scaled_up_replacement_is_left_alone_backed_or_not(monkeypatch, backed):
     # The cross-check scaling up a parse read in units is its own job, which detection never lists: set 4 leaves such
-    # a row before it asks whether a report row backs it, so a backing row neither lists nor refuses it, though K28's
-    # restatement puts today's 10-K figure 2.6% off. Alike before and since #1682.
+    # a row before it asks whether a report row backs it, so a backing row neither lists nor refuses it. K28's
+    # restatement puts today's 10-K figure 2.6% off the value, on its scale step: the row stays, neither replaced nor
+    # refused (a unit fix and a later restatement may justify the value as filed), and the preview lists it in
+    # ``scale_up_retained`` with reason ``off_10k_figure`` and the ratio of the value to the 10-K's figure (review
+    # 5718798403, item 2; the CTO's review 5719610791). Alike before and since #1682.
     with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _own_figure_scaled_up(
             db, monkeypatch, "SUP", backed=backed)) as states:
         for db, company, payload, filing in states.values():
@@ -2367,9 +2376,17 @@ def test_a_scaled_up_replacement_is_left_alone_backed_or_not(monkeypatch, backed
                 True, "companyfacts", 19_000e6, 19_000e3)
             assert bool([r for r in _rows(db, company, concept="net_income", period_end=date(2026, 12, 31),
                                           filing_id=None) if r.accession == _accn(company, "K27")]) == backed
+            stored = repair.snapshot(row)
             plan = _preview(db, company, payload)["proxy"]
             assert (plan["filing_rows_restored"], plan["left_report_backed"], plan["detection_listed"]) == (0, [], [])
             assert row.id not in {entry["fact_id"] for entry in plan["rows"]}
+            assert [{name: e[name] for name in ("fact_id", "is_latest", "value", "original", "authority", "gap",
+                                                "reason")} for e in plan["scale_up_retained"]] == [{
+                "fact_id": row.id, "is_latest": True, "value": "19000000000", "original": 19_000e3,
+                "authority": 19_500e6, "gap": 0.974359, "reason": "off_10k_figure"}]
+            _apply(db, company, payload)
+            assert repair.snapshot(_filing_row(db, filing)) == stored
+            assert row.id not in {r.fact_id for r in db.query(FinancialFactRevision)}
 
 
 def test_the_cli_totals_count_the_rows_left_report_backed(db, monkeypatch, tmp_path):
@@ -2595,24 +2612,31 @@ def test_a_mirrored_scale_error_takes_set_4s_ordinary_path(monkeypatch, scale, g
     (4_092e9, 4_092e3, 4_092e6, "refused"),
     (4_092e6, 4_092e3, 4_092e9, "refused"),
     (4_092e9, 4_092e6, -4_092e6, "refused"),
-    (4_092e9, 4_092e6, -4_092e9, "exempt"),
-    (4_092e9, 4_092e6, 0.0, "exempt"),
-    (1e9, 1e6, 1e9 / math.sqrt(1_000), "refused"),
+    (4_092e9, 4_092e6, -4_092e9, "refused"),
+    (-4_092e9, -4_092e6, 4_092e9, "refused"),
+    (4_092e9, 4_092e6, 0.0, "refused"),
+    (1e9, 1e6, 1e9 / 31, "exempt"),
+    (1e9, 1e6, 1e9 / 32, "refused"),
+    (1e9, 1e6, 1e9 * 31, "exempt"),
+    (1e9, 1e6, 1e9 * 32, "refused"),
     (4_092e9, 4_092e6, 4_092e9 / 40, "refused"),
     (4_092e9, 4_092e6, 4_092e9 / 10, "exempt"),
 ], ids=["negative-x1000-0.5pct", "negative-x1000-1.5pct", "negative-x1000000", "k28-restated-true-scale-up",
         "true-scale-up-restated-30pct", "x1000000-10k-a-step-between", "x1000-10k-a-step-above-the-value",
-        "opposite-sign-on-the-originals-scale", "opposite-sign-on-the-values-scale", "zero-10k-figure",
-        "exactly-half-a-step-from-the-value", "40x-under-the-value-past-half-a-step", "10x-under-the-value"])
+        "opposite-sign-on-the-originals-scale", "opposite-sign-on-the-values-scale",
+        "negative-value-a-profit-on-its-scale", "zero-10k-figure", "31x-under-the-value-within-half-a-step",
+        "32x-under-the-value-past-half-a-step", "31x-over-the-value-within-half-a-step",
+        "32x-over-the-value-past-half-a-step", "40x-under-the-value-past-half-a-step", "10x-under-the-value"])
 def test_the_scale_up_exemption_reads_the_10k_figures_scale_by_magnitude(value, original, authority, outcome):
-    # A pure test of the planner. A scale-up stays the old check's own unit fix only where today's 10-K figure is on the
-    # value's scale step, within half a step (about 31.6 times) of it by magnitude on a log scale, or where there is none
-    # (a zero figure included, which must not raise). Otherwise set 4's ordinary path decides, the original against the
-    # 10-K's figure. So a loss's mirrored scale error is restored or refused as a profit's; K28's restatement and a true
-    # scale-up restated 30% stay exempt; a figure a step between the value and the original (a parse and a proxy each
-    # 1,000 times off) or a step beyond the value is refused, never exempt; a figure of the other sign is read for its
-    # magnitude; one 40 times under the value is past half a step (a plain difference would call it near) and one 10
-    # times under is within it; and one exactly half a step from the value takes the ordinary path, which refuses it.
+    # A pure test of the planner. A scale-up stays the old check's own unit fix only where today's 10-K figure is of the
+    # value's sign and on its scale step, strictly within half a step (about 31.6 times) of it on a log scale, or where
+    # there is none. Otherwise set 4's ordinary path decides, the original against the 10-K's figure. So a loss's
+    # mirrored scale error is restored or refused as a profit's; K28's restatement and a true scale-up restated 30% stay
+    # exempt; a figure a step between the value and the original (a parse and a proxy each 1,000 times off) or a step
+    # beyond the value is refused, never exempt; a figure of the other sign, on either scale, and a zero figure, which
+    # the rest of the step reads as a figure, are on no scale of the value's, and refused (review 5718798403, item 2);
+    # 31 times either side of the value is within half a step and 32 times past it, as is 40 times (a plain difference
+    # would call that near); 10 times under is within it.
     row = {**_state(period_start=date(2025, 1, 1), period_end=date(2025, 12, 31), fiscal_year=2025, value=value,
                     accession="K25", filing_id=3)[1],
            "provenance": {"version": 1, "checks": {"authoritative": {"outcome": "replaced", "original_value": original,
@@ -2831,3 +2855,99 @@ def test_principal_review_5718798403_item_4_a_left_row_is_listed_with_its_backer
         _apply(old, company, payload)
         assert (float(old.get(FinancialFact, row.id).value), old.get(FinancialFact, row.id).source) == (
             figure, "edgar_xbrl")
+
+
+@pytest.mark.parametrize("proxy_rows", [False, True], ids=["current", "behind_the_proxy_row"])
+def test_principal_review_5718798403_item_2_a_scale_up_with_no_10k_figure_is_listed_retained_and_never_written(
+        monkeypatch, proxy_rows):
+    # Principal review 5718798403, item 2, where the payload gives no 10-K figure. FY2021's parse, 90 million, was right;
+    # P24, the only filing that tags FY2021's net income, tags it at 90 billion, and the backfill before #1622 replaced
+    # the parse with it. The value is a scale-up of the recorded original, and with no 10-K figure the step cannot tell
+    # this row from SSS's parse read in units: it leaves it, and the preview lists it in ``scale_up_retained`` (reason
+    # ``no_10k_figure``, no gap) with its original and current flag, to be read against the filing. The listing writes, journals and checks nothing; detection never lists a
+    # scale-up. Alike with the row FY2021's current figure (only the payload holds P24's) and behind P24's stored row,
+    # which set 2 retires with no winner, before and since #1682.
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: (
+            _only_a_proxy_tags_2021_and_the_10k_was_replaced(db, monkeypatch, "PNF", proxy_rows=proxy_rows,
+                                                             parsed=90e6, quoted=90e9))) as states:
+        for db, company, payload, filing in states.values():
+            row = _filing_row(db, filing)
+            check = _check(row)
+            assert (row.is_latest, row.source, float(row.value), check["outcome"], check["original_value"]) == (
+                not proxy_rows, "companyfacts", 90e9, "replaced", 90e6)
+            assert ("net_income", date(2021, 12, 31)) not in svc.extract_authoritative_values(payload)
+            stored = repair.snapshot(row)
+            plan = _preview(db, company, payload)["proxy"]
+            assert (plan["filing_rows_restored"], plan["filing_rows_kept"], plan["left_report_backed"],
+                    plan["detection_listed"]) == (0, 0, [], [])
+            assert row.id not in {e["fact_id"] for e in plan["rows"]}
+            assert plan["scale_up_retained"] == [{
+                "fact_id": row.id, "action": "scale_up_retained", "concept": "net_income", "fiscal_year": 2021,
+                "fiscal_period": "FY", "period_end": "2021-12-31", "accession": filing.accession_number,
+                "form": "10-K", "value": "90000000000", "winner_accession": None, "winner_value": None, "gap": None,
+                "set": 4, "is_latest": not proxy_rows, "original": 90e6, "authority": None,
+                "reason": "no_10k_figure"}]
+            applied = _apply(db, company, payload)["proxy"]
+            assert applied["scale_up_retained"] == plan["scale_up_retained"]
+            assert applied["retired_without_winner"] == (1 if proxy_rows else 0)
+            assert repair.snapshot(_filing_row(db, filing)) == stored
+            assert row.id not in {r.fact_id for r in db.query(FinancialFactRevision)}
+            found = _detection(db, {company.ticker: payload})
+            assert (found[4], found[5]) == ([], [])
+
+
+def _scaled_up_then_amended(db, monkeypatch, ticker, amended):
+    """NNN's true scale-up (a parse in units, 4,092, that P26's figure, the 10-K's own, multiplied up), then a 10-K/A,
+    filed after the backfill and listed last, tags FY2025 at ``amended``: today's 10-K figure."""
+    company, payload, filing = _scaled_up(db, monkeypatch, ticker)
+    now = copy.deepcopy(payload)
+    _items(now).append(_item(amended, "2025-05-31", start="2024-06-01", accn=_accn(company, "KA25"), fy=2025,
+                             form="10-K/A", filed="2026-09-01"))
+    return company, now, filing
+
+
+@pytest.mark.parametrize("amended", [-4_092e6, 0.0], ids=["other_sign_on_the_values_scale", "zero"])
+def test_principal_review_5718798403_item_2_a_10k_figure_of_the_other_sign_or_zero_takes_the_ordinary_path(
+        monkeypatch, amended):
+    # Principal review 5718798403, item 2's guard: a 10-K figure of the other sign at the value's magnitude, or of zero,
+    # is on no scale step of the value's, so the scale-up exemption does not stand and set 4's ordinary path decides. A
+    # zero figure is read as a figure, as the rest of the step reads it (``_agrees``, ``cross_check_facts``). The
+    # recorded original, 4,092, is more than 1% off either, so the company is refused, before #1682 and since.
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _scaled_up_then_amended(
+            db, monkeypatch, "PSG", amended)) as states:
+        for db, company, payload, filing in states.values():
+            row = _filing_row(db, filing)
+            assert (row.source, float(row.value), _check(row)["original_value"]) == ("companyfacts", 4_092e6, 4_092.0)
+            assert svc.extract_authoritative_values(payload)[("net_income", date(2025, 5, 31))] == amended
+            _refuses(db, company, payload, _refusal(db, (row.id, "the 10-K's figure disagrees with the recorded "
+                                                                 "original value by more than 1%, and the filing row "
+                                                                 "holds neither")))
+
+
+def test_principal_review_5718798403_item_2_a_retained_scale_up_off_the_10k_figure_is_listed_and_never_written(
+        monkeypatch):
+    # Principal review 5718798403, item 2, as the CTO's review 5719610791 settles it: a true scale-up (NNN's parse in
+    # units, 4,092, multiplied up to 4,092 million by P26's figure, the 10-K's own) that a 10-K/A later restated 30%
+    # stays as filed: today's 10-K figure is on the value's scale step, so the exemption stands, and nothing replaces or
+    # refuses it. Being more than 1% off the value, it is listed in ``scale_up_retained`` (reason ``off_10k_figure``,
+    # ``gap`` the ratio value / 10-K figure); this row is behind P26's stored row, not current. Nothing is written.
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _scaled_up_then_amended(
+            db, monkeypatch, "PRT", 4_092e6 * 1.3)) as states:
+        for db, company, payload, filing in states.values():
+            row = _filing_row(db, filing)
+            assert (row.is_latest, row.source, float(row.value), _check(row)["original_value"]) == (
+                False, "companyfacts", 4_092e6, 4_092.0)
+            stored = repair.snapshot(row)
+            plan = _preview(db, company, payload)["proxy"]
+            assert (plan["filing_rows_restored"], plan["filing_rows_kept"], plan["left_report_backed"]) == (0, 0, [])
+            assert row.id not in {e["fact_id"] for e in plan["rows"]}
+            assert plan["scale_up_retained"] == [{
+                "fact_id": row.id, "action": "scale_up_retained", "concept": "net_income", "fiscal_year": 2025,
+                "fiscal_period": "FY", "period_end": "2025-05-31", "accession": filing.accession_number,
+                "form": "10-K", "value": "4092000000", "winner_accession": None, "winner_value": None,
+                "gap": 0.769231, "set": 4, "is_latest": False, "original": 4_092.0, "authority": 4_092e6 * 1.3,
+                "reason": "off_10k_figure"}]
+            applied = _apply(db, company, payload)["proxy"]
+            assert applied["scale_up_retained"] == plan["scale_up_retained"]
+            assert repair.snapshot(_filing_row(db, filing)) == stored
+            assert row.id not in {r.fact_id for r in db.query(FinancialFactRevision)}
