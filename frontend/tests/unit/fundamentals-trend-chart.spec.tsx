@@ -230,6 +230,31 @@ describe('FundamentalsTrendChart', () => {
     ])
   })
 
+  it('names every metric in sentence case as stored, and the footnote reads it at its start (E34)', async () => {
+    const keys = [
+      'revenue', 'net_interest_income', 'noninterest_income', 'premiums_earned', 'net_investment_income', 'net_income',
+      'gross_profit', 'operating_income', 'operating_cash_flow', 'investing_cash_flow', 'financing_cash_flow',
+      'free_cash_flow', 'eps_diluted', 'earnings_per_share', 'gross_margin', 'operating_margin', 'net_margin',
+      'total_assets', 'current_assets', 'current_liabilities', 'working_capital', 'current_ratio', 'shareholders_equity',
+    ]
+    getFilingFundamentals.mockResolvedValue({
+      ticker: 'JPM',
+      company_name: 'JPMorgan Chase',
+      concepts: keys.map((concept) => ({ concept, unit: 'USD', points: [point(2023, 10, 'USD')] })),
+    })
+    renderChart()
+
+    const picker = await metricPicker()
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Revenue', 'Net interest income', 'Non-interest income', 'Premiums earned', 'Net investment income', 'Net income',
+      'Gross profit', 'Operating income', 'Operating cash flow', 'Investing cash flow', 'Financing cash flow',
+      'Free cash flow', 'Diluted EPS', 'EPS', 'Gross margin', 'Operating margin', 'Net margin', 'Total assets',
+      'Current assets', 'Current liabilities', 'Working capital', 'Current ratio', "Shareholders' equity",
+    ])
+    fireEvent.change(picker, { target: { value: 'free_cash_flow' } })
+    expect(await screen.findByText(/Free cash flow by fiscal year\./)).toBeInTheDocument()
+  })
+
   it('fetches by filingId (roadmap B), not any company-wide endpoint', async () => {
     getFilingFundamentals.mockResolvedValue(RESP)
     renderChart(285, 'LLY · figures as reported in this 10-K')

@@ -35,7 +35,9 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - two first sign-ins of one OAuth identity, two links of one identity to an account, and two invited sign-ups
   with one invite: no lock serializes them, so the unique email, the unique provider link and the invite's
   guarded redemption decide, and the second is refused or loses at its mint with nothing of its own
-  committed (E121).
+  committed (E121);
+- one verification link posted twice at once: the second waits at the account's row, which the first's token
+  read locked, finds the link burnt and is refused as an unknown link (E121).
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
 change leaves the refresh's successor live.
@@ -714,6 +716,84 @@ def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, co
     assert _accounts_links_tokens(postgres_engine) == (1, 1, 1)
     with _session(postgres_engine) as db:
         assert db.query(InviteCode).filter(InviteCode.used_at.isnot(None)).count() == 1
+
+
+def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
+    """One verification link posted twice at once (a double click, or React's development double effect): the
+    second's token read waits at the account's row, which the first's read locked, until the first commits, then
+    finds the link burnt and refuses it as an unknown link, so the route answers the link's 400, as the event loop's
+    one-at-a-time order did on one instance (E121). Without the lock both read the link and both verified, and with
+    the reverse trial on the second logged a failed grant or sent a second trial-started event."""
+    email = f"verify-{uuid.uuid4().hex}@example.com"
+    with _session(postgres_engine) as db:
+        account = User(email=email, is_active=True, email_verified=False,
+                       email_verification_token=auth_account_service._hash_token("the-link"))
+        db.add(account)
+        db.commit()
+        user_id = account.id
+    role = threading.local()
+    first_locked = threading.Event()
+    second_pid: list[int] = []
+    second_statements: list[str] = []
+    waited: list[str] = []
+
+    def before_statement(conn, cursor, statement, parameters, context, executemany):
+        if getattr(role, "name", None) == "second":
+            second_statements.append(statement)
+
+    def after_statement(conn, cursor, statement, parameters, context, executemany):
+        # Any row lock starts the second, so a change of lock mode reaches the assertions below by name.
+        if getattr(role, "name", None) == "first" and (" FOR UPDATE" in statement or " FOR NO KEY UPDATE" in statement):
+            first_locked.set()
+
+    def before_commit(conn):
+        # The first commits only once PostgreSQL shows the second waiting on a lock, or at the hang guard.
+        if getattr(role, "name", None) != "first":
+            return
+        deadline = time.monotonic() + HANG_GUARD_S
+        while not waited and time.monotonic() < deadline:
+            with postgres_engine.connect() as probe:
+                row = probe.execute(
+                    text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"),
+                    {"pid": second_pid[0]},
+                ).first() if second_pid else None
+            if row is not None and row.wait_event_type == "Lock":
+                waited.append(second_statements[-1])  # the statement it waits at, whole, as it started
+            else:
+                time.sleep(0.01)
+
+    def run(name: str) -> object:
+        role.name = name
+        with _session(postgres_engine) as db:
+            if name == "second":
+                first_locked.wait(HANG_GUARD_S)
+                second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
+            try:
+                return auth_account_service.verify_email_token(db, "the-link")
+            except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
+                return exc
+
+    event.listen(postgres_engine, "before_cursor_execute", before_statement)
+    event.listen(postgres_engine, "after_cursor_execute", after_statement)
+    event.listen(postgres_engine, "commit", before_commit)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(run, "first"), pool.submit(run, "second")]
+            first, second = (future.result(timeout=3 * HANG_GUARD_S) for future in futures)
+    finally:
+        event.remove(postgres_engine, "before_cursor_execute", before_statement)
+        event.remove(postgres_engine, "after_cursor_execute", after_statement)
+        event.remove(postgres_engine, "commit", before_commit)
+    assert isinstance(first, tuple) and first[1] == user_id
+    assert isinstance(second, auth_account_service.AccountTokenInvalidError), second
+    # The second waited at its own locking token read (recorded whole as it started; pg_stat_activity, which cuts a
+    # statement at track_activity_query_size, only shows the wait).
+    assert waited and waited[0].startswith("SELECT users."), waited
+    assert "WHERE users.email_verification_token" in waited[0], waited
+    assert waited[0].rstrip().endswith("FOR NO KEY UPDATE"), waited
+    with _session(postgres_engine) as db:
+        verified = db.get(User, user_id)
+        assert (verified.email_verified, verified.email_verification_token) == (True, None)
 
 
 @pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])

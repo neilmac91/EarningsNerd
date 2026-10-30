@@ -1,6 +1,6 @@
 import { useLayoutEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import type { ChangeReport, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
 
@@ -169,6 +169,31 @@ describe('SummaryBlocks', () => {
     const second = screen.getByRole('table', { name: 'Notable Footnotes, table 2 of 2' })
     expect(within(second).queryAllByRole('columnheader')).toHaveLength(0)
     expect(within(second).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Unlabelled value', 'Second cell'])
+  })
+
+  // useOverflowRegion measures the box; the box writes the region's attributes out (siteChromeFocusRing.spec.ts reads
+  // its Tab stop for the ring), so each must reach the box from the hook as the hook returns it.
+  it("makes a wide table's box a named, described region in the Tab order, and no stop once the table fits", () => {
+    let wide = true
+    const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(() => (wide ? 900 : 400))
+    try {
+      const segments: RenderedSection[] = [{ id: 'segments', title: 'Segments', blocks: [
+        { kind: 'table', headers: ['Segment', 'Revenue'], rows: [['Data Center', '$60B']] },
+      ] }]
+      render(<SummaryBlocks sections={segments} summary={summary} />)
+      const box = screen.getByRole('table', { name: 'Segments' }).parentElement!
+      expect(screen.getByRole('region', { name: 'Scrollable table: Segments' })).toBe(box)
+      expect(box).toHaveAttribute('tabindex', '0')
+      expect(box).toHaveAccessibleDescription('Scroll horizontally to read all columns.')
+      wide = false
+      act(() => { window.dispatchEvent(new Event('resize')) })
+      for (const attribute of ['role', 'tabindex', 'aria-label', 'aria-describedby']) expect(box).not.toHaveAttribute(attribute)
+      expect(screen.queryByText('Scroll horizontally to read all columns.')).toBeNull()
+    } finally {
+      client.mockRestore()
+      scroll.mockRestore()
+    }
   })
 
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
