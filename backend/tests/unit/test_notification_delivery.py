@@ -197,6 +197,52 @@ async def test_new_alert_prepares_one_shared_filing_and_queue_failure_keeps_deli
         assert attempted == [filing_id] and send.await_count == 1
 
 
+@pytest.mark.asyncio
+async def test_scan_releases_single_connection_after_skipped_company_before_preparation(tmp_path, monkeypatch):
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import QueuePool
+    from app.models import SummaryJob
+    from app.services import summary_job_store, summary_jobs
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'scan-preparation.db'}", poolclass=QueuePool,
+                           pool_size=1, max_overflow=0, pool_timeout=0.15,
+                           connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", True)
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 1)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 2)
+    monkeypatch.setattr(summary_job_store, "SessionLocal", sessionmaker(bind=engine, expire_on_commit=False))
+    send = AsyncMock(return_value="synthetic-provider-id")
+    ensure = summary_job_store.ensure_job
+
+    def checked_ensure(*args, **kwargs):
+        assert send.await_count == 1, "discovery mail must precede queue work"
+        assert engine.pool.checkedout() == 0, "scan must release its read transaction"
+        return ensure(*args, **kwargs)
+
+    monkeypatch.setattr(summary_job_store, "ensure_job", checked_ensure)
+    enqueue = AsyncMock(return_value="synthetic-task-name")
+    monkeypatch.setattr(summary_jobs, "enqueue_task", enqueue)
+    try:
+        with Session(engine) as db:
+            _seed(db, is_pro=True, realtime=True)
+            db.add(Company(id=2, cik="2", ticker="T2", name="Already scanned", last_filings_check_at=NOW))
+            db.add(Watchlist(user_id=1, company_id=2, created_at=WATCH_SINCE))
+            db.commit()
+            # Exercise the real cadence skip after preparing the first company's alert.
+            from app.services import filing_scan_service
+            monkeypatch.setattr(filing_scan_service, "_alert_transport", lambda _legacy: send)
+            stats = await run_filing_scan(db, fetch_filings=_fetch, now=NOW, cadence_minutes=60)
+            assert stats["companies_scanned"] == 1 and stats["alerts_sent"] == 1
+            assert engine.pool.checkedout() == 0
+            job = db.query(SummaryJob).one()
+            assert job.status == "queued" and job.last_dispatched_at is not None
+            assert enqueue.await_count == 1
+    finally:
+        engine.dispose()
+
+
 # --------------------------------------------------------------------------- retries and identity
 
 @pytest.mark.asyncio

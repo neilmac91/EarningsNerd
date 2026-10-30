@@ -277,7 +277,6 @@ async def run_filing_scan(
         fetch_filings = sec_edgar_service.get_filings
 
     stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0, "source_errors": 0}
-    await summary_preparation.recover_summary_handoffs()
     preparation_cap = summary_preparation.preparation_cap()
     preparation_ids: set[int] = set()
     recent_since = _window_start(now)  # a watermark's own day stays open for the span a digest covers
@@ -339,9 +338,15 @@ async def run_filing_scan(
                     preparation_ids.add(filing.id)
             db.commit()
 
-    await summary_preparation.prepare_notified_filings(sorted(preparation_ids))
     drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_alert_transport(send_alert), now=delivery_now)
     _merge_drain(stats, drained, sent_key="alerts_sent", failed_key="alerts_failed")
+    # All scan/delivery writes are committed by their owners. A skipped last company
+    # or an empty delivery lookup can leave a read transaction checked out. Release
+    # it before preparation/recovery opens independent sessions in a one-slot pool.
+    # Queue failures also cannot delay the discovery emails that were just drained.
+    db.rollback()
+    await summary_preparation.recover_summary_handoffs()
+    await summary_preparation.prepare_notified_filings(sorted(preparation_ids))
     return stats
 
 
