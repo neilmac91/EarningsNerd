@@ -18,6 +18,7 @@ import { Notice } from '@/components/ui/Notice'
 import AddressText from '@/features/auth/components/AddressText'
 import {
   DEFAULT_INVITE_MESSAGE,
+  INVITE_SHARE_SUBJECT,
   buildInviteMessage,
   buildShareDeepLinks,
   isUnboundInvite,
@@ -81,7 +82,7 @@ export default function ShareInvite({ link, email, defaultMessage, optionsIn = '
     let failed = false
     try {
       await navigator.share({
-        title: 'Your EarningsNerd beta invite',
+        title: INVITE_SHARE_SUBJECT,
         // Avoid duplicating the raw URL: it travels in the dedicated `url` field below.
         text: messageWithoutLink(message, link),
         url: link,
