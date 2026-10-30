@@ -65,14 +65,19 @@ async def test_document_faults_reach_real_breaker_and_permanent_refusals_do_not_
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status", [429, 503])
-@pytest.mark.parametrize("retry_after", ["60", "999999", "Wed, 21 Oct 2099 07:28:00 GMT"])
-async def test_cooldown_outside_deadline_is_returned_without_sleep_or_early_retry(transport, status, retry_after):
+@pytest.mark.parametrize("retry_after, timeout", [
+    ("60", 15), ("999999", 15), ("Wed, 21 Oct 2099 07:28:00 GMT", 15),
+    ("600", 300),  # Even beyond the shared backoff path's 120s cap, never retry early.
+])
+async def test_cooldown_outside_deadline_is_returned_without_sleep_or_early_retry(transport, status, retry_after, timeout):
     install, requests, sleeps, _ = transport
     install(lambda request: httpx.Response(status, headers={"Retry-After": retry_after}))
     with pytest.raises(compat.EdgarError) as result:
-        await compat.sec_edgar_service.get_filing_document("https://sec.example/report.htm", timeout=15)
+        await compat.sec_edgar_service.get_filing_document("https://sec.example/report.htm", timeout=timeout)
     assert result.value.context["status_code"] == status
     assert result.value.context["retry_after_seconds"] >= 60
+    if retry_after.isdigit():
+        assert result.value.context["retry_after_seconds"] == int(retry_after)
     assert isinstance(result.value.cause, httpx.HTTPStatusError)
     assert len(requests) == 1
     assert sleeps == []
