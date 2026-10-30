@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Annotated, Any, Optional
 from contextlib import aclosing
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 from uuid import UUID
 import asyncio
@@ -32,7 +32,7 @@ from app.dependencies import copilot_taste_exhausted_detail, require_copilot_or_
 from app.services import filing_list_service
 from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
-from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.rate_limiter import ActiveStreamLimiter, RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
     LIFETIME_SCOPE,
     check_qa_limit,
@@ -68,6 +68,9 @@ SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 # Bound cheap replay/join handshakes separately. Only the actual generation leader spends
 # SUMMARY_LIMITER; retries and readers joining another run must not exhaust that work budget.
 SUMMARY_REQUEST_LIMITER = RateLimiter(limit=60, window_seconds=60)
+# Followers wait before the generation semaphore; bound their live HTTP occupancy too.
+# This is per process, not a fleet-wide account limit. Ready replay and GET stay available.
+SUMMARY_STREAM_LIMITER = ActiveStreamLimiter(limit=4)
 # Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
 # burst than summaries while still throttling abuse (per user, sliding window).
 ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
@@ -76,8 +79,12 @@ ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
 class SummaryStreamResponse(StreamingResponse):
     """Close the owned iterator even when disconnect occurs during ASGI send."""
 
-    def __init__(self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence) -> None:
+    def __init__(
+        self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence,
+        release_stream_slot: Optional[Callable[[], None]] = None,
+    ) -> None:
         self.evidence = evidence
+        self.release_stream_slot = release_stream_slot
         self.owned_stream = evidence.wrap_stream(content)
         super().__init__(
             self.owned_stream, media_type="text/event-stream",
@@ -101,7 +108,11 @@ class SummaryStreamResponse(StreamingResponse):
                 try:
                     await self.owned_stream.aclose()
                 finally:
-                    self.evidence.finish("cancelled")
+                    try:
+                        self.evidence.finish("cancelled")
+                    finally:
+                        if self.release_stream_slot is not None:
+                            self.release_stream_slot()
 
 
 @dataclass(frozen=True)
@@ -223,6 +234,7 @@ async def generate_summary_stream(
         transport_attempt=transport_attempt, entry_point=entry_point,
     )
     evidence.start()
+    release_stream_slot = None
     try:
         # The admission's unit releases the request's session, which detaches the user: read its id first.
         user_id = current_user.id
@@ -366,6 +378,14 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps(payload)}\n\n"
             return SummaryStreamResponse(existing_summary(), evidence)
 
+        release_stream_slot = SUMMARY_STREAM_LIMITER.try_acquire(f"summary:{user_id}")
+        if release_stream_slot is None:
+            raise CodedHTTPException(
+                ErrorCode.SUMMARY_RATE_LIMITED,
+                "Too many summary requests. Try again shortly.",
+                headers={"Retry-After": "5"},
+            )
+
         logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
         # Only the authenticated account owns server event identity. Client ph_id is not authority.
@@ -408,7 +428,11 @@ async def generate_summary_stream(
                     evidence.observe_terminal(event)
                     yield to_sse(event)
 
-        return SummaryStreamResponse(event_stream(), evidence)
+        response = SummaryStreamResponse(event_stream(), evidence, release_stream_slot)
+        # Transfer ownership only after construction succeeds. The ASGI response releases the
+        # lease even if response.start fails before our generator's finally could run.
+        release_stream_slot = None
+        return response
     except HTTPException as exc:
         evidence.reason = f"http_{exc.status_code}"
         evidence.finish("rejected")
@@ -420,6 +444,9 @@ async def generate_summary_stream(
         evidence.reason = "route_error"
         evidence.finish("error")
         raise
+    finally:
+        if release_stream_slot is not None:
+            release_stream_slot()
 
 
 def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> Optional[str]:
