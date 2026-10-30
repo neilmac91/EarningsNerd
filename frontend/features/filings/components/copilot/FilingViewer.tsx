@@ -22,8 +22,9 @@ const READER_COMPONENTS: Components = { table: ReaderTable }
 /**
  * Whether the server located the passage a request jumps to (D-044), so the reader may paint it with the
  * device: a verified citation of the filing's own text. A summary chip's heading fallback arrives
- * unverified (SourceTrace sends `verified` only with the excerpt the server checked), and an XBRL fact
- * ([F1]) has no passage, so the text its jump finds is a best effort. Anything else takes the neutral
+ * unverified (SourceTrace sends `verified` only with the excerpt the server checked), and a figure (the
+ * server's fact or calculated payload, isXbrlCitation) has no passage, so the text its jump finds is a best
+ * effort; a passage the model labelled "XBRL · …" is still a passage. Anything else takes the neutral
  * find highlight (highlightInDom).
  */
 const isLocated = (citation: CopilotCitation) => citation.verified === true && !isXbrlCitation(citation)
