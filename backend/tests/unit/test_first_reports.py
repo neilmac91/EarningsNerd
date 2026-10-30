@@ -553,6 +553,36 @@ class TestASignOrScaleFindingMarksTheFigure:
         assert "first_reported" in _point(dataset, "revenue", "FY2019")
 
 
+@pytest.mark.requires_db
+class TestACalculatedFiguresInputsCarryTheirEvidence:
+    def _inputs(self, provenance):
+        return {operand["concept"]: operand.get("first_reported") for operand in provenance["inputs"]}
+
+    def test_regn_net_margins_revenue_input_carries_its_own_reports_value(self, db):
+        company = _synced(db, _payload())
+        dataset = _build(db, company)
+        folder = build_sec_archive_url(company.cik, K18)
+        inputs = {period: self._inputs(_point(dataset, "net_margin", period)["provenance"])
+                  for period in ("FY2017", "FY2018", "FY2019", "FY2020", "FY2021")}
+        assert inputs["FY2018"] == {"net_income": None, "revenue": {
+            "value": 6_710.8e6, "unit": "USD", "form": "10-K", "accession": K18, "filed_at": "2019-02-07",
+            "source_url": folder, "later_filed_at": "2021-02-08", "disagreement": None}}
+        assert inputs["FY2019"]["revenue"]["accession"] == K19 and inputs["FY2019"]["net_income"] is None
+        assert all(first is None for period in ("FY2017", "FY2020", "FY2021") for first in inputs[period].values())
+        # The figure itself carries none: its evidence is its inputs'.
+        assert "first_reported" not in _point(dataset, "net_margin", "FY2018")
+
+    def test_the_comparisons_and_window_change_nest_the_inputs_evidence(self, db):
+        dataset = _build(db, _synced(db, _payload()), "FY2018", "FY2021")
+        fy2019 = _point(dataset, "net_margin", "FY2019")
+        current, previous = fy2019["yoy_provenance"]["inputs"]
+        assert self._inputs(current["provenance"])["revenue"]["accession"] == K19
+        assert self._inputs(previous["provenance"])["revenue"]["accession"] == K18
+        series = next(series for series in dataset["series"] if series["concept"] == "net_margin")
+        first, _last = series["window_pp_provenance"]["inputs"]
+        assert self._inputs(first["provenance"])["revenue"]["value"] == 6_710.8e6
+
+
 @pytest.mark.parametrize("concept, shown, own, finding", [
     ("net_income", -5.0, 5.0, "opposite_sign"), ("net_income", 5.0, -5.0, "opposite_sign"),
     ("revenue", 5_000.0, 5.0, "scale"), ("revenue", 5.0, 5_000.0, "scale"), ("revenue", 5e9, 5.0, "scale"),

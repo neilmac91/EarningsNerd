@@ -248,14 +248,33 @@ class FirstReports:
         """The figure's ``first_reported``: its own report's value where that differs from the one shown (D1)."""
         return self._first_reported(figure, self.own_report(figure), later_filed)
 
+    def _with_inputs(self, provenance: Mapping[str, Any]) -> Optional[dict[str, Any]]:
+        """A copy of a calculation's record whose reported inputs, at any depth, carry their own evidence as a reported
+        figure does (item 5), or None where none does. The stored record is never written."""
+        inputs, changed = [], False
+        for operand in provenance.get("inputs") or []:
+            first, nested = self._input(operand), self._with_inputs(operand.get("provenance") or {})
+            if first is not None or nested is not None:
+                operand = {**operand, **({"first_reported": first} if first is not None else {}),
+                           **({"provenance": nested} if nested is not None else {})}
+                changed = True
+            inputs.append(operand)
+        return {**provenance, "inputs": inputs} if changed else None
+
     def attach(self, points: list[dict[str, Any]]) -> None:
-        """Give each reported figure of one series its evidence, and mark it where the two filings disagree in a way
-        that signals a tagging error (item 4, D6), before its comparisons copy its provenance."""
+        """Give each figure of one series its evidence, a reported one its own and a calculated one its inputs' (item
+        5), and mark a reported one where the two filings disagree in a way that signals a tagging error (item 4, D6),
+        before its comparisons copy its provenance."""
         if not self._cells:
             return
         for point in points:
             provenance = point.get("provenance") or {}
-            if point.get("value") is None or provenance.get("method") != "reported":
+            if point.get("value") is None:
+                continue
+            with_inputs = self._with_inputs(provenance)
+            if with_inputs is not None:
+                point["provenance"] = provenance = with_inputs
+            if provenance.get("method") != "reported":
                 continue
             own = self.own_report(point)
             first = self._first_reported(point, own, provenance.get("filed_at"))
@@ -281,7 +300,7 @@ class FirstReports:
         figures: list[Figure] = []
         for name in BASIS_INPUTS[concept]:
             operand, shown = recorded.get(name), points.get(name, {}).get(point["period"])
-            figures.append((operand.get("value"), self._input(operand)) if operand is not None
+            figures.append((operand.get("value"), operand.get("first_reported")) if operand is not None
                            else (shown.get("value"), shown.get("first_reported")) if shown is not None else None)
         return figures
 
