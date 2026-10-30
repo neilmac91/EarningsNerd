@@ -55,8 +55,9 @@ export type GrowthValue = number | 'nm'
 
 /** The value a fiscal year's own annual report gave, on a reported figure of an annual run for which a later filing
  *  reports another, the one shown (MPA WP5a, D-061). It is evidence, not a data note: it changes no validation, totals
- *  or letters. Only an exact sign flip or factor of 1,000ⁿ between the two (`disagreement`) is also a note, the
- *  producer's `source_conflict`. Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings,
+ *  or letters. Only an exact sign flip or factor of 1,000ⁿ between the two (`disagreement`) can also be a note, the
+ *  producer's `source_conflict`, which it writes only where the own-report row passed its checks (D6) and never on a
+ *  calculated figure for an input's finding, so a `disagreement` can come with no note. Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings,
  *  which refuses it in a quarterly run until quarterly evidence lands with its reader, D5); a point without it renders
  *  as before. */
 export interface FirstReported {
@@ -105,8 +106,10 @@ export interface AnalysisPoint {
   /** Present only where an annual run's `yoy` reads "nm" because a later filing reports a different value for one or
    *  both of its two years: the growth the two years' own annual reports give (a number; "nm" where those values change
    *  sign; null where they give none). Across a sign or scale finding on either year, on the figure or on any input of
-   *  its calculation, it is "nm", never a number and never null: the finding takes precedence over null. Absent for every
-   *  other comparison, a sign change's included. */
+   *  its calculation, it is "nm", never a number and never null: the finding takes precedence over null. Where the shown
+   *  values also change sign, so the YoY would read "nm" anyway, the producer still sends it if the basis changed too,
+   *  and the later-filing cause wins: the dialog, the chart's footnote and the data notes' line give that cause, never
+   *  the sign change's. Absent for every other comparison, a sign change alone included. */
   yoy_first_reported?: GrowthValue | null
   /** The year's own annual report's value, where a later filing reports the one shown (FirstReported). */
   first_reported?: FirstReported | null

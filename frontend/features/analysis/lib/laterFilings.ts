@@ -9,8 +9,9 @@ import type { FactInput, FactProvenance } from '@/features/analysis/lib/provenan
  * Where a later filing reports a value other than the one a fiscal year's own annual report gave, the point shows the
  * later one and carries the own report's as `first_reported`, an input of a calculated figure likewise; a YoY whose two
  * years sit on different bases reads "nm" and carries `yoy_first_reported`. None of it is a data note: only the exact
- * sign flip or factor of 1,000ⁿ is also one (the producer's `source_conflict`), which the notes model reads from the
- * point's provenance as it reads any note. Every field is optional and a dataset without them is read exactly as
+ * sign flip or factor of 1,000ⁿ can also be one (the producer's `source_conflict`, which it writes only on a reported
+ * figure whose own-report row passed its checks, D6, never on a calculated figure for an input's finding), and the
+ * notes model reads that from the point's provenance as it reads any note. Every field is optional and a dataset without them is read exactly as
  * before; the reader lands before its producer, so a deployed page never misstates a cause (WP5a-F1).
  *
  * Annual runs alone carry it. WP5b (#1682) stores fiscal-year history rows only, and the producer (WP5a-B) sends
@@ -94,6 +95,8 @@ function checkInputs(provenance: FactProvenance | null | undefined, annual: bool
     const at = `${where}.inputs[${index}]`
     if (present(input?.first_reported)) {
       annualOnly(annual, `${at}.first_reported`)
+      // An input carries evidence as a reported figure does; a calculated input's sits on its own inputs (item 5).
+      if (input.provenance?.method === 'calculated') invalid(`${at}.first_reported sits on a calculated input, whose evidence belongs on its inputs`)
       checkFirstReported(input.first_reported, input, at)
     }
     checkInputs(input?.provenance, annual, at)
@@ -144,14 +147,21 @@ function checkPoint(point: AnalysisPoint, series: AnalysisSeries, byPeriod: Read
 }
 
 /** Checks every later-filing field the dataset carries (rule 9, at the boundary) and returns the dataset as sent. A
- *  field the page would print wrong refuses the dataset, as a broken data notes envelope does: any of them in a run
- *  that is not annual, and a `qoq_first_reported` anywhere; a `first_reported` on a figure whose own provenance method
- *  is calculated, or one whose value is not finite or equals the shown one, whose unit is not the figure's, whose
- *  accession is the shown filing's, whose days are not days, or whose `disagreement` the two values do not show; a
- *  `yoy_first_reported` beside a YoY that is not n/m, or other than 'nm' (null included) where either year carries a
- *  sign or scale finding on the figure or on any input of its calculation. The finding takes precedence: where it
- *  holds, the producer sends 'nm', never null, though null alone means the own reports give no growth. A dataset that
- *  carries none of them is not touched. */
+ *  field the page would print wrong refuses the dataset, as a broken data notes envelope does. The refusals, all of them:
+ *  - any `first_reported`, `yoy_first_reported` or `qoq_first_reported` in a run that is not annual (D5);
+ *  - a `qoq_first_reported` in any run;
+ *  - a `first_reported` (on a figure, or on an input at any depth in its own, YoY, QoQ, CAGR or window-change
+ *    provenance) that is not an object; that sits on a figure or input whose own provenance method is calculated; whose
+ *    figure's value is not finite; whose `value` is not finite or equals the shown one; whose `unit` is not a nonempty
+ *    string equal to the figure's; whose `accession` is not a nonempty string, or is the shown filing's; whose `form`
+ *    is present and not a nonempty string; whose `source_url` is present and not a string; whose `filed_at` or
+ *    `later_filed_at` is present and not an existing YYYY-MM-DD day; whose `disagreement` is present and neither
+ *    'opposite_sign' nor 'scale', or is one the two values do not show exactly;
+ *  - a `yoy_first_reported` beside a YoY that is not n/m; that is not null, 'nm' or a finite number; beside a period
+ *    that is not a string; or that is not 'nm' (null included) where either year carries a sign or scale finding on the
+ *    figure or on any input of its calculation. The finding takes precedence: where it holds, the producer sends 'nm',
+ *    never null, though null alone means the own reports give no growth.
+ *  A dataset that carries none of them is not touched. */
 export function decodeLaterFilings<T extends Pick<AnalysisDataset, 'mode' | 'series'>>(dataset: T): T {
   if (!Array.isArray(dataset?.series)) return dataset
   const annual = dataset.mode === 'annual'

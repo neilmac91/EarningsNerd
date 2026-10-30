@@ -985,7 +985,9 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  “As filed” pair, both values exactly, 12px in the figure face, as label and value
                  columns: each row a flex-wrap line whose value takes its right edge (ml-auto), so the
                  two values' digit groups stand under each other, and a value the row cannot hold
-                 beside its label wraps under it, still at that edge; then a link to each
+                 beside its label wraps under it, still at that edge; the value is right-aligned text
+                 too (text-right), so one that wraps within itself (320px under 200% text) keeps the
+                 edge on each of its lines; then a link to each
                  filing, each above its accession: “Open its own annual report on SEC.gov” and “Open
                  the later filing on SEC.gov”, whose visible words carry no figure (brand rule 2) and
                  whose accessible names, which begin with those words, add the form, the filed day and
@@ -999,7 +1001,10 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  in the figure face, nothing where the own reports give no growth, and “As first
                  reported: n/m” across a sign or scale finding on either year, on the figure or on any
                  input of its calculation, where one of the two readings rests on the slip (the producer
-                 sends 'nm' there, never null); a sign change's n/m keeps no such sentence. Gates:
+                 sends 'nm' there, never null); a sign change's n/m alone keeps no such sentence, and
+                 where the shown values change sign and the basis changed too (the producer sends
+                 yoy_first_reported on that n/m), the later-filing cause wins, here and in the chart's
+                 footnote and the data notes' line. Gates:
                  tests/unit/figureSurfaceInks.spec.ts (font-figure allowed in SourceValue.tsx);
                  tests/unit/later-filings.spec.tsx (the strict decoder, the block, the cause, the
                  chart's footnote line and the data notes' line on the shared later-filings fixture);
@@ -1179,7 +1184,8 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  the same form, only the YoY changes that read n/m across the change (yoy_first_reported
                  present), so it never names a figure whose gap moved no growth past the n/m rule
                  (REGN's total assets FY2018, 0.24%) or whose growth never turns n/m (EPS, D3), nor a
-                 sign change's n/m; with none the line is its first sentence alone. An annual run alone
+                 sign change's n/m alone (one whose basis changed too is the later filing's, and named);
+                 with none the line is its first sentence alone. An annual run alone
                  carries the line (D5). tests/unit/later-filings.spec.tsx holds both sentences' places. It is no note: the closed summary keeps its
                  clauses, “No figures need review” among them (D7). One legend follows:
                  “Select any figure to see its source filing, method and inputs. Automated checks confirm
