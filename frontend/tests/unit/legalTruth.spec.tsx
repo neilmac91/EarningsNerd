@@ -21,6 +21,7 @@ import {
   conjunctsOf,
   distributesNegation,
   ellipsisAt,
+  endsAPhrase,
   formOf,
   gerundsAt,
   governingGroup,
@@ -28,6 +29,7 @@ import {
   matchAt,
   negates,
   nounPhraseAt,
+  placesWord,
   readSentence,
   sharedVerbsOf,
   spanText,
@@ -376,8 +378,11 @@ import {
  *    its subject denies nothing there ("Logging out does not take long before it ends every session.", "Logging out of
  *    a device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
  *    session." fail), while "until", "if", "as long as", "or", "nor" and a verb that asserts the clause after "that"
- *    still govern it ("Nothing guarantees that logging out ends every session." passes). The page is read on every
- *    run, whatever
+ *    still govern it ("Nothing guarantees that logging out ends every session." passes). Since stage 4d a clause is
+ *    read without a condition a subordinator opens between its subject and its verb as well (clauseVerbPast), so a
+ *    negation in the condition denies nothing of the clause's verb ("Logging out when it is not needed ends every
+ *    session." and "Reusing a refresh token because it is not valid signs everyone out." fail). The page is read on
+ *    every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
  *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
@@ -2176,16 +2181,97 @@ const subjectAt = (tokens: Token[], at: number): { end: number; nests: Array<[nu
   const read = (phrase && gerundAt(tokens, at, phrase)) ?? phrase
   return read && readOf(tokens, read)
 }
-/** A clause's words read alone, from a token to the token before another, without the spans its subject nests. */
-const readAlone = (reading: Reading, from: number, to: number) => {
+/** A clause's words read alone, from a token to the token before another, without the spans its subject nests, nor
+    the spans given (a condition before its verb: clauseVerbPast). */
+const readAlone = (reading: Reading, from: number, to: number, drops: Array<[number, number]> = []) => {
   const kept: string[] = []
   let at = from
-  for (const [start, end] of subjectAt(reading.tokens, from)?.nests ?? []) {
+  for (const [start, end] of [...(subjectAt(reading.tokens, from)?.nests ?? []), ...drops].sort((a, b) => a[0] - b[0])) {
     if (start < at || end > to) continue
     kept.push(spanText(reading, at, start))
     at = end
   }
   return [...kept, spanText(reading, at, to)].join(' ').replace(/\s+/g, ' ').trim()
+}
+/** Where a clause's own verb group starts past a condition a subordinator opens between its subject and its verb
+    (E162 stage 4d): the reader runs such a condition on to the clause's verb ("Reusing a refresh token because it is
+    not valid signs everyone out." reads "because it is not valid signs everyone out" as one condition), so a negation
+    in the condition's own clause read as the clause's and denied its verb, in either family. The condition holds a
+    clause of its own, a noun phrase and a verb group (conditionClauseAt); past that group's verb, the clause's verb
+    group starts at the next word where a finite verb group does, in the form its subject takes (finiteFor: "because
+    it is not valid | signs everyone out", "when it is not needed | will end every session"). A verb group after "to"
+    is an infinitive the condition's clause takes, and one that is not finite is that clause's too, so each is read
+    past whole ("when it is not supposed to end every session | clears cookies", "when it does not let anyone end
+    every session | clears cookies", "because users do not request access | signs": Codex on fb7cf414; "when it is
+    not worth automatically ending every session | clears cookies": Codex on 2ca36076). A condition may hold more
+    than one such group, a clause of its own or a bare infinitive its clause takes, so only a group that stands alone
+    in the span is the clause's: where two do, either may be, and the sentence reads as on main ("when it is not
+    clear whether it signs everyone out | renews the session": Codex on 1d2c94ac; "when we do not let clients end
+    every session | stay open": Codex on 0757abf7). So it does where a negation stands between the condition's own
+    clause and that group, which may be the group's own and would go with the condition ("when it is needed | never by
+    itself ends every session": Codex on 878ce42e). Words that stand between the condition's own clause and that group
+    may hold it, a clause after "whether" or an infinitive after "let", while the clause's own verb is one the lexicon
+    lacks, so where they do, a word that may be such a verb (mayBeAVerb) reads the sentence as on main too: past the
+    group (mayHoldAVerb: "when it is not clear whether it signs everyone out | preserves the session", "when we do not
+    let clients end every session | persist": Codex on 2b31a76c), or right past the condition's own clause where that
+    clause ends there, its verb a passive or an adjective after "be" or a word the reader does not place ("when it is
+    not valid | implies it signs everyone out"); a group right past the condition's own clause is the clause's whatever
+    follows it ("when it is not needed | ends all browser sessions"). The words are read one by one, not as noun
+    phrases, since the reader reads a verb after an adjective as a noun ("valid signs"). -1 where none starts in the
+    condition, more than one does, a negation stands before it, or a word before or past it may be the verb. */
+const clauseVerbPast = (tokens: Token[], condition: Condition, plural: boolean): number => {
+  const own = conditionClauseAt(tokens, condition)
+  if (!own) return -1
+  const ownGroup = verbGroupAt(tokens, own.predicate)
+  const from = ownGroup.verb + 1
+  let found = -1
+  for (let k = from; k < condition.end; k++) {
+    if (!startsVerbGroup(tokens, k)) continue
+    const group = verbGroupAt(tokens, k)
+    if (tokens[k - 1]?.lower !== 'to' && finiteFor(tokens, group, plural)) {
+      if (found >= 0) return -1
+      found = k
+    }
+    k = group.verb
+  }
+  if (found < 0 || tokens.slice(from, found).some((token, j) => negates(token, tokens[from + j + 1]))) return -1
+  if (found === from) return found
+  const led = tokens.slice(ownGroup.start, ownGroup.verb).filter((token) => AUXILIARY.test(token.text)).pop() ?? tokens[ownGroup.start - 1]
+  const ends = endsAPhrase(tokens[from - 1]) || COMPLETES.test(led?.lower ?? '')
+  return (ends && mayBeAVerb(tokens, from, plural)) || mayHoldAVerb(tokens, verbGroupAt(tokens, found).verb + 1, condition.end, plural) ? -1 : found
+}
+/** A form of "be", or a pronoun's contraction with it ("it's"), as the last auxiliary of a condition's own verb group:
+    its verb is a passive or an adjective, which takes no object, so the condition's clause may end right past it
+    (clauseVerbPast). */
+const COMPLETES = /^(?:am|is|are|was|were|be|been|being)$|'(?:s|re|m)$/
+/** Whether a word may be a verb the lexicon lacks, in the form a clause's verb takes from its subject (clauseVerbPast;
+    Codex on 2b31a76c): a word the reader does not place (placesWord), in a past form or in the present form that
+    agrees, or in a base form before a determiner or a quantifier, which may be a past form not in -ed ("froze the
+    session"). */
+const mayBeAVerb = (tokens: Token[], k: number, plural: boolean) => {
+  const form = formOf(tokens[k])
+  const object = form === 'base' ? nounPhraseAt(tokens, k + 1) : null
+  return !placesWord(tokens[k]) && (form === 'past' || form === (plural ? 'base' : 'third') || !!(object?.quantifier || object?.determiners.length))
+}
+/** Whether the words between two tokens may hold a verb the lexicon lacks (mayBeAVerb), after a word that may end a
+    phrase (endsAPhrase), not inside one: "everyone out preserves", "every session persist", "browser sessions", but
+    not "every session", "the user's browsers" or "30 minutes". */
+const mayHoldAVerb = (tokens: Token[], from: number, to: number, plural: boolean) =>
+  tokens.slice(from, to).some((_, j) => mayBeAVerb(tokens, from + j, plural) && endsAPhrase(tokens[from + j - 1]))
+/** The forms of an auxiliary that lead no finite verb group ("worth having ended every session", "being seen ending"). */
+const NON_FINITE = /^(?:be|been|being|having)$/i
+/** Whether a verb group is finite in the form its subject takes (clauseVerbPast), by the word that leads it past its
+    adverbs and a negation: an auxiliary or a modal, finite but for NON_FINITE; else a catenative before its "to"
+    ("seems to end") or the verb, finite in a past form or in the present form that agrees, a third person's -s or,
+    after a plural head in -s, the base. An adverb before an -ing form leads nothing finite ("automatically ending":
+    Codex on 2ca36076). */
+const finiteFor = (tokens: Token[], group: VerbGroup, plural: boolean) => {
+  const auxiliary = (token: Token | undefined) => !!token && (AUXILIARY.test(token.text) || NON_FINITE.test(token.text))
+  let lead = group.start
+  while (lead < group.verb && !auxiliary(tokens[lead]) && !(lead + 1 < group.verb && tokens[lead + 1].lower === 'to')) lead++
+  if (auxiliary(tokens[lead])) return !NON_FINITE.test(tokens[lead]?.text ?? '')
+  const form = formOf(tokens[lead])
+  return form === 'past' || form === (plural ? 'base' : 'third')
 }
 /** A word that opens a clause of time, cause or contrast, which says its clause happens, before a noun phrase and a
     verb group or before a gerund ("before ending every session"): the reader's subordinating words, and "before",
@@ -2227,7 +2313,10 @@ const AUXILIARY = /^(?:am|is|are|was|were|be|been|being|has|have|had|do|does|did
     session." fail, as main refuses them, while a denial on a clause's own verb, subject or object reads as before. The
     readings only gain texts, so nothing main refuses passes, but for a phrase of time the reader reads as a relative
     clause, which holds its clause's own denial (participleAt: "A refresh token presented a second time does not by
-    itself sign you out of every device." fails on stage 4b's reading and passes since stage 4c). */
+    itself sign you out of every device." fails on stage 4b's reading and passes since stage 4c). Since stage 4d a
+    clause read alone, and one of time, cause or contrast or after "that", is read without a condition a subordinator
+    opens between its subject and its verb as well, where the clause's verb group stands past the condition's own
+    clause (clauseVerbPast: "Logging out when it is not needed ends every session." fails). */
 const clauseByClause = (sentence: string): string[] => {
   const reading = readSentence(sentence)
   const { tokens, clauses } = reading
@@ -2253,11 +2342,33 @@ const clauseByClause = (sentence: string): string[] => {
     const group = verbGroupAt(tokens, predicateOf(clauses[head]))
     return group.negated && formOf(tokens[group.verb]) === formOf(tokens[own.verb]) && tokens.slice(group.start, group.verb).some((t) => AUXILIARY.test(t.text))
   }
+  // A span read alone without the conditions before its verb (E162 stage 4d): the conditions the reader reads past the
+  // span's subject, in order, each with no verb group between the subject and it but in the conditions before it, up
+  // to the first past which the clause's verb group stands (clauseVerbPast); the span is read without everything from
+  // the first of them to that verb group ("Logging out when it is idle because it is not needed | ends every session":
+  // the routine lens on fb7cf414). null where none does.
+  const withoutCondition = (from: number, to: number): string | null => {
+    const subject = subjectAt(tokens, from)
+    const head = nounPhraseAt(tokens, from)?.head
+    if (!subject || !head) return null
+    // A gerund heads a singular subject; a head in -s, not -ss, a plural one.
+    const plural = !/ing$/.test(head.lower) && /[^s]s$/.test(head.lower)
+    const conditions = clauses.flatMap((c) => c.conditions).filter((c) => c.start >= subject.end && c.start < to).sort((a, b) => a.start - b.start)
+    const inACondition = (k: number) => conditions.some((c) => k >= c.start && k < c.end)
+    for (const condition of conditions) {
+      if (tokens.slice(subject.end, condition.start).some((_, j) => !inACondition(subject.end + j) && startsVerbGroup(tokens, subject.end + j))) return null
+      const verb = clauseVerbPast(tokens, condition, plural)
+      if (verb > 0) return readAlone(reading, from, to, [[conditions[0].start, verb]])
+    }
+    return null
+  }
   const texts = new Set([sentence])
   clauses.forEach((clause, i) => {
     const ownSubject = !clause.carried || (/ing$/.test(tokens[clause.start]?.lower ?? '') && holdsAClause(clause.start, clause.end))
     const opened = i === 0 || /^[;:]$/.test(tokens[clause.start - 1]?.text ?? '') || (/^(?:and|but|so|yet|,)$/.test(clause.joinedBy ?? '') && (ownSubject || clause.joinedBy !== ',') && !shares(i))
-    if (opened) texts.add(readAlone(reading, clause.carried ? clause.start : (clause.subject?.start ?? clause.start), clause.end))
+    const from = clause.carried ? clause.start : (clause.subject?.start ?? clause.start)
+    if (opened) texts.add(readAlone(reading, from, clause.end))
+    if (opened && ownSubject) texts.add(withoutCondition(from, clause.end) ?? '')
   })
   const inASubject = (k: number) => clauses.some((c) => !!c.subject && k >= c.subject.start && k < (subjectAt(tokens, c.subject.start)?.end ?? c.subject.end))
   tokens.forEach((token, k) => {
@@ -2266,6 +2377,7 @@ const clauseByClause = (sentence: string): string[] => {
     const gerund = /^[a-z]+ing$/.test(tokens[k + 1]?.lower ?? '') && knowsVerb(tokens[k + 1])
     const inside = inASubject(k) && !(that && TAKES_A_CLAUSE.test(tokens[k - 1]?.text ?? ''))
     if ((opens || that) && !inside && (gerund || holdsAClause(k + 1, endOf(k + 1)))) texts.add(readAlone(reading, k + 1, endOf(k + 1)))
+    if ((opens || that) && !inside) texts.add(withoutCondition(k + 1, endOf(k + 1)) ?? '')
   })
   return [...texts].filter(Boolean)
 }
@@ -2275,10 +2387,10 @@ const clauseByClause = (sentence: string): string[] => {
     sweep, the one consequence the shared denial step reads, is read in the sentence whole and, since E162's stage 4c,
     in each clause alone as well (clauseByClause), so a negation outside a clause or nested in its subject denies no
     sweep there ("Nobody doubts that reusing a refresh token signs everyone out." and "Reusing a refresh token you do
-    not own signs everyone out." fail), but for one in a clause a subordinator opens before the clause's verb, which
-    the reader runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out." passes, as
-    on main: the routine lens on bca1801a), while the reuse may stand in another clause of the sentence ("If a refresh
-    token is reused, every session ends."). */
+    not own signs everyone out." fail), nor, since stage 4d, one in a condition a subordinator opens before the
+    clause's verb, which the reader runs on to that verb ("Reusing a refresh token because it is not valid signs
+    everyone out." fails: clauseVerbPast; it passed on main, the routine lens on bca1801a), while the reuse may stand in
+    another clause of the sentence ("If a refresh token is reused, every session ends."). */
 const reuseOfTheToken = (sentence: string) =>
   A_REUSE.test(sentence) && (REVOKED_OR_LOCKED.test(sentence) || clauseByClause(sentence).some((text) => SWEPT.test(text)))
 
@@ -2399,7 +2511,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (385 rows since E162 stage 4c, #1688) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (445 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4460,11 +4572,106 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
       ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
       ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
-      // And a negation in a clause a subordinator opens before the clause's verb, which the reader runs on to that
-      // verb, denies that verb in either family, as on main (the routine lens on bca1801a).
-      ['<li>Reusing a refresh token because it is not valid signs everyone out.</li>', 'gap'],
-      ['<li>Nobody doubts that a refresh token presented a second time when it was not expected signs everyone out.</li>', 'gap'],
-      ['<li>Logging out when it is not needed ends every session.</li>', 'gap'],
+      // A negation in a condition a subordinator opens between a clause's subject and its verb, which the reader runs on
+      // to that verb, denies nothing there since stage 4d: the clause is read without the condition too, in either
+      // family (clauseVerbPast; the routine lens on bca1801a).
+      ['<li>Reusing a refresh token because it is not valid signs everyone out.</li>', true],
+      ['<li>Nobody doubts that a refresh token presented a second time when it was not expected signs everyone out.</li>', true],
+      ['<li>Logging out when it is not needed ends every session.</li>', true],
+      ['<li>Logging out when it is not needed will end every session.</li>', true],
+      ['<li>Reusing a refresh token because it was not valid signed everyone out.</li>', true],
+      ['<li>Reusing a refresh token because users do not request access signs everyone out.</li>', true],
+      ['<li>Sessions when it is not needed end within 30 minutes of logging out.</li>', true],
+      // A denial on the clause's own verb past the condition still denies it.
+      ['<li>Reusing a refresh token because it is not valid does not sign everyone out.</li>', false],
+      ['<li>Logging out when it is not needed does not end every session.</li>', false],
+      ['<li>Logging out when it is not needed never ends every session.</li>', false],
+      // A verb the condition's clause takes is not the clause's: an infinitive after "to", after a plural subject too,
+      // an -ing form, or a base form after a singular subject (Codex on fb7cf414).
+      ['<li>Logging out when it is not supposed to end every session clears cookies.</li>', false],
+      ['<li>Reusing a refresh token when it is not possible to sign everyone out renews the session.</li>', false],
+      ['<li>Sessions when it is not supposed to end every session stay open after logging out.</li>', false],
+      ['<li>Logging out when it is not worth ending every session clears cookies.</li>', false],
+      ['<li>Logging out when it does not let anyone end every session clears cookies.</li>', false],
+      // Nor is a group an adverb leads to an -ing form, one "having" or "being" leads, or one after "to" with an
+      // adverb: each is read past whole, while an adverb before the clause's verb, or a catenative in the form its
+      // subject takes, leaves the clause's verb group finite (finiteFor; Codex on 2ca36076).
+      ['<li>Logging out when it is not worth automatically ending every session clears cookies.</li>', false],
+      ['<li>Logging out when it is not worth having ended every session clears cookies.</li>', false],
+      ['<li>Logging out when it is not worth being seen ending every session clears cookies.</li>', false],
+      ['<li>Sessions when it is not supposed to automatically end every session stay open after logging out.</li>', false],
+      ['<li>Logging out when it is not needed quickly ends every session.</li>', true],
+      ['<li>Logging out when it is not needed seems to end every session.</li>', true],
+      // Each holds where the clause's verb makes the claim: a group read past whole leaves the clause's verb the one
+      // group in the span, so the claim past it fails, where a second group would read the sentence as on main.
+      ['<li>Logging out when it is not worth having closed sessions ends every session.</li>', true],
+      ['<li>Logging out when it is not worth automatically closing sessions ends every session.</li>', true],
+      ['<li>Sessions when it is not wise to wait end within 30 minutes of logging out.</li>', true],
+      // Where two verb groups past the condition's own clause may each be the clause's, a clause of the condition's or a
+      // bare infinitive its clause takes, the sentence reads as on main (Codex on 0757abf7 and 1d2c94ac); a base form
+      // past an object with no other such group is the clause's.
+      ['<li>Sessions when we do not let clients end every session stay open after logging out.</li>', false],
+      ['<li>Sessions when we do not make clients end every session stay open after logging out.</li>', false],
+      ['<li>Reusing a refresh token when it is not clear whether it signs everyone out renews the session.</li>', false],
+      ['<li>Logging out when it is not clear whether it ends every session clears cookies.</li>', false],
+      ['<li>Sessions when we do not make clients happy end within 30 minutes of logging out.</li>', true],
+      ['<li>Sessions when users do not see the banner end within 30 minutes of logging out.</li>', true],
+      // A negation between the condition's own clause and the clause's verb may be the verb's own, so the sentence reads
+      // as on main (Codex on 878ce42e).
+      ['<li>Logging out when it is needed never by itself ends every session.</li>', false],
+      ['<li>Reusing a refresh token when it is invalid never on its own signs everyone out.</li>', false],
+      // Words between the condition's own clause and that group may hold it, a clause after "whether" or "know" or an
+      // infinitive after "let", while the clause's own verb is one the lexicon lacks: a word that the reader does not
+      // place, in the form the subject takes, reads the sentence as on main past the group after a word that may end a
+      // phrase, a comma, an adverb or a pronoun too, or right past the condition's own clause where that clause ends
+      // there (an adjective, a passive, a contraction of "be", a verb the reader does not place); so does a base form
+      // before a determiner, which may be a past form not in -ed (Codex on 2b31a76c).
+      ['<li>Reusing a refresh token when it is not clear whether it signs everyone out preserves the session.</li>', false],
+      ['<li>Sessions when we do not let clients end every session persist after logging out.</li>', false],
+      ['<li>Logging out when it is not clear whether it ends every session preserves cookies.</li>', false],
+      ['<li>Reusing a refresh token when it is not clear whether it signs everyone out, preserves the session.</li>', false],
+      ['<li>Reusing a refresh token when we do not know it signs everyone out preserves the session.</li>', false],
+      ['<li>Reusing a refresh token when it is not clear whether it signs everyone out quietly preserves the session.</li>', false],
+      ['<li>Sessions when we do not let clients end it persist after logging out.</li>', false],
+      ['<li>Reusing a refresh token when it is not valid implies it signs everyone out.</li>', false],
+      ['<li>Logging out when it is not needed implies it ends every session.</li>', false],
+      ['<li>Logging out when it\'s not needed implies it ends every session.</li>', false],
+      ['<li>Reusing a refresh token when users do not care implies it signs everyone out.</li>', false],
+      ['<li>Reusing a refresh token when it was not clear whether it signs everyone out froze the session.</li>', false],
+      // A group right past the condition's own clause is the clause's whatever follows it, and so is one past a verb
+      // the lexicon lacks inside the condition; a number or a possessive ends no phrase, and a noun right after the
+      // clause's verb is its object, as one right after the condition's own verb is where that verb is active.
+      ['<li>Logging out when it is not needed ends all browser sessions.</li>', true],
+      ['<li>Logging out when it is not needed ends every session and persists cookies.</li>', true],
+      ['<li>Reusing a refresh token when it is not clear whether it persists signs everyone out.</li>', true],
+      ['<li>Logging out when users do not request access ends every session within 30 minutes.</li>', true],
+      ['<li>Logging out when users do not request access ends every session in the user\'s browsers.</li>', true],
+      ['<li>Logging out when users do not request access ends sessions on every device.</li>', true],
+      ['<li>Reusing a refresh token when users do not request tokens signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token because users never requested tokens signs everyone out.</li>', true],
+      // Conditions in a run before the verb, in commas or not, are read past together (the routine lens on fb7cf414).
+      ['<li>Logging out when it is idle because it is not needed ends every session.</li>', true],
+      ['<li>Reusing a refresh token, if you like, because it is not valid signs everyone out.</li>', true],
+      ['<li>Logging out only with your consent when it is not needed ends every session.</li>', true],
+      // Out of reach: an aside that opens no condition before one, and "after" or "before" before a pronoun or a
+      // determiner, which the reader takes for a preposition inside the subject, so it reads no condition there (the
+      // routine lens on fb7cf414).
+      ['<li>Reusing a refresh token, as you know, because it is not valid signs everyone out.</li>', 'gap'],
+      ['<li>Logging out after it is not needed ends every session.</li>', 'gap'],
+      ['<li>Reusing a refresh token after the token is not valid signs everyone out.</li>', 'gap'],
+      // Out of reach too: a second predicate a condition's clause carries on after "and", "or" or "but", which the reader
+      // reads as the clause's own, carried on past the condition, so the condition's "not" still denies the clause's
+      // verb (the routine lens on 0757abf7).
+      ['<li>Logging out when it expires and is not needed ends every session.</li>', 'gap'],
+      ['<li>Reusing a refresh token because it is old and not valid signs everyone out.</li>', 'gap'],
+      // Out of reach as well: a claim past a condition that holds another verb group which may be the clause's, a bare
+      // infinitive here, since the sentence then reads as on main (Codex on 1d2c94ac).
+      ['<li>Sessions when we do not let clients sign in end within 30 minutes of logging out.</li>', 'gap'],
+      // And where words stand between the condition's own clause and the clause's verb, a word past it that the reader
+      // does not place and that may be a verb, a noun after another here ("browser sessions"), reads the sentence as on
+      // main (mayHoldAVerb; Codex on 2b31a76c).
+      ['<li>Reusing a refresh token because users do not request access signs everyone out of all browser sessions.</li>', 'gap'],
+      ['<li>Logging out when users do not request access ends all browser sessions.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)

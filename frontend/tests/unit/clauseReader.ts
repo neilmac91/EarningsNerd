@@ -94,7 +94,9 @@
  * itself sign you out of every device." reads "a second time does not by itself" as one, which legalTruth.spec.tsx's
  * clause-by-clause reading reads as a participle: participleAt); a clause a subordinator opens between a clause's
  * subject and its verb runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out."
- * reads "because it is not valid signs everyone out" as one); and a noun the lexicon also lists as a verb ends a
+ * reads "because it is not valid signs everyone out" as one, which legalTruth.spec.tsx's clause-by-clause reading
+ * reads without the condition too since stage 4d: clauseVerbPast, where a word the reader does not place may be the
+ * clause's verb: placesWord, endsAPhrase); and a noun the lexicon also lists as a verb ends a
  * phrase after another noun unless its own verb group follows ("the access logs record every call" reads as "the
  * access" and a verb); a gerund's object with a determiner or a pronoun reads as a
  * relative clause on the gerund where a verb group follows it ("Changing your password ends every session." reads "your
@@ -695,6 +697,15 @@ export type Operation = { verb: Token; object: NounPhrase | null; end: number }
 export const knowsVerb = (token: Token | undefined, also?: RegExp) => isWord(token) && !CLOSED.has(lower(token)) && (VERB_FORMS.has(lower(token)) || !!also?.test(lower(token)))
 /** Whether a verb group starts at a token (startsPredicate), or a verb a family's own lexicon names (also). */
 export const startsVerbGroup = (tokens: Token[], at: number, also?: RegExp) => startsPredicate(tokens, at) || knowsVerb(tokens[at], also)
+/** Whether the reader places a word in a class of its lexicons, a closed-class word, a verb, an adjective or an
+    adverb, or reads it as a number or a mark (E162 stage 4d): a word it does not place may be a noun, or a verb the
+    lexicon lacks. */
+export const placesWord = (token: Token | undefined) =>
+  !isWord(token) || /^\p{N}/u.test(token?.text ?? '') || CLOSED.has(lower(token)) || VERB_FORMS.has(lower(token)) || ADJECTIVES.has(lower(token)) || isAdverb(token)
+/** Whether a word may end a phrase that a verb group follows (E162 stage 4d): a comma, a pronoun, an adjective or an
+    adverb the reader knows, or a word it does not place (placesWord) but a possessive ("the user's"). */
+export const endsAPhrase = (token: Token | undefined) =>
+  token?.text === ',' || PRONOUNS.has(lower(token)) || ADJECTIVES.has(lower(token)) || isAdverb(token) || (!placesWord(token) && !/'s$/.test(lower(token)))
 /** The verbs the lexicon knows in their base form, as an infinitive or a clause of time takes them. */
 const BASE_FORMS = words(LEMMAS)
 /** A gerund: an -ing form the lexicon knows, or one a family's own lexicon names (also: "disclosing"). */
