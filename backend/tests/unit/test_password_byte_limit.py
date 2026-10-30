@@ -16,25 +16,28 @@ bounds the 32 MiB an Argon2 call holds to one call at a time per instance.
 
 Three structural walks hold the paths the behaviour tests cannot reach, over every tracked backend Python file
 outside ``tests/``. The hash walk: bcrypt, passlib and argon2 are imported only by ``app/services/password_utils.py``,
-nothing it imports from them or keeps private is picked up from it elsewhere, and every use of ``bcrypt`` there is a
+its library imports are not picked up through static imports or direct module attributes elsewhere, its private
+helpers stay inside it, and every use of ``bcrypt`` there is a
 ``bcrypt.checkpw`` call whose first argument is ``_bcrypt_input(...)``, so no new hash is bcrypt (``hashpw`` and
 ``gensalt`` are bypasses). The thread walk: outside that module, ``get_password_hash`` and ``verify_password`` are
 referenced only in an import or as the first argument of a call to its ``in_password_thread``, and that call runs
 nothing else, since a request that holds a pooled connection (register's invite path) waits for that one thread.
-The home walk: inside the module, its hasher, legacy check, bcrypt and thread are read only by the functions that own
-them, so a new helper there cannot hash off the dispatch or the thread. ``HASH_REACH_FORMS``, ``THREAD_FORMS`` and
+The home walk: inside the module, direct reads of its hasher, legacy check, bcrypt and thread belong only to their
+unique top-level owner functions; a same-named method or nested function is not that owner. ``HASH_REACH_FORMS``, ``THREAD_FORMS`` and
 ``HOME_FORMS`` score each walk on each way it can be broken and each look-alike that must pass, and the names they
 hold are pinned to the module's own. Out of their reach, each planted as a gap: a module or attribute named at run
 time (``import_module(name)``, ``getattr(module, "bcrypt")``, ``getattr(password_utils, "verify_password")``,
 ``sys.modules``), and passlib inside ``password_utils``, whose legacy-check fallback hands passlib's bcrypt handler the
 whole password (dead under bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
 
-That helper must have exactly one unaliased, top-level import from ``app.services.password_utils``;
-another import, ordinary rebinding or shadowing anywhere in the file fails. This deliberately accepts only
+The helper and each password function it runs must have exactly one unaliased, top-level import from
+``app.services.password_utils``; another import, ordinary rebinding or shadowing anywhere in the file fails. This deliberately accepts only
 the application's direct helper spelling: even a genuine module-qualified helper, an alias, a repeated import
 or harmless local shadowing fails, without attempting Python scope or alias resolution. Dynamic namespace
 writes (``globals()[name]``, ``setattr``), including mutation of the canonical module from another module,
 also need review; the thread walk does not execute Python or follow those writes.
+The hash and home walks do not follow values assigned to new names or handed through other functions; their
+planted alias gaps keep that limit explicit.
 
 A password that is not valid text (a lone surrogate) is refused before either (E97): it encodes to no UTF-8, so the
 breach check and bcrypt raised on it, and FastAPI's own 422, which quoted every refused value (the whole body for a
@@ -850,11 +853,41 @@ def _sanctioned_bcrypt_use(name: ast.Name, parent: dict[ast.AST, ast.AST]) -> st
     return None
 
 
+def _import_module(node: ast.ImportFrom, rel: str) -> str:
+    """An absolute import path, resolving a relative import from the scanned file's package."""
+    if not node.level:
+        return node.module or ""
+    package = Path(rel).parent.parts
+    if node.level > len(package):
+        return ""
+    return ".".join((*package[:len(package) - node.level + 1], *(node.module or "").split("."))).rstrip(".")
+
+
+def _attribute_path(node: ast.AST) -> str:
+    """The spelling of a plain dotted attribute path; calls and computed attributes have no such path."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        base = _attribute_path(node.value)
+        return f"{base}.{node.attr}" if base else ""
+    return ""
+
+
 def _hash_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
     """One walk of ``source``, the backend file at ``rel``: the lines that can reach a hashing library other than
     through ``password_utils``' own functions, and the bcrypt functions it calls the sanctioned way."""
     tree = ast.parse(source)
     home = rel == PASSWORD_UTILS
+    module = "app.services.password_utils"
+    module_paths = {"password_utils", module}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+            continue
+        for alias in node.names:
+            imported = alias.name if isinstance(node, ast.Import) else f"{_import_module(node, rel)}.{alias.name}"
+            if imported == module or module.startswith(imported + "."):
+                local = alias.asname or (alias.name if isinstance(node, ast.ImportFrom) else imported)
+                module_paths.add(local + module[len(imported):])
     parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
     bypasses: list[int] = []
     sanctioned: set[str] = set()
@@ -873,7 +906,7 @@ def _hash_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
                     bypasses.append(node.lineno)
             elif any(alias.name in HASH_LIBRARIES or (alias.name in PRIVATE and not home) for alias in node.names):
                 bypasses.append(node.lineno)  # password_utils' library or helper picked up as a re-export
-            elif node.module == "app.services.password_utils" and any(a.name in HASH_BOUND for a in node.names):
+            elif _import_module(node, rel) == module and any(a.name in HASH_BOUND for a in node.names):
                 bypasses.append(node.lineno)  # what it imported from a hashing library, re-exported
         elif isinstance(node, ast.Call):
             func = node.func
@@ -889,7 +922,7 @@ def _hash_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
         elif isinstance(node, ast.Attribute) and node.attr in HASH_LIBRARIES | PRIVATE and not home:
             bypasses.append(node.lineno)  # ``password_utils.bcrypt``, ``password_utils._ARGON2``
         elif (isinstance(node, ast.Attribute) and node.attr in HASH_BOUND and not home
-              and isinstance(node.value, ast.Name) and node.value.id == "password_utils"):
+              and _attribute_path(node.value) in module_paths):
             bypasses.append(node.lineno)  # ``password_utils.PasswordHasher``
         elif home and isinstance(node, ast.Name) and node.id == "bcrypt":
             use = _sanctioned_bcrypt_use(node, parent)
@@ -918,6 +951,17 @@ HASH_REACH_FORMS = [
     ("private-thread-elsewhere", OTHER, "loop.run_in_executor(password_utils._PASSWORD_THREADS, f)", "flag"),
     ("argon2-re-export-import", OTHER, "from app.services.password_utils import PasswordHasher", "flag"),
     ("argon2-re-export-attribute", OTHER, "h = password_utils.PasswordHasher(time_cost=1).hash(p)", "flag"),
+    ("argon2-re-export-module-alias", OTHER,
+     "from app.services import password_utils as pw\nh = pw.PasswordHasher().hash(p)", "flag"),
+    ("argon2-re-export-dotted-import-alias", OTHER,
+     "import app.services.password_utils as pw\nh = pw.PasswordHasher().hash(p)", "flag"),
+    ("argon2-re-export-qualified", OTHER,
+     "import app.services.password_utils\nh = app.services.password_utils.PasswordHasher().hash(p)", "flag"),
+    ("argon2-re-export-package-alias", OTHER,
+     "from app import services as svc\nh = svc.password_utils.PasswordHasher().hash(p)", "flag"),
+    ("argon2-re-export-relative", OTHER, "from .password_utils import PasswordHasher\nh = PasswordHasher().hash(p)", "flag"),
+    ("argon2-re-export-relative-module", OTHER,
+     "from . import password_utils as pw\nh = pw.PasswordHasher().hash(p)", "flag"),
     ("argon2-error-re-export", OTHER, "from app.services.password_utils import VerificationError", "flag"),
     ("same-name-from-elsewhere", OTHER, "from enum import Enum as Type\nx = colours.Type", "clean"),
     ("import-module-constant", OTHER, "importlib.import_module('bcrypt')", "flag"),
@@ -943,6 +987,8 @@ HASH_REACH_FORMS = [
     ("getattr-elsewhere", OTHER, "getattr(password_utils, 'bcrypt')", "gap"),
     ("sys-modules", OTHER, "sys.modules['bcrypt']", "gap"),
     ("passlib-at-home", PASSWORD_UTILS, "CryptContext(schemes=['bcrypt']).verify(plain, h)", "gap"),
+    ("module-value-alias", OTHER,
+     "from app.services import password_utils\npw = password_utils\nh = pw.PasswordHasher().hash(p)", "gap"),
 ]
 
 
@@ -980,15 +1026,15 @@ def test_every_path_to_a_password_hash_goes_through_password_utils():
 # get_password_hash and verify_password, which run a hash: only ever on the password thread, which runs nothing else.
 PASSWORD_WORK = {"get_password_hash", "verify_password"}
 PASSWORD_THREAD = "in_password_thread"
-THREAD_IMPORT = "from app.services.password_utils import in_password_thread\n"
+THREAD_IMPORT = "from app.services.password_utils import get_password_hash, verify_password, in_password_thread\n"
 
 
 def _off_the_password_thread(source: str, rel: str) -> tuple[list[int], int]:
     """One walk of ``source``, an app file other than ``password_utils``: the lines that run a password hash or
     check anywhere but the password thread, or other work on it, and how many times it hands a hash there. A reference to
     ``get_password_hash`` or ``verify_password`` passes only as the first argument of the canonical helper
-    (or the name in an import that keeps it). The helper's one plain top-level import is its only allowed
-    binding, and its first argument must be one of the two password functions: a pooled-connection holder
+    (or the name in an import that keeps it). Each of those three names has only its one plain top-level
+    canonical import as a binding, and the helper's first argument is a canonical password function: a pooled-connection holder
     waits for the one thread, so no other work runs there. The walk rejects other bindings throughout the
     file, rather than resolving scopes or aliases.
     Ordinary bindings include imports, stores/deletes, arguments, definitions, exception and match targets.
@@ -996,37 +1042,43 @@ def _off_the_password_thread(source: str, rel: str) -> tuple[list[int], int]:
     tree = ast.parse(source)
     nodes = list(ast.walk(tree))
     parent = {child: node for node in nodes for child in ast.iter_child_nodes(node)}
-    canonical = [
-        alias for node in tree.body
-        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == "app.services.password_utils"
-        for alias in node.names if alias.name == PASSWORD_THREAD and alias.asname is None
-    ]
-    allowed_imports = set(canonical) if len(canonical) == 1 else set()
-    bindings: list[int] = []
+    protected = PASSWORD_WORK | {PASSWORD_THREAD}
+    canonical = {
+        name: [alias for node in tree.body
+               if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == "app.services.password_utils"
+               for alias in node.names if alias.name == name and alias.asname is None]
+        for name in protected
+    }
+    allowed_imports = {aliases[0] for aliases in canonical.values() if len(aliases) == 1}
+    bindings: dict[str, list[int]] = {name: [] for name in protected}
     for node in nodes:
         if isinstance(node, ast.alias):
             bound = node.asname or (node.name.split(".")[0] if isinstance(parent[node], ast.Import) else node.name)
-            if (bound == PASSWORD_THREAD or node.name == PASSWORD_THREAD) and node not in allowed_imports:
-                bindings.append(node.lineno)
-            elif node.name == "*" and canonical:
-                bindings.append(node.lineno)  # a wildcard may overwrite the canonical import
-        elif isinstance(node, ast.Name) and node.id == PASSWORD_THREAD and isinstance(node.ctx, (ast.Store, ast.Del)):
-            bindings.append(node.lineno)
-        elif isinstance(node, ast.arg) and node.arg == PASSWORD_THREAD:
-            bindings.append(node.lineno)
+            if node not in allowed_imports:
+                for name in {bound, node.name} & protected:
+                    bindings[name].append(node.lineno)
+            if node.name == "*":
+                for name, aliases in canonical.items():
+                    if aliases:
+                        bindings[name].append(node.lineno)  # a wildcard may overwrite a canonical import
+        elif isinstance(node, ast.Name) and node.id in protected and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bindings[node.id].append(node.lineno)
+        elif isinstance(node, ast.arg) and node.arg in protected:
+            bindings[node.arg].append(node.lineno)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.ExceptHandler,
-                               ast.MatchAs, ast.MatchStar)) and node.name == PASSWORD_THREAD:
-            bindings.append(node.lineno)
-        elif isinstance(node, ast.MatchMapping) and node.rest == PASSWORD_THREAD:
-            bindings.append(node.lineno)
-    canonical_bound = bool(allowed_imports) and not bindings
-    flagged = bindings[:]
+                               ast.MatchAs, ast.MatchStar)) and node.name in protected:
+            bindings[node.name].append(node.lineno)
+        elif isinstance(node, ast.MatchMapping) and node.rest in protected:
+            bindings[node.rest].append(node.lineno)
+    canonical_bound = {name for name in protected if len(canonical[name]) == 1 and not bindings[name]}
+    flagged = [line for lines in bindings.values() for line in lines]
     handed = 0
     for node in nodes:
         if isinstance(node, ast.Call) and (getattr(node.func, "id", None) or getattr(node.func, "attr", None)) == PASSWORD_THREAD:
             first = node.args[0] if node.args else None
             work = getattr(first, "id", None) or getattr(first, "attr", None)
-            if not (canonical_bound and isinstance(node.func, ast.Name)) or work not in PASSWORD_WORK:
+            if not (PASSWORD_THREAD in canonical_bound and isinstance(node.func, ast.Name)
+                    and isinstance(first, ast.Name) and work in PASSWORD_WORK & canonical_bound):
                 flagged.append(node.lineno)  # a look-alike callee, or other work on the one thread
             continue
         if isinstance(node, ast.ImportFrom):
@@ -1035,12 +1087,13 @@ def _off_the_password_thread(source: str, rel: str) -> tuple[list[int], int]:
         name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
         call = parent.get(node)
         if name == PASSWORD_THREAD:
-            if not (canonical_bound and isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+            if not (PASSWORD_THREAD in canonical_bound and isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
                     and isinstance(call, ast.Call) and call.func is node):
                 flagged.append(node.lineno)
         if name not in PASSWORD_WORK:
             continue
-        if (canonical_bound and isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+        if (PASSWORD_THREAD in canonical_bound and name in canonical_bound and isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load) and isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
                 and call.func.id == PASSWORD_THREAD and call.args and call.args[0] is node):
             handed += 1
         else:
@@ -1058,6 +1111,19 @@ THREAD_FORMS = [
     ("aliased-import", OTHER, "from app.services.password_utils import verify_password as check", "flag"),
     ("by-keyword", OTHER, THREAD_IMPORT + "await in_password_thread(work=get_password_hash)", "flag"),
     ("not-the-work", OTHER, THREAD_IMPORT + "await in_password_thread(log, verify_password)", "flag"),
+    ("database-work-aliased-as-hash", OTHER,
+     "from app.services.password_utils import in_password_thread\n"
+     "from app.services.auth_account_service import record_password_login as get_password_hash\n"
+     "await in_password_thread(get_password_hash, db, user_id, verified_hash, email)", "flag"),
+    ("database-work-rebinds-hash", OTHER,
+     THREAD_IMPORT + "get_password_hash = record_password_login\nawait in_password_thread(get_password_hash, db)", "flag"),
+    ("work-shadowed-by-parameter", OTHER,
+     THREAD_IMPORT + "async def route(verify_password):\n    return await in_password_thread(verify_password, p, h)", "flag"),
+    ("work-from-another-module", OTHER,
+     "from app.services.password_utils import in_password_thread\nfrom other import verify_password\n"
+     "await in_password_thread(verify_password, p, h)", "flag"),
+    ("work-as-module-attribute", OTHER,
+     THREAD_IMPORT + "await in_password_thread(other.verify_password, p, h)", "flag"),
     ("other-work-on-the-thread", OTHER,
      THREAD_IMPORT + "account = await in_password_thread(look_up, db, email)", "flag"),
     ("look-alike-callee", OTHER, "ok = await runner.in_password_thread(verify_password, p, h)", "flag"),
@@ -1162,7 +1228,7 @@ def test_every_password_hash_and_check_runs_on_the_password_thread():
     assert not offenders, (
         f"A password hash or check off the password thread, or other work on it: {offenders}. Await a hash as "
         "in_password_thread(get_password_hash, ...) or in_password_thread(verify_password, ...), with one "
-        "unaliased top-level import from app.services.password_utils and no other helper binding, and run nothing "
+        "unaliased top-level import of each name from app.services.password_utils and no other binding, and run nothing "
         "else there: one thread bounds Argon2id's 32 MiB a call to one call at a time per instance, and a request "
         "that holds a pooled connection waits for it."
     )
@@ -1186,20 +1252,23 @@ HOME_USES = {
 
 
 def _home_reach(source: str) -> list[int]:
-    """The lines of password_utils' ``source`` that read a name of ``HOME_USES`` outside the scopes it lists."""
+    """Direct reads outside the unique top-level owner nodes; nested functions and methods are other scopes."""
+    tree = ast.parse(source)
+    functions = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    owners = {node: node.name for node in functions if sum(other.name == node.name for other in functions) == 1}
     lines: list[int] = []
 
     def visit(node: ast.AST, scope: str) -> None:
+        if (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in HOME_USES
+                and scope not in HOME_USES[node.id]):
+            lines.append(node.lineno)
+        is_scope = isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda))
+        body = ([node.body] if isinstance(node, ast.Lambda) else node.body) if is_scope else []
         for child in ast.iter_child_nodes(node):
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
-                visit(child, getattr(child, "name", "<lambda>"))
-                continue
-            if (isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load) and child.id in HOME_USES
-                    and scope not in HOME_USES[child.id]):
-                lines.append(child.lineno)
-            visit(child, scope)
+            # Defaults/decorators/bases evaluate in the enclosing scope; only the body has a new owner.
+            visit(child, owners.get(node, "<other>\u200b") if child in body else scope)
 
-    visit(ast.parse(source), "<module>")
+    visit(tree, "<module>")
     return lines
 
 
@@ -1211,9 +1280,15 @@ HOME_FORMS = [
     ("bcrypt-outside-the-legacy-check", "def raw(p, h):\n    return bcrypt.checkpw(_bcrypt_input(p), h)", "flag"),
     ("thread-outside-its-runner", "def run(f):\n    return _PASSWORD_THREADS.submit(f)", "flag"),
     ("hash-in-a-lambda", "rehash = lambda p: _ARGON2.hash(p)", "flag"),
+    ("same-name-method", "class Bypass:\n    def get_password_hash(self, p):\n        return _ARGON2.hash(p)", "flag"),
+    ("same-name-nested-function", "def other():\n    def get_password_hash(p):\n        return _ARGON2.hash(p)", "flag"),
+    ("duplicate-top-level-owner", "def get_password_hash(p):\n    return _ARGON2.hash(p)\n"
+     "def get_password_hash(p):\n    return _ARGON2.hash(p)", "flag"),
+    ("owner-default-is-enclosing-scope", "def get_password_hash(p=_ARGON2.hash('x')): pass", "flag"),
     ("the-hash", "def get_password_hash(p):\n    return _ARGON2.hash(p)", "clean"),
     ("the-legacy-check", "def _verify_bcrypt(p, h):\n    return bcrypt.checkpw(_bcrypt_input(p), h)", "clean"),
     ("the-dummy", "_DUMMY_PASSWORD_HASH = get_password_hash('x')", "clean"),
+    ("home-value-alias", "hash_again = get_password_hash\ndef rehash(p):\n    return hash_again(p)", "gap"),
 ]
 
 

@@ -771,8 +771,9 @@ async def login(
     user_id, verified_hash, is_active = account or (None, None, False)
 
     # Always run the hash check — against the real hash if we have one, else a fixed dummy — so the
-    # response timing is the same whether or not the email exists (no timing oracle). On the password
-    # thread, so the ~270ms check doesn't block the event loop under login load (password_utils).
+    # request performs comparable expensive work to reduce timing differences. Argon2id and legacy bcrypt
+    # checks can still differ; the gap is unmeasured on Cloud Run (password_utils). The password thread
+    # keeps the check off the event loop under login load.
     password_ok = await in_password_thread(verify_password, user_data.password, verified_hash or _DUMMY_PASSWORD_HASH)
 
     def finish() -> Optional[str]:

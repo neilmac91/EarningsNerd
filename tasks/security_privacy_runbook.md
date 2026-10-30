@@ -20,8 +20,9 @@ email+password, Google OAuth, Apple Sign In (Apple is feature-flagged off by def
   audience + issuer; Apple also binds a nonce). Linking a social identity to a pre-existing
   account emails the owner and writes an audit row.
 - **Login hardening:** unified 401 for all failure modes (no enumeration), an Argon2id check
-  run on unknown emails against a dummy hash (no timing oracle; its cost is matched to a bcrypt-12
-  check, measured on one CPU and not yet on Cloud Run), per-IP + per-account throttles.
+  run on unknown emails against a dummy hash to reduce timing differences (comparable expensive work;
+  Argon2id and bcrypt-12 checks can still differ, with the gap measured on one CPU and unmeasured on
+  Cloud Run), per-IP + per-account throttles.
 - **Audit trail:** login success/failure, register, logout, OAuth login/link, data export,
   account deletion — all with a SHA-256-hashed client IP. See `audit_logs` table.
 

@@ -137,7 +137,7 @@ async def in_password_thread(work: Callable[..., _T], *args: object) -> _T:
 
 
 # A fixed Argon2id hash of a random value, at the same costs. On login for an unknown email the supplied
-# password is checked against it, so the request does an account's expensive check and its timing does not
-# say whether the email exists. A legacy bcrypt account's check costs about the same (see the costs above);
-# the gap is measured on one CPU, not on Cloud Run.
+# password is checked against it, so the request performs comparable expensive work to reduce timing
+# differences between known and unknown accounts. A legacy bcrypt check's timing may still differ (see
+# the costs above); the gap is measured on one CPU and remains unmeasured on Cloud Run.
 _DUMMY_PASSWORD_HASH = get_password_hash(secrets.token_urlsafe(32))
