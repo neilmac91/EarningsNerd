@@ -156,6 +156,15 @@ describe('the fresh-filing recovery flow', () => {
     expect(String(fetch.mock.calls[0]?.[0])).toContain('force=true')
   })
 
+  it.each([
+    [1, '1 second'], [59, '59 seconds'], [60, '1 minute'], [61, '2 minutes'], [600, '10 minutes'],
+  ])('names when Retry is available after %s seconds', (seconds, duration) => {
+    render(<StreamingSummaryDisplay filing={filing} streamingText="" stage="error"
+      message={LIMITED} error={LIMITED} onRetry={vi.fn()} retryAfterSeconds={Number(seconds)} />)
+    expect(screen.getByText(`You can try again in ${duration}.`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
   it('keeps the cooldown control focusable and refuses its activation', () => {
     const retry = vi.fn()
     const view = render(<StreamingSummaryDisplay filing={filing} streamingText="" stage="error"

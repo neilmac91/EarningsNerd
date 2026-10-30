@@ -54,7 +54,8 @@ type chips kept); card/section titles sentence-cased per DESIGN_SYSTEM.
   the social-proof strip's "Every SEC-registered company". Neil confirmed EDGAR-wide
   coverage is accurate; the step now reads "We cover every company that files with the SEC."
 - "…generate an AI summary **instantly**" (ticker filings view) dropped "instantly";
-  the product's own progress card says "Usually 30–60s".
+  the product's own progress card then said "Usually 30–60s". E31 (#1823, October 2026)
+  replaces that duration claim with "Estimated progress", since generation can wait on SEC.
 
 ## Flagged for follow-up (left as-is)
 
