@@ -103,6 +103,16 @@ def _clean(value: Any) -> str:
     return ""
 
 
+def _cell(row: dict, key: str, alias: str) -> str:
+    """``row[key] or row[alias]``, as the Change cell and the figure check read a row, as one clean cell; but a figure of
+    0 with no alias behind it is a value. Read as ``a or b`` alone it printed blank, where the exports now print a missing
+    figure's dash (E13)."""
+    value = row.get(key) or row.get(alias)
+    if not value and type(row.get(key)) in (int, float):
+        value = row.get(key)
+    return _clean(value)
+
+
 def _str_list(value: Any) -> List[str]:
     """Normalize a list-ish value into a list of clean, non-empty strings."""
     if isinstance(value, str):
@@ -163,6 +173,10 @@ class Block:
     # Internal renderer hint: rows are authoritative retained-source text. The markdown projection
     # escapes syntax characters for literal display; JSON/PDF/CSV keep the exact source characters.
     literal_cells: bool = False
+    # Internal renderer hint, parallel to ``rows``: True where the row's last cell is a passage the server
+    # located in this filing (a source-owned risk whose ``source_verified`` is True). The PDF sets that cell
+    # as the device's marked block (D-044); every other surface ignores it, like ``literal_cells``.
+    located_rows: List[bool] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
@@ -288,8 +302,8 @@ def _metrics_block(table: Any, *, exact_delta_owned: bool = False) -> Optional[B
         rows.append(
             [
                 metric,
-                _clean(row.get("current_period") or row.get("currentPeriod")),
-                _clean(row.get("prior_period") or row.get("priorPeriod")),
+                _cell(row, "current_period", "currentPeriod"),
+                _cell(row, "prior_period", "priorPeriod"),
                 change_cell,
                 takeaway,
             ]
@@ -360,6 +374,7 @@ def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Bl
     if not isinstance(risks, list):
         return None
     rows: List[List[str]] = []
+    located: List[bool] = []
     for risk in risks:
         if source_owned:
             if not isinstance(risk, dict) or not isinstance(risk.get("supporting_evidence"), str):
@@ -370,12 +385,15 @@ def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Bl
             # Provenance already returned an authoritative retained-source slice. Do not run the
             # model-output placeholder or inline-markdown cleaners over those source characters.
             rows.append([str(len(rows) + 1), "Filing excerpt", evidence])
+            # The page's test (SummaryRisks: `source_verified === true`), a flag only the projection writes.
+            located.append(risk.get("source_verified") is True)
             continue
         normalized = _normalize_risk(risk)
         if not normalized:
             continue
         risk_text, evidence = normalized
         rows.append([str(len(rows) + 1), risk_text, evidence])
+        located.append(False)
     if not rows:
         return None
     return Block(
@@ -383,6 +401,7 @@ def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Bl
         headers=["#", "Risk", "Supporting Evidence"],
         rows=rows,
         literal_cells=source_owned,
+        located_rows=located,
     )
 
 
