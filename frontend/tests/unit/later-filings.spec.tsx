@@ -137,6 +137,40 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     expect(() => decodeLaterFilings({ ...withoutEvidence(planted(REGN)), mode: 'quarterly' })).not.toThrow()
   })
 
+  it('refuses a growth as first reported other than n/m where a calculated figure’s input carries the finding, on its year or the year before', () => {
+    // The shared fixture's margin, whose FY2019 revenue input carries a factor of 1,000, reads n/m on FY2019 and FY2020.
+    expect(() => decodeLaterFilings(planted('a_margin_whose_input_carries_a_scale_finding'))).not.toThrow()
+    for (const [period, first] of [['FY2019', -9.52], ['FY2020', 14.44], ['FY2020', null]] as const) {
+      const dataset = planted('a_margin_whose_input_carries_a_scale_finding')
+      pointOf(dataset, 'net_margin', period).yoy_first_reported = first
+      expect(() => decodeLaterFilings(dataset), `${period} ${first}`).toThrow(LaterFilingsRejection)
+    }
+    // Two inputs deep counts as well.
+    const deep = planted(REGN)
+    const margin = pointOf(deep, 'net_margin', 'FY2018')
+    const revenue = margin.provenance!.inputs[1]
+    revenue.first_reported = null
+    revenue.provenance = { ...margin.provenance!, inputs: [{ concept: 'revenue_part', value: 5_000, unit: 'USD', accession: 'a-1', first_reported: { value: 5, unit: 'USD', accession: 'a-0', disagreement: 'scale' } }] }
+    expect(() => decodeLaterFilings(deep)).toThrow(/must be n\/m across a sign or scale finding/)
+  })
+
+  it('reads the calculated refusal off the figure’s own method, not its series’', () => {
+    // A reported point in a series with a calculated point keeps its evidence.
+    const mixed = planted(REGN)
+    pointOf(mixed, 'revenue', 'FY2017').provenance = { ...pointOf(mixed, 'revenue', 'FY2017').provenance!, method: 'calculated' }
+    expect(() => decodeLaterFilings(mixed)).not.toThrow()
+    // A calculated point in a series of reported ones is refused.
+    const calculated = planted(REGN)
+    pointOf(calculated, 'revenue', 'FY2018').provenance = { ...pointOf(calculated, 'revenue', 'FY2018').provenance!, method: 'calculated' }
+    expect(() => decodeLaterFilings(calculated)).toThrow(/sits on a calculated figure/)
+  })
+
+  it('refuses a period that is not a string beside a growth as first reported with its own rejection, never a TypeError', () => {
+    const dataset = planted(REGN)
+    pointOf(dataset, 'revenue', 'FY2018').period = 2018 as unknown as string
+    expect(() => decodeLaterFilings(dataset)).toThrow(LaterFilingsRejection)
+  })
+
   it('refuses a growth as first reported other than n/m across a sign or scale finding on either year', () => {
     expect(() => decodeLaterFilings(planted(SIGN_AND_SCALE))).not.toThrow()
     // Financing cash flow FY2020 carries the sign flip; Long-term debt FY2020's year before carries the factor of 1,000.
@@ -193,7 +227,8 @@ describe('the evidence dialog gives both filings (D11)', () => {
     const rows = [...dialog.querySelectorAll('p')].filter((row) => row.textContent?.startsWith('As filed'))
     expect(rows.map((row) => row.textContent)).toEqual(['As filed in its own annual report: 6,710,800,000 USD', 'As filed in the later filing: 5,145,600,000 USD'])
     expect(rows[0].parentElement).toHaveClass('font-figure', 'tabular-nums', 'lining-nums')
-    expect(rows.map((row) => row.lastElementChild?.className)).toEqual(['ml-auto', 'ml-auto'])
+    // A value that wraps within itself (320px under 200% text) keeps the edge: right-aligned text.
+    expect(rows.map((row) => row.lastElementChild?.className)).toEqual(['ml-auto text-right', 'ml-auto text-right'])
     // Two links, each named for its filing: the visible words carry no figure (brand rule 2), the name adds form and day.
     expect(linkText(dialog)).toEqual(['Open its own annual report on SEC.gov', 'Open the later filing on SEC.gov'])
     expect(linkText(dialog).join(' ')).not.toMatch(/\d/)
@@ -333,7 +368,25 @@ describe('a basis n/m says its cause (D12)', () => {
     expect(screen.getByRole('dialog')).not.toHaveTextContent(/one or both/)
   })
 
+  it('in the table: a QoQ cell’s dialog never takes a YoY’s cause', async () => {
+    // Undecoded, so the table alone is tried: a quarterly cell compares QoQ where its QoQ is a number.
+    const quarterly: AnalysisDataset = {
+      ...planted('no_evidence'), mode: 'quarterly', period_key: '2025Q2',
+      periods: [{ key: '2025Q2', fiscal_year: 2025, fiscal_period: 'Q2', period_end: '2025-06-30' }],
+      series: [{ concept: 'revenue', label: 'Revenue', unit: 'USD', percent: false, cagr: null, points: [
+        { period: '2025Q2', value: 4_000_000_000, unit: 'USD', qoq: 0.05, yoy: 'nm', yoy_first_reported: 0.1 },
+      ] }],
+    }
+    const qoq = comparisonOf(await dialogFor(quarterly, /^Revenue, Q2 2025: /))
+    expect(qoq).toHaveTextContent('QoQ comparison+5.0%')
+    expect(qoq).not.toHaveTextContent(/later filing|As first reported/)
+  })
+
   it('in the dialog: no growth as first reported across a sign or scale finding, only n/m', async () => {
+    // A margin whose year-before revenue input carries the finding says n/m too.
+    const margin = comparisonOf(await dialogFor(planted('a_margin_whose_input_carries_a_scale_finding'), /^Net margin, FY2020: /))
+    expect(margin).toHaveTextContent(`${CAUSE}As first reported: n/mnot meaningful`)
+    cleanup()
     // Long-term debt FY2020's year before carries a factor of 1,000: the growth from its own report would measure the
     // slip, so it reads n/m.
     const debt = comparisonOf(await dialogFor(planted(SIGN_AND_SCALE), /^Long-term debt, FY2020: /))

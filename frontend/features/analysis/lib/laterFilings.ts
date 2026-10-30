@@ -103,6 +103,16 @@ function checkInputs(provenance: FactProvenance | null | undefined, annual: bool
 /** The fiscal year before `key`: FY2020 → FY2019. */
 const yearBefore = (key: string) => key.replace(/^FY(\d{4})$/, (_, year) => `FY${Number(year) - 1}`)
 
+/** Whether a year's figure carries a sign or scale finding in its evidence: on its own `first_reported`, or, for a
+ *  calculated figure, on any input of its calculation at any depth (item 5). */
+function carriesFinding(figure: unknown): boolean {
+  if (!figure || typeof figure !== 'object') return false
+  const { first_reported: first, provenance } = figure as { first_reported?: unknown; provenance?: unknown }
+  if (first && typeof first === 'object' && present((first as { disagreement?: unknown }).disagreement)) return true
+  const inputs = provenance && typeof provenance === 'object' ? (provenance as { inputs?: unknown }).inputs : undefined
+  return Array.isArray(inputs) && inputs.some(carriesFinding)
+}
+
 function checkPoint(point: AnalysisPoint, series: AnalysisSeries, byPeriod: ReadonlyMap<string, AnalysisPoint>, annual: boolean, where: string) {
   if (!point || typeof point !== 'object') return
   if (present(point.first_reported)) {
@@ -120,10 +130,13 @@ function checkPoint(point: AnalysisPoint, series: AnalysisSeries, byPeriod: Read
     // a sign change's.
     if (point.yoy !== 'nm') invalid(`${where}.yoy_first_reported sits beside a yoy that is not n/m`)
     if (first !== null && first !== 'nm') finite(first, `${where}.yoy_first_reported`)
-    // Across a sign or scale finding on either year, one of the two readings rests on the slip and the page cannot tell
-    // which, so the growth as first reported is n/m there too (chief design on #1776).
-    const findings = [point, byPeriod.get(yearBefore(point.period))].filter((year) => present(year?.first_reported?.disagreement))
-    if (findings.length && first !== 'nm') invalid(`${where}.yoy_first_reported must be n/m across a sign or scale finding`)
+    if (typeof point.period !== 'string') invalid(`${where}.period must be a string beside yoy_first_reported`)
+    // Across a sign or scale finding on either year, on the figure or on any input of its calculation, one of the two
+    // readings rests on the slip and the page cannot tell which, so the growth as first reported is n/m there (chief
+    // design on #1776). It takes precedence over null: across a finding the producer sends 'nm', never null.
+    if ([point, byPeriod.get(yearBefore(point.period))].some(carriesFinding) && first !== 'nm') {
+      invalid(`${where}.yoy_first_reported must be n/m across a sign or scale finding`)
+    }
   }
   checkInputs(point.provenance, annual, where)
   checkInputs(point.yoy_provenance, annual, `${where}.yoy_provenance`)
@@ -132,11 +145,13 @@ function checkPoint(point: AnalysisPoint, series: AnalysisSeries, byPeriod: Read
 
 /** Checks every later-filing field the dataset carries (rule 9, at the boundary) and returns the dataset as sent. A
  *  field the page would print wrong refuses the dataset, as a broken data notes envelope does: any of them in a run
- *  that is not annual, and a `qoq_first_reported` anywhere; a `first_reported` on a calculated figure, or one whose
- *  value is not finite or equals the shown one, whose unit is not the figure's, whose accession is the shown filing's,
- *  whose days are not days, or whose `disagreement` the two values do not show; a `yoy_first_reported` beside a YoY
- *  that is not n/m, or other than n/m across a sign or scale finding on either year. A dataset that carries none of
- *  them is not touched. */
+ *  that is not annual, and a `qoq_first_reported` anywhere; a `first_reported` on a figure whose own provenance method
+ *  is calculated, or one whose value is not finite or equals the shown one, whose unit is not the figure's, whose
+ *  accession is the shown filing's, whose days are not days, or whose `disagreement` the two values do not show; a
+ *  `yoy_first_reported` beside a YoY that is not n/m, or other than 'nm' (null included) where either year carries a
+ *  sign or scale finding on the figure or on any input of its calculation. The finding takes precedence: where it
+ *  holds, the producer sends 'nm', never null, though null alone means the own reports give no growth. A dataset that
+ *  carries none of them is not touched. */
 export function decodeLaterFilings<T extends Pick<AnalysisDataset, 'mode' | 'series'>>(dataset: T): T {
   if (!Array.isArray(dataset?.series)) return dataset
   const annual = dataset.mode === 'annual'
