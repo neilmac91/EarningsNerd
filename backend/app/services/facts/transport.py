@@ -9,7 +9,6 @@ from typing import Any, Optional
 from app.services.event_loop import get_app_loop
 from app.services.facts.concepts import COMPANYFACTS_SYNC_TIMEOUT_SECONDS
 
-
 logger = logging.getLogger("app.services.facts_service")
 
 

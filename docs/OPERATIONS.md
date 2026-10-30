@@ -183,6 +183,29 @@ clients/retry transports, manual diagnostics and traffic outside these owners ar
 not covered. The unused dependency URL parser and XML-native forms stay outside
 the application's supported call paths; the tests guard that boundary.
 
+When either owner receives a 429, or a 503 carrying a usable `Retry-After`, it
+publishes a shared `cooldown_until` before returning the response to its retry
+path. Delta seconds use the database clock; HTTP-dates are absolute UTC deadlines.
+The row lock preserves the greater existing deadline, so a later shorter hint
+cannot reopen admission early. Positive hints are never capped to a shorter wait;
+an unrepresentably large delta becomes PostgreSQL infinity, requiring an explicit
+operational decision before traffic can resume. A 429 with no usable hint imposes
+one second; a 503 with no hint retains existing retry behavior. New grants after
+the feedback commits wait for both the cooldown and ordinary 125 ms spacing.
+Requests already admitted or in flight are not recalled. Edgar response wrappers
+sit below its disk cache; cache hits do not replay feedback and 429 responses are
+never positively cached. The one manager instance is replaced by a version-checked
+subclass before it opens clients; global HTTPX behavior remains unchanged.
+
+Feedback persistence is bounded and fails the affected call closed on DB errors;
+the response body is closed before the error escapes. Once observed, async
+feedback is shielded from a caller disconnect while it waits for the dedicated DB
+slot. It owns no HTTP work. A process termination or failed feedback write can
+still prevent publication; a shared pause exists only after that write commits.
+Observe the fixed, private-safe `SEC shared cooldown persistence failed` warning
+and coordinator failures as activation blockers, rather than treating them as SEC
+rate-limit evidence or silently falling back to local-only traffic.
+
 Activation is a separate operational change. Before enabling, read back every
 API revision, job image, task-worker child and manual execution; deploy the
 capability everywhere while disabled and drain old/off executions before claiming
@@ -195,19 +218,16 @@ Cancellation may waste a permit but cannot send later from that DB worker. An
 already-running synchronous Edgar worker cannot be cancelled by its async caller's
 deadline: it may continue later requests, each still requiring local and shared
 admission. The coordinator does not establish disconnect cancellation or an overall
-Edgar-operation deadline. The
-coordinator uses bounded checkout/connect/statement waits, leaves PGOPTIONS
-intact and runs no startup DDL. Apply the additive migration before activation;
+Edgar-operation deadline. The coordinator uses bounded checkout/connect/statement
+waits, preserves UTC sessions and PGOPTIONS, and runs no startup DDL. Apply both
+additive SEC request gate/cooldown migrations before activation;
 replaying it never resets the existing deadline. Activation must provide coordinator
 wait/error telemetry and compare request latency before increasing traffic; the
 current health endpoint does not expose this coordinator. Disabling removes the shared
 bound and retains the documented local limits; it is not a way to preserve a
 fleet guarantee during a database outage. No activation or egress change is part
-of this capability. SEC `Retry-After` is currently honored only by existing caller
-retry paths, not persisted as a fleet-wide cooldown. The manager limiter interface
-has no response feedback. Activation also requires complete, reviewed sync/async
-response feedback across both transport owners; this capability does not claim a
-global SEC cooldown or prove release-day availability.
+of this capability, and these local/transaction tests do not prove release-day
+availability.
 
 Not bounded by this pin: rollout-overlap instances, manual job executions and operator one-shots, a
 job task retried after a failure or timeout (no documented create command sets `--max-retries`, so

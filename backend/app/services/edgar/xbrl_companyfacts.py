@@ -31,12 +31,7 @@ async def fallback_to_company_facts(
     cik: str,
     accession_number: str,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Fallback to SEC company facts API if EdgarTools financials not available.
-
-    This replicates the logic from the legacy xbrl_service.py for cases
-    where EdgarTools doesn't have the data.
-    """
+    """Use the legacy companyfacts fallback when EdgarTools financials are unavailable."""
     # Keep the receiver: resolve its parser after the response, so class/instance patches intercept.
     import httpx
     from app.services.sec_request_gate import sec_request_options

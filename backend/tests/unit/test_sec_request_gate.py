@@ -84,9 +84,10 @@ async def test_coordinator_failure_never_reaches_http_transport(enabled, monkeyp
 
 def test_db_exception_message_is_not_exposed():
     engine = Mock()
-    engine.begin.side_effect = ValueError("synthetic-private-password-and-email@example.invalid")
+    subject = gate.PostgresRequestGate(engine)
+    subject._sessions.begin = Mock(side_effect=ValueError("synthetic-private-password-and-email@example.invalid"))
     with pytest.raises(gate.SECAdmissionUnavailable) as caught:
-        gate.PostgresRequestGate(engine).try_grant()
+        subject.try_grant()
     assert str(caught.value) == "SEC admission coordinator is unavailable"
     assert caught.value.__suppress_context__
 
@@ -168,3 +169,115 @@ async def test_outer_document_deadline_during_admission_does_not_trip_sec_breake
     assert caught.value.code == "EDGAR_WAIT_TIMEOUT"
     assert not breaker.is_open
     send.assert_not_called()
+
+
+@pytest.mark.parametrize("status,header,seconds,indefinite", [
+    (429, None, 1, False), (429, "invalid", 1, False),
+    (429, "0", 0, False), (429, "600", 600, False),
+    (503, " 3600 ", 3600, False), (429, "0" * 5000 + "3", 3, False),
+    (429, "9" * 5000, None, True),
+])
+def test_retry_after_never_shortens_positive_hints(status, header, seconds, indefinite):
+    hint = gate.response_cooldown(status, header)
+    assert hint.seconds == seconds
+    assert hint.indefinite is indefinite
+
+
+def test_http_date_is_absolute_utc_and_success_ignores_header():
+    hint = gate.response_cooldown(503, "Wed, 21 Oct 2099 07:28:00 GMT")
+    assert hint.until == datetime(2099, 10, 21, 7, 28, tzinfo=timezone.utc)
+    assert gate.response_cooldown(200, "3600") is None
+    assert gate.response_cooldown(503, "invalid") is None
+
+
+@pytest.mark.asyncio
+async def test_disconnect_does_not_discard_already_observed_feedback(enabled, monkeypatch):
+    entered, release = asyncio.Event(), asyncio.Event()
+    persisted = []
+
+    async def db_attempt(call):
+        entered.set()
+        await release.wait()
+        return call()
+
+    monkeypatch.setattr(gate, "_db_attempt", db_attempt)
+    monkeypatch.setattr(gate, "_get_gate", lambda: SimpleNamespace(
+        try_defer=lambda hint: persisted.append(hint.seconds) or True,
+    ))
+    caller = asyncio.create_task(gate.record_response_async(429, "60"))
+    await asyncio.wait_for(entered.wait(), timeout=2)
+    caller.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await caller
+    release.set()
+    await asyncio.gather(*gate._feedback_tasks)
+    assert persisted == [60]
+
+
+@pytest.mark.asyncio
+async def test_feedback_coordinator_error_closes_owned_client_response(enabled, monkeypatch):
+    class Body(httpx.AsyncByteStream):
+        closed = False
+
+        async def __aiter__(self):
+            yield b"refused"
+
+        async def aclose(self):
+            self.closed = True
+
+    body = Body()
+
+    async def admit():
+        pass
+
+    async def unavailable(hint):
+        raise gate.SECAdmissionUnavailable("SEC cooldown coordinator is unavailable")
+
+    monkeypatch.setattr(gate, "acquire_async", admit)
+    monkeypatch.setattr(gate, "_persist_cooldown", unavailable)
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(429, headers={"Retry-After": "60"}, stream=body)),
+        **gate.sec_request_options(),
+    ) as client:
+        with pytest.raises(gate.SECAdmissionUnavailable):
+            await client.get("https://fixture.invalid/document")
+    assert body.closed
+
+
+@pytest.mark.parametrize("failure,expected_attempts", [("admission", 0), ("feedback", 1)])
+@pytest.mark.asyncio
+async def test_attachment_counts_only_admitted_transport_attempts(enabled, monkeypatch, failure, expected_attempts):
+    from app.services.edgar import compat
+    from app.services.edgar.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+
+    sends = []
+    real_client = httpx.AsyncClient
+
+    def send(request):
+        sends.append(request.url.path)
+        return httpx.Response(429, headers={"Retry-After": "60"}, request=request)
+
+    monkeypatch.setattr(compat.httpx, "AsyncClient", lambda **kwargs: real_client(
+        **kwargs, transport=httpx.MockTransport(send),
+    ))
+    monkeypatch.setattr(compat, "edgar_circuit_breaker", CircuitBreaker("attachment-gate", CircuitBreakerConfig()))
+
+    async def acquire():
+        if failure == "admission":
+            raise gate.SECAdmissionUnavailable("SEC admission coordinator is unavailable")
+
+    async def unavailable(hint):
+        raise gate.SECAdmissionUnavailable("SEC cooldown coordinator is unavailable")
+
+    async def execute(call):
+        return await call()
+
+    monkeypatch.setattr(gate, "acquire_async", acquire)
+    monkeypatch.setattr(gate, "_persist_cooldown", unavailable)
+    monkeypatch.setattr(compat.sec_rate_limiter, "execute", execute)
+    with pytest.raises(compat.EdgarError) as error:
+        await compat.sec_edgar_service.get_filing_attachment_bytes(
+            "320193", "0000320193-23-000077", "chart.gif",
+        )
+    assert error.value.context["physical_attempts"] == expected_attempts
+    assert len(sends) == expected_attempts

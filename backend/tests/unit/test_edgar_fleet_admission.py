@@ -192,9 +192,15 @@ def test_existing_app_sec_client_sites_all_have_per_send_hook():
         clients = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                    and isinstance(node.func, ast.Attribute) and node.func.attr == "AsyncClient"]
         assert len(clients) == count, owner
-        assert all(any(keyword.arg is None and isinstance(keyword.value, ast.Call)
-                       and isinstance(keyword.value.func, ast.Name)
-                       and keyword.value.func.id == "sec_request_options" for keyword in client.keywords)
+        configured_names = {node.targets[0].id for node in ast.walk(tree)
+                            if isinstance(node, ast.Assign) and len(node.targets) == 1
+                            and isinstance(node.targets[0], ast.Name) and isinstance(node.value, ast.Call)
+                            and isinstance(node.value.func, ast.Name) and node.value.func.id == "sec_request_options"}
+        assert all(any(keyword.arg is None and (
+                       isinstance(keyword.value, ast.Call) and isinstance(keyword.value.func, ast.Name)
+                       and keyword.value.func.id == "sec_request_options"
+                       or isinstance(keyword.value, ast.Name) and keyword.value.id in configured_names)
+                       for keyword in client.keywords)
                    for client in clients), owner
 
 
@@ -211,3 +217,80 @@ def test_other_dependency_raw_fetch_apis_are_not_supported_app_paths():
         forbidden = [node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
                      and node.attr in {"parse_url", "update_rate_limiter", "_fetch_url_directly"}]
         assert not forbidden, (path, forbidden)
+
+
+def test_edgar_feedback_is_below_cache_and_refusal_is_never_cached(admissions, monkeypatch, tmp_path):
+    sends, feedback = [], []
+
+    def send(self, request):
+        sends.append(request.url.path)
+        status = 429 if len(sends) == 1 else 200
+        return httpx.Response(status, stream=httpx.ByteStream(b"body"), request=request, headers={
+            "date": "Sat, 01 Jan 2000 00:00:00 GMT", **({"Retry-After": "60"} if status == 429 else {}),
+        })
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", send)
+    monkeypatch.setattr(gate, "record_response_sync", lambda status, hint: feedback.append((status, hint)))
+    with integration.FeedbackManager(
+        cache_mode="FileCache", cache_dir=tmp_path,
+        cache_rules={r"^fixture\.invalid$": {"/document": True}},
+        rate_limiter=integration.FleetAdmissionLimiter(LocalLimiter()),
+    ) as manager:
+        with manager.http_client() as client:
+            assert client.get("https://fixture.invalid/document").status_code == 429
+            assert client.get("https://fixture.invalid/document").status_code == 200
+            assert client.get("https://fixture.invalid/document").status_code == 200
+    assert sends == ["/document", "/document"]
+    assert feedback == [(429, "60"), (200, None)]
+    assert admissions == ["sync", "sync"]
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.asyncio
+async def test_edgar_feedback_failure_closes_unowned_response(admissions, monkeypatch, asynchronous):
+    class SyncBody(httpx.SyncByteStream):
+        closed = False
+
+        def __iter__(self):
+            yield b"refused"
+
+        def close(self):
+            self.closed = True
+
+    class AsyncBody(httpx.AsyncByteStream):
+        closed = False
+
+        async def __aiter__(self):
+            yield b"refused"
+
+        async def aclose(self):
+            self.closed = True
+
+    body = AsyncBody() if asynchronous else SyncBody()
+
+    def send(self, request):
+        return httpx.Response(429, stream=body, request=request, headers={"Retry-After": "60"})
+
+    async def async_send(self, request):
+        return send(self, request)
+
+    def fail(*args):
+        raise gate.SECAdmissionUnavailable("SEC cooldown coordinator is unavailable")
+
+    async def async_fail(*args):
+        fail(*args)
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", send)
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", async_send)
+    monkeypatch.setattr(gate, "record_response_sync", fail)
+    monkeypatch.setattr(gate, "record_response_async", async_fail)
+    manager = integration.FeedbackManager(cache_mode="Disabled", rate_limiter=integration.FleetAdmissionLimiter(LocalLimiter()))
+    with pytest.raises(gate.SECAdmissionUnavailable):
+        if asynchronous:
+            async with manager.async_http_client() as client:
+                await client.get("https://fixture.invalid/document")
+        else:
+            with manager:
+                with manager.http_client() as client:
+                    client.get("https://fixture.invalid/document")
+    assert body.closed

@@ -425,12 +425,20 @@ class SECEdgarServiceCompat:
         import asyncio as aio
 
         physical_attempts = 0
+
+        def admitted(waiting: bool) -> None:
+            nonlocal physical_attempts
+            if not waiting:
+                physical_attempts += 1
+
+        client_options = sec_request_options(on_wait=admitted)
         try:
             async with edgar_circuit_breaker:
-                async with httpx.AsyncClient(**sec_request_options()) as client:
+                async with httpx.AsyncClient(**client_options) as client:
                     async def _do_get() -> tuple[bytes, Dict[str, Any]]:
                         nonlocal physical_attempts
-                        physical_attempts += 1
+                        if not client_options:  # Disabled gate: retain existing accounting.
+                            physical_attempts += 1
                         async with client.stream(
                             "GET",
                             requested_url,
