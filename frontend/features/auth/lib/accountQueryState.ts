@@ -244,8 +244,8 @@ function pressLogout(
         // The 409 said its own step (ConnectedAccounts); a second toast would give another.
         const saidItself = error instanceof ApiError && error.status === 409
         return pressLogout(queryClient, logout, (succeeded) => {
-          // Logged out: the page leaves, and the failed control's line with it. A Log out whose own request failed
-          // said so (LOGOUT_FAILED_MESSAGE), and its page stays.
+          // Logged out: the page leaves, and the failed control's line with it. A Log out that did not take said so
+          // (LOGOUT_FAILED_MESSAGE), and its page stays.
           if (succeeded && !saidItself) toast.error(LOGGED_OUT_HERE_ONLY_MESSAGE, { duration: STEP_TOAST_DURATION_MS })
           onCurrentSettled?.(succeeded)
         })

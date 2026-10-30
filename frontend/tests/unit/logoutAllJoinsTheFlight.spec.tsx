@@ -404,7 +404,7 @@ describe('a Log out pressed while "Log out of all devices" runs waits for it', (
     expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HERE_ONLY_MESSAGE, { duration: 10000 })
   })
 
-  it('and, when it fails and that Log out fails too, says only the Log out failed, and the page stays with the section\'s line', async () => {
+  it('and, when it fails and that Log out does not take either, says only that, and the page stays with the section\'s line', async () => {
     await renderSettings()
     const answer = deferred<void>()
     Object.assign(server, { logoutAll: heldUntil(answer.promise, unreachable), logout: unreachable })

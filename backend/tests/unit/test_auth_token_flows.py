@@ -1235,20 +1235,21 @@ def test_logout_all_raises_a_failed_lookup_of_the_access_tokens_user(client, mai
 
 
 @pytest.mark.requires_db
-def test_logout_all_raises_a_failed_revoke_and_clears_no_cookie(client, mail, monkeypatch):
-    """A revoke that fails raises (a 500), so no answer clears this browser's cookies and every session lives, this one
-    included. logoutAllInTurn (frontend/features/auth/lib/accountQueryState.ts) puts the session flag back after any
+def test_logout_all_raises_a_failed_revoke_and_clears_no_cookie(client, mail, server_errors, monkeypatch):
+    """A revoke that fails raises, and the answer is the app's 500, which clears no cookie: every session lives, this
+    one included. logoutAllInTurn (frontend/features/auth/lib/accountQueryState.ts) puts the session flag back after any
     failure on that ground (E157): a writer who answers a failed revoke with logout's cookie-clearing 503 changes it in
     the same pull request, so that after that answer the flag stays down, as after logout's."""
     _email, user_id, _other_device = _two_sessions(client, mail)
+    server_errors.cookies.update(client.cookies)
 
     def unavailable(db, user_id):
         raise OperationalError("UPDATE refresh_tokens", {}, Exception("the pool timed out"))
 
     with monkeypatch.context() as patch:
         patch.setattr(refresh_token_service, "revoke_all_and_commit", unavailable)
-        with pytest.raises(OperationalError):
-            client.post("/api/auth/logout-all", json={"account_id": user_id})
+        resp = server_errors.post("/api/auth/logout-all", json={"account_id": user_id})
+    assert resp.status_code == 500 and _cookies(resp) == []
     assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
 
 
