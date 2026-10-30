@@ -1,13 +1,10 @@
 """The later-filing places and the producer's evidence against the page's reader (MPA WP5a-B).
 
-Two checks, both against F1's reader, ``frontend/features/analysis/lib/laterFilings.ts``, which stays the source of
-truth (its spec is ``frontend/tests/unit/later-filings.spec.tsx``):
+The producer's evidence against F1's reader, ``frontend/features/analysis/lib/laterFilings.ts``, which stays the
+source of truth (its spec is ``frontend/tests/unit/later-filings.spec.tsx``). The backend twin of the page's
+``laterFilingPlaces`` belongs to WP5a-X, the exports' pull request.
 
-1. The places twin. ``trend_analysis/later_filings.later_filing_places`` computes the places of every case in the
-   shared fixture ``backend/tests/fixtures/analysis_later_filings.json`` exactly as its ``expected`` gives them, the
-   values and the comparisons alike, as the page's ``laterFilingPlaces`` does over the same cases; and the dataset the
-   producer builds from WP5b's REGN shape gives the places the fixture's REGN case plants.
-2. The decoder. ``_decode`` below is a Python port of the page's ``decodeLaterFilings`` and its checks
+The decoder. ``_decode`` below is a Python port of the page's ``decodeLaterFilings`` and its checks
    (``checkFirstReported``, ``checkInputs``, ``carriesFinding``, ``checkPoint``, ``scaleSteps``, ``day``), as of F1's
    final head 002073612 (#1776). Every dataset the producer builds here, the REGN shape and each finding's, passes it as JSON; so does
    every shared case, which the page admits; and planted breaks of each rule fail it. When the page's rules change,
@@ -24,7 +21,6 @@ from pathlib import Path
 
 import pytest
 
-from app.services.trend_analysis.later_filings import later_filing_places
 from tests.unit import test_first_reports as first_reports
 from tests.unit.test_companyfacts_own_report_history import _REVENUE, _items, _payload
 from tests.unit.test_first_reports import _build, _net_income, _synced
@@ -34,20 +30,6 @@ _tables, db = first_reports._tables, first_reports.db
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "analysis_later_filings.json"
 CASES = json.loads(FIXTURE.read_text())["cases"]
-
-
-@pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
-def test_the_places_twin_gives_each_shared_cases_expected_places(case):
-    assert later_filing_places(case["dataset"]) == case["expected"]
-
-
-def test_the_fixture_holds_values_and_comparisons_to_tell_apart():
-    # A twin that counted calculated figures, or every n/m, would still pass a fixture without these.
-    regn = next(case for case in CASES if case["name"] == "regn_own_reports_beside_later_comparatives")
-    assert regn["expected"]["values"] != regn["expected"]["comparisons"]
-    assert any(case["expected"]["comparisons"] == [] and any(
-        point.get("yoy") == "nm" for series in case["dataset"]["series"] for point in series["points"])
-        for case in CASES)
 
 
 # --- the port of laterFilings.ts decodeLaterFilings ----------------------------------------------------------------
@@ -238,10 +220,6 @@ class TestTheProducersDatasetsDecode:
         assert "first_reported" not in fy2018 and _operand(fy2018, "net_income")["first_reported"]["disagreement"]
         assert _operand(fy2018, "net_income")["provenance"]["method"] == "reported"
         assert (fy2018["yoy_first_reported"], fy2019["yoy_first_reported"]) == ("nm", "nm")
-
-    def test_the_regn_dataset_gives_the_places_the_shared_fixture_plants(self, db):
-        regn = next(case for case in CASES if case["name"] == "regn_own_reports_beside_later_comparatives")
-        assert later_filing_places(_build(db, _synced(db, _payload()))) == regn["expected"]
 
     @pytest.mark.parametrize("brk, message", [
         (lambda d: _at(d, "net_income", "FY2018").update(yoy_first_reported=0.1), "must be n/m across"),

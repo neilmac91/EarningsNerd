@@ -370,8 +370,11 @@ FDX, the case that found the defect, holds none of them.
 
 The mark's words and ink belong to this notation system (§2.2).
 
-**As shipped (WP5a-B).** The producer is `backend/app/services/trend_analysis/first_reports.py`, built on the
-recommendations of the WP5a decision brief, each held in one named constant or function a review can overturn:
+**As shipped (WP5a-B).** WP5a ships as three pull requests, deployed in the order of the WP5a brief's D13, F1 → X → B:
+the page's readers (F1, #1776), then the exports' later-filing line and evidence (X), inert until the producer, then
+the producer (B), so no surface states a false cause in between. The producer is
+`backend/app/services/trend_analysis/first_reports.py`, built on the recommendations of the WP5a decision brief, each
+held in one named constant or function a review can overturn:
 - D1: a figure carries its own report's value where the two differ by more than 0.1% of the own value
   (`EVIDENCE_TOLERANCE`); growth reads n/m where the two years' shown-to-first-reported ratios differ by more than 1%
   (`BASIS_TOLERANCE`), a year without evidence at ratio 1.
@@ -391,8 +394,8 @@ the history row the sync stores for each of WP5b's own-report shapes. Growth as 
 scale finding in either year's evidence, an input's included. On WP5b's REGN shape: revenue FY2018 and FY2019 and
 total assets FY2018 carry evidence (3 figures at 0.1%, not the 2 the 1% wording above gives); revenue growth
 FY2018–FY2020 reads n/m with +14.3%, +17.2% and +8.1% as first reported, and the net margin's changes with +16.0pp,
-−9.5pp and +14.4pp; FY2021 keeps +89.1%. The data notes' line takes its places from the points
-(`trend_analysis/later_filings.py`, the page's twin), so the envelope is unchanged. Evidence appears company by
+−9.5pp and +14.4pp; FY2021 keeps +89.1%. The data notes' line takes its places from the points (the page's `laterFilingPlaces`, and its
+backend twin in X), so the envelope is unchanged. Evidence appears company by
 company as each company's next companyfacts sync after #1682 stores its history rows; each affected saved analysis
 regenerates its narrative once, unmetered.
 

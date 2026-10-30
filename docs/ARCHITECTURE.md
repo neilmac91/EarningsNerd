@@ -247,9 +247,9 @@ different bases (their shown-to-first-reported ratios more than 1% apart) reads 
 is evidence, not a note: values, validation and totals stand. The one exception is read-time: an exact sign flip or
 factor of 1,000ⁿ between the two values marks the figure `needs_review` with the existing `source_conflict` reason,
 on a copy of its provenance, where the own row passed its checks. "Own report" replays `facts/own_reports.py`'s rule
-on stored rows, held to it by `test_first_reports.py`; quarterly datasets read and carry none of it.
-`trend_analysis/later_filings.py` gives the data notes' later-filing line its places from the points, so the notes
-envelope and its version are unchanged.
+on stored rows, held to it by `test_first_reports.py`; quarterly datasets read and carry none of it. The page derives
+the data notes' later-filing line from the points (`features/analysis/lib/laterFilings.ts`), so the notes envelope and
+its version are unchanged.
 
 `presentation.py` formats selected observations after selection, preserving the model-facing
 catalogue and prompt. Its `narrative_presentation` completion member binds structured red-flag
