@@ -11,6 +11,23 @@ import {
 
 const LINK = 'https://earningsnerd.io/register?invite=abc123&t=1'
 
+describe('DEFAULT_INVITE_MESSAGE', () => {
+  // docs/LEGAL_READINESS.md: invitation wording promises account access only, not Pro access or an offer. An invitee gets
+  // a beta account; the Pro a beta account would get, through the beta's 100%-off code at checkout, waits on new checkout,
+  // which is closed in code (legal_readiness_service.is_checkout_available). The invite email is held to the same promise
+  // (backend/tests/unit/test_invitation_readiness.py, with the same patterns); this is the default message an admin copies
+  // for a manual link. A word list catches the promises it names, not their synonyms, which review still reads for.
+  // "On us" is matched as written, not ignoring case, so "Built on US filings" is not a promise.
+  it('promises an account and nothing more, in the message and its subject: no Pro access and no offer', () => {
+    for (const text of [DEFAULT_INVITE_MESSAGE, INVITE_SHARE_SUBJECT]) {
+      for (const promise of [/\bpro\b/i, /\b[Oo]n us\b/, /\bfree\b/i, /no (credit[- ]?)?card/i, /\btrials?\b/i]) {
+        expect(text).not.toMatch(promise)
+      }
+    }
+    expect(DEFAULT_INVITE_MESSAGE).toContain('{invite_link}')
+  })
+})
+
 describe('buildInviteMessage', () => {
   it('substitutes {invite_link} with the raw link', () => {
     const msg = buildInviteMessage({ template: DEFAULT_INVITE_MESSAGE, link: LINK })

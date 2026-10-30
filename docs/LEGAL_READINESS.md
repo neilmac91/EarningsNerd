@@ -23,7 +23,9 @@ notice. Neither switch enables new checkout or promotional mail. Those capabilit
 unavailable until the offer/assent, checkout/deletion coordination, marketing permission,
 unsubscribe and suppression work is implemented and verified. There is no temporary configuration
 bypass for those missing controls. Requested account messages and existing billing management
-continue to work; the waitlist confirmation contains only the requested confirmation.
+continue to work. The waitlist's confirmation email contains only the requested confirmation; the
+referral update a member would get when someone joins through their link is promotional mail, and
+is not sent while promotional mail is held.
 
 While collection is closed, the unavailable contact form directs readers to the existing support
 and privacy contact channels. Keep those channels maintained for account assistance and rights
@@ -45,9 +47,8 @@ cannot relabel its existing checkboxes as acceptance of unseen new requirements.
 OAuth signup sends the same fields in the POST start body, alongside any invite. The server binds
 accepted versions and time to the short-lived, single-use state. Existing-user OAuth sign-in and
 linking require no new agreement. A new identity arriving through a plain sign-in must return to
-registration to accept the requirements. Every fresh Google/Apple flow uses server state; an
-in-flight Google flow started before this change may need to restart once during the ten-minute
-rollout window. A restored state cookie cannot replay a consumed state row.
+registration to accept the requirements. Every Google/Apple flow uses server state, and a restored
+state cookie cannot replay a consumed state row.
 
 Direct admin account creation is refused. Use the existing invitation flow so the recipient can
 make their own statements; an administrator cannot attest for them. Manual invitation links can
@@ -55,8 +56,10 @@ be minted only when collection is ready and email delivery is not requested. Whi
 closed, requested invitation emails and reissues of email-bound invitations return 503 before
 creating a replacement or revoking an existing link. Unbound manual links may be reissued while
 collection is ready; listing and revoking existing invitations remain available during the hold.
-The email sender also independently refuses invitation delivery. Invitation wording promises
-account access only, not Pro access or an available subscription offer. Agreement evidence is stored
+The email sender also independently refuses invitation delivery. Invitation wording, in the email
+and in the default message an administrator copies for a manual link, promises account access only,
+not Pro access or an available subscription offer; the registration page's lines promising an
+invitee full Pro show only once checkout is available. Agreement evidence is stored
 with account creation and invite redemption in the same transaction, exported with the account and
 deleted with it. Existing accounts are not assigned fictional historical acceptance. A future
 existing-user agreement transition must preserve login and privacy rights.
@@ -71,9 +74,10 @@ with the version accepted by the API.
 
 ## Rollout and remaining work
 
-The default change deliberately closes new collection and new checkout when deployed. Review the
-impact on an existing invite programme before merging; preparing this code does not enable any
-production flag, publish an identity or change a Stripe/Resend setting.
+New collection is closed by default, invited registration included, and new checkout is closed in
+code. Opening collection and publishing the operator notice are operator actions:
+`LEGAL_COLLECTION_ENABLED` and `LEGAL_OPERATOR_PUBLISHED` default to false, and no deploy or
+workflow turns either on.
 
 Before enabling collection, verify the public legal notice, privacy processing inventory, current
 agreement text, required regional disclosures, provider arrangements and maintained rights
@@ -94,6 +98,6 @@ across provider calls, and coordinate competing checkout intents for the same ac
 marketing work includes separate permission, durable send-time suppression, unsubscribe and
 authenticated bounce/complaint updates. Do not enable either capability by removing its hold alone.
 
-This change does not certify the existing deletion endpoint's provider cleanup, change retention
-periods, register a copyright agent, or resolve historical billing records. Those remain separate
+Nothing here certifies the existing deletion endpoint's provider cleanup, changes retention
+periods, registers a copyright agent, or resolves historical billing records. Those remain separate
 implementation and operational obligations.
