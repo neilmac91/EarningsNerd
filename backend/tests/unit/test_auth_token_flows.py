@@ -1077,6 +1077,103 @@ def test_logout_all_commits_its_revocation_without_the_audit_row(client, mail, n
     assert client.post("/api/auth/refresh", json={"refresh_token": other_device}).status_code == 401
 
 
+# ── logout of every session: past the access token, and only the tab's account (E157 (2)) ──────
+
+LOGOUT_ALL_ANOTHER_ACCOUNT = {
+    "detail": "This browser is signed in to another account than the one this page shows, so nothing was logged out."
+}
+
+
+def _without_access(cookie_header: str) -> str:
+    """``cookie_header`` without the access cookie, as the browser sends it once that cookie has lapsed."""
+    return "; ".join(part for part in cookie_header.split("; ") if not part.startswith(f"{settings.COOKIE_NAME}="))
+
+
+def _two_sessions(client: TestClient, mail) -> tuple[str, int, str]:
+    """A fresh account signed in on another device, then on ``client``; its email, its id and the other device's
+    refresh token."""
+    email, _ = _register(client, mail)
+    assert _login(client, email).status_code == 200
+    other_device = client.cookies.get(REFRESH_COOKIE)
+    client.cookies.clear()
+    assert _login(client, email).status_code == 200
+    return email, _user(email).id, other_device
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("names_account", [False, True])
+def test_logout_all_past_the_access_token_ends_every_session_of_the_refresh_cookies_user(client, mail, names_account):
+    """Once the access cookie has lapsed (its 30 minutes), the logout of every session finds its user from the live
+    refresh token the cookie carries, as a logout finds the session it ends (E157 (2)); it needed the access token
+    and answered 401. It ends every session of that user, clears this browser's cookies and logs its row under that
+    user, whether or not the request names the account (a page loaded before the field names none)."""
+    email, user_id, other_device = _two_sessions(client, mail)
+    client.cookies.delete(settings.COOKIE_NAME)
+
+    resp = client.post("/api/auth/logout-all", **({"json": {"account_id": user_id}} if names_account else {}))
+
+    assert resp.status_code == 200 and resp.json() == {"status": "success", "sessions_revoked": 2}
+    assert _cookies(resp) == ACCESS_CLEARED + REFRESH_CLEARED
+    assert _live_refresh_tokens(user_id) == 0
+    assert _logout_rows(user_id) == [("user", email, True)]
+    client.cookies.clear()
+    assert client.post("/api/auth/refresh", json={"refresh_token": other_device}).status_code == 401
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("kind", ["missing", "unknown", "revoked", "replayed", "expired", "inactive"])
+def test_logout_all_without_an_access_token_needs_a_live_refresh_token(client, mail, kind):
+    """Past the access token, a refresh cookie that a refresh would refuse names no one: the logout of every session
+    answers 401, sets no cookie and ends nothing (E157 (2)). It only reads the token, so a replayed one's chain is
+    not swept here; a refresh does that."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    sent_with, _reason = _make_refusable(client, email, kind)
+    live, rows = _live_refresh_tokens(user_id), _logout_rows(user_id)
+
+    resp = client.post(
+        "/api/auth/logout-all", headers={"Cookie": _without_access(sent_with)}, json={"account_id": user_id}
+    )
+
+    assert resp.status_code == 401 and resp.json() == {"detail": "You are not logged in."}
+    assert resp.headers["www-authenticate"] == "Bearer"
+    assert _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (live, rows)
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("access_cookie", ["live", "lapsed"])
+def test_logout_all_refuses_when_the_tab_shows_another_account(client, mail, access_cookie):
+    """A tab learns of another tab's sign-in only through /me (E29 (3)), so one still showing the account it loaded
+    with posts with the cookies of the account the browser holds now. It names the account it shows, and the route
+    refuses to end another's sessions: 409, nothing revoked, no row written, the cookies kept (E157 (2))."""
+    shown_email, _ = _register(client, mail)
+    shown_id = _user(shown_email).id
+    _held_email, held_id, _other_device = _two_sessions(client, mail)
+    if access_cookie == "lapsed":
+        client.cookies.delete(settings.COOKIE_NAME)
+
+    resp = client.post("/api/auth/logout-all", json={"account_id": shown_id})
+
+    assert resp.status_code == 409 and resp.json() == LOGOUT_ALL_ANOTHER_ACCOUNT
+    assert _cookies(resp) == []
+    assert _live_refresh_tokens(held_id) == 2
+    assert _logout_rows(held_id) == [] and _logout_rows(shown_id) == []
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("account_id", ["7", 7.0, True])  # each would pass as 7 or 1 in pydantic's lax mode
+def test_logout_all_refuses_an_account_named_other_than_as_a_whole_number(client, mail, account_id):
+    """The account a tab names is validated where it enters (rule 9): anything but a JSON integer is refused with
+    422 before the route reads a token, and nothing is revoked."""
+    _email_, user_id, _other_device = _two_sessions(client, mail)
+
+    resp = client.post("/api/auth/logout-all", json={"account_id": account_id})
+
+    assert resp.status_code == 422
+    assert _live_refresh_tokens(user_id) == 2
+
+
 # ── connections: unlinking a linked provider ──────────────────────────────────
 
 @pytest.mark.requires_db

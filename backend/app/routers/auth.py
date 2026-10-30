@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 from typing import Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -190,6 +190,14 @@ def _require_new_collection() -> None:
 class RefreshRequest(BaseModel):
     # Optional body fallback for non-browser clients; browsers use the HttpOnly cookie.
     refresh_token: Optional[str] = None
+
+
+class LogoutAllRequest(BaseModel):
+    """The account the tab shows (E157 (2)). A tab learns of another tab's sign-in only through /me (E29 (3)), so a
+    stale tab posts with the cookies of the account the browser holds now; naming its own lets the route refuse to end
+    that account's sessions. Optional, so a page loaded before the field logs out as before."""
+
+    account_id: Optional[StrictInt] = None
 
 
 class VerifyEmailRequest(BaseModel):
@@ -1547,19 +1555,43 @@ async def logout(
 async def logout_all(
     request: Request,
     response: Response,
+    payload: Optional[LogoutAllRequest] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """Revoke every refresh token for the user (sign out all devices) and clear this session."""
+    """Revoke every refresh token of the signed-in user (sign out all devices) and clear this session.
+
+    The user is the one whose live refresh token the cookie carries, as a logout finds the session it ends there, so the
+    route works past the access token's 30 minutes (E157 (2)); without one, the access token's user; with neither, 401.
+    A request that names the account its tab shows (``account_id``) and finds another is refused with 409: nothing is
+    revoked and the cookies stay."""
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
-    user_id, user_email = current_user.id, current_user.email
+    actor = (current_user.id, current_user.email) if current_user else None
+    shown = payload.account_id if payload is not None else None
     hashed_ip = _hashed_client_ip(request)
 
     def revoke_all() -> int:
-        # One unit in the thread pool, released before the route returns (see ``logout``).
+        # One unit in the thread pool, released before the route returns (see ``logout``): the owner's read, the
+        # revocation under the users row lock, and the audit row.
         try:
-            revoked = refresh_token_service.revoke_all_and_commit(db, user_id)
-            audit_service.log_logout(db, user_id, user_email, ip_address=hashed_ip)
+            user = refresh_token_service.live_token_owner(db, raw_token) or actor
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="You are not logged in.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            if shown is not None and shown != user[0]:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "This browser is signed in to another account than the one this page shows, "
+                        "so nothing was logged out."
+                    ),
+                )
+            revoked = refresh_token_service.revoke_all_and_commit(db, user[0])
+            audit_service.log_logout(db, user[0], user[1], ip_address=hashed_ip)
             return revoked
         finally:
             filing_list_service.release_request_session(db)
