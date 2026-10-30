@@ -384,15 +384,24 @@ function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
     the clause's verb ("not presented before | signs everyone out"), so a noun spelled as a verb ends it too, a false
     flag recorded in E162's row ("not ended by | log out expire": the fourth lens on 4030bccd). Inside it "following"
     is a preposition, though the lexicon lists it as a verb ("not revoked following a sign-out | expire": the fifth lens
-    on 74fa9925). After
+    on 74fa9925), and adverbs, or "first", may stand between a preposition and its gerund ("not sent without first
+    obtaining your permission | are collected": Codex on 08d06015). After
     "before" or "after" in a phrase past its clause's verb, the gerund may open a clause of time instead ("sessions not
     opened here before logging out | ends every session"), which this runs over; the session-end family leaves out of
     its context only a participle in a clause's subject, so that clause keeps its logout (the third lens on 84003ff5). */
 function negatedParticipleEnd(tokens: Token[], from: number): number {
   const preposition = (token: Token | undefined) => PREPOSITIONS.has(lower(token)) || lower(token) === 'following'
+  /** Where a gerund after a preposition ends, past the adverbs before it, read from the token after the preposition:
+      0 where none stands there. */
+  const gerundEnd = (at: number) => {
+    let j = at
+    while (isAdverb(tokens[j]) || lower(tokens[j]) === 'first') j++
+    return preposition(tokens[at - 1]) && /^[a-z]+ing$/.test(lower(tokens[j])) ? j + 1 : 0
+  }
   let i = from
   while (i < tokens.length && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) {
-    if (tokens[i].lower === 'following' || (preposition(tokens[i - 1]) && /^[a-z]+ing$/.test(tokens[i].lower))) i++
+    if (tokens[i].lower === 'following') i++
+    else if (gerundEnd(i)) i = gerundEnd(i)
     else if (startsPredicate(tokens, i)) break
     else i = nounPhraseAt(tokens, i)?.end ?? i + 1
   }
