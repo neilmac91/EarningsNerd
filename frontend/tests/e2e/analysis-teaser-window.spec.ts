@@ -137,3 +137,53 @@ for (const theme of THEMES) for (const profile of PROFILES) {
     })
   })
 }
+
+/**
+ * The keyboard path: Tab from the top of /analysis reaches the teaser's "Upgrade to Pro" with no stop inside the
+ * locked preview. The preview holds the sample run's own buttons and links; aria-hidden and pointer-events-none leave
+ * them in the tab order, and PeekLocked's `inert` takes them out (#1457). jsdom applies no focus rule for `inert`, so
+ * tests/unit/analysis-teaser.spec.tsx holds only the attribute; this holds the browser's focus walk, on the App
+ * Router's React 19, where PeekLocked's ref sets the attribute. The preview is found as the window's aria-hidden child,
+ * not by `inert`, so the walk still sees it if `inert` goes. Theme and text size leave the tab order as it is, so one
+ * theme at a phone's width and a desktop's.
+ */
+for (const profile of PROFILES.filter((p) => !p.doubleText)) {
+  test.describe(`analysis teaser tab order / ${profile.name}`, () => {
+    const mobile = profile.width <= 390
+    test.use({ viewport: { width: profile.width, height: profile.height }, isMobile: mobile, hasTouch: mobile, reducedMotion: 'reduce', serviceWorkers: 'block' })
+
+    test('Tab reaches the upgrade action with no stop inside the locked preview', async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      await answerGuest(page, baseURL!)
+      await page.goto('/analysis')
+      const teaser = page.locator('[data-analysis-teaser]')
+      await expect(teaser.getByRole('button', { name: 'Upgrade to Pro', exact: true })).toBeVisible()
+      const controls = await teaser.evaluate((root) => root.querySelector('[data-peek-locked] > [aria-hidden="true"]')?.querySelectorAll('button, a[href]').length ?? 0)
+      expect(controls, "the locked preview holds the run's buttons and links, so a Tab stop could land there").toBeGreaterThan(0)
+
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+      const stops: string[] = []
+      let inPreview: string | null = null
+      let reached = false
+      for (let press = 0; press < 60 && !reached && !inPreview; press++) {
+        await page.keyboard.press('Tab')
+        const stop = await page.evaluate(() => {
+          const el = document.activeElement
+          const preview = document.querySelector('[data-analysis-teaser] [data-peek-locked] > [aria-hidden="true"]')
+          return {
+            label: el ? `${el.tagName.toLowerCase()} "${(el.textContent ?? '').trim().slice(0, 40)}"` : 'nothing',
+            inPreview: !!(preview && el && preview.contains(el)),
+            upgrade: el?.tagName === 'BUTTON' && el.textContent?.trim() === 'Upgrade to Pro' && !!el.closest('[data-analysis-teaser]'),
+          }
+        })
+        stops.push(stop.label)
+        if (stop.inPreview) inPreview = stop.label
+        if (stop.upgrade) reached = true
+      }
+      expect(inPreview, `${profile.name}: Tab stopped inside the locked preview, on ${inPreview}`).toBeNull()
+      expect(reached, `${profile.name}: Tab from the top of /analysis reaches Upgrade to Pro (stops: ${stops.join(', ')})`).toBe(true)
+    })
+  })
+}
