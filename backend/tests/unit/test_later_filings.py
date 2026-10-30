@@ -8,9 +8,10 @@ truth (its spec is ``frontend/tests/unit/later-filings.spec.tsx``):
    values and the comparisons alike, as the page's ``laterFilingPlaces`` does over the same cases; and the dataset the
    producer builds from WP5b's REGN shape gives the places the fixture's REGN case plants.
 2. The decoder. ``_decode`` below is a Python port of the page's ``decodeLaterFilings`` and its checks
-   (``checkFirstReported``, ``checkInputs``, ``checkPoint``, ``scaleSteps``, ``day``). Every dataset the producer
-   builds here, the REGN shape and each finding's, passes it as JSON, and planted breaks of each rule fail it. When
-   the page's rules change, this port follows them; it never decides them.
+   (``checkFirstReported``, ``checkInputs``, ``carriesFinding``, ``checkPoint``, ``scaleSteps``, ``day``), as of F1's
+   a9ab712bc. Every dataset the producer builds here, the REGN shape and each finding's, passes it as JSON; so does
+   every shared case, which the page admits; and planted breaks of each rule fail it. When the page's rules change,
+   this port follows them; it never decides them.
 """
 from __future__ import annotations
 
@@ -136,12 +137,14 @@ def _check_inputs(provenance, annual, where):
 
 
 def _finds(figure):
-    """A sign or scale finding in a year's evidence: its own, or an input's at any depth (F1's addition)."""
+    """``carriesFinding``: a sign or scale finding in a year's evidence, its own or an input's at any depth."""
     if not isinstance(figure, dict):
         return False
-    if _present((figure.get("first_reported") or {}).get("disagreement")):
+    first, provenance = figure.get("first_reported"), figure.get("provenance")
+    if isinstance(first, dict) and _present(first.get("disagreement")):
         return True
-    return any(_finds(operand) for operand in ((figure.get("provenance") or {}).get("inputs") or []))
+    inputs = provenance.get("inputs") if isinstance(provenance, dict) else None
+    return isinstance(inputs, list) and any(_finds(operand) for operand in inputs)
 
 
 def _year_before(key):
@@ -168,6 +171,8 @@ def _check_point(point, series, by_period, annual, where):
             raise Rejection(f"{where}.yoy_first_reported sits beside a yoy that is not n/m")
         if first is not None and first != "nm":
             _finite(first, f"{where}.yoy_first_reported")
+        if not isinstance(point.get("period"), str):
+            raise Rejection(f"{where}.period must be a string beside yoy_first_reported")
         if (_finds(point) or _finds(by_period.get(_year_before(point.get("period"))))) and first != "nm":
             raise Rejection(f"{where}.yoy_first_reported must be n/m across a sign or scale finding")
     _check_inputs(point.get("provenance"), annual, where)
@@ -203,6 +208,13 @@ PRODUCED = {
     "a-scale-factor": lambda: _payload(assets=_scale_assets()),
     "an-inputs-finding": lambda: _payload(_items({**_REVENUE, 2020: {**_REVENUE[2020], 2018: 6_710.8e3}})),
 }
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
+def test_the_port_admits_every_shared_case_the_page_admits(case):
+    # The shared cases are the page's admitted wire shapes (later-filings.spec.tsx renders each): a port that
+    # refused one would be stricter than the page.
+    assert _decode(copy.deepcopy(case["dataset"])) == case["dataset"]
 
 
 @pytest.mark.requires_db
