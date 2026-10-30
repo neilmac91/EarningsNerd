@@ -507,7 +507,7 @@ def test_the_project_and_the_window_are_checked_before_any_read(count):
     assert count.main(["--start", "2026-10-04T00:00:00Z", "--end", "2026-10-06T00:00:00Z", "--validate-only"]) == 0
 
 
-def test_main_writes_the_receipt_and_prints_only_where(count, monkeypatch, tmp_path, capsys):
+def test_main_writes_the_receipt_and_prints_only_where(count, monkeypatch, tmp_path, capfd):
     monkeypatch.setattr(count.subprocess, "check_output",
                         lambda command, **_: "earnings-nerd\n" if "project" in command else "token\n")
     monkeypatch.setattr(count, "Logging", lambda token: FakeLogging(
@@ -517,6 +517,9 @@ def test_main_writes_the_receipt_and_prints_only_where(count, monkeypatch, tmp_p
                        "--output", str(output)]) == 0
     receipt = json.loads(output.read_text())
     assert receipt["days"][0]["state"] == "complete"
-    printed = capsys.readouterr().out
-    assert str(output) in printed and "{" not in printed
+    # The one line, and nothing on stderr: capfd also counts a write to either file descriptor (Agent E on #1747).
+    printed = capfd.readouterr()
+    assert printed.out == (f"Excerpt provenance receipt saved to {output}; inspect each day's state before "
+                           "reading its counts.\n")
+    assert printed.err == ""
     assert oct(output.stat().st_mode & 0o777) == "0o600"

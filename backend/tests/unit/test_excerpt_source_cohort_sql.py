@@ -149,6 +149,12 @@ def test_the_cohort_runs_as_its_own_step_never_with_detection_sql():
     assert not [path for path in (ROOT / "ops" / "detection").glob("*.sql") if "critical_excerpt" in path.read_text()]
 
 
+def test_psql_runs_no_meta_command_but_echo():
+    # \o, \g or \copy would send the counts somewhere other than the output the Ops step keeps (Agent E on #1747).
+    code = re.sub(r"[Ee]'(?:[^'\\]|\\.|'')*'|'(?:[^']|'')*'|--[^\n]*", "", SQL.read_text())
+    assert set(re.findall(r"\\\S+", code)) == {"\\echo"}
+
+
 def test_the_output_is_counts_by_group():
     text = SQL.read_text()
     final = text[text.rindex("SELECT COALESCE(form"):text.index("FROM bucketed")]
