@@ -376,6 +376,26 @@ function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
   return Math.min(i, tokens.length)
 }
 
+/** Where a participle a bare "not" opens ends, read from the word after the participle as relativeEnd reads one, but
+    over a gerund after a preposition, which is the preposition's object with an object of its own: not a verb that
+    ends the participle ("not ended by logging out | expire": Codex on #1818), nor, where the lexicon lacks it, a noun
+    a relative clause follows ("not sent without obtaining your permission | are collected": Codex on 4030bccd). Any
+    other word the lexicon lists as a verb there still ends it, since "before" or "after" may stand as an adverb before
+    the clause's verb ("not presented before | signs everyone out"), so a noun spelled as a verb ends it too, a false
+    flag recorded in E162's row ("not ended by | log out expire": the fourth lens on 4030bccd). After
+    "before" or "after" in a phrase past its clause's verb, the gerund may open a clause of time instead ("sessions not
+    opened here before logging out | ends every session"), which this runs over; the session-end family leaves out of
+    its context only a participle in a clause's subject, so that clause keeps its logout (the third lens on 84003ff5). */
+function negatedParticipleEnd(tokens: Token[], from: number): number {
+  let i = from
+  while (i < tokens.length && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) {
+    if (PREPOSITIONS.has(lower(tokens[i - 1])) && /^[a-z]+ing$/.test(tokens[i].lower)) i++
+    else if (startsPredicate(tokens, i)) break
+    else i = nounPhraseAt(tokens, i)?.end ?? i + 1
+  }
+  return Math.min(i, tokens.length)
+}
+
 /** A relative clause without its relative word, read as one: a pronoun or a determined noun phrase with a verb group
     after it, straight after the head ("every endpoint we run", "any endpoint the API serves"). */
 const reducedRelative = (tokens: Token[], at: number) => {
@@ -445,14 +465,8 @@ function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
       phrase.postmodifiers.push({ kind: RELATIVES.has(token.lower) ? 'relative' : 'participle', start: i, end, restrictive: true, preposition: null, object: null })
       i = end
     } else if (token.lower === 'not' && participle(tokens, i + 1, true)) {
-      // A participle a bare "not" negates is the head's as well ("sessions not opened here end ...": E162 stage 4f), and
-      // a gerund after a preposition in it is that preposition's object, not a verb that ends it ("not ended by logging
-      // out": Codex on #1818). After "before" or "after" in a phrase past its clause's verb, the gerund may open a clause
-      // of time instead ("sessions not opened here before logging out | ends every session"), which this runs over; the
-      // session-end family leaves out of its context only a participle in a clause's subject, so that clause keeps its
-      // logout (the third lens on 84003ff5).
-      let end = relativeEnd(tokens, i + 2, false)
-      while (PREPOSITIONS.has(lower(tokens[end - 1])) && /^[a-z]+ing$/.test(lower(tokens[end]))) end = relativeEnd(tokens, end + 1, false)
+      // A participle a bare "not" negates is the head's as well ("sessions not opened here end ...": E162 stage 4f).
+      const end = negatedParticipleEnd(tokens, i + 2)
       phrase.postmodifiers.push({ kind: 'participle', start: i, end, restrictive: true, preposition: null, object: null })
       i = end
     } else if (reducedRelative(tokens, i)) {
