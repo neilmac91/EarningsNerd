@@ -176,6 +176,16 @@ test.describe('a press on Source keeps the page / 1100x800, a Pro reader on /fil
     const kept = await column(page)
     expect(kept.scrollTop, "the reader's place in the column").toBe(0)
     expect(kept.shellFoot, 'the composer is still below the column, where the reader left it').toBeGreaterThan(kept.foot)
+
+    // The pane grows until the composer shows again, as a page scroll can grow an unstuck pane, then shrinks back: a
+    // resize never puts the column back on the composer the reader scrolled away from.
+    await holdCell(page, 2400)
+    await twoFrames(page)
+    const uncovered = await column(page)
+    expect(uncovered.shellFoot, 'the grown column shows the composer').toBeLessThanOrEqual(uncovered.foot)
+    await holdCell(page, 290)
+    await twoFrames(page)
+    expect((await column(page)).scrollTop, "the reader's place again").toBe(0)
     await expect(composerIn(page)).toBeFocused()
     expect(await scrollY(page), 'the page never moved').toBe(0)
   })

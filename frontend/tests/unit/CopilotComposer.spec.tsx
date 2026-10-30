@@ -284,6 +284,27 @@ describe('CopilotComposer keeps a focused composer in view as its column settles
     }
   })
 
+  it("a resize's own reveal counts its late scroll as its own too", () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, shell, box, column, growShell } = renderInColumn()
+      ref.current?.focus()
+      // The pane settles shorter and the column follows; then the field grows before that scroll is reported.
+      column.resize(200)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70, 170])
+      growShell(126)
+      fireEvent.scroll(box)
+      resizes.resize(shell)
+      expect(column.writes).toEqual([70, 170, 246])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
   it('a resize that uncovers a composer the reader scrolled away leaves it where they put it', () => {
     const resizes = watchResizes()
     const page = watchThePage()
