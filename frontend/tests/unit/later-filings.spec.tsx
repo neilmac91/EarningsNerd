@@ -77,6 +77,7 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     ['a first-reported value beside no value shown', (ds) => { pointOf(ds, 'revenue', 'FY2018').value = null }],
     ['a unit that is not the figure’s', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.unit = 'EUR' }],
     ['the shown filing’s accession as the own report’s', (ds) => { const point = pointOf(ds, 'revenue', 'FY2018'); point.first_reported!.accession = point.accession! }],
+    ['an own report with no accession', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.accession = '' }],
     ['an empty form', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.form = '' }],
     ['a filed day that does not exist', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.filed_at = '2019-02-30' }],
     ['a filed day in words', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.filed_at = '7 Feb 2019' }],
@@ -384,6 +385,10 @@ describe('a basis n/m says its cause (D12)', () => {
       { mark: 'n/m', text: 'Not meaningful: a later filing reports a different value for one or both years (FY2018–FY2020).' },
     ])
     expect(laterFilingPlaces(dataset).comparisons.filter((ref) => ref.concept === 'revenue').map((ref) => ref.period)).toEqual(['FY2018', 'FY2019', 'FY2020'])
+    // The rendered line too, so a filter inside DataNotes cannot drop the sign-changed years.
+    const { container } = render(<DataNotes dataset={dataset} />)
+    expect(container.querySelector(LINE)!.textContent).toContain('Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020;')
+    cleanup()
     const fy2019 = comparisonOf(await dialogFor(dataset, /^Revenue, FY2019: /))
     expect(fy2019).toHaveTextContent(`${CAUSE}As first reported: +17.2%`)
   })
