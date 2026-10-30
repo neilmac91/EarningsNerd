@@ -2201,28 +2201,27 @@ const readAlone = (reading: Reading, from: number, to: number, drops: Array<[num
     is an infinitive the condition's clause takes, and one that is not finite is that clause's too, so each is read
     past whole ("when it is not supposed to end every session | clears cookies", "when it does not let anyone end
     every session | clears cookies", "because users do not request access | signs": Codex on fb7cf414; "when it is
-    not worth automatically ending every session | clears cookies": Codex on 2ca36076). So is a bare infinitive
-    (bareInfinitive) where a finite verb group stands past it ("when we do not let clients end every session | stay
-    open": Codex on 0757abf7), while "when we do not make clients happy | end within 30 minutes" has none. The words
-    are read one by one, not as noun phrases, since the reader reads a verb after an adjective as a noun ("valid
-    signs"). -1 where none starts in the condition. */
+    not worth automatically ending every session | clears cookies": Codex on 2ca36076). A condition may hold more
+    than one such group, a clause of its own or a bare infinitive its clause takes, so only a group that stands alone
+    in the span is the clause's: where two do, either may be, and the sentence reads as on main ("when it is not
+    clear whether it signs everyone out | renews the session": Codex on 1d2c94ac; "when we do not let clients end
+    every session | stay open": Codex on 0757abf7). The words are read one by one, not as noun phrases, since the
+    reader reads a verb after an adjective as a noun ("valid signs"). -1 where none starts in the condition, or more
+    than one. */
 const clauseVerbPast = (tokens: Token[], condition: Condition, plural: boolean): number => {
   const own = conditionClauseAt(tokens, condition)
   if (!own) return -1
-  const from = (start: number): number => {
-    for (let k = start; k < condition.end; k++) {
-      if (!startsVerbGroup(tokens, k)) continue
-      const group = verbGroupAt(tokens, k)
-      if (tokens[k - 1]?.lower !== 'to' && finiteFor(tokens, group, plural)) {
-        if (!bareInfinitive(tokens, condition.start, group)) return k
-        const past = from(group.verb + 1)
-        return past > 0 ? past : k
-      }
-      k = group.verb
+  let found = -1
+  for (let k = verbGroupAt(tokens, own.predicate).verb + 1; k < condition.end; k++) {
+    if (!startsVerbGroup(tokens, k)) continue
+    const group = verbGroupAt(tokens, k)
+    if (tokens[k - 1]?.lower !== 'to' && finiteFor(tokens, group, plural)) {
+      if (found >= 0) return -1
+      found = k
     }
-    return -1
+    k = group.verb
   }
-  return from(verbGroupAt(tokens, own.predicate).verb + 1)
+  return found
 }
 /** The forms of an auxiliary that lead no finite verb group ("worth having ended every session", "being seen ending"). */
 const NON_FINITE = /^(?:be|been|being|having)$/i
@@ -2232,31 +2231,12 @@ const NON_FINITE = /^(?:be|been|being|having)$/i
     after a plural head in -s, the base. An adverb before an -ing form leads nothing finite ("automatically ending":
     Codex on 2ca36076). */
 const finiteFor = (tokens: Token[], group: VerbGroup, plural: boolean) => {
-  const lead = leadOf(tokens, group)
-  if (auxiliaryAt(tokens[lead])) return !NON_FINITE.test(tokens[lead]?.text ?? '')
+  const auxiliary = (token: Token | undefined) => !!token && (AUXILIARY.test(token.text) || NON_FINITE.test(token.text))
+  let lead = group.start
+  while (lead < group.verb && !auxiliary(tokens[lead]) && !(lead + 1 < group.verb && tokens[lead + 1].lower === 'to')) lead++
+  if (auxiliary(tokens[lead])) return !NON_FINITE.test(tokens[lead]?.text ?? '')
   const form = formOf(tokens[lead])
   return form === 'past' || form === (plural ? 'base' : 'third')
-}
-const auxiliaryAt = (token: Token | undefined) => !!token && (AUXILIARY.test(token.text) || NON_FINITE.test(token.text))
-/** The word that leads a verb group past its adverbs and a negation: its first auxiliary or modal, a catenative before
-    its "to", else its verb. */
-const leadOf = (tokens: Token[], group: VerbGroup) => {
-  let lead = group.start
-  while (lead < group.verb && !auxiliaryAt(tokens[lead]) && !(lead + 1 < group.verb && tokens[lead + 1].lower === 'to')) lead++
-  return lead
-}
-/** The verbs whose object takes a bare infinitive ("let clients end", "make users sign in", "see a token expire"). */
-const TAKES_A_BARE_INFINITIVE = /^(?:let|lets|letting|make|makes|made|making|help|helps|helped|helping|have|has|had|having|see|sees|saw|seeing|watch|watches|watched|watching|hear|hears|heard|hearing|feel|feels|felt|feeling)$/i
-/** Whether a verb group may be a bare infinitive inside a condition: its verb leads it in the base form, and the first
-    verb back from it, past its object, takes one ("we do not let clients | end every session"). */
-const bareInfinitive = (tokens: Token[], start: number, group: VerbGroup) => {
-  const lead = leadOf(tokens, group)
-  if (auxiliaryAt(tokens[lead]) || formOf(tokens[lead]) !== 'base') return false
-  for (let j = group.start - 1; j >= start; j--) {
-    if (TAKES_A_BARE_INFINITIVE.test(tokens[j].text)) return true
-    if (knowsVerb(tokens[j]) || AUXILIARY.test(tokens[j].text)) return false
-  }
-  return false
 }
 /** A word that opens a clause of time, cause or contrast, which says its clause happens, before a noun phrase and a
     verb group or before a gerund ("before ending every session"): the reader's subordinating words, and "before",
@@ -2496,7 +2476,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (415 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (421 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4587,10 +4567,18 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions when it is not supposed to automatically end every session stay open after logging out.</li>', false],
       ['<li>Logging out when it is not needed quickly ends every session.</li>', true],
       ['<li>Logging out when it is not needed seems to end every session.</li>', true],
-      // A bare infinitive the condition's clause takes is read past where a finite verb group stands past it, and
-      // otherwise as the clause's verb (bareInfinitive; Codex on 0757abf7).
+      // Each holds where the clause's verb makes the claim: a group read past whole leaves the clause's verb the one
+      // group in the span, so the claim past it fails, where a second group would read the sentence as on main.
+      ['<li>Logging out when it is not worth having closed sessions ends every session.</li>', true],
+      ['<li>Logging out when it is not worth automatically closing sessions ends every session.</li>', true],
+      ['<li>Sessions when it is not wise to wait end within 30 minutes of logging out.</li>', true],
+      // Where two verb groups past the condition's own clause may each be the clause's, a clause of the condition's or a
+      // bare infinitive its clause takes, the sentence reads as on main (Codex on 0757abf7 and 1d2c94ac); a base form
+      // past an object with no other such group is the clause's.
       ['<li>Sessions when we do not let clients end every session stay open after logging out.</li>', false],
       ['<li>Sessions when we do not make clients end every session stay open after logging out.</li>', false],
+      ['<li>Reusing a refresh token when it is not clear whether it signs everyone out renews the session.</li>', false],
+      ['<li>Logging out when it is not clear whether it ends every session clears cookies.</li>', false],
       ['<li>Sessions when we do not make clients happy end within 30 minutes of logging out.</li>', true],
       ['<li>Sessions when users do not see the banner end within 30 minutes of logging out.</li>', true],
       // Conditions in a run before the verb, in commas or not, are read past together (the routine lens on fb7cf414).
@@ -4608,6 +4596,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // verb (the routine lens on 0757abf7).
       ['<li>Logging out when it expires and is not needed ends every session.</li>', 'gap'],
       ['<li>Reusing a refresh token because it is old and not valid signs everyone out.</li>', 'gap'],
+      // Out of reach as well: a claim past a condition that holds another verb group which may be the clause's, a bare
+      // infinitive here, since the sentence then reads as on main (Codex on 1d2c94ac).
+      ['<li>Sessions when we do not let clients sign in end within 30 minutes of logging out.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
