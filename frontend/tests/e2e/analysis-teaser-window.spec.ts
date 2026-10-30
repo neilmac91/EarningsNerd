@@ -37,6 +37,8 @@ const PROFILES = [
   { name: '390px under 200% text', width: 390, height: 844, doubleText: true },
   { name: '320px under 200% text', width: 320, height: 640, doubleText: true },
 ]
+/** The cookie choice already made (essential only), as a returning reader's browser holds it. */
+const CONSENT = JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 })
 
 /** A guest on /analysis, answered in the browser. Returns the API paths the page read. */
 async function answerGuest(page: Page, baseURL: string) {
@@ -82,10 +84,10 @@ for (const theme of THEMES) for (const profile of PROFILES) {
     test.use({ viewport: { width: profile.width, height: profile.height }, isMobile: mobile, hasTouch: mobile, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
     test("the upgrade action sits on the teaser's first screen", async ({ page, baseURL }) => {
-      await page.addInitScript((theme) => {
+      await page.addInitScript(({ theme, consent }) => {
         localStorage.setItem('theme', theme)
-        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
-      }, theme)
+        localStorage.setItem('cookie_consent', consent)
+      }, { theme, consent: CONSENT })
       const traffic = await answerGuest(page, baseURL!)
       await page.goto('/analysis')
       const teaser = page.locator('[data-analysis-teaser]')
@@ -139,13 +141,14 @@ for (const theme of THEMES) for (const profile of PROFILES) {
 }
 
 /**
- * The keyboard path: Tab from the top of /analysis reaches the teaser's "Upgrade to Pro" with no stop inside the
- * locked preview. The preview holds the sample run's own buttons and links; aria-hidden and pointer-events-none leave
- * them in the tab order, and PeekLocked's `inert` takes them out (#1457). jsdom applies no focus rule for `inert`, so
- * tests/unit/analysis-teaser.spec.tsx holds only the attribute; this holds the browser's focus walk, on the App
- * Router's React 19, where PeekLocked's ref sets the attribute. The preview is found as the window's aria-hidden child,
- * not by `inert`, so the walk still sees it if `inert` goes. Theme and text size leave the tab order as it is, so one
- * theme at a phone's width and a desktop's.
+ * The keyboard path: Tab from the top of /analysis reaches the teaser's "Upgrade to Pro", and no stop in the teaser
+ * lands inside the locked preview. The preview holds the sample run's own buttons and links; aria-hidden and
+ * pointer-events-none leave them in the tab order, and PeekLocked's `inert` takes them out (#1457). jsdom applies no
+ * focus rule for `inert`, so tests/unit/analysis-teaser.spec.tsx holds only the attribute; this holds the browser's
+ * focus walk, on the App Router's React 19, where PeekLocked's ref sets the attribute. The walk runs on past the action
+ * until focus leaves the teaser, so a stop after the action is checked too. The preview is found as the window's
+ * aria-hidden child, not by `inert`, so the walk still sees it if `inert` goes. Neither theme nor text size changes
+ * what `inert` removes, so one theme at a phone's width and a desktop's.
  */
 for (const profile of PROFILES.filter((p) => !p.doubleText)) {
   test.describe(`analysis teaser tab order / ${profile.name}`, () => {
@@ -153,9 +156,7 @@ for (const profile of PROFILES.filter((p) => !p.doubleText)) {
     test.use({ viewport: { width: profile.width, height: profile.height }, isMobile: mobile, hasTouch: mobile, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
     test('Tab reaches the upgrade action with no stop inside the locked preview', async ({ page, baseURL }) => {
-      await page.addInitScript(() => {
-        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
-      })
+      await page.addInitScript((consent) => localStorage.setItem('cookie_consent', consent), CONSENT)
       await answerGuest(page, baseURL!)
       await page.goto('/analysis')
       const teaser = page.locator('[data-analysis-teaser]')
@@ -163,11 +164,11 @@ for (const profile of PROFILES.filter((p) => !p.doubleText)) {
       const controls = await teaser.evaluate((root) => root.querySelector('[data-peek-locked] > [aria-hidden="true"]')?.querySelectorAll('button, a[href]').length ?? 0)
       expect(controls, "the locked preview holds the run's buttons and links, so a Tab stop could land there").toBeGreaterThan(0)
 
-      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
       const stops: string[] = []
       let inPreview: string | null = null
       let reached = false
-      for (let press = 0; press < 60 && !reached && !inPreview; press++) {
+      let left = false
+      for (let press = 0; press < 60 && !left && !inPreview; press++) {
         await page.keyboard.press('Tab')
         const stop = await page.evaluate(() => {
           const el = document.activeElement
@@ -175,15 +176,18 @@ for (const profile of PROFILES.filter((p) => !p.doubleText)) {
           return {
             label: el ? `${el.tagName.toLowerCase()} "${(el.textContent ?? '').trim().slice(0, 40)}"` : 'nothing',
             inPreview: !!(preview && el && preview.contains(el)),
+            inTeaser: !!el?.closest('[data-analysis-teaser]'),
             upgrade: el?.tagName === 'BUTTON' && el.textContent?.trim() === 'Upgrade to Pro' && !!el.closest('[data-analysis-teaser]'),
           }
         })
         stops.push(stop.label)
         if (stop.inPreview) inPreview = stop.label
         if (stop.upgrade) reached = true
+        else if (reached && !stop.inTeaser) left = true
       }
       expect(inPreview, `${profile.name}: Tab stopped inside the locked preview, on ${inPreview}`).toBeNull()
       expect(reached, `${profile.name}: Tab from the top of /analysis reaches Upgrade to Pro (stops: ${stops.join(', ')})`).toBe(true)
+      expect(left, `${profile.name}: after Upgrade to Pro, Tab leaves the teaser, so every stop in it was checked (stops: ${stops.join(', ')})`).toBe(true)
     })
   })
 }
