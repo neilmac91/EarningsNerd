@@ -385,8 +385,8 @@ import {
  *    is a clause that "after" or "before" opens inside its subject, which the reader takes for a preposition, where
  *    the clause's verb stands right past that clause ("Logging out after it is not needed ends every session." fails).
  *    Since stage 4f the reader reads a participle a bare "not" negates after a head as the head's ("Sessions not opened
- *    here end within 30 minutes of logging out." fails), and a past form it knows, first after a determiner or a
- *    quantifier, as an adjective ("Presenting a used refresh token you do not own signs everyone out." fails).
+ *    here end within 30 minutes of logging out." fails), and a past form it knows, a phrase's first word, as an
+ *    adjective ("Presenting a used refresh token you do not own signs everyone out." fails).
  *    The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
@@ -2541,7 +2541,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (522 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (526 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4499,8 +4499,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions not ended by logging out stay open.</li>', false],
       ['<li>Logging out does not end sessions not opened here.</li>', false],
       // Out of reach, as on main: a participle the lexicon lacks that does not end in -ed reads as the clause's verb
-      // group, and a subject of two phrases joined by "and" as two clauses, the second naming no session.
+      // group, and so does one after "never", which, unlike a bare "not", may be a finite verb's own ("Sessions never
+      // opened."); and a subject of two phrases joined by "and" reads as two clauses, the second naming no session.
       ['<li>Sessions not begun here end when you log out.</li>', 'gap'],
+      ['<li>Sessions never opened here end within 30 minutes of logging out.</li>', 'gap'],
       ['<li>Sessions not opened here and tokens not issued here end when you log out.</li>', 'gap'],
       // E162 stage 4c: the reuse family's sweep is read in each clause alone too (reuseOfTheToken), so #1456's three
       // shapes of the shared step deny no sweep (a negation before a word of time, in a relative clause on the subject,
@@ -4639,20 +4641,24 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // relative clause's verb too.
       ['<li>Clients that reuse a refresh token they do not own sign everyone out.</li>', 'gap'],
       ['<li>A client that reused a refresh token it did not own signed everyone out.</li>', 'gap'],
-      // Since stage 4f a past form the lexicon knows, first after a determiner or a quantifier, reads as an adjective, so
-      // the phrase runs on over a verb the lexicon knows ("a used refresh token") and the gerund's object and its
-      // relative clause are read; and a participle a bare "not" negates after a head is the head's ("a refresh token not
-      // issued to you").
+      // Since stage 4f a past form the lexicon knows, a phrase's first word, reads as an adjective, so the phrase runs on
+      // over a verb the lexicon knows ("a used refresh token") and the gerund's object and its relative clause are read;
+      // and a participle a bare "not" negates after a head is the head's ("a refresh token not issued to you").
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', true],
       ['<li>A used refresh token you do not own signs everyone out.</li>', true],
       ['<li>Presenting the used refresh token you do not own signs everyone out.</li>', true],
       ['<li>Presenting each used refresh token you do not own signs everyone out.</li>', true],
       ['<li>All used refresh tokens you do not own sign everyone out.</li>', true],
+      ['<li>Used refresh tokens you do not own sign everyone out.</li>', true],
+      ['<li>Passwords are hashed, and used refresh tokens you do not own sign everyone out.</li>', true],
       ['<li>Reusing a refresh token not issued to you signs everyone out.</li>', true],
       ['<li>A client reusing a refresh token not issued to it signs everyone out.</li>', true],
       ['<li>Reusing a refresh token not presented before signs everyone out.</li>', true],
       ['<li>Presenting a used refresh token you do not own does not sign everyone out.</li>', false],
       ['<li>No used refresh token you do not own signs everyone out.</li>', false],
+      // Out of reach, as on main: a gerund's object with no determiner, which the reader reads as a participle on the
+      // gerund ("Presenting used ...").
+      ['<li>Presenting used refresh tokens you do not own signs everyone out.</li>', 'gap'],
       // A negation in a condition a subordinator opens between a clause's subject and its verb, which the reader runs on
       // to that verb, denies nothing there since stage 4d: the clause is read without the condition too, in either
       // family (clauseVerbPast; the routine lens on bca1801a).

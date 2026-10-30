@@ -13,8 +13,8 @@
  * participle ("Refresh token reuse that you did not request ...", "A refresh token reused a second time ..."), and no
  * other family's verdict moves with it. Since stage 4f a participle a bare "not" negates after a head is the head's, as
  * it is without the negation, since "not" denies no verb without an auxiliary ("Sessions not opened here end ...", "a
- * refresh token not presented before"), and a past form the lexicon knows, first after a determiner or a quantifier,
- * reads as an adjective ("a used refresh token you do not own"); no other family's verdict moves with either.
+ * refresh token not presented before"), and a past form the lexicon knows, the phrase's first word, reads as an
+ * adjective ("a used refresh token you do not own", "used refresh tokens"); no other family's verdict moves with either.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -37,8 +37,8 @@
  * in a noun phrase: a closed-class word (a preposition, a conjunction, a subordinating or relative word, an auxiliary
  * or a modal, a negation, a listed adverb), a mark, or, after the phrase's first word, a verb the lexicon knows
  * (VERB_FORMS) or an adverb in -ly, but for one after a word read as an adjective ("anonymous requests",
- * "unauthenticated calls": ADJECTIVES, or a past form the lexicon knows, first after a determiner or a quantifier: "a
- * used refresh token") and one an auxiliary, a modal or a negation follows, which is a noun there ("an auth proxy does
+ * "unauthenticated calls": ADJECTIVES, or a past form the lexicon knows as the phrase's first word: "a used refresh
+ * token") and one an auxiliary, a modal or a negation follows, which is a noun there ("an auth proxy does
  * not", "the access logs are"). The head is the last of them, so "each endpoint's documentation" is
  * headed by "documentation". What follows the head is read with it: a prepositional phrase with its own noun phrase
  * ("in the admin namespace"), a path headed by its last segment ("under /api/admin") or, with no object read, running
@@ -481,9 +481,9 @@ export function nounPhraseAt(tokens: Token[], at: number): NounPhrase | null {
     head = tokens[i++]
     if (CONTRACTIONS.has(head.lower)) return { start: at, end: i, takenBack, quantifier, partitive, determiners, premodifiers, head, postmodifiers: [] }
   } else {
-    // A past form the lexicon knows, the first word after a determiner or a quantifier, reads as an adjective, so a verb
-    // the lexicon knows may follow it in the phrase ("a used refresh token": E162 stage 4f).
-    const attributive = () => premodifiers.length === 1 && (determiners.length > 0 || quantifier !== null) && PAST_FORMS.has(lower(premodifiers[0]))
+    // A past form the lexicon knows, the phrase's first word, reads as an adjective, so a verb the lexicon knows may
+    // follow it in the phrase ("a used refresh token", "used refresh tokens": E162 stage 4f).
+    const attributive = () => premodifiers.length === 1 && PAST_FORMS.has(lower(premodifiers[0]))
     const open = () => premodifiers.length === 0 || ADJECTIVES.has(lower(premodifiers[premodifiers.length - 1])) || attributive() || nounBeforeItsVerb(tokens, i)
     while (nominal(tokens[i], open())) premodifiers.push(tokens[i++])
     const last = premodifiers.pop()
