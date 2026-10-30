@@ -29,13 +29,14 @@ _T = TypeVar("_T")
 
 # Argon2id's costs, pinned (as bcrypt's work factor was) so a library upgrade cannot move them. Measured on
 # one CPU on 2026-10-30 against current guidance (E97): RFC 9106 section 4 picks the memory first, then the
-# most passes the time budget allows, and the budget here is bcrypt-12's verify (about 271 ms there, against
-# 278 ms for these costs), so an unknown email checked against the dummy hash below costs what a bcrypt
-# account's check does. 32 MiB is half RFC 9106's second recommended 64 MiB (its first needs 2 GiB, past this
-# 1 GiB service) and, at ten passes, about eight times OWASP's minimum memory-passes (19 MiB x 2). One lane:
-# on one vCPU more lanes are no faster, and their threads take the CPU from the event loop. A hash records
-# its own costs, so changing these leaves every stored hash verifying.
-ARGON2_TIME_COST = 10
+# most passes the time budget allows, and the budget here is bcrypt-12's verify, so an unknown email checked
+# against the dummy hash below costs what a bcrypt account's check does. On Python 3.11 with production's pins,
+# paired call by call over six processes, nine passes ran 9.5 ms under a bcrypt-12 check at the median (ten ran
+# 16.5 ms over); the gap on Cloud Run is unmeasured. 32 MiB is half RFC 9106's second recommended 64 MiB (its
+# first needs 2 GiB, past this 1 GiB service) and, at nine passes, over seven times OWASP's minimum
+# memory-passes (19 MiB x 2). One lane: on one vCPU more lanes are no faster, and their threads take the CPU
+# from the event loop. A hash records its own costs, so changing these leaves every stored hash verifying.
+ARGON2_TIME_COST = 9
 ARGON2_MEMORY_COST_KIB = 32 * 1024
 ARGON2_PARALLELISM = 1
 _ARGON2_MARKER = "$argon2id$"
@@ -69,7 +70,7 @@ def validate_password_strength(value: str) -> str:
     upper/lower/digit). Breach screening (HaveIBeenPwned) is done in the endpoints because a
     synchronous Pydantic validator cannot perform the async network call. A password that is not
     valid Unicode (a lone surrogate, which no keyboard types) is refused first: it encodes to no
-    UTF-8, so the breach check and bcrypt would raise on it (``auth_validation``, E97).
+    UTF-8, so the breach check and the hash would raise on it (``auth_validation``, E97).
     """
     if not is_valid_unicode(value):
         raise ValueError("Password contains a character that is not valid text.")
@@ -96,9 +97,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     An Argon2id hash is checked over the whole password, at the costs it records. A bcrypt hash takes the
     check every stored hash took before E97, unchanged (``_verify_bcrypt``). Anything else (empty, another
     Argon2 variant or scheme, garbage) fails closed before any library sees it. A password that is not valid
-    text, which login does not validate, is a miss.
+    text, which login does not validate, is a miss, and so is anything but text on either side, as it was when every
+    value reached the bcrypt check and its ``except``.
     """
-    if not hashed_password:
+    if not isinstance(plain_password, str) or not isinstance(hashed_password, str) or not hashed_password:
         return False
     if hashed_password.startswith(_ARGON2_MARKER):
         try:
