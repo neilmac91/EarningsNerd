@@ -1018,6 +1018,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("an address grown in place as a page", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\npage += "<p>Body</p>"', "pass"),
     ("an address logged through !r", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile {U!r}")', "pass"),
     ("an address logged through !r, text after it", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile={U!r}; size=32")', "pass"),
+    ("an address logged through !a, text after it", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile={U!a}; size=32")', "pass"),
     ("an address read by startswith", 'U = f"{base}/assets/earningsnerd-appicon.png"\nok = U.startswith("https://")', "pass"),
     ("a page stripped of whitespace", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\nP = page.strip()', "pass"),
     ("an attribute that shares an exported name, on an object no module binds", {"a.py": 'class HeaderTile:\n    url = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"\n', "b.py": "def path(request):\n    return request.url.path"}, "pass"),
@@ -1133,7 +1134,7 @@ def test_the_scan_scores_every_planted_form(tmp_path):
     assert gaps == named, "the header names each gap a case marks, and a case marks each gap the header names: keep the two in step"
     outcomes = [outcome for _, _, outcome in FORMS]
     # Equalities, not floors, so a form dropped after one is added still fails (lessons/test-allowlist-caps-are-equalities.md).
-    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (213, 95, 21), (
+    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (213, 96, 21), (
         "a planted form was added or dropped: keep these counts equal to FORMS in the same diff, and say why one goes"
     )
 

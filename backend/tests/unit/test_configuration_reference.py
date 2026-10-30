@@ -1,5 +1,6 @@
 """Keep the operator's Settings inventory complete and its declared defaults truthful."""
 import json
+import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -52,15 +53,20 @@ def test_provider_admission_limit_accepts_supported_range(value):
     assert Settings(AI_CHAT_MAX_INFLIGHT=value, _env_file=None).AI_CHAT_MAX_INFLIGHT == value
 
 
+def _without_frontend_url_in_the_environment(monkeypatch):
+    """Settings reads an environment variable's name in any case, so each spelling of this one goes."""
+    for name in [name for name in os.environ if name.lower() == "frontend_url"]:
+        monkeypatch.delenv(name)
+
+
 @pytest.mark.parametrize("configured", [
     "https://www.earningsnerd.io", "https://www.earningsnerd.io/", "https://www.earningsnerd.io///",
-    " https://www.earningsnerd.io/ \n",
+    " https://www.earningsnerd.io/ \n", "\thttps://www.earningsnerd.io/\r\n", b"https://www.earningsnerd.io/",
 ])
 def test_frontend_url_loads_as_one_canonical_origin(configured, monkeypatch):
     # E111: every link appends "/path" to FRONTEND_URL, so the whitespace around it and its trailing slashes are
-    # removed at load, and only those.
-    for name in ("FRONTEND_URL", "frontend_url"):  # the default is read below, with no value in the environment
-        monkeypatch.delenv(name, raising=False)
+    # removed at load, and only those, whatever type it is given as.
+    _without_frontend_url_in_the_environment(monkeypatch)  # the default is read below
     loaded = Settings(FRONTEND_URL=configured, _env_file=None).FRONTEND_URL
     assert loaded == "https://www.earningsnerd.io"
     assert Settings(_env_file=None).FRONTEND_URL == "https://www.earningsnerd.io"
@@ -80,10 +86,12 @@ def test_frontend_url_loads_as_one_canonical_origin(configured, monkeypatch):
                      "https://www.earningsnerd.io/assets/earningsnerd-appicon.png"]
 
 
-def test_frontend_url_from_the_environment_loads_as_the_same_origin(monkeypatch):
-    # Production would set it this way, as a Secret Manager value can end in a newline.
-    monkeypatch.setenv("FRONTEND_URL", "https://www.earningsnerd.io/\n")
-    assert Settings(_env_file=None).FRONTEND_URL == "https://www.earningsnerd.io"
+def test_frontend_url_from_the_environment_loads_as_one_canonical_origin(monkeypatch):
+    # Production would set it this way, and a Secret Manager value can end in a newline. Another host than the
+    # default's, so a value the environment never reached fails here.
+    _without_frontend_url_in_the_environment(monkeypatch)
+    monkeypatch.setenv("FRONTEND_URL", "https://preview.example.test/\n")
+    assert Settings(_env_file=None).FRONTEND_URL == "https://preview.example.test"
 
 
 @pytest.mark.parametrize("configured", ["", "/", "   ", " /// \n"])
