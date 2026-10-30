@@ -406,9 +406,11 @@ says so; everything else follows the spec.
   broken; their printed value is the true value."; bars that printed no value would have to pass every value to
   `valueAxis` instead.
   - `scale.ts`. A per-share amount (EPS) prints no finer than cents on its bar, where A2's 3 significant figures read
-    `$0.310`, and in cents in its tooltip (`perShareMoney`: `$123.45`, where an amount's 4 figures read `$123.5`). A
-    ratio axis (`ratioFormat`) prints its step's decimals, then ×: zero is `0×`, a value takes 2 dp (`0.87×`), and a
-    non-zero value never prints as `0×`. A4's label tiers run from a format's `d0` down to 0 (an amount's as before, a
+    `$0.310`, and in cents in its tooltip (`perShareMoney`: `$123.45`, where an amount's 4 figures read `$123.5`); one
+    under half a cent prints A2's unsigned `$0`. Its ticks keep the step's decimals, so a series under a cent, which no
+    filing states, would tick finer than cents. A ratio axis (`ratioFormat`) prints its step's decimals, then ×: zero
+    is `0×`, a value takes 2 dp (`0.87×`), and a non-zero value never prints as a zero (`0.004×` where its tier rounds
+    it away). A4's label tiers run from a format's `d0` down to 0 (an amount's as before, a
     percent's 1 and 0, a ratio's 2, 1 and 0), and each format carries its tooltip value (`tip`). × is in Geist Mono's
     latin file at the face's advance, so it joins `lib/format.ts`'s `DATA_FACE_GLYPHS` (G2), which
     `analysis-layout.spec.ts` measures in the built face; the values stop says "times".

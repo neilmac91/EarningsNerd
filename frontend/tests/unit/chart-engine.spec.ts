@@ -581,14 +581,19 @@ describe('a one-metric bar chart (barChart.ts): Financial trends on the engine (
     expect([tip(7.46), tip(-0.04), tip(123.45), tip(40_256.554), tip(0)]).toEqual(['$7.46', `${MINUS}$0.04`, '$123.45', '$40,256.55', '$0'])
     // An amount's tooltip keeps 4 significant figures in its own unit.
     expect([tooltipMoney(123.45, 'USD'), perShareMoney(123.45, 'USD'), perShareMoney(2.5, 'CNY')]).toEqual(['$123.5', '$123.45', 'CN¥2.50'])
+    // Under half a cent is A2's zero, unsigned, on the bar and in the tooltip alike.
+    const penny = bars('AAPL diluted EPS').panels[0].axis.format
+    expect([penny.value(-0.004), penny.tip(-0.004), penny.tip(0.004), penny.value(-0.006)]).toEqual(['$0', '$0', '$0', `${MINUS}$0.01`])
   })
 
   it('a ratio prints ×: "0×" at zero, its ticks at the step’s decimals, 2 dp on its bars and in its tooltip', () => {
     const format = ratioFormat(0.2)
     expect([format.kind, format.d0, ...[0, 0.4, 1, 1.2].map(format.tick)]).toEqual(['ratio', 2, '0×', '0.4×', '1.0×', '1.2×'])
-    // A non-zero ratio never prints as "0×", at any tier.
+    // A non-zero ratio never prints as a zero, at any tier: to its first significant figure where its tier rounds it away.
     expect([format.value(0.8673), format.value(-1.5, 1), format.value(0.4, 0), format.value(1234.5), format.tip(0.8932929)])
       .toEqual(['0.87×', `${MINUS}1.5×`, '0.4×', '1,234.50×', '0.89×'])
+    expect([format.value(0.004, 0), format.value(0.004, 1), format.value(0.004), format.tip(-0.004), format.value(0.04, 0)])
+      .toEqual(['0.004×', '0.004×', '0.004×', `${MINUS}0.004×`, '0.04×'])
   })
 
   it('a percent axis clips a bar far past its other years (A3): broken at the axis, it prints its true value, and a footnote says so', () => {

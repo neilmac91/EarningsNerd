@@ -149,7 +149,9 @@ export interface AxisFormat {
  * overshoots to 1,000M reads "$1B", never "−$1,000M". A printed value with fewer than 2 significant
  * figures at the axis precision prints in its own unit to 3 (BYND's equity "−$997K", not "−$0.001B");
  * ticks never take that step, so one axis keeps one unit. A per-share amount (EPS) prints no finer than its
- * cents, which its tooltip prints whole ("$0.31", never "$0.310"; "$40,256.55").
+ * cents, which its tooltip prints whole ("$0.31", never "$0.310"; "$40,256.55"), and one under half a cent prints
+ * A2's unsigned zero ("$0", never "−$0.00"). Ticks keep the step's decimals: a series under a cent, which no filing
+ * states, would tick finer than cents.
  */
 export function moneyFormat(values: number[], step: number, ticks: number[], currency: string | null, perShare = false): AxisFormat {
   const prefix = moneyPrefix(currency)
@@ -166,6 +168,7 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
     if (value === 0) return `${prefix}0`
     const sign = value < 0 ? MINUS : ''
     const scaled = Math.abs(value / unit.div)
+    if (printed && perShare && !unit.suffix && Number(fixed(scaled, Math.min(digits, 2))) === 0) return `${prefix}0`
     if (printed && scaled < Math.pow(10, 1 - digits)) return `${sign}${prefix}${ownUnit(value, 3)}`
     return `${sign}${prefix}${group(fixed(scaled, digits))}${unit.suffix}`
   }
@@ -206,11 +209,12 @@ export function tooltipMoney(value: number, currency: string | null): string {
 }
 
 /** A per-share amount's tooltip value, in cents as a filing states it ("$6.13", "−$0.04", "$40,256.55"), with A2's sign
- *  and zero rules. */
+ *  and zero rules: an amount under half a cent is "$0", never a signed "−$0.00". */
 export function perShareMoney(value: number, currency: string | null): string {
   const prefix = moneyPrefix(currency)
-  if (value === 0) return `${prefix}0`
-  return `${value < 0 ? MINUS : ''}${prefix}${group(fixed(Math.abs(value), 2))}`
+  const cents = fixed(Math.abs(value), 2)
+  if (Number(cents) === 0) return `${prefix}0`
+  return `${value < 0 ? MINUS : ''}${prefix}${group(cents)}`
 }
 
 /** A2 for a percent axis: margins unsigned, growth signed ("+50%", "0%", "−50%"). */
@@ -237,14 +241,14 @@ export function percentFormat(step: number, signed: boolean): AxisFormat {
 
 /** A2 for a ratio axis, a multiple such as the current ratio: the step's decimals, then ×, with U+2212 for minus and
  *  zero as "0×". A printed ratio takes 2 dp ("0.87×"), as a filing states one, and so does its tooltip; a non-zero
- *  ratio that rounds to zero at a coarser tier keeps 1 dp, as a percent does. */
+ *  ratio that rounds to zero at its tier prints to its first significant figure ("0.4×", "0.004×"), never as a zero. */
 export function ratioFormat(step: number): AxisFormat {
   const tickDigits = decimalsOf(step)
   const format = (value: number, digits: number) => {
     if (value === 0) return '0×'
     const abs = Math.abs(value)
     let text = group(fixed(abs, digits))
-    if (Number(text.replace(/,/g, '')) === 0) text = fixed(abs, Math.max(1, digits))
+    if (Number(text.replace(/,/g, '')) === 0) text = fixed(abs, Math.max(1, digits, -Math.floor(Math.log10(abs))))
     return `${value < 0 ? MINUS : ''}${text}×`
   }
   return {
