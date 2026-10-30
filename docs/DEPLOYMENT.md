@@ -296,8 +296,11 @@ E110 parks the pending alert batches frozen with a plain-text part as `payload_d
 past `earningsnerd-backend-00661-zr9`, E245's step 1 (#1808): since step 2 dropped
 `waitlist_signups.email_verified`, an older revision maps the column, and the waitlist's join and
 status routes fail until traffic rolls forward. If an older revision must serve, re-add the column
-first (`email_verified BOOLEAN NOT NULL DEFAULT FALSE`; every row then reads false); the drop
-discarded its values, which only a database backup keeps
+first, by hand through the Cloud SQL proxy, since a migration file would deploy and route traffic
+back to the newest revision (`email_verified BOOLEAN NOT NULL DEFAULT FALSE`; every row then reads
+false). Once traffic rolls forward the column stays, the ledger having recorded the drop: delete the
+drop file's `migration_ledger` row and the next deploy drops it again. The drop discarded the
+column's values, which only a database backup keeps
 (`lessons/ops-drop-a-mapped-column-in-two-deploys.md`).
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`

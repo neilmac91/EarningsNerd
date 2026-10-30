@@ -31,8 +31,9 @@ declared the default, the same file was a no-op.
    column (`DO $$ … IF EXISTS (… information_schema.columns …) THEN ALTER TABLE … DROP COLUMN … END IF $$`), per
    `lessons/ops-migrations-need-lock-timeout.md`.
 3. **After step 2, roll traffic back no further than step 1's revision.** An older revision maps the column and fails
-   every read and insert of a whole row (a count still works), and `ops.yml`'s rollback takes any revision. Name the
-   limit in `docs/DEPLOYMENT.md`'s rollback section, where a responder looks, as E245's is.
+   every read and insert of a whole row (a count of one column, as the waitlist's stats count does, still works), and
+   `ops.yml`'s rollback takes any revision. Name the limit in `docs/DEPLOYMENT.md`'s rollback section, where a
+   responder looks, as E245's is.
 
 The review gate holds rule 2's order, not its wait. It fails a pull request whose migration drops a column the base
 branch's models still map (`backend/scripts/review_gate.py`, "Dropped columns"; `backend/tests/unit/test_review_gate.py`),
@@ -41,10 +42,11 @@ deploy: whether step 1's `deploy-backend` job is green before step 2 merges stay
 for a backend merge's deploy does. It reads each migration the pull request adds or changes at its head, and the base's
 models from the checkout the workflow makes, by their source. Since the workflow runs the base's script, a change to
 the gate first checks the pull request after the one that makes it: E245's step 1 added it, so step 2 is the first drop
-it checks. `test_migration_lock_safety.py` holds rule 2's guard, and that the guard checks the very table and column
-its branch drops: a guard that names another reads false on every database, so the file applies as a no-op and the
-column stays. Rules 1 and 3 stay review-checked, and so do a renamed column, a dropped table and a changed type,
-which break the serving code the same way.
+it checks. `test_migration_lock_safety.py` holds rule 2's guard, and that a drop's branch is opened by the one drop
+guard, naming that table and column as the catalog stores them: a guard that checks anything else (another column, an
+upper-case literal, a step-1 file's extra predicate) or a drop in its ELSE reads false wherever the column is, so the
+file applies as a no-op and the column stays. Rules 1 and 3 stay review-checked, and so do a renamed column, a
+dropped table and a changed type, which break the serving code the same way.
 
 ## Evidence
 
@@ -66,8 +68,9 @@ which break the serving code the same way.
     come first to avoid; a count of the table still worked.
   - Through `apply_migrations.sh` after step 1's files it applied alone (applied=1 skipped=51), and after a ledger
     reset all 52 applied again, the column staying dropped.
-  - CI's triple pass seeds `create_all` from step 2's models, so it runs only the file's no-op branch: the DROP ran
-    only in these local runs, on PostgreSQL 16, where production runs 15.
+  - CI's triple pass seeds `create_all` from step 2's models, so it runs only the file's no-op branch: no CI run
+    executes the DROP, and before the deploy it ran only in these local runs, on PostgreSQL 16, where production
+    runs 15.
 - `.github/workflows/ci.yml`: the `deploy-backend` steps, migrations first.
 - The gate on the real models: step 2's migration fails it against the models before step 1, which map the column
   (step 1 and step 2 in one pull request), and passes it against step 1's.

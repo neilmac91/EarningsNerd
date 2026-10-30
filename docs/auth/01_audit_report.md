@@ -173,7 +173,7 @@ CREATE TABLE waitlist_signups (
 );
 ```
 
-**Migration path:** These emails must be importable into the future `users` table with a `waitlist_joined_at` provenance field. The table no longer has the `email_verified` flag. A false in it could not tell whether a waitlist email was confirmed, since the welcome mail's verification link led to no page; from E46 (2) (2026-10-29) nothing set it, and E245 dropped it with its values, so no import can read confirmation from the table. The `name` field maps to `full_name`. No accounts should be auto-created — import as metadata only.
+**Migration path:** These emails must be importable into the future `users` table with a `waitlist_joined_at` provenance field. The table no longer has the `email_verified` flag. A false in it could not tell whether a waitlist email was confirmed, since the welcome mail's verification link led to no page; from E46 (2) (2026-10-29) nothing set it true, and E245 dropped it with its values, so no import can read confirmation from the table. The `name` field maps to `full_name`. No accounts should be auto-created — import as metadata only.
 
 ---
 
