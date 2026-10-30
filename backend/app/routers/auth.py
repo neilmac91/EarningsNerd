@@ -1571,10 +1571,10 @@ async def logout_all(
 
     The user is the access token's, read as ``get_current_user`` reads it on every route: a bearer before the access
     cookie, and an inactive account refused with 403. When no access token names a user (none came, or it has lapsed
-    after its 30 minutes or does not verify), a request that names the account its tab shows (``account_id``) finds
-    its user from the same cookie a logout reads, if it carries a live refresh token (E157 (2)); one that names none,
-    from a page loaded before the field, is answered as before it. With no user, 401. A request that names another
-    account than the user's is refused with 409: nothing is revoked and the cookies stay."""
+    after its 30 minutes, does not verify or names no account), a request that names the account its tab shows
+    (``account_id``) finds its user from the same cookie a logout reads, if it carries a live refresh token (E157 (2));
+    one that names none, from a page loaded before the field, is answered as before it. With no user, 401. A request
+    that names another account than the user's is refused with 409: nothing is revoked and the cookies stay."""
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
     actor = (current_user.id, current_user.email) if current_user else None

@@ -494,6 +494,7 @@ describe('"Log out of all devices" names the account the tab shows (E157 (2))', 
 
   it.each([
     [401, 'You are not logged in.'],
+    [403, 'This account is inactive. Contact support with any questions.'],
     [500, 'Something went wrong on our side.'],
   ])('says another refusal, a %i, in the section, with no toast and no read of /me', async (code, detail) => {
     await renderSettings()
@@ -503,6 +504,8 @@ describe('"Log out of all devices" names the account the tab shows (E157 (2))', 
     expect(await screen.findByText(detail)).toBeInTheDocument()
     await settle()
     expect(toasts.error).not.toHaveBeenCalled()
+    expect(toasts.warning).not.toHaveBeenCalled()
+    expect(toasts.success).not.toHaveBeenCalled()
     expect(meReads()).toBe(reads)
   })
 

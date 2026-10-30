@@ -1226,11 +1226,11 @@ def test_logout_all_raises_a_failed_lookup_of_the_access_tokens_user(client, mai
 
     def unavailable(db, email):
         raise OperationalError("SELECT users", {}, Exception("the pool timed out"))
-    monkeypatch.setattr(auth_account_service, "find_user_by_email", unavailable)
 
-    with pytest.raises(OperationalError):
-        client.post("/api/auth/logout-all", json={"account_id": user_id})
-    monkeypatch.undo()
+    with monkeypatch.context() as patch:
+        patch.setattr(auth_account_service, "find_user_by_email", unavailable)
+        with pytest.raises(OperationalError):
+            client.post("/api/auth/logout-all", json={"account_id": user_id})
     assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
 
 
