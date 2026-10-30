@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import api from '@/lib/api/client'
+import api, { ERROR_CODES, type KnownErrorCode } from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
 import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
 
@@ -386,8 +386,14 @@ describe('streamAnalysis', () => {
   // before E31), an unknown one, or a known one off its registered channel reads as none, and the words decide as before.
   it('decides the paywall on a known code first, whatever its words', () => {
     expect(isAnalysisPaywallError('Your plan does not include this.', 'plan_required')).toBe(true)
+    expect(isAnalysisPaywallError('Your plan does not include this.', 'free_allowance_exhausted')).toBe(true)
     expect(isAnalysisPaywallError('Upgrade to Pro is not the way past this cap.', 'pro_fair_use_limit')).toBe(false)
     expect(isAnalysisPaywallError('Upgrade to Pro is not the way past this cap.')).toBe(true)
+    // Every other known code is a pause, a rate limit or a sign-in, never a way to the plans (contract §3).
+    const others = (Object.keys(ERROR_CODES) as KnownErrorCode[])
+      .filter((code) => !['plan_required', 'free_allowance_exhausted'].includes(code))
+    expect(others).toContain('generation_paused')
+    for (const code of others) expect([code, isAnalysisPaywallError('Upgrade to Pro', code)]).toEqual([code, false])
   })
 
   const refusedWith = (status: number, body: Record<string, unknown>) => {

@@ -180,12 +180,15 @@ export interface AnalysisStreamHandlers {
   onError: (message: string, code?: KnownErrorCode) => void
 }
 
+/** The codes whose card offers the plans (the contract's §3): a plan the reader lacks, or Free's allowance used up. */
+const PLAN_CODES: ReadonlySet<KnownErrorCode> = new Set<KnownErrorCode>(['plan_required', 'free_allowance_exhausted'])
+
 /** The 403 "Pro feature" gate: the page adds a way to the plans beside it. The fair-use 429 is not one
  *  (a Pro user's monthly cap, stated once in the narrative card with no plan link). A known code decides
- *  (`plan_required` is the gate; `pro_fair_use_limit` and any other code are not), so the words may change;
- *  without one, from a server before E31, the words decide. */
+ *  (PLAN_CODES are the gate; `pro_fair_use_limit` and every other code, a pause or a rate limit, are not), so
+ *  the words may change; without one, from a server before E31, the words decide. */
 export const isAnalysisPaywallError = (message: string, code?: KnownErrorCode): boolean => {
-  if (code) return code === 'plan_required'
+  if (code) return PLAN_CODES.has(code)
   const m = (message || '').toLowerCase()
   return m.includes('pro feature') || m.includes('upgrade to pro')
 }
