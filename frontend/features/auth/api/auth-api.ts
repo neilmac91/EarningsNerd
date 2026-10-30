@@ -167,8 +167,13 @@ export class LogoutAllSuperseded extends Error {
 }
 
 /** The logout of every session. The app calls it only in the one-logout flight, never beside a Log out (E157:
- * accountQueryState's logoutAllInTurn; held by tests/unit/logoutCallSitesGate.spec.ts). */
-export const logoutAllSessions = async () => {
+ * accountQueryState's logoutAllInTurn; held by tests/unit/logoutCallSitesGate.spec.ts). It names the account the tab
+ * shows (`accountId`), and the route refuses with 409, ending nothing, when the browser's session is another account's:
+ * a tab learns of another tab's login only through /me (E29 (3)), so it can still show the account it loaded with
+ * (E157 (2)). Naming it also lets the route find that account from the refresh cookie once the access cookie has
+ * lapsed. Without an account to name, it names none, and the route answers as before the field: for the access
+ * token's account, or 401 once that has lapsed. */
+export const logoutAllSessions = async (accountId?: number) => {
   const generation = beginLogout()
   try {
     const response = await withSessionCookiesForPost(LOGOUT_REFRESH_WAIT_MS, async () => {
@@ -178,7 +183,7 @@ export const logoutAllSessions = async () => {
       // passive loss of the session meanwhile is no such transition: it still posts. The check runs after both waits,
       // in the post's turn.
       if (!isExplicitSessionGenerationCurrent(generation)) throw new LogoutAllSuperseded()
-      return api.post('/api/auth/logout-all')
+      return api.post('/api/auth/logout-all', accountId === undefined ? undefined : { account_id: accountId })
     })
     return response.data
   } finally {

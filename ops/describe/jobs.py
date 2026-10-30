@@ -9,7 +9,11 @@ backend/tests/unit/test_ops_describe_jobs.py and test_ops_stderr_withheld.py.
 import json
 import os
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from ops.describe.summary_configuration import runtime_configuration
 
 expected_pools = {
     "earningsnerd-pregenerate": "3",
@@ -100,6 +104,7 @@ for name, expected_pool in expected_pools.items():
     print("  EDGAR_RATE_LIMIT_PER_SEC:", values["EDGAR_RATE_LIMIT_PER_SEC"])
     print("  command/args:", entrypoint)
     print("  env:", ", ".join(env_kinds) if env_kinds else "(none)")
+    print("  Summary/SEC runtime configuration:", json.dumps(runtime_configuration(container.get("env", [])), sort_keys=True))
 if len(images) != 1:
     fail("expected jobs do not share one release image.")
 if failures:

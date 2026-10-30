@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 from typing import Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -20,6 +20,7 @@ import httpx
 import jwt
 
 from app.database import get_db
+from app.dependencies import resolve_current_user_or_none
 from app.models import User
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -190,6 +191,15 @@ def _require_new_collection() -> None:
 class RefreshRequest(BaseModel):
     # Optional body fallback for non-browser clients; browsers use the HttpOnly cookie.
     refresh_token: Optional[str] = None
+
+
+class LogoutAllRequest(BaseModel):
+    """The account the tab shows (E157 (2)). A tab learns of another tab's login only through /me (E29 (3)), so a
+    stale tab posts with the cookies of the account the browser holds now; naming its own lets the route refuse to end
+    that account's sessions, and to end its own from the refresh cookie once the access token has lapsed. Optional, so
+    a page loaded before the field logs out as before."""
+
+    account_id: Optional[StrictInt] = None
 
 
 class VerifyEmailRequest(BaseModel):
@@ -405,16 +415,22 @@ def _get_token_from_request(
     return cookie_token
 
 
+def _not_logged_in() -> HTTPException:
+    """The refusal of a request no live credential authenticates: ``get_current_user``'s, and the logout of every
+    session's when no credential it reads names a user (E157 (2))."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="You are not logged in.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="You are not logged in.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    credentials_exception = _not_logged_in()
     token = _get_token_from_request(credentials, request)
     if not token:
         raise credentials_exception
@@ -861,42 +877,71 @@ async def refresh(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+def _grant_reverse_trial_on_verify(db: Session, user: User, user_id: int) -> bool:
+    """Grant the reverse trial to an account its verification just confirmed, in the verification's thread-pool
+    unit, and say whether it was granted.
+
+    Only now, on verification, so no-card Pro needs a real, verified inbox rather than any freshly registered
+    (unverified) address. Committed on its own, after the verification's commit, and best-effort: its eligibility
+    read, the grant, its commit and the discard of a failed grant are each caught and logged, so nothing here undoes
+    the verification or turns its answer into an error (E121). An account that already has active or trialing Pro,
+    resolved through ``entitlements.is_pro_user`` (the plan's one source, rule 4), is skipped, and a link's second
+    post waits at the verification's row lock and is refused (``verify_email_token``), so neither a duplicate grant
+    nor a spurious "trial started" event happens (``start_reverse_trial`` is idempotent too)."""
+    from app.services.entitlements import is_pro_user
+
+    try:
+        if is_pro_user(user):
+            return False
+        auth_account_service.grant_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
+    except Exception:
+        try:
+            auth_account_service.discard_reverse_trial(db)
+        except Exception as discard_failure:
+            # The class alone, as the account mails log theirs: a database error's text quotes its statement.
+            logger.warning("Discarding a failed reverse trial for user %s failed: %s",
+                           user_id, discard_failure.__class__.__name__)
+        logger.warning("Failed to start reverse trial for user %s on verify", user_id, exc_info=True)
+        return False
+    return True
+
+
 @router.post("/verify-email")
 async def verify_email(
     payload: VerifyEmailRequest,
     db: Session = Depends(get_db),
 ):
-    """Verify a user's email address using the single-use token from the verification email."""
+    """Verify a user's email address using the single-use token from the verification email.
+
+    One unit in the thread pool, released before the route answers, verifies the address and, behind
+    ``REVERSE_TRIAL_ENABLED`` (default off), grants the reverse trial in a commit of its own, so no statement,
+    commit or read of the account its commit expired runs on the event loop (E121). The trial-started event is
+    sent after the release."""
+    def verify() -> Optional[int]:
+        try:
+            user, user_id = auth_account_service.verify_email_token(db, payload.token)
+            if settings.REVERSE_TRIAL_ENABLED and _grant_reverse_trial_on_verify(db, user, user_id):
+                return user_id
+            return None
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user = auth_account_service.verify_email_token(db, payload.token)
+        trial_user_id = await run_in_threadpool(verify)
     except auth_account_service.AccountTokenInvalidError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification link.") from None
     except auth_account_service.AccountTokenExpiredError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification link has expired. Request a new one.") from None
 
-    # Grant the reverse trial only now, on verification — so no-card Pro requires a real, verified
-    # inbox rather than being handed to any freshly-registered (unverified) address. Behind the flag
-    # (default off), best-effort, and committed separately so a trial-grant failure can't undo the
-    # verification. Skip entirely if the user already has active/trialing Pro — resolved via the
-    # entitlements SSoT, not the is_pro mirror — so we neither duplicate-grant nor fire a spurious
-    # "trial started" event. (start_reverse_trial is also internally idempotent.)
-    if settings.REVERSE_TRIAL_ENABLED:
-        from app.services.entitlements import is_pro_user
-        if not is_pro_user(user):
-            try:
-                auth_account_service.grant_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
-            except Exception:
-                auth_account_service.discard_reverse_trial(db)
-                logger.warning("Failed to start reverse trial for user %s on verify", user.id, exc_info=True)
-            else:
-                try:
-                    capture_event(
-                        str(user.id),
-                        EVENT_TRIAL_STARTED,
-                        {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
-                    )
-                except Exception:
-                    logger.warning("Trial-started telemetry failed for user %s", user.id, exc_info=True)
+    if trial_user_id is not None:
+        try:
+            capture_event(
+                str(trial_user_id),
+                EVENT_TRIAL_STARTED,
+                {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
+            )
+        except Exception:
+            logger.warning("Trial-started telemetry failed for user %s", trial_user_id, exc_info=True)
     return {"message": "Email verified."}
 
 
@@ -1518,19 +1563,43 @@ async def logout(
 async def logout_all(
     request: Request,
     response: Response,
+    payload: Optional[LogoutAllRequest] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(resolve_current_user_or_none),
 ):
-    """Revoke every refresh token for the user (sign out all devices) and clear this session."""
+    """Revoke every refresh token of the logged-in user (log out all devices) and clear this session.
+
+    The user is the access token's, read as ``get_current_user`` reads it on every route: a bearer before the access
+    cookie, and an inactive account refused with 403. When no access token names a user (none came, or it has lapsed
+    after its 30 minutes, does not verify or names no account), a request that names the account its tab shows
+    (``account_id``) finds its user from the same cookie a logout reads, if it carries a live refresh token (E157 (2));
+    one that names none, from a page loaded before the field, is answered as before it. With no user, 401. A request
+    that names another account than the user's is refused with 409: nothing is revoked and the cookies stay."""
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
-    user_id, user_email = current_user.id, current_user.email
+    actor = (current_user.id, current_user.email) if current_user else None
+    shown = payload.account_id if payload is not None else None
     hashed_ip = _hashed_client_ip(request)
 
     def revoke_all() -> int:
-        # One unit in the thread pool, released before the route returns (see ``logout``).
+        # One unit in the thread pool, released before the route returns (see ``logout``): the refresh token's owner,
+        # read when the access token named no one, the revocation under the users row lock, and the audit row.
         try:
-            revoked = refresh_token_service.revoke_all_and_commit(db, user_id)
-            audit_service.log_logout(db, user_id, user_email, ip_address=hashed_ip)
+            user = actor
+            if user is None and shown is not None:
+                user = refresh_token_service.live_token_owner(db, raw_token)
+            if user is None:
+                raise _not_logged_in()
+            if shown is not None and shown != user[0]:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "This browser is logged in to a different account from the one this page shows, "
+                        "so no devices were logged out."
+                    ),
+                )
+            revoked = refresh_token_service.revoke_all_and_commit(db, user[0])
+            audit_service.log_logout(db, user[0], user[1], ip_address=hashed_ip)
             return revoked
         finally:
             filing_list_service.release_request_session(db)

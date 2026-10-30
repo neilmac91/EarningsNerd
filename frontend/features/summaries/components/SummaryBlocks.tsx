@@ -407,9 +407,15 @@ function GenericTable({ label, headers, rows, rowEvidence }: {
   return (
     <div>
       {overflowing && <p id={hintId} className={`mb-2 text-xs ${MUTED}`}>Scroll horizontally to read all columns.</p>}
+      {/* The region's attributes are written out, not spread from regionProps, so tests/unit/siteChromeFocusRing.spec.ts
+          reads the box's Tab stop and holds it to the ring, and tests/unit/dialogAllowlist.spec.ts can prove the role is
+          no dialog's. */}
       <div ref={boxRef}
-        className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-        {...regionProps}>
+        role={overflowing ? 'region' : undefined}
+        tabIndex={regionProps.tabIndex}
+        aria-label={regionProps['aria-label']}
+        aria-describedby={regionProps['aria-describedby']}
+        className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
       <table className="min-w-full border-collapse">
         <caption className="sr-only">{label}</caption>
         {headers.length > 0 && (

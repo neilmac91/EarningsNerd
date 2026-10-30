@@ -28,6 +28,9 @@ class ErrorCode(StrEnum):
     PRO_FAIR_USE_LIMIT = "pro_fair_use_limit"
     GENERATION_PAUSED = "generation_paused"
     EARNINGS_ALERT_LIMIT = "earnings_alert_limit"
+    SUMMARY_RATE_LIMITED = "summary_rate_limited"
+    SEC_RATE_LIMITED = "sec_rate_limited"
+    FILING_SOURCE_UNAVAILABLE = "filing_source_unavailable"
 
 
 # The HTTP status each code is sent with.
@@ -39,10 +42,16 @@ REGISTERED_STATUS: Mapping[ErrorCode, int] = {
     ErrorCode.PRO_FAIR_USE_LIMIT: 429,
     ErrorCode.GENERATION_PAUSED: 503,
     ErrorCode.EARNINGS_ALERT_LIMIT: 403,
+    ErrorCode.SUMMARY_RATE_LIMITED: 429,
+    ErrorCode.SEC_RATE_LIMITED: 429,
+    ErrorCode.FILING_SOURCE_UNAVAILABLE: 503,
 }
 
 # The codes a stream's error event may carry: the refusals a stream reaches after it has opened.
-STREAM_CODES = frozenset({ErrorCode.FREE_ALLOWANCE_EXHAUSTED, ErrorCode.PRO_FAIR_USE_LIMIT, ErrorCode.GENERATION_PAUSED})
+STREAM_CODES = frozenset({
+    ErrorCode.FREE_ALLOWANCE_EXHAUSTED, ErrorCode.PRO_FAIR_USE_LIMIT, ErrorCode.GENERATION_PAUSED,
+    ErrorCode.SUMMARY_RATE_LIMITED, ErrorCode.SEC_RATE_LIMITED, ErrorCode.FILING_SOURCE_UNAVAILABLE,
+})
 
 
 def sse_error(message: str, code: ErrorCode, **fields: Any) -> dict[str, Any]:

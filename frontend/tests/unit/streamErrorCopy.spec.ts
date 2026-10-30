@@ -577,7 +577,7 @@ describe('the summary stream error sentences the filing page maps', () => {
     // run and says to sign in), the 404 is kept retryable since round 3 (only a row deleted mid-run reaches it), and
     // a 429 lifts after a moment.
     const NO_RETRY_HELPS = new Set([403])
-    const A_RETRY_CAN_HELP = new Set([401, 404, 429])
+    const A_RETRY_CAN_HELP = new Set([401, 404, 429, 503])
     const answers = endpointErrors()
     for (const { file } of ENDPOINT) {
       expect(answers.some((answer) => answer.file === file && answer.status === 403), `${file} answers with a 403 the reader reads`).toBe(true)

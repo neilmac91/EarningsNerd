@@ -16,7 +16,7 @@ import datetime
 import json
 import logging
 from dataclasses import dataclass, replace
-from typing import AsyncIterator, Optional
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -52,6 +52,13 @@ from app.services.summary_schema import TRACKED_SECTIONS_V2
 # fake clock …). Nothing in this module calls most of them any more; they are kept here on purpose.
 # Gate: tests/unit/test_summary_stages_seams.py (every ``pipeline.<name>`` a stage uses must exist here).
 import time  # noqa: F401
+from app.error_codes import ErrorCode  # noqa: F401
+from app.services.edgar.exceptions import (  # noqa: F401
+    EdgarError, EdgarRateLimitError, EdgarNetworkError, FilingNotFoundError,
+)
+from app.services.edgar.circuit_breaker import CircuitOpenError, edgar_circuit_breaker  # noqa: F401
+from app.services.sec_rate_limiter import SECRateLimiter  # noqa: F401
+from app.services.sec_request_gate import SECAdmissionUnavailable  # noqa: F401
 # Keep the existing dispatch seam for lifecycle tests while tracking actual worker futures.
 from app.services.request_work import RequestWork, run_owned_sync as run_in_threadpool  # noqa: F401
 from app.services.ai.provider_requests import provider_start_signal  # noqa: F401
@@ -59,6 +66,7 @@ from app.services.content_cache import upsert_content_cache  # noqa: F401
 from app.services.edgar.compat import sec_edgar_service, xbrl_service  # noqa: F401
 from app.services.edgar.sixk_classifier import classify_sixk_text  # noqa: F401
 from app.services.edgar.sixk_extractor import get_sixk_text  # noqa: F401
+from app.services.edgar.eightk_extractor import get_eightk_grounding  # noqa: F401
 from app.services.edgar.statement_context import acquire_statement_context  # noqa: F401
 from app.services.fallback_summary import generate_xbrl_summary  # noqa: F401
 from app.services.openai_service import openai_service  # noqa: F401
@@ -90,6 +98,9 @@ from app.services.summary_versioning import SUMMARY_PROMPT_VERSION  # noqa: F401
 from app.services.summary_stages import (
     admission, enrichment, failure, fetch, finalize, generation, generation_run,
 )
+
+if TYPE_CHECKING:
+    from app.services.summary_job_store import SummaryJobLease
 
 logger = logging.getLogger(__name__)
 
@@ -347,10 +358,10 @@ def _get_generation_semaphore() -> asyncio.Semaphore:
 # deliberately above the sum of the typical per-step budgets (≈15s fetch + 18s enrichment + 75s AI
 # fallback ≈ 108s) so the per-step timeouts remain the primary controls and the AI fallback
 # always gets to produce a (partial) result rather than being pre-empted into a timeout error.
-# Two waits are not in that sum: the fetch's 15s is per attempt (up to three, with backoff), and the
-# section parse is awaited before the enrichment join, bounded by get_filing_sections (30s, 40s for a
-# 20-F; typically under 7s). With every step at its bound together the backstop can pre-empt the
-# AI fallback, as it could before E28.
+# The document fetch's 15s is one total budget including token waits and transient retries.
+# The section parse is awaited before the enrichment join, bounded by get_filing_sections (30s,
+# 40s for a 20-F; typically under 7s). With every step at its bound together the backstop can
+# pre-empt the AI fallback, as it could before E28.
 # The whole pipeline body runs inside `asyncio.timeout(PIPELINE_TIMEOUT_SECONDS)`.
 # Final cleanup may exceed this deadline while a synchronous worker finishes; cancelling its
 # asyncio waiter cannot kill its thread, and releasing ownership early would abandon that work.
@@ -403,6 +414,8 @@ async def stream_filing_summary(
     refresh_xbrl: bool = False,
     rebuild_excerpt: bool = False,
     request_evidence: SummaryRequestEvidence | None = None,
+    admit_generation: Callable[[], Optional[dict]] | None = None,
+    durable_lease: SummaryJobLease | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
@@ -435,6 +448,19 @@ async def stream_filing_summary(
     stored excerpt changes only with the summary it grounds. ``rebuild_excerpt`` (set only by a forced
     precompute) builds that excerpt with the current extraction instead of reusing a stored one.
     """
+    if settings.SUMMARY_DURABLE_GENERATION_ENABLED:
+        from app.services.summary_job_store import SummaryJobLeaseLost, validate_job_lease
+        owned = durable_lease is not None and durable_lease.filing_id == filing_id
+        if owned:
+            try:
+                await run_in_threadpool(validate_job_lease, durable_lease)
+            except SummaryJobLeaseLost:
+                owned = False
+        if not owned:
+            logger.warning("[stream:%s] Refusing generation without durable ownership", filing_id)
+            yield {"type": "error", "code": ErrorCode.GENERATION_PAUSED.value, "retryable": False,
+                   "message": "Summary generation is temporarily unavailable. Try again shortly."}
+            return
     run = generation_run.GenerationRun(
         filing_id=filing_id,
         current_user=current_user,
@@ -448,6 +474,8 @@ async def stream_filing_summary(
         refresh_xbrl=refresh_xbrl,
         rebuild_excerpt=rebuild_excerpt,
         request_evidence=request_evidence,
+        admit_generation=admit_generation,
+        durable_lease=durable_lease,
     )
     run.emit_funnel(
         telemetry_distinct_id,

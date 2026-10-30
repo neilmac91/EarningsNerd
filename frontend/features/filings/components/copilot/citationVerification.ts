@@ -6,7 +6,7 @@ export const SOURCE_MATCH_SCOPE =
 
 /** Both source kinds are reindexed; model-supplied section labels cannot attest numeric provenance, so the figure
  *  labels follow only the server's own fact payload (`fact` and `calculated`, admitted in copilot-api.ts), never an
- *  "XBRL · …" section label (which still styles the row, isXbrlCitation). The words are the product's one evidence
+ *  "XBRL · …" section label, as the row's figure layout does (isXbrlCitation). The words are the product's one evidence
  *  vocabulary (lib/evidenceLabels): a filed figure matches the filing, a computed one is calculated from it, either is
  *  only linked when unchecked, and a passage is a quote found in the filing or only its section (or the filing, when it
  *  names none). */

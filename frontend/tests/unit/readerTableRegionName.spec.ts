@@ -117,4 +117,27 @@ describe('ReaderTable naming', () => {
     expect(box).toHaveAttribute('aria-label', 'Scrollable table: Item 8')
     expect(scans).toHaveBeenCalledTimes(2)
   })
+
+  // The box writes the region's attributes out (siteChromeFocusRing.spec.ts reads its Tab stop for the ring).
+  it('is a named region in the Tab order while its table is wider than its box, and none of it once the table fits', () => {
+    let notify = () => {}
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { notify = callback }
+      observe() {}
+      disconnect() {}
+    })
+    const { container } = render(
+      createElement('div', { className: 'filing-reader' }, createElement('h2', null, 'Item 8'), createElement(ReaderTable, null, createElement('tbody'))),
+    )
+    const box = container.querySelector<HTMLElement>('.filing-table-scroll')!
+    const stop = (scroll: number) => {
+      Object.defineProperty(box, 'scrollWidth', { configurable: true, value: scroll })
+      Object.defineProperty(box, 'clientWidth', { configurable: true, value: 400 })
+      act(() => notify())
+      return { role: box.getAttribute('role'), tabIndex: box.getAttribute('tabindex'), name: box.getAttribute('aria-label') }
+    }
+
+    expect(stop(900)).toEqual({ role: 'region', tabIndex: '0', name: 'Scrollable table: Item 8' })
+    expect(stop(400)).toEqual({ role: null, tabIndex: null, name: null })
+  })
 })

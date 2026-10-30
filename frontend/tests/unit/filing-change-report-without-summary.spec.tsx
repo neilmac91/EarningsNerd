@@ -21,7 +21,11 @@ const state = vi.hoisted(() => ({
   getFiling: vi.fn(),
 }))
 vi.mock('next/navigation', () => ({ useParams: () => ({ id: '42' }), useRouter: () => ({ back: vi.fn(), push: vi.fn() }) }))
-vi.mock('@/lib/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() }, getApiUrl: vi.fn() }))
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  default: { get: vi.fn().mockResolvedValue({ data: {} }), post: vi.fn() },
+  getApiUrl: vi.fn(),
+}))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => Promise.resolve(state.user) }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getSubscriptionStatus: () => Promise.resolve({ is_pro: false }) }))
 vi.mock('@/features/filings/api/filings-api', () => ({
@@ -96,6 +100,26 @@ afterEach(() => {
 })
 
 describe('filing read recovery', () => {
+  it('keeps the previously loaded summary visible after a failed refresh and offers ordinary recovery', async () => {
+    const retry = vi.fn()
+    const regenerate = vi.fn()
+    state.user = { id: 7 }
+    state.generation = {
+      summary: { id: 73, filing_id: FILING.id, business_overview: 'Previously loaded grounded company summary.' },
+      hasSummaryContent: true, hasStartedGeneration: true, isStreaming: false,
+      generationError: 'The connection closed before the summary finished. Try again.',
+      handleRetrySummary: retry, handleRegenerateSummary: regenerate,
+    }
+    mount()
+    const notice = await screen.findByRole('alert')
+    expect(notice).toHaveTextContent('Could not confirm the refreshed summary.')
+    expect(notice).toHaveTextContent('Showing the previously loaded summary.')
+    expect(screen.getByText('Previously loaded grounded company summary.')).toBeVisible()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    expect(retry).toHaveBeenCalledOnce()
+    expect(regenerate).not.toHaveBeenCalled()
+  })
+
   it('keeps an initial offline read unresolved rather than declaring the filing missing', () => {
     onlineManager.setOnline(false)
     mount()

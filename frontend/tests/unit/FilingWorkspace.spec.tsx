@@ -49,9 +49,14 @@ describe('FilingWorkspace', () => {
     expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('aria-selected', 'false')
   })
 
-  it('is named for the source: a "Source" pane labelled "Filing source and Ask", an aside on lg+', () => {
+  it('is named for the source: its "Source" header names the pane, an aside on lg+', () => {
     renderWorkspace({ sourceLabel: 'AAPL · 10-K · filed Oct 28, 2022' })
-    const pane = screen.getByRole('complementary', { name: 'Filing source and Ask' })
+    const pane = screen.getByRole('complementary', { name: 'Source' })
+    // The name is the header a sighted reader sees, inside the pane, not words of its own.
+    const title = document.getElementById(pane.getAttribute('aria-labelledby') ?? '')
+    expect(pane).not.toHaveAttribute('aria-label')
+    expect(pane).toContainElement(title)
+    expect(title).toHaveTextContent(/^Source$/)
     expect(pane).not.toHaveAttribute('aria-modal')
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(pane).toHaveTextContent('Source')
@@ -232,8 +237,8 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
 }
 
 // The shell is an aside on lg+ and a dialog below it; while hidden (aria-hidden) it has no accessible
-// name in the a11y tree, so it is located by its label attribute rather than by role + name.
-const dialog = () => document.querySelector<HTMLElement>('[aria-label="Filing source and Ask"]')!
+// name in the a11y tree, so it is located by the attribute that names it rather than by role + name.
+const dialog = () => document.querySelector<HTMLElement>('[aria-labelledby="source-pane-title"]')!
 const chip = () => screen.getByRole('button', { name: 'Source: Quote found in filing' })
 const filingTab = () => screen.getByRole('tab', { name: /filing/i })
 const answerChip = () => screen.getByRole('button', { name: /^Citation 1:/ })

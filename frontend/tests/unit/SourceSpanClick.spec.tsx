@@ -29,6 +29,7 @@ const xbrlCitation: CopilotCitation = {
   section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
   verified: false,
   fragment_url: 'https://www.sec.gov/filing',
+  fact: true,
 }
 
 const sourceSpanCalls = () => mockCapture.mock.calls.filter(([event]) => event === 'source_span_click')
@@ -56,6 +57,18 @@ describe('source_span_click instrumentation (item 1.8)', () => {
       verified: true,
       action: 'scroll_highlight',
     })
+  })
+
+  it('tags a citation labelled "XBRL · …" without the fact payload as citation_kind "text" (E179)', () => {
+    render(
+      <FilingViewerProvider filingId={42} ticker="BABA" filingType="20-F">
+        <CitationChip citation={{ ...xbrlCitation, fact: undefined }} />
+      </FilingViewerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /citation f1/i }))
+
+    expect(sourceSpanCalls()).toHaveLength(1)
+    expect(sourceSpanCalls()[0][1]).toMatchObject({ citation_index: 'F1', citation_kind: 'text' })
   })
 
   it('tags XBRL figure citations as citation_kind "xbrl" (carries the verified flag through)', () => {
