@@ -8,13 +8,10 @@ import type { Page } from '@playwright/test'
  * these fixtures — the public Apple FY2025 10-K as filing 3, its summary a trimmed copy in
  * filing-3-summary.json, its Financial trends series a trimmed copy in filing-3-fundamentals.json,
  * and the session / subscription endpoints for an anonymous visitor or a Pro
- * user. Shared by filing-source-chip.spec.ts (EN-01), consent-bar-yields.spec.ts (EN-02),
- * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top),
- * filing-reader-wide-tables.spec.ts (EN-04, the `tables` content), prose-links.spec.ts (D-030,
- * which routes an answer with a link), header-covers-nothing.spec.ts (the pane under the
- * open menu), copilot-status-line.spec.ts (E238, which holds the Ask stream) and
- * filing-fundamentals-chart.spec.ts (E195 D, the Financial trends card); a spec seeds
- * its own browser state (theme, consent, coachmark) in its own addInitScript.
+ * user. Shared by every e2e spec that calls `answerApi` (`git grep -l answerApi tests/e2e` lists
+ * them: the filing page's chips, links, panes and Ask stream, the layout and contrast gates
+ * reflow-200.spec.ts and text-floors.spec.ts, and filing-fundamentals-chart.spec.ts among them);
+ * a spec seeds its own browser state (theme, consent, coachmark) in its own addInitScript.
  */
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 export const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-summary.json'), 'utf8')) as Record<string, unknown>
@@ -24,7 +21,8 @@ export const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-su
  *  linking its SEC folder; net margin, a percent; the current ratio, a multiple; and working capital, negative in both
  *  years. The last three are calculated and need a source check, so the card shows its badge on them and Sources &
  *  checks gives their reasons. CI's e2e build turns the card on, as production's does
- *  (NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS), so every spec that answers the API from here meets it drawn. */
+ *  (NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS), so a spec that opens /filing/3 on its stored summary from here meets it drawn;
+ *  one that withholds the summary, or opens another page, does not. */
 export const FUNDAMENTALS = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-fundamentals.json'), 'utf8')) as {
   ticker: string
   company_name: string

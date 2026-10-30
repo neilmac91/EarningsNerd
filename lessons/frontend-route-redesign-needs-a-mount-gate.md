@@ -33,6 +33,13 @@ mounting `fetchNotableFilings` at its old 900 s cut the whole homepage's ISR win
 reads 900 at 900 and 3600 at 3600. Check that manifest before and after adding any server fetch to
 a shared route.
 
+**Where a fixture answers the fetcher (2026-10-30, E195 (D), #1830)**: "CI Playwright has no backend" holds only
+where nothing answers the section's fetcher. `frontend/tests/e2e/fixtures/filing3Api.ts` answers the filing page's API
+in the browser, so a browser gate there (`frontend/tests/e2e/filing-fundamentals-chart.spec.ts`) sees the filing
+page's Financial trends card go missing on a build without its flag, and survives a change of renderer that a source
+pin on the component's name would not. Where a fixture answers the fetcher, gate the mount in the browser, built as CI
+ships it, and assert what only that section's success renders; keep the source pin where nothing answers it.
+
 **Evidence**: `d26289e5` (2026-09-10 landing revamp) removed the section;
 `frontend/app/page.tsx` re-mount and `frontend/tests/unit/landing-sections-mounted.spec.ts` gate;
 `tasks/handover-wave3-2026-09.md` W3-10 row.
