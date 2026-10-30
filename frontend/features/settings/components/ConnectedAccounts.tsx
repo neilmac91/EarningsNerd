@@ -17,6 +17,7 @@ import {
   LOGGED_IN_AS_ANOTHER_MESSAGE,
   LOGGED_OUT_FIRST_MESSAGE,
   LoggedOutFirst,
+  STEP_TOAST_DURATION_MS,
   logoutAllInTurn,
 } from '@/features/auth/lib/accountQueryState'
 import { ApiError } from '@/lib/api/client'
@@ -84,7 +85,7 @@ export default function ConnectedAccounts() {
       // The Log out it waited for logged this device out (E157). The page leaves with that Log out and renders no section
       // for a reader gone, so this section's error line would never show: a toast outlives the page.
       if (err instanceof LoggedOutFirst) {
-        toast.error(LOGGED_OUT_FIRST_MESSAGE)
+        toast.error(LOGGED_OUT_FIRST_MESSAGE, { duration: STEP_TOAST_DURATION_MS })
         return
       }
       // The browser's session is another account's (another tab logged in, E29 (3)), so the route ended nothing (E157
@@ -93,7 +94,7 @@ export default function ConnectedAccounts() {
       if (err instanceof ApiError && err.status === 409) {
         // A line an earlier failure left says nothing true of this press.
         setError('')
-        toast.error(LOGGED_IN_AS_ANOTHER_MESSAGE)
+        toast.error(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: STEP_TOAST_DURATION_MS })
         void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
         return
       }

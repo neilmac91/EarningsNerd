@@ -21,6 +21,19 @@ export const LOGGED_OUT_FIRST_MESSAGE =
 export const LOGGED_IN_AS_ANOTHER_MESSAGE =
   "This browser is now logged in to another account, so we didn't log out any devices. Log in to the account you meant, then choose “Log out of all devices” again."
 
+/** What a Log out that waited on a failed "Log out of all devices" tells the reader once it logs this browser out
+ * (E157, chief design on #1813): its page leaves, and that control's error line goes with it. The end state is
+ * LoggedOutFirst's (this browser out, the other devices still in), so the step is its step. It opens as the logout
+ * route's 503 detail does. */
+export const LOGGED_OUT_HERE_ONLY_MESSAGE =
+  "This browser is logged out, but we couldn't log out your other devices. Log in, then choose “Log out of all devices” again."
+
+/** How long the flight's error toasts that give a step stay up: LOGGED_OUT_FIRST_MESSAGE's, LOGGED_IN_AS_ANOTHER_MESSAGE's
+ * and LOGGED_OUT_HERE_ONLY_MESSAGE's (chief design on #1813). Sonner's own 4 s pauses only under a pointer, on a press,
+ * while the tab is hidden or after its Alt+T, so a keyboard reader gets 4 s for 23 to 31 words, about 6 to 8 s of
+ * reading, and two of the three arrive as the page changes. CookieConsent's error toast with a step takes the same. */
+export const STEP_TOAST_DURATION_MS = 10000
+
 /** A logout of every session that posted nothing: the logout it waited for logged this device out (logoutAllInTurn). */
 export class LoggedOutFirst extends Error {
   constructor() {
@@ -201,7 +214,9 @@ let logoutUnderWay: LogoutUnderWay | null = null
  * its callback runs. A call while "Log out of all devices" runs waits for it (E157): one that took ended this session
  * with the others, and the call settles with it, its callback unrun; one that failed left the session, and the call
  * then runs as a fresh press would, its own request, callback and report, unless a login has taken the tab since. That
- * control's error line may have gone with its page, so a press that only joined it would end in silence.
+ * control's error line may have gone with its page, so a press that only joined it would end in silence; and when the
+ * fresh press logs this browser out, its page leaves with that line, so it says the failure in a toast
+ * (LOGGED_OUT_HERE_ONLY_MESSAGE), unless it was the 409, whose own toast gave the reader its step.
  */
 export function logoutAndResetAccount(
   queryClient: QueryClient,
@@ -226,7 +241,14 @@ function pressLogout(
       () => undefined,
       (error: unknown) => {
         if (!isExplicitSessionGenerationCurrent(waitedFor)) throw error
-        return pressLogout(queryClient, logout, onCurrentSettled)
+        // The 409 said its own step (ConnectedAccounts); a second toast would give another.
+        const saidItself = error instanceof ApiError && error.status === 409
+        return pressLogout(queryClient, logout, (succeeded) => {
+          // Logged out: the page leaves, and the failed control's line with it. A Log out whose own request failed
+          // said so (LOGOUT_FAILED_MESSAGE), and its page stays.
+          if (succeeded && !saidItself) toast.error(LOGGED_OUT_HERE_ONLY_MESSAGE, { duration: STEP_TOAST_DURATION_MS })
+          onCurrentSettled?.(succeeded)
+        })
       },
     )
   }
@@ -302,7 +324,9 @@ async function settleLogout(
  * joins it. One that failed puts the session flag back as it found it, as a failed Log out does for its read of /me:
  * its request clears the flag whatever the answer, and without it a lapsed access cookie would read as a guest while
  * the refresh cookie lives; a login accepted since marks its own. It resets nothing: its control clears the cache and
- * leaves once it took (ConnectedAccounts). It names the account the tab showed when it was pressed (`accountId`), which
+ * leaves once it took (ConnectedAccounts). The route clears no cookie when it fails (a revoke that fails raises:
+ * test_auth_token_flows.py's test_logout_all_raises_a_failed_revoke_and_clears_no_cookie), so the session it puts the
+ * flag back for is still there. It names the account the tab showed when it was pressed (`accountId`), which
  * a wait keeps, since a login or another reader moves the generation and ends the wait as LogoutAllSuperseded; the
  * route refuses another account's (E157 (2)), and that refusal leaves the session, so the flag goes back as for any. */
 export function logoutAllInTurn(accountId?: number): Promise<void> {
