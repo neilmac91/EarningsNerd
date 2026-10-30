@@ -172,8 +172,8 @@ Other tools Codex and Astra do not have, and what to do instead:
   the push. Nor does `.claude/hooks/codex_review_overlap_guard.py` hold your ready marks and review
   requests: before either, read the pull request's Codex summary, and while it shows a review Running,
   wait until that review completes or is an hour old; after a ready mark or review request of the last
-  five minutes that it does not show yet, wait until it does
-  (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
+  five minutes that its row does not show yet (compare the row's time), wait until it does or the five
+  minutes have passed (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
 - **No background monitors.** After merging a PR touching deployable backend files (`backend/`
   outside `backend/tests/`): find the run (`gh run list --workflow ci.yml --branch main --event push -L 1`,
   or the unauthenticated `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`),

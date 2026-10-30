@@ -144,6 +144,7 @@ class FakeGitHub:
         self.redirect: str | None = None  # GETs answer 302 to this base URL, the path kept
         self.graphql_status = 200
         self.graphql_errors = False
+        self.graphql_headers: dict[str, str] = {}  # sent with a GraphQL refusal (graphql_status)
         self.comment_bodies: list[str] = []  # bodies the summary shows on successive reads, the last repeating
         self.requests: list[tuple[str, str, dict, str]] = []
 
@@ -172,10 +173,12 @@ class FakeGitHub:
             def log_message(self, *args: object) -> None:  # quiet
                 pass
 
-            def _send(self, payload: object, status: int = 200) -> None:
+            def _send(self, payload: object, status: int = 200, headers: dict[str, str] | None = None) -> None:
                 data = json.dumps(payload).encode("utf-8")
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
+                for name, value in (headers or {}).items():
+                    self.send_header(name, value)
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -221,16 +224,18 @@ class FakeGitHub:
                 if self.path != "/graphql":
                     return self._send({"message": "Not Found"}, 404)
                 if fake.graphql_status != 200:
-                    return self._send({"message": "GitHub GraphQL is not available"}, fake.graphql_status)
-                if fake.graphql_errors:
-                    return self._send({"errors": [{"message": "Something went wrong"}]})
+                    return self._send({"message": "GitHub GraphQL is not available"}, fake.graphql_status,
+                                      fake.graphql_headers)
                 variables = json.loads(body)["variables"]
                 edits = fake.histories.get(variables["id"], [])
                 start = int(variables["after"] or 0)
                 more = start + 100 < len(edits)
-                return self._send({"data": {"node": {"userContentEdits": {
+                page = {"data": {"node": {"userContentEdits": {
                     "nodes": edits[start:start + 100],
-                    "pageInfo": {"hasNextPage": more, "endCursor": str(start + 100) if more else None}}}}})
+                    "pageInfo": {"hasNextPage": more, "endCursor": str(start + 100) if more else None}}}}}
+                if fake.graphql_errors:  # beside a whole page: GitHub can return both
+                    page["errors"] = [{"message": "Something went wrong"}]
+                return self._send(page)
 
         return Handler
 
@@ -424,13 +429,20 @@ def test_a_history_github_refuses_is_skipped(github: FakeGitHub) -> None:
     assert "/graphql" in github.paths()
 
 
-@pytest.mark.parametrize("failure", ["errors", "a bad gateway"])
+@pytest.mark.parametrize("failure", ["errors", "a bad gateway", "a rate limit", "a retry-after", "unauthorized",
+                                     "not found"])
 def test_a_history_github_fails_to_serve_is_noted(github: FakeGitHub, failure: str) -> None:
     github.history([version(*entry) for entry in HIDDEN])
     if failure == "errors":
         github.graphql_errors = True
-    else:
+    elif failure == "a bad gateway":
         github.graphql_status = 502
+    elif failure == "a rate limit":  # GitHub's 403 for a spent rate limit, which is no refusal of GraphQL
+        github.graphql_status, github.graphql_headers = 403, {"x-ratelimit-remaining": "0"}
+    elif failure == "a retry-after":  # a secondary rate limit's 403
+        github.graphql_status, github.graphql_headers = 403, {"retry-after": "60"}
+    else:
+        github.graphql_status = 401 if failure == "unauthorized" else 404
     note = _noted(_output(github, *_review_request()))
     assert ("the summary shows no review running, but its edit history, where a newer review's completion can hide "
             "one, could not be read") in note
@@ -647,13 +659,32 @@ def test_every_github_server_name_is_read(github: FakeGitHub) -> None:
     "gh pr ready 7 -R o/r  # then wait",
     "echo 'see # above' && gh pr ready 7 -R o/r",
     "echo issue#12 && gh pr ready 7 -R o/r",
+    "for n in 1; do gh pr ready 7 -R o/r; done",
+    "if false; then :; else gh pr ready 7 -R o/r; fi",
+    "if false; then :; elif gh pr ready 7 -R o/r; then :; fi",
+    "until gh pr ready 7 -R o/r; do sleep 5; done",
+    "while ! gh pr ready 7 -R o/r; do sleep 5; done",
+    "nohup gh pr ready 7 -R o/r",
+    "time gh pr ready 7 -R o/r",
+    "command gh pr ready 7 -R o/r",
+    "exec gh pr ready 7 -R o/r",
+    "ionice -c3 stdbuf -oL gh pr ready 7 -R o/r",
+    "stdbuf -oL gh pr ready 7 -R o/r",
+    "/usr/bin/env gh pr ready 7 -R o/r",
+    "timeout 60 /usr/bin/curl -sS -X POST https://api.github.com/repos/o/r/pulls/7/ccr/ready_for_review",
+    "# mark it ready\ngh pr ready 7 -R o/r",
+    "echo $(gh pr ready 7 -R o/r) # note",
+    "echo a\\ #b && gh pr ready 7 -R o/r",
 ], ids=["the review command", "with the footer and --repo=", "on an issue, -R attached", "--body first",
         "gh pr ready", "-R before the noun", "-R as a URL", "a pull request URL", "a #number", "leading zeros", "a GH_REPO= assignment",
         "GH_REPO through env", "after a push", "gh by its path and a host", "in a substitution",
         "the remote sessions' ready route", "that route through curl", "gh's placeholders, from GH_REPO",
         "that route through wget", "that route through httpie", "--undo=false", "after timeout",
         "the route after timeout", "the route after nice", "env with options", "sudo with a user", "in an if",
-        "after then", "in a subshell", "in a group", "negated", "a comment after it", "a # in quotes", "a # mid-word"])
+        "after then", "in a subshell", "in a group", "negated", "a comment after it", "a # in quotes", "a # mid-word", "after do",
+        "after else", "after elif", "after until", "after while", "after nohup", "after time", "after command",
+        "after exec", "after ionice and stdbuf", "after stdbuf", "env by its path", "curl by its path after a wrapper",
+        "a comment line first", "a comment after a substitution", "an escaped space before a #"])
 def test_the_gh_and_api_routes_wait_too(github: FakeGitHub, command: str) -> None:
     github.running(minutes=5)
     _overlap(_output(github, "Bash", {"command": command}))
@@ -674,9 +705,13 @@ def test_the_gh_and_api_routes_wait_too(github: FakeGitHub, command: str) -> Non
     "gh pr ready -h",
     "git status # later; gh pr ready 7 -R o/r",
     "echo it\\'s # fine' && gh pr ready 7 -R o/r",
+    "gh api repos/o/r/pulls/7/comments/123/replies -f body='Fixed: a variable in ccr/ready_for_review is refused.'",
+    "gh api repos/o/r/pulls/7/comments/123/replies -f body='It reads repos/o/r/pulls/7/ccr/ready_for_review now.'",
+    "gh api repos/o/r/pulls/7/comments --jq '.[]|select(.body|contains(\"ccr/ready_for_review\"))'",
 ], ids=["back to draft", "--undo=true", "the remote sessions' draft route", "a read", "help", "an echo",
         "the words in a string", "a chained review command", "no gh", "back to draft, naming none",
-        "the draft route through a variable", "-h", "a comment", "an escaped quote, then a comment"])
+        "the draft route through a variable", "-h", "a comment", "an escaped quote, then a comment",
+        "a reply naming the route", "a reply naming a whole route", "a --jq filter naming the route"])
 def test_a_line_that_starts_no_review_is_not_checked(github: FakeGitHub, command: str) -> None:
     github.running(minutes=5)
     assert _output(github, "Bash", {"command": command}) is None
@@ -711,9 +746,10 @@ def test_the_first_overlap_decides(github: FakeGitHub) -> None:
 
 
 @pytest.mark.parametrize("command", ["gh pr ready", "gh pr ready my-branch -R o/r", "gh pr ready 99999999999 -R o/r",
-                                     f"gh pr comment --body '{MENTION} review'", "gh pr ready #7 -R o/r"],
+                                     f"gh pr comment --body '{MENTION} review'", "gh pr ready #7 -R o/r",
+                                     "echo 7 | xargs gh pr ready -R o/r"],
                          ids=["the current branch's", "a branch", "past nine digits", "a review command naming none",
-                              "an unquoted #7, a comment to the shell"])
+                              "an unquoted #7, a comment to the shell", "a number xargs passes"])
 def test_a_command_must_say_which_pull_request(github: FakeGitHub, command: str) -> None:
     reason = _refused(_output(github, "Bash", {"command": command}))
     assert "names its pull request by branch or not at all: name it by number or URL" in reason
@@ -721,8 +757,17 @@ def test_a_command_must_say_which_pull_request(github: FakeGitHub, command: str)
 
 
 @pytest.mark.parametrize("command", ['PR=7; gh api -X POST "repos/o/r/pulls/$PR/ccr/ready_for_review"',
-                                     'curl -sS -X POST "https://api.github.com/repos/$REPO/pulls/7/ccr/ready_for_review"'],
-                         ids=["its number", "its repository"])
+                                     'curl -sS -X POST "https://api.github.com/repos/$REPO/pulls/7/ccr/ready_for_review"',
+                                     "curl -X POST https://api.github.com/repos/{owner}/{repo}/pulls/7/ccr/ready_for_review",
+                                     'PULL=repos/o/r/pulls/7; gh api -X POST "$PULL/ccr/ready_for_review"',
+                                     'curl -X POST "$PR_API_URL/ccr/ready_for_review"',
+                                     'gh api -X POST "${PULLS}/7/ccr/ready_for_review"',
+                                     "gh api -X POST repos/o/r/pulls/`gh pr view --json number -q .number`/ccr/ready_for_review",
+                                     'gh api -X POST "repos/$R/pulls/7/ccr/ready_for_review?from=convert_to_draft"'],
+                         ids=["its number", "its repository", "curl's placeholders, which it never fills in",
+                              "a variable holding all before the route", "a URL a variable holds",
+                              "a variable before the number", "a backquoted number",
+                              "a query naming the draft route"])
 def test_an_api_route_naming_its_pull_request_through_a_variable_must_be_written_out(
         github: FakeGitHub, command: str) -> None:
     github.running(minutes=5)
@@ -761,6 +806,34 @@ def test_the_environments_gh_repo_names_the_repository_before_the_origin(github:
     cwd = _repository(tmp_path, "https://github.com/x/y.git")
     _overlap(_output(github, "Bash", {"command": "gh pr ready 7"}, cwd=cwd, env=_env(github.url, {"GH_REPO": "o/r"})))
     assert "/repos/o/r/pulls/7" in github.paths()
+
+
+@pytest.mark.parametrize("command", ["gh pr ready 7 -R o/r", "GH_REPO=o/r gh pr ready 7"],
+                         ids=["-R", "a GH_REPO= assignment"])
+def test_a_named_repository_wins_over_the_environments(github: FakeGitHub, command: str) -> None:
+    github.running(minutes=5)
+    _overlap(_output(github, "Bash", {"command": command}, env=_env(github.url, {"GH_REPO": "x/y"})))
+    assert "/repos/o/r/pulls/7" in github.paths()
+
+
+def test_placeholders_over_an_origin_on_another_host_are_let_through_with_a_note(github: FakeGitHub,
+                                                                                 tmp_path: Path) -> None:
+    command = "gh api -X POST repos/{owner}/{repo}/pulls/7/ccr/ready_for_review"
+    cwd = _repository(tmp_path, "https://gitlab.example.com/o/r.git")
+    assert "the working directory's origin is not on github.com" in _noted(_output(github, "Bash", {"command": command},
+                                                                                     cwd=cwd))
+    assert github.requests == []
+
+
+def test_git_timing_out_is_noted(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_hook()
+
+    def hung(*args: object, **kwargs: object) -> None:
+        raise subprocess.TimeoutExpired(args[0], kwargs.get("timeout"))
+
+    monkeypatch.setattr(subprocess, "run", hung)
+    with pytest.raises(module.Unchecked, match=r"origin \(TimeoutExpired\)"):
+        module._remote("/nonexistent", time.monotonic() + 30)
 
 
 def test_git_failing_to_read_the_origin_is_let_through_with_a_note(github: FakeGitHub, tmp_path: Path) -> None:
@@ -855,6 +928,8 @@ def test_a_redirect_to_another_host_drops_the_token() -> None:
     assert not elsewhere.has_header("Authorization")
     same = handler.redirect_request(request, None, 301, "Moved", {}, "https://api.github.com/repositories/1/issues/7")
     assert same.get_header("Authorization") == f"Bearer {TOKEN}"
+    downgraded = handler.redirect_request(request, None, 302, "Found", {}, "http://api.github.com/repositories/1/issues/7")
+    assert not downgraded.has_header("Authorization")
 
 
 def test_a_redirect_to_another_host_reaches_it_without_the_token(github: FakeGitHub,
@@ -1026,6 +1101,7 @@ def test_a_request_past_its_timeout_is_abandoned(github: FakeGitHub, monkeypatch
 def test_a_request_ends_with_the_call_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     # Two seconds of the call's budget left: the request may wait those two, not REQUEST_TIMEOUT's ten.
     module = _load_hook()
+    monkeypatch.setenv("CODEX_OVERLAP_GUARD_API", "http://127.0.0.1:9")  # a closed port, were the opener's patch missed
     monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: 100.0))
     reader = module._Reader(TOKEN, 102.0)
     timeouts = _record_timeouts(reader, monkeypatch, lambda request, **kwargs: io.BytesIO(b"{}"))

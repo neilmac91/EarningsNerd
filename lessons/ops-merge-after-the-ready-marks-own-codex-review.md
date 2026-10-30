@@ -140,10 +140,10 @@ ready, newer than the review the summary's row shows, which a re-render keeps; C
 asked), and, where it can read the summary's edit history, while `_require_no_live_start` would hold the gate, with the
 gate's own message. Claude Code's remote sessions are refused GraphQL, and a summary never edited has no history, so
 there the summary's own state decides. A ready mark on a pull request already ready starts no review and passes, unless
-the same line first turns it back to draft. A gh command that names its pull request by branch or not at all, or an API
-route that names it through a variable, is refused until it names the number or URL. When the hook cannot read the
-summary (no GitHub token, a failed or slow read, a summary the gate will not read, or a history GitHub fails to serve or
-the gate will not trust), it lets the call through with a note to Claude, since blocking would hold every ready mark of
-a session that cannot reach GitHub; `review-gate` stays the merge gate. Tests:
-`backend/tests/unit/test_codex_review_overlap_guard.py`, against a loopback fake of GitHub serving summaries in Codex's
-own format.
+the same line first turns it back to draft. A gh command that names its pull request by branch or not at all, an API
+route that names its repository or number through a variable, or a command naming no repository where the working
+directory has no `origin`, is refused until it names them. When the hook cannot read the summary (no GitHub token, a
+failed or slow read, a summary the gate will not read, or a history GitHub fails to serve or the gate will not trust),
+it lets the call through with a note to Claude, since blocking would hold every ready mark of a session that cannot
+reach GitHub; `review-gate` stays the merge gate. Tests: `backend/tests/unit/test_codex_review_overlap_guard.py`,
+against a loopback fake of GitHub serving summaries in Codex's own format.

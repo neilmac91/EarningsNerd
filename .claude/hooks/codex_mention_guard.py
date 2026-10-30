@@ -55,7 +55,7 @@ reader (`_script`, `_command_tokens`, `_commands`, `_read_sent`) and patterns (`
 `HEREDOC_WORD`, `PAREN_END`, `WORD_START`, `UNQUOTE`, `GITHUB_API`), so a change here also runs
 backend/tests/unit/test_ops_approval_guard.py. codex_review_overlap_guard.py imports the review command's
 forms (`REVIEW_REQUEST`, `MENTION`, `_is_review_request_command`), the shell reader (`_tokens`, `_script`,
-`_command_tokens`, `_commands`) and `HTTPIE`, so a change to them also runs
+`_command_tokens`, `_commands`), `WORD_START` and `HTTPIE`, so a change to them also runs
 backend/tests/unit/test_codex_review_overlap_guard.py.
 Tests: backend/tests/unit/test_codex_mention_guard.py.
 """

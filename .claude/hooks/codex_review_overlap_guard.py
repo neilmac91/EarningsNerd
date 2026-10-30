@@ -15,14 +15,16 @@ contains "github" in any case. It acts on:
 - a GitHub MCP server's update_pull_request with `draft` false, the ready mark;
 - a Bash line that is that review command through `gh pr comment` or `gh issue comment`
   (codex_mention_guard.py's _is_review_request_command), or that runs, as a command of the line,
-  `gh pr ready` (not --undo, not --help) or an API call naming a pull request's `ccr/ready_for_review`,
-  the ready route of Claude Code's remote sessions (`gh api`, or curl, wget or httpie naming it).
+  `gh pr ready` (not --undo, --help or -h) or an API call naming a pull request's `ccr/ready_for_review`,
+  the ready route of Claude Code's remote sessions (`gh api`, or curl, wget or httpie naming it): a word of the
+  call with no space in it that names the route as a path segment counts as its endpoint, whichever argument
+  it is, and a word with a space (a request body, a --jq filter) names none.
   codex_mention_guard.py's shell reader splits the line, and a comment, which runs nothing, is dropped. The
   program is the command's own word, after assignments and the words that run the word after them (`if`,
   `!`, a subshell's `(`), or the first word naming it after a wrapper (sudo, env, timeout, nice, xargs and
   the like). Its pull request is the number (`7`, `'#7'`) or URL the command names; its repository the
   URL's, -R/--repo's, a GH_REPO= assignment's or the environment's, or else the working directory's
-  `origin`, which also fills in a `gh api` route's {owner} and {repo}, as gh does.
+  `origin`; the same fills in a `gh api` route's {owner} and {repo}, as gh does.
 For each, it reads the pull request through GitHub's REST API, starting no read once one 30-second budget
 for the whole call is spent, and refuses at the first of these that holds:
 - the newest Codex summary comment (review_gate's SUMMARY_MARKER, by the Codex app's exact identity)
@@ -41,27 +43,30 @@ request the hook cannot name. The reads go through review_gate's own (_paged, _f
 hook's transport swapped in for _github and _graphql.
 
 A gh command that names its pull request by branch or not at all, an API route that names it through a
-variable, or a command naming no repository where the working directory has no `origin`, is refused too,
-asking for the number or URL (and -R OWNER/REPO): the caller can always say which pull request it means.
-When the hook cannot read for other reasons, it lets the call through unchecked and tells Claude so
-(`additionalContext`), naming the summary to read: a repository or pull request URL on another host, an
-`origin` there or one git cannot read, a GitHub MCP call without its owner, repository or number, no GitHub
-token (GH_TOKEN, GITHUB_TOKEN or `gh auth token`), a read that fails or outlasts the budget, an edit history
-GitHub fails to serve, a newest summary review_gate cannot parse, or an edit history it will not trust (an
-untrusted editor; a summary edited between the reads, after one retry). A history GitHub refuses (GraphQL's
-403, as in Claude Code's remote sessions) or has none of (a summary never edited) is skipped: the summary's
-own state has been read. A guard that blocked where it cannot read would hold every ready mark and review
-request of a session that cannot reach GitHub; review-gate still checks the cycles before a merge. The token
-goes to api.github.com only, and is dropped on a redirect to another host; CODEX_OVERLAP_GUARD_API, the
-tests' loopback fake, gets none. A refusal is a JSON deny on stdout; a call with nothing to check exits 0
-with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call through, as for
-codex_mention_guard.py.
+variable, or a command naming no repository where the working directory has no `origin`, is refused too, asking
+for the number or URL (and -R OWNER/REPO): the caller can always say which pull request it means. When the hook
+cannot read for other reasons, it lets the call through unchecked and tells Claude so (`additionalContext`),
+naming the summary to read: a repository or pull request URL on another host, an `origin` there or one git
+cannot read, a GitHub MCP call without its owner, repository or number, no GitHub token (GH_TOKEN, GITHUB_TOKEN
+or `gh auth token`), a read that fails or outlasts the budget, an edit history GitHub fails to serve, a newest
+summary review_gate cannot parse, or an edit history it will not trust (an untrusted editor; a summary edited
+between the reads, after one retry). A history GitHub refuses (GraphQL's 403, as in Claude Code's remote
+sessions, unless an x-ratelimit-remaining of 0 or a retry-after marks it a rate limit's) or has none of (a
+summary never edited) is skipped: the summary's own state has been read. A guard that blocked where it cannot
+read would hold every ready mark and review request of a session that cannot reach GitHub; review-gate still
+checks the cycles before a merge. The token goes to api.github.com only, and is dropped on a redirect to
+another host or scheme; CODEX_OVERLAP_GUARD_API, the tests' loopback fake, gets none. A refusal is a JSON deny
+on stdout; a call with nothing to check exits 0 with no output. A crash exits 1, which Claude Code reports as a
+hook error and lets the call through, as for codex_mention_guard.py.
 
 Not checked: a ready mark through GraphQL (`gh api graphql` with markPullRequestReadyForReview) or any route
-other than those above; a command run through another shell (`bash -c '...'`, ssh); a line that changes
+other than those above; a command run through another shell (`bash -c '...'`, ssh), after a leading
+redirection (`2>/dev/null gh ...`), in a case arm or in a function's body; a draft step inside a command
+substitution, whose text the shell reader reads after the rest of its line; a line that changes
 directory before naming a pull request by number alone (the event's working directory names the
-repository); a repository gh takes over `origin` for a number alone (an `upstream` remote, `gh repo
-set-default`, a GH_REPO exported earlier on the line); a person's own ready mark or comment; a review a push
+repository); a repository gh takes over `origin` for a number alone or a `gh api` placeholder (an `upstream`
+remote, `gh repo set-default`, a GH_REPO exported earlier on the line); a route a variable or a substitution
+holds whole (`gh api -X POST "$ROUTE"`); a person's own ready mark or comment; a review a push
 starts (none here); a security review (codex_mention_guard.py refuses its command); a session that loads no
 repository hooks, and Codex and Astra sessions, which hold the rule by hand (AGENTS.md §5).
 review_gate.py's names above are this hook's contract with the gate: a change to them changes this hook too,
@@ -102,7 +107,9 @@ REMOTE = re.compile(r"github\.com[:/]+(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.
 # Claude Code's remote sessions mark a pull request ready, or turn it back to draft, through these API routes.
 CCR_ROUTE = re.compile(r"(?:^|/)repos/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pulls/(?P<number>\d{1,9})"
                        r"/ccr/(?P<route>ready_for_review|convert_to_draft)(?![\w-])")
-CCR_WORD = re.compile(r"ccr/(?:ready_for_review|convert_to_draft)(?![\w-])")  # one of them, readable or not
+# A word naming one of them as a path segment, whether CCR_ROUTE reads it or not (a word with a space is none).
+CCR_WORD = re.compile(r"(?:^|/)ccr/(?P<route>ready_for_review|convert_to_draft)(?![\w-])")
+BACKQUOTE = re.compile(r"`([^`\\]*)`")  # read as $(...), so the shell reader takes its text out of the word
 GH_PLACEHOLDER = re.compile(r"\{(?:owner|repo)\}")  # `gh api` fills these in from the repository it takes
 API_CLIENTS = ("curl", "wget", *mention.HTTPIE)
 PROGRAMS = ("gh", *API_CLIENTS)
@@ -293,22 +300,23 @@ def _uncommented(script: str) -> str:
 
 
 def _api_route(word: str, gh: bool, gh_repo: str | None, cwd: object, deadline: float) -> tuple[str, Target] | None:
-    """The ccr route a word of an API call names, with its pull request, or None. `gh api` fills in {owner}
-    and {repo} itself; a route the hook still cannot read (a variable) is refused, asking for it written out."""
+    """The ccr route a word of an API call names as its endpoint, with its pull request, or None: a word with a
+    space in it (a request body, a --jq filter) is no endpoint. `gh api` fills in {owner} and {repo} itself; a
+    route the hook still cannot read (a variable) is refused, asking for it written out."""
     named = CCR_WORD.search(word)
-    if named is None:
+    if named is None or re.search(r"\s", word):
         return None
     if gh and GH_PLACEHOLDER.search(word):
         try:
             owner, repo = _repository(gh_repo, READY_MARK, cwd, deadline)
         except Rephrase as exc:  # `gh api` takes no -R
-            raise Rephrase(f"an API call names {named[0]} through {{owner}}/{{repo}} where the working directory has "
-                           "no origin: write the repository out") from exc
+            raise Rephrase(f"an API call names ccr/{named['route']} through {{owner}}/{{repo}} where the working "
+                           "directory has no origin: write the repository out") from exc
         word = word.replace("{owner}", owner).replace("{repo}", repo)
     route = CCR_ROUTE.search(word)
     if route is None:
-        raise Rephrase(f"an API call names {named[0]} with its repository or number in a form the hook cannot read: "
-                       "write them out")
+        raise Rephrase(f"an API call names ccr/{named['route']} with its repository or number in a form the hook "
+                       "cannot read: write them out")
     return route["route"], Target(READY_MARK, route["owner"], route["repo"], int(route["number"]))
 
 
@@ -334,7 +342,8 @@ def _bash_targets(command: str, cwd: object, deadline: float) -> list[Target | U
         return found
     drafts: set[tuple[str, str, int]] = set()  # the pull requests an earlier command turned back to draft
     unplaced = False  # an earlier command turned back to draft a pull request the hook cannot name: any, maybe
-    for _, words in mention._commands(mention._command_tokens(_uncommented(mention._script(command)))):
+    script = mention._script(BACKQUOTE.sub(r"$(\1)", command))
+    for _, words in mention._commands(mention._command_tokens(_uncommented(script))):
         gh_repo, program = _command_words(words)
         if not program:
             continue
@@ -343,8 +352,8 @@ def _bash_targets(command: str, cwd: object, deadline: float) -> list[Target | U
             for word in program:
                 try:
                     route = _api_route(word, name == "gh", gh_repo, cwd, deadline)
-                except (Unchecked, Rephrase) as exc:
-                    if "convert_to_draft" in word:
+                except (Unchecked, Rephrase) as exc:  # raised only for a word CCR_WORD names
+                    if CCR_WORD.search(word)["route"] == "convert_to_draft":
                         unplaced = True  # it starts no review, but a later ready mark may then start one
                     else:
                         found.append(exc)
@@ -399,14 +408,15 @@ def _token(deadline: float) -> str | None:
 
 
 def _same_host_redirects():
-    """urllib's redirect handler, dropping the Authorization header on a redirect to another host."""
+    """urllib's redirect handler, dropping the Authorization header on a redirect to another host or scheme."""
     import urllib.parse
     import urllib.request
 
     class SameHostRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):  # urllib's signature
             new = super().redirect_request(req, fp, code, msg, headers, newurl)
-            if new is not None and urllib.parse.urlsplit(newurl).netloc != urllib.parse.urlsplit(req.full_url).netloc:
+            moved, asked = urllib.parse.urlsplit(newurl), urllib.parse.urlsplit(req.full_url)
+            if new is not None and (moved.scheme, moved.netloc) != (asked.scheme, asked.netloc):
                 new.remove_header("Authorization")
             return new
 
@@ -525,7 +535,9 @@ def _open_review(target: Target, reader: _Reader, gate: object) -> str | None:
         try:
             history = gate._fetch_history(latest["node_id"], reader.token)
         except Exception as exc:  # noqa: BLE001 - every failure but GraphQL's refusal is noted
-            if getattr(exc, "code", None) == 403:
+            headers = getattr(exc, "headers", None)
+            limited = headers is not None and (headers.get("x-ratelimit-remaining") == "0" or headers.get("retry-after"))
+            if getattr(exc, "code", None) == 403 and not limited:
                 return None  # GraphQL refused, as Claude Code's remote sessions are: the summary's own state was read
             if isinstance(exc, Unchecked):
                 raise
