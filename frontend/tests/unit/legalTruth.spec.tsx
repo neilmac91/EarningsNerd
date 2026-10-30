@@ -383,8 +383,8 @@ import {
  *    negation in the condition denies nothing of the clause's verb ("Logging out when it is not needed ends every
  *    session." and "Reusing a refresh token because it is not valid signs everyone out." fail), and since stage 4e so
  *    is a clause that "after" or "before" opens inside its subject, which the reader takes for a preposition, where
- *    the clause's verb is read for sure ("Logging out after it is not needed ends every session." fails). The page is
- *    read on every run, whatever
+ *    the clause's verb stands right past that clause ("Logging out after it is not needed ends every session." fails).
+ *    The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
  *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
@@ -2357,9 +2357,11 @@ const clauseByClause = (sentence: string): string[] => {
   // the routine lens on fb7cf414). Since stage 4e "before" or "after" inside the subject, which the reader takes for a
   // preposition, opens such a condition too where a clause follows it ("Logging out after it is not needed | ends every
   // session"); one whose object takes the clause's verb stays a preposition ("No session after a logout ends ...").
-  // That reading is this stage's own, so it adds a text only where it reads the clause's verb for sure, right past the
-  // condition's own clause or as the one group past it where no later condition follows, and else the sentence reads
-  // as on main. So it reads no run: the reader's clause after "after" may run on over the clause's verb ("after it
+  // That reading is this stage's own, so it adds a text only where the clause's verb stands right past the condition's
+  // own clause, the one group in its span (stage 4d's rule), and else the sentence reads as on main. So it reads no
+  // group past words between, since the reader may end the clause's span before the clause's verb and leave the
+  // condition's own infinitive alone in it ("Sessions after we do not let clients end | every session stay open":
+  // Codex on e8a6a1b8), and no run: the reader's clause after "after" may run on over the clause's verb ("after it
   // expired was harmless"), and a run read past it took a later condition's own words for that verb (the routine
   // lenses on 279b500d, 97fda730, 12f9709f and 3ea9885f). null where none does.
   const withoutCondition = (from: number, to: number): string | null => {
@@ -2375,7 +2377,7 @@ const clauseByClause = (sentence: string): string[] => {
       const own = conditionClauseAt(tokens, opened)
       if (!own) continue
       const verb = clauseVerbPast(tokens, opened, plural)
-      if (verb > 0 && (verb === verbGroupAt(tokens, own.predicate).verb + 1 || !conditions.length)) return readAlone(reading, from, to, [[k, verb]])
+      if (verb === verbGroupAt(tokens, own.predicate).verb + 1) return readAlone(reading, from, to, [[k, verb]])
     }
     const inACondition = (k: number) => conditions.some((c) => k >= c.start && k < c.end)
     for (const condition of conditions) {
@@ -2534,7 +2536,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (479 rows since E162 stage 4e) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (487 rows since E162 stage 4e) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4702,11 +4704,19 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out before it is not needed ends every session.</li>', true],
       ['<li>Logging out after it is not needed does not end every session.</li>', false],
       ['<li>No session after a logout ends every session.</li>', false],
-      // That reading is this stage's own, so it adds a text only where it reads the clause's verb for sure: right past
-      // the condition's own clause, a later condition after it or not, or as the one group past it where no later
-      // condition follows; else the sentence reads as on main.
+      // That reading is this stage's own, so it adds a text only where the clause's verb stands right past the
+      // condition's own clause, a later condition after it or not; else the sentence reads as on main.
       ['<li>Logging out after it is not needed ends every session because it is secure.</li>', true],
-      ['<li>Logging out after it is not needed by anyone ends every session.</li>', true],
+      ['<li>Sessions after we do not let clients end every session stay open after logging out.</li>', false],
+      ['<li>Sessions before we do not let clients end every session stay open after logging out.</li>', false],
+      ['<li>Sessions after we do not make clients end every session stay open after logging out.</li>', false],
+      // So it reads nothing past words between where "after" or "before" is a preposition after all and the reader takes
+      // its object's verb for the condition's own (the fifth routine lens on e8a6a1b8).
+      ['<li>Logging out after a week does not mean the server ends every session.</li>', false],
+      ['<li>Logging out before midnight does not mean the server ends every session.</li>', false],
+      ['<li>Reusing a refresh token after a week does not mean it signs everyone out.</li>', false],
+      ['<li>Reusing a refresh token after a day does not prove the server signs everyone out.</li>', false],
+      ['<li>Logging out after a reset never guarantees the server ends every session.</li>', false],
       ['<li>Reusing a refresh token after it is not clear whether it signs everyone out when it is idle preserves the session.</li>', false],
       ['<li>Reusing a refresh token after it expires does not sign everyone out when the server does not say it signs everyone out.</li>', false],
       ['<li>Reusing a refresh token after it expires quietly preserves the session when the server does not say it signs everyone out.</li>', false],
@@ -4718,14 +4728,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out after you leave lingers when the docs do not say it ends every session.</li>', false],
       // Out of reach so, read as on main: a run after it, since the reader's clause after "after" may run on over the
       // clause's verb ("after it expired was harmless") and a run read past it took a later condition's own words for
-      // that verb (the routine lenses on 279b500d, 97fda730, 12f9709f and 3ea9885f); and, past words between, a group
-      // where a later condition follows.
+      // that verb (the routine lenses on 279b500d, 97fda730, 12f9709f and 3ea9885f); and a group past words between,
+      // since the reader may end the clause's span before its verb (Codex on e8a6a1b8).
       ['<li>Logging out after it is idle because it is not needed ends every session.</li>', 'gap'],
       ['<li>Logging out before it expires because it is not valid ends every session.</li>', 'gap'],
       ['<li>Logging out after it expires when it is not needed ends every session.</li>', 'gap'],
       ['<li>Logging out after it is safe to be used because it is not needed ends every session.</li>', 'gap'],
       ['<li>Logging out after users open new tabs because it is not needed ends every session.</li>', 'gap'],
       ['<li>Logging out after it is not needed by anyone ends every session because it is secure.</li>', 'gap'],
+      ['<li>Logging out after it is not needed by anyone ends every session.</li>', 'gap'],
       // Out of reach: a run whose next condition the reader reads into the subject ("a refresh token after it expires
       // because it", the gerund's object run on), so no condition follows the first to read past (the routine lens on
       // 279b500d).
