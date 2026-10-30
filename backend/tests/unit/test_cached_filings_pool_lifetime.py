@@ -892,9 +892,9 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
 
 @pytest.mark.asyncio
 async def test_logout_all_with_only_the_refresh_cookie_releases_its_connection_off_the_loop(monkeypatch, tmp_path):
-    """Past the access token, logout-all finds its user from the refresh cookie (E157 (2)): that read joins the
-    revocation and the audit row in the route's one thread-pool unit, released before it returns. Eight readers'
-    logouts on four slots each end their own sessions, and nothing checks out on the loop."""
+    """Past the access token, a logout-all that names its account finds its user from the refresh cookie (E157 (2)):
+    that read joins the revocation and the audit row in the route's one thread-pool unit, released before it returns.
+    Eight readers' logouts on four slots each end their own sessions, and nothing checks out on the loop."""
     from app.config import settings
     from app.models import AuditLog, RefreshToken, User
     from app.routers import auth

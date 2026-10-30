@@ -357,11 +357,12 @@ def live_token_owner(db: Session, raw_token: Optional[str]) -> Optional[Tuple[in
     """The ``(id, email)`` of the active user whose live refresh token ``raw_token`` is, or ``None``.
 
     Live: neither revoked (a rotated-away token is revoked too) nor expired, as a rotation would accept it.
-    The logout of every session finds its user here once the access token has lapsed (E157 (2)), as a
-    logout finds the session it ends from the same cookie. It reads and takes no lock: the revocation that
-    follows takes the users row lock and revokes every live token of that user, a successor a refresh mints
-    meanwhile included. ``expires_at`` is one of the sanctioned naive columns, compared here with a naive
-    projection of the aware clock, as ``retention_service`` compares it.
+    The logout of every session finds its user here when no access token named one and the request names
+    the account its tab shows (E157 (2)). It reads the same cookie a logout reads, but a logout follows a
+    rotated-away token to its chain's live one, and this refuses it. It reads and takes no lock: the
+    revocation that follows takes the users row lock and revokes every live token of that user, a successor
+    a refresh mints meanwhile included. ``expires_at`` is one of the sanctioned naive columns, compared here
+    with a naive projection of the aware clock, as ``retention_service`` compares it.
     """
     if not _is_token_shaped(raw_token):
         return None
