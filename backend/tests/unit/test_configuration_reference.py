@@ -54,13 +54,18 @@ def test_provider_admission_limit_accepts_supported_range(value):
 
 @pytest.mark.parametrize("configured", [
     "https://www.earningsnerd.io", "https://www.earningsnerd.io/", "https://www.earningsnerd.io///",
+    " https://www.earningsnerd.io/ \n",
 ])
 def test_frontend_url_loads_as_one_canonical_origin(configured, monkeypatch):
-    # E111: every link appends "/path" to FRONTEND_URL, so trailing slashes are removed at load, and only those.
+    # E111: every link appends "/path" to FRONTEND_URL, so the whitespace around it and its trailing slashes are
+    # removed at load, and only those.
+    for name in ("FRONTEND_URL", "frontend_url"):  # the default is read below, with no value in the environment
+        monkeypatch.delenv(name, raising=False)
     loaded = Settings(FRONTEND_URL=configured, _env_file=None).FRONTEND_URL
     assert loaded == "https://www.earningsnerd.io"
     assert Settings(_env_file=None).FRONTEND_URL == "https://www.earningsnerd.io"
     assert Settings(FRONTEND_URL="http://localhost:3000/app//", _env_file=None).FRONTEND_URL == "http://localhost:3000/app"
+    assert Settings(FRONTEND_URL="HTTPS://WWW.EarningsNerd.io./", _env_file=None).FRONTEND_URL == "HTTPS://WWW.EarningsNerd.io."
 
     from app.config import settings
     from app.services import email_service, invite_service, waitlist_service
@@ -73,6 +78,19 @@ def test_frontend_url_loads_as_one_canonical_origin(configured, monkeypatch):
                      "https://www.earningsnerd.io/waitlist?ref=ref-1",
                      "https://www.earningsnerd.io/filing/7",
                      "https://www.earningsnerd.io/assets/earningsnerd-appicon.png"]
+
+
+def test_frontend_url_from_the_environment_loads_as_the_same_origin(monkeypatch):
+    # Production would set it this way, as a Secret Manager value can end in a newline.
+    monkeypatch.setenv("FRONTEND_URL", "https://www.earningsnerd.io/\n")
+    assert Settings(_env_file=None).FRONTEND_URL == "https://www.earningsnerd.io"
+
+
+@pytest.mark.parametrize("configured", ["", "/", "   ", " /// \n"])
+def test_frontend_url_left_empty_is_refused(configured):
+    # Every link would be relative: an invite, a reset link, an OAuth landing.
+    with pytest.raises(ValidationError, match="FRONTEND_URL is empty"):
+        Settings(FRONTEND_URL=configured, _env_file=None)
 
 
 @pytest.mark.asyncio

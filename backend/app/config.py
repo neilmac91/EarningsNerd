@@ -317,11 +317,17 @@ class Settings(BaseSettings):
 
     @field_validator('FRONTEND_URL', mode='before')
     @classmethod
-    def _strip_frontend_url_trailing_slashes(cls, v):
-        """One canonical origin for every link: callers append ``/path`` to FRONTEND_URL, so a trailing
-        slash, or several, in the configured value would double the separator. Only trailing slashes
-        are removed; scheme, host and any path are kept as configured (E111)."""
-        return v.rstrip("/") if isinstance(v, str) else v
+    def _canonical_frontend_url(cls, v):
+        """One canonical origin for every link: callers append ``/path`` to FRONTEND_URL, so whitespace around the
+        configured value, or a trailing slash or several, would break or double the separator. Those are removed,
+        and only those: scheme, host, case and any path are kept as configured. A value left empty would make every
+        link relative, so it is refused (E111)."""
+        if not isinstance(v, str):
+            return v
+        v = v.strip().rstrip("/")
+        if not v:
+            raise ValueError("FRONTEND_URL is empty once its whitespace and trailing slashes are removed: set the frontend's origin")
+        return v
 
     # App Settings
     ENVIRONMENT: str = "development"

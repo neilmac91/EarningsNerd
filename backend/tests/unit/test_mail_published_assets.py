@@ -14,10 +14,12 @@ to the rule's mail half (CLAUDE.md rule 12):
   header names. This scan cannot follow a value through the code.
 
 This scan reads the Python's strings as the code builds them, docstrings and the paths of the API's route
-decorators aside: an f-string or a ``+`` chain whole, a template ``textwrap.dedent`` or ``inspect.cleandoc``
-re-indents (each known by the module's imports, not by its name alone) or ``.strip()`` strips of whitespace as
-written, and a name bound to a registered path, or to an address built on one, read as what it holds, in its
-module or in one that imports it from that module (an import of the name, or of the module, relative or not).
+decorators aside: an f-string or a ``+`` chain whole, a field an f-string converts with ``!r`` or ``!a`` in the
+quotes the conversion adds, a ``str()`` of a value read as the value, a template ``textwrap.dedent`` or
+``inspect.cleandoc`` re-indents (each known by the module's imports, not by its name alone) or ``.strip()`` strips
+of whitespace as written, and a name bound to a registered path, or to an address built on one, read as what it
+holds, in its module or in one that imports it from that module (an import of the name, or of the module, relative
+or not).
 A module that imports a class or a module exports it under the name it binds, as it does such a name, through
 any number of modules.
 A name a function or a comprehension binds as its own (a parameter, an assignment, a loop's or a
@@ -475,8 +477,6 @@ def _scan_python(
             return render(node.left) + render(node.right)
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
             return render(node.left)  # a %-template filled: its text, placeholders and all
-        if isinstance(node, (ast.IfExp, ast.BoolOp)):  # one of its values, the scan cannot tell which
-            return _FIELD
         if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "str" and len(node.args) == 1 and not node.keywords:
             return render(node.args[0])
         if stripped(node):
@@ -960,6 +960,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a doubled slash after a base", 'P = f"{base}//assets/earningsnerd-appicon.png"', "flag"),
     ("an address encoded, then changed", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U.encode()[:-4]', "flag"),
     ("an address with a character replaced", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U.replace("-", "_")', "flag"),
+    ("an address converted to a string, then added to", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = str(U) + "@2x.png"', "flag"),
     ("a site origin with a port", 'P = "https://www.earningsnerd.io:443/assets/earningsnerd-appicon.png"', "flag"),
     # What a client reads into the path, and where only a route's own path is exempt.
     ("a query written without its question mark", 'P = "/assets/earningsnerd-appicon.png&v=2"', "flag"),
@@ -1016,6 +1017,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a page with its line breaks replaced", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\nP = page.replace("\\n", "")', "pass"),
     ("an address grown in place as a page", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\npage += "<p>Body</p>"', "pass"),
     ("an address logged through !r", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile {U!r}")', "pass"),
+    ("an address logged through !r, text after it", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile={U!r}; size=32")', "pass"),
     ("an address read by startswith", 'U = f"{base}/assets/earningsnerd-appicon.png"\nok = U.startswith("https://")', "pass"),
     ("a page stripped of whitespace", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\nP = page.strip()', "pass"),
     ("an attribute that shares an exported name, on an object no module binds", {"a.py": 'class HeaderTile:\n    url = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"\n', "b.py": "def path(request):\n    return request.url.path"}, "pass"),
@@ -1131,7 +1133,7 @@ def test_the_scan_scores_every_planted_form(tmp_path):
     assert gaps == named, "the header names each gap a case marks, and a case marks each gap the header names: keep the two in step"
     outcomes = [outcome for _, _, outcome in FORMS]
     # Equalities, not floors, so a form dropped after one is added still fails (lessons/test-allowlist-caps-are-equalities.md).
-    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (212, 94, 21), (
+    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (213, 95, 21), (
         "a planted form was added or dropped: keep these counts equal to FORMS in the same diff, and say why one goes"
     )
 

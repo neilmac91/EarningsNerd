@@ -1100,7 +1100,7 @@ def test_every_address_the_mail_carries_into_the_sites_files_is_registered_and_b
     assert not problems, (
         "the mail addresses a file of the site's other than by a whole registered path on FRONTEND_URL. Register a "
         "path mail shows in frontend/tests/unit/publishedAssetUrls.json in the same PR, and build its address on "
-        "settings.FRONTEND_URL.rstrip('/') (LOGO_README.md > Published URLs stay put):\n" + "\n".join(sorted(set(problems)))
+        "settings.FRONTEND_URL (LOGO_README.md > Published URLs stay put):\n" + "\n".join(sorted(set(problems)))
     )
 
 
