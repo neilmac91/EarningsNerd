@@ -447,7 +447,10 @@ function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
     } else if (token.lower === 'not' && participle(tokens, i + 1, true)) {
       // A participle a bare "not" negates is the head's as well ("sessions not opened here end ...": E162 stage 4f), and
       // a gerund after a preposition in it is that preposition's object, not a verb that ends it ("not ended by logging
-      // out": Codex on #1818).
+      // out": Codex on #1818). After "before" or "after" in a phrase past its clause's verb, the gerund may open a clause
+      // of time instead ("sessions not opened here before logging out | ends every session"), which this runs over; the
+      // session-end family leaves out of its context only a participle in a clause's subject, so that clause keeps its
+      // logout (the third lens on 84003ff5).
       let end = relativeEnd(tokens, i + 2, false)
       while (PREPOSITIONS.has(lower(tokens[end - 1])) && /^[a-z]+ing$/.test(lower(tokens[end]))) end = relativeEnd(tokens, end + 1, false)
       phrase.postmodifiers.push({ kind: 'participle', start: i, end, restrictive: true, preposition: null, object: null })
