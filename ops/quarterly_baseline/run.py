@@ -14,7 +14,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -82,7 +82,7 @@ def run(output: Path) -> int:
     output.mkdir(mode=0o700, parents=True, exist_ok=True)
     receipt = {**source, "workflow_commit": workflow_sha, "cohort": list(COHORT),
                "execution": "github_actions_runner", "production_image_used": False,
-               "observed_at": datetime.now(timezone.utc).isoformat(), "dry_run": True,
+               "observed_at": datetime.now(UTC).isoformat(), "dry_run": True,
                "status": "started", "report_complete": False,
                "limit": "Historical source against current data, not a pre-merge snapshot or container reproduction."}
     receipt_path = output / "source-receipt.json"
