@@ -26,6 +26,7 @@ from app.models.filing_section_text import FilingSectionText
 from app.models.section_review import SectionReview
 from app.models.account_agreement import AccountAgreement
 from app.models.summary_job import SummaryJob, SummaryPreparationBudget
+from app.models.sec_request_gate import SECRequestGate
 
 logger = logging.getLogger(__name__)
 

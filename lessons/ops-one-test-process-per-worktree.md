@@ -75,6 +75,15 @@ in `backend/tests/unit/test_forced_run_excerpt_is_private.py` now holds the work
 join cancels its waiter, then releases and drains it, and asserts that cancellation occurred.
 Cleanup releases any started worker on failure; the application and result assertions are unchanged.
 
+**Registration that collection hides (2026-10-30).** #1824 added `app/models/sec_request_gate.py`, which
+`app/models/__init__.py` left out; only the SEC request gate service imported it.
+`test_the_models_columns_read_from_source_are_the_ones_sqlalchemy_maps` read `Base.metadata` in its own process, so
+it passed wherever collection had already imported that service, as in CI's full run, and failed only when run
+alone. A test of what an import registers reads it in a fresh interpreter, never in its own process:
+`backend/tests/unit/test_review_gate.py` now runs a child (`MAPPED_BY_APP_MODELS`) that imports `app.models` alone,
+checks that it loads every module under `app/models`, then imports `main` as startup does and checks that no table
+is mapped besides.
+
 **Rule.** A worktree may run more than one pytest process; each owns its database. Within a process,
 tests still share that database and every module-level global, in whatever order xdist produces (and
 pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's

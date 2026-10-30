@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -555,16 +556,41 @@ def test_mapped_columns_fails_closed_on_a_column_it_cannot_attribute(source, err
         review_gate.mapped_columns([source])
 
 
+# SQLAlchemy's mapping as `import app.models` alone gives it, with the modules that import loads, and then as the app's
+# startup gives it, `import main` before the lifespan's create_all. A test process has imported more by the time a case
+# runs (collection imports every test module, and some import a service that maps its own model), so both are read in
+# a fresh interpreter, in that order.
+MAPPED_BY_APP_MODELS = (
+    "import json, sys, app.models\n"
+    "from app.database import Base\n"
+    "def mapped():\n"
+    "    return sorted([t.name.lower(), c.name.lower()] for t in Base.metadata.tables.values() for c in t.columns)\n"
+    "models, modules = mapped(), sorted(m for m in sys.modules if m.startswith('app.models.'))\n"
+    "import main\n"
+    "print(json.dumps({'mapped': models, 'modules': modules, 'startup': mapped()}))\n"
+)
+
+
 def test_the_models_columns_read_from_source_are_the_ones_sqlalchemy_maps():
     """The gate reads the base's models by their source, since it runs before any dependency installs; on this tree
-    that reading finds every column SQLAlchemy maps, and no other. Models it cannot read raise, never read as empty."""
-    import app.models  # noqa: F401 - registers every model on Base.metadata
-    from app.database import Base
-
+    that reading finds every column SQLAlchemy maps, and no other. Models it cannot read raise, never read as empty.
+    The mapping is read in a fresh interpreter (MAPPED_BY_APP_MODELS), so no other case's imports decide it.
+    `import app.models` alone must load every module under app/models, so one the package leaves out fails here in any
+    run, whatever the reader can see of it, where earningsnerd_sec_request_gate failed only when this case ran alone.
+    And `import main` afterwards, as startup imports the app before its create_all, must map no table besides: one
+    mapped outside app/models escapes both the reader and a create_all after `import app.models` alone, as CI's
+    migrations job seeds its schema."""
     assert review_gate.MODELS == ROOT / "backend" / "app" / "models"
-    mapped = {(table.name.lower(), column.name.lower())
-              for table in Base.metadata.tables.values() for column in table.columns}
+    probe = subprocess.run([sys.executable, "-c", MAPPED_BY_APP_MODELS], cwd=ROOT / "backend", capture_output=True,
+                           text=True, timeout=120)
+    assert probe.returncode == 0, probe.stderr[-2000:]
+    fresh = json.loads(probe.stdout.splitlines()[-1])
+    modules = sorted(f"app.models.{path.stem}" for path in review_gate.MODELS.glob("*.py") if path.stem != "__init__")
+    assert fresh["modules"] == modules, "a module under app/models that `import app.models` does not load"
+    mapped = {tuple(pair) for pair in fresh["mapped"]}
     assert review_gate.read_mapped_columns(review_gate.MODELS) == mapped
+    startup = {tuple(pair) for pair in fresh["startup"]}
+    assert startup == mapped, f"mapped outside app/models: {sorted(startup - mapped)}"
     assert ("waitlist_signups", "email") in mapped and ("waitlist_signups", "email_verified") not in mapped
     with pytest.raises(FileNotFoundError):
         review_gate.read_mapped_columns(ROOT / "no-such-models")
