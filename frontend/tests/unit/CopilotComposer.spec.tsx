@@ -244,6 +244,27 @@ describe('CopilotComposer keeps a focused composer in view as its column settles
     }
   })
 
+  it("a focus that brings the shell back counts it in view before the column's scroll event arrives", () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, box, column } = renderInColumn()
+      ref.current?.focus()
+      column.set(0)
+      fireEvent.scroll(box)
+      // ⌘K brings the shell back to the column's foot; the pane settles before the browser reports that scroll.
+      ref.current?.focus()
+      expect(column.writes).toEqual([70, 70])
+      column.resize(200)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70, 70, 170])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
   it('with focus elsewhere, a resize moves nothing', () => {
     const resizes = watchResizes()
     const page = watchThePage()
