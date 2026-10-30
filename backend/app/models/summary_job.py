@@ -19,6 +19,7 @@ class SummaryJob(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     system_funded = Column(Boolean, nullable=False, default=False)
     force = Column(Boolean, nullable=False, default=False)
+    refresh_xbrl = Column(Boolean, nullable=False, default=False)
     lease_token = Column(String(32), nullable=True)
     lease_until = Column(DateTime(timezone=True), nullable=True)
     attempts = Column(Integer, nullable=False, default=0)

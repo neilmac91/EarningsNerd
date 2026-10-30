@@ -311,3 +311,136 @@ def test_system_daily_budget_and_job_creation_roll_back_together(monkeypatch):
     assert view.created
     with SessionLocal() as db:
         assert db.query(SummaryPreparationBudget).one().admissions == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [404, 429, 503])
+async def test_real_worker_source_transient_then_success_schedules_and_charges_once(user_id, monkeypatch, status):
+    import httpx
+    from app.services import summary_pipeline as pipeline
+    view = _new(user_id)
+    request = httpx.Request("GET", "https://example.test/filing.htm")
+    response = httpx.Response(status, headers={"Retry-After": "73"}, request=request)
+    source_error = httpx.HTTPStatusError("transient", request=request, response=response)
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+    async def provider(*args, **kwargs):
+        signal_provider_start()
+        return CANONICAL_PAYLOAD
+    with stream_boundaries() as summarize, monkeypatch.context() as local_patch:
+        summarize.side_effect = provider
+        local_patch.setattr(pipeline.sec_edgar_service, "get_filing_document", AsyncMock(side_effect=source_error))
+        before = utcnow()
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        retry = store.read_job(view.job_id, view.generation)
+        assert retry.status == "retry_wait" and retry.retry_at >= before + timedelta(seconds=73)
+        assert enqueue.call_args.kwargs["schedule_at"] == retry.retry_at
+        assert _usage(user_id) == 0 and summarize.await_count == 0
+        with SessionLocal() as db:
+            db.get(SummaryJob, view.job_id).next_attempt_at = utcnow() - timedelta(seconds=1)
+            db.commit()
+        local_patch.setattr(pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value="FILING TEXT " * 100))
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        assert store.read_job(view.job_id, view.generation).status == "complete"
+        assert _usage(user_id) == 1 and summarize.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_source403_is_terminal_and_long429_honors_cooldown_after_horizon(user_id, monkeypatch):
+    import httpx
+    from app.services import summary_pipeline as pipeline
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+    for status, delay in [(403, 73), (429, 3700)]:
+        view = _new(user_id)
+        request = httpx.Request("GET", "https://example.test/filing.htm")
+        response = httpx.Response(status, headers={"Retry-After": str(delay)}, request=request)
+        error = httpx.HTTPStatusError("source failure", request=request, response=response)
+        with stream_boundaries() as provider, monkeypatch.context() as local_patch:
+            local_patch.setattr(pipeline.sec_edgar_service, "get_filing_document", AsyncMock(side_effect=error))
+            before = utcnow()
+            await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+            failed = store.read_job(view.job_id, view.generation)
+            assert failed.status == "failed" and failed.retry_at >= before + timedelta(seconds=delay)
+            provider.assert_not_awaited()
+        with pytest.raises(store.SummaryJobUnavailable) as blocked:
+            store.ensure_job(view.filing_id, user_id, retry_failed=True)
+        assert blocked.value.retry_after_seconds >= delay - 1
+        if status == 429:
+            with monkeypatch.context() as clock_patch:
+                clock_patch.setattr(store, "utcnow", lambda: failed.retry_at + timedelta(seconds=1))
+                reopened = store.ensure_job(view.filing_id, user_id, retry_failed=True)
+                assert reopened.created and reopened.generation == view.generation + 1
+    enqueue.assert_not_awaited()
+    assert _usage(user_id) == 0
+
+
+@pytest.mark.asyncio
+async def test_enabled_pipeline_rejects_legacy_or_stale_ownership_before_sec(user_id, monkeypatch):
+    from app.services import summary_pipeline as pipeline
+    view, lease = _lease(user_id)
+    with SessionLocal() as db:
+        db.get(SummaryJob, view.job_id).lease_until = utcnow() - timedelta(seconds=1)
+        db.commit()
+    with stream_boundaries() as provider:
+        source = pipeline.sec_edgar_service.get_filing_document
+        for supplied in (None, lease):
+            events = [item async for item in pipeline.stream_filing_summary(
+                filing_id=view.filing_id, current_user=None, user_id=None,
+                telemetry_distinct_id="internal", telemetry_entry_point=None, telemetry_ctx={},
+                emit_funnel_telemetry=False, durable_lease=supplied,
+            )]
+            assert events[-1]["code"] == "generation_paused"
+        source.assert_not_awaited()
+        provider.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_worker_ready_refresh_preserves_fresh_xbrl_but_repair_does_not(user_id, monkeypatch):
+    from app.services import summary_pipeline as pipeline
+    with SessionLocal() as db:
+        db.get(User, user_id).is_pro = True
+        db.commit()
+    for ready in (False, True):
+        filing_id = seed_company_filing()
+        with SessionLocal() as db:
+            db.add(Summary(filing_id=filing_id, business_overview="Ready full summary." if ready else ""))
+            db.commit()
+        view = store.ensure_job(filing_id, user_id, force=ready)
+        with stream_boundaries():
+            xbrl = pipeline.xbrl_service.get_xbrl_data
+            await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+            assert xbrl.call_args.kwargs.get("refresh", False) is ready
+        assert store.read_job(view.job_id, view.generation).status == "complete"
+
+
+@pytest.mark.asyncio
+async def test_durable_pipeline_deadline_refunds_and_schedules_bounded_retry(user_id, monkeypatch):
+    from app.services import summary_pipeline as pipeline
+    view = _new(user_id)
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+    monkeypatch.setattr(pipeline, "PIPELINE_TIMEOUT_SECONDS", 0.5)
+    async def blocked_provider(*args, **kwargs):
+        signal_provider_start()
+        await asyncio.Event().wait()
+    with stream_boundaries() as summarize:
+        summarize.side_effect = blocked_provider
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        summarize.assert_awaited_once()
+    assert store.read_job(view.job_id, view.generation).status == "retry_wait"
+    assert _usage(user_id) == 0
+    enqueue.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_deactivated_account_is_terminal_before_provider(user_id):
+    view = _new(user_id)
+    with SessionLocal() as db:
+        db.get(User, user_id).is_active = False
+        db.commit()
+    with stream_boundaries() as summarize:
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        summarize.assert_not_awaited()
+    assert store.read_job(view.job_id, view.generation).status == "failed"
+    assert _usage(user_id) == 0

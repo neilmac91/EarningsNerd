@@ -171,6 +171,7 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
         row.user_id = user_id
         row.system_funded = system
         row.force = force or (summary is not None and not ready)
+        row.refresh_xbrl = bool(force and ready)
         row.attempts = 0
         row.lease_token = None
         row.lease_until = None
@@ -280,16 +281,21 @@ def heartbeat(lease: SummaryJobLease) -> None:
         db.commit()
 
 
-def worker_inputs(lease: SummaryJobLease) -> tuple[object | None, int | None, bool]:
+def validate_job_lease(lease: SummaryJobLease) -> None:
+    with SessionLocal() as db:
+        lock_job_for_result(db, lease)
+
+
+def worker_inputs(lease: SummaryJobLease) -> tuple[object | None, int | None, bool, bool]:
     from app.services.summary_pipeline import snapshot_generation_user
     with SessionLocal() as db:
         row = lock_job_for_result(db, lease)
         if row.system_funded:
-            return None, None, row.force
+            return None, None, row.force, row.refresh_xbrl
         user = db.query(User).options(joinedload(User.subscription)).filter(User.id == row.user_id).first()
         if user is None or not user.is_active:
             raise SummaryJobUnavailable("The generation account is unavailable", code="summary_account_unavailable", status_code=403)
-        return snapshot_generation_user(user, user.id), user.id, row.force
+        return snapshot_generation_user(user, user.id), user.id, row.force, row.refresh_xbrl
 
 
 def reserve_job_usage(lease: SummaryJobLease) -> tuple[bool, int, int | None, bool, str | None]:
@@ -393,7 +399,7 @@ def finish_job(lease: SummaryJobLease, event: dict) -> JobView:
                 row.last_dispatched_at, row.dispatch_token = None, uuid4().hex
             else:
                 row.status, row.stage = "failed", "error"
-                row.next_attempt_at = now + timedelta(seconds=settings.SUMMARY_JOB_FAILED_RETRY_SECONDS)
+                row.next_attempt_at = now + timedelta(seconds=max(settings.SUMMARY_JOB_FAILED_RETRY_SECONDS, delay))
         row.lease_token, row.lease_until, row.updated_at = None, None, now
         db.commit()
         return _view(row)

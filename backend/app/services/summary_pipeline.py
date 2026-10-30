@@ -444,6 +444,19 @@ async def stream_filing_summary(
     stored excerpt changes only with the summary it grounds. ``rebuild_excerpt`` (set only by a forced
     precompute) builds that excerpt with the current extraction instead of reusing a stored one.
     """
+    if settings.SUMMARY_DURABLE_GENERATION_ENABLED:
+        from app.services.summary_job_store import SummaryJobLeaseLost, validate_job_lease
+        owned = durable_lease is not None and durable_lease.filing_id == filing_id
+        if owned:
+            try:
+                await run_in_threadpool(validate_job_lease, durable_lease)
+            except SummaryJobLeaseLost:
+                owned = False
+        if not owned:
+            logger.warning("[stream:%s] Refusing generation without durable ownership", filing_id)
+            yield {"type": "error", "code": ErrorCode.GENERATION_PAUSED.value, "retryable": False,
+                   "message": "Summary generation is temporarily unavailable. Try again shortly."}
+            return
     run = generation_run.GenerationRun(
         filing_id=filing_id,
         current_user=current_user,

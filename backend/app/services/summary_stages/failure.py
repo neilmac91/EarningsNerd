@@ -15,6 +15,7 @@ import httpx
 
 from app import database
 from app.services import summary_pipeline as pipeline
+from app.services.edgar.exceptions import EdgarNetworkError, FilingNotFoundError
 
 if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstring on import order
     from app.services.summary_stages.generation_run import GenerationRun
@@ -59,6 +60,22 @@ def _source_failure_details(error: Exception) -> tuple[pipeline.ErrorCode, int |
     return code, status, exception_class, retry_after
 
 
+def _source_retryable(error: Exception, status: int | None) -> bool:
+    """Closed transient policy. Access denial/parse defects must not become retry storms."""
+    if status is not None:
+        return status in {404, 408, 429, 500, 502, 503, 504}
+    seen: set[int] = set()
+    current: BaseException | None = error
+    for _ in range(8):
+        if current is None or id(current) in seen:
+            break
+        seen.add(id(current))
+        if isinstance(current, (EdgarNetworkError, FilingNotFoundError, httpx.TransportError, TimeoutError)):
+            return True
+        current = current.cause if isinstance(current, pipeline.EdgarError) and current.cause else current.__cause__
+    return False
+
+
 async def source_failed(run: GenerationRun, error: Exception) -> dict:
     """Persist the terminal source failure; return additive metadata for its existing error frame."""
     code, status, exception_class, retry_after = _source_failure_details(error)
@@ -90,7 +107,7 @@ async def source_failed(run: GenerationRun, error: Exception) -> dict:
             "[stream:%s] Source failure progress write failed exception_class=%s request_id=%s",
             run.filing_id, type(persistence_error).__name__, request_id,
         )
-    fields = {"code": code.value}
+    fields = {"code": code.value, "retryable": _source_retryable(error, status)}
     if request_id is not None:
         fields["request_id"] = request_id
     if retry_after is not None:
@@ -126,7 +143,8 @@ async def timed_out(run: GenerationRun) -> dict:
         await run.run_sync_db(record_timeout_progress)
     except Exception as e:
         logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
-    return {'type': 'error', 'message': 'The summary timed out before it finished. Try again.'}
+    return {'type': 'error', 'message': 'The summary timed out before it finished. Try again.',
+            **({'retryable': True} if run.durable_lease is not None else {})}
 
 
 async def failed(run: GenerationRun, e: Exception) -> dict:

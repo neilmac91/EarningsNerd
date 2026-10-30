@@ -63,7 +63,7 @@ async def observe_job(view: store.JobView) -> AsyncIterator[dict]:
             return
         delay = max(0, (view.retry_at - utcnow()).total_seconds()) if view.retry_at else 0
         yield {"type": "progress", "stage": view.stage,
-               "message": "The source is not ready. We will retry automatically." if delay else "Preparing this summary…",
+               "message": "Preparation is waiting to retry automatically." if delay else "Preparing this summary…",
                "job_id": view.job_id, "retry_after_seconds": delay}
         await asyncio.sleep(settings.STREAM_HEARTBEAT_INTERVAL)
         refreshed = await run_owned_sync(store.read_job, view.job_id, view.generation)
@@ -82,12 +82,12 @@ async def _heartbeat(lease: store.SummaryJobLease) -> None:
 
 async def _generate(lease: store.SummaryJobLease) -> dict:
     from app.services.summary_pipeline import stream_filing_summary
-    actor, user_id, force = await run_owned_sync(store.worker_inputs, lease)
+    actor, user_id, force, refresh_xbrl = await run_owned_sync(store.worker_inputs, lease)
     terminal = None
     async with aclosing(stream_filing_summary(
         filing_id=lease.filing_id, current_user=actor, user_id=user_id,
         telemetry_distinct_id="durable-summary", telemetry_entry_point=None, telemetry_ctx={},
-        emit_funnel_telemetry=False, force_regenerate=force, durable_lease=lease,
+        emit_funnel_telemetry=False, force_regenerate=force, refresh_xbrl=refresh_xbrl, durable_lease=lease,
     )) as events:
         async for event in events:
             if event.get("type") in {"complete", "partial", "error"}:
@@ -114,6 +114,8 @@ async def run_summary_task(payload: dict) -> None:
         terminal = await producer
     except store.SummaryJobLeaseLost:
         return  # a replacement owns recovery; an obsolete task must not mark its outcome
+    except store.SummaryJobUnavailable as exc:
+        terminal = {"type": "error", "code": exc.code, "retryable": exc.status_code == 503}
     except Exception as exc:
         logger.warning("Summary worker failed job=%s generation=%s class=%s",
                        task.job_id, task.generation, type(exc).__name__)
