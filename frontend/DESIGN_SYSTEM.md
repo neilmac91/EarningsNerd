@@ -138,14 +138,15 @@ the debug payload panel).
   arrives (`font-display: swap`) the role paints in the platform's monospace, never a proportional face (§8, E199).
   **The figure face** is the data role on the analysis figures: MetricsTable's values, change lines and
   window column, KpiStrip's value and change line, the DataNoteMark marks and the evidence dialog's
-  figures (SourceValue: the 24px value, "As stored", the arithmetic line, each input's value and the
-  comparison) set `font-figure` with `tabular-nums lining-nums` declared on the figure, and the source
+  figures (SourceValue: the 24px value, "As stored", the arithmetic line, each input's value, the
+  comparison, and where a later filing reports another value the "As filed" pair and the growth as first
+  reported) set `font-figure` with `tabular-nums lining-nums` declared on the figure, and the source
   button re-declares the numerals, since a button's UA `font` shorthand resets them. On the figure
   surfaces a figure carries no tracking: `tracking-normal` sits on the table's cell and again on its
   change line, whose `text-xs` would bring caption tracking back, and on the KPI value and change line,
   over `text-2xl`'s title tracking and `text-xs`'s caption tracking. The dialog's figures keep their
-  sizes' tracking: -0.012em on the 24px value, +0.01em on "As stored" and the arithmetic line, none on
-  the 14px inputs and comparison. An accession and a raw tag there keep `font-data`, since their
+  sizes' tracking: -0.012em on the 24px value, +0.01em on "As stored", the "As filed" pair and the
+  arithmetic line, none on the 14px inputs, comparison and growth as first reported. An accession and a raw tag there keep `font-data`, since their
   hyphens are not minus signs. `fontFamily.figure` is `"EN Figure Minus"`, then exactly the data stack.
   The minus is drawn, not written: `EN Figure Minus` is a one-glyph `@font-face` in `app/globals.css`
   (`unicode-range: U+002D`, `/fonts/en-figure-minus.woff2`, Geist Mono's own U+2212 outline, SIL OFL
@@ -805,8 +806,12 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  edge, with an empty gutter beside it; zero
                  is a value ($0.00), never the dash. A missing or zero prior gives no change (the
                  dataset's _growth returns None), so the cell shows its value alone with no change line;
-                 n/m marks only a change whose sign flips through zero, a current and a prior of
-                 opposite signs. n/m stays visible and is announced as “not meaningful”: the visible
+                 n/m marks a change that is not a meaningful percentage, for one of two causes: its
+                 two periods' values change sign through zero (a current and a prior of opposite
+                 signs), or a later filing reports a different value for one or both of them, so the
+                 two sit on different bases (MPA WP5a, an annual run's YoY only: the producer's "nm"
+                 with yoy_first_reported beside it; the evidence dialog and the chart's footnote say
+                 which, the cell and the legend do not). n/m stays visible and is announced as “not meaningful”: the visible
                  text is aria-hidden beside sr-only words (GrowthText), as in the KPI change and the
                  evidence dialog's comparison.
                  The annual window column (CAGR, or the window's percentage-point change for a percent
@@ -969,8 +974,48 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  minus signs. The display figure's letter takes the large raise, 0.85em after 2px
                  (DataNoteMark large; Data note mark). The Checks status names a note's letter only for a
                  note that questions the number, and only that note's status takes warning ink; a
-                 record-only figure still reads “Needs review”, never a passed check. Gate:
-                 tests/unit/figureSurfaceInks.spec.ts (font-figure allowed in SourceValue.tsx).
+                 record-only figure still reads “Needs review”, never a passed check.
+                 Later-filing evidence (MPA WP5a, D11): where a later filing reports a value other
+                 than the one the year's own annual report gave (a reported figure's first_reported,
+                 in an annual run only: quarterly evidence is deferred, D5, and a later pull request
+                 adds it with its reader, the decoder refusing it until then), the
+                 source section is “Source filings” and, in the section's own secondary ink with no
+                 frame (no Notice, so no inset cap engages), reads “First reported as $6.7B in its own
+                 annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports
+                 $5.1B, shown here.”: compact figures (compactFigure) that take more decimals where
+                 they would print alike ($15.16B and $15.20B, laterFilings.ts distinctFigures), and a
+                 form or day the payload lacks left out, parentheses and all, never invented. Under it,
+                 an exact sign flip or factor of 1,000ⁿ says what was found, from the two values (“A
+                 later filing reports the opposite sign.”, “A later filing reports a value 1,000 times
+                 larger than the year's own annual report.”, smaller, 1,000,000 times); then the
+                 “As filed” pair, both values exactly, 12px in the figure face, as label and value
+                 columns: each row a flex-wrap line whose value takes its right edge (ml-auto), so the
+                 two values' digit groups stand under each other, and a value the row cannot hold
+                 beside its label wraps under it, still at that edge; the value is right-aligned text
+                 too (text-right), so one that wraps within itself (320px under 200% text) keeps the
+                 edge on each of its lines; then a link to each
+                 filing, each above its accession: “Open its own annual report on SEC.gov” and “Open
+                 the later filing on SEC.gov”, whose visible words carry no figure (brand rule 2) and
+                 whose accessible names, which begin with those words, add the form, the filed day and
+                 the figure and period. A calculated figure's input carries the same block where its
+                 input does (item 5). It is evidence, not a note (D-061): no letter, no warning ink,
+                 and the Checks as they were. A figure without it keeps “Source filing” and “Open
+                 original SEC filing”.
+                 A YoY that reads n/m across that change (the point's yoy_first_reported, present
+                 only there) says its cause under the n/m, “Not meaningful: a later filing reports a
+                 different value for one or both of the two years.”, then “As first reported: +14.3%”
+                 in the figure face, nothing where the own reports give no growth, and “As first
+                 reported: n/m” across a sign or scale finding on either year, on the figure or on any
+                 input of its calculation, where one of the two readings rests on the slip (the producer
+                 sends 'nm' there, never null); a sign change's n/m alone keeps no such sentence, and
+                 where the shown values change sign and the basis changed too (the producer sends
+                 yoy_first_reported on that n/m), the later-filing cause wins, here and in the chart's
+                 footnote and the data notes' line. Gates:
+                 tests/unit/figureSurfaceInks.spec.ts (font-figure allowed in SourceValue.tsx);
+                 tests/unit/later-filings.spec.tsx (the strict decoder, the block, the cause, the
+                 chart's footnote line and the data notes' line on the shared later-filings fixture);
+                 tests/unit/brandCopyRules.spec.ts rule 2 (first_reported's days and the growths as
+                 first reported are figure fields).
 
 Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-cap-6;
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
@@ -1128,7 +1173,27 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  built on them”, “built on it” after one figure, or “14 growth figures” for a note on growth
                  figures alone, each distinct and never added to by a repeated appearance) and
                  “Comparisons: …” with their periods; an annual window keeps its recorded range. No note
-                 says where on the page it appears: the comparison locators are gone. One legend follows:
+                 says where on the page it appears: the comparison locators are gone. Where a later
+                 filing reports a value other than the one a year's own annual report gave (MPA WP5a,
+                 D8), one p follows the list (data-analysis-later-filings), never a summary clause: “A
+                 later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total
+                 assets FY2018); select one to see both filings. Growth across the change reads n/m
+                 (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020).”
+                 Its first sentence counts the reported figures that carry their own first_reported (a
+                 sign flip or a factor of 1,000 included; the decoder refuses the field on a calculated
+                 figure, whose evidence sits on its inputs), over the run's periods, places as the
+                 summary joins them and periods through formatAnalysisPeriod, from laterFilingPlaces
+                 over the points (so no data notes version moves), and “select one to see both filings”
+                 follows those places, each of which opens a dialog that gives both filings (chief
+                 design on #1776: a growth's dialog gives its cause, not a second filing, and the clause
+                 no longer runs into the legend's “Select any figure”). The second sentence names, in
+                 the same form, only the YoY changes that read n/m across the change (yoy_first_reported
+                 present), so it never names a figure whose gap moved no growth past the n/m rule
+                 (REGN's total assets FY2018, 0.24%) or whose growth never turns n/m (EPS, D3), nor a
+                 sign change's n/m alone (one whose basis changed too is the later filing's, and named);
+                 with none the line is its first sentence alone. An annual run alone
+                 carries the line (D5). tests/unit/later-filings.spec.tsx holds both sentences' places. It is no note: the closed summary keeps its
+                 clauses, “No figures need review” among them (D7). One legend follows:
                  “Select any figure to see its source filing, method and inputs. Automated checks confirm
                  that reported figures come from the company’s filed data (XBRL); they are not an audit
                  of the company’s accounts.” Then the nested Sources & methods prose, the source date and
@@ -1167,7 +1232,10 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  values in them),
                  tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
-                 at 390 and 1480px, one line closed at 1480px).
+                 at 390 and 1480px, one line closed at 1480px); the later-filing line's places against the
+                 shared backend/tests/fixtures/analysis_later_filings.json, which the backend's twin reads
+                 too (tests/unit/later-filings.spec.tsx); the backend's tests/unit/test_export_note_marks.py
+                 reads this file's summary spans, five, so the line never joins the summary.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
                  FY2026 and all API/snapshot/selection keys retain their original identity. A
                  window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
@@ -2890,7 +2958,11 @@ never zero or a claim that the company did not report them. The analysis trend c
 inside a plot: an observation whose note questions the number puts its letter in the notes band under
 its period (`markedNote`; the renderer below), in the chart's note ink, and the footnote line under the
 plot names its series, periods and reason. A gap's line names its periods in words with no letter, and
-a calculated value carries no glyph, its periods named in a footnote line. Value and YoY concerns are
+a calculated value carries no glyph, its periods named in a footnote line. An n/m growth slot's line names
+its cause: "Not meaningful: the prior-year figure was zero or of the opposite sign (FY2020–FY2021).", or,
+for an "nm" beside the growth as first reported (MPA WP5a), "Not meaningful: a later filing reports a
+different value for one or both years (FY2018–FY2020).", each on its own line, so neither names the
+other's periods; the slot keeps n/m on the 0% rule and the tooltip "n/m · not meaningful", with no letter. Value and YoY concerns are
 independent: a tooltip row names its own marked value or YoY note, and a clean row, or one whose note
 marks nothing, carries no letter. The plot is a named keyboard region only while overflowing, measured
 by `useOverflowRegion` before paint and on resize, and its values stop (below) reads each period, the

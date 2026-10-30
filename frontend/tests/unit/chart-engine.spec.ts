@@ -295,6 +295,21 @@ describe('the cases the step-1 data required', () => {
     expect(m.footnotes).toContainEqual({ mark: '—', text: 'YoY growth needs the same period a year earlier; none for FY2018–FY2019.' })
   })
 
+  it('RIVN with a later filing’s value: each n/m names its own cause, and a sign change’s line never names the later filing’s periods (MPA WP5a, D12)', () => {
+    const m = model('RIVN_annual', 'topline', (ds) => {
+      // The producer's mark of a change of basis: the n/m sentinel with the growth as first reported beside it.
+      Object.assign(ds.series.find((s) => s.concept === 'revenue')!.points.find((point) => point.period === 'FY2024')!, { yoy: 'nm', yoy_first_reported: 0.1 })
+    })
+    expect(labelsOf(m, 1)).toEqual(['—', '—', 'n/m', 'n/m', '+2,915%', '+167.4%', 'n/m', '+8.4%'])
+    const nm = m.footnotes.filter((footnote) => footnote.mark === 'n/m')
+    expect(nm).toEqual([
+      { mark: 'n/m', text: 'Not meaningful: the prior-year figure was zero or of the opposite sign (FY2020–FY2021).' },
+      { mark: 'n/m', text: 'Not meaningful: a later filing reports a different value for one or both years (FY2024).' },
+    ])
+    // A later filing's value is no note (D-061): no letter in the band for it.
+    expect(m.notesBand?.FY2024 ?? []).toEqual([])
+  })
+
   it('LCID margins: −18,093% does not flatten the axis; the clipped values are flagged for the edge band', () => {
     const m = model('LCID_annual', 'margins')
     expect(ticks(m)[0]).toBe(`${MINUS}600%`)
