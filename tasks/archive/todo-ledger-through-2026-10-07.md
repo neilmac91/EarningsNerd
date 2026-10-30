@@ -7104,6 +7104,24 @@ Full local and hosted verification plus independent exact-head review precede re
   approved work #1648 had done, so no worker PR follows. The fact-check's 42 findings were verified, 26
   taken and 16 kept; the reviewer's four nits and the worker correction went into a fourth commit, with
   two new founder actions (the worker's Sentry DSN and a stale-row gate).
+- 2026-10-30 (record 70, `runtime/control/DECISIONS-70.md`): PR #1804 (record 69) merged `f125759e` by
+  the chief's own squash, pinned to its head, on the founder's word (sixty-fifth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step), after its fourth commit, the same
+  reviewer's clean check of that commit, the founder's answers to its founder actions 4 and 5 and the
+  chief's one ready mark, whose own Codex review completed with no finding, the merge waiting for
+  #1803's backend deploy. Closure 221 registers record 69's survey, fact-check and reviewer, records
+  worker-sentry-start-pr-01 as unexercised, and pre-registers this record's survey and fact-check,
+  record 71's reviewer and two engineering PRs' agents. A read-only survey of the window before the
+  record was written. Three main merges, one of them a backend deploy, #1803's, healthy by its own
+  deploy job, the other two deploy jobs skipping every deploy step; no job cut off at its time limit;
+  the advisory audits exiting 1, as inferred, in none of the main runs. Production read live after
+  that deploy: describe-service passing and logs-probe reading logging permitted.
+  No CODE RED spend; no ledger event; no paid step on GitHub by any writer. No new chief defect, the
+  lapses counted from the chief's notes and its own commands; one hook refusal (the secret-scan hook
+  holding a push piped into the mask) and no permission-classifier refusal of the chief's commands in
+  the window; one correction to record 69 (the checkpoint's summary of it). The founder approved gate
+  (e) and keeps the task worker's Sentry DSN check; gate (d)'s PR began after the stamp. The
+  fact-check's 35 findings were verified, 20 taken and 15 kept.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
