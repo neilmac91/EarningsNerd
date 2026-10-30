@@ -2792,14 +2792,14 @@ def test_principal_review_5718798403_item_1_a_report_backed_row_whose_original_t
             db, monkeypatch, "PR" + later[0].upper(), later, parsed=parsed, proxy_rows=proxy_rows)) as states:
         assert (_history_rows(states[False][0], states[False][1]), _history_rows(states[True][0], states[True][1])) == (
             [], [(_accn(states[True][1], "K25"), False, None, "companyfacts", "10-K", REVIEW_FIRST)])
-        for db, company, payload, filing in states.values():
+        for db, company, payload, filing in (states[True], states[False]):  # since #1682 first: main fails it
             row = _overwritten_row(db, company, filing, parsed)
             assert row.is_latest == (not proxy_rows)
             assert svc.extract_authoritative_values(payload)[("net_income", date(2025, 12, 31))] == figure
             plan = _preview(db, company, payload)["proxy"]
+            assert [e["action"] for e in plan["rows"] if e["fact_id"] == row.id] == ["restored"]
             assert (plan["filing_rows_restored"], plan["filing_rows_kept"], plan["promoted"], plan["left_report_backed"],
                     plan["detection_listed"]) == (1, 0, 1 if proxy_rows else 0, [], [])
-            assert [e["action"] for e in plan["rows"] if e["fact_id"] == row.id] == ["restored"]
             assert [(e["form"], e["winner_accession"]) for e in plan["rows"] if e["action"] == "promoted"] == (
                 [("DEF 14A", filing.accession_number)] if proxy_rows else [])
             _apply(db, company, payload)
@@ -2893,8 +2893,9 @@ def test_principal_review_5718798403_item_2_a_report_backed_scale_error_takes_th
         [history] = [r for r in _rows(new, company, concept="net_income", filing_id=None)
                      if r.accession == _accn(company, "K25")]
         if then is None:
-            for db in (old, new):
+            for db in (new, old):
                 plan = _preview(db, company, payload)["proxy"]
+                assert [e["action"] for e in plan["rows"] if e["fact_id"] == row.id] == ["restored"]
                 assert (plan["filing_rows_restored"], plan["left_report_backed"], plan["scale_up_retained"]) == (
                     1, [], [])
                 _apply(db, company, payload)
@@ -3000,8 +3001,6 @@ def test_principal_review_5718798403_item_2_a_scale_up_with_no_10k_figure_is_lis
             assert ("net_income", date(2021, 12, 31)) not in svc.extract_authoritative_values(payload)
             stored = repair.snapshot(row)
             plan = _preview(db, company, payload)["proxy"]
-            assert (plan["filing_rows_restored"], plan["filing_rows_kept"], plan["left_report_backed"],
-                    plan["detection_listed"]) == (0, 0, [], [])
             assert row.id not in {e["fact_id"] for e in plan["rows"]}
             assert plan["scale_up_retained"] == [{
                 "fact_id": row.id, "action": "scale_up_retained", "concept": "net_income", "fiscal_year": 2021,
@@ -3009,6 +3008,8 @@ def test_principal_review_5718798403_item_2_a_scale_up_with_no_10k_figure_is_lis
                 "form": "10-K", "value": "90000000000", "winner_accession": None, "winner_value": None, "gap": None,
                 "set": 4, "is_latest": not proxy_rows, "original": 90e6, "authority": None,
                 "reason": "no_10k_figure"}]
+            assert (plan["filing_rows_restored"], plan["filing_rows_kept"], plan["left_report_backed"],
+                    plan["detection_listed"]) == (0, 0, [], [])
             applied = _apply(db, company, payload)["proxy"]
             assert applied["scale_up_retained"] == plan["scale_up_retained"]
             assert applied["retired_without_winner"] == (1 if proxy_rows else 0)
@@ -3061,14 +3062,15 @@ def test_principal_review_5718798403_item_2_a_retained_scale_up_off_the_10k_figu
                 False, "companyfacts", 4_092e6, 4_092.0)
             stored = repair.snapshot(row)
             plan = _preview(db, company, payload)["proxy"]
-            assert (plan["filing_rows_restored"], plan["filing_rows_kept"], plan["left_report_backed"]) == (0, 0, [])
             assert row.id not in {e["fact_id"] for e in plan["rows"]}
+            assert (plan["filing_rows_restored"], plan["filing_rows_kept"]) == (0, 0)
             assert plan["scale_up_retained"] == [{
                 "fact_id": row.id, "action": "scale_up_retained", "concept": "net_income", "fiscal_year": 2025,
                 "fiscal_period": "FY", "period_end": "2025-05-31", "accession": filing.accession_number,
                 "form": "10-K", "value": "4092000000", "winner_accession": None, "winner_value": None,
                 "gap": 0.769231, "set": 4, "is_latest": False, "original": 4_092.0, "authority": 4_092e6 * 1.3,
                 "reason": "off_10k_figure"}]
+            assert plan["left_report_backed"] == []
             applied = _apply(db, company, payload)["proxy"]
             assert applied["scale_up_retained"] == plan["scale_up_retained"]
             assert repair.snapshot(_filing_row(db, filing)) == stored
