@@ -7138,7 +7138,8 @@ Full local and hosted verification plus independent exact-head review precede re
   three CI runs and three Copilot runs. One chief defect (39, record 70's merge message's count); the
   lapses counted from the chief's notes and its own commands; no hook refusal and no
   permission-classifier refusal of the chief's commands in the window; four corrections to record 70.
-  Gates (d) and (a) built and reviewed locally.
+  Gates (d) and (a) built and reviewed locally. The fact-check's 45 findings were verified, 28 taken
+  and 17 kept.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
