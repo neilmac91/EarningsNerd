@@ -237,7 +237,9 @@ import {
  *    clause's verb, a wait past the participle's own complement is the clause's ("We record server events not sent
  *    from your browser only with your consent." fails). A verb that denies in its own word, "hardly" or "nowhere" is no
  *    denial to it ("We refuse to record server events not gated by your consent." passes, though main refused it: a
- *    gap).
+ *    gap), and a relative clause in the participle whose verb the lexicon lacks takes the clause's own verb for its
+ *    own ("Server events not sent without obtaining the permission that you granted are collected only after you opt
+ *    in." passes, though main refused it: a gap).
  *    Ambiguous, so left unplanted: "Every endpoint validates your token.", "Every endpoint checks your token.",
  *    "Every endpoint needs a valid session.", "Only signed-in users can reach every endpoint." and "Our gateway fronts
  *    every endpoint and requires a login." (all refused since #1594's fourth round, as main's blanket refused them).
@@ -429,7 +431,9 @@ import {
  *    subject's negated participle, in the forms main refused wherever its denial window did not reach the clause's
  *    verb, as with an object, a modifier, a list, a bracket, a comma, a dash, or an adverb, an auxiliary or a modal
  *    before the verb, or a promise another clause makes ("Sessions not ended by logging out of a device end within 30
- *    minutes.", "Sessions not ended by logging out stay open, but the rest end within 30 minutes.").
+ *    minutes.", "Sessions not ended by logging out stay open, but the rest end within 30 minutes."), and, as in the
+ *    consent family, a relative clause in the participle whose verb the lexicon lacks, which takes the clause's own verb
+ *    for its own ("Sessions not opened by the device that you registered end within 30 minutes of logging out.").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -2642,9 +2646,9 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (602 rows since E162 stage 4f) takes 4.6s alone: the default 5s timed out in a full local run on a
+    self-check (604 rows since E162 stage 4f) takes 4.6s alone: the default 5s timed out in a full local run on a
     loaded machine, it took 35s in this spec under twenty-four busy loops on four cores, past a 30s budget, and 47s
-    under thirty-two, so the budget is 90s, about twice that. The removed claims' self-check (645 rows, through the
+    under thirty-two, so the budget is 90s, about twice that. The removed claims' self-check (647 rows, through the
     page's render and splitter) takes 1.0s alone, and the default 5s timed out in this spec under twenty-four busy
     loops. */
 const READS_EVERY_PLANTED_FORM = { timeout: 90_000 }
@@ -3529,6 +3533,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>We avoid recording server events not gated by your consent.</p>', 'gap'],
       ['<p>We hardly record server events not gated by your consent.</p>', 'gap'],
       ['<p>We record server events not gated by your consent nowhere.</p>', 'gap'],
+      // Main's catches given up, named: a relative clause in the participle whose verb the lexicon lacks takes the
+      // clause's own verb for its own, so the participle runs over it, after a gerund's object or not (Codex on
+      // 74748ba3).
+      ['<p>Server events not sent without obtaining the permission that you granted are collected only after you opt in.</p>', 'gap'],
+      ['<p>Server events not sent with the permission that you granted are collected only after you opt in.</p>', 'gap'],
       // A wait inside a participle without "not" stays the promise main read it as, past the clause's verb or not.
       ['<p>Server events gated by your consent are recorded by the API.</p>', true],
       ['<p>Analytics collected only with your consent are sent to PostHog.</p>', true],
@@ -4801,6 +4810,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions not ended by logging out stay open, but the rest end within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by a logout stay open; the rest expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended upon logging out stay open; others end within 30 minutes.</li>', 'gap'],
+      // A catch of main's given up, named: a relative clause in the participle whose verb the lexicon lacks takes the
+      // clause's own verb for its own, as the consent family's planted forms show, while one whose verb the lexicon
+      // knows keeps main's catch (Codex on 74748ba3).
+      ['<li>Sessions not opened by the device that you registered end within 30 minutes of logging out.</li>', 'gap'],
+      ['<li>Sessions not opened by the device that you use end within 30 minutes of logging out.</li>', true],
       // Out of reach, as on main: a participle the lexicon lacks that does not end in -ed reads as the clause's verb
       // group, and so does one after "never", which, unlike a bare "not", may be a finite verb's own ("Sessions never
       // opened."); and a subject of two phrases joined by "and" reads as two clauses, the second naming no session.
