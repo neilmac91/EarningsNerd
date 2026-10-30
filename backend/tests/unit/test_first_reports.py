@@ -7,8 +7,10 @@ on its REGN shape (``test_companyfacts_own_report_history.py``): REGN's FY2018 1
 FY2020 10-K a narrower 5,145.6M under the same tag (docs/mpa-improvements/coherence.md section 1.6). The own report is
 ingest's (``facts/own_reports._own_report``) replayed on stored rows; ``TestOneOwnReport`` holds the two to one answer.
 """
+import copy
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -16,7 +18,8 @@ from sqlalchemy import event
 
 from app.services import facts_service as svc
 from app.services.trend_analysis.first_reports import (
-    BASIS_INPUTS, _CALCULATED, _has_finding, differs, disagreement, own_period_ends,
+    BASIS_INPUTS, _CALCULATED, FirstReports, _has_finding, _ratio, basis_changed, differs, disagreement,
+    own_period_ends,
 )
 from app.services.trend_analysis.source_documents import FilingDates
 from app.utils.sec_urls import build_sec_archive_url
@@ -445,6 +448,62 @@ class TestGrowthAcrossAChangeOfBasis:
         assert [(item.markdown.split()[3], item.required) for item in growth] == [("FY2021", True)]
 
 
+@pytest.mark.parametrize("now, before, changed", [
+    ((100.0, None), (100.0, None), False),  # no evidence on either year: no change of basis
+    ((90.0, {"value": 100.0}), (100.0, None), True),  # 0.9 against 1
+    ((-100.0, {"value": 100.0}), (-100.0, {"value": 100.0}), False),  # both years flipped alike: one basis
+    ((5.0, {"value": 0.0}), (100.0, None), True),  # an own value of 0 bounds no ratio
+    ((5.0, {"value": 0.0}), (7.0, {"value": 0.0}), True),
+    ((5.0, {"value": 10.0}), (0.0, {"value": 10.0}), True),  # a ratio of 0 the year before, not now
+    ((0.0, {"value": 10.0}), (0.0, {"value": 20.0}), False),  # 0 shown on both years
+], ids=["no-evidence", "a-move", "a-run-flipped-alike", "own-zero-now", "own-zero-both", "zero-before",
+        "zero-both"])
+def test_d1_the_basis_rule_reads_the_two_years_ratios(now, before, changed):
+    assert basis_changed(_ratio(now), _ratio(before)) is changed
+
+
+def _own(concept="revenue", value="6710800000"):
+    from app.services.fact_provenance import reported_provenance
+
+    return SimpleNamespace(concept=concept, unit="USD", period_start=date(2018, 1, 1), period_end=FY2018,
+                           fiscal_period="FY", form="10-K", accession=K18, value=Decimal(value), raw_tag="us-gaap:X",
+                           source="companyfacts", reconciled=True,
+                           provenance=reported_provenance({"reconciled": True}, "2019-02-07"))
+
+
+def _figure(concept="revenue", value=5_145.6e6, method="reported", inputs=()):
+    from app.services.fact_provenance import reported_provenance
+
+    return {"concept": concept, "value": value, "unit": "USD", "period_start": "2018-01-01",
+            "period_end": "2018-12-31", "accession": K20, "filed_at": "2021-02-08",
+            "provenance": {**reported_provenance({"reconciled": True}), "method": method, "inputs": list(inputs)}}
+
+
+def test_item_5_an_input_at_any_depth_carries_its_evidence_on_a_copy():
+    # A calculated input (one quarter's revenue derived from others, say) whose own reported input changed: the
+    # reported operand carries the evidence, the calculated one none, and the records the figure was built from are
+    # not written.
+    reported = _figure()
+    calculated = _figure(method="calculated", inputs=[reported])
+    point = _figure("net_margin", 47.5, "calculated", [calculated])
+    before = copy.deepcopy(point)
+    FirstReports({}, {}, None, history=[_own()]).attach([point])
+    outer = point["provenance"]["inputs"][0]
+    assert "first_reported" not in outer and "first_reported" not in point
+    assert outer["provenance"]["inputs"][0]["first_reported"]["accession"] == K18
+    assert reported == before["provenance"]["inputs"][0]["provenance"]["inputs"][0] and "first_reported" not in reported
+
+
+@pytest.mark.parametrize("figure, own", [(_figure(method="calculated"), _own()),
+                                         (_figure("net_margin", 47.5), _own("net_margin", "36.4"))],
+                         ids=["a-calculated-revenue", "a-reported-margin"])
+def test_only_a_reported_figure_outside_the_calculated_concepts_carries_its_own(figure, own):
+    # A calculated figure's evidence sits on its inputs, and a calculated concept's own row is no figure's evidence,
+    # whatever its record says (the page refuses first_reported on a calculated figure).
+    FirstReports({}, {}, None, history=[own]).attach([figure])
+    assert "first_reported" not in figure
+
+
 def test_d4_each_calculation_is_recomputed_as_ingest_computes_it():
     from app.services.facts.derive import derive_same_period_metrics
 
@@ -568,11 +627,12 @@ class TestTheCensusCountsTheAnalysissNM:
         assert "| **all** | 3 (1) | 0 (0) | 3 (1) |" in table and "| leading edge | 1 (1) | 0 (0) | 1 (1) |" in table
 
     @pytest.mark.requires_db
-    @pytest.mark.parametrize("shape", list(_shapes()))
+    @pytest.mark.parametrize("shape", [*_shapes(), "a-negative-own-revenue"])
     def test_the_census_counts_the_comparisons_the_dataset_reads_n_m(self, db, shape):
+        # Beside WP5b's shapes, an own value ingest drops (a negative revenue) gives the census no evidence either.
         from scripts import restatement_census
 
-        payload = _shapes()[shape]
+        payload = _shapes().get(shape) or _payload(_items({**_REVENUE, 2018: {**_REVENUE[2018], 2018: -6_710.8e6}}))
         cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
         counted = {(c["concept"], f"FY{c['fy']}") for c in restatement_census.basis_comparisons(cells)}
         dataset = _build(db, _synced(db, payload), "FY2015", "FY2021")

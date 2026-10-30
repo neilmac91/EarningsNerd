@@ -150,14 +150,13 @@ def basis_changed(now: Optional[Decimal], before: Optional[Decimal]) -> bool:
 def disagreement(concept: str, shown: float, own: float) -> Optional[str]:
     """What an exact comparison of the two values finds (item 4), in Decimal so a factor that floats round still meets:
     "opposite_sign" where the value shown is the own value negated (not for a per-share figure, D2), "scale" where one
-    is the other times 1,000ⁿ (``SCALE_STEPS``) with the same sign, else None."""
+    is the other times 1,000ⁿ (``SCALE_STEPS``), a positive factor, so the two share a sign; else None."""
     shown_d, own_d = Decimal(str(shown)), Decimal(str(own))
     if shown_d == 0 or own_d == 0:
         return None
     if shown_d == -own_d:
         return None if concept in SIGN_TEST_EXEMPT else "opposite_sign"
-    if (shown_d > 0) == (own_d > 0) and any(
-            shown_d == own_d * 1000 ** n or own_d == shown_d * 1000 ** n for n in SCALE_STEPS):
+    if any(shown_d == own_d * 1000 ** n or own_d == shown_d * 1000 ** n for n in SCALE_STEPS):
         return "scale"
     return None
 
