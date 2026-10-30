@@ -71,6 +71,7 @@ os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_mock_stripe_webhook_12345"
 
 # Skip Redis initialization in tests - prevents 3+ second timeout per test
 os.environ["SKIP_REDIS_INIT"] = "true"
+os.environ["SEC_DISTRIBUTED_LIMIT_ENABLED"] = "false"
 
 # Disable the HaveIBeenPwned network call in tests so the suite stays hermetic and offline.
 os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
@@ -235,10 +236,11 @@ def _isolate_summary_limiter():
     """
     def clear_loaded_limiter():
         summaries = sys.modules.get("app.routers.summaries")
-        limiter = getattr(summaries, "SUMMARY_LIMITER", None)
-        if limiter is not None:
-            with limiter._lock:
-                limiter._hits.clear()
+        for name in ("SUMMARY_LIMITER", "SUMMARY_REQUEST_LIMITER"):
+            limiter = getattr(summaries, name, None)
+            if limiter is not None:
+                with limiter._lock:
+                    limiter._hits.clear()
 
     clear_loaded_limiter()
     yield

@@ -524,8 +524,16 @@ const MENTIONS_A_PERIOD = new RegExp(`(?:${UNITS})\\b`, 'i')
  * lessons/test-allowlist-caps-are-equalities.md). A new hit is written from the mirror; one that states
  * another fact is argued in here with the cap raised in the same reviewed diff.
  */
-const PERIOD_COUNT_OTHER_FACTS_MAX = 0
-const PERIOD_COUNT_OTHER_FACTS: Array<{ file: string; phrase: string; why: string }> = []
+const PERIOD_COUNT_OTHER_FACTS_MAX = 1
+const PERIOD_COUNT_OTHER_FACTS: Array<{ file: string; phrase: string; why: string }> = [
+  {
+    file: 'features/analysis/components/SourceValue.tsx',
+    phrase: 'one or both of the two years',
+    why: 'A YoY compares two fiscal years, and the evidence dialog says a later filing reports a different value for one '
+      + 'or both of them (MPA WP5a, D12; chief design signed the words off on #1776): the two years one change spans, '
+      + 'not the analysis period cap.',
+  },
+]
 
 /** Rendered copy: its text, and for each UTF-16 unit of it the source position it was read from. */
 type Rendered = { text: string; at: number[] }

@@ -48,7 +48,6 @@ vi.mock('@/features/notifications/api/notifications-api', () => ({
 }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
-  ENABLE_FINANCIAL_CHARTS: false,
   ENABLE_INSIDER_ACTIVITY: false,
 }))
 vi.mock('@/lib/analytics', () => ({

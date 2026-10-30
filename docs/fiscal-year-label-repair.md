@@ -193,8 +193,8 @@ next year-end balance as `label_collision`, so repair those first.
 ## What readers see
 
 Readers that select annual facts by `fiscal_year` move with the repair: the filing page's annual
-chart (`get_filing_fundamentals`), Multi-Period Analysis coverage and datasets, the peer panel's
-year, Copilot `get_financial_fact` lookups and the data-quality coverage spans. A relabelled
+chart (`get_filing_fundamentals`), Multi-Period Analysis coverage and datasets, the peers endpoint's
+year (no page shows it since D-066), Copilot `get_financial_fact` lookups and the data-quality coverage spans. A relabelled
 row's value does not change, but the fiscal-year column it appears under does, now naming the
 year that ends on its date; a filing listed in `partial_filings` keeps its held rows under their
 calendar years, so its chart may skip a year. A changed Multi-Period dataset gets a new

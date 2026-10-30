@@ -475,7 +475,7 @@ ruleTester.run('no-hand-rolled-toggle-group', noHandRolledToggleGroup, {
     // The company page's three rows: a mapped <button> with aria-pressed inside role="group".
     {
       code: '<div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">{METRICS.map((m) => <button key={m.key} type="button" aria-pressed={m.key === metric}>{m.label}</button>)}</div>',
-      filename: '/repo/frontend/features/peers/components/PeerComparisonPanel.tsx',
+      filename: '/repo/frontend/app/company/[ticker]/page-client.tsx',
       errors: [{ messageId: 'handRolled' }],
     },
     // The DS Button, nested deeper, and role written as an expression.

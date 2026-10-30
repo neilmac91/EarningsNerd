@@ -599,6 +599,7 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
 
 # Each PostgreSQL gate's step, "Verify <subject> on PostgreSQL", its test home and the variable the step sets.
 _POSTGRES_STEPS = [
+    ("durable summary ownership", "test_summary_job_transactions.py", "SUMMARY_JOB_TEST_DATABASE_URL"),
     ("Stripe transaction concurrency", "test_subscription_event_transactions.py",
      "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
     ("usage counter concurrency", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
@@ -618,6 +619,8 @@ _POSTGRES_STEPS = [
      "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL"),
     ("summary progress concurrency", "test_summary_progress_transactions.py",
      "PROGRESS_CONCURRENCY_TEST_DATABASE_URL"),
+    ("SEC request admission concurrency", "test_sec_request_gate_transactions.py",
+     "SEC_ADMISSION_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 
@@ -913,7 +916,7 @@ def test_cloud_sql_proxy_is_pinned_by_checksum_in_both_workflows():
     assert len(set(pins)) == 1, f"ci.yml and ops.yml must pin the same cloud-sql-proxy build: {pins}"
 
 
-_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect"
+_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect regn-summary-incident-readout"
 
 
 def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
@@ -928,7 +931,8 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
     # the last setting wins, a name's `-` reads as `_` and its case does not count). Every step that can
     # reach Cloud SQL, found by position and selection rather than by its command text, bounds its locks
     # (at most 10 s) and its statements (at most 600 s), and its run: script may only append to PGOPTIONS,
-    # never a timeout. The read-only detection snapshots full-scan financial_fact and get the larger
+    # never a timeout. The read-only detection snapshots full-scan financial_fact, and the figure-check count reads
+    # every summary's raw JSON a page at a time; both get the larger
     # statement budget; the write paths match the deploy migration step exactly.
     proxy_run = _executable(_step(job, "Start Cloud SQL proxy and export connection env")["run"])
     assert "PGOPTIONS" not in proxy_run, "do not export PGOPTIONS globally — scope it per Cloud SQL step"
@@ -954,6 +958,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         ("Run fiscal-year relabel script", 120_000),
         ("Run quarterly fact repair script", 120_000),
         ("Run filing lineage backfill script", 120_000),
+        ("Run the figure-check count (read-only)", 600_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
         assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (

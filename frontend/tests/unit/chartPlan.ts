@@ -2,13 +2,44 @@
  * What a trend chart's plan prints, by the role the renderer's data-text attribute names (TrendChartSvg's TextRole), as
  * `string|ink`: the ink is the one docs/design/analysis-trend-charts-spec-2026-10.md §3.8 gives the role, whose floor
  * chart-apca.spec.ts holds. Shared by the renderer's unit spec and the gallery (tests/e2e/charts-v2-gallery.spec.ts),
- * so the page and the plan are held to one list.
+ * so the page and the plan are held to one list. Also the engine specs' shared cases: the analysis datasets' synthetic
+ * notes, and the bar chart cases (barCases) that chart-engine.spec.ts and chart-readout.spec.ts both sweep.
  */
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
+import type { BarChartDef } from '@/features/analysis/lib/charts/barChart'
 import { noteGlyphs, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import type { ChartModel } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
+import type { FundamentalSeries, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
+
+/** tests/unit/fixtures/fundamentals-datasets.json: filing-scoped fundamentals as their endpoint serves them, and the bar
+ *  charts the cases draw from them, each a series and its axis. */
+export interface BarFixture {
+  filings: Record<string, { case: string; response: FundamentalsResponse }>
+  charts: Record<string, { case: string; filing: string; concept: string; label: string; axis: 'money' | 'percent' | 'ratio' }>
+}
+
+/** A chart case's series, as its filing's response holds it. */
+export const barSeries = (fixture: BarFixture, name: string): FundamentalSeries => {
+  const chart = fixture.charts[name]
+  return fixture.filings[chart.filing].response.concepts.find((series) => series.concept === chart.concept)!
+}
+
+/** Every chart case as the definition buildBarChart takes: a slot per fiscal year the series holds, withheld years
+ *  included (key "FY2025", tick "2025"), and its axis, a money axis in the series' own unit. */
+export function barCases(fixture: BarFixture): [string, BarChartDef][] {
+  return Object.entries(fixture.charts).map(([name, chart]) => {
+    const series = barSeries(fixture, name)
+    return [name, {
+      id: name,
+      title: chart.label,
+      categories: series.points.map((point) => ({ key: `FY${point.fiscal_year}`, tick: String(point.fiscal_year), long: `FY${point.fiscal_year}` })),
+      series: { key: chart.concept, label: chart.label, values: series.points.map((point) => point.value) },
+      axis: chart.axis === 'money' ? { kind: 'money', unit: series.unit } : { kind: chart.axis },
+    }]
+  })
+}
 
 /** A dataset whose record-only review notes (legacy_calculation, such as REGNPN's nine simulated flags) question the
  *  number instead, so the band letters them (D-061): as stored they letter nothing. */

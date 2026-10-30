@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { createElement } from 'react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 
+import ShareInvite from '@/features/admin/components/ShareInvite'
 import {
   DEFAULT_INVITE_MESSAGE,
   INVITE_SHARE_SUBJECT,
@@ -10,6 +13,36 @@ import {
 } from '@/features/admin/lib/shareLinks'
 
 const LINK = 'https://earningsnerd.io/register?invite=abc123&t=1'
+
+describe('DEFAULT_INVITE_MESSAGE', () => {
+  // docs/LEGAL_READINESS.md: invitation wording promises account access only, not Pro access or an offer. An invitee gets
+  // a beta account; the Pro a beta account would get, through the beta's 100%-off code at checkout, waits on new checkout,
+  // which is closed in code (legal_readiness_service.is_checkout_available). The invite email is held to the same promise
+  // (backend/tests/unit/test_invitation_readiness.py, with the same patterns); this is the default message an admin copies
+  // for a manual link. A word list catches the promises it names, not their synonyms, which review still reads for.
+  // "On us" is matched in its sentence and title cases, not ignoring case, so "Built on US filings" is not a promise.
+  // The subject is the mail link's subject and the platform share sheet's title (ShareInvite), which the second case
+  // holds.
+  afterEach(() => Reflect.deleteProperty(navigator, 'share'))
+
+  it('promises an account and nothing more, in the message and its subject: no Pro access and no offer', () => {
+    for (const text of [DEFAULT_INVITE_MESSAGE, INVITE_SHARE_SUBJECT]) {
+      for (const promise of [/\bpro\b/i, /\b[Oo]n [Uu]s\b/, /\bfree\b/i, /no (credit[- ]?)?card/i, /\btrials?\b/i]) {
+        expect(text).not.toMatch(promise)
+      }
+    }
+    expect(DEFAULT_INVITE_MESSAGE).toContain('{invite_link}')
+  })
+
+  it('gives the platform share sheet that subject as its title', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share })
+    render(createElement(ShareInvite, { link: LINK, email: null }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Share invite' }))
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1))
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: INVITE_SHARE_SUBJECT }))
+  })
+})
 
 describe('buildInviteMessage', () => {
   it('substitutes {invite_link} with the raw link', () => {

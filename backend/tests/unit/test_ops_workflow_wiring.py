@@ -55,8 +55,8 @@ from pathlib import Path
 import pytest
 
 from tests.support.ops_workflow import (
-    BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE, ROOT,
-    STEPS, cloud_sql_reach, selected, setting_ms, shown,
+    BY_NAME, COUNT, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE,
+    ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
 )
 
 DB_COMMAND = re.compile(r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\bscripts/")
@@ -149,7 +149,7 @@ def test_the_lineage_step_runs_for_exactly_its_operations_and_reads_their_output
     assert step["env"]["TICKERS"] == "${{ steps.request.outputs.tickers }}"
 
 
-@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE])
+@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, COUNT])
 def test_the_script_readback_expects_the_steps_own_guards(name):
     """The step stops when its session reports other settings; the line it expects must be the one
     Postgres shows for the step's own PGOPTIONS (10s stays 10s, 120s shows as 2min)."""
@@ -158,6 +158,17 @@ def test_the_script_readback_expects_the_steps_own_guards(name):
     assert expected, f"{name!r} no longer compares its session's settings with its own"
     options = step["env"]["PGOPTIONS"]
     assert expected.groups() == (shown(setting_ms(options, "lock_timeout")), shown(setting_ms(options, "statement_timeout")))
+
+
+def test_the_count_step_is_read_only_through_pgoptions_alone():
+    """The figure-check count needs no approval because it only reads: its session is read-only from the
+    step's own PGOPTIONS, its read-back expects that (`read_only=on`, the line the parametrized test above
+    ties to the bounds), and its run never appends to PGOPTIONS or passes a flag that could write."""
+    step = BY_NAME[COUNT][1]
+    assert selected(step) == {"figure-check-count"}
+    assert ("default_transaction_read_only", "on") in pg_settings(step["env"]["PGOPTIONS"])
+    assert re.search(r"^\s*READ_ONLY=on\s*$", step["run"], re.M), "the read-back must expect a read-only session"
+    assert "PGOPTIONS=" not in step["run"] and "--apply" not in step["run"]
 
 
 def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
@@ -323,7 +334,7 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     assert database._database_url() == make_url(proxy_url), "the app must use the URL it is given, unchanged"
 
     scripts = [ROOT / "backend/scripts/relabel_filing_fy_facts.py", ROOT / "backend/scripts/repair_quarterly_facts.py",
-               ROOT / "backend/scripts/repair_filing_lineage.py"]
+               ROOT / "backend/scripts/repair_filing_lineage.py", ROOT / "backend/scripts/count_figure_check_changes.py"]
     listeners = [
         listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *scripts]
         for listener in _connection_listeners(path)
@@ -336,10 +347,12 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
         "the UTC pin may set the session's time zone and nothing else: anything more can set a guard again"
     )
     # The quarterly repair and lineage backfill scripts run their SQL through their services and the fact
-    # writers' lock, so those modules are read too. database.py's additive-column DDL and
-    # subscription_service.py bound their own lock waits on purpose, and stay out.
+    # writers' lock, so those modules are read too, the repair's proxy step included (it runs no SQL, but it
+    # sits on the repair's path). database.py's additive-column DDL and subscription_service.py bound their
+    # own lock waits on purpose, and stay out.
     sql_modules = [ROOT / "backend/app/services/quarterly_fact_repair.py", ROOT / "backend/app/services/facts/upsert.py",
-                   ROOT / "backend/app/services/filing_lineage_repair.py"]
+                   ROOT / "backend/app/services/filing_lineage_repair.py",
+                   ROOT / "backend/app/services/proxy_fact_repair.py"]
     for path in [*scripts, *sql_modules]:
         assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                              r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", path.read_text(encoding="utf-8"), re.I), (

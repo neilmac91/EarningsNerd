@@ -2,8 +2,9 @@
 /**
  * One trend chart's card under the spec renderer (steps 4 to 7 of the migration, E192, E193, E195): the app's Card
  * shell and controls around the chart engine's model and plan. The plan is laid out at the card's measured width, and
- * the expanded view at its own width, never a CSS scale (spec §3.10). A chart that does not apply keeps the card's
- * height and says why (§3.4). The card's HTML text takes the theme's chart inks (§3.8) inline, from the same source as
+ * the expanded view at its own width, never a CSS scale (spec §3.10): the card composes ChartPlotFrame, which lays it
+ * out. A chart that does not apply keeps the card's height and says why (§3.4). The card's HTML text takes the theme's
+ * chart inks (§3.8) inline, from the same source as
  * the plot (theme.ts, which mirrors the renderer's Tailwind pairs, E194), and so does its PNG's header. TrendChartPlot holds the plot and the ways to read it. The card spans three rows of the grid's
  * subgrid, its header, plot and notes, so a grid row's plots start at one height whatever its legends wrap to (chief
  * design's review of #1609). Escape in an expanded card collapses it and returns focus to its toggle (§3.10, D13).
@@ -11,7 +12,7 @@
  * (D6, D9, M19; step 6, E194). It is busy (aria-busy) while its plot waits for its font, and its export control while a
  * PNG is drawn; expanding or collapsing grows or shrinks the plot's row to its new height (§3.9, §3.10; E200).
  */
-import { useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { Card, cx } from '@/components/ui'
@@ -21,19 +22,15 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
-import { CARD_HEIGHT, layoutChart, VALUES_DONT_FIT } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, type ChartId } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { chartTokens } from '@/features/analysis/lib/charts/theme'
 import type { DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import ChartControl from './ChartControl'
+import ChartPlotFrame, { type ChartFrame } from './ChartPlotFrame'
 import { LegendSwatch } from './chartMarks'
 import DataNotesLink from './DataNotesLink'
-import TrendChartPlot from './TrendChartPlot'
-
-/** The server and the first render plan at the desktop card's width (§3.12) until the card is measured. */
-const DEFAULT_WIDTH = 502
 
 /** §3.10: the plot's row runs from the height it had before a toggle to the one it has now, over the row's own
  *  transition (duration-base, ease-standard), clipped while it runs; then the row is left to size itself again. Returns
@@ -72,19 +69,15 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
   const tokens = chartTokens(dark)
   const [expanded, setExpanded] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [width, setWidth] = useState(DEFAULT_WIDTH)
-  const onWidth = useCallback((measured: number) => setWidth(measured), [])
   const plotRef = useRef<HTMLDivElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
   // The plot row's height when a toggle was asked for, read before the view changes it.
   const fromHeight = useRef<number | null>(null)
   const reduced = usePrefersReducedMotion()
-  const uid = `chart${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const model = useMemo(() => buildChartModel(chart, dataset, notes), [chart, dataset, notes])
   const readouts = useMemo(() => chartReadouts(model, dataset, notes), [model, dataset, notes])
   const view = expanded ? 'expanded' : 'card'
-  const layout = useMemo(() => (model.unavailable ? null : layoutChart(model, width, view)), [model, width, view])
 
   // The Notes chip names the letters the band and the footnotes show, read from the model's footnotes, so the three
   // never disagree: an n/m comparison's note letters here too.
@@ -138,9 +131,9 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
     }
   }
 
-  return (
+  const card = ({ layout, plot, fit, busy }: ChartFrame) => (
     <Card as="section" className={cx('row-span-3 grid min-w-0 grid-cols-1 grid-rows-subgrid gap-y-0 p-cap-5', expanded && 'md:col-span-2')}
-      data-trend-chart={chart} aria-busy={(layout != null && !fontReady) || undefined} onKeyDown={(event) => {
+      data-trend-chart={chart} aria-busy={busy || undefined} onKeyDown={(event) => {
         // A portalled dialog's Escape is not the card's: its DOM sits outside the section.
         if (event.key !== 'Escape' || !expanded || event.defaultPrevented || !event.currentTarget.contains(event.target as Node)) return
         event.preventDefault()
@@ -181,18 +174,11 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
       </div>
       {/* The subgrid's second row, whose height a toggle runs (§3.10). */}
       <div ref={rowRef} className="min-w-0 transition-[height] duration-base ease-standard motion-reduce:transition-none">
-        {layout ? (
-          <TrendChartPlot model={model} layout={layout} readouts={readouts} tokens={tokens} fontReady={fontReady} uid={uid} view={view}
-            plotRef={plotRef} onWidth={onWidth} />
-        ) : (
-          <div className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }} data-chart-text="unavailable">
-            {model.unavailable}
-          </div>
-        )}
+        {plot}
       </div>
       {/* Always rendered: the subgrid's third row. */}
       <div>
-        {layout?.valuesDontFit && <p className="mt-2 text-xs" style={{ color: tokens.note }} data-chart-text="fit">{VALUES_DONT_FIT}</p>}
+        {fit}
         {model.footnotes.length > 0 && (
           <ul className="mt-2 space-y-0.5 text-xs" style={{ color: tokens.note }}>
             {model.footnotes.map((footnote) => (
@@ -205,5 +191,11 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
         )}
       </div>
     </Card>
+  )
+
+  return (
+    <ChartPlotFrame model={model} readouts={readouts} tokens={tokens} fontReady={fontReady} view={view} plotRef={plotRef}>
+      {card}
+    </ChartPlotFrame>
   )
 }

@@ -61,6 +61,8 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process rate of the app's own SEC token bucket (capacity equals rate). SEC's 10 req/s applies per user across every process, so production pins `1` on the API service, every job and the task worker (`ci.yml`); edgartools' separate limiter is `EDGAR_RATE_LIMIT_PER_SEC` (see below the table). |
 | `SEC_MAX_RETRIES` | `5` | EDGAR retry limit. |
 | `SEC_BASE_BACKOFF_SECONDS` | `1.0` | Initial EDGAR retry backoff, seconds. |
+| `SEC_DISTRIBUTED_LIMIT_ENABLED` | `false` | Optional PostgreSQL fleet SEC request admission, fixed 125 ms minimum spacing plus shared 429/503 Retry-After cooldown. Covers existing app HTTPX clients and the version-checked EdgarTools manager/SGML fallback. Activation requires every SEC process on this code, old executions drained and one extra DB connection per process budgeted; see OPERATIONS. No socket-dispatch guarantee. |
+| `SEC_DISTRIBUTED_WAIT_SECONDS` | `10.0` | Maximum coordinator/local-adapter wait per admission, finite and >0, at most 30 s. An outer deadline can cancel an async wait earlier; it cannot terminate an already-running synchronous Edgar worker. Missing state, DB errors or exhausted wait fail closed before a new SEC send. |
 | `COMPANYFACTS_SYNC_TTL_HOURS` | `24` | Companyfacts freshness, hours; a newer Filing can force a refresh earlier. |
 | `SEC_EFTS_BASE_URL` | `"https://efts.sec.gov/LATEST/search-index"` | SEC full-text search endpoint. |
 | `SEC_EFTS_TIMEOUT_SECONDS` | `8.0` | Full-text search request timeout, seconds. |
@@ -91,6 +93,17 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `LEGAL_OPERATOR_EMAIL` | `""` | Reachable legal-contact address; validated as an email before the notice can be published. |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
 | `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work, internal jobs and the account mail of forgot-password and resend-verification (F60). Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
+| `SUMMARY_DURABLE_GENERATION_ENABLED` | `false` | Opt-in exact-filing summary jobs with PostgreSQL ownership, durable billing receipts and private Cloud Tasks workers. Requires `DURABLE_TASKS_ENABLED`, applied schema and verified recovery. Disabling selects legacy generation; use the admission pause before draining/rollback. |
+| `SUMMARY_NEW_JOBS_PAUSED` | `false` | Stop new summary jobs, refreshes and failed-job restarts before quota/budget admission, including legacy new generation. Ready reads, active joins, existing durable workers and recovery continue. Coordinate this pause across all admitting revisions before changing ownership modes. |
+| `SUMMARY_JOB_FAILED_RETRY_SECONDS` | `60` | Minimum explicit-retry cooldown after a failed durable job, seconds (15–3600); a longer source cooldown remains authoritative. |
+| `SUMMARY_JOB_MAX_PENDING_PER_ACCOUNT` | `3` | Maximum shared jobs one account may have queued, running or waiting to retry (1–20); admission serializes across instances. |
+| `SUMMARY_JOB_MAX_ATTEMPTS` | `4` | Maximum automatic generation attempts per admitted job (1–8), including recovered worker leases. |
+| `SUMMARY_JOB_LEASE_SECONDS` | `90` | Durable worker ownership lease, seconds (30–300); renewals run every one third of this duration. |
+| `SUMMARY_JOB_RECOVERY_SECONDS` | `300` | Age of an acknowledged dispatch before bounded recovery may rotate its task identity, seconds (60–1800). This threshold does not configure a scheduler or guarantee recovery latency. |
+| `SUMMARY_JOB_MAX_AGE_SECONDS` | `3600` | Maximum age of an admitted job for automatic attempts, seconds (300–86400). Verify recovery cadence and queue delay fit this horizon before enabling. |
+| `SUMMARY_PREWARM_MAX_PER_DAY` | `0` | Fleet-wide UTC-day admission cap for system-funded summary preparation (0–200). Zero disables it; failures never replenish admissions. This bounds jobs/attempts, not same-day dollars or provider-internal request count. |
+| `SUMMARY_PREWARM_MAX_PER_SCAN` | `0` | Maximum distinct eligible notified filings considered for preparation in one scan (0–20); zero disables preparation. The separate daily cap and durable flags must also permit it. |
+
 | `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |
 | `TASKS_LOCATION` | `"us-west1"` | Queue region; co-locate with the API and worker. |
 | `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |

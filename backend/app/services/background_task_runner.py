@@ -24,6 +24,10 @@ async def run_background_task(envelope: TaskEnvelope) -> None:
     if envelope.kind == "account_mail":
         await account_mail_service.run_account_mail_task(envelope.payload)
         return
+    if envelope.kind == "summary":
+        from app.services.summary_jobs import run_summary_task
+        await run_summary_task(envelope.payload)
+        return
     if envelope.kind == "filings":
         task = FilingsTask.model_validate(envelope.payload)
         with SessionLocal() as db:
