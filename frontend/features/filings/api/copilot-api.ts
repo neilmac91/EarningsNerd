@@ -286,10 +286,14 @@ export const askFilingStream = async (
             else if (finish()) handlers.onComplete(completion)
             break
           }
-          case 'error':
-            // The words stay the reader's own; a stream code, where one is registered, rides beside them (E31).
-            fail(STREAM_ERROR, parseErrorCode(data.code, 'stream'))
+          case 'error': {
+            // A coded event is the application's own refusal (E31), whose words carry what the card must say (a cap
+            // and when it resets), so they stand with their code. An uncoded event may carry a draft's text, so the
+            // reader's own words stand in for it.
+            const code = parseErrorCode(data.code, 'stream')
+            fail(code && typeof data.message === 'string' && data.message.trim() ? data.message : STREAM_ERROR, code)
             break
+          }
           default:
             break
         }

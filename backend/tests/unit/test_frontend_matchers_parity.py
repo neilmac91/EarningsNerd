@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
+import pytest
+
 from app.error_codes import REGISTERED_STATUS, ErrorCode
 
 REPO = Path(__file__).resolve().parents[3]
@@ -269,7 +271,7 @@ def _expression_end(masked: str, start: int) -> int:
 
 def _function_span(masked: str, name: str) -> tuple[int, int]:
     """The block body of ``function name`` or ``const name = (...) => {``, or the expression body of
-    ``const name = (...) => expr`` (isCopilotFairUseLimit's shape), in the blanked source."""
+    ``const name = (...) => expr`` (isCopilotFairUseLimit's shape until E31 gave it a code branch), in the blanked source."""
     found = re.search(rf"\b(?:function\s+{name}\b|(?:const|let|var)\s+{name}\s*(?::[^=]*)?=)", masked)
     if not found:
         raise AssertionError(f"{name} is gone; update MATCHERS")
@@ -452,6 +454,10 @@ def routed_messages(site: Routed, read: Reader = _read_repo) -> list[tuple[int, 
             messages += [(node.lineno, text) for text in _renderings(node.value, names)]
         elif isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", "")) in (
                 "HTTPException", "CodedHTTPException"):
+            if getattr(node.func, "id", getattr(node.func, "attr", "")) == "CodedHTTPException" and _status(node) is None:
+                # A coded raise answers at its code's status; one the reader cannot name would leave this site unread.
+                raise AssertionError(f"{site.module}:{node.lineno} ({site.function}) a coded raise whose status the reader "
+                                     "cannot read: write its code as ErrorCode.X, or a conditional whose arms share a status")
             if _status(node) == site.status:
                 detail = next((k.value for k in node.keywords if k.arg == "detail"), node.args[1] if len(node.args) > 1 else None)
                 messages += [(node.lineno, text) for text in _renderings(detail, names)]
@@ -516,7 +522,6 @@ def test_a_coded_raise_is_read_at_its_codes_status():
         "        raise CodedHTTPException(code=ErrorCode.PRO_FAIR_USE_LIMIT, detail='The fair-use limit, all keywords.')\n"
         "    if n == 4:\n"
         "        raise CodedHTTPException(ErrorCode.PRO_FAIR_USE_LIMIT, 'The fair-use limit, in second place.')\n"
-        "    raise CodedHTTPException(ErrorCode.GENERATION_PAUSED if allowance else ErrorCode.PRO_FAIR_USE_LIMIT, detail='Mixed.')\n"
     )
 
     def read(path: str) -> str:
@@ -528,7 +533,11 @@ def test_a_coded_raise_is_read_at_its_codes_status():
     assert texts(429) == sorted(["The fair-use limit, by keyword.", "The fair-use limit, all keywords.",
                                  "The fair-use limit, in second place."])
     assert texts(403) == ["Spent."]
-    assert texts(503) == []  # arms that disagree name no one status
+    # A coded raise whose status the reader cannot name fails it, rather than leave its site unread.
+    for unread in ("ErrorCode.GENERATION_PAUSED if allowance else ErrorCode.PRO_FAIR_USE_LIMIT", "code", "ErrorCode('x')"):
+        planted = f"def ask_filing_stream(allowance, code):\n    raise CodedHTTPException({unread}, detail='Mixed.')\n"
+        with pytest.raises(AssertionError, match="cannot read"):
+            routed_messages(Routed("probe.py", "ask_filing_stream", 429, "x"), lambda path, text=planted: text)
 
 
 def test_the_readers_see_what_the_spec_sees():
@@ -615,7 +624,7 @@ export default function TemplateProbe({ error }: { error: Error }) {
     assert phrases(Matcher("templated.tsx", "TemplateProbe", (), ()), read_templated) == [
         Phrase("401", False), Phrase("sign\\s+in", True),
     ]
-    # An expression body (isCopilotFairUseLimit's shape, #1295) runs to the line break the expression does not
+    # An expression body (isCopilotFairUseLimit's shape from #1295 until E31) runs to the line break the expression does not
     # go on past: an operator ending a line or starting the next keeps the chain in, and the next statement's
     # test stays out.
     arrows = """

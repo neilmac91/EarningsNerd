@@ -320,8 +320,10 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     expect(vi.mocked(h.onError).mock.calls).toEqual([call])
   })
 
+  // A coded event is the application's refusal, so its own words (a cap and its reset) reach the card beside its code;
+  // without a known code the event may carry a draft's text, and the reader's own sentence stands in.
   it.each([
-    ['a stream code', { code: 'pro_fair_use_limit' }, ['The answer could not be completed. Please try again.', 'pro_fair_use_limit']],
+    ['a stream code', { code: 'pro_fair_use_limit' }, ['The cap resets next month.', 'pro_fair_use_limit']],
     ['no code', {}, ['The answer could not be completed. Please try again.']],
     ['an unknown code', { code: 'quota_v9' }, ['The answer could not be completed. Please try again.']],
     ['an HTTP-only code on the stream', { code: 'plan_required' }, ['The answer could not be completed. Please try again.']],
@@ -330,7 +332,7 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     global.fetch = async () => wire.response
     const h = handlers()
     const task = askFilingStream(1, 'q', [], h)
-    wire.send(sse({ type: 'error', message: 'RAW', ...extra }))
+    wire.send(sse({ type: 'error', message: 'The cap resets next month.', ...extra }))
     await task
     expect(vi.mocked(h.onError).mock.calls).toEqual([call])
   })

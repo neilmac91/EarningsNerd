@@ -840,14 +840,11 @@ def test_endpoint_over_cap_returns_429(client, monkeypatch):
 
 @pytest.mark.requires_db
 def test_endpoint_burst_limit_429_stays_a_plain_rate_limit(client, monkeypatch):
-    # The burst limiter's 429 is not the fair-use cap: it carries no code, so the reader keeps its Retry.
+    # The burst limiter's 429 is not the fair-use cap: it carries no code, so the reader keeps its Retry. The route's
+    # own limiter, refusing at once, answers it.
     import app.routers.summaries as summaries_router
-    from fastapi import HTTPException
 
-    def refuse(request, limiter, key, *, error_detail, include_client_ip):
-        raise HTTPException(status_code=429, detail=error_detail, headers={"Retry-After": "30"})
-
-    monkeypatch.setattr(summaries_router, "enforce_rate_limit", refuse)
+    monkeypatch.setattr(summaries_router, "ASK_LIMITER", summaries_router.RateLimiter(limit=0, window_seconds=60))
     with _as_user(is_pro=True), _seed_filing() as fid:
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429

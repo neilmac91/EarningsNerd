@@ -486,6 +486,7 @@ describe('AskCopilotRail', () => {
     renderRail({ open: true })
     await user.type(screen.getByLabelText(/ask about this filing/i), 'anything')
     await user.click(screen.getByRole('button', { name: /^send$/i }))
+    const fetched = mockGetUsage.mock.calls.length
     await act(async () => {
       captured!.onError(words, code)
     })
@@ -493,6 +494,9 @@ describe('AskCopilotRail', () => {
     const bubble = (await screen.findByText(words)).closest('div')!
     expect(within(bubble).queryAllByRole('button', { name: /upgrade to pro/i })).toHaveLength(shows.upgrade ? 1 : 0)
     expect(within(bubble).queryAllByRole('button', { name: /try again/i })).toHaveLength(shows.retry ? 1 : 0)
+    // A plan gate, the cap's included, says the usage line is stale, by its code; a pause leaves the line as it is.
+    if (shows.retry) expect(mockGetUsage.mock.calls.length).toBe(fetched)
+    else await waitFor(() => expect(mockGetUsage.mock.calls.length).toBeGreaterThan(fetched))
   })
 
   it('clears a cancelled pending turn, preserves completed history, and ignores obsolete callbacks after reopening', async () => {
