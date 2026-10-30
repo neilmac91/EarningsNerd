@@ -104,8 +104,9 @@ export interface AnalysisPoint {
   qoq?: GrowthValue | null
   /** Present only where an annual run's `yoy` reads "nm" because a later filing reports a different value for one or
    *  both of its two years: the growth the two years' own annual reports give (a number; "nm" where those values change
-   *  sign, and always across a sign or scale finding on either year; null where they give none). Absent for every other
-   *  comparison, a sign change's included. */
+   *  sign; null where they give none). Across a sign or scale finding on either year, on the figure or on any input of
+   *  its calculation, it is "nm", never a number and never null: the finding takes precedence over null. Absent for every
+   *  other comparison, a sign change's included. */
   yoy_first_reported?: GrowthValue | null
   /** The year's own annual report's value, where a later filing reports the one shown (FirstReported). */
   first_reported?: FirstReported | null

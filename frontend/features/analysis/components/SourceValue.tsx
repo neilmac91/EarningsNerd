@@ -64,10 +64,11 @@ function LaterFilingEvidence({ first, value, figure, form, accession, href, name
       <p>{firstReportedSentence(first, value, figure)}</p>
       {finding && <p>{finding}</p>}
       {/* Label and value columns: each value takes the row's right edge, so its digit groups stand under the other's,
-          and wraps under its label, still at that edge, where the row cannot hold both. */}
+          and wraps under its label, still at that edge, where the row cannot hold both; a value that wraps within
+          itself (320px under 200% text) keeps the edge too (text-right). */}
       <div className="space-y-0.5 font-figure tabular-nums lining-nums text-xs">
-        <p className="flex flex-wrap gap-x-3"><span>As filed in its own annual report:</span>{' '}<span className="ml-auto">{exactFigure(first.value, figure)}</span></p>
-        <p className="flex flex-wrap gap-x-3"><span>As filed in the later filing:</span>{' '}<span className="ml-auto">{exactFigure(value, figure)}</span></p>
+        <p className="flex flex-wrap gap-x-3"><span>As filed in its own annual report:</span>{' '}<span className="ml-auto text-right">{exactFigure(first.value, figure)}</span></p>
+        <p className="flex flex-wrap gap-x-3"><span>As filed in the later filing:</span>{' '}<span className="ml-auto text-right">{exactFigure(value, figure)}</span></p>
       </div>
       <div className="space-y-1">
         {ownHref && <a href={ownHref} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open its own annual report on SEC.gov${ownFiling && ` (${ownFiling})`} for ${name}`}>Open its own annual report on SEC.gov</a>}

@@ -997,8 +997,9 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  only there) says its cause under the n/m, “Not meaningful: a later filing reports a
                  different value for one or both of the two years.”, then “As first reported: +14.3%”
                  in the figure face, nothing where the own reports give no growth, and “As first
-                 reported: n/m” across a sign or scale finding on either year, where one of the two
-                 readings rests on the slip; a sign change's n/m keeps no such sentence. Gates:
+                 reported: n/m” across a sign or scale finding on either year, on the figure or on any
+                 input of its calculation, where one of the two readings rests on the slip (the producer
+                 sends 'nm' there, never null); a sign change's n/m keeps no such sentence. Gates:
                  tests/unit/figureSurfaceInks.spec.ts (font-figure allowed in SourceValue.tsx);
                  tests/unit/later-filings.spec.tsx (the strict decoder, the block, the cause, the
                  chart's footnote line and the data notes' line on the shared later-filings fixture);
