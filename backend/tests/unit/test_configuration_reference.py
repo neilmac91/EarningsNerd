@@ -61,11 +61,12 @@ def _without_frontend_url_in_the_environment(monkeypatch):
 
 @pytest.mark.parametrize("configured", [
     "https://www.earningsnerd.io", "https://www.earningsnerd.io/", "https://www.earningsnerd.io///",
-    " https://www.earningsnerd.io/ \n", "\thttps://www.earningsnerd.io/\r\n", b"https://www.earningsnerd.io/",
+    " https://www.earningsnerd.io/ \n", "\thttps://www.earningsnerd.io/\r\n",
+    pytest.param(b"https://www.earningsnerd.io/", id="bytes"),
 ])
 def test_frontend_url_loads_as_one_canonical_origin(configured, monkeypatch):
     # E111: every link appends "/path" to FRONTEND_URL, so the whitespace around it and its trailing slashes are
-    # removed at load, and only those, whatever type it is given as.
+    # removed at load, and only those, from any value Settings reads as a string (bytes among them).
     _without_frontend_url_in_the_environment(monkeypatch)  # the default is read below
     loaded = Settings(FRONTEND_URL=configured, _env_file=None).FRONTEND_URL
     assert loaded == "https://www.earningsnerd.io"
