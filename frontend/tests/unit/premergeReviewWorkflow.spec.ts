@@ -23,8 +23,10 @@
  *     refuter gives it, on both paths: a should-fix raised to blocker, grouped or alone, by one refuter or
  *     both, is a confirmed blocker and blocks the merge, even when the other refuter restates or lowers it;
  *     a lowering needs every refuter of the tier (both on the high tier), so a claimed blocker that one refuter
- *     lowers while the other is silent still blocks the merge; two lowerings that agree confirm the report at
- *     the lower severity, and two that disagree confirm it at the higher of the two;
+ *     lowers while the other is silent still blocks the merge, while the routine tier's one refuter lowers a
+ *     blocker alone; two lowerings that agree confirm the report at the lower severity, nit included, and two
+ *     that disagree confirm it at the higher of the two; a raise never outlives a refutation: a report one
+ *     refuter raises to blocker while the other refutes it is refuted, on both paths;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -136,11 +138,11 @@ type Result = {
 type Verdicts = (label: string) => Array<{ report: number; refuted: boolean; reason: string; corrected_severity?: string }>
 
 // With no `groups`, the dedupe returns nothing, and the script verifies each finding on its own.
-// `corrected` gives a lone refuter's corrected severity by its label.
+// `refuted` applies to every refuter, or decides by label; `corrected` gives a lone refuter's corrected severity by its label.
 function stub(
   nullFor?: (label: string) => boolean,
   opts: {
-    refuted?: boolean
+    refuted?: boolean | ((label: string) => boolean)
     findings?: Findings | ((label: string) => Findings)
     groups?: unknown
     verdicts?: Verdicts
@@ -153,15 +155,16 @@ function stub(
     if (nullFor && nullFor(o.label)) return null
     if (o.label.startsWith('review:')) return typeof opts.findings === 'function' ? opts.findings(o.label) : (opts.findings ?? FINDINGS)
     if (o.label.startsWith('dedupe:')) return opts.groups === undefined ? null : { groups: opts.groups }
+    const refuted = typeof opts.refuted === 'function' ? opts.refuted(o.label) : (opts.refuted ?? false)
     if (/^verify:\d+:group\d+#/.test(o.label)) {
       // Answer by the report numbers the prompt shows, as a real refuter would: a prompt that numbered its
       // reports from 1 would send every verdict to the wrong report, and the tests below would see it.
       const shown = Array.from(prompt.matchAll(/^report (\d+):$/gm), (m) => Number(m[1]))
-      const all = shown.map((report) => ({ report, refuted: opts.refuted ?? false, reason: 'r' }))
+      const all = shown.map((report) => ({ report, refuted, reason: 'r' }))
       return { verdicts: opts.verdicts ? opts.verdicts(o.label) : all }
     }
     const corrected = opts.corrected?.(o.label)
-    return { refuted: opts.refuted ?? false, reason: 'r', ...(corrected ? { corrected_severity: corrected } : {}) }
+    return { refuted, reason: 'r', ...(corrected ? { corrected_severity: corrected } : {}) }
   }
   return { agent, calls }
 }
@@ -415,16 +418,54 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(lowered.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity)).toEqual(['should-fix', 'should-fix', 'should-fix'])
     expect(lowered.confirmed.filter((c) => c.title === 'should').map((c) => c.severity)).toEqual(['nit', 'nit', 'nit'])
     expect(lowered.mergeable).toBe(true)
-    // Two lowerings that disagree confirm the report at the higher of the two, whichever refuter gives it.
-    for (const [first, second] of [['nit', 'should-fix'], ['should-fix', 'nit']]) {
+    // Two lowerings that disagree confirm the report at the higher of the two, whichever refuter gives it; two
+    // that agree confirm the lower, nit included.
+    for (const [first, second, expected] of [['nit', 'should-fix', 'should-fix'], ['should-fix', 'nit', 'should-fix'], ['nit', 'nit', 'nit']]) {
       const lowerSplit = stub(undefined, {
         groups: [[0, 1, 2]],
         verdicts: () => [0, 1, 2].map((report) => ({ report, refuted: false, reason: 'r', corrected_severity: 'nit' })),
         corrected: (label) => (label.includes('a.py#') ? (label.endsWith('#1') ? first : second) : undefined),
       })
       const [split] = (await load()({ prs: [pr('high')] }, lowerSplit.agent)) as Result[]
-      expect(split.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity), `${first} then ${second}`).toEqual(['should-fix', 'should-fix', 'should-fix'])
+      expect(split.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity), `${first} then ${second}`).toEqual([expected, expected, expected])
       expect(split.mergeable, `${first} then ${second}`).toBe(true)
+    }
+  })
+
+  it("lets the routine tier's one refuter lower a blocker alone: the corrected severity confirms and the PR is mergeable", async () => {
+    for (const lowered of ['should-fix', 'nit']) {
+      const s = stub(undefined, { corrected: (label) => (label.endsWith('a.py#1') ? lowered : undefined) })
+      const [r] = (await load()({ prs: [pr('routine')] }, s.agent)) as Result[]
+      expect(r.agents, lowered).toBe(2)
+      expect(r.confirmed.map((c) => [c.title, c.severity]), lowered).toEqual([['blocker', lowered]])
+      expect(titles(r.unverified), lowered).toEqual(['should'])
+      expect(r.incomplete, lowered).toBe(false)
+      expect(r.mergeable, lowered).toBe(true)
+    }
+  })
+
+  it('refutes a report one refuter raises to blocker while the other refutes it, on both paths: a raise never outlives a refutation', async () => {
+    const shouldOnly = (label: string): Findings => {
+      const lens = label.split(':').pop() as string
+      return { findings: [{ file: `${lens}.py`, title: `should-${lens}`, detail: 'd', severity: 'should-fix', evidence: 'e' }], summary: 's' }
+    }
+    const all = ['should-correctness', 'should-rules-and-brief', 'should-tests-and-gates']
+    for (const [raiser, refuter] of [['#1', '#2'], ['#2', '#1']]) {
+      // Lone path: no grouping, so each should-fix gets its own pair. Group path: one group of all three.
+      const lone = stub(undefined, { findings: shouldOnly, refuted: (label) => label.endsWith(refuter), corrected: (label) => (label.endsWith(raiser) ? 'blocker' : undefined) })
+      const [alone] = (await load()({ prs: [pr('high')] }, lone.agent)) as Result[]
+      expect(alone.confirmed, `lone ${raiser} raises`).toHaveLength(0)
+      expect(titles(alone.refuted), `lone ${raiser} raises`).toEqual(all)
+      expect(alone.mergeable, `lone ${raiser} raises`).toBe(true)
+      const group = stub(undefined, {
+        findings: shouldOnly,
+        groups: [[0, 1, 2]],
+        verdicts: (label) => [0, 1, 2].map((report) => ({ report, refuted: label.endsWith(refuter), reason: 'r', ...(label.endsWith(raiser) ? { corrected_severity: 'blocker' } : {}) })),
+      })
+      const [grouped] = (await load()({ prs: [pr('high')] }, group.agent)) as Result[]
+      expect(grouped.confirmed, `group ${raiser} raises`).toHaveLength(0)
+      expect(titles(grouped.refuted), `group ${raiser} raises`).toEqual(all)
+      expect(grouped.mergeable, `group ${raiser} raises`).toBe(true)
     }
   })
 

@@ -64,7 +64,7 @@ const VERDICT_SCHEMA = {
 
 // The high tier's lenses often report one should-fix defect two or three times: over 35 past runs the
 // grouper formed 40 groups of more than one report (30 of them audited as one defect), which absorbed 51
-// of 190 should-fix reports and cut the Opus refuter calls spent on them by 27% (380 to 278). One Sonnet call groups the should-fix reports of the same defect, and each group, not each
+// of 190 should-fix reports and cut the Opus refuter calls spent on should-fix reports by 27% (380 to 278). One Sonnet call groups the should-fix reports of the same defect, and each group, not each
 // report, gets the tier's refuters, who judge every report in it on its own claim, so each report still
 // gets its own complete vote. Blockers are never grouped: each keeps its own two refuters.
 // Severity order, for taking the highest of the refuters' holdings on a report.
