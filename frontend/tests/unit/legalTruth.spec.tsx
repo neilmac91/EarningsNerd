@@ -427,10 +427,9 @@ import {
  *    two phrases, each with a negated participle ("Sessions not opened here and tokens not issued here end when you
  *    log out."); and, given up since stage 4f, a logout, a password action or a scope word ("on every device") inside a
  *    subject's negated participle, in the forms main refused wherever its denial window did not reach the clause's
- *    verb, as with an object, a modifier, a perfect gerund, a list, a bracket, a comma, a dash, or an adverb, an
- *    auxiliary or a modal before the verb, or a promise another clause makes ("Sessions not ended by logging out of a
- *    device end within 30 minutes.", "Sessions not ended by logging out stay open, but the rest end within 30
- *    minutes.").
+ *    verb, as with an object, a modifier, a list, a bracket, a comma, a dash, or an adverb, an auxiliary or a modal
+ *    before the verb, or a promise another clause makes ("Sessions not ended by logging out of a device end within 30
+ *    minutes.", "Sessions not ended by logging out stay open, but the rest end within 30 minutes.").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -2643,9 +2642,9 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (600 rows since E162 stage 4f) takes 4.6s alone: the default 5s timed out in a full local run on a
+    self-check (601 rows since E162 stage 4f) takes 4.6s alone: the default 5s timed out in a full local run on a
     loaded machine, it took 35s in this spec under twenty-four busy loops on four cores, past a 30s budget, and 47s
-    under thirty-two, so the budget is 90s, about twice that. The removed claims' self-check (640 rows, through the
+    under thirty-two, so the budget is 90s, about twice that. The removed claims' self-check (643 rows, through the
     page's render and splitter) takes 1.0s alone, and the default 5s timed out in this spec under twenty-four busy
     loops. */
 const READS_EVERY_PLANTED_FORM = { timeout: 90_000 }
@@ -3459,7 +3458,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A gerund after a preposition in the participle is the preposition's object, with its own object, though the
       // lexicon lacks it ("obtaining"), so the clause's verb ends the participle and the wait it says is the clause's, as
       // main read these, and its denial passes, though main refused it (Codex on 4030bccd), adverbs before the gerund or
-      // not (Codex on 08d06015), and a perfect gerund's participle with it (Codex on c38dbf9f).
+      // not (Codex on 08d06015), and a perfect or passive gerund's participle stepped over alone (Codex on c38dbf9f and
+      // 3e038664).
       ['<p>Server events not sent without obtaining your permission are collected only after you opt in.</p>', true],
       ['<p>Server events not sent without obtaining your consent are recorded only after you opt in.</p>', true],
       ['<p>Analytics not gathered without obtaining your permission are collected only with your consent.</p>', true],
@@ -3471,6 +3471,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events not sent without having obtained your permission are collected only after you opt in.</p>', true],
       ['<p>Server events not sent without having first obtained your permission are collected only after you opt in.</p>', true],
       ['<p>Server events not sent without having obtained your permission are not collected only after you opt in.</p>', false],
+      ['<p>Server events not sent without being allocated an identifier are collected only after you opt in.</p>', true],
+      ['<p>Server events not sent without being first allocated an identifier are collected only after you opt in.</p>', true],
+      ['<p>Server events not sent without being allocated an identifier are not collected only after you opt in.</p>', false],
       // A wait the participle says in contrast is its promise, as main read it (Codex on #1818).
       ['<p>Server events not collected except only with your consent are recorded.</p>', true],
       ['<p>Server events not collected except only after you opt in are recorded.</p>', true],
@@ -4722,11 +4725,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>We revoke every token not revoked by logging out, which ends every session.</li>', true],
       // A gerund the lexicon lacks after a preposition in the participle ends no participle before the clause's verb, so
       // the clause keeps its logout, as main read these (Codex on 4030bccd), adverbs before the gerund or not (Codex on
-      // 08d06015), and a perfect gerund's participle with it (Codex on c38dbf9f).
+      // 08d06015), and a perfect or passive gerund's participle stepped over alone (Codex on c38dbf9f and 3e038664),
+      // while one the lexicon knows starts a verb group there, so its logout is the clause's, as main read these.
       ['<li>Sessions not opened by obtaining a token end within 30 minutes of logging out.</li>', true],
       ['<li>Sessions not ended by obtaining a new token end when you log out.</li>', true],
       ['<li>Sessions not opened by first obtaining a token end within 30 minutes of logging out.</li>', true],
       ['<li>Sessions not opened by having obtained a token end within 30 minutes of logging out.</li>', true],
+      ['<li>Sessions not ended by having logged out expire within 30 minutes.</li>', true],
+      ['<li>Sessions not ended by being logged out expire within 30 minutes.</li>', true],
       // A new password is the context anywhere in its sentence, as main reads its password word (ANY_NEW_PASSWORD).
       ['<li>Sessions not ended by a new password expire within 30 minutes.</li>', true],
       // A word of time in the participle dates what its "not" denies and affirms the logout, so the participle is the
@@ -4765,9 +4771,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Main's catches given up, named: main read each sentence whole and refused these, and passed the shorter forms
       // above only because its denial window reached from "not" to the clause's verb; here a logout, a password action
       // or a scope word inside the subject's negated participle gives its sentence no context, whatever stands with it,
-      // as with an object, a modifier, a perfect gerund, a list, a bracket, a comma, a dash, or an adverb, an auxiliary
-      // or a modal before the clause's verb, or a promise another clause makes (the third lens on 84003ff5, the fifth on
-      // 74fa9925, the sixth on 08d06015, and the seventh and Codex on c38dbf9f).
+      // as with an object, a modifier, a list, a bracket, a comma, a dash, or an adverb, an auxiliary or a modal before
+      // the clause's verb, or a promise another clause makes (the third lens on 84003ff5, the fifth on 74fa9925, the
+      // sixth on 08d06015 and the seventh on c38dbf9f).
       ['<li>Sessions not ended by logging out still expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by an explicit logout expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by logging out (or by an admin) expire within 30 minutes.</li>', 'gap'],
@@ -4783,7 +4789,6 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions not opened on all your devices end within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended upon logging out will expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by first logging out expire within 30 minutes.</li>', 'gap'],
-      ['<li>Sessions not ended by having logged out expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by logging out or by an admin expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by a logout, a reset or an admin expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by logging out - or by an admin - expire within 30 minutes.</li>', 'gap'],

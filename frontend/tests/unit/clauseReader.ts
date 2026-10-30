@@ -385,30 +385,30 @@ function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
     flag recorded in E162's row ("not ended by | log out expire": the fourth lens on 4030bccd). Inside it "following"
     is a preposition, though the lexicon lists it as a verb ("not revoked following a sign-out | expire": the fifth lens
     on 74fa9925), and adverbs, or "first", may stand between a preposition and its gerund ("not sent without first
-    obtaining your permission | are collected": Codex on 08d06015). After
+    obtaining your permission | are collected": Codex on 08d06015). Where no verb group starts at it, an adverb,
+    "first" or a past form is stepped over alone, not read as a phrase's head, which would take a relative clause that
+    runs over the clause's verb ("not sent without having obtained your permission | are collected", "not sent without
+    being allocated an identifier | are collected": Codex on c38dbf9f and 3e038664). After
     "before" or "after" in a phrase past its clause's verb, the gerund may open a clause of time instead ("sessions not
     opened here before logging out | ends every session"), which this runs over; the session-end family leaves out of
     its context only a participle in a clause's subject, so that clause keeps its logout (the third lens on 84003ff5). */
 function negatedParticipleEnd(tokens: Token[], from: number): number {
   const preposition = (token: Token | undefined) => PREPOSITIONS.has(lower(token)) || lower(token) === 'following'
   const modifies = (token: Token | undefined) => isAdverb(token) || lower(token) === 'first'
+  const alone = (token: Token) => modifies(token) || PAST_FORMS.has(token.lower) || /^[a-z]{3,}ed$/.test(token.lower)
   /** Where a gerund after a preposition ends, past the adverbs before it, read from the token after the preposition:
-      0 where none stands there. A perfect gerund takes its participle with it ("without having obtained your permission
-      | are collected": Codex on c38dbf9f). */
+      0 where none stands there. */
   const gerundEnd = (at: number) => {
     let j = at
     while (modifies(tokens[j])) j++
-    if (!preposition(tokens[at - 1]) || !/^[a-z]+ing$/.test(lower(tokens[j]))) return 0
-    if (lower(tokens[j]) !== 'having') return j + 1
-    let k = j + 1
-    while (modifies(tokens[k])) k++
-    return PAST_FORMS.has(lower(tokens[k])) || /^[a-z]{3,}ed$/.test(lower(tokens[k])) ? k + 1 : j + 1
+    return preposition(tokens[at - 1]) && /^[a-z]+ing$/.test(lower(tokens[j])) ? j + 1 : 0
   }
   let i = from
   while (i < tokens.length && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) {
     if (tokens[i].lower === 'following') i++
     else if (gerundEnd(i)) i = gerundEnd(i)
     else if (startsPredicate(tokens, i)) break
+    else if (alone(tokens[i])) i++
     else i = nounPhraseAt(tokens, i)?.end ?? i + 1
   }
   return Math.min(i, tokens.length)
