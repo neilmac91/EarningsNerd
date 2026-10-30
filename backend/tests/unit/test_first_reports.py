@@ -594,6 +594,13 @@ def test_an_own_row_whose_stored_value_is_not_finite_gives_no_evidence(value):
     assert "first_reported" not in point
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf")], ids=["nan", "inf"])
+def test_a_shown_value_that_is_not_finite_carries_no_evidence(value):
+    point = _figure(value=value)
+    FirstReports({}, {}, None, history=[_own()]).attach([point])
+    assert "first_reported" not in point
+
+
 def test_a_finding_two_inputs_deep_on_the_year_before_holds_the_growth_as_first_reported_to_n_m():
     # A margin's FY2019 revenue input carries evidence, so its change reads n/m; its FY2018 net income input is itself
     # calculated, and the sign flip sits on that one's own reported input. The page reads the finding there too.
