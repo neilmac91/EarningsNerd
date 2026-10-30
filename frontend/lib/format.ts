@@ -138,11 +138,11 @@ export const ordinal = (n: number): string => {
 }
 
 /**
- * A data label stored in sentence case as a sentence reads it past its start (the company page's metric charts:
- * "Ranks #2 of 9 on net income", E34): the label's first segment, a run up to whitespace, '-' or '/', takes a
- * lower-case first letter unless it is an acronym. A segment with no lower-case letter is one, '&' and '.' sitting
- * inside a segment ('EPS', 'R&D', 'U.S.'), and so is one with a capital after its first letter ('YoY'). So 'Net
- * income' reads 'net income', 'Non-interest income' 'non-interest income' and 'Diluted EPS' 'diluted EPS', while
+ * A data label stored in sentence case as a sentence reads it past its start (the metric charts' lines, "Ranks #2 of 9
+ * on net income", E34, and the analysis report's notes): the label's first segment, a run up to whitespace, '-' or
+ * '/', takes a lower-case first letter unless it is an acronym. A segment with no lower-case letter is one, '&' and '.'
+ * sitting inside a segment ('EPS', 'R&D', 'U.S.'), and so is one with a capital after its first letter ('YoY'). So
+ * 'Net income' reads 'net income', 'Non-interest income' 'non-interest income' and 'Diluted EPS' 'diluted EPS', while
  * 'EPS', 'U.S. revenue' and 'YoY growth' stay as written.
  */
 export const inSentence = (label: string): string =>

@@ -52,6 +52,8 @@ describe('numeric formatters', () => {
       ['Revenue', 'revenue'], ['Net income', 'net income'], ['Operating cash flow', 'operating cash flow'],
       ['Non-interest income', 'non-interest income'], ["Shareholders' equity", "shareholders' equity"],
       ['Diluted EPS', 'diluted EPS'], ['EPS', 'EPS'],
+      // The analysis dataset's own (trend_analysis/periods.py _CONCEPT_LABELS), which its report's notes read the same way.
+      ['EPS (diluted)', 'EPS (diluted)'], ['Cash & equivalents', 'cash & equivalents'], ['Long-term debt', 'long-term debt'],
     ]
     for (const [label, text] of cases) expect(inSentence(label)).toBe(text)
   })
