@@ -140,7 +140,9 @@ async def test_batch_is_durable_and_sending_is_committed_before_the_provider_cal
         stats = await _scan_with_transport(db, send)
         (batch,) = _batches(db)
         # The text part is frozen with the page (E110), and the transport is handed the frozen text.
-        assert batch.body_text and "Read the AI summary: " in batch.body_text
+        # Discovery freezes a filing notification before any summary need exist.
+        assert batch.body_text and "View filing: " in batch.body_text
+        assert "Read the AI summary" not in batch.body_html
         assert observed == {"in_transaction": False, "status": REPLY_TO_STATUSES[STATUS_SENDING], "attempts": 1,
                             "first_dispatch_at": NOW.replace(tzinfo=None), "log_rows": 0, "watermark": None,
                             "text": batch.body_text}
