@@ -728,9 +728,9 @@ jobs:
           # Production shows the summary page's coverage badge, so the browser gates build it too: reflow-200.spec.ts's
           # coverage cases hold it at 320 to 390px under 200% text, and fail on a build without it (E181).
           NEXT_PUBLIC_ENABLE_QUALITY_BADGE: 'true'
-          # Production draws the filing page's Financial trends card (frontend/vercel.json), so the browser gates build
-          # it too, and every /filing/3 spec meets it: filing-fundamentals-chart.spec.ts holds its mount, answered from
-          # tests/e2e/fixtures/filing3Api.ts, and fails on a build without it (E195 D).
+          # Production draws the filing page's Financial trends card (frontend/vercel.json), so the browser gates
+          # build it too: the specs that answer /filing/3 from tests/e2e/fixtures/filing3Api.ts meet it drawn, and
+          # filing-fundamentals-chart.spec.ts, which holds its mount, fails on a build without it (E195 D).
           NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: 'true'
       - name: Start frontend server
         if: needs.ci-scope.outputs.records_only == 'false'

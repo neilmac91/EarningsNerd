@@ -19,11 +19,12 @@ import type { Page } from '@playwright/test'
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 export const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-summary.json'), 'utf8')) as Record<string, unknown>
 /** GET /api/filings/3/fundamentals as production served it on 2026-10-29 (body sha256 4e867249…, 25 series), with
- *  four series kept whole, copied by a script rather than retyped (lessons/test-verbatim-fixtures-keep-the-source-bytes.md):
- *  revenue, the card's default metric, reported, each point linking its SEC folder; net margin, a percent; the current
- *  ratio, a multiple; and working capital, negative in both years. The last three are calculated and need a source
- *  check, so the card shows its badge on them and Sources & checks gives their reasons. CI's e2e build turns the card on,
- *  as production's does (NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS), so every spec on /filing/3 meets it. */
+ *  four series kept whole, copied by a script rather than retyped
+ *  (lessons/test-verbatim-fixtures-keep-the-source-bytes.md): revenue, the card's default metric, reported, each point
+ *  linking its SEC folder; net margin, a percent; the current ratio, a multiple; and working capital, negative in both
+ *  years. The last three are calculated and need a source check, so the card shows its badge on them and Sources &
+ *  checks gives their reasons. CI's e2e build turns the card on, as production's does
+ *  (NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS), so every spec that answers the API from here meets it drawn. */
 export const FUNDAMENTALS = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-fundamentals.json'), 'utf8')) as {
   ticker: string
   company_name: string

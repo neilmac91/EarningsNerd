@@ -9,10 +9,10 @@ import { answerApi, FUNDAMENTALS, type Theme } from './fixtures/filing3Api'
  *
  * On /filing/3, answered by fixtures/filing3Api.ts (production's payload for the filing, four series kept), in both
  * themes at 390 and 1280px: the card's heading and its plot mount, the picker opens on revenue and offers every series
- * the fixture holds, and for each one, chosen in turn, the plot prints that series' fiscal years, read from the fixture,
- * as text in its SVG, and the page does not scroll sideways. The heading also stands over the loading state, so what
- * only a drawn plot shows is counted from the input (lessons/test-probes-assert-what-only-success-renders.md); every
- * point of the fixture holds a value, so either renderer prints each year.
+ * the fixture holds, and for each one, chosen in turn, the plot prints that series' fiscal years, read from the
+ * fixture, as text in its SVG, and the page does not scroll sideways. The heading also stands over the loading state,
+ * so what only a drawn plot shows is counted from the input (lessons/test-probes-assert-what-only-success-renders.md);
+ * every point of the fixture holds a value, so either renderer prints each year.
  *
  * The probes do not depend on the renderer: the plot is the card's `data-testid="fundamentals-chart"` and the SVG text
  * inside it, which the Recharts chart draws today and the trend charts' engine will draw once Financial trends moves
