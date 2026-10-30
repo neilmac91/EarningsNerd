@@ -149,10 +149,30 @@ def test_the_cohort_runs_as_its_own_step_never_with_detection_sql():
     assert not [path for path in (ROOT / "ops" / "detection").glob("*.sql") if "critical_excerpt" in path.read_text()]
 
 
+# What psql reads as no command: a block comment, a dollar-quoted body, a quoted identifier, an escape string (not
+# the tail of a word such as LIKE), a standard string and a line comment, each from its own opening, the leftmost first.
+_NOT_COMMAND = re.compile(
+    r"/\*.*?\*/|\$(\w*)\$.*?\$\1\$|\"(?:[^\"]|\"\")*\"|(?<![\w$])[Ee]'(?:[^'\\]|\\.|'')*'|'(?:[^']|'')*'|--[^\n]*",
+    re.DOTALL)
+
+
+def meta_commands(sql: str) -> set[str]:
+    """The backslash commands psql would run, and a backquote psql would run as a shell command in one's argument."""
+    code = _NOT_COMMAND.sub("", sql)
+    return set(re.findall(r"\\\S+", code)) | ({"`"} if "`" in code else set())
+
+
 def test_psql_runs_no_meta_command_but_echo():
     # \o, \g or \copy would send the counts somewhere other than the output the Ops step keeps (Agent E on #1747).
-    code = re.sub(r"[Ee]'(?:[^'\\]|\\.|'')*'|'(?:[^']|'')*'|--[^\n]*", "", SQL.read_text())
-    assert set(re.findall(r"\\\S+", code)) == {"\\echo"}
+    assert meta_commands(SQL.read_text()) == {"\\echo"}
+    # An apostrophe where psql reads no string must not hide a command after it (#1747's fix-diff review).
+    for planted in ("/* don't */\n\\o /tmp/leak\nSELECT 'y';", "SELECT $x$ don't $x$;\n\\o /tmp/leak\nSELECT 'y';",
+                    "SELECT 1 AS \"o'clock\";\n\\g /tmp/leak\nSELECT 'y';", "SELECT 1 AS \"a--b\" \\g /tmp/leak",
+                    "SELECT 1 WHERE x LIKE'a\\' ;\n\\o /tmp/x\nSELECT 'b';", "SELECT E'it\\'s';\n\\copy t TO 'x'"):
+        assert meta_commands(planted) - {"\\echo"}, planted
+    assert meta_commands("\\echo `curl example.invalid`") == {"\\echo", "`"}
+    # What psql runs nothing for stays out: a command inside a comment, a string or a dollar quote.
+    assert meta_commands("/* \\o x */ -- \\g y\nSELECT '\\o', $$ \\copy $$, E'\\n';\n\\echo 'a `b`'") == {"\\echo"}
 
 
 def test_the_output_is_counts_by_group():
