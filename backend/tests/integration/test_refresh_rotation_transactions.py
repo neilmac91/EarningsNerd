@@ -742,7 +742,8 @@ def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
             second_statements.append(statement)
 
     def after_statement(conn, cursor, statement, parameters, context, executemany):
-        if getattr(role, "name", None) == "first" and " FOR NO KEY UPDATE" in statement:
+        # Any row lock starts the second, so a change of lock mode reaches the assertions below by name.
+        if getattr(role, "name", None) == "first" and (" FOR UPDATE" in statement or " FOR NO KEY UPDATE" in statement):
             first_locked.set()
 
     def before_commit(conn):
@@ -753,7 +754,7 @@ def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
         while not waited and time.monotonic() < deadline:
             with postgres_engine.connect() as probe:
                 row = probe.execute(
-                    text("SELECT wait_event_type, query FROM pg_stat_activity WHERE pid = :pid"),
+                    text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"),
                     {"pid": second_pid[0]},
                 ).first() if second_pid else None
             if row is not None and row.wait_event_type == "Lock":
