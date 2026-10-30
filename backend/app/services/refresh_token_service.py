@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
 from app.models import RefreshToken, User
+from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +351,34 @@ def revoke_and_commit(db: Session, raw_token: Optional[str]) -> Optional[Tuple[i
     email = db.query(User.email).filter(User.id == user_id).scalar()
     db.commit()
     return user_id, email
+
+
+def live_token_owner(db: Session, raw_token: Optional[str]) -> Optional[Tuple[int, Optional[str]]]:
+    """The ``(id, email)`` of the active user whose live refresh token ``raw_token`` is, or ``None``.
+
+    Live: neither revoked (a rotated-away token is revoked too) nor expired, as a rotation would accept it.
+    The logout of every session finds its user here when no access token named one and the request names
+    the account its tab shows (E157 (2)). It reads the same cookie a logout reads, but a logout follows a
+    rotated-away token to its chain's live one, and this refuses it. It reads and takes no lock: the
+    revocation that follows takes the users row lock and revokes every live token of that user, a successor
+    a refresh mints meanwhile included. ``expires_at`` is one of the sanctioned naive columns, compared here
+    with a naive projection of the aware clock, as ``retention_service`` compares it.
+    """
+    if not _is_token_shaped(raw_token):
+        return None
+    now = utcnow().replace(tzinfo=None)
+    owner = (
+        db.query(User.id, User.email)
+        .join(RefreshToken, RefreshToken.user_id == User.id)
+        .filter(
+            RefreshToken.token_hash == _hash_token(raw_token),
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > now,
+            User.is_active.is_(True),
+        )
+        .first()
+    )
+    return (owner.id, owner.email) if owner else None
 
 
 def revoke_all_and_commit(db: Session, user_id: int) -> int:

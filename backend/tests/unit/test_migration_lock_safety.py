@@ -17,6 +17,15 @@
    those files form a second frozen, shrink-only list. New files guard with a `pg_indexes` check in
    a DO block, or use `CONCURRENTLY` outside a transaction block.
 
+   A guarded `DROP COLUMN` must sit in a branch opened by the one drop guard, `IF EXISTS (SELECT 1
+   FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '<table>' AND
+   column_name = '<column>') THEN`, naming the table and column it drops, its literals as the catalog
+   stores them (E245, lessons/ops-drop-a-mapped-column-in-two-deploys.md). A guard that checks
+   another column, the table under another name or schema, an upper-case literal, or one predicate
+   more (as a copy of a step-1 file keeps `column_default IS NULL`), or a drop in its ELSE, reads
+   false wherever the column is: the file applies as a no-op, the ledger records it, and the column
+   stays. Any other guard form fails closed, even a sound one (`pg_attribute`, one IF for two drops).
+
    Also pinned here (WS-1, audit 2026-09): the retry in `apply_with_retry` keys on the lock-contention
    SQLSTATEs (55P03/57014/40P01) in psql's stderr rather than on any error; the blocker dump shows
    every backend and joins `pg_locks` to `pg_class`; the script ends every run by failing on any
@@ -68,6 +77,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from scripts import review_gate
 from tests.support.ops_workflow import cloud_sql_reach, pg_settings, setting_ms
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -247,6 +257,48 @@ def _concurrent_index_inside_transaction(sql: str) -> list[str]:
     return sorted(hit)
 
 
+# The one drop guard (E245's file): its keywords fold, but its literals are captured whole and compared as
+# information_schema compares them, so an upper-case literal, another schema or one predicate more fails it.
+_DROP_GUARD = re.compile(
+    r"IF\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+information_schema\.columns\s+WHERE\s+"
+    r"table_schema\s*=\s*'(?P<schema>[^']*)'\s+AND\s+table_name\s*=\s*'(?P<table>[^']*)'\s+AND\s+"
+    r"column_name\s*=\s*'(?P<column>[^']*)'\s*\)\s*THEN",
+    re.I,
+)
+_ELSE = re.compile(r"\bELS(?:E|IF)\b", re.I)
+
+
+def _guard_names(branch: str, table: str, column: str) -> bool:
+    """Whether an `IF ... THEN` opening is the drop guard, checking this very column of `public`."""
+    guard = _DROP_GUARD.fullmatch(branch)
+    return bool(guard) and (guard["schema"], guard["table"], guard["column"]) == ("public", table, column)
+
+
+def _drops_outside_their_own_guard(sql: str) -> list[str]:
+    """`table.column` for each column a DO body drops outside a branch the drop guard opens for that very column.
+
+    Walks each body as `_unguarded_in_do_body` does, with a stack of open IF branches, and reads its drops as the
+    review gate does (`review_gate.dropped_columns`). An ELSE or ELSIF runs when its IF's check reads false, so it
+    guards nothing. Top-level drops are the ALTER detector's: any top-level ALTER TABLE on a pre-existing table
+    already fails it.
+    """
+    hit: set[str] = set()
+    for body in (m.group(2) for m in _DO_BLOCK.finditer(_strip_comments(sql))):
+        branches: list[str] = []
+        for chunk in body.split(";"):
+            if _ELSE.search(chunk) and branches:
+                branches[-1] = ""
+            opened = _IF_THEN.search(chunk)
+            if opened:
+                branches.append(opened.group(0))
+            for table, column in review_gate.dropped_columns(chunk + ";"):
+                if not any(_guard_names(branch, table, column) for branch in branches):
+                    hit.add(f"{table}.{column}")
+            if _END_IF.search(chunk) and branches:
+                branches.pop()
+    return sorted(hit)
+
+
 def _unguarded_alter_targets(sql: str) -> list[str]:
     """Tables an ALTER TABLE takes ACCESS EXCLUSIVE on, on every re-apply."""
     return _unguarded_targets(sql, _ALTER, lambda m: _norm(m.group(1)))
@@ -334,6 +386,52 @@ def test_concurrent_index_in_transaction_detector_semantics():
     assert _concurrent_index_inside_transaction(
         "DO $$ BEGIN PERFORM 1; END $$; CREATE INDEX CONCURRENTLY i ON t (x);"
     ) == []
+
+
+def test_drop_guard_detector_semantics():
+    """E245's drop, and the ways a copy of it keeps its guard but checks another column than it drops."""
+    drop = """DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = 'public' AND table_name = 'waitlist_signups'
+                     AND column_name = 'email_verified') THEN
+            ALTER TABLE waitlist_signups DROP COLUMN email_verified;
+        END IF; END $$;"""
+    assert _drops_outside_their_own_guard(drop) == []
+    assert _drops_outside_their_own_guard(drop.replace("DROP COLUMN email_verified", 'DROP COLUMN "email_verified"')) == []
+    for mutant, dropped in (
+        (drop.replace("column_name = 'email_verified'", "column_name = 'email_verifed'"), "waitlist_signups.email_verified"),
+        (drop.replace("table_name = 'waitlist_signups'", "table_name = 'waitlist_signup'"), "waitlist_signups.email_verified"),
+        (drop.replace("IF EXISTS", "IF NOT EXISTS").replace("DROP COLUMN", "DROP COLUMN IF EXISTS"),
+         "waitlist_signups.email_verified"),
+        (drop.replace("DROP COLUMN email_verified", "DROP COLUMN source"), "waitlist_signups.source"),
+        (drop.replace("ALTER TABLE waitlist_signups", "ALTER TABLE waitlist"), "waitlist.email_verified"),
+        (drop.replace("information_schema.columns", "information_schema.tables"), "waitlist_signups.email_verified"),
+        # A copy of step 1's file, its ALTER swapped: its guard's last predicate reads false once step 1 has run.
+        (drop.replace("AND column_name = 'email_verified')", "AND column_name = 'email_verified'\n"
+                      "                     AND column_default IS NULL)"), "waitlist_signups.email_verified"),
+        # The catalog compares literals as stored: lower case, in schema public.
+        (drop.replace("'waitlist_signups'", "'WAITLIST_SIGNUPS'"), "waitlist_signups.email_verified"),
+        (drop.replace("table_schema = 'public'", "table_schema = 'Public'"), "waitlist_signups.email_verified"),
+        # A drop in the guard's ELSE, or under an ELSIF, runs when the guard reads false.
+        (drop.replace(") THEN\n", ") THEN\n            RAISE NOTICE 'kept';\n        ELSE\n"),
+         "waitlist_signups.email_verified"),
+        (drop.replace(") THEN\n", ") THEN\n            RAISE NOTICE 'kept';\n        ELSIF TRUE THEN\n"),
+         "waitlist_signups.email_verified"),
+    ):
+        assert _drops_outside_their_own_guard(mutant) == [dropped], mutant
+    # A branch guards only the drops inside it, so the same drop after its END IF is unguarded; an IF on a plain
+    # variable guards none.
+    assert _drops_outside_their_own_guard(
+        drop.replace("END IF;", "END IF;\n        ALTER TABLE waitlist_signups DROP COLUMN email_verified;")
+    ) == ["waitlist_signups.email_verified"]
+    assert _drops_outside_their_own_guard(
+        "DO $$ DECLARE go BOOLEAN := TRUE; BEGIN IF go THEN ALTER TABLE t DROP COLUMN c; END IF; END $$;"
+    ) == ["t.c"]
+    # Drops of other things, and comments, are not column drops.
+    assert _drops_outside_their_own_guard(
+        "DO $$ BEGIN IF go THEN ALTER TABLE t DROP CONSTRAINT k; ALTER TABLE t ALTER COLUMN c DROP NOT NULL; END IF; END $$;"
+    ) == []
+    assert _drops_outside_their_own_guard("-- DO $$ BEGIN ALTER TABLE t DROP COLUMN c; END $$;\nSELECT 1;") == []
 
 
 def test_deploy_job_has_a_bounded_timeout():
@@ -815,7 +913,7 @@ def test_cloud_sql_proxy_is_pinned_by_checksum_in_both_workflows():
     assert len(set(pins)) == 1, f"ci.yml and ops.yml must pin the same cloud-sql-proxy build: {pins}"
 
 
-_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect"
+_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect regn-summary-incident-readout"
 
 
 def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
@@ -949,6 +1047,18 @@ def test_new_migrations_guard_alter_table_with_a_do_block():
         "  DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns\n"
         "      WHERE table_name = '<table>' AND column_name = '<col>') THEN\n"
         "    ALTER TABLE <table> ADD COLUMN <col> ...; END IF; END $$;",
+    )
+
+
+def test_a_guarded_drop_checks_the_column_it_drops():
+    found = _scan_migrations(_drops_outside_their_own_guard)
+    assert not found, (
+        "A DROP COLUMN inside a DO block must sit in a branch opened by the one drop guard, naming that table and "
+        "column in lower case, one IF per dropped column; a guard that checks anything else reads false wherever the "
+        "column is, so the file applies as a no-op and the column stays (E245):\n"
+        "  DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'\n"
+        "      AND table_name = '<table>' AND column_name = '<col>') THEN\n"
+        f"    ALTER TABLE <table> DROP COLUMN <col>; END IF; END $$;\n  offending: {found}"
     )
 
 

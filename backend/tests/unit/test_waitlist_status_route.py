@@ -60,11 +60,11 @@ def client(session_factory, monkeypatch):
 
 
 def _seed(session_factory, *, referrals: int = 0, priority_score: int = 0) -> str:
-    """One verified signup at position 4 with ``referrals`` signups referred by it."""
+    """One signup at position 4 with ``referrals`` signups referred by it."""
     email = _email()
     with session_factory() as s:
         s.add(WaitlistSignup(email=email, name="Ref", referral_code=REFERRER_CODE, position=4,
-                             priority_score=priority_score, email_verified=True))
+                             priority_score=priority_score))
         for i in range(referrals):
             s.add(WaitlistSignup(email=_email(), referral_code=f"joi{i:05d}", referred_by=REFERRER_CODE,
                                  position=10 + i, priority_score=0))
@@ -85,7 +85,7 @@ def test_status_returns_position_and_referral_progress_only(client, session_fact
     assert body["referrals_count"] == 2
     assert body["positions_gained"] == 2 * REFERRAL_BONUS
     assert body["position"] == watchlist_router.calculate_waitlist_position(4, 2)
-    for dropped in ("referral_code", "referral_link", "email_verified", REFERRER_CODE):
+    for dropped in ("referral_code", "referral_link", REFERRER_CODE):
         assert dropped not in resp.text
 
 

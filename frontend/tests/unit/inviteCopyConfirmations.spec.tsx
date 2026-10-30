@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import BulkResultSummary from '@/features/admin/components/BulkResultSummary'
 import CopyLinkButton from '@/features/admin/components/CopyLinkButton'
 import ResendShareModal from '@/features/admin/components/ResendShareModal'
+import { changesOf, saidTwice } from './statusLines'
 
 /**
  * The admin invite surfaces' copy controls keep their words and say a press once, where a screen reader hears it
@@ -39,34 +40,6 @@ function offerShareSheet(share: () => Promise<void>) {
   Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn(share) })
   Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
 }
-
-/** What a status line says: its text outside any aria-hidden part, which a screen reader does not hear. */
-function saidBy(line: HTMLElement): string {
-  const walk = (node: Node): string =>
-    node instanceof Element && node.getAttribute('aria-hidden') === 'true'
-      ? ''
-      : node.nodeType === Node.TEXT_NODE
-        ? (node.textContent ?? '')
-        : [...node.childNodes].map(walk).join('')
-  return walk(line)
-}
-
-type Change = { said: string; held: string; stray?: string }
-/** Each change to a status line: what it says, and the words its box holds unsaid, in aria-hidden parts that are
-    invisible too, so they keep their room and show nothing. Words in the box that are neither (an aria-hidden part that
-    shows) are recorded as stray. A second press that says the same is seen emptied in between, its last words held. */
-function changesOf(line: HTMLElement): Change[] {
-  const changes: Change[] = []
-  new MutationObserver(() => {
-    const said = saidBy(line)
-    const held = [...line.querySelectorAll('[aria-hidden="true"].invisible')].map((part) => part.textContent ?? '').join('')
-    const whole = line.textContent ?? ''
-    changes.push(whole === said + held ? { said, held } : { said, held, stray: whole })
-  }).observe(line, { childList: true, characterData: true, subtree: true })
-  return changes
-}
-/** A press's words said, then emptied while their room is held, then said again. */
-const saidTwice = (words: string): Change[] => [{ said: words, held: '' }, { said: '', held: words }, { said: words, held: '' }]
 
 const expectNoToast = () => {
   expect(toast.success, 'a toast from inside a dialog, which VoiceOver never hears').not.toHaveBeenCalled()

@@ -377,8 +377,9 @@ billing and ticker filings cards' Notices keep their Retry and every text run in
 text, and the cookie dialog's cards break no word at 320, 360 and 390px.
 
 A control that copies to the clipboard keeps its words and says a press where a screen reader hears it: a
-`role="status"` line beside it, as Copy filing link, Copy receipt and the invite share options' Copy message have
-("Filing link copied.", "Invite message copied."), or, outside a dialog and where its surface already confirms through
+`role="status"` line beside it, as Copy filing link, Copy receipt, the waitlist's referral Copy and the invite share
+options' Copy message have ("Filing link copied.", "Referral link copied.", "Invite message copied."), or,
+outside a dialog and where its surface already confirms through
 the toast region, a success toast, as Copy link does in the bulk invite summary ("Invite link copied"). Inside a modal
 dialog the page's toast region lies outside the dialog, and `aria-modal` hides it from VoiceOver, so there a press is
 said in a status line inside the dialog: a control that confirms through a toast takes `onStatus`, the line of the
@@ -393,7 +394,7 @@ and outside a catch clause or a rejection handler, calls the setter of a state a
 `onStatus`, or `toast.success` with `onStatus` beside it; a dialog passes `onStatus` to each control it renders that
 takes one, and each `onStatus` passed reaches what a status line shows; no words in a file that writes read "Copied",
 nor a button's words there say it was copied; a reach for the clipboard the scan cannot follow fails; and each writer
-names the spec that presses it and reads its words, in code; the waitlist's referral Copy is its residue, E244) and `tests/unit/inviteCopyConfirmations.spec.tsx` (Copy link's name
+names the spec that presses it and reads its words, in code) and `tests/unit/inviteCopyConfirmations.spec.tsx` (Copy link's name
 through a press; in the bulk summary one toast and no words changed in its live region; in the resend dialog and a
 summary row's share dialog, each press said in a status line inside the dialog and nothing in the toast region).
 
@@ -537,7 +538,7 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
                  covers the raw controls of every route's page and the feature modules it reaches, plus the
                  shared Switch, but for a residue that only shrinks (RING_RESIDUE: Markdown and chart
-                 renderers' props spreads, and one control of the filing page's sweep); field recipes retain
+                 renderers' props spreads); field recipes retain
                  their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
@@ -819,7 +820,12 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  exceeds the box by more than one CSS pixel. It observes the box and first child,
                  rebinds replaced children and measures window resizes without ResizeObserver. Start
                  disabled while the box is not rendered. Hints and scroll behavior remain surface-owned.
-                 The named region supports Left/Right by one measured column,
+                 A feature module writes the props out on the box (`role={overflowing ? 'region' :
+                 undefined}`, `tabIndex`, `aria-label`, `aria-describedby`), never as a spread, so the focus
+                 ring gate reads the box's Tab stop and holds it to the ring, and the dialog gate reads its role.
+                 DataTable, a primitive that gate does not read, spreads them on its own box, and
+                 tests/unit/data-table-scroll.spec.tsx holds that region to the ring in both themes.
+                 The Analysis table's named region supports Left/Right by one measured column,
                  Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
                  number of columns. A layout effect measures before paint; resize and enlarged text
                  recompute rendered widths without accumulating padding or losing the prior column.
@@ -1605,9 +1611,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
-                 A long option set is not a segmented control: the company page's peer and trend
-                 metric pickers (nine and up to 23 options) are a raw compact select beside a visible
-                 "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 A long option set is not a segmented control: the company page's peer metric picker (nine
+                 options) and the filing page's trend metric picker (up to 23) are a raw compact select beside
+                 a visible "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
                  options in sentence case; the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
@@ -2340,9 +2346,10 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
                  underline tabs ≥36px, 44px in the sheet; arrows wrap from the focused tab); the Filing tab
-                 ends in "Original on SEC.gov". aria-label "Filing source and Ask"; role dialog + aria-modal
-                 below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
-                 hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
+                 ends in "Original on SEC.gov". The header names the pane (aria-labelledby), so a screen reader
+                 hears "Source", the title a sighted reader sees; role dialog + aria-modal below lg only. The
+                 floating launcher is "Source ⌘K", a secondary control (panel fill, hairline, e3;
+                 aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
                  Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
                  where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control

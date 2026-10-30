@@ -231,10 +231,13 @@ const { PHASE_PRODUCTION_BUILD } = require('next/constants')
 
 function nextBuild(vercel: VercelJson, productionHost: string): NextBuild {
   // `node -e code a b` gives the code an argv of [node, a, b], as `next build` sees [node, next, build].
+  // A synchronous call holds the worker until it returns, which no Vitest limit can interrupt, so a reader that
+  // hangs is stopped here, inside the setup's 60 s for both hosts, and fails it by name. Node is the child itself.
   const out = execFileSync(process.execPath, ['-e', LOAD_NEXT_BUILD, path.join(FRONTEND, 'node_modules/.bin/next'), 'build'], {
     cwd: FRONTEND,
     env: productionBuildEnv(vercel, productionHost),
     encoding: 'utf8',
+    timeout: 25_000,
   })
   const line = out.split('\n').find((l) => l.startsWith('__BUILD__'))
   if (!line) throw new Error(`next.config.js or the middleware did not load:\n${out}`)

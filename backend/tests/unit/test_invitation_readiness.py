@@ -3,6 +3,7 @@
 Use real authenticated admin routes and persistence. Only outbound mail is replaced; collection
 readiness uses the published synthetic notice fixture, and marketing stays actually closed.
 """
+import re
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -180,10 +181,15 @@ async def test_dormant_invitation_copy_promises_account_access_without_pro(deliv
     await email_service.send_invite_email(to_email="invitee@example.com", magic_link=link)
 
     delivery.assert_awaited_once()
+    # The patterns frontend/tests/unit/shareInvite.spec.ts holds the admin's default invite message to: no Pro, no "on us"
+    # (in its sentence and title cases, so "on US filings" passes), nothing free, no card or trial (docs/LEGAL_READINESS.md:
+    # invitation wording promises account access only). The subject is held too.
+    sent = delivery.call_args.kwargs
+    for part in (sent["subject"], sent["html"], sent["text"]):
+        for promise, flags in ((r"\bpro\b", re.I), (r"\b[Oo]n [Uu]s\b", 0), (r"\bfree\b", re.I),
+                               (r"no (credit[- ]?)?card", re.I), (r"\btrials?\b", re.I)):
+            assert not re.search(promise, part, flags), promise
     for part in (delivery.call_args.kwargs["html"], delivery.call_args.kwargs["text"]):
         assert "You're invited to create an EarningsNerd account." in part
         assert link in part
         assert "Review the account requirements" in part
-        assert "full pro" not in part.lower()
-        assert "no card" not in part.lower()
-        assert "no credit card" not in part.lower()
