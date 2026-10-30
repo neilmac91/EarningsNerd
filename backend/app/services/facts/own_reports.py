@@ -7,8 +7,8 @@ collector's in-memory candidates and was never stored (REGN revenue: FY2018 6,71
 5,145.6M in the FY2020 10-K's comparatives). ``own_report_history`` finds that report's value beside each
 FY winner, and ``insert_history_rows`` stores it as a history row.
 
-A history row is never current and never an operand of the sync's derivations; the restatement note
-will read it. The 2026-10 census found most such differences are legitimate recasts, so the winner
+A history row is never current and never an operand of the sync's derivations; the analysis dataset
+reads it as evidence of the year's own report (``trend_analysis/first_reports.py``). The 2026-10 census found most such differences are legitimate recasts, so the winner
 stays the value shown. The normalizer returns history facts apart from its ``facts``
 (``meta["history"]``), because the same-period and quarter derivations read ``facts`` and a history
 fact there would replace the winner as an operand; and the bulk writer stores them apart from its

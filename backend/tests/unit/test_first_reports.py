@@ -508,17 +508,20 @@ class TestGrowthAcrossAChangeOfBasis:
         dataset = _build(db, _synced(db, _payload(tags={"NetIncomeLoss": {"units": {"USD": _items(loss)}}})))
         assert _yoy(dataset, "net_income")["FY2018"] == _yoy(dataset, "net_income")["FY2019"] == ("nm", "absent")
 
-    def test_d3_eps_keeps_its_evidence_and_its_growth_across_a_split(self, db):
+    @pytest.mark.parametrize("tag, concept", [("EarningsPerShareBasic", "earnings_per_share"),
+                                              ("EarningsPerShareDiluted", "eps_diluted")], ids=["basic", "diluted"])
+    def test_d3_eps_keeps_its_evidence_and_its_growth_across_a_split(self, db, tag, concept):
         # A 10-for-1 split before the FY2020 10-K: it restates FY2018 and FY2019 at a tenth.
         eps = {2017: {2015: 5.0, 2016: 6.0, 2017: 10.0}, 2018: {2016: 6.0, 2017: 10.0, 2018: 12.0},
                2019: {2017: 10.0, 2018: 12.0, 2019: 13.0}, 2020: {2018: 1.2, 2019: 1.3, 2020: 1.5},
                2021: {2019: 1.3, 2020: 1.5, 2021: 2.0}}
-        dataset = _build(db, _synced(db, _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items(eps)}}})))
+        dataset = _build(db, _synced(db, _payload(tags={tag: {"units": {"USD/shares": _items(eps)}}})))
         evidence = _evidence(dataset)
-        assert (evidence[("earnings_per_share", "FY2018")]["value"], evidence[("earnings_per_share", "FY2019")]["value"]) \
-            == (12.0, 13.0)
+        assert (evidence[(concept, "FY2018")]["value"], evidence[(concept, "FY2019")]["value"]) == (12.0, 13.0)
+        # The evidence is in the figure's own unit.
+        assert evidence[(concept, "FY2018")]["unit"] == _point(dataset, concept, "FY2018")["unit"] == "USD/shares"
         assert all(isinstance(value, float) and first == "absent"
-                   for period, (value, first) in _yoy(dataset, "earnings_per_share").items() if period != "FY2017")
+                   for period, (value, first) in _yoy(dataset, concept).items() if period != "FY2017")
 
     def test_d4_a_calculation_stored_without_its_operands_reads_its_inputs_from_the_dataset(self, db):
         # A margin stored before operands were recorded has none: the revenue the dataset shows for the year stands in.
@@ -531,6 +534,18 @@ class TestGrowthAcrossAChangeOfBasis:
         margin = _yoy(_build(db, company), "net_margin")
         assert margin["FY2018"] == ("nm", pytest.approx(100 * (2_444.4 / 6_710.8 - 1_198.5 / 5_872.2), abs=1e-6))
         assert isinstance(margin["FY2021"][0], float)
+
+    def test_a_calculation_stored_without_its_operands_reads_n_m_across_its_inputs_finding(self, db):
+        # The input's finding sits on the dataset's revenue figure, read in the operands' place: n/m as first reported
+        # on that year and the next, never a number.
+        from app.models import FinancialFact
+
+        company = _synced(db, _payload(_items({**_REVENUE, 2020: {**_REVENUE[2020], 2018: 6_710.8e3}})))
+        db.query(FinancialFact).filter_by(company_id=company.id, concept="net_margin").update(
+            {"provenance": None}, synchronize_session=False)
+        db.commit()
+        margin = _yoy(_build(db, company), "net_margin")
+        assert margin["FY2018"] == margin["FY2019"] == ("nm", "nm")
 
     def test_the_catalogue_leaves_out_growth_across_a_change_of_basis(self, db):
         from app.services.trend_analysis.observations import build_observation_catalogue
@@ -577,6 +592,33 @@ def test_an_own_row_whose_stored_value_is_not_finite_gives_no_evidence(value):
     point = _figure()
     FirstReports({}, {}, None, history=[_own(value=value)]).attach([point])
     assert "first_reported" not in point
+
+
+def test_a_finding_two_inputs_deep_on_the_year_before_holds_the_growth_as_first_reported_to_n_m():
+    # A margin's FY2019 revenue input carries evidence, so its change reads n/m; its FY2018 net income input is itself
+    # calculated, and the sign flip sits on that one's own reported input. The page reads the finding there too.
+    from app.services.trend_analysis.dataset import _growth, _pp_delta
+
+    flipped = {**_figure("net_income", -2_444.4e6), "first_reported": {"value": 2_444.4e6, "disagreement": "opposite_sign"}}
+    fy2018 = {**_figure("net_margin", 47.5, "calculated", [_figure("revenue", 5_145.6e6),
+                                                          _figure("net_income", -2_444.4e6, "calculated", [flipped])]),
+              "period": "FY2018", "yoy": None}
+    revenue = {**_figure("revenue", 6_557.6e6), "first_reported": {"value": 7_863.4e6, "disagreement": None}}
+    fy2019 = {**_figure("net_margin", 32.3, "calculated", [revenue, _figure("net_income", 2_115.8e6)]),
+              "period": "FY2019", "yoy": -15.2}
+    series = [{"concept": "net_margin", "percent": True, "points": [fy2018, fy2019]}]
+    FirstReports({}, {}, None, history=[_own()]).basis_rule(series, _growth, _pp_delta)
+    assert (fy2019["yoy"], fy2019["yoy_first_reported"]) == ("nm", "nm")
+
+
+def test_a_stored_filed_day_reads_as_a_day():
+    # A timestamp in a record (the own row's, or the shown figure's) is sent as its calendar day, never as a timestamp.
+    own = _own()
+    own.provenance = {**own.provenance, "filed_at": "2019-02-07T00:00:00Z"}
+    point = {**_figure(), "filed_at": None}
+    point["provenance"] = {**point["provenance"], "filed_at": "2021-02-08T21:15:00+00:00"}
+    FirstReports({}, {}, None, history=[own]).attach([point])
+    assert (point["first_reported"]["filed_at"], point["first_reported"]["later_filed_at"]) == ("2019-02-07", "2021-02-08")
 
 
 def test_item_5_an_input_at_any_depth_carries_its_evidence_on_a_copy():

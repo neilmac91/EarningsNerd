@@ -289,8 +289,7 @@ def _series_points(
     by_fy_fp: dict[tuple[int, str, str], FinancialFact],
     instant_by_end: dict[tuple[str, date], FinancialFact],
 ) -> list[dict[str, Any]]:
-    """Align each concept's points, linked to the filing documents they cite, with each year's own-report evidence in an
-    annual run (first_reports), and attach comparisons (n/m across a change of basis) and window figures."""
+    """Align each concept's points, linked to their filings, with own-report evidence, then comparisons and windows."""
     def _row_for(concept: str, bucket: dict[str, Any]) -> Optional[FinancialFact]:
         if mode == "quarterly" and concept in INSTANT_CONCEPTS:
             return instant_by_end.get((concept, bucket["period_end"]))
