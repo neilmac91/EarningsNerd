@@ -118,3 +118,62 @@ def test_resolver_builds_once_under_concurrent_same_cik_access():
     assert _CountingCompany.construct_count == 1  # lock prevented the double build
     # Both callers got the same cached company instance.
     assert results[0][0] is results[1][0]
+
+
+def test_cached_snapshot_refreshes_a_new_accession_before_downloading_history(monkeypatch):
+    """The alert's new accession can appear after an earlier request cached the company."""
+    published = {"old"}
+    builds = []
+    calls = []
+
+    class SnapshotCompany:
+        def __init__(self, cik):
+            self.snapshot = set(published)
+            builds.append(self)
+
+        def get_filings(self, accession_number=None, trigger_full_load=None):
+            calls.append((accession_number, trigger_full_load))
+            return [accession_number] if accession_number in self.snapshot else []
+
+    monkeypatch.setattr(client_mod, "EdgarCompany", SnapshotCompany)
+    client_mod.resolve_filing_by_accession("one-cik", "old")
+    published.add("just-published")
+    results = []
+    threads = [threading.Thread(
+        target=lambda: results.append(client_mod.resolve_filing_by_accession("one-cik", "just-published")),
+    ) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(builds) == 2
+    assert len(results) == 4
+    assert all(filings == ["just-published"] and company is builds[1] for company, filings in results)
+    assert not any(full_history for _, full_history in calls)
+
+
+def test_refresh_still_resolves_old_accessions_from_history(monkeypatch):
+    """Refreshing a stale snapshot must retain the historical lookup fallback."""
+    calls = []
+    builds = []
+
+    class SnapshotCompany:
+        def __init__(self, cik):
+            builds.append(self)
+
+        def get_filings(self, accession_number=None, trigger_full_load=None):
+            calls.append((len(builds), accession_number, trigger_full_load))
+            if accession_number == "recent" or trigger_full_load:
+                return [accession_number]
+            return []
+
+    monkeypatch.setattr(client_mod, "EdgarCompany", SnapshotCompany)
+    client_mod.resolve_filing_by_accession("one-cik", "recent")
+    company, filings = client_mod.resolve_filing_by_accession("one-cik", "historical")
+    assert filings == ["historical"]
+    assert company is builds[1]
+    assert calls == [
+        (1, "recent", False), (1, "historical", False),
+        (2, "historical", False), (2, "historical", True),
+    ]

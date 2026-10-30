@@ -383,6 +383,29 @@ describe('AskCopilotRail', () => {
     )
   })
 
+  it.each([
+    { payload: {}, usedXbrl: false },
+    { payload: { fact: true as const }, usedXbrl: true },
+    { payload: { calculated: true as const }, usedXbrl: true },
+  ])('logs usedXbrl $usedXbrl from the fact payload $payload, never the "XBRL · …" label (E179)', async ({ payload, usedXbrl }) => {
+    let captured: CopilotHandlers | null = null
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
+      captured = handlers
+    })
+    const user = userEvent.setup()
+    renderRail({ open: true })
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'What was revenue?{Enter}')
+    act(() => captured!.onComplete({
+      answer: 'Revenue was $391.0B [1].',
+      citations: [{ n: 1, excerpt: 'Revenue = $391.04B USD (FY2024)', section_ref: 'XBRL · us-gaap:Revenues', verified: true,
+        fragment_url: null, ...payload }],
+      grounded: 1,
+      kind: 'answer',
+      followups: [],
+    }))
+    expect(analytics.copilotAnswerCompleted).toHaveBeenCalledWith(expect.objectContaining({ usedXbrl }))
+  })
+
   it('opens the rail on ⌘K and on "/" (when not typing)', () => {
     const cmd = renderRail({ open: false })
     fireEvent.keyDown(document.body, { key: 'k', metaKey: true })
@@ -668,7 +691,7 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     const line = screen.getByRole('status')
     expect(line).toHaveClass('sr-only')
     expect(line).toBeEmptyDOMElement()
-    expect(line.parentElement).toBe(screen.getByRole('complementary', { name: 'Filing source and Ask' }))
+    expect(line.parentElement).toBe(screen.getByRole('complementary', { name: 'Source' }))
     expect(line.compareDocumentPosition(screen.getByRole('tablist')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
     for (const panel of screen.getAllByRole('tabpanel')) {
       expect(line.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -808,7 +831,7 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     )
     try {
       renderInPane()
-      const sheet = screen.getByRole('dialog', { name: 'Filing source and Ask' })
+      const sheet = screen.getByRole('dialog', { name: 'Source' })
       expect(sheet).toHaveAttribute('aria-modal', 'true')
       expect(sheet).toContainElement(screen.getByRole('status'))
     } finally {

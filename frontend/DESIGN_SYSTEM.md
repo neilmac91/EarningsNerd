@@ -1611,9 +1611,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
-                 A long option set is not a segmented control: the company page's peer and trend
-                 metric pickers (nine and up to 23 options) are a raw compact select beside a visible
-                 "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 A long option set is not a segmented control: the company page's peer metric picker (nine
+                 options) and the filing page's trend metric picker (up to 23) are a raw compact select beside
+                 a visible "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
                  options in sentence case; the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
@@ -2346,9 +2346,10 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
                  underline tabs ≥36px, 44px in the sheet; arrows wrap from the focused tab); the Filing tab
-                 ends in "Original on SEC.gov". aria-label "Filing source and Ask"; role dialog + aria-modal
-                 below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
-                 hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
+                 ends in "Original on SEC.gov". The header names the pane (aria-labelledby), so a screen reader
+                 hears "Source", the title a sighted reader sees; role dialog + aria-modal below lg only. The
+                 floating launcher is "Source ⌘K", a secondary control (panel fill, hairline, e3;
+                 aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
                  Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
                  where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control

@@ -1,4 +1,4 @@
-import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, ordinal, sentenceCase } from '@/lib/format'
+import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, inSentence, ordinal } from '@/lib/format'
 
 describe('numeric formatters', () => {
   it('formats currency values compactly by default', () => {
@@ -47,25 +47,26 @@ describe('numeric formatters', () => {
     expect(fmtShares(null)).toBe('')
   })
 
-  it('puts a stored Title Case metric label in sentence case, keeping the first capital and acronyms', () => {
+  it('reads a sentence-case metric label inside a sentence: its first word lower case unless an acronym', () => {
     const cases: Array<[string, string]> = [
-      ['Revenue', 'Revenue'], ['Net Income', 'Net income'], ['Operating Cash Flow', 'Operating cash flow'],
-      ['Non-Interest Income', 'Non-interest income'], ["Shareholders' Equity", "Shareholders' equity"],
-      ['Diluted EPS', 'Diluted EPS'], ['EPS', 'EPS'],
+      ['Revenue', 'revenue'], ['Net income', 'net income'], ['Operating cash flow', 'operating cash flow'],
+      ['Non-interest income', 'non-interest income'], ["Shareholders' equity", "shareholders' equity"],
+      ['Diluted EPS', 'diluted EPS'], ['EPS', 'EPS'],
+      // The analysis dataset's own (trend_analysis/periods.py _CONCEPT_LABELS), which its report's notes read the same way.
+      ['EPS (diluted)', 'EPS (diluted)'], ['Cash & equivalents', 'cash & equivalents'], ['Long-term debt', 'long-term debt'],
     ]
-    for (const [label, text] of cases) expect(sentenceCase(label)).toBe(text)
+    for (const [label, text] of cases) expect(inSentence(label)).toBe(text)
   })
 
-  // The unit is the segment between whitespace, - and /. & and . sit inside one, so R&D, SG&A and U.S. keep their
-  // single capitals (a letter-run rule gave 'R&d'); - and / end one, so an acronym joined to a word keeps its
-  // capitals (a per-word rule gave 'Non-gaap EPS' and 'Debt-to-ebitda'). A capital after a segment's first letter
-  // keeps it as written too: YoY stays and Growth goes lower case (the lower-case test alone gave 'Yoy growth').
+  // The unit is the first segment, up to whitespace, - or /. & and . sit inside one, so R&D, SG&A and U.S. keep their
+  // capitals; - and / end one, so a word joined to an acronym still goes lower case ('non-GAAP EPS'). A capital after
+  // a segment's first letter marks an acronym too: YoY stays (the lower-case test alone gave 'yoY growth').
   it.each([
-    ['R&D Expense', 'R&D expense'], ['SG&A', 'SG&A'], ['U.S. Revenue', 'U.S. revenue'],
-    ['Non-GAAP EPS', 'Non-GAAP EPS'], ['Adjusted Non-GAAP Income', 'Adjusted non-GAAP income'],
-    ['Debt-to-EBITDA', 'Debt-to-EBITDA'], ['Price/EPS Ratio', 'Price/EPS ratio'], ['YoY Growth', 'YoY growth'],
-  ])('judges an acronym on the segment between whitespace, - and /: %s reads %s', (label, text) => {
-    expect(sentenceCase(label)).toBe(text)
+    ['R&D expense', 'R&D expense'], ['SG&A', 'SG&A'], ['U.S. revenue', 'U.S. revenue'],
+    ['Non-GAAP EPS', 'non-GAAP EPS'], ['Debt-to-EBITDA', 'debt-to-EBITDA'], ['Price/EPS ratio', 'price/EPS ratio'],
+    ['YoY growth', 'YoY growth'],
+  ])('judges an acronym on the first segment, up to whitespace, - or /: %s reads %s', (label, text) => {
+    expect(inSentence(label)).toBe(text)
   })
 })
 

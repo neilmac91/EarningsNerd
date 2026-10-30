@@ -595,7 +595,7 @@ test.describe('a hidden chip blurred before the resize (Codex review of #1108)',
 // and the pane can outlive the layout that chip was in (a window narrowed, a phone rotated, the pane
 // still open as the sheet below lg). Closing it must return focus to the same chip in the layout now
 // shown, not to the display:none copy that opened it (focus would fall to <body>).
-const PANE = '[aria-label="Filing source and Ask"]' // a dialog below lg, an aside on lg+ (P-06)
+const PANE = '[aria-labelledby="source-pane-title"]' // a dialog below lg, an aside on lg+, named "Source" by its header (P-06)
 const VERIFIED = 'Source: Quote found in filing'
 const ROW = 5 // the sixth metric, so a twin that lost its row would land on another chip
 
@@ -847,7 +847,7 @@ for (const theme of ['light', 'dark'] as const) {
         const source = page.locator('#notable-footnotes').getByRole('button', { name: 'Source: Quote found in filing', exact: true })
         await source.focus()
         await page.keyboard.press('Enter')
-        const pane = page.getByRole('dialog', { name: 'Filing source and Ask' })
+        const pane = page.getByRole('dialog', { name: 'Source', exact: true })
         await expect(pane).toBeVisible()
         await page.keyboard.press('Escape')
         await expect(source).toBeFocused()

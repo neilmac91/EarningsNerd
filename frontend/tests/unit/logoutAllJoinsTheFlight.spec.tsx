@@ -6,8 +6,9 @@ import type { ReactNode } from 'react'
 import api from '@/lib/api/client'
 import { LogoutAllSuperseded, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import {
-  LOGGED_OUT_FIRST_MESSAGE, LOGOUT_FAILED_MESSAGE, LoggedOutFirst, acceptLoginAndResetAccount, logoutAllInTurn, logoutAndResetAccount,
-  subscribeAccountQueryReset,
+  LOGGED_IN_AS_ANOTHER_MESSAGE, LOGGED_OUT_FIRST_MESSAGE, LOGGED_OUT_HERE_ONLY_MESSAGE, LOGOUT_FAILED_MESSAGE, LoggedOutFirst,
+  acceptLoginAndResetAccount,
+  logoutAllInTurn, logoutAndResetAccount, subscribeAccountQueryReset,
 } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getExplicitSessionGeneration, hasActiveSession, markSessionActive } from '@/lib/api/session'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -24,7 +25,9 @@ import { LOGOUT_ALL_CALL_SITES } from './logoutCallSites'
  * When the Log out took, this device has no session left to end the others with: it posts nothing and says so, in a
  * toast, since the page leaves with that Log out. When a login overtook the Log out, or its /me named another reader
  * (another tab signed in), it posts nothing and says nothing. A Log out pressed while it runs waits for it: settled
- * with it when it took, and logging out on its own when it failed. One that failed puts the session flag back, so a
+ * with it when it took, and logging out on its own when it failed, saying in a toast that the other devices stayed
+ * logged in, since the page leaves with the section's line (chief design on #1813). The toasts that give a step stay
+ * up 10 s (STEP_TOAST_DURATION_MS), and the cases expect the option. One that failed puts the session flag back, so a
  * lapsed access cookie still renews. Beside the flight, before E157, its `beginLogout` cleared the session flag a failed
  * Log out's read of /me needs, so a lapsed access cookie read as a guest and that Log out left as logged out with the
  * refresh cookie alive (#1496's review), and a Log out's reset lifted its refresh fence or ended it as superseded.
@@ -79,7 +82,7 @@ const settle = () => act(async () => { await new Promise((resolve) => setTimeout
 const LOGOUT_INCOMPLETE = 'This browser is logged out, but we could not end the session on the server.'
 const refused = async (): Promise<void> => { throw { response: { status: 401 } } }
 /** This browser's cookies cleared: /me then answers no user, the refresh cookie is gone, and so is the logout of every
-    session, whose route needs the access cookie (`get_current_user`). */
+    session, whose route needs a live refresh token or the access cookie (E157 (2)). */
 const cookiesCleared = () => {
   Object.assign(server, { me: status(401, 'Not authenticated'), logoutAll: status(401, 'Not authenticated'), refresh: refused, renewed: false })
 }
@@ -109,8 +112,10 @@ const server = {
   requests: [] as string[],
 }
 const renews = async () => { server.renewed = true }
-/** The access cookie has lapsed: /me answers 401 until the refresh renews the session. */
-const lapsed: Answer = (config) => (server.renewed ? ok(reader) : status(401, 'Could not validate credentials'))(config)
+/** The access cookie has lapsed: /me answers 401 until the refresh renews the session, then names `user`. */
+const lapsedAs = (user: CurrentUser): Answer => (config) =>
+  (server.renewed ? ok(user) : status(401, 'Could not validate credentials'))(config)
+const lapsed = lapsedAs(reader)
 const posts = (path: string) => server.requests.filter((request) => request === `post ${path}`).length
 const meReads = () => server.requests.filter((request) => request === 'get /api/auth/me').length
 const originalAdapter = api.defaults.adapter
@@ -254,7 +259,7 @@ describe('"Log out of all devices" pressed while a Log out runs', () => {
     await settle()
     expect(posts('/api/auth/logout-all')).toBe(0)
     expect(error).toBeInstanceOf(LoggedOutFirst)
-    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_FIRST_MESSAGE)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_FIRST_MESSAGE, { duration: 10000 })
     // The Log out took and leaves, and the page renders no section for a reader gone: a line in it could not show.
     expect(nav.push).toHaveBeenCalledWith('/')
     expect(screen.queryByRole('button', { name: 'Log out of all devices' })).toBeNull()
@@ -276,7 +281,7 @@ describe('"Log out of all devices" pressed while a Log out runs', () => {
     expect(error).toBeInstanceOf(LoggedOutFirst)
     // /me found no user: the Log out took, and warned in the 503's words that the server may still hold its session.
     expect(toasts.warning).toHaveBeenCalledExactlyOnceWith(LOGOUT_INCOMPLETE)
-    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_FIRST_MESSAGE)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_FIRST_MESSAGE, { duration: 10000 })
     expect(nav.push).toHaveBeenCalledWith('/')
   })
 
@@ -380,6 +385,61 @@ describe('a Log out pressed while "Log out of all devices" runs waits for it', (
     expect(nav.refresh).toHaveBeenCalledTimes(1)
     expect(posts('/api/auth/logout-all')).toBe(1)
     expect(clear).not.toHaveBeenCalled()
+    // The section's line that it failed leaves with the page, so a toast says the other devices stayed logged in.
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HERE_ONLY_MESSAGE, { duration: 10000 })
+  })
+
+  it("and, when it fails and that Log out answers the API's 503, says both: the 503's warning and the other devices", async () => {
+    await renderSettings()
+    const answer = deferred<void>()
+    Object.assign(server, { logoutAll: heldUntil(answer.promise, unreachable), logout: incomplete })
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    answer.resolve()
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/'))
+    // /me found no user: this browser is logged out, its session maybe alive on the server, and the others are in.
+    expect(toasts.warning).toHaveBeenCalledExactlyOnceWith(LOGOUT_INCOMPLETE)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HERE_ONLY_MESSAGE, { duration: 10000 })
+  })
+
+  it('and, when it fails and that Log out does not take either, says only that, and the page stays with the section\'s line', async () => {
+    await renderSettings()
+    const answer = deferred<void>()
+    Object.assign(server, { logoutAll: heldUntil(answer.promise, unreachable), logout: unreachable })
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    answer.resolve()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGOUT_FAILED_MESSAGE))
+    await settle()
+    expect(toasts.error).toHaveBeenCalledTimes(1)
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(screen.getByText('Could not reach the server. Try again in a moment.')).toBeInTheDocument()
+  })
+
+  it('and, when a login is accepted while it waits, makes no request of its own and says nothing of the other devices', async () => {
+    const { client } = await renderSettings()
+    const answer = deferred<void>()
+    server.logoutAll = heldUntil(answer.promise, unreachable)
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    // Another account's login lands meanwhile and its identity is accepted (app/login/page.tsx's order).
+    act(() => {
+      acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+      client.setQueryData(queryKeys.currentUser(), other)
+    })
+    answer.resolve()
+    await settle()
+    await settle()
+    expect(posts('/api/auth/logout')).toBe(0)
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
   })
 })
 
@@ -419,5 +479,139 @@ describe('"Log out of all devices" with no Log out under way', () => {
     answer.resolve()
     await first
     expect(posts('/api/auth/logout-all')).toBe(1)
+  })
+})
+
+describe('"Log out of all devices" names the account the tab shows (E157 (2))', () => {
+  /** The route's 409 when the account named is not the browser's (routers/auth.py's logout_all). */
+  const ANOTHER_ACCOUNT_DETAIL =
+    'This browser is logged in to a different account from the one this page shows, so no devices were logged out.'
+  /** The section's card: its heading's row sits in it. */
+  const card = () => screen.getByRole('heading', { name: 'Connected accounts & sessions' }).parentElement!.parentElement!
+  /** The bodies of the logout-of-every-session posts, as sent. */
+  const bodiesOf = (answer: Answer) => {
+    const bodies: unknown[] = []
+    server.logoutAll = async (config) => {
+      bodies.push(config.data === undefined ? undefined : JSON.parse(config.data as string))
+      return answer(config)
+    }
+    return bodies
+  }
+
+  it('in its request, and ends every session when the route finds that account', async () => {
+    const { clear } = await renderSettings()
+    const bodies = bodiesOf(endsEverySession)
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+    expect(nav.push).toHaveBeenCalledWith('/login')
+  })
+
+  it('names none, and posts no body, with no account cached to name', async () => {
+    markSessionActive()
+    const bodies = bodiesOf(endsEverySession)
+    await logoutAllInTurn()
+    expect(bodies).toEqual([undefined])
+  })
+
+  it('pressed while a Log out runs, names the same account once that Log out failed and the session survived it', async () => {
+    const { clear } = await renderSettings()
+    const bodies = bodiesOf(endsEverySession)
+    const answer = deferred<void>()
+    server.logout = heldUntil(answer.promise, unreachable)
+    logOut()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    fireEvent.click(everywhere())
+    await settle()
+    // It waits for the Log out, holding the account it was pressed for.
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    answer.resolve()
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+  })
+
+  it("and when the browser is another account's, ends nothing, says so, keeps the session flag and reads /me, which shows that account", async () => {
+    const { client, clear } = await renderSettings()
+    const before = card().textContent
+    // Another tab logged this browser in to `other`; this tab still shows `reader`, as it learns only through /me.
+    server.me = ok(other)
+    const bodies = bodiesOf(status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 }))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    await screen.findByRole('button', { name: 'Log out of all devices' })
+    await settle()
+    expect(hasActiveSession()).toBe(true)
+    expect(clear).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(toasts.warning).not.toHaveBeenCalled()
+    // No error line, in any wording: the section reads as it did before the press.
+    expect(card().textContent).toBe(before)
+  })
+
+  it.each([
+    [401, 'You are not logged in.'],
+    [403, 'This account is inactive. Contact support with any questions.'],
+    [500, 'Something went wrong on our side.'],
+  ])('says another refusal, a %i, in the section, with no toast and no read of /me', async (code, detail) => {
+    await renderSettings()
+    const reads = meReads()
+    bodiesOf(status(code, detail))
+    fireEvent.click(everywhere())
+    expect(await screen.findByText(detail)).toBeInTheDocument()
+    await settle()
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(toasts.warning).not.toHaveBeenCalled()
+    expect(toasts.success).not.toHaveBeenCalled()
+    expect(meReads()).toBe(reads)
+  })
+
+  it("clears the line an earlier failure left when a later press is refused for another account", async () => {
+    const { client } = await renderSettings()
+    server.logoutAll = unreachable
+    fireEvent.click(everywhere())
+    expect(await screen.findByText('Could not reach the server. Try again in a moment.')).toBeInTheDocument()
+    server.me = ok(other)
+    bodiesOf(status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 }))
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    expect(screen.queryByText('Could not reach the server. Try again in a moment.')).not.toBeInTheDocument()
+  })
+
+  it('and when the access cookie has lapsed too, puts the session flag back, so /me renews from the refresh cookie and shows that account', async () => {
+    const { client, clear } = await renderSettings()
+    // Another tab logged this browser in to `other`, and this tab's access cookie has lapsed since: /me answers 401
+    // until the refresh cookie renews the session. Without the flag, that 401 would read as a guest, and leave.
+    Object.assign(server, { me: lapsedAs(other), refresh: renews })
+    bodiesOf(status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 }))
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1)
+    expect(hasActiveSession()).toBe(true)
+    expect(clear).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+  })
+
+  it('refused while a Log out waits on it, says so, and that Log out then logs this browser out on its own, as after any failure', async () => {
+    const { clear } = await renderSettings()
+    server.me = ok(other)
+    const answer = deferred<void>()
+    server.logoutAll = heldUntil(answer.promise, status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    expect(posts('/api/auth/logout')).toBe(0)
+    answer.resolve()
+    // The toast tells the reader to log in to the account they meant, which suits the page the Log out leaves for.
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/'))
+    // One error toast, the 409's: its step stands, and a second would give another.
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 })
+    expect(posts('/api/auth/logout-all')).toBe(1)
+    expect(clear).not.toHaveBeenCalled()
   })
 })

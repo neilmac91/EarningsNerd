@@ -737,10 +737,9 @@ const TREE_REACH = discoverReach(SOURCES)
  */
 const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'app/terms/page.tsx': { sentenceCase: 4 }, // founder-gated, legal page: its headings wait on the founder (legalDates bump)
-  'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits the flagged line; #1278 edits another line of this file; the aria-label "Filing source and Ask")
   'features/marketing/components/ProDepth.tsx': { sentenceCase: 1 }, // the FeatureRow title "Change Report": a product screen's name beside Ask this Filing and Multi-Period Analysis, which PROPER_NOUNS lists and this does not, while the product also writes "change report" in prose (ComparePeriodsCard); the name's case is the records PR's call (07-voice.md); #1311 left it
 }
-const VOICE_RESIDUE_MAX = { entries: 3, violations: 6 }
+const VOICE_RESIDUE_MAX = { entries: 2, violations: 5 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.

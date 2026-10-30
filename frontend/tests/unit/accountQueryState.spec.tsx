@@ -606,8 +606,10 @@ describe('account query ownership structural gate', () => {
     expect(errors).toEqual([])
     expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts', 'features/auth/lib/accountQueryState.ts'])
     // current user null and its restore, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
-    // wording review x3 (the label applied as it is pressed, its rollback, the server's state).
-    expect(allWrites).toHaveLength(10)
+    // wording review x3 (the label applied as it is pressed, its rollback, the server's state),
+    // public filing-summary recovery x2 (persisted completion and interrupted-reader recovery).
+    expect(allWrites.filter((write) => write === 'features/summaries/hooks/useSummaryGeneration.ts:queryKeys.summary(filingId)')).toHaveLength(2)
+    expect(allWrites).toHaveLength(12)
   })
 
   it('every write into an account-owned family checks the session generation first, with no await after the check (E29)', () => {
