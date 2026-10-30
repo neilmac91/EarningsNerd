@@ -128,6 +128,7 @@ class Settings(BaseSettings):
     SUMMARY_JOB_RECOVERY_SECONDS: int = Field(default=300, ge=60, le=1800)
     SUMMARY_JOB_MAX_AGE_SECONDS: int = Field(default=3600, ge=300, le=86400)
     # Zero prevents alert discovery from creating system-funded model work.
+    SUMMARY_PREWARM_MAX_PER_DAY: int = Field(default=0, ge=0, le=200)
     SUMMARY_PREWARM_MAX_PER_SCAN: int = Field(default=0, ge=0, le=20)
     TASKS_PROJECT_ID: str = ""
     TASKS_LOCATION: str = "us-west1"

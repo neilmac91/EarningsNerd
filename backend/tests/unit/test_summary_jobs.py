@@ -12,7 +12,7 @@ import pytest
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models import Summary, SummaryJob, User, UserUsage, UsageReservation
+from app.models import Summary, SummaryJob, SummaryPreparationBudget, User, UserUsage, UsageReservation
 from app.services import summary_job_store as store, summary_jobs as jobs
 from app.services import subscription_service as usage
 from app.services.ai.provider_requests import signal_provider_start
@@ -29,6 +29,7 @@ def enabled(monkeypatch):
         before = {row.id for row in db.query(SummaryJob.id)}
     yield
     with SessionLocal() as db:
+        db.query(SummaryPreparationBudget).delete(synchronize_session=False)
         db.query(SummaryJob).filter(SummaryJob.id.notin_(before)).delete(synchronize_session=False)
         db.commit()
 
@@ -278,3 +279,35 @@ def test_recovery_does_not_fill_batch_with_acknowledged_future_retries(user_id):
         row.last_dispatched_at = utcnow() - timedelta(seconds=settings.SUMMARY_JOB_RECOVERY_SECONDS + 1)
         db.commit()
     assert (view.job_id, view.generation) not in store.due_jobs(20)
+
+
+def test_system_daily_admission_budget_is_not_refilled_by_failure(monkeypatch):
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 2)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 1)
+    view = store.ensure_job(seed_company_filing(), None, system=True)
+    assert not store.ensure_job(view.filing_id, None, system=True).created
+    lease = store.claim_job(view.job_id, view.generation)
+    store.finish_job(lease, {"type": "error", "code": "source_unavailable"})
+    with pytest.raises(store.SummaryJobUnavailable, match="daily"):
+        store.ensure_job(seed_company_filing(), None, system=True)
+    with SessionLocal() as db:
+        assert db.query(SummaryPreparationBudget).one().admissions == 1
+
+
+def test_system_daily_budget_and_job_creation_roll_back_together(monkeypatch):
+    from sqlalchemy import event
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 2)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 1)
+    filing_id = seed_company_filing()
+    def reject_insert(mapper, connection, target):
+        raise RuntimeError("job insert rejected")
+    event.listen(SummaryJob, "before_insert", reject_insert)
+    try:
+        with pytest.raises(RuntimeError):
+            store.ensure_job(filing_id, None, system=True)
+    finally:
+        event.remove(SummaryJob, "before_insert", reject_insert)
+    view = store.ensure_job(filing_id, None, system=True)
+    assert view.created
+    with SessionLocal() as db:
+        assert db.query(SummaryPreparationBudget).one().admissions == 1

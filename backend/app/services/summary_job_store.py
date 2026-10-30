@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models import Filing, Summary, SummaryJob, UsageReservation, User
+from app.models import Filing, Summary, SummaryJob, SummaryPreparationBudget, UsageReservation, User
 from app.services.entitlements import get_entitlements
 from app.services.summary_placeholders import is_summary_ready
 from app.services.provenance_service import source_safe_business_overview
@@ -102,7 +102,8 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
 """
     if not settings.SUMMARY_DURABLE_GENERATION_ENABLED or not settings.DURABLE_TASKS_ENABLED:
         raise SummaryJobUnavailable("Durable summary generation is disabled")
-    if system and (user_id is not None or settings.SUMMARY_PREWARM_MAX_PER_SCAN <= 0):
+    if system and (user_id is not None or settings.SUMMARY_PREWARM_MAX_PER_SCAN <= 0
+                   or settings.SUMMARY_PREWARM_MAX_PER_DAY <= 0):
         raise SummaryJobUnavailable("Summary preparation budget is disabled")
     if not system and user_id is None:
         raise SummaryJobUnavailable("A summary generation account is required", code="summary_account_required", status_code=401)
@@ -157,6 +158,8 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
                 raise SummaryJobUnavailable("Your pending summaries must finish before starting more", code="summary_pending_limit", status_code=429)
         if admit_new is not None:
             admit_new()
+        if system:
+            _admit_system_budget(db, now)
         if row is None:
             row = SummaryJob(id=uuid4().hex, filing_id=filing_id, generation=1, created_at=now)
             db.add(row)
@@ -183,6 +186,27 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
         row.updated_at = now
         db.commit()
         return _view(row, created=True)
+
+
+def _admit_system_budget(db: Session, now: datetime) -> None:
+    """Serialize global daily admissions inside the job transaction, never refill on failure.
+
+    Budget bounds generation attempts by admissions * SUMMARY_JOB_MAX_ATTEMPTS.
+    Provider-internal retries/tokens still require a reviewed per-attempt cost ceiling.
+    """
+    if db.get_bind().dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+    elif db.get_bind().dialect.name == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert
+    else:
+        raise SummaryJobUnavailable("The summary preparation budget requires supported storage")
+    day = ensure_utc(now).date().isoformat()
+    db.execute(insert(SummaryPreparationBudget).values(day=day, admissions=0).on_conflict_do_nothing(index_elements=["day"]))
+    budget = db.query(SummaryPreparationBudget).filter(SummaryPreparationBudget.day == day).with_for_update().one()
+    if budget.admissions >= settings.SUMMARY_PREWARM_MAX_PER_DAY:
+        raise SummaryJobUnavailable("The daily summary preparation budget is exhausted",
+                                    code="summary_prewarm_budget_exhausted")
+    budget.admissions += 1
 
 
 def settle_job_result(row: SummaryJob, summary_id: int, status: str) -> None:

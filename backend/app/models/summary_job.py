@@ -33,3 +33,11 @@ class SummaryJob(Base):
     charge_month = Column(String(7), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class SummaryPreparationBudget(Base):
+    """Admissions per UTC day; failure/refund never replenishes system spend budget."""
+    __tablename__ = "earningsnerd_summary_prewarm_budget"
+
+    day = Column(String(10), primary_key=True)
+    admissions = Column(Integer, nullable=False, default=0)

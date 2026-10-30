@@ -17,7 +17,7 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app import database
 from app.config import settings
-from app.models import Company, Filing, Summary, SummaryJob, User, UserUsage
+from app.models import Company, Filing, Summary, SummaryJob, SummaryPreparationBudget, User, UserUsage
 from app.services import summary_job_store as store, subscription_service as usage
 from app.utils.datetimes import utcnow
 
@@ -196,3 +196,29 @@ def test_postgres_charge_rollback_has_no_half_receipt(factory, seeded, monkeypat
         row = db.get(SummaryJob, view.job_id)
         assert row.charge_state == "reserved" and row.reservation_token
         assert db.query(UserUsage).filter_by(user_id=user_id).count() == 0
+
+
+def test_system_daily_budget_serializes_fleet_admissions(factory, seeded, monkeypatch):
+    _, filing_id = seeded
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 2)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 1)
+    with factory() as db:
+        first = db.get(Filing, filing_id)
+        second = Filing(company_id=first.company_id, accession_number="0000872589-26-000032", filing_type="8-K",
+                        filing_date=utcnow(), document_url="https://example.test/8k.htm", sec_url="https://example.test/8k/")
+        db.add(second)
+        db.commit()
+        other_id = second.id
+    barrier = Barrier(2)
+    def create(filing):
+        barrier.wait(timeout=5)
+        try:
+            return store.ensure_job(filing, None, system=True)
+        except store.SummaryJobUnavailable:
+            return None
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(create, [filing_id, other_id]))
+    assert sum(result is not None for result in results) == 1
+    with factory() as db:
+        assert db.query(SummaryPreparationBudget).one().admissions == 1
+        assert db.query(SummaryJob).count() == 1
