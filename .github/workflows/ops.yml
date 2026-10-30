@@ -73,6 +73,7 @@ on:
           - describe-jobs
           - detection-sql
           - logs-probe
+          - regn-summary-incident-readout
           - capacity-readout
           - jobs-channel-noop-probe
           - repair-ticker-dry-run
@@ -172,7 +173,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -239,7 +240,7 @@ jobs:
         # workflow queries and executes. See the header for why this is a check, not a shared
         # concurrency group. A main push whose CI run has not yet decided whether it deploys still
         # counts — waiting ~10 min beats racing a migration.
-        if: ${{ !contains('describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect', steps.request.outputs.operation) }}
+        if: ${{ !contains('describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect regn-summary-incident-readout', steps.request.outputs.operation) }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -406,6 +407,12 @@ jobs:
           if [ -n "$UNVERIFIED" ]; then
             echo "::warning::sentry startup UNVERIFIED:$UNVERIFIED. Not evidence that Sentry started or failed; for permission_denied the Ops identity needs its Logging read role, for not_found check the project and the service, otherwise dispatch logs-probe again."
           fi
+
+      # Fixed historical Logging read only: no SQL, secrets, configurable query or production writes.
+      - name: Read REGN summary incident classifications
+        if: steps.request.outputs.operation == 'regn-summary-incident-readout'
+        timeout-minutes: 2
+        run: python3 ops/diagnostics/regn_summary_incident.py
 
       - name: Jobs-channel no-op probe (args override on an existing job)
         if: steps.request.outputs.operation == 'jobs-channel-noop-probe'
