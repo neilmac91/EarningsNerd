@@ -13,19 +13,48 @@ interface CopilotComposerProps {
 }
 
 export interface CopilotComposerHandle {
+  /** Focus the field without moving the page, and bring the shell around it into view inside the box that scrolls
+   *  it (revealInScrollBox). */
   focus: () => void
-  /** Replace the input with `text`, focus, grow to fit, and put the caret at the end. */
+  /** Replace the input with `text`, focus as `focus` does, grow to fit, and put the caret at the end. */
   prefill: (text: string) => void
-  /** When focus is in the composer (its field or Send), scroll the shell that draws the focus ring around both to
-   *  the nearest edge of whatever scrolls it. Nothing moves when focus is elsewhere or the shell is already in view. */
+  /** When focus is in the composer (its field or Send), bring the shell that draws the focus ring around both to the
+   *  nearest edge of the box that scrolls it, never the page. Nothing moves when focus is elsewhere or the shell is
+   *  already in view. */
   revealFocus: () => void
+}
+
+const SCROLLS = /^(auto|scroll|hidden)$/
+
+/**
+ * Brings `el`, its scroll margin included, to the nearest edge of the box that scrolls it (the rail's column), the
+ * least distance, and scrolls nothing else: not the boxes around that box, and never the page. A focus's own scroll
+ * and scrollIntoView move every scrolling ancestor, and the desktop pane's lower part can sit below the fold for a
+ * frame, before it measures its top, so focusing the composer as the pane opened moved the page under the reader
+ * (E248; chief design on #1813: "A press on Source should never move the page under the reader"). Instant, as that
+ * scroll was.
+ */
+function revealInScrollBox(el: HTMLElement) {
+  let box = el.parentElement
+  while (box && box !== document.body && !SCROLLS.test(getComputedStyle(box).overflowY)) box = box.parentElement
+  if (!box || box === document.body) return
+  const boxStyle = getComputedStyle(box)
+  const elStyle = getComputedStyle(el)
+  const b = box.getBoundingClientRect()
+  const r = el.getBoundingClientRect()
+  const top = b.top + box.clientTop + (parseFloat(boxStyle.scrollPaddingTop) || 0)
+  const bottom = b.top + box.clientTop + box.clientHeight - (parseFloat(boxStyle.scrollPaddingBottom) || 0)
+  const elTop = r.top - (parseFloat(elStyle.scrollMarginTop) || 0)
+  const elBottom = r.bottom + (parseFloat(elStyle.scrollMarginBottom) || 0)
+  if (elBottom > bottom) box.scrollTop += Math.min(elBottom - bottom, elTop - top)
+  else if (elTop < top) box.scrollTop -= top - elTop
 }
 
 /**
  * Bottom-pinned input for the Copilot rail. Enter submits, Shift+Enter inserts a newline.
  * Send is unavailable (aria-disabled, still focusable) while a stream is in flight or the input is
  * empty. Exposes `focus()` / `prefill()` handles so the rail can focus it on open (⌘K) or pre-fill
- * it from a "Ask about this" text selection.
+ * it from a "Ask about this" text selection; neither moves the page (revealInScrollBox).
  */
 const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   function CopilotComposer({ onSubmit, locked }, ref) {
@@ -33,10 +62,16 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const shellRef = useRef<HTMLDivElement>(null)
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      focus: () => textareaRef.current?.focus(),
+  useImperativeHandle(ref, () => {
+    // preventScroll, then the shell (the ring's box, as revealFocus brings) into view inside its column: the page stays.
+    const focusField = (el: HTMLTextAreaElement) => {
+      el.focus({ preventScroll: true })
+      if (shellRef.current) revealInScrollBox(shellRef.current)
+    }
+    return {
+      focus: () => {
+        if (textareaRef.current) focusField(textareaRef.current)
+      },
       prefill: (text: string) => {
         setValue(text)
         const el = textareaRef.current
@@ -45,16 +80,15 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         // state catches up on the next render; height comes from the controlled path — Textarea's
         // layout effect re-grows on the value change).
         el.value = text
-        el.focus()
+        focusField(el)
         el.setSelectionRange(text.length, text.length)
       },
       revealFocus: () => {
         const shell = shellRef.current
-        if (shell?.contains(document.activeElement)) shell.scrollIntoView?.({ block: 'nearest' })
+        if (shell?.contains(document.activeElement)) revealInScrollBox(shell)
       },
-    }),
-    [],
-  )
+    }
+  }, [])
 
   const trimmed = value.trim()
   const canSend = !locked && trimmed.length > 0

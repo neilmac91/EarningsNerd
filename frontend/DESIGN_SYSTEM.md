@@ -2433,9 +2433,17 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
                  where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
                  Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
-                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). The launcher and
-                 the coachmark's Try leave with the open, so a keyboard press on either hands focus to the
-                 selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in the pane.
+                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). That move, ⌘K's,
+                 a starter's hand-off and a pre-fill never move the page: the composer takes focus with
+                 preventScroll and is brought into view inside the rail's column only, as a citation jump scrolls
+                 only its own boxes (CopilotComposer's revealInScrollBox; chief design on #1813: "A press on Source
+                 should never move the page under the reader"). Before the pane measures its top its lower part
+                 can sit below the fold, and a focus's own scroll moved the page there. Gates:
+                 tests/e2e/source-press-keeps-the-page.spec.ts (Source and ⌘K, the composer below the fold);
+                 CopilotComposer.spec.tsx and AskCopilotRail.spec.tsx (each path's focus, and what scrolls).
+                 The launcher and the coachmark's Try leave with the open, so a keyboard press on either hands
+                 focus to the selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands
+                 in the pane.
                  Below lg the sheet's trap (useSheetFocusTrap) focuses its first stop, Close, which precedes the
                  tabs, as the sheet opens, whatever opened it; the launcher's or Try's hand-off then finds focus
                  placed and leaves it. For a visitor who can ask, focus moves twice (the tab, or Close below lg,

@@ -12,8 +12,9 @@
  * offset (BOTTOM_CHROME_OFFSET for the inline-positioned launchers and coachmark, the
  * `bottom-[var(--consent-inset,0px)]` class on the sheets, the desktop pane's sticky height), and
  * the document's scroll-padding-bottom (app/globals.css) reserves the same height, so a focus or
- * scrollIntoView never lands a control behind the bar (the desktop pane's composer, focused on
- * open, scrolls clear of it). Both sets of controls stay visible and operable. Without the bar the
+ * scrollIntoView never lands a control behind the bar. The desktop pane's composer, focused on open
+ * without moving the page, sits clear of it by the pane's height, which leaves the inset out. Both
+ * sets of controls stay visible and operable. Without the bar the
  * property is unset and every consumer falls back to 0px, exactly where it sat before.
  *
  * React consumers that need the boolean (FilingWorkspace keeps the coachmark quiet while the bar

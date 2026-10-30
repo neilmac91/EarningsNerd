@@ -239,7 +239,9 @@ export default function AskCopilotRail({
   }, [isCopilotActive])
 
   // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
-  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs).
+  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs). The
+  // handle never moves the page, which can still be settling: canAsk can turn true later, once usage
+  // or the plan loads (CopilotComposer's revealInScrollBox).
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
     if (!open || !canAsk || !isCopilotActive) return
