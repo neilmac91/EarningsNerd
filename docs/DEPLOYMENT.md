@@ -307,7 +307,16 @@ the post-deploy `/health/detailed` check runs, so that check is **post-hoc detec
 prevention**: a DB-unreachable revision is already live serving 503s, and the failing check only
 reddens the CI job (your signal to roll back) — it does not cut traffic back on its own. A revision
 that boots and passes health yet misbehaves at runtime likewise stays live. Cloud Run keeps prior
-revisions, so rolling back is a one-liner (no rebuild):
+revisions, so traffic can return to a compatible prior revision without a rebuild. Choose the target
+against the compatibility floors below before changing traffic.
+
+**Password-hash compatibility floor (E97).** Once a new or changed password has been stored as
+Argon2id (`$argon2id$`), never roll the password reader or its dependencies back before E97. A
+bcrypt-only revision cannot verify those accounts. Use an image that retains E97's scheme-aware
+`password_utils.verify_password` and its Argon2 dependencies, or recover by rolling forward to a
+compatible image. Preserve that reader and its dependencies when reverting the offending change on
+`main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
+bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
@@ -317,7 +326,8 @@ gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --lim
 gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-revisions=REVISION=100
 ```
 
-Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
+Then revert the offending change on `main`, preserving the compatibility floors, so the next CD
+deploy doesn't re-ship it (a plain
 `--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
 E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
 `docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back. Never roll back

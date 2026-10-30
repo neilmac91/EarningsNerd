@@ -19,11 +19,17 @@ outside ``tests/``: bcrypt, passlib and argon2 are imported only by ``app/servic
 use of ``bcrypt`` there is a ``bcrypt.checkpw`` call whose first argument is ``_bcrypt_input(...)``, so no new
 hash is bcrypt (``hashpw`` and ``gensalt`` are bypasses); and every reference to ``get_password_hash`` or
 ``verify_password`` outside that module is its import or the first argument of an ``in_password_thread(...)``
-call. ``HASH_REACH_FORMS`` and ``THREAD_FORMS`` score each walk on each way it can be broken and each
+call. That helper must have exactly one unaliased, top-level import from ``app.services.password_utils``;
+another import, ordinary rebinding or shadowing anywhere in the file fails. This deliberately accepts only
+the application's direct helper spelling: even a genuine module-qualified helper, an alias, a repeated import
+or harmless local shadowing fails, without attempting Python scope or alias resolution. ``HASH_REACH_FORMS``
+and ``THREAD_FORMS`` score each walk on each way it can be broken and each
 look-alike that must pass. Out of their reach, each planted as a gap: a module named at run time
 (``import_module(name)``, ``getattr(module, "bcrypt")``, ``sys.modules``), and passlib inside
 ``password_utils``, whose legacy-check fallback hands passlib's bcrypt handler the whole password (dead under
-bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
+bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup). Dynamic namespace
+writes (``globals()[name]``, ``setattr``), including mutation of the canonical module from another module,
+also need review; the thread walk does not execute Python or follow those writes.
 
 A password that is not valid text (a lone surrogate) is refused before either (E97): it encodes to no UTF-8, so the
 breach check and bcrypt raised on it, and FastAPI's own 422, which quoted every refused value (the whole body for a
@@ -916,32 +922,65 @@ def test_every_path_to_a_password_hash_goes_through_password_utils():
 
 # get_password_hash and verify_password, which run a hash: only ever on the password thread.
 PASSWORD_WORK = {"get_password_hash", "verify_password"}
+PASSWORD_THREAD = "in_password_thread"
+THREAD_IMPORT = "from app.services.password_utils import in_password_thread\n"
 
 
 def _off_the_password_thread(source: str, rel: str) -> tuple[list[int], int]:
     """One walk of ``source``, an app file other than ``password_utils``: the lines that run a password hash or
     check anywhere but the password thread, and how many times it hands one there. A reference to
-    ``get_password_hash`` or ``verify_password`` passes only as the first argument of an ``in_password_thread(...)``
-    call (or the name in an import that keeps it); any other (a call, ``asyncio.to_thread`` or
-    ``run_in_threadpool``, a sync unit that calls it, an alias) is flagged."""
+    ``get_password_hash`` or ``verify_password`` passes only as the first argument of the canonical helper
+    (or the name in an import that keeps it). The helper's one plain top-level import is its only allowed
+    binding; the walk rejects other bindings throughout the file, rather than resolving scopes or aliases.
+    Ordinary bindings include imports, stores/deletes, arguments, definitions, exception and match targets.
+    Dynamic namespace writes are outside this walk, as the header and planted gaps specify."""
     tree = ast.parse(source)
-    parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
-    flagged: list[int] = []
+    nodes = list(ast.walk(tree))
+    parent = {child: node for node in nodes for child in ast.iter_child_nodes(node)}
+    canonical = [
+        alias for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == "app.services.password_utils"
+        for alias in node.names if alias.name == PASSWORD_THREAD and alias.asname is None
+    ]
+    allowed_imports = set(canonical) if len(canonical) == 1 else set()
+    bindings: list[int] = []
+    for node in nodes:
+        if isinstance(node, ast.alias):
+            bound = node.asname or (node.name.split(".")[0] if isinstance(parent[node], ast.Import) else node.name)
+            if (bound == PASSWORD_THREAD or node.name == PASSWORD_THREAD) and node not in allowed_imports:
+                bindings.append(node.lineno)
+            elif node.name == "*" and canonical:
+                bindings.append(node.lineno)  # a wildcard may overwrite the canonical import
+        elif isinstance(node, ast.Name) and node.id == PASSWORD_THREAD and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bindings.append(node.lineno)
+        elif isinstance(node, ast.arg) and node.arg == PASSWORD_THREAD:
+            bindings.append(node.lineno)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.ExceptHandler,
+                               ast.MatchAs, ast.MatchStar)) and node.name == PASSWORD_THREAD:
+            bindings.append(node.lineno)
+        elif isinstance(node, ast.MatchMapping) and node.rest == PASSWORD_THREAD:
+            bindings.append(node.lineno)
+    canonical_bound = bool(allowed_imports) and not bindings
+    flagged = bindings[:]
     handed = 0
-    for node in ast.walk(tree):
+    for node in nodes:
         if isinstance(node, ast.ImportFrom):
             flagged.extend(node.lineno for alias in node.names if alias.name in PASSWORD_WORK and alias.asname)
             continue
         name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+        call = parent.get(node)
+        if name == PASSWORD_THREAD:
+            if not (canonical_bound and isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+                    and isinstance(call, ast.Call) and call.func is node):
+                flagged.append(node.lineno)
         if name not in PASSWORD_WORK:
             continue
-        call = parent.get(node)
-        to = (getattr(call.func, "id", None) or getattr(call.func, "attr", None)) if isinstance(call, ast.Call) else None
-        if to == "in_password_thread" and call.args and call.args[0] is node:
+        if (canonical_bound and isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+                and call.func.id == PASSWORD_THREAD and call.args and call.args[0] is node):
             handed += 1
         else:
             flagged.append(node.lineno)
-    return flagged, handed
+    return sorted(set(flagged)), handed
 
 
 THREAD_FORMS = [
@@ -954,11 +993,78 @@ THREAD_FORMS = [
     ("aliased-import", OTHER, "from app.services.password_utils import verify_password as check", "flag"),
     ("by-keyword", OTHER, "await in_password_thread(work=get_password_hash)", "flag"),
     ("not-the-work", OTHER, "await in_password_thread(log, verify_password)", "flag"),
-    ("password-thread", OTHER, "h = await in_password_thread(get_password_hash, p)", "clean"),
+    ("password-thread", OTHER, THREAD_IMPORT + "h = await in_password_thread(get_password_hash, p)", "clean"),
+    ("password-thread-in-function", OTHER,
+     THREAD_IMPORT + "async def route():\n    return await in_password_thread(verify_password, p, h)", "clean"),
+    ("canonical-import-with-siblings", OTHER,
+     "from app.services.password_utils import get_password_hash, in_password_thread, verify_password\n"
+     "await in_password_thread(verify_password, p, h)", "clean"),
+    ("unbound-helper", OTHER, "await in_password_thread(get_password_hash, p)", "flag"),
     ("password-thread-attribute", OTHER,
-     "ok = await password_utils.in_password_thread(password_utils.verify_password, p, h)", "clean"),
+     "from app.services import password_utils\n"
+     "ok = await password_utils.in_password_thread(password_utils.verify_password, p, h)", "flag"),
+    ("thread-pool-imported-as-helper", OTHER,
+     "from fastapi.concurrency import run_in_threadpool as in_password_thread\n"
+     "await in_password_thread(get_password_hash, p)", "flag"),
+    ("wrong-helper-module", OTHER,
+     "from other import in_password_thread\nawait in_password_thread(get_password_hash, p)", "flag"),
+    ("relative-helper-import", OTHER,
+     "from .password_utils import in_password_thread\nawait in_password_thread(get_password_hash, p)", "flag"),
+    ("aliased-helper-import", OTHER,
+     "from app.services.password_utils import in_password_thread as run\nawait run(get_password_hash, p)", "flag"),
+    ("helper-self-alias-import", OTHER,
+     "from app.services.password_utils import in_password_thread as in_password_thread\n"
+     "await in_password_thread(get_password_hash, p)", "flag"),
+    ("nested-helper-import", OTHER,
+     "async def route():\n    from app.services.password_utils import in_password_thread\n"
+     "    return await in_password_thread(get_password_hash, p)", "flag"),
+    ("repeated-helper-import", OTHER,
+     THREAD_IMPORT * 2 + "await in_password_thread(get_password_hash, p)", "flag"),
+    ("wildcard-after-helper", OTHER,
+     THREAD_IMPORT + "from other import *\nawait in_password_thread(get_password_hash, p)", "flag"),
+    ("copy-helper", OTHER, THREAD_IMPORT + "run = in_password_thread\nawait run(get_password_hash, p)", "flag"),
+    ("helper-as-argument", OTHER, THREAD_IMPORT + "use(in_password_thread)", "flag"),
+    ("helper-as-default", OTHER, THREAD_IMPORT + "def route(run=in_password_thread): pass", "flag"),
     ("import", OTHER, "from app.services.password_utils import get_password_hash, verify_password", "clean"),
     ("getattr", OTHER, "getattr(password_utils, 'verify_password')(p, h)", "gap"),
+    ("dynamic-helper-write", OTHER, THREAD_IMPORT + "globals()['in_password_thread'] = run_in_threadpool\n"
+     "await in_password_thread(get_password_hash, p)", "gap"),
+    ("dynamic-module-write", OTHER,
+     "setattr(password_utils, 'in_password_thread', run_in_threadpool)\n" + THREAD_IMPORT
+     + "await in_password_thread(get_password_hash, p)", "gap"),
+]
+
+# Scope-insensitive by design: even a harmless local shadow is refused. Every ordinary binding family
+# below would otherwise let the canonical-looking call resolve to another function.
+THREAD_FORMS += [
+    (case, OTHER, THREAD_IMPORT + binding + "\nawait in_password_thread(get_password_hash, p)", "flag")
+    for case, binding in [
+        ("helper-assignment", "in_password_thread = run_in_threadpool"),
+        ("helper-unpacked-assignment", "in_password_thread, other = replacements"),
+        ("helper-annotated-assignment", "in_password_thread: object = run_in_threadpool"),
+        ("helper-augmented-assignment", "in_password_thread += replacement"),
+        ("helper-walrus", "if (in_password_thread := run_in_threadpool): pass"),
+        ("helper-delete", "del in_password_thread"),
+        ("helper-import-rebinding", "import other as in_password_thread"),
+        ("helper-from-import-rebinding", "from fastapi.concurrency import run_in_threadpool as in_password_thread"),
+        ("helper-loop-target", "for in_password_thread in runners: pass"),
+        ("helper-async-loop-target", "async for in_password_thread in runners: pass"),
+        ("helper-comprehension-target", "[x for in_password_thread in runners]"),
+        ("helper-with-target", "with runner() as in_password_thread: pass"),
+        ("helper-async-with-target", "async with runner() as in_password_thread: pass"),
+        ("helper-parameter", "def route(in_password_thread): pass"),
+        ("helper-keyword-parameter", "def route(*, in_password_thread): pass"),
+        ("helper-varargs", "def route(*in_password_thread): pass"),
+        ("helper-kwargs", "def route(**in_password_thread): pass"),
+        ("helper-lambda-parameter", "route = lambda in_password_thread: None"),
+        ("helper-function", "def in_password_thread(*args): pass"),
+        ("helper-async-function", "async def in_password_thread(*args): pass"),
+        ("helper-class", "class in_password_thread: pass"),
+        ("helper-except-target", "try: work()\nexcept Exception as in_password_thread: pass"),
+        ("helper-match-capture", "match runner:\n    case in_password_thread: pass"),
+        ("helper-match-star", "match runners:\n    case [*in_password_thread]: pass"),
+        ("helper-match-rest", "match runners:\n    case {**in_password_thread}: pass"),
+    ]
 ]
 
 
@@ -980,10 +1086,11 @@ def test_every_password_hash_and_check_runs_on_the_password_thread():
         offenders.extend(f"{rel}:{line}" for line in flagged)
         if count:
             handed[rel] = count
-    # register, login, reset and the change's check and hash: a walk that finds none must not pass as clean.
-    assert handed == {"app/routers/auth.py": 5}, handed
     assert not offenders, (
         f"A password hash or check off the password thread: {offenders}. Await it as "
-        "in_password_thread(get_password_hash, ...) or in_password_thread(verify_password, ...): one thread "
+        "in_password_thread(get_password_hash, ...) or in_password_thread(verify_password, ...), with one "
+        "unaliased top-level import from app.services.password_utils and no other helper binding: one thread "
         "bounds Argon2id's 32 MiB a call to one call at a time per instance."
     )
+    # register, login, reset and the change's check and hash: a walk that finds none must not pass as clean.
+    assert handed == {"app/routers/auth.py": 5}, handed
