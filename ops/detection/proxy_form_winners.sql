@@ -207,8 +207,8 @@ LIMIT 200;
 \echo '   repair also keeps a row that already holds the 10-K''s figure (kept_agrees_with_authority); it stays'
 \echo '   listed while no other stored report row holds that figure. The scale-up exclusion also hides a proxy'
 \echo '   tagged 1,000 or 1,000,000 times a right parse (FedEx''s error mirrored), which this file cannot tell'
-\echo '   apart without the payload''s 10-K figure. The repair reads that figure: where it sits on the'
-\echo '   original''s scale, the row takes set 4''s ordinary path (restored where the original is within 1% of'
+\echo '   apart without the payload''s 10-K figure. The repair reads that figure: where it is off the value''s'
+\echo '   scale step, the row takes set 4''s ordinary path (restored where the original is within 1% of'
 \echo '   the 10-K''s figure, refused beyond; left and listed, or refused when current, where a report row'
 \echo '   holds its value), and this file lists nothing for it before or after.'
 WITH params AS (
