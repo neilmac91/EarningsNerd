@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightIcon, ListIcon, SignOutIcon, XIcon } from '@/lib/icons'
+import { ArrowRightIcon, ListIcon, SignOutIcon, WarningIcon, XIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import UserMenu from '@/features/auth/components/UserMenu'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
@@ -15,7 +15,7 @@ import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
-import { accountLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { accountLabels, accountShortLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
 import { usePublicAccess } from '@/features/marketing/components/PublicAccessProvider'
 
 const NAV_LINKS = [
@@ -331,7 +331,27 @@ export default function Header({
           {user && <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />}
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
-              {account.ctaShort}
+              {/* The label holds, in one cell, every label the link can print in this mode (accountShortLabels: the
+                  mode's own and the live example's), the shown one visible and the rest invisible and aria-hidden, so
+                  the bar keeps its height as registration readiness lands: under 200% text at 370 and 450px, "Live
+                  example" took one line and "Request invite" two, and the bar grew 14px (E223, chief design on #1686,
+                  comment 6436319684). The link's name stays the shown label, and items-center and text-center keep that
+                  label central in a cell a taller or wider twin sets. The rest carry ph-no-capture: PostHog's
+                  autocapture records the text of every span in a clicked link, so a click records the shown label
+                  alone, as it did before the hold. */}
+              <span className="grid items-center text-center">
+                {accountShortLabels(accessMode).map((label) =>
+                  label === account.ctaShort ? (
+                    <span key={label} className="col-start-1 row-start-1">
+                      {label}
+                    </span>
+                  ) : (
+                    <span key={label} aria-hidden="true" className="ph-no-capture invisible col-start-1 row-start-1">
+                      {label}
+                    </span>
+                  ),
+                )}
+              </span>
             </Link>
           )}
           <button
@@ -395,8 +415,11 @@ export default function Header({
                     <Link
                       href={`/check-email?email=${encodeURIComponent(user.email)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                      // A step the account still needs: the menu's own row in the primary ink, the state's colour on
+                      // its glyph alone, as the account menu's row (E196 (2)).
+                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:text-text-primary-dark dark:hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
+                      <WarningIcon aria-hidden="true" className="h-4 w-4 flex-none text-warning-light dark:text-warning-dark" />
                       Verify your email
                     </Link>
                   )}

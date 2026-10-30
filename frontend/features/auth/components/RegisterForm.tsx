@@ -192,7 +192,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
       {collectionAvailable && !isInvited && inviteOnly && (
         <div className="mt-6">
           <Notice
-            variant="info"
+            variant="neutral"
             title="EarningsNerd is in private beta"
             description={
               <>

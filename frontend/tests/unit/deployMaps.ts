@@ -3,10 +3,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * The deploy maps as the plan-claim gates read them: planLimitsLockstep.spec.ts (no deploy map sets
- * PRO_SUMMARY_MONTHLY_CAP, whose default the /pricing FAQ and the filing page's limit card state) and
- * changeReportPlanClaims.spec.tsx (production cannot serve ENABLE_SECTION_CHANGES's wording diff). One reading for
- * both, so a form one gate reads the other reads too; each spec keeps its own rule over the lines it is given, its
+ * The deploy maps as the plan-claim gates read them: changeReportPlanClaims.spec.tsx (production cannot serve
+ * ENABLE_SECTION_CHANGES's wording diff), with backend/app/config.py's text, which planLimitsLockstep.spec.ts reads
+ * too (the analysis period caps' defaults, and that no setting declares Pro's ceilings, since E122 made them
+ * entitlements.py constants no deploy map can move). Each spec keeps its own rule over the lines it is given, its
  * messages and its planted forms. Not a spec: a module the gates share.
  *
  * What it reads:

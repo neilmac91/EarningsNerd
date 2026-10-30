@@ -24,7 +24,7 @@ from app.models.financial_fact_revision import FinancialFactRevision
 from app.services import facts_service as svc
 from app.services import proxy_fact_repair as proxy
 from app.services import quarterly_fact_repair as repair
-from app.services.facts import currency
+from app.services.facts import companyfacts, currency
 from app.services.facts.concepts import HEADLINE_GAAP_TAGS
 from scripts import repair_quarterly_facts as cli
 from tests.unit.test_companyfacts_ingest import (
@@ -50,9 +50,12 @@ def db():
 @contextmanager
 def _before_the_fix(monkeypatch):
     """No form is a proxy's, as before #1622. ``is_proxy_form`` reads ``_PROXY_FORM`` when it is called
-    (facts/currency.py), so every importer, by module or by name, sees the old rule."""
+    (facts/currency.py), so every importer, by module or by name, sees the old rule. The later #1682
+    own-report history did not exist then either: it would occupy a filing's identity before the
+    per-filing writer could store the replacement this historical shape is meant to repair."""
     with monkeypatch.context() as patch:
         patch.setattr(currency, "_PROXY_FORM", NEVER)
+        patch.setattr(companyfacts, "own_report_history", lambda *args: [])
         yield
 
 
@@ -161,7 +164,7 @@ def _demoted(db, monkeypatch, ticker="BBB"):
     Q4 carries the NULL provenance of a sync before operand lineage, so it differs from its candidate."""
     company = _company(db, ticker)
     payload = _for(company, _mrk_payload())
-    svc._persist_companyfacts_payload(db, company, _for(company, _mrk_payload(proxy=False)))
+    _old_sync(db, monkeypatch, company, _for(company, _mrk_payload(proxy=False)))
     _old_sync(db, monkeypatch, company, payload)
     svc._persist_companyfacts_payload(db, company, payload)
     q4 = _rows(db, company, concept="net_income", fiscal_period="Q4", accession=_accn(company, "K25"))[0]
@@ -231,7 +234,7 @@ def _payload_witness(db, monkeypatch, ticker="MMM"):
     figure in dollars from companyfacts as the FY2025 authority and replaced the 10-K's parse with it."""
     company = _company(db, ticker)
     payload = _for(company, _fdx_payload())
-    svc._persist_companyfacts_payload(db, company, _without_proxy_items(payload))
+    _old_sync(db, monkeypatch, company, _without_proxy_items(payload))
     filing = _filing(db, company, "K25", "2025-05-31", "2025-07-20")
     _file(db, monkeypatch, filing, {"net_income": ("2024-06-01", 4_092e6)}, authority_from=payload)
     return company, payload, filing
@@ -340,7 +343,7 @@ def _restated_after_the_proxy(db, monkeypatch, ticker="RST"):
     then = _for(company, _mrk_payload())
     k26 = _item(18_254e6, "2025-12-31", start="2025-01-01", accn="K26", fy=2026, filed="2027-02-25")
     _items(then).insert(0, {**k26, "accn": _accn(company, "K26")})  # listed first: the proxy wins the old tie
-    svc._persist_companyfacts_payload(db, company, _without_proxy_items(then))
+    _old_sync(db, monkeypatch, company, _without_proxy_items(then))
     filing = _filing(db, company, "K25", "2025-12-31", "2026-02-25")
     _file(db, monkeypatch, filing, {"net_income": ("2025-01-01", 17_000e6)}, authority_from=then)
     _filing_row(db, filing).provenance = None
@@ -362,7 +365,7 @@ def _only_a_proxy_tags_2021_and_the_10k_was_replaced(db, monkeypatch, ticker="ZA
     if proxy_rows:
         _old_sync(db, monkeypatch, company, payload)
     else:
-        svc._persist_companyfacts_payload(db, company, _without_proxy_items(payload))
+        _old_sync(db, monkeypatch, company, _without_proxy_items(payload))
     filing = _filing(db, company, "K21", "2021-12-31", "2022-02-25")
     _file(db, monkeypatch, filing, {"net_income": ("2021-01-01", parsed)}, authority_from=payload)
     return company, payload, filing
@@ -657,11 +660,14 @@ def test_a_filing_row_the_cross_check_replaced_with_a_proxy_figure_is_restored(d
     assert (check["outcome"], check["authoritative_value"], check["original_value"]) == ("confirmed", 4_092e6, 4_092e6)
     assert check["resolved_reasons"] == local["reasons"] and row.provenance["checks"]["local_reconciliation"] == local
     shown = svc.get_filing_fundamentals(db, filing.id)
-    # The chart reads the filing's rows at its accession (#1658): its own year is the restored figure, and the FY2023
-    # 10-K winner the repair stored under this 10-K's accession (the last 10-K to report it) charts beside it. No
-    # proxy figure does.
+    # The repair retains FY2023 at this 10-K's accession, but FY2024 lives at the next report's.
+    # Since #1682 the chart omits points before that missing year, rather than drawing FY2023
+    # beside FY2025 as consecutive years. Its own year remains the restored figure, never a proxy's.
+    [comparative] = _rows(db, company, concept="net_income", fiscal_period="FY",
+                          period_end=date(2023, 5, 31), accession=filing.accession_number)
+    assert (float(comparative.value), comparative.form) == (3_972e6, "10-K")
     assert {p["period_end"]: p["value"] for c in shown["concepts"] if c["concept"] == "net_income"
-            for p in c["points"]} == {"2023-05-31": 3_972e6, "2025-05-31": 4_092e6}
+            for p in c["points"]} == {"2025-05-31": 4_092e6}
     margin = _filing_row(db, filing, "net_margin")
     assert float(margin.value) == pytest.approx(4_092e6 / 87_926e6 * 100)
     assert {i["concept"]: i["value"] for i in margin.provenance["inputs"]}["net_income"] == 4_092e6

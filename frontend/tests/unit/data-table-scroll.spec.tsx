@@ -165,6 +165,15 @@ describe('DataTable opt-in column scrolling', () => {
     expect(region.scrollLeft).toBe(metricWidth)
   })
 
+  it('rings the named region in both themes while it is a Tab stop (E64)', () => {
+    // The ring scan reads the pages, the feature modules they reach and the primitives the chrome renders, not
+    // DataTable, which spreads useOverflowRegion's props on its own box, so this case holds the region's ring.
+    render(<Table />)
+    const region = screen.getByRole('region', { name: 'Quarterly metrics' })
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region).toHaveClass('focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark')
+  })
+
   it('scrolls a focused source clear of the sticky row header', () => {
     render(<Table />)
     const region = screen.getByRole('region')

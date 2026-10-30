@@ -12,11 +12,21 @@
 import { type HTMLAttributes } from 'react'
 import { cx } from './cx'
 
+/** A caller's own max width (`max-w-md`); a breakpoint's (`sm:max-w-md`) applies only from its breakpoint. */
+const OWN_MAX_WIDTH = /(?:^|\s)max-w-/
+
 export function Skeleton({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       aria-hidden="true"
-      className={cx('relative overflow-hidden rounded bg-text-primary-light/[0.08] dark:bg-white/[0.08]', className)}
+      // A bone keeps its rem width, so under enlarged text a wide one ran past its container and scrolled the page
+      // sideways while it showed (E233). It stops at its container unless the caller sets its own max width: cx only
+      // joins classes, so beside a caller's max-w-* Tailwind's emission order, not the caller, would pick the winner.
+      className={cx(
+        'relative overflow-hidden rounded bg-text-primary-light/[0.08] dark:bg-white/[0.08]',
+        !OWN_MAX_WIDTH.test(className ?? '') && 'max-w-full',
+        className,
+      )}
       {...rest}
     >
       <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/70 to-transparent motion-reduce:animate-none dark:via-white/[0.07]" />

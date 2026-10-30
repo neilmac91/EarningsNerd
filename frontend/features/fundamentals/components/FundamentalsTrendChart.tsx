@@ -10,9 +10,9 @@ import {
   FundamentalsResponse,
 } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtDecimal, fmtPercent, sentenceCase } from '@/lib/format'
+import { fmtCurrency, fmtDecimal, fmtPercent } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
+import { Card, seriesColor, CHART_SERIES_COUNT, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
@@ -20,33 +20,34 @@ import SourceChecks from '@/features/analysis/components/SourceChecks'
 type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 
 // Curated, ordered set of concepts to offer (only those present in the response are shown).
-// `concept` keys match the backend's standardized vocabulary (facts_service._CONCEPT_UNITS).
+// `concept` keys match the backend's standardized vocabulary (facts_service._CONCEPT_UNITS). Each label is stored in
+// sentence case, as the picker, the tooltip, the footnote and the source checks show it (E34).
 const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'revenue', label: 'Revenue', fmt: 'usd' },
   // Financial-institution revenue lines (only present for banks/insurers/BDCs — a bank shows these
   // instead of a single Revenue; insurers add these alongside their reported total revenue).
-  { key: 'net_interest_income', label: 'Net Interest Income', fmt: 'usd' },
-  { key: 'noninterest_income', label: 'Non-Interest Income', fmt: 'usd' },
-  { key: 'premiums_earned', label: 'Premiums Earned', fmt: 'usd' },
-  { key: 'net_investment_income', label: 'Net Investment Income', fmt: 'usd' },
-  { key: 'net_income', label: 'Net Income', fmt: 'usd' },
-  { key: 'gross_profit', label: 'Gross Profit', fmt: 'usd' },
-  { key: 'operating_income', label: 'Operating Income', fmt: 'usd' },
-  { key: 'operating_cash_flow', label: 'Operating Cash Flow', fmt: 'usd' },
-  { key: 'investing_cash_flow', label: 'Investing Cash Flow', fmt: 'usd' },
-  { key: 'financing_cash_flow', label: 'Financing Cash Flow', fmt: 'usd' },
-  { key: 'free_cash_flow', label: 'Free Cash Flow', fmt: 'usd' },
+  { key: 'net_interest_income', label: 'Net interest income', fmt: 'usd' },
+  { key: 'noninterest_income', label: 'Non-interest income', fmt: 'usd' },
+  { key: 'premiums_earned', label: 'Premiums earned', fmt: 'usd' },
+  { key: 'net_investment_income', label: 'Net investment income', fmt: 'usd' },
+  { key: 'net_income', label: 'Net income', fmt: 'usd' },
+  { key: 'gross_profit', label: 'Gross profit', fmt: 'usd' },
+  { key: 'operating_income', label: 'Operating income', fmt: 'usd' },
+  { key: 'operating_cash_flow', label: 'Operating cash flow', fmt: 'usd' },
+  { key: 'investing_cash_flow', label: 'Investing cash flow', fmt: 'usd' },
+  { key: 'financing_cash_flow', label: 'Financing cash flow', fmt: 'usd' },
+  { key: 'free_cash_flow', label: 'Free cash flow', fmt: 'usd' },
   { key: 'eps_diluted', label: 'Diluted EPS', fmt: 'eps' },
   { key: 'earnings_per_share', label: 'EPS', fmt: 'eps' },
-  { key: 'gross_margin', label: 'Gross Margin', fmt: 'pct' },
-  { key: 'operating_margin', label: 'Operating Margin', fmt: 'pct' },
-  { key: 'net_margin', label: 'Net Margin', fmt: 'pct' },
-  { key: 'total_assets', label: 'Total Assets', fmt: 'usd' },
-  { key: 'current_assets', label: 'Current Assets', fmt: 'usd' },
-  { key: 'current_liabilities', label: 'Current Liabilities', fmt: 'usd' },
-  { key: 'working_capital', label: 'Working Capital', fmt: 'usd' },
-  { key: 'current_ratio', label: 'Current Ratio', fmt: 'ratio' },
-  { key: 'shareholders_equity', label: "Shareholders' Equity", fmt: 'usd' },
+  { key: 'gross_margin', label: 'Gross margin', fmt: 'pct' },
+  { key: 'operating_margin', label: 'Operating margin', fmt: 'pct' },
+  { key: 'net_margin', label: 'Net margin', fmt: 'pct' },
+  { key: 'total_assets', label: 'Total assets', fmt: 'usd' },
+  { key: 'current_assets', label: 'Current assets', fmt: 'usd' },
+  { key: 'current_liabilities', label: 'Current liabilities', fmt: 'usd' },
+  { key: 'working_capital', label: 'Working capital', fmt: 'usd' },
+  { key: 'current_ratio', label: 'Current ratio', fmt: 'ratio' },
+  { key: 'shareholders_equity', label: "Shareholders' equity", fmt: 'usd' },
 ]
 
 
@@ -113,7 +114,7 @@ export default function FundamentalsTrendChart({
   // seriesColor's ">6 series" dev warning (that targets simultaneous series; here one
   // shows at a time and cycling is intentional). -1 (unfound) guards to color 1 (teal).
   const activeIndex =
-    Math.max(0, available.findIndex((a) => a.key === activeKey)) % CHART_SERIES.length
+    Math.max(0, available.findIndex((a) => a.key === activeKey)) % CHART_SERIES_COUNT
 
   const chartData = useMemo(() => {
     if (!data || !activeKey) return []
@@ -164,7 +165,7 @@ export default function FundamentalsTrendChart({
               onChange={(event) => setSelected(event.target.value)}
             >
               {available.map((f) => (
-                <option key={f.key} value={f.key}>{sentenceCase(f.label)}</option>
+                <option key={f.key} value={f.key}>{f.label}</option>
               ))}
             </select>
           </label>
@@ -188,7 +189,9 @@ export default function FundamentalsTrendChart({
               <XAxis dataKey="year" {...xAxisProps(dark)} />
               <YAxis
                 {...yAxisProps(dark)}
-                width={70 /* currency tick labels outgrow the factory's 44px */}
+                // The widest tick label sets the width (Recharts measures it before paint): a currency printed by
+                // its code ("CHF 800.0B", "KRW 800.0T", E203) outgrew the fixed 70px this axis had.
+                width="auto"
                 tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd', activeCurrency)}
               />
               <Tooltip
@@ -203,7 +206,7 @@ export default function FundamentalsTrendChart({
               <Bar
                 dataKey="value"
                 name={active?.label ?? 'Value'}
-                fill={seriesColor(activeIndex)}
+                fill={seriesColor(activeIndex, dark)}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={56}
               />

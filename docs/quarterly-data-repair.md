@@ -46,11 +46,17 @@ identity is occupied, so the sync keeps its USD operands; the repair's computed-
 recomputes it from the native operands and journals the change. Apply the repair after the sync.
 
 The CLI requires explicit tickers, defaults to a maximum of 10, and permits at most 50 per run.
-Each company is its own transaction, bounded to 10,000 stored facts. Network reads complete before
-the write transaction starts. Companies are serialized with the existing company-row lock used
-by the fact writers; modified fact rows are locked as well. Failures are reported per company,
-roll back that company's transaction, and cause a nonzero exit code. Earlier successful companies
-in the same batch remain committed and can be rolled back independently. Before the first company,
+Each company is its own transaction, bounded to 10,000 stored facts. A sync's own-report history
+rows (`facts/own_reports.py`) count toward the bound like any row: a full companyfacts read of 15
+large filers in October 2026 gave 3 to 106 a company, at most a tenth of the rows a full sync stores
+(GE 106 beside 1,149; J&J 15 beside 1,575), so they add headroom concerns only to a company already
+within about a hundred rows of the bound. J&J, which F49's rollback names, is far under it: it held 94
+rows on 2026-10-24.
+Network reads complete before the write transaction starts. Companies are serialized with the
+existing company-row lock used by the fact writers; modified fact rows are locked as well. Failures
+are reported per company, roll back that company's transaction, and cause a nonzero exit code.
+Earlier successful companies in the same batch remain committed and can be rolled back
+independently. Before the first company,
 the CLI prints one flushed JSON line that names the run:
 `{"dry_run": …, "rollback_run": …, "run_id": "…", "started": true, "tickers": […]}`, where
 `rollback_run` is the target run of a rollback and `null` otherwise. The full report follows only
@@ -215,8 +221,9 @@ or backfill skips a stored identity, the lineage backfill records only a calcula
 and the step's later runs leave its operand as the apply wrote it, so only this preview and its apply
 name it. Give each company with a held calculation one `tasks/todo.md` line, as a refused company
 gets, naming its held calculations by fact id, and decide each from its filing by a reviewed repair
-(one line per company keeps the file within its 120 lines). Every `winner_form` is `10-K` (a 10-K/A
-that carries the pay-versus-performance table is a report, and admitted); `gap` measures each retired
+(one line per company keeps the file within its 120 lines). The initial cohort is expected to have
+`10-K` winners; review each actual `winner_form`, since other report forms and amendments are admitted
+(including a 10-K/A carrying the pay-versus-performance table). `gap` measures each retired
 figure against its winner, the first measure for rows with no stored report behind them. Read
 `made_unavailable` row by row in `changes`: each such figure leaves the public pages. Read the other
 corrections against a baseline: a plain preview of the same tickers on the commit before the step,
@@ -251,8 +258,8 @@ records change. A company the apply refused
 stays listed in every set until its own follow-up line closes, by a reviewed repair or by recording why
 its rows stand.
 
-The step is temporary. Once that run holds for every repaired company and every refused company's
-line is closed, a records change deletes the detection file and its test, and a later change removes
+The step is temporary. Once that run holds for every repaired company and every refused-company and
+held-calculation follow-up line is closed, a records change deletes the detection file and its test, and a later change removes
 the step. Removing it earlier would remove the only repair for a refused company's current proxy rows.
 
 ## Optional directly reported quarterly EPS

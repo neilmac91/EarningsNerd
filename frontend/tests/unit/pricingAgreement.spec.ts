@@ -183,8 +183,19 @@ describe('the offer a live pricing page publishes', () => {
 
 // The runbook's command itself: Node's own type stripping (not Vitest) must load prices.ts, and the
 // exit code must say agreement (0), disagreement (1) or unusable input (2).
-describe('npm run check:pricing', () => {
+// Each case starts npm and Node in a child process, a few hundred milliseconds on an idle machine and
+// several times that on a busy one, so the cases take a limit of their own rather than the default 5 s.
+// A synchronous spawn holds the worker until it returns, and Vitest can fail a case for its time only
+// after that, so npm is stopped short of the case's limit and a spawn that fails says why. Stopping npm
+// does not stop the script it started, which can outlive it; the case fails and the run goes on.
+const SPAWN_LIMIT_MS = 15_000
+describe('npm run check:pricing', { timeout: SPAWN_LIMIT_MS + 10_000 }, () => {
   const frontend = join(__dirname, '../..')
+  const checkPricing = (args: readonly string[]) => {
+    const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...args], { cwd: frontend, encoding: 'utf8', timeout: SPAWN_LIMIT_MS })
+    if (run.error) throw run.error
+    return run
+  }
   const higherYearly = () => {
     const input = snapshot()
     input.prices.yearly.unit_amount += 100
@@ -205,7 +216,7 @@ describe('npm run check:pricing', () => {
     // The page below shows $5 less a month than PRO_PRICING, so only a comparison with it passes here.
     ['the live page agreeing', ['--serving', '--page', '@page'], () => JSON.stringify(withMonthly({ amount_cents: LOWER_PAGE_MONTHLY })), 0],
     ['the live page showing less than checkout charges', ['--serving', '--page', '@page'], () => JSON.stringify(serving()), 1],
-  ] as const)('exits for %s with %i', (_case, flags, contents, status) => {
+  ] as const)('exits for %s with $3', (_case, flags, contents, status) => {
     const dir = mkdtempSync(join(tmpdir(), 'check-pricing-'))
     try {
       const file = join(dir, 'readback.json')
@@ -213,7 +224,7 @@ describe('npm run check:pricing', () => {
       writeFileSync(file, contents())
       writeFileSync(page, ldScript(product([offer('Pro (monthly)', LOWER_PAGE_MONTHLY / 100), offer('Pro (annual)', PRO_PRICING.yearly)])))
       const args = flags.map((flag) => (flag === '@page' ? page : flag))
-      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...args, file], { cwd: frontend, encoding: 'utf8' })
+      const run = checkPricing([...args, file])
       expect(run.status).toBe(status)
       const fromPage = flags.includes('--page')
       if (contents() !== '{') {
@@ -236,7 +247,7 @@ describe('npm run check:pricing', () => {
       const page = join(dir, 'pricing.html')
       writeFileSync(file, JSON.stringify(serving()))
       writeFileSync(page, '<html></html>')
-      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', '--serving', '--page', page, file], { cwd: frontend, encoding: 'utf8' })
+      const run = checkPricing(['--serving', '--page', page, file])
       expect(run.status).toBe(2)
       expect(run.stderr).toContain('no readable Pro offer')
     } finally {
@@ -255,7 +266,7 @@ describe('npm run check:pricing', () => {
     ['a page before publishing', ['--serving', '--page', 'p.html', '--publishing', 'a.json']],
     ['a page for the operator readback', ['--page', 'p.html', 'a.json']],
   ])('refuses %s with the usage and exit 2', (_case, args) => {
-    const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...args], { cwd: frontend, encoding: 'utf8' })
+    const run = checkPricing(args)
     expect(run.status).toBe(2)
     expect(run.stdout).toContain('--serving [--publishing] [--page')
   })
