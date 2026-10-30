@@ -27,14 +27,17 @@ a broken record never reaches a reviewer:
   newest: each one's ``prior_record`` hash equals the previous file, its ``recorded_at`` is later than its
   predecessor's, its counts are integers equal to its lists, its ids are strings, the previous ids are a prefix, nothing
   is duplicated, and the new entries are the ones it declares;
-* every label a closure pre-registers (what follows ``:launched-after-this-record:`` in a ``new_provisional_contexts``
-  entry or a ``new_context_roles`` key, so the closures from before ``new_provisional_contexts`` are read too) that
-  names a record (``record-N-`` or ``decisions-N-``, case aside) is one of the three contexts the CODE RED records allow
-  for record N's own review at AGENTS.md §5's records tier, ``record-N-survey-01``, ``record-N-factcheck-01`` and
-  ``record-N-reviewer-01``, each pre-registered by one context in one closure (N read as a number); a
-  ``new_provisional_contexts`` entry without the marker fails, as its label cannot be read; the record labels
-  registered before this check that break it stay (closures are never edited), frozen as exact (closure, label) pairs
-  that must each still match their closure;
+* every label a closure pre-registers (what follows ``:launched-after-this-record:``, carried once, in a
+  ``new_provisional_contexts`` entry or a ``new_context_roles`` key, so the closures from before
+  ``new_provisional_contexts`` are read too) is ASCII lower-case letters and digits joined by single hyphens, and one
+  naming a record (``record-N``, ``records-N``, ``decision-N`` or ``decisions-N``, alone or before a hyphen) is one of
+  the three contexts the CODE RED records allow for record N's own review at AGENTS.md §5's records tier,
+  ``record-N-survey-01``, ``record-N-factcheck-01`` and ``record-N-reviewer-01``, each pre-registered by one context in
+  one closure (N read as a number); a ``new_provisional_contexts`` entry without the marker and an id carrying it twice
+  fail, as their label cannot be read; a label that begins with any other word stays outside the check, so a
+  records-review context filed under one is review-checked; the record labels registered before this check that break
+  it stay (closures are never edited), frozen as exact (closure, label) pairs that must each still match their closure,
+  none after ``PRE_GATE_LAST_CLOSURE``;
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the
   closure's fractional precision (they are written last); every stamp compared has the form
   ``YYYY-MM-DDTHH:MM:SS[.ffffff]`` followed by ``Z`` or ``+00:00`` (any other form, a missing offset included, is
@@ -213,13 +216,17 @@ COMMITTED_TAIL = (
 )
 
 # Pre-registered contexts: a closure registers each context it will launch next before the launch, under an id carrying
-# this marker and then the context's label. A label naming a record (``record-N-`` or ``decisions-N-``, case aside) is one
-# of the three contexts the CODE RED records allow for record N's own review at AGENTS.md §5's records tier: a read-only
+# this marker once, then the context's label: ASCII lower-case letters and digits joined by single hyphens. A label that
+# names a record (``record-N``, ``records-N``, ``decision-N`` or ``decisions-N``, alone or before a hyphen) is one of
+# the three contexts the CODE RED records allow for record N's own review at AGENTS.md §5's records tier: a read-only
 # survey of the window, a fact-check workflow and one reviewer (which runs its own delta checks). Refuters, review
-# lenses and delta or second reviewers belong to the routine and high tiers; engineering labels (``…-pr-01``) name code
-# PRs' contexts, out of scope.
+# lenses and delta or second reviewers belong to the routine and high tiers. A label that begins with any other word is
+# read as an engineering label (a code PR's context, out of scope): the check's remaining limit.
 PROVISIONAL_MARKER = ":launched-after-this-record:"
-NAMES_A_RECORD = re.compile(r"(?:record|decisions)-([0-9]+)-", re.IGNORECASE)
+# Every place the marker starts, overlapping ones included: a doubled ``…-record:launched-after-this-record:`` is two.
+MARKER_START = re.compile(f"(?={re.escape(PROVISIONAL_MARKER)})")
+LABEL_FORM = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+NAMES_A_RECORD = re.compile(r"(?:records?|decisions?)-([0-9]+)(?:-|$)")
 RECORDS_TIER_LABEL = re.compile(r"record-([0-9]+)-(survey|factcheck|reviewer)-01")
 # Closures are append-only, so the record labels registered before this check that break it stay, frozen as exact pairs.
 PRE_GATE_RECORD_LABELS = frozenset(
@@ -249,6 +256,8 @@ PRE_GATE_RECORD_LABELS = frozenset(
         (196, "record-45-reviewer-02"),
     }
 )
+# The newest closure an exempt pair may come from: a new exemption has to move this bound as well.
+PRE_GATE_LAST_CLOSURE = 196
 
 
 def _sha256(path: Path) -> str:
@@ -592,37 +601,53 @@ def test_closure_chain_is_append_only() -> None:
 
 
 def _record_label_violations(closures: dict[int, dict]) -> list[tuple[int, str, str]]:
-    """Every pre-registered record label the records review tier does not allow, as ``(closure, label, reason)``.
+    """Every pre-registration the records review tier does not allow, as ``(closure, label, reason)``.
 
     ``closures`` maps each closure's number to its parsed object. A context is pre-registered when its id, a
     ``new_provisional_contexts`` entry or a ``new_context_roles`` key (the closures from before
     ``new_provisional_contexts`` list theirs there alone), carries ``PROVISIONAL_MARKER``; its label is what follows the
-    marker. A label naming a record must be ``record-N-survey-01``, ``record-N-factcheck-01`` or
-    ``record-N-reviewer-01``, each pre-registered by one context in one closure (N read as a number, so ``record-9-``
-    and ``record-09-`` name one record). A ``new_provisional_contexts`` entry without the marker fails as well: its
-    label cannot be read, and a label the check cannot read is never passed.
+    marker. An id that carries the marker more than once, or a ``new_provisional_contexts`` entry without it, fails
+    under its place in the closure (``new_provisional_contexts[i]`` or ``new_context_roles key i``; an id is never
+    printed), since its label cannot be read. Every label must match ``LABEL_FORM``, so a space, a hidden character, an
+    upper-case letter, an underscore or a non-ASCII digit or hyphen fails. A label naming a record must be
+    ``record-N-survey-01``, ``record-N-factcheck-01`` or ``record-N-reviewer-01``, each pre-registered by one context
+    in one closure (N read as a number, so ``record-9-`` and ``record-09-`` name one record). A label that begins with
+    any other word passes as an engineering label: the check's remaining limit, so a records-review context filed under
+    one is review-checked.
     """
     violations: list[tuple[int, str, str]] = []
     occurrences: dict[tuple[int, str], list[tuple[int, str]]] = {}
     for number in sorted(closures):
         closure = closures[number]
         entries = closure.get("new_provisional_contexts") or []
-        violations += [
-            (
-                number,
-                f"new_provisional_contexts[{index}]",
-                f"carries no {PROVISIONAL_MARKER!r} marker, so its label cannot be read",
-            )
-            for index, entry in enumerate(entries)
-            if not isinstance(entry, str) or PROVISIONAL_MARKER not in entry
+        provisional = {entry for entry in entries if isinstance(entry, str)}
+        places = [(f"new_provisional_contexts[{index}]", entry) for index, entry in enumerate(entries)]
+        places += [
+            (f"new_context_roles key {index}", key)
+            for index, key in enumerate(closure.get("new_context_roles") or {})
+            if key not in provisional
         ]
-        ids = {entry for entry in entries if isinstance(entry, str)} | set(closure.get("new_context_roles") or {})
-        for label in sorted(
-            context.split(PROVISIONAL_MARKER, 1)[1] for context in ids if PROVISIONAL_MARKER in context
-        ):
+        labels = []
+        for place, context in places:
+            marks = len(MARKER_START.findall(context)) if isinstance(context, str) else 0
+            if marks > 1:
+                violations.append(
+                    (number, place, f"carries {PROVISIONAL_MARKER!r} {marks} times, so its label cannot be read")
+                )
+            elif marks == 1:
+                labels.append(context.split(PROVISIONAL_MARKER, 1)[1])
+            elif place.startswith("new_provisional_contexts"):
+                violations.append(
+                    (number, place, f"carries no {PROVISIONAL_MARKER!r} marker, so its label cannot be read")
+                )
+        for label in sorted(labels):
             allowed = RECORDS_TIER_LABEL.fullmatch(label)
             named = NAMES_A_RECORD.match(label)
-            if allowed:
+            if not LABEL_FORM.fullmatch(label):
+                violations.append(
+                    (number, label, "is not ASCII lower-case letters and digits joined by single hyphens")
+                )
+            elif allowed:
                 occurrences.setdefault((int(allowed.group(1)), allowed.group(2)), []).append((number, label))
             elif named:
                 forms = ", ".join(f"record-{named.group(1)}-{kind}-01" for kind in ("survey", "factcheck", "reviewer"))
@@ -640,16 +665,26 @@ def _record_label_violations(closures: dict[int, dict]) -> list[tuple[int, str, 
     return sorted(violations)
 
 
+def _exemption_drift(
+    violations: list[tuple[int, str, str]], exempt: frozenset[tuple[int, str]]
+) -> tuple[list[str], list[tuple[int, str]]]:
+    """``(new, stale)``: each violation outside the exact ``(closure, label)`` pairs of ``exempt``, described with the
+    label's ``repr()``, and each exempt pair that no violation matches. A label exempt in one closure is new in any
+    other.
+    """
+    new = [f"closure {n}: {label!r} {reason}" for n, label, reason in violations if (n, label) not in exempt]
+    stale = sorted(exempt - {(n, label) for n, label, _ in violations})
+    return new, stale
+
+
 def test_closures_pre_register_only_the_records_tier_labels() -> None:
+    late = sorted(pair for pair in PRE_GATE_RECORD_LABELS if pair[0] > PRE_GATE_LAST_CLOSURE)
+    assert not late, (
+        f"PRE_GATE_RECORD_LABELS pairs after closure {PRE_GATE_LAST_CLOSURE}, the bound they keep to: {late}"
+    )
     closures = {int(CLOSURE_NAME.fullmatch(path.name).group(1)): _load_object(path) for path in _closures()}
-    violations = _record_label_violations(closures)
-    new = [
-        f"closure {n}: {label!r} {reason}"
-        for n, label, reason in violations
-        if (n, label) not in PRE_GATE_RECORD_LABELS
-    ]
-    assert not new, f"closures pre-register record labels the records review tier does not allow (AGENTS.md §5): {new}"
-    stale = sorted(PRE_GATE_RECORD_LABELS - {(n, label) for n, label, _ in violations})
+    new, stale = _exemption_drift(_record_label_violations(closures), PRE_GATE_RECORD_LABELS)
+    assert not new, f"closures pre-register labels the records review tier does not allow (AGENTS.md §5): {new}"
     assert not stale, f"PRE_GATE_RECORD_LABELS pairs that no longer match a violation in their closure: {stale}"
 
 
@@ -661,34 +696,77 @@ def test_records_tier_label_check_on_planted_closures() -> None:
         ids = [context(label) for label in labels]
         return {"new_provisional_contexts": ids, "new_context_roles": dict.fromkeys(ids, "planted")}
 
-    def failing(*closures: dict) -> list[tuple[int, str]]:
-        """The (closure, label) pairs the check fails, the planted closures numbered from 300."""
-        return [(number, label) for number, label, _ in _record_label_violations(dict(enumerate(closures, start=300)))]
+    def check(*closures: dict) -> list[tuple[int, str, str]]:
+        """The check's violations, the planted closures numbered from 300."""
+        return _record_label_violations(dict(enumerate(closures, start=300)))
 
-    # A refuter, a second reviewer, a delta reviewer, a review lens and a label in another case each fail.
+    def failing(*closures: dict) -> list[tuple[int, str]]:
+        return [(number, label) for number, label, _ in check(*closures)]
+
+    # A refuter, a second reviewer, a delta reviewer, a review lens and the near forms of a record's name each fail.
     for label in (
         "record-99-refuters-01",
         "record-99-reviewer-02",
         "record-99-delta-reviewer-01",
         "decisions-99-review-lens-x",
-        "Record-99-Reviewer-01",
+        "records-99-refuters-01",
+        "decision-99-review-lens-x",
+        "record-99",
     ):
         assert failing(closure(label)) == [(300, label)], label
-    again = closure("record-99-reviewer-01")
-    assert failing(again, again) == [(301, "record-99-reviewer-01")], "one label pre-registered in two closures"
     assert failing(closure("record-99-survey-01", "record-99-factcheck-01", "record-99-reviewer-01")) == []
-    assert failing(closure("foo-gate-pr-01")) == [], "an engineering label is outside the records tier"
+    assert failing(closure("foo-gate-pr-01", "runtime-records-gate-review-01")) == [], "engineering labels pass"
     # A closure from before new_provisional_contexts lists its contexts as new_context_roles keys alone.
     roles_only = {
         "new_context_roles": {context("record-99-refuters-01"): "planted", "claude-code-subagent:session_x": "x"}
     }
     assert failing(roles_only) == [(300, "record-99-refuters-01")]
-    # One label on two contexts of one closure, a record number written two ways, and an entry the check cannot read.
+    # A repeat fails as a repeat and names the closure that pre-registered it first: in a later closure, on a second
+    # context of one closure, and with the record's number written two ways.
+    again = "pre-registers record {}'s {} again, first pre-registered in closure 300".format
+    reviewer = closure("record-99-reviewer-01")
+    assert check(reviewer, reviewer) == [(301, "record-99-reviewer-01", again(99, "reviewer"))]
     twice = [context("record-99-reviewer-01"), context("record-99-reviewer-01", "claude-code-workflow")]
-    assert failing({"new_provisional_contexts": twice}) == [(300, "record-99-reviewer-01")]
-    assert failing(closure("record-9-survey-01"), closure("record-09-survey-01")) == [(301, "record-09-survey-01")]
-    unread = {"new_provisional_contexts": ["claude-code-subagent:session_planted:launched-later:record-99-reviewer-01"]}
-    assert failing(unread) == [(300, "new_provisional_contexts[0]")]
+    assert check({"new_provisional_contexts": twice}) == [(300, "record-99-reviewer-01", again(99, "reviewer"))]
+    assert check(closure("record-9-survey-01"), closure("record-09-survey-01")) == [
+        (301, "record-09-survey-01", again(9, "survey"))
+    ]
+    # Every label, an engineering one too, is ASCII lower-case letters and digits joined by single hyphens.
+    for label in (
+        " record-71-refuters-01",
+        "\u200brecord-71-refuters-01",
+        ":record-71-refuters-01",
+        "Record-99-Reviewer-01",
+        "record-\u0669\u0669-refuters-01",
+        "record\u201199-refuters-01",
+        "foo_gate-pr-01",
+        "foo--gate-pr-01",
+        "foo-gate-pr-01-",
+        "",
+    ):
+        assert check(closure(label)) == [
+            (300, label, "is not ASCII lower-case letters and digits joined by single hyphens")
+        ], repr(label)
+    # An entry the check cannot read: one without the marker, and an id carrying it twice, in either place.
+    unmarked = f"carries no {PROVISIONAL_MARKER!r} marker, so its label cannot be read"
+    doubled = f"carries {PROVISIONAL_MARKER!r} 2 times, so its label cannot be read"
+    no_marker = "claude-code-subagent:session_planted:launched-later:record-99-reviewer-01"
+    assert check({"new_provisional_contexts": [no_marker]}) == [(300, "new_provisional_contexts[0]", unmarked)]
+    shared_colon = context(PROVISIONAL_MARKER[1:] + "record-71-refuters-01")
+    assert check({"new_provisional_contexts": [shared_colon], "new_context_roles": {shared_colon: "planted"}}) == [
+        (300, "new_provisional_contexts[0]", doubled)
+    ]
+    double_colon = context(PROVISIONAL_MARKER + "record-71-refuters-01")
+    roles_doubled = {"new_context_roles": {"claude-code-subagent:session_x": "x", double_colon: "planted"}}
+    assert check(roles_doubled) == [(300, "new_context_roles key 1", doubled)]
+    # The exemptions are exact pairs: an exempt label is new in any other closure, the exact pair in its own closure is
+    # neither new nor stale, and a pair that no violation matches is stale.
+    exempt = frozenset({(300, "record-99-reviewer-02")})
+    second = closure("record-99-reviewer-02")
+    reused = check(second, second)
+    assert _exemption_drift(reused, exempt) == ([f"closure 301: 'record-99-reviewer-02' {reused[1][2]}"], [])
+    assert _exemption_drift(check(second), exempt) == ([], [])
+    assert _exemption_drift(check(closure("record-99-reviewer-01")), exempt) == ([], [(300, "record-99-reviewer-02")])
 
 
 def test_checkpoint_and_appointments_are_stamped_after_the_newest_closure() -> None:
