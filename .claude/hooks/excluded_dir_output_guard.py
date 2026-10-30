@@ -5,31 +5,39 @@ A CODE RED context (a long-running chief and its agents) must never carry the co
 two directories, and treats printing either name -- plain, masked, cut or truncated -- as a lapse
 to disclose. This hook is the machine gate behind that rule (CLAUDE.md rule 12, AGENTS.md section
 4): it inspects a tool result after the tool runs and states, factually, when the result carries
-any such form, so no leak goes unnoticed. It is a DETECTOR, not a filter: it never changes the
-result and never echoes the text it matched.
+any such form. It is a DETECTOR, not a filter: it never changes the result and never echoes the
+text it matched.
 
 The exclusion is a CODE RED rule only, so the hook is OPT-IN and silent for everyone else. It does
 anything only when a marker file named ``code-red-excluded-dir-guard`` exists in the git common
-directory of the repository that contains the event's ``cwd`` (``$CLAUDE_PROJECT_DIR`` when ``cwd``
-is absent). The marker lives inside ``.git`` -- never committed, per clone, shared by every linked
-worktree (they share one common directory) -- so other clones and other writers' sessions are
-untouched. The common directory is resolved by reading files only, no subprocess: a linked
-worktree's ``.git`` is a file ``gitdir: <path>``, and ``<path>/commondir`` names the common
-directory relative to it. No marker -> exit 0 with no output, whatever the input.
+directory of EITHER the repository that contains the event's ``cwd`` OR the one that contains
+``$CLAUDE_PROJECT_DIR`` (either suffices). A CODE RED session whose ``cwd`` has moved outside any
+repository (into a scratch folder) is therefore still guarded through the project directory, which
+is the clone whose settings registered the hook. The marker lives inside ``.git`` -- never
+committed, per clone, shared by every linked worktree (they share one common directory) -- so other
+clones and other writers' sessions are untouched. The common directory is resolved by reading files
+only, no subprocess: a linked worktree's ``.git`` is a file ``gitdir: <path>`` (absolute, or
+relative to the worktree), and ``<path>/commondir`` names the common directory relative to it. No
+marker anywhere -> exit 0 with no output, whatever the input.
 
 The two names are never written whole in this source or its test: each is built at run time from
 the fragments below, so reading the hook shows no name and no form the hook flags. One directory's
 last path component sits under a dated parent (``<word>-<date>/<component>``); the other is a
 two-word name (``<word>-<word>``). Before matching, every scanned string is normalised: case-fold,
-``\\/`` -> ``/``, ``%2f`` (any case) -> ``/``. A string is flagged when it then contains either
-name whole; the dated name with its date masked (each digit replaced, the structure kept, or the
-whole date replaced by one short mask run or one bracketed token); or a cut of either name at least
-eight characters long that spans a junction (the word/date, date/component or word/word boundary)
-and whose two ends are each the name's own end, a non-path-character border, or the text's edge
-(path characters: letters, digits, ``.`` ``_`` ``-`` ``/``). A listing that prints the dated
-parent directory's name alone is flagged by design: a cut of the longer name cannot be told from
-it. The scan is linear in the text's length (fixed-substring search to candidate junctions, a
-bounded walk around each; the one regular expression has no unbounded repetition).
+``\\/`` -> ``/``, ``%2f`` (any case) -> ``/``, and a whole-date token (one short mask run, or one
+bracketed token) that stands where the date would stand is rewritten to the plain date, so every
+cut rule below applies to token masks too. A string is flagged when it then contains either name
+whole; the dated name with its date per-digit masked (the structure kept); or a cut of either name
+at least eight characters long that spans a junction (the word/date, date/component or word/word
+boundary) and whose two ends are each clean. An end is clean when it is the name's own end, the
+text's edge, a non-path-character border (path characters: letters, digits, ``.`` ``_`` ``-`` ``/``;
+an ASCII or Unicode ellipsis is not one, so a truncation marker counts as a border), or -- for the
+left end -- a ``/`` where the cut begins at one of the name's own path-segment starts, so the name
+under a different parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` and ``../`` paths)
+is caught while a mid-segment look-alike is not. A listing that prints the dated parent directory's
+name alone is flagged by design: a cut of the longer name cannot be told from it. The scan is
+linear in the text's length (fixed-substring search to candidate junctions, a bounded walk around
+each; the regular expressions have no unbounded repetition and use only bounded slices).
 
 What is scanned: for PostToolUse, every string inside ``tool_response`` -- recursively through
 objects (keys and values) and arrays, a top-level string too; for PostToolUseFailure, ``error`` and
@@ -38,22 +46,30 @@ exclusion pathspecs, so scanning inputs would flag every such command.
 
 Output channel. The registered command (``python3 -I -S ... || exit 1``, the form the other hooks
 use) maps Python's own exit 2 to shell exit 1, so an exit-2-to-stderr warning would not reach
-Claude. Instead, on a flag the hook writes -- on exit 0 -- a JSON object with
-``hookSpecificOutput.additionalContext`` (a system reminder, saved in the transcript, documented
-for both PostToolUse and PostToolUseFailure) and ``systemMessage`` (shown to the user). It never
-emits exit 2, a traceback, or the matched text. Doc (code.claude.com/docs/en/hooks): the exit-code
-table -- "PostToolUse ... Shows stderr to Claude; the tool already ran" and "PostToolUseFailure ...
-Shows stderr to Claude; the tool already failed" -- and the JSON output fields, where
-``additionalContext`` is listed for PostToolUse and PostToolUseFailure and ``systemMessage`` is a
-universal field shown to the user. The hook fails safe: opted in, a stdin that is not readable JSON
-(or any unexpected error while checking) yields a different fixed message saying the result could
-not be checked; not opted in, it stays silent.
+Claude. Instead, on a flag the hook writes -- on exit 0 -- a JSON object with ``systemMessage``
+(shown to the user) and, when the firing event is known, ``hookSpecificOutput.additionalContext``
+(a system reminder, saved in the transcript, documented for both PostToolUse and
+PostToolUseFailure) carrying that event's name. When the event is NOT known (an input the parser
+rejected), it emits ``systemMessage`` alone, with no ``hookSpecificOutput``: Claude Code validates
+``hookSpecificOutput.hookEventName`` against the firing event and rejects a mismatch ("Hook returned
+incorrect event name"), so a guessed name would be dropped, while ``systemMessage`` is a universal
+field accepted on either event. Doc (code.claude.com/docs/en/hooks): the exit-code table --
+"PostToolUse ... Shows stderr to Claude; the tool already ran" and "PostToolUseFailure ... Shows
+stderr to Claude; the tool already failed" -- and the JSON output fields, where ``additionalContext``
+is listed for PostToolUse and PostToolUseFailure and ``systemMessage`` is universal. It never emits
+exit 2, a traceback, or the matched text. The hook fails safe: opted in, any input the parser
+rejects (invalid JSON, or one so deeply nested or large that json raises RecursionError or
+MemoryError) yields a different fixed message saying the result could not be checked; not opted in,
+it stays silent.
 
-Limits (follow-ups, not built here): it does not mask or replace the result (containment), does not
-see a subagent's hand-back message or a workflow's completion notice (text that reaches the chief
-outside a tool result), and does not pre-empt a command that would read either directory. Whether a
-workflow agent's tool calls fire settings hooks is undocumented, and a running session may not pick
-up a changed .claude/settings.json until it restarts.
+Limits. Fail-open modes (it stays silent): not opted in; a session that loads no repository hooks
+(a multi-repo cloud session, an untrusted folder, ``disableAllHooks``); and a run where Claude Code
+cancels the command at the ~10 s timeout and discards its output. It is also a detector only -- it
+does not mask or replace the result (containment), does not see a subagent's hand-back message or a
+workflow's completion notice (text that reaches the chief outside a tool result), and does not
+pre-empt a command that would read either directory. Whether a workflow agent's tool calls fire
+settings hooks is undocumented, and a running session may not pick up a changed .claude/settings.json
+until it restarts. These are follow-ups, not built here.
 
 Tests: backend/tests/unit/test_excluded_dir_output_guard.py.
 """
@@ -93,19 +109,27 @@ _WORD2B = _F2[4] + _F2[5]
 _C2 = _PREFIX2 + _WORD2A + "-" + _WORD2B
 _J3_START = len(_PREFIX2) + len(_WORD2A) - 1  # the word/word boundary
 
+
+def _segment_starts(canon: str) -> frozenset:
+    """Offsets where a path segment of `canon` starts: offset 0 and each offset just after a '/'."""
+    return frozenset({0} | {i + 1 for i, ch in enumerate(canon) if ch == "/"})
+
+
+_N1_SEG_STARTS = _segment_starts(_C1)
+_N2_SEG_STARTS = _segment_starts(_C2)
+
 MARKER = "code-red-excluded-dir-guard"
 MAX_META_BYTES = 4096  # a .git pointer file and a commondir file are tiny; never read more
 
-# A whole-date mask that replaces the entire date with one token: a short run of mask characters, or
-# one bracketed token. (A per-digit mask keeps the date's structure and is matched by the walk.)
-_TOKEN = r"(?:[#*?xn]{1,10}|<[^>\n]{0,14}>|\[[^\]\n]{0,14}\]|\{[^}\n]{0,14}\})"
-# N1 with the date as one token, as a factual full name: with its own prefix (valid anywhere, as the
-# name's own start) or, without the prefix, only at a non-path-character border. The component ends
-# the name, so what follows it does not matter. Built from fragments; no joined literal here.
-_TOKEN_RE = re.compile(
-    "(?:" + re.escape(_PREFIX1) + re.escape(_WORD1) + "-" + _TOKEN + "/" + re.escape(_COMPONENT1) + ")"
-    + "|(?:(?<![a-z0-9._/-])" + re.escape(_WORD1) + "-" + _TOKEN + "/" + re.escape(_COMPONENT1) + ")"
-)
+# A whole-date mask: one short run of mask characters, or one bracketed token (<..>, [..], {..}).
+_TOKEN = r"[#*?xn]{1,10}|<[^>\n]{0,14}>|\[[^\]\n]{0,14}\]|\{[^}\n]{0,14}\}"
+# A whole-date token standing where the date stands: the word/date dash (its char on the left is the
+# word's last letter, never a date-content char, so a per-digit mask's own dashes do not match),
+# then one complete token, then the component slash, the text end, or a non-path non-mask character
+# (never '-' or another mask char, which would be a per-digit mask the walk already handles).
+# Rewritten to the plain date so the walk's cut rules (length, junctions, clean borders) apply to a
+# token mask as to a per-digit one. Built from fragments, so this source holds no joined form.
+_DATE_TOKEN_RE = re.compile(r"(?<![-0-9#*?xn])-(?:" + _TOKEN + r")(?=/|$|[^0-9a-z._/#*?-])")
 
 FLAGGED = (
     "Excluded-directory guard: this tool result contains a form of a directory name that CODE RED "
@@ -125,12 +149,15 @@ def _is_path_char(ch: str) -> bool:
 
 
 def _normalize(text: str) -> str:
-    """Case-fold, then undo the two escapings of a path slash the chief's masking can leave."""
+    """Case-fold, undo the two escapings of a path slash the chief's masking can leave, then rewrite
+    a whole-date token in date position to the plain date."""
     text = text.casefold()
     if "\\/" in text:
         text = text.replace("\\/", "/")
     if "%2f" in text:  # already case-folded, so %2F is covered
         text = text.replace("%2f", "/")
+    if "-" in text:
+        text = _DATE_TOKEN_RE.sub("-" + _DATE, text)
     return text
 
 
@@ -157,10 +184,22 @@ _N1_JUNCTIONS = (
 _N2_JUNCTIONS = ((_C2[_J3_START:_J3_START + 3], _J3_START, 0),)
 
 
-def _walk(text: str, canon: str, cm, junctions) -> bool:
+def _border_before(text: str, i: int) -> bool:
+    """A clean border ends just before index `i`: the text's start, a non-path character, or an
+    ASCII '...' run (the truncation marker error strings carry)."""
+    return i == 0 or not _is_path_char(text[i - 1]) or (i >= 3 and text[i - 3:i] == "...")
+
+
+def _border_after(text: str, j: int) -> bool:
+    return j == len(text) or not _is_path_char(text[j]) or text[j:j + 3] == "..."
+
+
+def _walk(text: str, canon: str, cm, junctions, seg_starts) -> bool:
     """Whether `text` holds a cut of `canon` (`cm` its per-offset match) spanning one of `junctions`,
-    at least eight characters long, each end the name's own end, a non-path border, or the text edge.
-    Plain and per-digit-masked whole names are the longest such cuts, so this covers them too."""
+    at least eight characters long, with both ends clean. The right end is clean at the name's own
+    end, the text edge, a non-path border, or an ASCII ellipsis. The left end is clean there too, or
+    at a '/' where the cut begins at one of the name's path-segment starts. Plain and per-digit-masked
+    whole names are the longest such cuts, so this covers them too."""
     n, m = len(text), len(canon)
     for find_sub, c0, delta in junctions:
         start = 0
@@ -184,12 +223,17 @@ def _walk(text: str, canon: str, cm, junctions) -> bool:
                 ci += 1
                 ti += 1
             right_c, right_t = ci, ti
-            if right_t - left_t < 8:
+            if not (right_c == m or _border_after(text, right_t)):
                 continue
-            left_ok = left_c == 0 or left_t == 0 or not _is_path_char(text[left_t - 1])
-            right_ok = right_c == m or right_t == n or not _is_path_char(text[right_t])
-            if left_ok and right_ok:
-                return True
+            # Try the greedy left end and each segment start between it and the junction: a cut that
+            # begins at a segment start preceded by '/' is the name under another parent.
+            candidates = [(left_t, left_c)]
+            candidates += [(left_t + (s - left_c), s) for s in seg_starts if left_c < s <= c0]
+            for lt, lc in candidates:
+                if right_t - lt < 8:
+                    continue
+                if lc == 0 or _border_before(text, lt) or (lc in seg_starts and lt > 0 and text[lt - 1] == "/"):
+                    return True
     return False
 
 
@@ -198,18 +242,16 @@ def flagged(text: str) -> bool:
     if not isinstance(text, str) or not text:
         return False
     norm = _normalize(text)
-    if _TOKEN_RE.search(norm) is not None:
+    if _walk(norm, _C1, _cm1, _N1_JUNCTIONS, _N1_SEG_STARTS):
         return True
-    if _walk(norm, _C1, _cm1, _N1_JUNCTIONS):
-        return True
-    if _walk(norm, _C2, _cm2, _N2_JUNCTIONS):
+    if _walk(norm, _C2, _cm2, _N2_JUNCTIONS, _N2_SEG_STARTS):
         return True
     return False
 
 
 def _iter_strings(roots):
     """Every string in `roots`, recursively through dict keys and values and through lists/tuples.
-    Iterative, so a deeply nested response cannot overflow the stack."""
+    Iterative, so a deeply nested response cannot overflow the stack during extraction."""
     stack = list(roots)
     while stack:
         cur = stack.pop()
@@ -224,7 +266,7 @@ def _iter_strings(roots):
             stack.extend(cur)
 
 
-def _targets(data: dict, event: str) -> list:
+def _targets(data: dict, event) -> list:
     """What to scan for this event: tool_response for PostToolUse; error and tool_response for
     PostToolUseFailure. Never tool_input. An unknown event scans both, never tool_input."""
     if event == "PostToolUse":
@@ -272,22 +314,27 @@ def _common_dir(start: str) -> str | None:
 
 
 def _opted_in(cwd) -> bool:
-    """Whether the opt-in marker exists in the common directory for `cwd` (or $CLAUDE_PROJECT_DIR)."""
-    base = cwd if isinstance(cwd, str) and cwd else os.environ.get("CLAUDE_PROJECT_DIR")
-    if not base:
-        return False
-    try:
-        common = _common_dir(base)
-    except OSError:
-        return False
-    return bool(common) and os.path.isfile(os.path.join(common, MARKER))
+    """Whether the opt-in marker sits in the common directory of the cwd's repository OR of
+    $CLAUDE_PROJECT_DIR's repository (either suffices), both resolved by reading files only."""
+    for base in (cwd, os.environ.get("CLAUDE_PROJECT_DIR")):
+        if not (isinstance(base, str) and base):
+            continue
+        try:
+            common = _common_dir(base)
+        except OSError:
+            common = None
+        if common and os.path.isfile(os.path.join(common, MARKER)):
+            return True
+    return False
 
 
-def _emit(event: str, message: str) -> int:
-    payload = {
-        "hookSpecificOutput": {"hookEventName": event, "additionalContext": message},
-        "systemMessage": message,
-    }
+def _emit(message: str, event) -> int:
+    """Write the fixed message on exit 0. systemMessage reaches the user on either event; when the
+    firing event is known, additionalContext (with its name) reaches Claude. An unknown event gets
+    systemMessage alone, so Claude Code does not reject a guessed hookEventName."""
+    payload = {"systemMessage": message}
+    if event in ("PostToolUse", "PostToolUseFailure"):
+        payload["hookSpecificOutput"] = {"hookEventName": event, "additionalContext": message}
     try:
         sys.stdout.write(json.dumps(payload))
     except OSError:
@@ -298,29 +345,29 @@ def _emit(event: str, message: str) -> int:
 def main() -> int:
     try:
         raw = sys.stdin.read()
-    except (OSError, ValueError):
+    except Exception:  # any read failure -> treat as unreadable
         raw = ""
     data = None
     try:
         parsed = json.loads(raw) if raw.strip() else None
         data = parsed if isinstance(parsed, dict) else None
-    except ValueError:
+    except Exception:  # invalid JSON, or input so deep/large json raises RecursionError/MemoryError
         data = None
     cwd = data.get("cwd") if data is not None else None
     if not _opted_in(cwd):  # not opted in: silent, whatever the input
         return 0
     event = data.get("hook_event_name") if data is not None else None
-    if not isinstance(event, str) or not event:
-        event = "PostToolUse"
+    if event not in ("PostToolUse", "PostToolUseFailure"):
+        event = None  # unknown: _emit will send systemMessage alone
     try:
-        if data is None:  # opted in but the input was not a readable JSON object (empty, invalid, list, scalar)
-            return _emit(event, UNCHECKED)
+        if data is None:  # opted in but the input was not a readable JSON object
+            return _emit(UNCHECKED, event)
         for text in _iter_strings(_targets(data, event)):
             if flagged(text):
-                return _emit(event, FLAGGED)
+                return _emit(FLAGGED, event)
         return 0
     except Exception:  # never let a traceback reach any output
-        return _emit(event, UNCHECKED)
+        return _emit(UNCHECKED, event)
 
 
 if __name__ == "__main__":
