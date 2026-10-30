@@ -487,6 +487,13 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
     return JSONResponse(status_code=422, content={"detail": public_validation_errors(exc.errors())})
 
 
+# A coded refusal answers as the HTTPException it replaces did, plus the code a client routes on instead of its words
+# (E31; docs/audit/contracts/error-codes.md §4). No answer changes until a producer raises one.
+from app.api_errors import CodedHTTPException, coded_http_exception_handler
+
+app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
