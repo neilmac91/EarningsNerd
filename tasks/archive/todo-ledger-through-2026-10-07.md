@@ -7080,6 +7080,30 @@ Full local and hosted verification plus independent exact-head review precede re
   lapses counted from the chief's notes and its own commands; no hook refusal and no permission-classifier
   refusal of the chief's commands in the window. After the commit the fact-check's 44 findings
   were verified, 27 taken and 17 kept, and the founder answered all fifteen founder actions. Closure 219.
+- 2026-10-30 (record 69, `runtime/control/DECISIONS-69.md`): PR #1797 (record 68) merged `bd785259` by
+  the chief's own squash, pinned to its head, on the founder's word (sixty-fourth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step); before it, its fact-check, whose first
+  launch a container restart stopped, the founder's answers to all fifteen founder actions, its
+  corrections commit, its reviewer's full pass, which a second restart interrupted and the same context
+  finished, whose four nits a fourth commit took, the same reviewer's clean check of that commit, and the
+  chief's one ready mark, whose own Codex review completed with no finding. Closure 220 registers record
+  68's survey, fact-check and reviewer and pre-registers this record's survey and fact-check, record 70's
+  reviewer and four engineering PRs' agents. A read-only survey of the window before the record was
+  written. Twelve main merges, five of them backend deploys, each healthy by its own deploy job, every
+  other push run's deploy job skipping every deploy step; no job cut off at its time limit; the advisory
+  pip-audit step exited 1, as inferred, in four main runs and in none from #1698's dnspython bump on.
+  Production read live after the stamp, for the first time under the founder's answer: describe-service
+  passing and logs-probe reading logging permitted.
+  No CODE RED spend; no ledger event; five paid steps on other writers' heads on GitHub; two balance
+  readouts dispatched under the shared account, none by the chief. Chief defect 38, found after the
+  stamp: the task worker's Sentry start, which #1648 built on 2026-10-25 and the CODE RED records kept
+  as missing; the lapses counted from the chief's notes and its own commands; no hook refusal and no
+  permission-classifier refusal of the chief's commands in the window; three corrections to record 68:
+  the checkpoint's founder item 21 drops every figure it carried from another writer's comments and
+  readings, its first container restart began after 2026-10-29T23:14:51Z, and its founder action 1
+  approved work #1648 had done, so no worker PR follows. The fact-check's 42 findings were verified, 26
+  taken and 16 kept; the reviewer's four nits and the worker correction went into a fourth commit, with
+  two new founder actions (the worker's Sentry DSN and a stale-row gate).
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
