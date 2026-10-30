@@ -42,8 +42,8 @@ show (`lessons/test-record-a-layout-cost-from-a-sweep-of-widths.md`).
 above, where the account link's label paints in the web font, `isCustomFont` true) all 205 pass, and CI's own e2e job
 passes on `4a026332`, the same frontend. Ten of the failures are the case "does not scroll sideways at 390px", once
 for each route that shows the site header. E223's hold (#1694) sizes the compact bar's account link to both its
-labels, "Live example" and the mode's own. In the sandbox, at 390px under 200% text, the bar's action group, that
-link and the menu button, takes a second row below the logo, with the link's label on one line, and keeps it once
+labels, "Live example" and the mode's own. In the sandbox, at 390px under 200% text, the bar's action group (that
+link and the menu button) takes a second row below the logo, with the link's label on one line, and keeps it once
 readiness lands and "Request invite" shows. The header is then 225px. The spec's one-row limit is the bar's tallest
 item plus its padding and border, so it follows the group: 137px for that 88px group, which the 225px header fails.
 In CI's fonts the group stays beside the logo, the link's label on two lines and the group 102px tall, so the limit
