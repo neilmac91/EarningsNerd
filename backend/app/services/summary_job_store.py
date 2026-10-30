@@ -383,6 +383,16 @@ def record_job_stage(lease: SummaryJobLease, stage: str) -> None:
         db.commit()
 
 
+def _retry_deadline(now: datetime, seconds: float) -> datetime:
+    try:
+        return now + timedelta(seconds=seconds)
+    except OverflowError:
+        # An unrepresentably long source refusal is a terminal hold, not a
+        # scheduled retry. Reopening it requires operator/source evidence; never
+        # replace it with the ordinary short failed-job cooldown.
+        return datetime.max.replace(tzinfo=now.tzinfo)
+
+
 def finish_job(lease: SummaryJobLease, event: dict) -> JobView:
     with SessionLocal() as db:
         row = lock_job_for_result(db, lease)
@@ -399,13 +409,13 @@ def finish_job(lease: SummaryJobLease, event: dict) -> JobView:
             retryable = event.get("retryable", False) is True
             age_limit = ensure_utc(row.created_at) + timedelta(seconds=settings.SUMMARY_JOB_MAX_AGE_SECONDS)
             delay = max(15 * 2 ** (row.attempts - 1), float(event.get("retry_after_seconds") or 0))
-            next_at = now + timedelta(seconds=delay + uniform(0, min(5, delay / 5)))
+            next_at = _retry_deadline(now, delay + uniform(0, min(5, delay / 5)))
             if retryable and row.attempts < settings.SUMMARY_JOB_MAX_ATTEMPTS and next_at < age_limit:
                 row.status, row.stage, row.next_attempt_at = "retry_wait", "queued", next_at
                 row.last_dispatched_at, row.dispatch_token = None, uuid4().hex
             else:
                 row.status, row.stage = "failed", "error"
-                row.next_attempt_at = now + timedelta(seconds=max(settings.SUMMARY_JOB_FAILED_RETRY_SECONDS, delay))
+                row.next_attempt_at = _retry_deadline(now, max(settings.SUMMARY_JOB_FAILED_RETRY_SECONDS, delay))
         row.lease_token, row.lease_until, row.updated_at = None, None, now
         db.commit()
         return _view(row)

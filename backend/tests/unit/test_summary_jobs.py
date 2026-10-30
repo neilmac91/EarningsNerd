@@ -4,7 +4,7 @@ These use real persistence and the existing pipeline with only external provider
 PostgreSQL locking/race coverage lives in test_summary_job_transactions.py.
 """
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -373,6 +373,45 @@ async def test_source403_is_terminal_and_long429_honors_cooldown_after_horizon(u
                 assert reopened.created and reopened.generation == view.generation + 1
     enqueue.assert_not_awaited()
     assert _usage(user_id) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("header", ["999999999999", "9" * 5000, "Fri, 31 Dec 9999 23:59:59 GMT"],
+                         ids=["finite-huge", "beyond-integer-limit", "last-calendar-date"])
+async def test_unrepresentable_source_cooldown_persists_terminal_hold(user_id, monkeypatch, header):
+    import json
+    import httpx
+    from app.services import summary_pipeline as pipeline
+    from app.services.summary_job_progress import durable_progress_answer
+    view = _new(user_id)
+    request = httpx.Request("GET", "https://example.test/filing.htm")
+    response = httpx.Response(429, headers={"Retry-After": header}, request=request)
+    error = httpx.HTTPStatusError("source unavailable", request=request, response=response)
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+    with stream_boundaries() as provider, monkeypatch.context() as local_patch:
+        local_patch.setattr(pipeline.sec_edgar_service, "get_filing_document", AsyncMock(side_effect=error))
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        provider.assert_not_awaited()
+    failed = store.read_job(view.job_id, view.generation)
+    assert failed.status == "failed" and failed.error_code == "sec_rate_limited"
+    assert failed.retry_at >= datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    with SessionLocal() as db:
+        row = db.get(SummaryJob, view.job_id)
+        assert row.lease_token is None and row.reservation_token is None
+        progress = durable_progress_answer(db, view.filing_id)
+    observed = [event async for event in jobs.observe_job(failed)]
+    for wire in [progress, observed[-1]]:
+        json.dumps(wire, allow_nan=False)
+        assert 10**11 < wire["retry_after_seconds"] < 2**53 / 1000
+    assert observed[-1]["retryable"] is False
+    with pytest.raises(store.SummaryJobUnavailable) as blocked:
+        store.ensure_job(view.filing_id, user_id, retry_failed=True)
+    assert blocked.value.retry_after_seconds > 10**11
+    assert store.claim_job(view.job_id, view.generation) is None
+    assert await jobs.recover_due_jobs() == 0
+    assert _usage(user_id) == 0
+    enqueue.assert_not_awaited()
 
 
 @pytest.mark.asyncio

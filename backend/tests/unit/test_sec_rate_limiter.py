@@ -1,6 +1,7 @@
 """Unit tests for SEC token accounting and Retry-After handling."""
 
 import asyncio
+import sys
 from types import SimpleNamespace
 
 import httpx
@@ -23,6 +24,10 @@ def _http_429(retry_after: str | None) -> httpx.HTTPStatusError:
 class TestRetryAfterParsing:
     def test_numeric_seconds(self):
         assert SECRateLimiter._retry_after_seconds(_http_429("30")) == 30.0
+
+    def test_extreme_decimal_is_retained_without_integer_or_float_overflow(self):
+        assert SECRateLimiter._retry_after_seconds(_http_429("9" * 5000)) == sys.float_info.max
+        assert SECRateLimiter._retry_after_seconds(_http_429("0" * 5000 + "30")) == 30.0
 
     def test_negative_seconds_clamps_to_zero(self):
         assert SECRateLimiter._retry_after_seconds(_http_429("-5")) == 0.0
