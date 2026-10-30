@@ -2536,7 +2536,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (492 rows since E162 stage 4e) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (498 rows since E162 stage 4e) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4597,14 +4597,22 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', true],
       ['<li>Passwords are hashed, and reusing a refresh token does not end every session.</li>', false],
       ['<li>A client that reuses a refresh token does not sign everyone out.</li>', false],
-      // Its bare form stays a noun, as main read it (NOUN_FIRST; Codex on #1812): after a noun it names the act, so a
-      // relative clause's negation on it denies nothing of the sweep or the end.
+      // Its bare form and "reused" read as main read them (NOT_VERB_FORMS; Codex on #1812): a noun after a noun, and a
+      // participle participleAt reads after one, so a relative clause's negation past either denies nothing of the
+      // sweep or the end.
       ['<li>Refresh token reuse that you did not request signs everyone out.</li>', true],
       ['<li>Refresh token reuse you did not request signs everyone out.</li>', true],
       ['<li>Refresh token reuse detection that you did not enable signs everyone out.</li>', true],
       ['<li>Refresh token reuse that you did not request ends every session.</li>', true],
-      // Out of reach, as on main: the bare form is read as that noun where it is a relative clause's verb too.
+      ['<li>A refresh token reused a second time you did not authorize signs everyone out.</li>', true],
+      ['<li>A refresh token reused a second time that you did not authorize signs everyone out.</li>', true],
+      ['<li>Refresh tokens reused a second time you did not authorize sign everyone out.</li>', true],
+      ['<li>A refresh token reused a second time you did not authorize ends every session.</li>', true],
+      ['<li>A refresh token reused once you did not expect it signs everyone out.</li>', true],
+      // Out of reach, as on main: the bare form and "reused" are read as that noun and that participle where they are a
+      // relative clause's verb too.
       ['<li>Clients that reuse a refresh token they do not own sign everyone out.</li>', 'gap'],
+      ['<li>A client that reused a refresh token it did not own signed everyone out.</li>', 'gap'],
       // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
       // so the gerund's object and its relative clause are not read.
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],

@@ -9,8 +9,9 @@
  * login, an endpoint or the whole API, another operation than the analytics' own, another credential than the token)
  * and matches it at the places this reading names (matchAt), not anywhere in the sentence. Since stage 4e the
  * reader's own lexicon knows "reuse", the reuse family's verb, so "and reusing ..." opens a clause of its own and
- * "that reuses ..." is a relative clause's verb; its bare form stays a noun, as main read it ("Refresh token reuse
- * that you did not request ..."), and no other family's verdict moves with it.
+ * "that reuses ..." is a relative clause's verb; its bare form and "reused" read as main read them, a noun and a
+ * participle ("Refresh token reuse that you did not request ...", "A refresh token reused a second time ..."), and no
+ * other family's verdict moves with it.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -237,10 +238,12 @@ store stream submit suggest summarise summarize supply support suspend switch ta
 trigger try turn understand unlock update upload use validate vary verify view wait want warn watch work wrap write`
 /** Lemmas whose last consonant doubles before -ed and -ing. */
 const DOUBLED = words('log cap plan ship stop drop permit submit control')
-/** Lemmas whose bare form the reading leaves a noun, as main read it: after a noun it names the act, not a verb
-    ("Refresh token reuse that you did not request signs everyone out."; Codex on #1812), so only its other forms are
-    verbs ("and reusing ...", "that reuses ..."). */
-const NOUN_FIRST = words('reuse')
+/** Forms the reading leaves out of a lemma's verbs, so a sentence reads them as main read it (Codex on #1812): the bare
+    "reuse" is the noun it is after a noun ("Refresh token reuse that you did not request signs everyone out."), and
+    "reused" the participle participleAt reads after one ("A refresh token reused a second time you did not authorize
+    signs everyone out."), as "present" stays out of the lemmas for "presented". Only "reuses" and "reusing" are verbs
+    ("that reuses ...", "and reusing ..."). */
+const NOT_VERB_FORMS = words('reuse reused')
 /** Past forms the rules below do not make. */
 const IRREGULAR_PAST = words('had did done took taken sat stood kept sent held wrote written ran got gotten gave given went gone came became saw seen knew known told said led sold found left paid built chose chosen forgot forgotten hid hidden lost meant met made broke broken shown spent brought fell understood lay lain')
 const IRREGULAR_OTHER = words('has does doing goes setting getting letting putting running hitting cutting sitting forgetting')
@@ -254,8 +257,8 @@ for (const lemma of words(LEMMAS)) {
   const third = y ? `${lemma.slice(0, -1)}ies` : /(?:s|x|z|ch|sh)$/.test(lemma) ? `${lemma}es` : `${lemma}s`
   const past = doubled ? `${doubled}ed` : y ? `${lemma.slice(0, -1)}ied` : e ? `${lemma}d` : `${lemma}ed`
   const ing = doubled ? `${doubled}ing` : lemma.endsWith('ie') ? `${lemma.slice(0, -2)}ying` : e && !lemma.endsWith('ee') ? `${lemma.slice(0, -1)}ing` : `${lemma}ing`
-  for (const form of [lemma, third, past, ing]) if (form !== lemma || !NOUN_FIRST.has(lemma)) VERB_FORMS.add(form)
-  PAST_FORMS.add(past)
+  for (const form of [lemma, third, past, ing]) if (!NOT_VERB_FORMS.has(form)) VERB_FORMS.add(form)
+  if (!NOT_VERB_FORMS.has(past)) PAST_FORMS.add(past)
 }
 for (const form of IRREGULAR_PAST) VERB_FORMS.add(form)
 
@@ -714,7 +717,7 @@ export const placesWord = (token: Token | undefined) =>
 export const endsAPhrase = (token: Token | undefined) =>
   token?.text === ',' || PRONOUNS.has(lower(token)) || ADJECTIVES.has(lower(token)) || isAdverb(token) || (!placesWord(token) && !/'s$/.test(lower(token)))
 /** The verbs the lexicon knows in their base form, as an infinitive or a clause of time takes them. */
-const BASE_FORMS = new Set([...words(LEMMAS)].filter((lemma) => !NOUN_FIRST.has(lemma)))
+const BASE_FORMS = new Set([...words(LEMMAS)].filter((lemma) => !NOT_VERB_FORMS.has(lemma)))
 /** A gerund: an -ing form the lexicon knows, or one a family's own lexicon names (also: "disclosing"). */
 const isGerund = (token: Token | undefined, also?: RegExp) => knowsVerb(token, also) && /^[a-z]{2,}ing$/.test(lower(token))
 /** A verb in its base form: one the lexicon knows, or one a family's own lexicon names (also: "disclose"). */
