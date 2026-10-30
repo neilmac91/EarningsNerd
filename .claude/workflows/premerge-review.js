@@ -63,8 +63,8 @@ const VERDICT_SCHEMA = {
 }
 
 // The high tier's lenses often report one should-fix defect two or three times: over 35 past runs the
-// grouper merged 40 of 190 should-fix reports (30 of the merges audited as one defect), which cut the
-// tier's Opus refuter calls by 27%. One Sonnet call groups the should-fix reports of the same defect, and each group, not each
+// grouper formed 40 groups of more than one report (30 of them audited as one defect), which absorbed 51
+// of 190 should-fix reports and cut the tier's Opus refuter calls by 27% (380 to 278). One Sonnet call groups the should-fix reports of the same defect, and each group, not each
 // report, gets the tier's refuters, who judge every report in it on its own claim, so each report still
 // gets its own complete vote. Blockers are never grouped: each keeps its own two refuters.
 // Severity order, for when a report's two refuters correct it differently.
@@ -210,10 +210,12 @@ const results = await pipeline(
       // Fewer votes than refuters = a refuter returned nothing: the finding stays unverified, not refuted.
       const complete = v.length === T.refuters
       const stands = complete && v.every((x) => !x.refuted)
-      // Refuters may disagree on severity: the highest correction wins, whichever refuter gives it, so one
-      // refuter's raise to blocker is never masked by the other's restated or lower severity.
-      const corrections = v.map((x) => x.corrected_severity).filter((x) => rankOf(x) > 0)
-      const sev = corrections.length ? corrections.reduce((a, b) => (rankOf(b) > rankOf(a) ? b : a)) : f.severity
+      // Each refuter holds the report at its corrected severity, or at the claimed one when it sets none (both
+      // prompts ask for a correction only when the claimed severity is wrong). The highest holding wins,
+      // whichever refuter gives it: one refuter's raise to blocker is never masked by the other's restated or
+      // lower severity, and a lowering needs both refuters.
+      const held = v.map((x) => (rankOf(x.corrected_severity) > 0 ? x.corrected_severity : f.severity))
+      const sev = held.length ? held.reduce((a, b) => (rankOf(b) > rankOf(a) ? b : a)) : f.severity
       return { ...f, complete, stands, severity: stands ? sev : f.severity, votes: v.map((x) => ({ refuted: x.refuted, reason: x.reason })) }
     }
     // A group of reports is labelled by its place among the groups (group1, group2, ...).

@@ -10,17 +10,20 @@
  *     + 2 per group of should-fix reports of one defect, or 2 per should-fix when the dedupe gives no valid
  *     grouping, fails, or has fewer than two lenses' should-fixes to group);
  *   - the high tier's group refuters vote on every report of their group on its own claim: each verdict lands
- *     on the report it names, each refuter's vote counts once, a report missing from a refuter's verdicts or
+ *     on the report it names, and the report shown under each number is the one the script maps that number
+ *     to, each refuter's vote counts once, a report missing from a refuter's verdicts or
  *     given two is unverified, one report can stand while another is refuted, and the dedupe, the group
  *     refuters and the lone refuters each get their own schema, pinned exactly (types and enums included);
  *     a blocker is never grouped, and the dedupe runs only on should-fixes from two or more lenses (exactly
  *     two included; three from one lens are not grouped); its prompt labels the pool [0] to [n-1] in lens
  *     order and asks for indices from 0 to n-1, a group refuter is shown report 0 to report n-1, and the
  *     stubs answer by the numbers they are shown, so a prompt numbered from 1 would misroute every verdict;
- *   - a refuter's corrected severity reaches the result on both paths, and when the two refuters disagree the
- *     highest correction wins whichever refuter gives it: a should-fix raised to blocker, grouped or alone, by
- *     one refuter or both, is a confirmed blocker and blocks the merge, even when the other refuter restates
- *     or lowers the severity; two lowerings that agree confirm the report at the lower severity;
+ *   - each refuter holds a report at its corrected severity, or at the claimed one when it sets none (a
+ *     correction is asked for only when the claimed severity is wrong), and the highest holding wins whichever
+ *     refuter gives it, on both paths: a should-fix raised to blocker, grouped or alone, by one refuter or
+ *     both, is a confirmed blocker and blocks the merge, even when the other refuter restates or lowers it;
+ *     a lowering needs both refuters, so a claimed blocker that one refuter lowers while the other is silent
+ *     still blocks the merge; two lowerings that agree confirm the report at the lower severity;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -299,7 +302,9 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(dedupe[0].prompt).toContain('from 0 to 2 exactly once')
     // The grouping's indices name the pool's reports: group 1 holds correctness and rules-and-brief, not tests-and-gates.
     for (const call of verify.filter((c) => c.label.includes(':group'))) {
-      expect(Array.from(call.prompt.matchAll(/^report (\d+):$/gm), (m) => Number(m[1]))).toEqual([0, 1])
+      // The report shown under each number is the one the script maps that number to, in the group's order.
+      const shown = Array.from(call.prompt.matchAll(/^report (\d+):\n  file: [^\n]*\n  title: ([^\n]*)$/gm), (m) => [Number(m[1]), m[2]])
+      expect(shown, call.label).toEqual([[0, 'should-correctness'], [1, 'should-rules-and-brief']])
       expect(call.prompt).toContain('should-correctness')
       expect(call.prompt).toContain('should-rules-and-brief')
       expect(call.prompt).not.toContain('should-tests-and-gates')
@@ -358,7 +363,12 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const severities = (r: Result) => Object.fromEntries(r.confirmed.map((c) => [c.title, c.severity]))
     // Group 1's refuters correct report 0 (correctness) and the lone refuters correct tests-and-gates: #1 says
     // one thing, #2 another, in both orders. The blocker wins each time, whichever refuter gave it.
-    for (const [first, second] of [['nit', 'blocker'], ['blocker', 'nit'], ['should-fix', 'blocker'], ['blocker', 'should-fix']]) {
+    // Below blocker the same rule holds: nit against should-fix gives should-fix, and the PR stays mergeable.
+    const pairs: Array<[string, string, string]> = [
+      ['nit', 'blocker', 'blocker'], ['blocker', 'nit', 'blocker'], ['should-fix', 'blocker', 'blocker'], ['blocker', 'should-fix', 'blocker'],
+      ['nit', 'should-fix', 'should-fix'], ['should-fix', 'nit', 'should-fix'],
+    ]
+    for (const [first, second, expected] of pairs) {
       const pick = (label: string) => (label.endsWith('#1') ? first : second)
       const s = stub(undefined, {
         findings: shouldOnly,
@@ -367,8 +377,8 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
         corrected: (label) => (label.includes('tests-and-gates.py#') ? pick(label) : undefined),
       })
       const [r] = (await load()({ prs: [pr('high')] }, s.agent)) as Result[]
-      expect(severities(r), `${first} then ${second}`).toEqual({ 'should-correctness': 'blocker', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'blocker' })
-      expect(r.mergeable, `${first} then ${second}`).toBe(false)
+      expect(severities(r), `${first} then ${second}`).toEqual({ 'should-correctness': expected, 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': expected })
+      expect(r.mergeable, `${first} then ${second}`).toBe(expected !== 'blocker')
     }
     // Two lowerings that agree confirm the report as a nit, and the PR stays mergeable.
     const low = stub(undefined, {
@@ -379,6 +389,30 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     })
     const [lowered] = (await load()({ prs: [pr('high')] }, low.agent)) as Result[]
     expect(severities(lowered)).toEqual({ 'should-correctness': 'nit', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'nit' })
+    expect(lowered.mergeable).toBe(true)
+  })
+
+  it('holds a report at its claimed severity for a refuter that sets no correction, so a lowering needs both refuters: a claimed blocker that one refuter lowers while the other is silent still blocks the merge', async () => {
+    // Every lens reports the blocker (a.py) and a should-fix; refuter #1 lowers each, refuter #2 sets nothing.
+    const lowerFirst = stub(undefined, {
+      groups: [[0, 1, 2]],
+      verdicts: (label) => [0, 1, 2].map((report) => ({ report, refuted: false, reason: 'r', ...(label.endsWith('#1') ? { corrected_severity: 'nit' } : {}) })),
+      corrected: (label) => (label.endsWith('a.py#1') ? 'should-fix' : undefined),
+    })
+    const [held] = (await load()({ prs: [pr('high')] }, lowerFirst.agent)) as Result[]
+    expect(held.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity)).toEqual(['blocker', 'blocker', 'blocker'])
+    expect(held.confirmed.filter((c) => c.title === 'should').map((c) => c.severity)).toEqual(['should-fix', 'should-fix', 'should-fix'])
+    expect(held.incomplete).toBe(false)
+    expect(held.mergeable).toBe(false)
+    // The same lowerings from both refuters take effect, and the lowered blockers free the merge.
+    const lowerBoth = stub(undefined, {
+      groups: [[0, 1, 2]],
+      verdicts: () => [0, 1, 2].map((report) => ({ report, refuted: false, reason: 'r', corrected_severity: 'nit' })),
+      corrected: (label) => (label.includes('a.py#') ? 'should-fix' : undefined),
+    })
+    const [lowered] = (await load()({ prs: [pr('high')] }, lowerBoth.agent)) as Result[]
+    expect(lowered.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity)).toEqual(['should-fix', 'should-fix', 'should-fix'])
+    expect(lowered.confirmed.filter((c) => c.title === 'should').map((c) => c.severity)).toEqual(['nit', 'nit', 'nit'])
     expect(lowered.mergeable).toBe(true)
   })
 
