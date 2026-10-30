@@ -565,10 +565,11 @@ class TestASignOrScaleFindingMarksTheFigure:
         assert following["yoy"] == "nm" and (following["yoy_first_reported"] == "nm") is (finding is not None)
 
     def test_a_per_share_factor_meets_in_decimal_where_floats_round(self, db):
-        # 0.07 x 1,000 is 70.00000000000001 in floats; the comparison is exact in Decimal.
-        eps = {2017: {2015: 0.05, 2016: 0.06, 2017: 0.06}, 2018: {2016: 0.06, 2017: 0.06, 2018: 0.07},
-               2019: {2017: 0.06, 2018: 0.07, 2019: 0.08}, 2020: {2018: 70.0, 2019: 0.08, 2020: 0.09},
-               2021: {2019: 0.08, 2020: 0.09, 2021: 0.1}}
+        # 2.01 x 1,000 is 2009.9999999999998 in floats; the comparison is exact in Decimal.
+        assert 2.01 * 1000 != 2010.0
+        eps = {2017: {2015: 1.5, 2016: 1.8, 2017: 1.9}, 2018: {2016: 1.8, 2017: 1.9, 2018: 2.01},
+               2019: {2017: 1.9, 2018: 2.01, 2019: 2.2}, 2020: {2018: 2010.0, 2019: 2.2, 2020: 2.4},
+               2021: {2019: 2.2, 2020: 2.4, 2021: 2.6}}
         dataset = _build(db, _synced(db, _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items(eps)}}})))
         point = _point(dataset, "earnings_per_share", "FY2018")
         assert (point["first_reported"]["disagreement"], point["provenance"]["reasons"]) == ("scale", ["source_conflict"])
@@ -676,8 +677,8 @@ class TestACalculatedFiguresInputsCarryTheirEvidence:
     ("revenue", 5_000.0, 5.0, "scale"), ("revenue", 5.0, 5_000.0, "scale"), ("revenue", 5e9, 5.0, "scale"),
     ("revenue", 5e12, 5.0, None), ("revenue", -5_000.0, 5.0, None), ("revenue", 4_999.5, 5.0, None),
     ("revenue", 0.0, 5.0, None), ("revenue", 5.0, 0.0, None), ("revenue", 5.5, 5.0, None),
-    ("earnings_per_share", 70.0, 0.07, "scale"), ("eps_diluted", 0.05, -0.05, None), ("net_income", 0.05, -0.05,
-                                                                                         "opposite_sign"),
+    ("earnings_per_share", 2_010.0, 2.01, "scale"), ("earnings_per_share", 2.01, 2_010.0, "scale"),
+    ("eps_diluted", 0.05, -0.05, None), ("net_income", 0.05, -0.05, "opposite_sign"),
 ])
 def test_item_4_the_exact_findings(concept, shown, own, finding):
     assert disagreement(concept, shown, own) == finding
