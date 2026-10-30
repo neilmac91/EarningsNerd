@@ -86,8 +86,11 @@ def _filing_attachment_url(cik: str, accession_number: str, filename: str) -> st
     return build_sec_archive_url(cik, accession_number) + quote(filename, safe="-._~")
 
 
-async def _bounded_identity_response_content(response: httpx.Response) -> bytes:
+async def _bounded_identity_response_content(
+    response: httpx.Response, max_bytes: Optional[int] = None,
+) -> bytes:
     """Read an identity-encoded HTTP entity while bounding declared and actual size."""
+    max_bytes = MAX_SEC_ATTACHMENT_BYTES if max_bytes is None else max_bytes
     content_encoding = response.headers.get("content-encoding")
     if content_encoding is not None and content_encoding.strip().lower() != "identity":
         raise ValueError("SEC attachment returned a non-identity Content-Encoding")
@@ -96,16 +99,16 @@ async def _bounded_identity_response_content(response: httpx.Response) -> bytes:
     if declared_length is not None:
         if not declared_length.isdigit():
             raise ValueError("SEC attachment returned an invalid Content-Length")
-        if int(declared_length) > MAX_SEC_ATTACHMENT_BYTES:
+        if int(declared_length) > max_bytes:
             raise ValueError(
-                f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
+                f"SEC attachment exceeds the {max_bytes}-byte entity limit"
             )
 
     content = bytearray()
     async for chunk in response.aiter_raw(chunk_size=SEC_ATTACHMENT_CHUNK_BYTES):
-        if len(content) + len(chunk) > MAX_SEC_ATTACHMENT_BYTES:
+        if len(content) + len(chunk) > max_bytes:
             raise ValueError(
-                f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
+                f"SEC attachment exceeds the {max_bytes}-byte entity limit"
             )
         content.extend(chunk)
     return bytes(content)
@@ -400,16 +403,21 @@ class SECEdgarServiceCompat:
         filename: str,
         timeout: Optional[float] = None,
         max_retries: int = 1,
+        max_bytes: Optional[int] = None,
     ) -> tuple[bytes, Dict[str, Any]]:
         """Fetch one same-filing attachment as bounded identity entity bytes.
 
         The returned bytes are the HTTP entity bytes after transfer framing. The
         request requires identity content encoding and rejects any compressed
         response before reading its body. Redirects fail; callers cannot use this
-        method to leave the requested filing directory.
+        method to leave the requested filing directory. ``max_bytes`` can narrow the
+        entity cap when several members must share a single source budget.
         """
         if type(max_retries) is not int or max_retries < 1:
             raise ValueError("max_retries must be a positive integer")
+        max_bytes = MAX_SEC_ATTACHMENT_BYTES if max_bytes is None else max_bytes
+        if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_SEC_ATTACHMENT_BYTES:
+            raise ValueError("max_bytes must be between 1 and MAX_SEC_ATTACHMENT_BYTES")
 
         requested_url = _filing_attachment_url(cik, accession_number, filename)
         timeout = timeout or 60.0
@@ -435,7 +443,7 @@ class SECEdgarServiceCompat:
                             response.raise_for_status()
                             if response.url != httpx.URL(requested_url):
                                 raise ValueError("SEC attachment response left the requested filing URL")
-                            content = await _bounded_identity_response_content(response)
+                            content = await _bounded_identity_response_content(response, max_bytes)
                             source = {
                                 "schema_version": 1,
                                 "representation": "httpx_identity_entity_bytes",

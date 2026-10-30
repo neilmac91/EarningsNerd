@@ -41,6 +41,19 @@ class RecoveryBlock:
     families: tuple[str, ...]
 
 
+def strip_hidden_filing_nodes(soup: BeautifulSoup) -> None:
+    """Remove explicit hidden markup before a source reader selects or flattens nodes."""
+    for tag in soup.find_all(True):
+        # A previously decomposed parent also decomposes its descendants.
+        if not tag.name:
+            continue
+        if (tag.name.lower() in {"script", "style", "template", "ix:hidden", "ix:header"}
+                or tag.has_attr("hidden") or _HIDDEN_STYLE.search(str(tag.get("style", "")))):
+            tag.decompose()
+    for comment in soup.find_all(string=lambda node: isinstance(node, Comment)):
+        comment.extract()
+
+
 def clean_filing_source(text: str) -> str:
     """Preserve plain text; remove explicit hidden markup without claiming CSS visibility."""
     if not text or not text.strip():
@@ -50,15 +63,7 @@ def clean_filing_source(text: str) -> str:
     soup = None
     try:
         soup = BeautifulSoup(text, "html.parser")
-        for tag in soup.find_all(True):
-            # A previously decomposed parent also decomposes its descendants.
-            if not tag.name:
-                continue
-            if (tag.name.lower() in {"script", "style", "template", "ix:hidden", "ix:header"}
-                    or tag.has_attr("hidden") or _HIDDEN_STYLE.search(str(tag.get("style", "")))):
-                tag.decompose()
-        for comment in soup.find_all(string=lambda node: isinstance(node, Comment)):
-            comment.extract()
+        strip_hidden_filing_nodes(soup)
         return soup.get_text(separator="\n", strip=False)
     except Exception:  # noqa: BLE001 — unavailable source is safer than a raw-HTML fallback.
         return ""

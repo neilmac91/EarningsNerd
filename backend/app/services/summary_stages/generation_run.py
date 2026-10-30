@@ -99,6 +99,7 @@ class GenerationRun:
     sixk_class: Optional[str] = None
     sixk_class_audit: Optional[dict] = None
     filing_text: str = ""
+    filing_source_provenance: Optional[dict] = None
     excerpt: Optional[str] = None
     xbrl_metrics: Optional[dict] = None
     summary_payload: Optional[dict] = None

@@ -174,6 +174,12 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     run.filing_type = run.filing_fields["filing_type"]
     run.filing_accession_number = run.filing_fields["accession_number"]
 
+    if (run.filing_type or "").upper().split("/")[0] == "8-K":
+        # Legacy excerpts contain only the cover/current report. Every new 8-K
+        # generation resolves its advertised earnings exhibits before building an
+        # excerpt. Completed summaries still take load_filing's normal cache hit.
+        run.rebuild_excerpt = True
+
     # Check the plain cached-content snapshot (no ORM reads after session closure).
     cached_excerpt = run.filing_fields["cache_excerpt"]
     run.cache_is_valid = False

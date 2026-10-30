@@ -2,7 +2,8 @@
 
 Three sources, in priority order: a valid 24-hour content cache (no fetch at all), the 6-K exhibit
 extractor (EX-99.x press-release text, falling back to the cover-page document), or the SEC EDGAR
-document fetch with heartbeat progress while it runs.
+document fetch with heartbeat progress while it runs. Earnings 8-Ks add their own
+same-accession EX-99 members before the canonical text reaches excerpt extraction.
 """
 from __future__ import annotations
 
@@ -84,10 +85,19 @@ async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
 
         try:
             logger.info(f"[stream:{filing_id}] Starting SEC fetch for URL: {run.filing_document_url}")
+            async def fetch_grounding() -> str:
+                primary = await pipeline.sec_edgar_service.get_filing_document(run.filing_document_url, timeout=15.0)
+                if (run.filing_type or "").upper().split("/")[0] == "8-K":
+                    with run.worker_owner.activate():
+                        source = await pipeline.get_eightk_grounding(
+                            primary, run.filing_document_url, run.company_cik, run.filing_accession_number,
+                        )
+                    run.filing_source_provenance = source.provenance
+                    return source.text
+                return primary
+
             # Wrap the SEC fetch in a task with heartbeat loop
-            run.fetch_task = asyncio.create_task(
-                pipeline.sec_edgar_service.get_filing_document(run.filing_document_url, timeout=15.0)
-            )
+            run.fetch_task = asyncio.create_task(fetch_grounding())
 
             fetch_heartbeat_index = 0
             while not run.fetch_task.done():

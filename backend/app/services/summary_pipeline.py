@@ -62,6 +62,7 @@ from app.services.content_cache import upsert_content_cache  # noqa: F401
 from app.services.edgar.compat import sec_edgar_service, xbrl_service  # noqa: F401
 from app.services.edgar.sixk_classifier import classify_sixk_text  # noqa: F401
 from app.services.edgar.sixk_extractor import get_sixk_text  # noqa: F401
+from app.services.edgar.eightk_extractor import get_eightk_grounding  # noqa: F401
 from app.services.edgar.statement_context import acquire_statement_context  # noqa: F401
 from app.services.fallback_summary import generate_xbrl_summary  # noqa: F401
 from app.services.openai_service import openai_service  # noqa: F401

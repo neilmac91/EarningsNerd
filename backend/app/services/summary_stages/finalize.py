@@ -85,6 +85,9 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
         trace_excerpt=run.excerpt or run.filing_text
     )
     raw_summary["quality"] = quality
+    if run.filing_source_provenance is not None:
+        # Application-owned source identity, committed with this exact summary.
+        raw_summary["filing_source_provenance"] = run.filing_source_provenance
     untraceable = quality.get("figures_untraceable") or []
     if untraceable:
         # T3.2 advisory-phase measurement channel. The gate ships flag-off, so untraceable dollar
