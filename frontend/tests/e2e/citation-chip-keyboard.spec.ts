@@ -134,7 +134,7 @@ for (const vp of [
         expect(await actionHitsItself()).toBe(true)
         await page.setViewportSize({ width: vp.width, height: vp.height })
         await expect(page.locator(PANE)).toHaveAttribute('aria-modal', 'true')
-        await expect.poll(() => original.evaluate((el) => el.closest('[role="group"]')?.parentElement?.getAttribute('aria-label') === 'Filing source and Ask')).toBe(true)
+        await expect.poll(() => original.evaluate((el, pane) => el.closest('[role="group"]')?.parentElement?.matches(pane) === true, PANE)).toBe(true)
         await expect(original).toBeFocused()
         expect(await actionHitsItself()).toBe(true)
       }

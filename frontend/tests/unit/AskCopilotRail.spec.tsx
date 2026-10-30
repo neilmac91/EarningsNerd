@@ -668,7 +668,7 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     const line = screen.getByRole('status')
     expect(line).toHaveClass('sr-only')
     expect(line).toBeEmptyDOMElement()
-    expect(line.parentElement).toBe(screen.getByRole('complementary', { name: 'Filing source and Ask' }))
+    expect(line.parentElement).toBe(screen.getByRole('complementary', { name: 'Source' }))
     expect(line.compareDocumentPosition(screen.getByRole('tablist')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
     for (const panel of screen.getAllByRole('tabpanel')) {
       expect(line.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -808,7 +808,7 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     )
     try {
       renderInPane()
-      const sheet = screen.getByRole('dialog', { name: 'Filing source and Ask' })
+      const sheet = screen.getByRole('dialog', { name: 'Source' })
       expect(sheet).toHaveAttribute('aria-modal', 'true')
       expect(sheet).toContainElement(screen.getByRole('status'))
     } finally {

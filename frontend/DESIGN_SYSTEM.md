@@ -2346,8 +2346,8 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
                  underline tabs ≥36px, 44px in the sheet; arrows wrap from the focused tab); the Filing tab
-                 ends in "Original on SEC.gov". aria-label "Filing source and Ask"; role dialog + aria-modal
-                 below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
+                 ends in "Original on SEC.gov". The header names the pane (aria-labelledby), so a screen reader
+                 hears "Source", the title a sighted reader sees; role dialog + aria-modal below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
                  Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
