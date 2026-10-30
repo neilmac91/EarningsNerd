@@ -14,14 +14,15 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { BROKEN_BARS, buildBarChart, unitCurrency, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
 import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
-import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
+import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView, type ModelPanel } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
-import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, perShareMoney, ratioFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
+import { groupDataNotes, noteMarksFigure, resolveDataNotes, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { reasonText } from '@/features/analysis/lib/provenance'
-import { currencySymbol, dataFaceDraws } from '@/lib/format'
-import { MIXED_NOTES, questioned, withMixedNotes } from './chartPlan'
+import { currencySymbol, DATA_FACE_GLYPHS, dataFaceDraws } from '@/lib/format'
+import { barCases, MIXED_NOTES, questioned, withMixedNotes, type BarFixture } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
 const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -33,6 +34,20 @@ const WIDTHS: Record<ChartView, number[]> = { card: [342, 502], expanded: [390, 
 /** The SVG glyph set (spec G2): printable ASCII plus ’ − — ↑ ↓ ·. Geist Mono's subsets carry each at 0.6 em; ▲ ▼
  *  and the thin space exist in neither, so they are never planned. † left the set with the band's dagger (D-061, E194). */
 const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓·]*$/
+// Financial trends' bar charts (barChart.ts): production's filing 3 and synthetic filings, each case a series and its
+// axis (chartPlan.ts barCases).
+const BAR_CASES = barCases(JSON.parse(readFileSync('tests/unit/fixtures/fundamentals-datasets.json', 'utf8')) as BarFixture)
+const barDef = (name: string): BarChartDef => structuredClone(BAR_CASES.find(([caseName]) => caseName === name)![1])
+/** A bar chart's widths: about a 320 px phone's card (inside its p-cap-6), the analysis card's two, and a desktop column. */
+const BAR_WIDTHS: Record<ChartView, number[]> = { card: [250, 342, 502, 800], expanded: WIDTHS.expanded }
+/** M12 for a bar chart's axes, widened only by what they print: a currency's sign, in glyphs the data face draws
+ *  (moneyPrefix reads DATA_FACE_GLYPHS), and a ratio's ×, which that list holds. */
+const BAR_GLYPHS = new RegExp(`^[\\x20-\\x7e’−—↑↓·${DATA_FACE_GLYPHS}]*$`)
+/** M3 for a bar chart's axes: zero prints bare in its own form, its currency's sign then 0, "0%" or "0×". */
+const bareZero = (panel: ModelPanel) => {
+  const { kind } = panel.axis.format
+  return kind === 'money' ? `${moneyPrefix(panel.currency)}0` : kind === 'ratio' ? '0×' : '0%'
+}
 const MARKERS = ['circle', 'square', 'triangle']
 
 /** Every string the renderer will print inside the SVG, from the model and the plan alone. */
@@ -50,183 +65,208 @@ function svgStrings(model: ChartModel, layout: ChartLayout): string[] {
   return strings
 }
 
+/** What a model's checks need beside the model: an analysis chart's id and data notes, the widths it is planned at, and
+ *  the glyphs and zero label its axes print, which a bar chart's widen (BAR_GLYPHS, bareZero). */
+interface ModelChecks {
+  chart?: ChartId
+  notes?: DataNotesModel
+  widths?: number[]
+  svgGlyphs?: RegExp
+  /** M3's zero label, exactly; by default "$0" or "0%". */
+  zero?: (panel: ModelPanel) => string
+}
+
+/** The spec's model checks on one model in one view, at each of its widths: every model the engine draws passes them. */
+function expectModelChecks(model: ChartModel, view: ChartView, { chart, notes, widths = WIDTHS[view], svgGlyphs = SVG_GLYPHS, zero }: ModelChecks = {}) {
+  // The layout places a slot by its key: a key given twice would put two periods' marks in one slot.
+  expect(new Set(model.periods.map((period) => period.key)).size, 'every slot has a key of its own').toBe(model.periods.length)
+  if (model.unavailable) {
+    expect(model.panels, 'a chart that does not apply draws nothing').toEqual([])
+    expect(model.unavailable.length).toBeGreaterThan(20)
+    return
+  }
+  const layouts = widths.map((width) => layoutChart(model, width, view))
+  // M8: the height depends on the view and mode only, so a card never shifts as its width settles.
+  expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
+  if (view === 'card') expect(layouts[0].height).toBe(320)
+  layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(widths[i], minChartWidth(model, view))))
+  for (const [i, layout] of layouts.entries()) {
+    expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(MIN_SLOT - 1e-9)
+    // A4/A7: a chart widens past its container only as far as LABELLED_MAX_SLOT, and only when that gives its
+    // labels a tier; a chart that still prints none kept its minimum.
+    const fitSlot = (widths[i] - layout.gutter - 8) / model.periods.length
+    if (model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) expect(layout.slot, 'A7: widened at most to LABELLED_MAX_SLOT').toBeLessThanOrEqual(Math.max(fitSlot, LABELLED_MAX_SLOT) + 1e-9)
+    // A chart that still prints no labels took no widening, and its labels miss at its minimum too (so a wider
+    // container never loses labels its minimum holds).
+    const base = layout.gutter + 8 + MIN_SLOT * model.periods.length
+    const atMinimum = layoutChart(model, 0, view)
+    if (layout.valuesDontFit) {
+      expect(minChartWidth(model, view), 'A4: no widening for labels it cannot fit').toBe(base)
+      expect(atMinimum.valuesDontFit, 'A4: labels that miss at the container missed at the minimum').toBe(true)
+    }
+    const texts = svgStrings(model, layout)
+    for (const text of texts) {
+      expect(text, 'M12: glyphs Geist Mono carries').toMatch(svgGlyphs)
+      expect(text, 'the typographic apostrophe (spec §0.4 row 27)').not.toContain("'")
+    }
+    for (const box of layout.panels) {
+      const { ticks, step, domain, format } = box.panel.axis
+      ticks.slice(1).forEach((tick, i) => expect(Math.abs(tick - ticks[i] - step), 'M1: uniform ticks').toBeLessThan(step * 1e-6))
+      expect(ticks, 'M2: zero is a tick').toContain(0)
+      expect(ticks.length - 1, 'A1: the tick cap').toBeLessThanOrEqual(box.panel.nmax)
+      // M4: tick labels are 11 px (a 13 px line box), so gridlines keep at least 17 px apart; the tightest
+      // is the quarterly card's growth panel, 70 px over its cap of 4.
+      if (ticks.length > 1) expect(Math.abs(box.y(ticks[1]) - box.y(ticks[0])), 'M4: gridline spacing').toBeGreaterThanOrEqual(17)
+      const labels = ticks.map(format.tick)
+      expect(new Set(labels.filter((label) => /[1-9]/.test(label)).map((label) => label.replace(/[^KMBT%]/g, ''))).size, 'M3: one unit per axis').toBeLessThanOrEqual(1)
+      if (zero) expect(labels[ticks.indexOf(0)], 'M3: zero prints bare').toBe(zero(box.panel))
+      else expect(labels[ticks.indexOf(0)], 'M3: zero prints bare').toMatch(/^(\$0|0%)$/)
+      if (format.kind === 'money') {
+        // M3: a money axis takes the next unit before a tick needs four integer digits ("$1,000M" reads "$1B").
+        for (const label of labels) expect(label.replace(/[^\d.]/g, '').split('.')[0].length, `M3: ${label}`).toBeLessThanOrEqual(3)
+      }
+      expect(Math.max(...labels.map(textWidth)) + 8, 'M5: the gutter holds the widest tick').toBeLessThanOrEqual(layout.gutter + 1e-9)
+      const percent = format.kind !== 'money'
+      for (const mark of box.panel.marks) for (const point of mark.points) {
+        if (point.value == null) continue
+        const outside = point.value > domain[1] + 1e-9 || point.value < domain[0] - 1e-9
+        if (percent) expect(Boolean(point.offscale), `M11: ${mark.label} ${point.period} is flagged exactly when it leaves the axis`).toBe(outside)
+        else expect(outside, `M11: amounts never clip (${mark.label} ${point.period})`).toBe(false)
+      }
+      for (const band of [box.offAbove, box.offBelow]) for (const item of band?.items ?? []) {
+        expect(item.left, 'L1: off-scale text starts inside the SVG').toBeGreaterThanOrEqual(0)
+        expect(item.left + OFF_GLYPH + textWidth(item.text), 'L1: and ends inside it').toBeLessThanOrEqual(layout.width)
+      }
+      const labelled = box.panel.marks.find((mark) => mark.labelled)
+      if (labelled && layout.width >= 502) expect(box.labels.decimals, 'A4: a label tier fits at card width').not.toBeNull()
+      // M10: one scale per panel, so the drawn order of two series is their true order.
+      const lines = box.panel.marks.filter((mark) => mark.kind === 'line')
+      for (let a = 0; a < lines.length; a++) for (let b = a + 1; b < lines.length; b++) {
+        for (const p of lines[a].points) {
+          const q = lines[b].points.find((other) => other.period === p.period)
+          if (p.value == null || q?.value == null || p.offscale || q.offscale || p.value === q.value) continue
+          expect(Math.sign(box.y(q.value) - box.y(p.value)), `M10: ${p.period}`).toBe(Math.sign(p.value - q.value))
+        }
+      }
+      // A13 and M21: every bar sits on its slot centre, anchored at the zero rule on its value's side and
+      // never across it, at least 2 px long; the 2 px minimum is drawn exactly when the true length is shorter.
+      const pointOf = (seriesKey: string, period: string) => box.panel.marks.find((mark) => mark.seriesKey === seriesKey)!.points.find((point) => point.period === period)!
+      for (const bar of box.bars) {
+        const point = pointOf(bar.seriesKey, bar.period)
+        expect(bar.x + bar.width / 2, 'M13: on the slot centre').toBeCloseTo(layout.x(bar.period), 9)
+        expect(bar.height, 'A13: at least 2 px').toBeGreaterThanOrEqual(2)
+        if (bar.value >= 0) expect(bar.y + bar.height, `M21: ${bar.seriesKey} ${bar.period} rests on the zero rule`).toBeCloseTo(bar.zero, 9)
+        else expect(bar.y, `M21: ${bar.seriesKey} ${bar.period} hangs from the zero rule`).toBeCloseTo(bar.zero, 9)
+        expect(bar.stub, 'A13: the stub stands for a true length under 2 px').toBe(Math.abs(box.y(Math.max(domain[0], Math.min(domain[1], bar.value))) - bar.zero) < 2)
+        expect(bar.clipped, 'a clipped bar is an off-scale value').toBe(Boolean(point.offscale))
+        const printed = box.panel.marks.find((mark) => mark.seriesKey === bar.seriesKey)!.labelled && box.labels.decimals != null
+        expect(Boolean(bar.label), 'A4: every bar of a labelled panel prints its value, or none does').toBe(printed)
+        if (bar.label) expect(bar.label.text).toBe(format.value(bar.value, box.labels.decimals!))
+      }
+      // A4, checked apart from its planner: printed bar labels stay inside the SVG and clear of each other,
+      // each an 11 px line box (9 px above its baseline, 2 below) with 1 px between any two.
+      const boxes = box.bars.flatMap((bar) => bar.label ? [{ ...bar.label, x: bar.x + bar.width / 2, w: textWidth(bar.label.text) }] : [])
+      for (const a of boxes) {
+        expect(a.x - a.w / 2, `L1: the ${a.text} label starts inside the SVG`).toBeGreaterThanOrEqual(0)
+        expect(a.x + a.w / 2, `L1: the ${a.text} label ends inside it`).toBeLessThanOrEqual(layout.width)
+      }
+      boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b) => {
+        const apart = a.x + a.w / 2 + 1 <= b.x - b.w / 2 || b.x + b.w / 2 + 1 <= a.x - a.w / 2 || a.y + 2 + 1 <= b.y - 9 || b.y + 2 + 1 <= a.y - 9
+        expect(apart, `A4: the ${a.text} and ${b.text} labels overlap`).toBe(true)
+      }))
+      // M18: a bar slot without a value prints "—", or "n/m" when the growth is not meaningful.
+      const barMarks = box.panel.marks.filter((mark) => mark.kind !== 'line')
+      expect(box.bars.length + box.gaps.length, 'every bar slot is a bar or a printed gap').toBe(barMarks.reduce((sum, mark) => sum + mark.points.length, 0))
+      for (const gap of box.gaps) expect(gap.text).toBe(barMarks.some((mark) => mark.points.some((point) => point.period === gap.period && point.nm)) ? 'n/m' : '—')
+      // M13: every non-zero signed stub prints its value or records the drop (its value is then in the strip).
+      for (const bar of box.bars) {
+        if (!bar.stub || bar.value === 0 || !box.panel.marks.some((mark) => mark.seriesKey === bar.seriesKey && mark.kind === 'signedBar')) continue
+        expect(box.nearZero.some((label) => label.period === bar.period) !== box.nearZeroDropped.includes(bar.period), `M13: ${bar.period}`).toBe(true)
+      }
+      // A13b: a non-zero signed bar too short to show its sign prints its value, with the sign.
+      for (const label of box.nearZero) {
+        const point = box.panel.marks[0].points.find((p) => p.period === label.period)!
+        expect(Math.abs(box.y(point.value!) - box.y(0))).toBeLessThan(2)
+        expect(label.text.startsWith(MINUS)).toBe(point.value! < 0)
+      }
+    }
+    const glyphs = noteGlyphs(model, layout)
+    for (const glyph of glyphs) {
+      expect(Math.abs(glyph.x - layout.x(glyph.period)) + textWidth(glyph.text) / 2, 'M6: note glyphs fit their slot').toBeLessThanOrEqual(layout.slot / 2)
+    }
+    glyphs.forEach((a, i) => glyphs.slice(i + 1).filter((b) => b.period === a.period).forEach((b) => {
+      expect(Math.abs(a.x - b.x) - (textWidth(a.text) + textWidth(b.text)) / 2, `A5: ${a.text} and ${b.text} keep apart`).toBeGreaterThanOrEqual(1.5 - 1e-9)
+    }))
+    expect(layout.valuesDontFit, 'A4: the card says so exactly when a labelled panel prints no labels')
+      .toBe(layout.panels.some((box) => box.panel.marks.some((mark) => mark.labelled) && box.labels.decimals == null))
+    // L1: a label below a negative bar keeps inside its panel's band: its baseline, plus a descent, above the end
+    // of the panel's bottom pad (the gap before the next panel, or the period axis).
+    layout.panels.forEach((box, i) => {
+      const next = layout.panels[i + 1]
+      const bandEnd = next ? next.regionTop - (layout.view === 'expanded' ? 16 : 10) : layout.xTickY - 13
+      for (const bar of box.bars) if (bar.label && bar.value < 0) expect(bar.label.y + 2, `L1: ${bar.label.text}`).toBeLessThanOrEqual(bandEnd + 1e-9)
+    })
+    // §3.10: the value strip is collision-free by construction: each cell inside its slot, the first clear of
+    // the row's short name.
+    if (layout.view === 'expanded') {
+      model.strip.forEach((row, r) => {
+        expect(layout.stripRowY[r]).toBeGreaterThan(layout.stripTop!)
+        for (const [period, cell] of Object.entries(row.cells)) expect(textWidth(cell) + 4, `§3.10: ${row.short} ${period}`).toBeLessThanOrEqual(layout.slot + 1e-9)
+        const first = model.periods[0].key
+        expect(STRIP_LABEL_X + textWidth(row.short), `§3.10: ${row.short} clears its first cell`).toBeLessThanOrEqual(layout.x(first) - textWidth(row.cells[first]) / 2 - 2 + 1e-9)
+      })
+    }
+  }
+  // M9: palette slots and marker shapes in order over the series present; no slot skipped.
+  const drawn = model.panels.flatMap((panel) => panel.marks).filter((mark) => mark.kind !== 'growth')
+  if (chart !== 'topline') {
+    expect(drawn.map((mark) => mark.color)).toEqual(drawn.map((_, i) => i))
+    drawn.filter((mark) => mark.kind === 'line').forEach((mark, i) => expect(mark.marker).toBe(MARKERS[i]))
+  }
+  // A5: each band cell lists its letters in the footnotes' order (a … z, aa …).
+  const footnoteOrder = model.footnotes.map((note) => note.mark)
+  for (const cell of Object.values(model.notesBand ?? {})) {
+    const letters = cell.map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text))
+    expect(letters).toEqual([...letters].sort((a, b) => footnoteOrder.indexOf(a) - footnoteOrder.indexOf(b)))
+  }
+  // M7: every letter in the band is explained by a footnote, and every lettered footnote is in the band.
+  const bandLetters = new Set(Object.values(model.notesBand ?? {}).flat().map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text)))
+  const footnoteLetters = new Set(model.footnotes.map((note) => note.mark).filter((mark) => /^[a-z]+$/.test(mark)))
+  expect([...bandLetters].sort()).toEqual([...footnoteLetters].sort())
+  // D-061 (spec §3.3's note): a band letter is a note that questions the number; a gap's footnote leads with no
+  // letter, and no chart draws or keys a †, beside a name, a number or anywhere else (G6).
+  const byLetter = new Map((notes?.notes ?? []).map((note) => [note.letter, note]))
+  for (const letter of bandLetters) expect(noteMarksFigure(byLetter.get(letter)), `${letter} questions the number`).toBe(true)
+  const prose = [model.title, model.subtitle, ...model.legend.flatMap((item) => [item.label, item.value ?? '']),
+    ...model.panels.map((panel) => panel.caption ?? ''), ...model.footnotes.flatMap((note) => [note.mark, note.text])]
+  for (const text of prose) expect(text, 'G6').not.toContain('†')
+  // M18: every growth slot without a value is explained, as structural, unavailable or n/m.
+  if (chart === 'topline') {
+    const growth = model.panels[1].marks[0].points
+    if (growth.some((point) => point.value == null && !point.nm)) expect(model.footnotes.some((note) => note.mark === '—')).toBe(true)
+    if (growth.some((point) => point.nm)) expect(model.footnotes.some((note) => note.mark === 'n/m')).toBe(true)
+  }
+  if (model.panels.some((panel) => panel.marks.some((mark) => mark.kind === 'line' && mark.points.some((point) => point.offscale)))) {
+    expect(model.footnotes.some((note) => note.mark === '↓↑')).toBe(true)
+  }
+}
+
 describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source }) => {
   for (const chart of CHART_IDS) for (const view of ['card', 'expanded'] as const) {
     it(`${chart} · ${view}`, () => {
       const ds = structuredClone(source)
       const notes = resolveDataNotes(ds)
-      const model = buildChartModel(chart, ds, notes)
-      if (model.unavailable) {
-        expect(model.panels, 'a chart that does not apply draws nothing').toEqual([])
-        expect(model.unavailable.length).toBeGreaterThan(20)
-        return
-      }
-      const layouts = WIDTHS[view].map((width) => layoutChart(model, width, view))
-      // M8: the height depends on the view and mode only, so a card never shifts as its width settles.
-      expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
-      if (view === 'card') expect(layouts[0].height).toBe(320)
-      layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(WIDTHS[view][i], minChartWidth(model, view))))
-      for (const [i, layout] of layouts.entries()) {
-        expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(MIN_SLOT - 1e-9)
-        // A4/A7: a chart widens past its container only as far as LABELLED_MAX_SLOT, and only when that gives its
-        // labels a tier; a chart that still prints none kept its minimum.
-        const fitSlot = (WIDTHS[view][i] - layout.gutter - 8) / model.periods.length
-        if (model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) expect(layout.slot, 'A7: widened at most to LABELLED_MAX_SLOT').toBeLessThanOrEqual(Math.max(fitSlot, LABELLED_MAX_SLOT) + 1e-9)
-        // A chart that still prints no labels took no widening, and its labels miss at its minimum too (so a wider
-        // container never loses labels its minimum holds).
-        const base = layout.gutter + 8 + MIN_SLOT * model.periods.length
-        const atMinimum = layoutChart(model, 0, view)
-        if (layout.valuesDontFit) {
-          expect(minChartWidth(model, view), 'A4: no widening for labels it cannot fit').toBe(base)
-          expect(atMinimum.valuesDontFit, 'A4: labels that miss at the container missed at the minimum').toBe(true)
-        }
-        const texts = svgStrings(model, layout)
-        for (const text of texts) {
-          expect(text, 'M12: glyphs Geist Mono carries').toMatch(SVG_GLYPHS)
-          expect(text, 'the typographic apostrophe (spec §0.4 row 27)').not.toContain("'")
-        }
-        for (const box of layout.panels) {
-          const { ticks, step, domain, format } = box.panel.axis
-          ticks.slice(1).forEach((tick, i) => expect(Math.abs(tick - ticks[i] - step), 'M1: uniform ticks').toBeLessThan(step * 1e-6))
-          expect(ticks, 'M2: zero is a tick').toContain(0)
-          expect(ticks.length - 1, 'A1: the tick cap').toBeLessThanOrEqual(box.panel.nmax)
-          // M4: tick labels are 11 px (a 13 px line box), so gridlines keep at least 17 px apart; the tightest
-          // is the quarterly card's growth panel, 70 px over its cap of 4.
-          if (ticks.length > 1) expect(Math.abs(box.y(ticks[1]) - box.y(ticks[0])), 'M4: gridline spacing').toBeGreaterThanOrEqual(17)
-          const labels = ticks.map(format.tick)
-          expect(new Set(labels.filter((label) => /[1-9]/.test(label)).map((label) => label.replace(/[^KMBT%]/g, ''))).size, 'M3: one unit per axis').toBeLessThanOrEqual(1)
-          expect(labels[ticks.indexOf(0)], 'M3: zero prints bare').toMatch(/^(\$0|0%)$/)
-          if (format.kind === 'money') {
-            // M3: a money axis takes the next unit before a tick needs four integer digits ("$1,000M" reads "$1B").
-            for (const label of labels) expect(label.replace(/[^\d.]/g, '').split('.')[0].length, `M3: ${label}`).toBeLessThanOrEqual(3)
-          }
-          expect(Math.max(...labels.map(textWidth)) + 8, 'M5: the gutter holds the widest tick').toBeLessThanOrEqual(layout.gutter + 1e-9)
-          const percent = format.kind !== 'money'
-          for (const mark of box.panel.marks) for (const point of mark.points) {
-            if (point.value == null) continue
-            const outside = point.value > domain[1] + 1e-9 || point.value < domain[0] - 1e-9
-            if (percent) expect(Boolean(point.offscale), `M11: ${mark.label} ${point.period} is flagged exactly when it leaves the axis`).toBe(outside)
-            else expect(outside, `M11: amounts never clip (${mark.label} ${point.period})`).toBe(false)
-          }
-          for (const band of [box.offAbove, box.offBelow]) for (const item of band?.items ?? []) {
-            expect(item.left, 'L1: off-scale text starts inside the SVG').toBeGreaterThanOrEqual(0)
-            expect(item.left + OFF_GLYPH + textWidth(item.text), 'L1: and ends inside it').toBeLessThanOrEqual(layout.width)
-          }
-          const labelled = box.panel.marks.find((mark) => mark.labelled)
-          if (labelled && layout.width >= 502) expect(box.labels.decimals, 'A4: a label tier fits at card width').not.toBeNull()
-          // M10: one scale per panel, so the drawn order of two series is their true order.
-          const lines = box.panel.marks.filter((mark) => mark.kind === 'line')
-          for (let a = 0; a < lines.length; a++) for (let b = a + 1; b < lines.length; b++) {
-            for (const p of lines[a].points) {
-              const q = lines[b].points.find((other) => other.period === p.period)
-              if (p.value == null || q?.value == null || p.offscale || q.offscale || p.value === q.value) continue
-              expect(Math.sign(box.y(q.value) - box.y(p.value)), `M10: ${p.period}`).toBe(Math.sign(p.value - q.value))
-            }
-          }
-          // A13 and M21: every bar sits on its slot centre, anchored at the zero rule on its value's side and
-          // never across it, at least 2 px long; the 2 px minimum is drawn exactly when the true length is shorter.
-          const pointOf = (seriesKey: string, period: string) => box.panel.marks.find((mark) => mark.seriesKey === seriesKey)!.points.find((point) => point.period === period)!
-          for (const bar of box.bars) {
-            const point = pointOf(bar.seriesKey, bar.period)
-            expect(bar.x + bar.width / 2, 'M13: on the slot centre').toBeCloseTo(layout.x(bar.period), 9)
-            expect(bar.height, 'A13: at least 2 px').toBeGreaterThanOrEqual(2)
-            if (bar.value >= 0) expect(bar.y + bar.height, `M21: ${bar.seriesKey} ${bar.period} rests on the zero rule`).toBeCloseTo(bar.zero, 9)
-            else expect(bar.y, `M21: ${bar.seriesKey} ${bar.period} hangs from the zero rule`).toBeCloseTo(bar.zero, 9)
-            expect(bar.stub, 'A13: the stub stands for a true length under 2 px').toBe(Math.abs(box.y(Math.max(domain[0], Math.min(domain[1], bar.value))) - bar.zero) < 2)
-            expect(bar.clipped, 'a clipped bar is an off-scale value').toBe(Boolean(point.offscale))
-            const printed = box.panel.marks.find((mark) => mark.seriesKey === bar.seriesKey)!.labelled && box.labels.decimals != null
-            expect(Boolean(bar.label), 'A4: every bar of a labelled panel prints its value, or none does').toBe(printed)
-            if (bar.label) expect(bar.label.text).toBe(format.value(bar.value, box.labels.decimals!))
-          }
-          // A4, checked apart from its planner: printed bar labels stay inside the SVG and clear of each other,
-          // each an 11 px line box (9 px above its baseline, 2 below) with 1 px between any two.
-          const boxes = box.bars.flatMap((bar) => bar.label ? [{ ...bar.label, x: bar.x + bar.width / 2, w: textWidth(bar.label.text) }] : [])
-          for (const a of boxes) {
-            expect(a.x - a.w / 2, `L1: the ${a.text} label starts inside the SVG`).toBeGreaterThanOrEqual(0)
-            expect(a.x + a.w / 2, `L1: the ${a.text} label ends inside it`).toBeLessThanOrEqual(layout.width)
-          }
-          boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b) => {
-            const apart = a.x + a.w / 2 + 1 <= b.x - b.w / 2 || b.x + b.w / 2 + 1 <= a.x - a.w / 2 || a.y + 2 + 1 <= b.y - 9 || b.y + 2 + 1 <= a.y - 9
-            expect(apart, `A4: the ${a.text} and ${b.text} labels overlap`).toBe(true)
-          }))
-          // M18: a bar slot without a value prints "—", or "n/m" when the growth is not meaningful.
-          const barMarks = box.panel.marks.filter((mark) => mark.kind !== 'line')
-          expect(box.bars.length + box.gaps.length, 'every bar slot is a bar or a printed gap').toBe(barMarks.reduce((sum, mark) => sum + mark.points.length, 0))
-          for (const gap of box.gaps) expect(gap.text).toBe(barMarks.some((mark) => mark.points.some((point) => point.period === gap.period && point.nm)) ? 'n/m' : '—')
-          // M13: every non-zero signed stub prints its value or records the drop (its value is then in the strip).
-          for (const bar of box.bars) {
-            if (!bar.stub || bar.value === 0 || !box.panel.marks.some((mark) => mark.seriesKey === bar.seriesKey && mark.kind === 'signedBar')) continue
-            expect(box.nearZero.some((label) => label.period === bar.period) !== box.nearZeroDropped.includes(bar.period), `M13: ${bar.period}`).toBe(true)
-          }
-          // A13b: a non-zero signed bar too short to show its sign prints its value, with the sign.
-          for (const label of box.nearZero) {
-            const point = box.panel.marks[0].points.find((p) => p.period === label.period)!
-            expect(Math.abs(box.y(point.value!) - box.y(0))).toBeLessThan(2)
-            expect(label.text.startsWith(MINUS)).toBe(point.value! < 0)
-          }
-        }
-        const glyphs = noteGlyphs(model, layout)
-        for (const glyph of glyphs) {
-          expect(Math.abs(glyph.x - layout.x(glyph.period)) + textWidth(glyph.text) / 2, 'M6: note glyphs fit their slot').toBeLessThanOrEqual(layout.slot / 2)
-        }
-        glyphs.forEach((a, i) => glyphs.slice(i + 1).filter((b) => b.period === a.period).forEach((b) => {
-          expect(Math.abs(a.x - b.x) - (textWidth(a.text) + textWidth(b.text)) / 2, `A5: ${a.text} and ${b.text} keep apart`).toBeGreaterThanOrEqual(1.5 - 1e-9)
-        }))
-        expect(layout.valuesDontFit, 'A4: the card says so exactly when a labelled panel prints no labels')
-          .toBe(layout.panels.some((box) => box.panel.marks.some((mark) => mark.labelled) && box.labels.decimals == null))
-        // L1: a label below a negative bar keeps inside its panel's band: its baseline, plus a descent, above the end
-        // of the panel's bottom pad (the gap before the next panel, or the period axis).
-        layout.panels.forEach((box, i) => {
-          const next = layout.panels[i + 1]
-          const bandEnd = next ? next.regionTop - (layout.view === 'expanded' ? 16 : 10) : layout.xTickY - 13
-          for (const bar of box.bars) if (bar.label && bar.value < 0) expect(bar.label.y + 2, `L1: ${bar.label.text}`).toBeLessThanOrEqual(bandEnd + 1e-9)
-        })
-        // §3.10: the value strip is collision-free by construction: each cell inside its slot, the first clear of
-        // the row's short name.
-        if (layout.view === 'expanded') {
-          model.strip.forEach((row, r) => {
-            expect(layout.stripRowY[r]).toBeGreaterThan(layout.stripTop!)
-            for (const [period, cell] of Object.entries(row.cells)) expect(textWidth(cell) + 4, `§3.10: ${row.short} ${period}`).toBeLessThanOrEqual(layout.slot + 1e-9)
-            const first = model.periods[0].key
-            expect(STRIP_LABEL_X + textWidth(row.short), `§3.10: ${row.short} clears its first cell`).toBeLessThanOrEqual(layout.x(first) - textWidth(row.cells[first]) / 2 - 2 + 1e-9)
-          })
-        }
-      }
-      // M9: palette slots and marker shapes in order over the series present; no slot skipped.
-      const drawn = model.panels.flatMap((panel) => panel.marks).filter((mark) => mark.kind !== 'growth')
-      if (chart !== 'topline') {
-        expect(drawn.map((mark) => mark.color)).toEqual(drawn.map((_, i) => i))
-        drawn.filter((mark) => mark.kind === 'line').forEach((mark, i) => expect(mark.marker).toBe(MARKERS[i]))
-      }
-      // A5: each band cell lists its letters in the footnotes' order (a … z, aa …).
-      const footnoteOrder = model.footnotes.map((note) => note.mark)
-      for (const cell of Object.values(model.notesBand ?? {})) {
-        const letters = cell.map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text))
-        expect(letters).toEqual([...letters].sort((a, b) => footnoteOrder.indexOf(a) - footnoteOrder.indexOf(b)))
-      }
-      // M7: every letter in the band is explained by a footnote, and every lettered footnote is in the band.
-      const bandLetters = new Set(Object.values(model.notesBand ?? {}).flat().map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text)))
-      const footnoteLetters = new Set(model.footnotes.map((note) => note.mark).filter((mark) => /^[a-z]+$/.test(mark)))
-      expect([...bandLetters].sort()).toEqual([...footnoteLetters].sort())
-      // D-061 (spec §3.3's note): a band letter is a note that questions the number; a gap's footnote leads with no
-      // letter, and no chart draws or keys a †, beside a name, a number or anywhere else (G6).
-      const byLetter = new Map(notes.notes.map((note) => [note.letter, note]))
-      for (const letter of bandLetters) expect(noteMarksFigure(byLetter.get(letter)), `${letter} questions the number`).toBe(true)
-      const prose = [model.title, model.subtitle, ...model.legend.flatMap((item) => [item.label, item.value ?? '']),
-        ...model.panels.map((panel) => panel.caption ?? ''), ...model.footnotes.flatMap((note) => [note.mark, note.text])]
-      for (const text of prose) expect(text, 'G6').not.toContain('†')
-      // M18: every growth slot without a value is explained, as structural, unavailable or n/m.
-      if (chart === 'topline') {
-        const growth = model.panels[1].marks[0].points
-        if (growth.some((point) => point.value == null && !point.nm)) expect(model.footnotes.some((note) => note.mark === '—')).toBe(true)
-        if (growth.some((point) => point.nm)) expect(model.footnotes.some((note) => note.mark === 'n/m')).toBe(true)
-      }
-      if (model.panels.some((panel) => panel.marks.some((mark) => mark.kind === 'line' && mark.points.some((point) => point.offscale)))) {
-        expect(model.footnotes.some((note) => note.mark === '↓↑')).toBe(true)
-      }
+      expectModelChecks(buildChartModel(chart, ds, notes), view, { chart, notes })
     })
   }
 })
+
+describe.each(BAR_CASES)('%s: the spec model checks on a bar chart (barChart.ts)', (_name, def) => {
+  for (const view of ['card', 'expanded'] as const) {
+    it(view, () => expectModelChecks(buildBarChart(def), view, { widths: BAR_WIDTHS[view], svgGlyphs: BAR_GLYPHS, zero: bareZero }))
+  }
+})
+
 
 const ADVANCE_HALF = 3.3
 
@@ -498,38 +538,144 @@ describe('the cases the step-1 data required', () => {
   })
 })
 
+describe('a one-metric bar chart (barChart.ts): Financial trends on the engine (E195 (D))', () => {
+  const bars = (name: string, change?: (def: BarChartDef) => void) => {
+    const def = barDef(name)
+    change?.(def)
+    return buildBarChart(def)
+  }
+
+  it('AAPL filing 3: each metric on its own axis and in its own form, one bar mark in chart-1 printing every value', () => {
+    for (const [name] of BAR_CASES) {
+      const m = bars(name)
+      expect([m.mode, m.panels.length, m.panels[0].marks.map((mark) => [mark.kind, mark.color, mark.labelled]), m.legend, m.strip, m.notesBand], name)
+        .toEqual(['annual', 1, [['bar', 0, true]], [], [], null])
+    }
+    const revenue = bars('AAPL revenue')
+    expect(revenue.periods).toEqual([
+      { key: 'FY2023', tick: ['2023'], long: 'FY2023' }, { key: 'FY2024', tick: ['2024'], long: 'FY2024' }, { key: 'FY2025', tick: ['2025'], long: 'FY2025' },
+    ])
+    expect([ticks(revenue), labelsOf(revenue, 0)]).toEqual([['$0', '$100B', '$200B', '$300B', '$400B', '$500B'], ['$383B', '$391B', '$416B']])
+    const eps = bars('AAPL diluted EPS')
+    expect([ticks(eps), labelsOf(eps, 0)]).toEqual([['$0', '$2', '$4', '$6', '$8'], ['$6.13', '$6.08', '$7.46']])
+    const margin = bars('AAPL net margin')
+    expect([ticks(margin), labelsOf(margin, 0)]).toEqual([['0%', '10%', '20%', '30%'], ['25.3%', '24.0%', '26.9%']])
+    const ratio = bars('AAPL current ratio')
+    expect([ticks(ratio), labelsOf(ratio, 0)]).toEqual([['0×', '0.2×', '0.4×', '0.6×', '0.8×', '1.0×'], ['0.87×', '0.89×']])
+    const capital = bars('AAPL working capital')
+    expect([ticks(capital), labelsOf(capital, 0)]).toEqual([
+      [`${MINUS}$25B`, `${MINUS}$20B`, `${MINUS}$15B`, `${MINUS}$10B`, `${MINUS}$5B`, '$0'], [`${MINUS}$23.4B`, `${MINUS}$17.7B`],
+    ])
+    expect(labelsOf(bars('AAPL equity'), 0)).toEqual(['$50.7B', '$62.1B', '$57.0B', '$73.7B'])
+    expect(labelsOf(bars('Bank net interest income'), 0), 'a bank’s top line').toEqual(['$89.3B', '$92.6B', '$95.4B'])
+    expect(labelsOf(bars('One-year revenue'), 0)).toEqual(['$1.23B'])
+  })
+
+  it('a withheld year keeps its slot and prints "—", and a chart with no value draws its zero rule alone', () => {
+    expect(labelsOf(bars('Penny diluted EPS'), 0)).toEqual(['$0.31', '—', `${MINUS}$0.12`])
+    const withheld = bars('Withheld diluted EPS')
+    expect([ticks(withheld), labelsOf(withheld, 0), withheld.periods.map((period) => period.tick[0])]).toEqual([['$0'], ['—', '—', '—'], ['2023', '2024', '2025']])
+  })
+
+  it('amounts carry their filer’s currency: their unit’s own, a per-share unit’s, and no sign where the unit names none', () => {
+    expect([unitCurrency('USD'), unitCurrency('CNY/shares'), unitCurrency('pure'), unitCurrency('shares')]).toEqual([
+      { currency: 'USD', perShare: false }, { currency: 'CNY', perShare: true }, { currency: null, perShare: false }, { currency: null, perShare: false },
+    ])
+    const cny = bars('CNY revenue')
+    expect([ticks(cny), labelsOf(cny, 0)]).toEqual([['CN¥0', 'CN¥200B', 'CN¥400B', 'CN¥600B', 'CN¥800B'], ['CN¥612B', 'CN¥705B', 'CN¥782B']])
+    expect(labelsOf(bars('CNY diluted EPS'), 0)).toEqual(['CN¥2.31', 'CN¥2.67', 'CN¥3.05'])
+    const bare = bars('AAPL revenue', (def) => { def.axis = { kind: 'money', unit: 'pure' } })
+    expect([bare.panels[0].currency, ticks(bare)[1]]).toEqual([null, '100B'])
+  })
+
+  it('a per-share amount prints no finer than cents on its bar, and its tooltip in cents, as a filing states it', () => {
+    // A2's 3 significant figures would print "$0.310": cents are as fine as a per-share figure is filed.
+    expect(bars('Penny diluted EPS').panels[0].axis.format.d0).toBe(2)
+    expect(bars('Penny diluted EPS', (def) => { def.axis = { kind: 'money', unit: 'USD' } }).panels[0].axis.format.d0, 'an amount keeps A2’s 3 figures').toBe(3)
+    const { tip } = bars('AAPL diluted EPS').panels[0].axis.format
+    expect([tip(7.46), tip(-0.04), tip(123.45), tip(40_256.554), tip(0)]).toEqual(['$7.46', `${MINUS}$0.04`, '$123.45', '$40,256.55', '$0'])
+    // An amount's tooltip keeps 4 significant figures in its own unit.
+    expect([tooltipMoney(123.45, 'USD'), perShareMoney(123.45, 'USD'), perShareMoney(2.5, 'CNY')]).toEqual(['$123.5', '$123.45', 'CN¥2.50'])
+    // Under half a cent is A2's zero, unsigned, on the bar and in the tooltip alike.
+    const penny = bars('AAPL diluted EPS').panels[0].axis.format
+    expect([penny.value(-0.004), penny.tip(-0.004), penny.tip(0.004), penny.value(-0.006)]).toEqual(['$0', '$0', '$0', `${MINUS}$0.01`])
+    // Only an amount under half a cent: on a coarser tier (a $40 EPS beside a loss of 4 cents) a cent keeps its value.
+    const wide = bars('AAPL diluted EPS', (def) => { def.series.values = def.series.values.map((_, i) => (i === 0 ? -0.04 : 40)) }).panels[0].axis.format
+    expect([wide.d0, wide.value(-0.04), wide.value(-0.004), wide.tip(-0.04)]).toEqual([1, `${MINUS}$0.04`, '$0', `${MINUS}$0.04`])
+  })
+
+  it('a ratio prints ×: "0×" at zero, its ticks at the step’s decimals, 2 dp on its bars and in its tooltip', () => {
+    const format = ratioFormat(0.2)
+    expect([format.kind, format.d0, ...[0, 0.4, 1, 1.2].map(format.tick)]).toEqual(['ratio', 2, '0×', '0.4×', '1.0×', '1.2×'])
+    // A non-zero ratio never prints as a zero, at any tier: to its first significant figure where its tier rounds it away.
+    expect([format.value(0.8673), format.value(-1.5, 1), format.value(0.4, 0), format.value(1234.5), format.tip(0.8932929)])
+      .toEqual(['0.87×', `${MINUS}1.5×`, '0.4×', '1,234.50×', '0.89×'])
+    expect([format.value(0.004, 0), format.value(0.004, 1), format.value(0.004), format.tip(-0.004), format.value(0.04, 0)])
+      .toEqual(['0.004×', '0.004×', '0.004×', `${MINUS}0.004×`, '0.04×'])
+  })
+
+  it('a percent axis clips a bar far past its other years (A3): broken at the axis, it prints its true value, and a footnote says so', () => {
+    const note = { mark: '', text: 'Annual figures from SEC filings (XBRL).' }
+    const m = bars('Extreme net margin', (def) => { def.footnotes = [note] })
+    expect(m.panels[0].axis.domain).toEqual([-1250, 0])
+    expect(m.panels[0].marks[0].points.map((point) => point.offscale ?? null)).toEqual(['below', null, null])
+    const box = layoutChart(m, 502, 'card').panels[0]
+    expect(box.bars.map((bar) => [bar.period, bar.clipped, bar.label?.text])).toEqual([
+      ['FY2020', true, `${MINUS}18,093%`], ['FY2021', false, `${MINUS}1,126%`], ['FY2022', false, `${MINUS}679.2%`],
+    ])
+    expect(m.footnotes, 'the caller’s footnotes, then the break’s').toEqual([note, BROKEN_BARS])
+    expect(bars('AAPL net margin').footnotes, 'nothing clipped, nothing to say').toEqual([])
+  })
+
+  it('refuses a category key given twice, loudly, and values that do not match the categories', () => {
+    const def = barDef('AAPL revenue')
+    expect(() => buildBarChart({ ...def, categories: [def.categories[0], ...def.categories.slice(0, 2)] })).toThrow('the category key "FY2023" appears twice')
+    expect(() => buildBarChart({ ...def, series: { ...def.series, values: def.series.values.slice(1) } })).toThrow('2 values for 3 categories')
+  })
+
+  it('a chart that does not apply says why and draws nothing', () => {
+    const m = bars('AAPL revenue', (def) => { def.unavailable = 'No multi-year data available for this metric.' })
+    expect([m.panels, m.footnotes, m.unavailable]).toEqual([[], [], 'No multi-year data available for this metric.'])
+  })
+})
+
 describe('reading a chart: the slot under a pointer, a period’s column and the sticky gutter (§3.9, A7)', () => {
+  /** One drawn model's slots, columns and sticky gutter at a phone's and a desktop card's width. */
+  function expectReading(model: ChartModel) {
+    for (const width of [342, 502]) {
+      const layout = layoutChart(model, width, 'card')
+      // §3.9's hit target: every x of a slot's full width reads its period, and nothing in the gutter or right pad.
+      model.periods.forEach((period, i) => {
+        const column = columnOf(layout, period.key)
+        expect(column.width).toBe(layout.slot)
+        expect(column.left + column.width / 2).toBeCloseTo(layout.x(period.key), 9)
+        for (const x of [column.left + 0.001, layout.x(period.key), column.left + column.width - 0.001]) expect(slotAt(layout, x)).toBe(i)
+      })
+      expect(slotAt(layout, layout.plotLeft - 0.001)).toBeNull()
+      expect(slotAt(layout, layout.plotRight)).toBeNull()
+      // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut.
+      expect(gutterCover(layout, 0)).toBe(layout.plotLeft)
+      for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width]) {
+        const cover = gutterCover(layout, scroll)
+        expect(cover).toBeGreaterThanOrEqual(layout.plotLeft - 1e-9)
+        expect(cover).toBeLessThan(layout.plotLeft + layout.slot)
+        const boundary = (scroll + cover - layout.plotLeft) / layout.slot
+        expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+      }
+      expect(gutterOverlayWidth(layout)).toBe(Math.max(layout.plotLeft, ...layout.panels.map(captionBacking)))
+      for (const box of layout.panels) {
+        if (box.captionY != null && box.panel.caption) expect(captionBacking(box)).toBeGreaterThanOrEqual(textWidth(box.panel.caption) + 4)
+      }
+    }
+  }
+
   it.each(DATASETS.map(([name]) => name))('%s', (name) => {
     for (const chart of CHART_IDS) {
       const model = buildChartModel(chart, dataset(name))
-      if (model.unavailable) continue
-      for (const width of [342, 502]) {
-        const layout = layoutChart(model, width, 'card')
-        // §3.9's hit target: every x of a slot's full width reads its period, and nothing in the gutter or right pad.
-        model.periods.forEach((period, i) => {
-          const column = columnOf(layout, period.key)
-          expect(column.width).toBe(layout.slot)
-          expect(column.left + column.width / 2).toBeCloseTo(layout.x(period.key), 9)
-          for (const x of [column.left + 0.001, layout.x(period.key), column.left + column.width - 0.001]) expect(slotAt(layout, x)).toBe(i)
-        })
-        expect(slotAt(layout, layout.plotLeft - 0.001)).toBeNull()
-        expect(slotAt(layout, layout.plotRight)).toBeNull()
-        // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut.
-        expect(gutterCover(layout, 0)).toBe(layout.plotLeft)
-        for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width]) {
-          const cover = gutterCover(layout, scroll)
-          expect(cover).toBeGreaterThanOrEqual(layout.plotLeft - 1e-9)
-          expect(cover).toBeLessThan(layout.plotLeft + layout.slot)
-          const boundary = (scroll + cover - layout.plotLeft) / layout.slot
-          expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
-        }
-        expect(gutterOverlayWidth(layout)).toBe(Math.max(layout.plotLeft, ...layout.panels.map(captionBacking)))
-        for (const box of layout.panels) {
-          if (box.captionY != null && box.panel.caption) expect(captionBacking(box)).toBeGreaterThanOrEqual(textWidth(box.panel.caption) + 4)
-        }
-      }
+      if (!model.unavailable) expectReading(model)
     }
   })
+  it.each(BAR_CASES.map(([name]) => name))('%s (a bar chart)', (name) => expectReading(buildBarChart(barDef(name))))
 })
 
 describe('A7’s sticky gutter never shows a printed value in part, at any scroll', () => {
@@ -555,33 +701,38 @@ describe('A7’s sticky gutter never shows a printed value in part, at any scrol
     return boxes
   }
 
-  it.each(DATASETS.map(([name]) => name))('%s', (name) => {
-    for (const chart of CHART_IDS) {
-      const model = buildChartModel(chart, dataset(name))
-      if (model.unavailable) continue
-      for (const view of ['card', 'expanded'] as const) for (const viewport of [300, 342]) {
-        const layout = layoutChart(model, viewport, view)
-        const boxes = texts(model, layout)
-        // Only a bar label and an off-scale value run past their column; the cover takes every other text with its column.
-        for (const box of boxes) if (box.kind !== 'bar label' && box.kind !== 'off-scale') {
-          const column = columnOf(layout, box.period)
-          expect(box.x0, `${chart} ${view}: ${box.kind} inside its column`).toBeGreaterThanOrEqual(column.left - 1e-9)
-          expect(box.x1, `${chart} ${view}: ${box.kind} inside its column`).toBeLessThanOrEqual(column.left + column.width + 1e-9)
-        }
-        for (let scroll = 1; scroll <= layout.width - viewport; scroll += 1.5) {
-          const cover = gutterCover(layout, scroll)
-          const edge = scroll + cover
-          const cuts = gutterCuts(layout, scroll, cover)
-          for (const box of boxes) {
-            if (box.x0 >= edge || box.x1 <= edge) continue
-            // Cut by the edge: the rest of its box lies under a cut the gutter draws.
-            const hidden = cuts.some((cut) => cut.x <= cover + 1e-9 && cut.x + cut.width >= box.x1 - scroll - 1e-9 && cut.y <= box.y0 + 1e-9 && cut.y + cut.height >= box.y1 - 1e-9)
-            expect(hidden, `${chart} ${view} at ${scroll}: a ${box.kind} shows in part`).toBe(true)
-          }
+  /** One drawn model's texts at two phone widths, card and expanded, against every scroll the plan allows. */
+  function expectNoPartialValue(model: ChartModel, name: string) {
+    for (const view of ['card', 'expanded'] as const) for (const viewport of [300, 342]) {
+      const layout = layoutChart(model, viewport, view)
+      const boxes = texts(model, layout)
+      // Only a bar label and an off-scale value run past their column; the cover takes every other text with its column.
+      for (const box of boxes) if (box.kind !== 'bar label' && box.kind !== 'off-scale') {
+        const column = columnOf(layout, box.period)
+        expect(box.x0, `${name} ${view}: ${box.kind} inside its column`).toBeGreaterThanOrEqual(column.left - 1e-9)
+        expect(box.x1, `${name} ${view}: ${box.kind} inside its column`).toBeLessThanOrEqual(column.left + column.width + 1e-9)
+      }
+      for (let scroll = 1; scroll <= layout.width - viewport; scroll += 1.5) {
+        const cover = gutterCover(layout, scroll)
+        const edge = scroll + cover
+        const cuts = gutterCuts(layout, scroll, cover)
+        for (const box of boxes) {
+          if (box.x0 >= edge || box.x1 <= edge) continue
+          // Cut by the edge: the rest of its box lies under a cut the gutter draws.
+          const hidden = cuts.some((cut) => cut.x <= cover + 1e-9 && cut.x + cut.width >= box.x1 - scroll - 1e-9 && cut.y <= box.y0 + 1e-9 && cut.y + cut.height >= box.y1 - 1e-9)
+          expect(hidden, `${name} ${view} at ${scroll}: a ${box.kind} shows in part`).toBe(true)
         }
       }
     }
+  }
+
+  it.each(DATASETS.map(([name]) => name))('%s', (name) => {
+    for (const chart of CHART_IDS) {
+      const model = buildChartModel(chart, dataset(name))
+      if (!model.unavailable) expectNoPartialValue(model, chart)
+    }
   })
+  it.each(BAR_CASES.map(([name]) => name))('%s (a bar chart)', (name) => expectNoPartialValue(buildBarChart(barDef(name)), name))
 })
 
 describe('amounts carry their filer’s currency, never a default dollar sign', () => {

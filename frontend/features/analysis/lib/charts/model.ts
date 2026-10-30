@@ -95,7 +95,8 @@ export interface StripRow {
 }
 
 export interface ChartModel {
-  id: ChartId
+  /** The chart's name in the model: an analysis chart's ChartId, a bar chart's own (barChart.ts). Nothing reads it. */
+  id: string
   title: string
   subtitle: string
   mode: AnalysisDataset['mode']
@@ -228,7 +229,9 @@ function moneyPanel(id: string, caption: string | null, weight: number, nmax: nu
   return { id, caption, weight, nmax, marks, currency, axis: valueAxis(valuesIn(marks), nmax, 'money', currency) }
 }
 
-function percentPanel(id: string, caption: string | null, weight: number, nmax: number, marks: ModelMark[], signed: boolean): ModelPanel {
+/** A percent panel: A3 clips its outliers when they would own most of the axis and flags each clipped point `offscale`.
+ *  Its marks must print every clipped value: a line's in its off-scale band, a bar's on its label (scale.ts valueAxis). */
+export function percentPanel(id: string, caption: string | null, weight: number, nmax: number, marks: ModelMark[], signed: boolean): ModelPanel {
   const cut = outlierCut(marks.map((mark) => mark.points.map((point) => point.value).filter((value): value is number => value != null)))
   const inRange = marks.flatMap((mark, i) => mark.points.map((point) => point.value).filter((value): value is number => value != null && cut.inRange(value, i)))
   const axis = valueAxis(inRange, nmax, signed ? 'growth' : 'percent')

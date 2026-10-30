@@ -3046,7 +3046,7 @@ APCA floor (marks and the zero rule 45, text 60, printed values 75, gridlines 10
 wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
 take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
-latin and latin-ext faces are in, or 1,500 ms pass (G4): `TrendChartsV2.tsx` loads and checks `11px "Geist Mono"` with
+latin and latin-ext faces are in, or 1,500 ms pass (G4): `useChartFont.ts` loads and checks `11px "Geist Mono"` with
 the text `0₹₪₱`, since with no text the Font Loading API takes the latin face alone, so no sign a plot prints swaps on
 it (G3) and no route preloads latin-ext (spec §0.5). No plot prints † (D-061, E194). Past the wait a plot paints in the loader's monospace fallback (§8),
 whose glyphs share one advance as the plan's widths assume. Every chart keeps its 320 px card,
