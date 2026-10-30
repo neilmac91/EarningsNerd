@@ -2205,14 +2205,17 @@ const readAlone = (reading: Reading, from: number, to: number, drops: Array<[num
     than one such group, a clause of its own or a bare infinitive its clause takes, so only a group that stands alone
     in the span is the clause's: where two do, either may be, and the sentence reads as on main ("when it is not
     clear whether it signs everyone out | renews the session": Codex on 1d2c94ac; "when we do not let clients end
-    every session | stay open": Codex on 0757abf7). The words are read one by one, not as noun phrases, since the
-    reader reads a verb after an adjective as a noun ("valid signs"). -1 where none starts in the condition, or more
-    than one. */
+    every session | stay open": Codex on 0757abf7). So it does where a negation stands between the condition's own
+    clause and that group, which may be the group's own and would go with the condition ("when it is needed | never by
+    itself ends every session": Codex on 878ce42e). The words are read one by one, not as noun phrases, since the
+    reader reads a verb after an adjective as a noun ("valid signs"). -1 where none starts in the condition, more than
+    one does, or a negation stands before it. */
 const clauseVerbPast = (tokens: Token[], condition: Condition, plural: boolean): number => {
   const own = conditionClauseAt(tokens, condition)
   if (!own) return -1
+  const from = verbGroupAt(tokens, own.predicate).verb + 1
   let found = -1
-  for (let k = verbGroupAt(tokens, own.predicate).verb + 1; k < condition.end; k++) {
+  for (let k = from; k < condition.end; k++) {
     if (!startsVerbGroup(tokens, k)) continue
     const group = verbGroupAt(tokens, k)
     if (tokens[k - 1]?.lower !== 'to' && finiteFor(tokens, group, plural)) {
@@ -2221,7 +2224,7 @@ const clauseVerbPast = (tokens: Token[], condition: Condition, plural: boolean):
     }
     k = group.verb
   }
-  return found
+  return found >= 0 && tokens.slice(from, found).some((token, j) => negates(token, tokens[from + j + 1])) ? -1 : found
 }
 /** The forms of an auxiliary that lead no finite verb group ("worth having ended every session", "being seen ending"). */
 const NON_FINITE = /^(?:be|been|being|having)$/i
@@ -2476,7 +2479,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (421 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (423 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4581,6 +4584,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out when it is not clear whether it ends every session clears cookies.</li>', false],
       ['<li>Sessions when we do not make clients happy end within 30 minutes of logging out.</li>', true],
       ['<li>Sessions when users do not see the banner end within 30 minutes of logging out.</li>', true],
+      // A negation between the condition's own clause and the clause's verb may be the verb's own, so the sentence reads
+      // as on main (Codex on 878ce42e).
+      ['<li>Logging out when it is needed never by itself ends every session.</li>', false],
+      ['<li>Reusing a refresh token when it is invalid never on its own signs everyone out.</li>', false],
       // Conditions in a run before the verb, in commas or not, are read past together (the routine lens on fb7cf414).
       ['<li>Logging out when it is idle because it is not needed ends every session.</li>', true],
       ['<li>Reusing a refresh token, if you like, because it is not valid signs everyone out.</li>', true],
