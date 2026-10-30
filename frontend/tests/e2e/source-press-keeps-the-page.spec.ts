@@ -76,7 +76,6 @@ const column = (page: Page) =>
     const b = box.getBoundingClientRect()
     return {
       scrollTop: box.scrollTop,
-      overflow: box.scrollHeight - box.clientHeight,
       shellFoot: shell.bottom,
       foot: b.top + box.clientTop + box.clientHeight,
     }
@@ -147,28 +146,31 @@ test.describe('a press on Source keeps the page / 1100x800, a Pro reader on /fil
     await expect(composerIn(page)).toBeFocused()
     await twoFrames(page)
 
-    // The cell settles shorter than the column's content, as the pane can at a large text size: the column scrolls,
-    // and the composer comes to its foot.
-    await holdCell(page, 380)
+    // The cell settles shorter, as the pane can at a large text size: at 320px the column (92px less, under the pane's
+    // header) ends above the composer's shell, 263px into its content with its ring's margin. The column scrolls, and
+    // the shell comes to its foot, the least distance.
+    await holdCell(page, 320)
     await twoFrames(page)
     const settled = await column(page)
-    expect(settled.overflow, 'the column scrolls').toBeGreaterThan(40)
     expect(settled.scrollTop, 'the column brought the composer up').toBeGreaterThan(0)
     expect(settled.shellFoot, "the composer's shell ends inside the column").toBeLessThanOrEqual(settled.foot)
+    expect(settled.shellFoot, '... at its foot').toBeGreaterThan(settled.foot - 8)
 
     // Settling further keeps it there.
-    await holdCell(page, 350)
+    await holdCell(page, 300)
     await twoFrames(page)
     const further = await column(page)
     expect(further.scrollTop).toBeGreaterThan(settled.scrollTop)
     expect(further.shellFoot).toBeLessThanOrEqual(further.foot)
+    expect(further.shellFoot).toBeGreaterThan(further.foot - 8)
 
-    // The reader scrolls the column back up to read, focus still in the composer; the next settle leaves it there.
+    // The reader scrolls the column back up to read, focus still in the composer: the shell below its foot. The next
+    // settle leaves the column where they put it.
     await composerIn(page).evaluate((field) => {
       field.closest('form')!.parentElement!.scrollTop = 0
     })
     await twoFrames(page)
-    await holdCell(page, 330)
+    await holdCell(page, 290)
     await twoFrames(page)
     const kept = await column(page)
     expect(kept.scrollTop, "the reader's place in the column").toBe(0)
