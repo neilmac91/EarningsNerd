@@ -391,12 +391,18 @@ function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
     its context only a participle in a clause's subject, so that clause keeps its logout (the third lens on 84003ff5). */
 function negatedParticipleEnd(tokens: Token[], from: number): number {
   const preposition = (token: Token | undefined) => PREPOSITIONS.has(lower(token)) || lower(token) === 'following'
+  const modifies = (token: Token | undefined) => isAdverb(token) || lower(token) === 'first'
   /** Where a gerund after a preposition ends, past the adverbs before it, read from the token after the preposition:
-      0 where none stands there. */
+      0 where none stands there. A perfect gerund takes its participle with it ("without having obtained your permission
+      | are collected": Codex on c38dbf9f). */
   const gerundEnd = (at: number) => {
     let j = at
-    while (isAdverb(tokens[j]) || lower(tokens[j]) === 'first') j++
-    return preposition(tokens[at - 1]) && /^[a-z]+ing$/.test(lower(tokens[j])) ? j + 1 : 0
+    while (modifies(tokens[j])) j++
+    if (!preposition(tokens[at - 1]) || !/^[a-z]+ing$/.test(lower(tokens[j]))) return 0
+    if (lower(tokens[j]) !== 'having') return j + 1
+    let k = j + 1
+    while (modifies(tokens[k])) k++
+    return PAST_FORMS.has(lower(tokens[k])) || /^[a-z]{3,}ed$/.test(lower(tokens[k])) ? k + 1 : j + 1
   }
   let i = from
   while (i < tokens.length && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) {
