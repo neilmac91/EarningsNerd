@@ -110,7 +110,9 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
     now = utcnow()
     with SessionLocal() as db:
         _lock_timeout(db)
-        filing = db.query(Filing).filter(Filing.id == filing_id).with_for_update().first()
+        # NO KEY UPDATE still serializes admission on the filing, while allowing
+        # the finalizer's Summary FK KEY SHARE under its job lock (avoids inversion).
+        filing = db.query(Filing).filter(Filing.id == filing_id).with_for_update(key_share=True).first()
         if filing is None:
             raise SummaryJobUnavailable("Filing not found", code="filing_not_found", status_code=404)
         user = None
@@ -118,6 +120,9 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
             user = db.query(User).options(joinedload(User.subscription)).filter(User.id == user_id).first()
             if user is None or not user.is_active:
                 raise SummaryJobUnavailable("The generation account is unavailable", code="summary_account_unavailable", status_code=403)
+        # A worker may be committing its Summary while we wait for this lock.
+        # Read readiness only after the wait, from the same committed job outcome.
+        row = db.query(SummaryJob).filter(SummaryJob.filing_id == filing_id).with_for_update().first()
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         ready = summary is not None and is_summary_ready(
             source_safe_business_overview(summary, filing), (summary.raw_summary if isinstance(summary.raw_summary, dict) else {}).get("writer_error"),
@@ -126,7 +131,6 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
             return JobView(None, filing_id, 0, "complete", "completed", summary.id, None, None)
         if force and ready and not system and not get_entitlements(user).has_unlimited_summaries:
             raise SummaryJobUnavailable("Regenerating a summary is a Pro feature.", code="summary_refresh_requires_pro", status_code=403)
-        row = db.query(SummaryJob).filter(SummaryJob.filing_id == filing_id).with_for_update().first()
         if row is not None and row.status in {"queued", "running", "retry_wait"}:
             return _view(row)
         if row is not None and row.status == "failed":

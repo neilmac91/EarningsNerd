@@ -53,7 +53,10 @@ from app.services.summary_schema import TRACKED_SECTIONS_V2
 # Gate: tests/unit/test_summary_stages_seams.py (every ``pipeline.<name>`` a stage uses must exist here).
 import time  # noqa: F401
 from app.error_codes import ErrorCode  # noqa: F401
-from app.services.edgar.exceptions import EdgarError, EdgarRateLimitError  # noqa: F401
+from app.services.edgar.exceptions import (  # noqa: F401
+    EdgarError, EdgarRateLimitError, EdgarNetworkError, FilingNotFoundError,
+)
+from app.services.edgar.circuit_breaker import CircuitOpenError, edgar_circuit_breaker  # noqa: F401
 from app.services.sec_rate_limiter import SECRateLimiter  # noqa: F401
 # Keep the existing dispatch seam for lifecycle tests while tracking actual worker futures.
 from app.services.request_work import RequestWork, run_owned_sync as run_in_threadpool  # noqa: F401

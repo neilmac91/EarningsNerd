@@ -15,7 +15,6 @@ import httpx
 
 from app import database
 from app.services import summary_pipeline as pipeline
-from app.services.edgar.exceptions import EdgarNetworkError, FilingNotFoundError
 
 if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstring on import order
     from app.services.summary_stages.generation_run import GenerationRun
@@ -49,6 +48,11 @@ def _source_failure_details(error: Exception) -> tuple[pipeline.ErrorCode, int |
         if isinstance(current, pipeline.EdgarRateLimitError):
             limited = True
             delay = delay if delay is not None else current.retry_after
+        if isinstance(current, pipeline.CircuitOpenError):
+            # A half-open probe denial has no timestamp: use the breaker's own
+            # configured recovery period rather than retrying immediately.
+            delay = (current.time_until_recovery if current.time_until_recovery is not None
+                     else pipeline.edgar_circuit_breaker.config.recovery_timeout)
         if isinstance(current, httpx.HTTPStatusError):
             status = current.response.status_code
             delay = pipeline.SECRateLimiter._retry_after_seconds(current)
@@ -70,7 +74,8 @@ def _source_retryable(error: Exception, status: int | None) -> bool:
         if current is None or id(current) in seen:
             break
         seen.add(id(current))
-        if isinstance(current, (EdgarNetworkError, FilingNotFoundError, httpx.TransportError, TimeoutError)):
+        if isinstance(current, (pipeline.EdgarNetworkError, pipeline.FilingNotFoundError, pipeline.CircuitOpenError,
+                                httpx.TransportError, TimeoutError)):
             return True
         current = current.cause if isinstance(current, pipeline.EdgarError) and current.cause else current.__cause__
     return False

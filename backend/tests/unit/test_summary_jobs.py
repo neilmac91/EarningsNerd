@@ -444,3 +444,27 @@ async def test_deactivated_account_is_terminal_before_provider(user_id):
         summarize.assert_not_awaited()
     assert store.read_job(view.job_id, view.generation).status == "failed"
     assert _usage(user_id) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("remaining", [None, 90.4])
+@pytest.mark.parametrize("wrapped", [False, True])
+async def test_open_breaker_is_retryable_with_typed_remaining_cooldown(user_id, monkeypatch, remaining, wrapped):
+    from app.services import summary_pipeline as pipeline
+    view = _new(user_id)
+    monkeypatch.setattr(pipeline.edgar_circuit_breaker.config, "recovery_timeout", 43)
+    error = pipeline.CircuitOpenError("sec_edgar", time_until_recovery=remaining)
+    if wrapped:
+        error = pipeline.EdgarError("document unavailable", cause=error)
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+    before = utcnow()
+    with stream_boundaries() as provider, monkeypatch.context() as local_patch:
+        local_patch.setattr(pipeline.sec_edgar_service, "get_filing_document", AsyncMock(side_effect=error))
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        provider.assert_not_awaited()
+    retry = store.read_job(view.job_id, view.generation)
+    assert retry.status == "retry_wait" and retry.error_code == "filing_source_unavailable"
+    assert retry.retry_at >= before + timedelta(seconds=43 if remaining is None else 91)
+    assert _usage(user_id) == 0
+    enqueue.assert_awaited_once()

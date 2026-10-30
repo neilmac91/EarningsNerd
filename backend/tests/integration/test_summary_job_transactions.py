@@ -222,3 +222,39 @@ def test_system_daily_budget_serializes_fleet_admissions(factory, seeded, monkey
     with factory() as db:
         assert db.query(SummaryPreparationBudget).one().admissions == 1
         assert db.query(SummaryJob).count() == 1
+
+
+def test_join_during_final_result_commit_neither_deadlocks_nor_creates_second_job(postgres_engine, factory, seeded):
+    """A job waiter must allow the finalizer's FK lock and read readiness after its commit."""
+    from sqlalchemy import event
+    user_id, filing_id = seeded
+    view = store.ensure_job(filing_id, user_id)
+    lease = store.claim_job(view.job_id, view.generation)
+    waiting_for_job = Event()
+    with factory() as writer:
+        row = store.lock_job_for_result(writer, lease)
+        def before(conn, cursor, statement, parameters, context, executemany):
+            if "FROM earningsnerd_summary_jobs" in statement and "FOR UPDATE" in statement:
+                # ensure_job has already acquired its filing lock before this SELECT.
+                waiting_for_job.set()
+        event.listen(postgres_engine, "before_cursor_execute", before)
+        try:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                joining = pool.submit(store.ensure_job, filing_id, user_id)
+                assert waiting_for_job.wait(timeout=2)
+                try:
+                    summary = Summary(filing_id=filing_id, business_overview="Current committed summary.")
+                    writer.add(summary)
+                    writer.flush()  # obtains the FK's KEY SHARE on filings while holding the job lock
+                    store.settle_job_result(row, summary.id, "complete")
+                    writer.commit()
+                except BaseException:
+                    writer.rollback()  # release the job lock before joining the thread on test failure
+                    raise
+                observed = joining.result(timeout=5)
+                assert observed.status == "complete" and observed.summary_id == summary.id
+                assert not observed.created
+        finally:
+            event.remove(postgres_engine, "before_cursor_execute", before)
+    with factory() as db:
+        assert db.get(SummaryJob, view.job_id).generation == 1
