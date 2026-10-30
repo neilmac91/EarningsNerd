@@ -848,7 +848,7 @@ def test_a_login_whose_session_mint_fails_changes_nothing(
 @pytest.mark.requires_db
 @pytest.mark.parametrize("meanwhile", ["password_changed", "deactivated"])
 def test_a_login_whose_account_changed_while_it_hashed_is_refused(client, mail, monkeypatch, meanwhile):
-    """A password reset or change, or a deactivation, that commits while a login is in bcrypt leaves
+    """A password reset or change, or a deactivation, that commits while a login checks its hash leaves
     the account the login read stale: the login is refused like a wrong password and mints no session
     (E121)."""
     email, _ = _register(client, mail)
@@ -913,7 +913,7 @@ def test_a_password_change_whose_session_mint_fails_changes_nothing(
 
 @pytest.mark.requires_db
 def test_a_password_change_whose_password_changed_while_it_hashed_is_refused(client, mail, monkeypatch):
-    """A password reset or another change that commits while a change is in bcrypt leaves the current
+    """A password reset or another change that commits while a change checks its hash leaves the current
     password the change checked stale: the change is refused as a wrong current password and writes
     nothing, so the password that committed meanwhile stands and no session is revoked or minted (E121)."""
     email, _ = _register(client, mail)

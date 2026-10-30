@@ -14,16 +14,20 @@ while new hashes were bcrypt it screened their 72-byte prefix too, and the secti
 prefix now opens nothing. Every hash and check runs on the one password thread (``in_password_thread``), which
 bounds the 32 MiB an Argon2 call holds to one call at a time per instance.
 
-Two structural checks hold the paths the behaviour tests cannot reach. In every tracked backend Python file
-outside ``tests/``: bcrypt, passlib and argon2 are imported only by ``app/services/password_utils.py``; every
-use of ``bcrypt`` there is a ``bcrypt.checkpw`` call whose first argument is ``_bcrypt_input(...)``, so no new
-hash is bcrypt (``hashpw`` and ``gensalt`` are bypasses); and every reference to ``get_password_hash`` or
-``verify_password`` outside that module is its import or the first argument of an ``in_password_thread(...)``
-call. ``HASH_REACH_FORMS`` and ``THREAD_FORMS`` score each walk on each way it can be broken and each
-look-alike that must pass. Out of their reach, each planted as a gap: a module named at run time
-(``import_module(name)``, ``getattr(module, "bcrypt")``, ``sys.modules``), and passlib inside
-``password_utils``, whose legacy-check fallback hands passlib's bcrypt handler the whole password (dead under
-bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
+Three structural walks hold the paths the behaviour tests cannot reach, over every tracked backend Python file
+outside ``tests/``. The hash walk: bcrypt, passlib and argon2 are imported only by ``app/services/password_utils.py``,
+nothing it imports from them or keeps private is picked up from it elsewhere, and every use of ``bcrypt`` there is a
+``bcrypt.checkpw`` call whose first argument is ``_bcrypt_input(...)``, so no new hash is bcrypt (``hashpw`` and
+``gensalt`` are bypasses). The thread walk: outside that module, ``get_password_hash`` and ``verify_password`` are
+referenced only in an import or as the first argument of a call to its ``in_password_thread``, and that call runs
+nothing else, since a request that holds a pooled connection (register's invite path) waits for that one thread.
+The home walk: inside the module, its hasher, legacy check, bcrypt and thread are read only by the functions that own
+them, so a new helper there cannot hash off the dispatch or the thread. ``HASH_REACH_FORMS``, ``THREAD_FORMS`` and
+``HOME_FORMS`` score each walk on each way it can be broken and each look-alike that must pass, and the names they
+hold are pinned to the module's own. Out of their reach, each planted as a gap: a module or attribute named at run
+time (``import_module(name)``, ``getattr(module, "bcrypt")``, ``getattr(password_utils, "verify_password")``,
+``sys.modules``), and passlib inside ``password_utils``, whose legacy-check fallback hands passlib's bcrypt handler the
+whole password (dead under bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
 
 A password that is not valid text (a lone surrogate) is refused before either (E97): it encodes to no UTF-8, so the
 breach check and bcrypt raised on it, and FastAPI's own 422, which quoted every refused value (the whole body for a
@@ -149,6 +153,16 @@ def _first_72_bytes(password: str) -> str:
     return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
 
 
+# Hashes bcrypt 4.3.0 made, committed as they came out: the release before 5.0.0, which hashed a password's first 72
+# bytes and dropped the rest without a word, as every stored hash was made. No new hash is bcrypt since E97, so the
+# stored ones are a fixed population this suite must keep opening.
+BCRYPT4_HASHES = {
+    "short-cost-12": (SHORT, "$2b$12$A9GYF/zMnDmdzGWx9s7D6ONEJml5UCprhllwXPkY/XK/NP5f2ca7C"),  # gitleaks:allow
+    "straddles-byte-72": (STRADDLE, "$2b$04$6yiim7Rc5fGepjTn9B7Hiesrctk4sjCzFLYbcw3oQFyggn77KrQuO"),  # gitleaks:allow
+    "max-4-byte-chars": (FOUR_BYTE_MAX, "$2b$04$w871Ph11ay8dQNTpO76du.cBFa/iTxy4aV8RdjpFvg.I.h7xLtjRi"),  # gitleaks:allow
+}
+
+
 # ── the hash and verify functions ────────────────────────────────────────────
 
 POLICY_VALID = pytest.mark.parametrize(
@@ -193,11 +207,22 @@ def test_a_hash_bcrypt4_made_from_a_long_password_still_verifies(password):
     assert verify_password(password, _bcrypt4_hash(password))
 
 
+@pytest.mark.parametrize("password, stored", list(BCRYPT4_HASHES.values()), ids=list(BCRYPT4_HASHES))
+def test_a_hash_bcrypt_4_3_0_made_still_verifies_by_its_first_72_bytes(password, stored):
+    assert verify_password(password, stored)
+    assert not verify_password("#" + password[1:], stored)
+    if len(password.encode("utf-8")) > 72:
+        assert verify_password(password[:-1] + "#", stored)  # a change past byte 72, which bcrypt 4 never read
+
+
 @pytest.mark.parametrize("marker", ["$2a$", "$2b$", "$2x$", "$2y$"])
-def test_a_legacy_bcrypt_hash_verifies_under_each_marker_and_refuses_a_wrong_password(marker):
-    hashed = marker + _bcrypt4_hash(SHORT)[len("$2b$"):]  # as other bcrypt libraries write the same hash
-    assert verify_password(SHORT, hashed)
-    assert not verify_password("#" + SHORT[1:], hashed)
+@pytest.mark.parametrize(
+    "password", [SHORT, STRADDLE, FOUR_BYTE_STRADDLE], ids=["short", "straddles-byte-72", "4-byte-char-straddles"]
+)
+def test_a_legacy_bcrypt_hash_verifies_under_each_marker_and_refuses_a_wrong_password(marker, password):
+    hashed = marker + _bcrypt4_hash(password)[len("$2b$"):]  # as other bcrypt libraries write the same hash
+    assert verify_password(password, hashed)
+    assert not verify_password("#" + password[1:], hashed)
 
 
 def test_a_new_hash_refuses_a_wrong_password():
@@ -241,13 +266,20 @@ def test_a_malformed_hash_fails_closed(stored):
     assert verify_password(SHORT, stored() if callable(stored) else stored) is False
 
 
+@pytest.mark.parametrize("scheme", ["argon2id", "bcrypt"])
+def test_anything_but_text_is_a_miss_under_either_scheme(scheme):
+    stored = get_password_hash(SHORT) if scheme == "argon2id" else _bcrypt4_hash(SHORT)
+    for plain, hashed in ((None, stored), (SHORT.encode("utf-8"), stored), (SHORT, stored.encode("utf-8")), (SHORT, 0)):
+        assert verify_password(plain, hashed) is False  # type: ignore[arg-type]
+
+
 def test_new_hashes_and_the_dummy_record_the_pinned_costs(monkeypatch):
     """An unknown email's check costs a new account's: the dummy is Argon2id at the same pinned costs. The costs
     are the measured ones (E97, the PR's benchmark): moving one needs a new measurement against bcrypt-12."""
     monkeypatch.setattr(password_utils, "_ARGON2", _REAL_ARGON2)
     pinned = (Type.ID, password_utils.ARGON2_TIME_COST, password_utils.ARGON2_MEMORY_COST_KIB,
               password_utils.ARGON2_PARALLELISM, 32, 16)
-    assert pinned[1:4] == (10, 32 * 1024, 1)
+    assert pinned[1:4] == (9, 32 * 1024, 1)
     for hashed in (get_password_hash(SHORT), password_utils._DUMMY_PASSWORD_HASH):
         cost = extract_parameters(hashed)
         assert (cost.type, cost.time_cost, cost.memory_cost, cost.parallelism, cost.hash_len, cost.salt_len) == pinned
@@ -777,6 +809,21 @@ HOME_LIBRARIES = {"passlib", "argon2"}
 PRIVATE = {"_ARGON2", "_verify_bcrypt", "_bcrypt_input", "_PASSWORD_THREADS"}
 
 
+def _hash_bound(source: str) -> set[str]:
+    """The names ``source`` binds by importing from a hashing library (``PasswordHasher``, ``bcrypt``, ...)."""
+    bound: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            bound |= {a.asname or a.name.split(".")[0] for a in node.names if a.name.split(".")[0] in HASH_LIBRARIES}
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and (node.module or "").split(".")[0] in HASH_LIBRARIES:
+            bound |= {a.asname or a.name for a in node.names}
+    return bound
+
+
+# What password_utils binds from a hashing library: picked up from it elsewhere, each hashes off the dispatch.
+HASH_BOUND = _hash_bound((BACKEND_DIR / PASSWORD_UTILS).read_text(encoding="utf-8"))
+
+
 def _sanctioned_bcrypt_use(name: ast.Name, parent: dict[ast.AST, ast.AST]) -> str | None:
     """The bcrypt function a ``bcrypt`` name in ``password_utils`` reaches the sanctioned way, else None: a
     ``bcrypt.checkpw`` call whose first argument is ``_bcrypt_input(...)``, a legacy hash's check. No new hash is
@@ -819,6 +866,8 @@ def _hash_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
                     bypasses.append(node.lineno)
             elif any(alias.name in HASH_LIBRARIES or (alias.name in PRIVATE and not home) for alias in node.names):
                 bypasses.append(node.lineno)  # password_utils' library or helper picked up as a re-export
+            elif node.module == "app.services.password_utils" and any(a.name in HASH_BOUND for a in node.names):
+                bypasses.append(node.lineno)  # what it imported from a hashing library, re-exported
         elif isinstance(node, ast.Call):
             func = node.func
             called = getattr(func, "id", None) or getattr(func, "attr", "")  # f(...) or m.f(...)
@@ -832,6 +881,9 @@ def _hash_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
                 bypasses.append(node.lineno)
         elif isinstance(node, ast.Attribute) and node.attr in HASH_LIBRARIES | PRIVATE and not home:
             bypasses.append(node.lineno)  # ``password_utils.bcrypt``, ``password_utils._ARGON2``
+        elif (isinstance(node, ast.Attribute) and node.attr in HASH_BOUND and not home
+              and isinstance(node.value, ast.Name) and node.value.id == "password_utils"):
+            bypasses.append(node.lineno)  # ``password_utils.PasswordHasher``
         elif home and isinstance(node, ast.Name) and node.id == "bcrypt":
             use = _sanctioned_bcrypt_use(node, parent)
             if use is None:
@@ -857,6 +909,10 @@ HASH_REACH_FORMS = [
     ("private-hasher-import", OTHER, "from app.services.password_utils import _ARGON2", "flag"),
     ("private-legacy-check-import", OTHER, "from app.services.password_utils import _verify_bcrypt", "flag"),
     ("private-thread-elsewhere", OTHER, "loop.run_in_executor(password_utils._PASSWORD_THREADS, f)", "flag"),
+    ("argon2-re-export-import", OTHER, "from app.services.password_utils import PasswordHasher", "flag"),
+    ("argon2-re-export-attribute", OTHER, "h = password_utils.PasswordHasher(time_cost=1).hash(p)", "flag"),
+    ("argon2-error-re-export", OTHER, "from app.services.password_utils import VerificationError", "flag"),
+    ("same-name-from-elsewhere", OTHER, "from enum import Enum as Type\nx = colours.Type", "clean"),
     ("import-module-constant", OTHER, "importlib.import_module('bcrypt')", "flag"),
     ("dunder-import-constant", OTHER, "__import__('passlib.hash')", "flag"),
     ("argon2-import-module-constant", OTHER, "importlib.import_module('argon2')", "flag"),
@@ -914,36 +970,76 @@ def test_every_path_to_a_password_hash_goes_through_password_utils():
     )
 
 
-# get_password_hash and verify_password, which run a hash: only ever on the password thread.
+# get_password_hash and verify_password, which run a hash: only ever on the password thread, which runs nothing else.
 PASSWORD_WORK = {"get_password_hash", "verify_password"}
+PASSWORD_THREAD = "in_password_thread"
+
+
+def _is_password_thread(func: ast.AST, imported: bool) -> bool:
+    """Whether a call's callee is password_utils' ``in_password_thread``: the name the file imports from it and binds
+    nowhere else, or ``password_utils.in_password_thread``."""
+    if isinstance(func, ast.Name):
+        return func.id == PASSWORD_THREAD and imported
+    return (isinstance(func, ast.Attribute) and func.attr == PASSWORD_THREAD
+            and isinstance(func.value, ast.Name) and func.value.id == "password_utils")
+
+
+def _imports_the_password_thread(tree: ast.AST) -> bool:
+    """The file imports ``in_password_thread`` from password_utils and binds that name nowhere else."""
+    imported, rebound = False, False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                if (alias.asname or alias.name) != PASSWORD_THREAD:
+                    continue
+                if isinstance(node, ast.ImportFrom) and node.module == "app.services.password_utils" and not alias.asname:
+                    imported = True
+                else:
+                    rebound = True
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == PASSWORD_THREAD:
+            rebound = True
+        elif isinstance(node, ast.Name) and node.id == PASSWORD_THREAD and isinstance(node.ctx, (ast.Store, ast.Del)):
+            rebound = True
+        elif isinstance(node, ast.arg) and node.arg == PASSWORD_THREAD:
+            rebound = True
+    return imported and not rebound
 
 
 def _off_the_password_thread(source: str, rel: str) -> tuple[list[int], int]:
     """One walk of ``source``, an app file other than ``password_utils``: the lines that run a password hash or
-    check anywhere but the password thread, and how many times it hands one there. A reference to
-    ``get_password_hash`` or ``verify_password`` passes only as the first argument of an ``in_password_thread(...)``
-    call (or the name in an import that keeps it); any other (a call, ``asyncio.to_thread`` or
-    ``run_in_threadpool``, a sync unit that calls it, an alias) is flagged."""
+    check anywhere but the password thread, or other work on it, and how many times it hands a hash there. A
+    reference to ``get_password_hash`` or ``verify_password`` passes only as the first argument of a call to
+    password_utils' ``in_password_thread`` (or the name in an import that keeps it), and such a call passes only with
+    one of the two as that argument. Anything else (a call, ``asyncio.to_thread`` or ``run_in_threadpool``, a sync unit
+    that calls one, an alias, a look-alike ``in_password_thread``, a database unit on the thread) is flagged."""
     tree = ast.parse(source)
     parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    imported = _imports_the_password_thread(tree)
     flagged: list[int] = []
     handed = 0
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             flagged.extend(node.lineno for alias in node.names if alias.name in PASSWORD_WORK and alias.asname)
             continue
+        if isinstance(node, ast.Call) and (getattr(node.func, "id", None) or getattr(node.func, "attr", None)) == PASSWORD_THREAD:
+            first = node.args[0] if node.args else None
+            work = getattr(first, "id", None) or getattr(first, "attr", None)
+            if not _is_password_thread(node.func, imported) or work not in PASSWORD_WORK:
+                flagged.append(node.lineno)  # a look-alike callee, or other work on the one thread
+            continue
         name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
         if name not in PASSWORD_WORK:
             continue
         call = parent.get(node)
-        to = (getattr(call.func, "id", None) or getattr(call.func, "attr", None)) if isinstance(call, ast.Call) else None
-        if to == "in_password_thread" and call.args and call.args[0] is node:
+        if (isinstance(call, ast.Call) and call.args and call.args[0] is node
+                and _is_password_thread(call.func, imported)):
             handed += 1
         else:
             flagged.append(node.lineno)
     return flagged, handed
 
 
+_IMPORT_THREAD = "from app.services.password_utils import in_password_thread\n"
 THREAD_FORMS = [
     ("on-the-loop", OTHER, "ok = verify_password(p, h)", "flag"),
     ("default-executor", OTHER, "h = await asyncio.to_thread(get_password_hash, p)", "flag"),
@@ -952,9 +1048,17 @@ THREAD_FORMS = [
     ("reference", OTHER, "check = verify_password", "flag"),
     ("module-attribute", OTHER, "h = password_utils.get_password_hash(p)", "flag"),
     ("aliased-import", OTHER, "from app.services.password_utils import verify_password as check", "flag"),
-    ("by-keyword", OTHER, "await in_password_thread(work=get_password_hash)", "flag"),
-    ("not-the-work", OTHER, "await in_password_thread(log, verify_password)", "flag"),
-    ("password-thread", OTHER, "h = await in_password_thread(get_password_hash, p)", "clean"),
+    ("by-keyword", OTHER, _IMPORT_THREAD + "await in_password_thread(work=get_password_hash)", "flag"),
+    ("not-the-work", OTHER, _IMPORT_THREAD + "await in_password_thread(log, verify_password)", "flag"),
+    ("other-work-on-the-thread", OTHER, _IMPORT_THREAD + "account = await in_password_thread(look_up, db, email)", "flag"),
+    ("look-alike-callee", OTHER, "ok = await runner.in_password_thread(verify_password, p, h)", "flag"),
+    ("unimported-callee", OTHER, "h = await in_password_thread(get_password_hash, p)", "flag"),
+    ("local-callee", OTHER,
+     _IMPORT_THREAD + "async def in_password_thread(f, *a):\n    return f(*a)\nh = await in_password_thread(get_password_hash, p)",
+     "flag"),
+    ("callee-from-elsewhere", OTHER, "from asyncio import to_thread as in_password_thread\n"
+     "h = await in_password_thread(get_password_hash, p)", "flag"),
+    ("password-thread", OTHER, _IMPORT_THREAD + "h = await in_password_thread(get_password_hash, p)", "clean"),
     ("password-thread-attribute", OTHER,
      "ok = await password_utils.in_password_thread(password_utils.verify_password, p, h)", "clean"),
     ("import", OTHER, "from app.services.password_utils import get_password_hash, verify_password", "clean"),
@@ -975,7 +1079,7 @@ def test_every_password_hash_and_check_runs_on_the_password_thread():
     handed: dict[str, int] = {}
     for rel in _scanned():
         if rel == PASSWORD_UTILS:
-            continue  # its import-time dummy hash runs before the app serves a request
+            continue  # held by the home walk below
         flagged, count = _off_the_password_thread((BACKEND_DIR / rel).read_text(encoding="utf-8"), rel)
         offenders.extend(f"{rel}:{line}" for line in flagged)
         if count:
@@ -983,7 +1087,76 @@ def test_every_password_hash_and_check_runs_on_the_password_thread():
     # register, login, reset and the change's check and hash: a walk that finds none must not pass as clean.
     assert handed == {"app/routers/auth.py": 5}, handed
     assert not offenders, (
-        f"A password hash or check off the password thread: {offenders}. Await it as "
-        "in_password_thread(get_password_hash, ...) or in_password_thread(verify_password, ...): one thread "
-        "bounds Argon2id's 32 MiB a call to one call at a time per instance."
+        f"A password hash or check off the password thread, or other work on it: {offenders}. Await a hash as "
+        "in_password_thread(get_password_hash, ...) or in_password_thread(verify_password, ...), and nothing else "
+        "there: one thread bounds Argon2id's 32 MiB a call to one call at a time per instance, and a request that "
+        "holds a pooled connection waits for it."
     )
+
+
+# Where password_utils may read its hasher, its legacy check, bcrypt and its thread. Read anywhere else there, a new
+# function would hash or check off the dispatch or the thread, out of the thread walk's sight.
+HOME_USES = {
+    "_ARGON2": {"get_password_hash", "verify_password"},
+    "PasswordHasher": {"<module>"},
+    "_verify_bcrypt": {"verify_password"},
+    "bcrypt": {"_verify_bcrypt"},
+    "CryptContext": {"_verify_bcrypt"},
+    "_bcrypt_input": {"_verify_bcrypt"},
+    "_PASSWORD_THREADS": {"in_password_thread"},
+    "get_password_hash": {"<module>"},  # the import-time dummy, before the app serves a request
+    "verify_password": set(),
+}
+
+
+def _home_reach(source: str) -> list[int]:
+    """The lines of password_utils' ``source`` that read a name of ``HOME_USES`` outside the scopes it lists."""
+    lines: list[int] = []
+
+    def visit(node: ast.AST, scope: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                visit(child, getattr(child, "name", "<lambda>"))
+                continue
+            if (isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load) and child.id in HOME_USES
+                    and scope not in HOME_USES[child.id]):
+                lines.append(child.lineno)
+            visit(child, scope)
+
+    visit(ast.parse(source), "<module>")
+    return lines
+
+
+HOME_FORMS = [
+    ("rehash-helper", "def rehash(p):\n    return _ARGON2.hash(p)", "flag"),
+    ("check-wrapper", "def check(p, h):\n    return verify_password(p, h)", "flag"),
+    ("second-hasher", "def cheap(p):\n    return PasswordHasher(time_cost=1).hash(p)", "flag"),
+    ("legacy-check-elsewhere", "def old(p, h):\n    return _verify_bcrypt(p, h)", "flag"),
+    ("bcrypt-outside-the-legacy-check", "def raw(p, h):\n    return bcrypt.checkpw(_bcrypt_input(p), h)", "flag"),
+    ("thread-outside-its-runner", "def run(f):\n    return _PASSWORD_THREADS.submit(f)", "flag"),
+    ("hash-in-a-lambda", "rehash = lambda p: _ARGON2.hash(p)", "flag"),
+    ("the-hash", "def get_password_hash(p):\n    return _ARGON2.hash(p)", "clean"),
+    ("the-legacy-check", "def _verify_bcrypt(p, h):\n    return bcrypt.checkpw(_bcrypt_input(p), h)", "clean"),
+    ("the-dummy", "_DUMMY_PASSWORD_HASH = get_password_hash('x')", "clean"),
+]
+
+
+@pytest.mark.parametrize("source,expected", [form[1:] for form in HOME_FORMS], ids=[form[0] for form in HOME_FORMS])
+def test_the_home_walk_scores_every_planted_form(source, expected):
+    assert bool(_home_reach(source)) == (expected == "flag")
+
+
+def test_password_utils_reaches_its_hasher_only_through_its_hash_check_and_thread():
+    offenders = _home_reach((BACKEND_DIR / PASSWORD_UTILS).read_text(encoding="utf-8"))
+    assert not offenders, (
+        f"password_utils reads its hasher, legacy check, bcrypt or thread outside the functions that own them, on lines "
+        f"{offenders}: hash through get_password_hash, check through verify_password, run either through "
+        "in_password_thread, or list the new owner in HOME_USES with why it keeps the dispatch and the bound."
+    )
+
+
+def test_the_walks_name_what_password_utils_defines():
+    """Each name the walks hold is password_utils' own: a rename there must move here, or the walk guards nothing."""
+    held = PRIVATE | PASSWORD_WORK | {PASSWORD_THREAD} | (set(HOME_USES) - {"CryptContext"})  # imported in its function
+    assert {name for name in held if not hasattr(password_utils, name)} == set()
+    assert {"bcrypt", "PasswordHasher", "VerificationError"} <= HASH_BOUND  # a broken parse must not pass as clean

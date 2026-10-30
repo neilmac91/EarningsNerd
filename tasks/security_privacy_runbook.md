@@ -10,7 +10,7 @@ Last updated alongside the auth-hardening pass on branch `claude/clever-keller-l
 Self-hosted, custom FastAPI auth (no managed provider). Three sign-in methods:
 email+password, Google OAuth, Apple Sign In (Apple is feature-flagged off by default).
 
-- **Passwords:** Argon2id over the whole password (t=10, 32 MiB, one lane; E97), on one thread of its own;
+- **Passwords:** Argon2id over the whole password (t=9, 32 MiB, one lane; E97), on one thread of its own;
   a bcrypt hash (work factor 12) made before then is checked by its marker until its owner sets a new
   password, and no login rewrites one. Policy = ≥12 chars, ≤128 chars,
   no forced composition (NIST 800-63B), screened against HaveIBeenPwned (k-anonymity, fail-open).
