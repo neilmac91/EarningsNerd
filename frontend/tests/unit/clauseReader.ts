@@ -11,7 +11,14 @@
  * reader's own lexicon knows "reuse", the reuse family's verb, so "and reusing ..." opens a clause of its own and
  * "that reuses ..." is a relative clause's verb; its bare form and "reused" read as main read them, a noun and a
  * participle ("Refresh token reuse that you did not request ...", "A refresh token reused a second time ..."), and no
- * other family's verdict moves with it.
+ * other family's verdict moves with it. Since stage 4f a participle a bare "not" negates after a head is the head's, as
+ * it is without the negation, since "not" denies no verb without an auxiliary ("Sessions not opened here end ...", "a
+ * refresh token not presented before"), and a past form the lexicon knows, the phrase's first word, reads as an
+ * adjective ("a used refresh token you do not own", "used refresh tokens"), as "old" and "stale" do, the reuse family's
+ * own words for such a token. Two other families read the participle too: to the endpoint family it narrows the
+ * endpoints, as it does without "not" ("Every endpoint not listed below rejects anonymous requests." passes, though main
+ * refused it), and the consent family reads a wait inside it as that "not" denies it, as main read it, unless a
+ * denial around the participle cancels that one.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -34,14 +41,15 @@
  * in a noun phrase: a closed-class word (a preposition, a conjunction, a subordinating or relative word, an auxiliary
  * or a modal, a negation, a listed adverb), a mark, or, after the phrase's first word, a verb the lexicon knows
  * (VERB_FORMS) or an adverb in -ly, but for one after a word read as an adjective ("anonymous requests",
- * "unauthenticated calls": ADJECTIVES) and one an auxiliary, a modal or a negation follows, which is a noun there ("an
- * auth proxy does not", "the access logs are"). The head is the last of them, so "each endpoint's documentation" is
+ * "unauthenticated calls": ADJECTIVES, or a past form the lexicon knows as the phrase's first word: "a used refresh
+ * token") and one an auxiliary, a modal or a negation follows, which is a noun there ("an auth proxy does
+ * not", "the access logs are"). The head is the last of them, so "each endpoint's documentation" is
  * headed by "documentation". What follows the head is read with it: a prepositional phrase with its own noun phrase
  * ("in the admin namespace"), a path headed by its last segment ("under /api/admin") or, with no object read, running
  * on to the clause's verb ("as of today", "from now on": unreadObjectEnd), a relative clause with its relative word or
  * without it ("that returns account data", "we run", and "we have", whose "have" is its verb where a verb group or a
- * mark follows: relativeVerb), a participle ("returning account data", "listed below") and an aside in commas before
- * the verb group (", which returns JSON,"). Each restricts the phrase unless it stands in commas, and an aside
+ * mark follows: relativeVerb), a participle ("returning account data", "listed below"), a bare "not" before it or not ("not listed below", "not
+ * presented before") and an aside in commas before the verb group (", which returns JSON,"). Each restricts the phrase unless it stands in commas, and an aside
  * restricts it too when it names an exception (", except the health check,"). A phrase read as an adverb ("by default",
  * "without exception": adverbAt) is no prepositional phrase. A pronoun is a phrase of its own, and so is its
  * contraction with an auxiliary, read as the pronoun with its verb group after it ("we've got", "they're running":
@@ -214,7 +222,7 @@ const CATENATIVES = words('designed built configured meant made going guaranteed
 const EXCEPTIONS = words('except excluding but save besides')
 /** Words the reading knows as adjectives: the word after one stands in its noun phrase even where the lexicon knows it
     as a verb ("anonymous requests", "unauthenticated calls"). */
-const ADJECTIVES = words('anonymous unauthenticated authenticated unauthorized unauthorised authorized authorised signed-in logged-in signed-out logged-out valid invalid expired optional public private incoming')
+const ADJECTIVES = words('anonymous unauthenticated authenticated unauthorized unauthorised authorized authorised signed-in logged-in signed-out logged-out valid invalid expired old stale optional public private incoming')
 /** "once" before these is an adverb ("once a day", "works once and"), not a subordinating word. */
 const ONCE_AS_ADVERB = words('a an per every each more again and or nor but only daily')
 const CONDITION_ADVERBS = words('only even except')
@@ -322,12 +330,15 @@ export function verbGroupAt(tokens: Token[], at: number): VerbGroup {
 }
 
 /** A participle after a head: an -ing word, or a past form with a preposition, an adverb or a verb group after it
-    ("listed below", "required by the app", "listed requires"); a past form before an object is the clause's verb. */
-const participle = (tokens: Token[], at: number) => {
+    ("listed below", "required by the app", "listed requires"); a past form before an object is the clause's verb. After
+    a bare "not" (negated), which denies no verb without an auxiliary, an -ed word the lexicon lacks is one too ("not
+    presented before": E162 stage 4f). */
+const participle = (tokens: Token[], at: number, negated = false) => {
   const token = tokens[at]
   if (!isWord(token) || CLOSED.has(lower(token))) return false
   if (token.lower.length > 4 && token.lower.endsWith('ing')) return true
-  return PAST_FORMS.has(token.lower) && (PREPOSITIONS.has(lower(tokens[at + 1])) || isAdverb(tokens[at + 1]) || startsPredicate(tokens, at + 1))
+  const past = PAST_FORMS.has(token.lower) || (negated && /^[a-z]{3,}ed$/.test(token.lower) && !VERB_FORMS.has(token.lower))
+  return past && (PREPOSITIONS.has(lower(tokens[at + 1])) || isAdverb(tokens[at + 1]) || startsPredicate(tokens, at + 1))
 }
 
 const isMark = (token: Token | undefined) => !!token && !isWord(token)
@@ -362,6 +373,53 @@ function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
     i = relativeVerb(tokens, i) + 1
   }
   while (i < tokens.length && !startsPredicate(tokens, i) && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) i = nounPhraseAt(tokens, i)?.end ?? i + 1
+  return Math.min(i, tokens.length)
+}
+
+/** Where a participle a bare "not" opens ends, read from the word after the participle as relativeEnd reads one, but
+    over a gerund after a preposition, which is the preposition's object with an object of its own: not a verb that
+    ends the participle ("not ended by logging out | expire": Codex on #1818), nor, where the lexicon lacks it, a noun
+    a relative clause follows ("not sent without obtaining your permission | are collected": Codex on 4030bccd). Any
+    other word the lexicon lists as a verb there still ends it, since "before" or "after" may stand as an adverb before
+    the clause's verb ("not presented before | signs everyone out"), so a noun spelled as a verb ends it too, a false
+    flag recorded in E162's row ("not ended by | log out expire": the fourth lens on 4030bccd). Inside it "following"
+    is a preposition, though the lexicon lists it as a verb ("not revoked following a sign-out | expire": the fifth lens
+    on 74fa9925), and adverbs, or "first", may stand between a preposition and its gerund ("not sent without first
+    obtaining your permission | are collected": Codex on 08d06015). A phrase after a gerund, its object or the
+    participle a perfect or passive gerund takes, takes no relative clause without its relative word, since the words
+    after it are the clause's own: a word the lexicon lacks read as that phrase's head would take one that runs over the
+    clause's verb ("not sent without having obtained your permission | are collected", "not sent without being
+    allocated an identifier | are collected", "not sent without having sought your permission | are collected": Codex
+    on c38dbf9f, 3e038664 and dad18dde). After
+    "before" or "after" in a phrase past its clause's verb, the gerund may open a clause of time instead ("sessions not
+    opened here before logging out | ends every session"), which this runs over; the session-end family leaves out of
+    its context only a participle in a clause's subject, so that clause keeps its logout (the third lens on 84003ff5). */
+function negatedParticipleEnd(tokens: Token[], from: number): number {
+  const preposition = (token: Token | undefined) => PREPOSITIONS.has(lower(token)) || lower(token) === 'following'
+  const modifies = (token: Token | undefined) => isAdverb(token) || lower(token) === 'first'
+  /** Where a gerund after a preposition ends, past the adverbs before it, read from the token after the preposition:
+      0 where none stands there. */
+  const gerundEnd = (at: number) => {
+    let j = at
+    while (modifies(tokens[j])) j++
+    return preposition(tokens[at - 1]) && /^[a-z]+ing$/.test(lower(tokens[j])) ? j + 1 : 0
+  }
+  let i = from
+  let afterGerund = false
+  while (i < tokens.length && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) {
+    if (tokens[i].lower === 'following') i++
+    else if (gerundEnd(i)) {
+      i = gerundEnd(i)
+      afterGerund = true
+      continue
+    } else if (startsPredicate(tokens, i)) break
+    else {
+      const phrase = nounPhraseAt(tokens, i)
+      const reduced = afterGerund ? phrase?.postmodifiers.find((m) => m.kind === 'relative' && !RELATIVES.has(lower(tokens[m.start]))) : undefined
+      i = reduced?.start ?? phrase?.end ?? i + 1
+    }
+    afterGerund = false
+  }
   return Math.min(i, tokens.length)
 }
 
@@ -433,6 +491,11 @@ function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
       const end = relativeEnd(tokens, i + 1, RELATIVES.has(token.lower))
       phrase.postmodifiers.push({ kind: RELATIVES.has(token.lower) ? 'relative' : 'participle', start: i, end, restrictive: true, preposition: null, object: null })
       i = end
+    } else if (token.lower === 'not' && participle(tokens, i + 1, true)) {
+      // A participle a bare "not" negates is the head's as well ("sessions not opened here end ...": E162 stage 4f).
+      const end = negatedParticipleEnd(tokens, i + 2)
+      phrase.postmodifiers.push({ kind: 'participle', start: i, end, restrictive: true, preposition: null, object: null })
+      i = end
     } else if (reducedRelative(tokens, i)) {
       const end = relativeEnd(tokens, i, true)
       phrase.postmodifiers.push({ kind: 'relative', start: i, end, restrictive: true, preposition: null, object: null })
@@ -469,7 +532,10 @@ export function nounPhraseAt(tokens: Token[], at: number): NounPhrase | null {
     head = tokens[i++]
     if (CONTRACTIONS.has(head.lower)) return { start: at, end: i, takenBack, quantifier, partitive, determiners, premodifiers, head, postmodifiers: [] }
   } else {
-    const open = () => premodifiers.length === 0 || ADJECTIVES.has(lower(premodifiers[premodifiers.length - 1])) || nounBeforeItsVerb(tokens, i)
+    // A past form the lexicon knows, the phrase's first word, reads as an adjective, so a verb the lexicon knows may
+    // follow it in the phrase ("a used refresh token", "used refresh tokens": E162 stage 4f).
+    const attributive = () => premodifiers.length === 1 && PAST_FORMS.has(lower(premodifiers[0]))
+    const open = () => premodifiers.length === 0 || ADJECTIVES.has(lower(premodifiers[premodifiers.length - 1])) || attributive() || nounBeforeItsVerb(tokens, i)
     while (nominal(tokens[i], open())) premodifiers.push(tokens[i++])
     const last = premodifiers.pop()
     if (!last) return null
