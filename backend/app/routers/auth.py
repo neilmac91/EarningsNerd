@@ -861,42 +861,71 @@ async def refresh(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+def _grant_reverse_trial_on_verify(db: Session, user: User, user_id: int) -> bool:
+    """Grant the reverse trial to an account its verification just confirmed, in the verification's thread-pool
+    unit, and say whether it was granted.
+
+    Only now, on verification, so no-card Pro needs a real, verified inbox rather than any freshly registered
+    (unverified) address. Committed on its own, after the verification's commit, and best-effort: its eligibility
+    read, the grant, its commit and the discard of a failed grant are each caught and logged, so nothing here undoes
+    the verification or turns its answer into an error (E121). An account that already has active or trialing Pro,
+    resolved through ``entitlements.is_pro_user`` (the plan's one source, rule 4), is skipped, and a link's second
+    post waits at the verification's row lock and is refused (``verify_email_token``), so neither a duplicate grant
+    nor a spurious "trial started" event happens (``start_reverse_trial`` is idempotent too)."""
+    from app.services.entitlements import is_pro_user
+
+    try:
+        if is_pro_user(user):
+            return False
+        auth_account_service.grant_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
+    except Exception:
+        try:
+            auth_account_service.discard_reverse_trial(db)
+        except Exception as discard_failure:
+            # The class alone, as the account mails log theirs: a database error's text quotes its statement.
+            logger.warning("Discarding a failed reverse trial for user %s failed: %s",
+                           user_id, discard_failure.__class__.__name__)
+        logger.warning("Failed to start reverse trial for user %s on verify", user_id, exc_info=True)
+        return False
+    return True
+
+
 @router.post("/verify-email")
 async def verify_email(
     payload: VerifyEmailRequest,
     db: Session = Depends(get_db),
 ):
-    """Verify a user's email address using the single-use token from the verification email."""
+    """Verify a user's email address using the single-use token from the verification email.
+
+    One unit in the thread pool, released before the route answers, verifies the address and, behind
+    ``REVERSE_TRIAL_ENABLED`` (default off), grants the reverse trial in a commit of its own, so no statement,
+    commit or read of the account its commit expired runs on the event loop (E121). The trial-started event is
+    sent after the release."""
+    def verify() -> Optional[int]:
+        try:
+            user, user_id = auth_account_service.verify_email_token(db, payload.token)
+            if settings.REVERSE_TRIAL_ENABLED and _grant_reverse_trial_on_verify(db, user, user_id):
+                return user_id
+            return None
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user = auth_account_service.verify_email_token(db, payload.token)
+        trial_user_id = await run_in_threadpool(verify)
     except auth_account_service.AccountTokenInvalidError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification link.") from None
     except auth_account_service.AccountTokenExpiredError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification link has expired. Request a new one.") from None
 
-    # Grant the reverse trial only now, on verification — so no-card Pro requires a real, verified
-    # inbox rather than being handed to any freshly-registered (unverified) address. Behind the flag
-    # (default off), best-effort, and committed separately so a trial-grant failure can't undo the
-    # verification. Skip entirely if the user already has active/trialing Pro — resolved via the
-    # entitlements SSoT, not the is_pro mirror — so we neither duplicate-grant nor fire a spurious
-    # "trial started" event. (start_reverse_trial is also internally idempotent.)
-    if settings.REVERSE_TRIAL_ENABLED:
-        from app.services.entitlements import is_pro_user
-        if not is_pro_user(user):
-            try:
-                auth_account_service.grant_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
-            except Exception:
-                auth_account_service.discard_reverse_trial(db)
-                logger.warning("Failed to start reverse trial for user %s on verify", user.id, exc_info=True)
-            else:
-                try:
-                    capture_event(
-                        str(user.id),
-                        EVENT_TRIAL_STARTED,
-                        {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
-                    )
-                except Exception:
-                    logger.warning("Trial-started telemetry failed for user %s", user.id, exc_info=True)
+    if trial_user_id is not None:
+        try:
+            capture_event(
+                str(trial_user_id),
+                EVENT_TRIAL_STARTED,
+                {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
+            )
+        except Exception:
+            logger.warning("Trial-started telemetry failed for user %s", trial_user_id, exc_info=True)
     return {"message": "Email verified."}
 
 
