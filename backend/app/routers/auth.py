@@ -45,6 +45,7 @@ from app.services.durable_tasks import AccountMail
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.password_utils import (
     _DUMMY_PASSWORD_HASH,
+    bound_checked_password,
     get_password_hash,
     in_password_thread,
     validate_password_strength,
@@ -149,6 +150,11 @@ class UserLogin(BaseModel):
     def normalize_email(cls, value: str) -> str:
         return value.strip().lower()
 
+    @field_validator("password")
+    @classmethod
+    def bound_password(cls, value: str) -> str:
+        return bound_checked_password(value)
+
 
 class Token(BaseModel):
     access_token: str
@@ -239,6 +245,11 @@ class ChangePasswordRequest(BaseModel):
     # OAuth-only users SETTING a password for the first time (they're already authenticated).
     current_password: Optional[str] = None
     new_password: str
+
+    @field_validator("current_password")
+    @classmethod
+    def bound_current_password(cls, value: Optional[str]) -> Optional[str]:
+        return bound_checked_password(value)
 
     @field_validator("new_password")
     @classmethod

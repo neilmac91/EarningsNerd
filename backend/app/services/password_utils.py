@@ -52,6 +52,11 @@ _ARGON2 = PasswordHasher(
 _BCRYPT_MARKER = "$2"
 # Generous upper bound in characters (NIST 800-63B: accept long passphrases); up to 512 UTF-8 bytes.
 PASSWORD_MAX_LENGTH = 128
+# The most a password checked against a stored hash may hold (login, the change's current password): eight times
+# what a new password may, so no password a policy let in is refused, and a bound on the bytes the check reads. An
+# Argon2id check reads every byte, a bcrypt one 72, so without it a long enough password would make the unknown-email
+# dummy measurably slower than a legacy account's check (E97: +54 ms at 30 MB; nothing past 4 KB here).
+CHECKED_PASSWORD_MAX_LENGTH = 8 * PASSWORD_MAX_LENGTH
 # bcrypt reads only the first 72 bytes of a password. bcrypt 4 dropped the rest silently; bcrypt 5
 # raises ValueError instead, so a legacy hash's check cuts the input here (see ``_bcrypt_input``).
 BCRYPT_MAX_PASSWORD_BYTES = 72
@@ -78,6 +83,16 @@ def validate_password_strength(value: str) -> str:
         raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
     if len(value) > PASSWORD_MAX_LENGTH:
         raise ValueError(f"Password must be at most {PASSWORD_MAX_LENGTH} characters.")
+    return value
+
+
+def bound_checked_password(value: str | None) -> str | None:
+    """A password to check against a stored hash, refused past ``CHECKED_PASSWORD_MAX_LENGTH`` characters.
+
+    A validator, not a field constraint: a constrained ``str`` refuses a lone surrogate itself, where login and the
+    current-password check answer such a password as any wrong one (E97). It applies no policy."""
+    if value is not None and len(value) > CHECKED_PASSWORD_MAX_LENGTH:
+        raise ValueError(f"Password must be at most {CHECKED_PASSWORD_MAX_LENGTH} characters.")
     return value
 
 
