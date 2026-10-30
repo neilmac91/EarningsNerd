@@ -382,6 +382,44 @@ describe('streamAnalysis', () => {
     expect(isAnalysisPaywallError("You've reached this month's fair-use limit of 30 analyses. It resets at the start of next month.")).toBe(false)
   })
 
+  // E31 (docs/audit/contracts/error-codes.md §6): a known code decides whatever the words say; an absent code (a server
+  // before E31), an unknown one, or a known one off its registered channel reads as none, and the words decide as before.
+  it('decides the paywall on a known code first, whatever its words', () => {
+    expect(isAnalysisPaywallError('Your plan does not include this.', 'plan_required')).toBe(true)
+    expect(isAnalysisPaywallError('Upgrade to Pro is not the way past this cap.', 'pro_fair_use_limit')).toBe(false)
+    expect(isAnalysisPaywallError('Upgrade to Pro is not the way past this cap.')).toBe(true)
+  })
+
+  const refusedWith = (status: number, body: Record<string, unknown>) => {
+    global.fetch = vi.fn(async () => ({ ok: false, status, json: async () => body })) as unknown as typeof fetch
+  }
+
+  it.each([
+    ['a 403 with plan_required', 403, 'plan_required', ['Your plan does not include this.', 'plan_required']],
+    ['a 429 with pro_fair_use_limit', 429, 'pro_fair_use_limit', ['Your plan does not include this.', 'pro_fair_use_limit']],
+    ['a 403 with no code (a server before E31)', 403, undefined, ['Your plan does not include this.']],
+    ['a 403 with a code this client does not know', 403, 'quota_v9', ['Your plan does not include this.']],
+    ['a 403 with the fair-use code, registered on 429', 403, 'pro_fair_use_limit', ['Your plan does not include this.']],
+    ['a 500 with plan_required, registered on 403', 500, 'plan_required', ['Your plan does not include this.']],
+  ])('hands onError the code of %s only when it is known on that status', async (_, status, code, call) => {
+    refusedWith(status, { detail: 'Your plan does not include this.', ...(code ? { code } : {}) })
+    const error = vi.fn()
+    await streamAnalysis('AAPL', RANGE, { onToken: vi.fn(), onComplete: vi.fn(), onError: error })
+    expect(error.mock.calls).toEqual([call])
+  })
+
+  it.each([
+    ['a stream code', { code: 'pro_fair_use_limit' }, ['Paused.', 'pro_fair_use_limit']],
+    ['no code', {}, ['Paused.']],
+    ['an unknown code', { code: 'quota_v9' }, ['Paused.']],
+    ['an HTTP-only code on the stream', { code: 'plan_required' }, ['Paused.']],
+  ])("hands onError an error event's code only when it is a stream code: %s", async (_, extra, call) => {
+    mockFetch([{ type: 'error', message: 'Paused.', ...extra }])
+    const error = vi.fn()
+    await streamAnalysis('AAPL', RANGE, { onToken: vi.fn(), onComplete: vi.fn(), onError: error })
+    expect(error.mock.calls).toEqual([call])
+  })
+
   it('maps not_enough_data completions through', async () => {
     mockFetch([
       { type: 'complete', kind: 'not_enough_data', analysis_id: null, narrative: '', citations: [], grounded: 0, cached: false, n_periods: 1 },
