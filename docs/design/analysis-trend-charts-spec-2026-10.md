@@ -394,6 +394,35 @@ says so; everything else follows the spec.
   for every chart and both views, at 342, 502 and 1030 px. Golden plans for REGN, LCID, PLUG, BYND, JPM and PGR are
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
   tests). M14, M15 and M19 run on the renderer (above), and M20 stays out of the product.
+- **A chart without an analysis dataset (E195 (D)).** The engine builds a one-metric bar chart from a plain
+  definition, for the filing page's Financial trends, which a later pull request draws with it.
+  `lib/charts/barChart.ts`'s `buildBarChart` takes categories (a key, a one-line tick and a long name), one series'
+  values and an axis, and returns the analysis charts' own model, so the layout, the readout and the renderer take it as
+  it is: one bar mark in chart-1, every value printed (A4), on a money axis in its series' XBRL unit's currency
+  (`unitCurrency`: `CNY`, `USD/shares`; a unit that names no currency prints no sign), a percent axis or a ratio axis,
+  under the top line's A1 cap of 5. A key given twice is refused with an error, since the layout would put both values
+  in one slot. A withheld value keeps its slot and prints "—". Its bars print every value, so a percent axis takes A3's
+  clip: a bar it clips is broken at the axis, prints its true value, and adds the footnote "Bars beyond the axis are
+  broken; their printed value is the true value."; bars that printed no value would have to pass every value to
+  `valueAxis` instead.
+  - `scale.ts`. A per-share amount (EPS) prints no finer than cents on its bar, where A2's 3 significant figures read
+    `$0.310`, and in cents in its tooltip (`perShareMoney`: `$123.45`, where an amount's 4 figures read `$123.5`). A
+    ratio axis (`ratioFormat`) prints its step's decimals, then ×: zero is `0×`, a value takes 2 dp (`0.87×`), and a
+    non-zero value never prints as `0×`. A4's label tiers run from a format's `d0` down to 0 (an amount's as before, a
+    percent's 1 and 0, a ratio's 2, 1 and 0), and each format carries its tooltip value (`tip`). × is in Geist Mono's
+    latin file at the face's advance, so it joins `lib/format.ts`'s `DATA_FACE_GLYPHS` (G2), which
+    `analysis-layout.spec.ts` measures in the built face; the values stop says "times".
+  - `readout.ts`. `readouts(model, describer)` is the core over any model, and `chartReadouts` the analysis charts'
+    describer, with the same output. A describer names a period's header (its long name by default; `periodHeader`
+    gives `FY2025 · year ended Sep 27, 2025` and its spoken form), whether a value is calculated (never a value that is
+    not there), its note letter (none by default) and a series' spoken name.
+  - The gates. `chart-engine.spec.ts` runs the model checks, the reading sweep and the sticky-gutter sweep on every case
+    in `tests/unit/fixtures/fundamentals-datasets.json`: production's filing 3 (AAPL's revenue, diluted EPS, net margin,
+    current ratio, negative working capital and four years of equity) and synthetic filings (CNY, a bank's net interest
+    income, one year, every year withheld, EPS under a dollar, a clipped margin). M3's bare zero and M12's glyphs widen
+    for them only by what such an axis prints: its currency's sign before `0`, `0×`, and the `DATA_FACE_GLYPHS`
+    characters, × among them. Every model's period keys must be unique. `chart-readout.spec.ts` reads every case through
+    Financial trends' describer.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

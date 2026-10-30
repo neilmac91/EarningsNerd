@@ -152,12 +152,13 @@ export const inSentence = (label: string): string =>
 
 /**
  * The glyphs past ASCII that the data face, Geist Mono, draws at its one 0.6em advance: the no-break space Intl puts
- * after a currency code, ¢ £ ¤ ¥ € in its latin file and ₪ ₱ ₴ ₹ ₽ in latin-ext, as a production build serves them. No
+ * after a currency code, ¢ £ ¤ ¥ € in its latin file and ₪ ₱ ₴ ₹ ₽ in latin-ext, as a production build serves them,
+ * and the × a chart's ratio axis prints ("0.87×", in the latin file). No
  * file draws ₩ or ₫, though latin-ext's range claims both (chief design read the six files on #1652). next/font fetches
  * the faces at build, so tests/e2e/analysis-layout.spec.ts measures each glyph in the built face: a font that drops one
  * fails there. The trend charts' prefix (moneyPrefix), fmtCurrency and the KPI strip's width all read this one list.
  */
-export const DATA_FACE_GLYPHS = '\u00a0¢£¤¥€₪₱₴₹₽'
+export const DATA_FACE_GLYPHS = '\u00a0¢£¤¥€₪₱₴₹₽×'
 /** The glyphs a currency's en-US sign holds that Geist Mono lacks: KRW's ₩, VND's ₫ and the narrow no-break space in
  *  XOF's "F CFA". The e2e's control: none of them measures at the face's advance. */
 export const DATA_FACE_MISSING = '\u202f₩₫'
