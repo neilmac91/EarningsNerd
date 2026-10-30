@@ -31,7 +31,7 @@ function show(raw_summary: Summary['raw_summary'], demoMode = false, business_ov
     <SummaryDisplay filing={filing}
       summary={{ id: 91, filing_id: 42, business_overview, raw_summary, rendered_sections: [] }}
       demoMode={demoMode} isAuthenticated isPro isSaved={false}
-      saveMutation={{ mutate: vi.fn(), isPending: false }} onAsk={vi.fn()} onRetry={vi.fn()} />
+      saveMutation={{ mutate: vi.fn(), isPending: false }} onAsk={vi.fn()} onRetry={vi.fn()} onRegenerate={vi.fn()} />
   </QueryClientProvider>)
 }
 

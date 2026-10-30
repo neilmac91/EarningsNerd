@@ -316,5 +316,5 @@ export function groupDataNotes(dataset: DataNotesDataset): DataNotesModel {
     }
   }
 
-  return dataNotesModelFromWire({ version: 2, notes: groups.finish().notes, totals }, dataset.mode)
+  return dataNotesModelFromWire({ version: 3, notes: groups.finish().notes, totals }, dataset.mode)
 }

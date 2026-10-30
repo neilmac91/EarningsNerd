@@ -105,6 +105,7 @@ def run(args: argparse.Namespace) -> dict:
     from app.database import SessionLocal
     from app.models import Company, FinancialFact
     from app.services import facts_service
+    from app.services.proxy_fact_repair import totals
     from app.services.quarterly_fact_repair import repair_company, rollback_company
 
     # This short read session closes before network I/O. No caller/business transaction is ended.
@@ -153,6 +154,8 @@ def run(args: argparse.Namespace) -> dict:
         except Exception as exc:  # Per-company failure is visible and sets a failing CLI exit code.
             report["failed"] += 1
             report["companies"].append({"ticker": company["ticker"], "error": str(exc)})
+    if not args.rollback_run:  # the proxy step's counters over the companies that succeeded (E211)
+        report["proxy_totals"] = totals(c["proxy"] for c in report["companies"] if "proxy" in c)
     return report
 
 

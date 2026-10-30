@@ -569,16 +569,16 @@ def render_new_filing_alert(
       <strong>{e_type}</strong> with the SEC <span style="white-space:nowrap;">({e_date}).</span></p>
     {_wording_html(wording, url)}
     <p style="margin:0 0 24px;">
-      <a href="{url}" style="display:inline-block;background-color:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Read the AI summary</a>
+      <a href="{url}" style="display:inline-block;background-color:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">View filing</a>
     </p>
-    <p style="margin:0;font-size:13px;color:#6B7280;">We summarise what changed. The summary links to the filing, so you can check it.</p>
+    <p style="margin:0;font-size:13px;color:#6B7280;">Open the filing to check its summary status and read the original source.</p>
     """
     text_body = (
         f"{_greeting_text(name)}\n\n{company_name} ({ticker}) just filed a {filing_type} with the SEC "
         f"({filing_date}).\n\n"
         + (f"{wording} Review the changes: {url}#what-changed\n\n" if wording else "")
-        + f"Read the AI summary: {url}\n\n"
-        "We summarise what changed. The summary links to the filing, so you can check it."
+        + f"View filing: {url}\n\n"
+        "Open the filing to check its summary status and read the original source."
     )
     preheader = f"{company_name} filed with the SEC on {filing_date}."
     return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), _wrap_text(text_body, _ALERT_FOOTER)
@@ -604,7 +604,7 @@ def render_daily_digest(
           <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">
             <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
             <span style="color:#6B7280;white-space:nowrap;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
-            <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">Read the summary →</a>
+            <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">View filing →</a>
           </td>
         </tr>"""
         for it in items
@@ -619,7 +619,7 @@ def render_daily_digest(
         return "\n".join([
             f"{it['company_name']} ({it['ticker']}) · {it['filing_type']} · {it['filing_date']}",
             *([line] if line else []),
-            f"Read the summary: {_filing_url(it.get('filing_id'), it.get('filing_url'))}",
+            f"View filing: {_filing_url(it.get('filing_id'), it.get('filing_url'))}",
         ])
 
     text_body = (
