@@ -16,13 +16,13 @@
    (backend/app/services/summary_pipeline.py), not here.
 ============================================================================= */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { Badge, Card, GuidanceCard, SkeletonText, buttonVariants } from '@/components/ui'
+import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
 import { CheckIcon } from '@/lib/icons'
 import { isNonRetryableStreamError, isPaywallStreamError, type SummaryStreamFailure } from '@/features/summaries/api/summaries-api'
 import { secondaryUnavailableClass } from '@/components/ui/Button'
@@ -214,6 +214,8 @@ export default function StreamingSummaryDisplay({
   afterFailure,
   failure,
   retryAfterSeconds = 0,
+  retainedResult = false,
+  retainedFocusTarget,
 }: {
   streamingText: string
   stage: string
@@ -232,6 +234,9 @@ export default function StreamingSummaryDisplay({
   afterFailure?: ReactNode
   failure?: SummaryStreamFailure
   retryAfterSeconds?: number
+  /** A failed refresh keeps its previously loaded summary below this compact notice. */
+  retainedResult?: boolean
+  retainedFocusTarget?: RefObject<HTMLElement | null>
 }) {
   const onRetry = requestRetry ? () => {
     if (retryAfterSeconds > 0) return
@@ -247,8 +252,8 @@ export default function StreamingSummaryDisplay({
   // card's heading when its press starts the run, or this card's own heading when the card stays without its
   // Retry (a signed-out press starts no run, and its sign-in sentence is one no retry can help).
   const retryFocusTarget = useMemo(() => ({
-    get current() { return progressHeadingRef.current ?? failureHeadingRef.current },
-  }), [])
+    get current() { return retainedFocusTarget?.current ?? progressHeadingRef.current ?? failureHeadingRef.current },
+  }), [retainedFocusTarget])
 
   const isError = stage === 'error' || !!error
   // Stalled: derived in render, not stored, so the stage and the stall land in one commit and the live region
@@ -358,6 +363,34 @@ export default function StreamingSummaryDisplay({
   // The reason the run stopped, in the product's words: the raw message still decides the card (the
   // paywall matcher reads it), the reader sees its mapped sentence.
   const failureReason = streamErrorCopy(error || message) || 'It timed out before the summary finished. Try again to pick it up.'
+  // One retry policy for an interrupted first summary and an interrupted refresh. The latter
+  // uses ordinary recovery too; it must never repeat a paid refresh implicitly.
+  const retryAction = onRetry && !isNonRetryableStreamError(error || message || '', failure?.code) ? (
+    <RetryButton
+      aria-disabled={retryAfterSeconds > 0 || undefined}
+      className={secondaryUnavailableClass}
+      size={retainedResult ? 'sm' : undefined}
+      failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
+      focusTarget={retryFocusTarget}
+    />
+  ) : undefined
+
+  if (retainedResult && isError) {
+    return (
+      <Notice
+        variant="error"
+        title="Could not confirm the refreshed summary."
+        description={
+          <>
+            Showing the previously loaded summary.
+            <span className="mt-2 block">{failureReason}</span>
+            {retryAfterSeconds > 0 && <span className="mt-2 block">Available in {retryAfterSeconds} seconds.</span>}
+          </>
+        }
+        action={retryAction}
+      />
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -471,26 +504,7 @@ export default function StreamingSummaryDisplay({
               )}
             </>
           }
-          action={
-            // Only for a failure a retry can help. The raw message decides, read by the matcher that also stops
-            // the stream's automatic retry: Pro's fair-use pause, a sign-in or a permission error keeps its
-            // sentence and offers no Retry, since a press would only repeat the blocked request.
-            onRetry && !isNonRetryableStreamError(error || message || '', failure?.code) ? (
-              // RetryButton (secondary by default: an error retry is never the page's primary action).
-              // It restarts the SSE stream, not a query, so its failure is the stream's own state, not
-              // useRetainedFailure's hold: a press clears the error in the render that starts the stream,
-              // so this card never shows a run in flight (busy stays false) and leaves with the press when
-              // the run starts; focus then goes to the progress card's heading, in the branch that replaced
-              // this one. A signed-out press starts no run: the card stays with the sign-in sentence, which
-              // no retry can help, so the Retry leaves and focus goes to this card's heading.
-              <RetryButton
-                aria-disabled={retryAfterSeconds > 0 || undefined}
-                className={secondaryUnavailableClass}
-                failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
-                focusTarget={retryFocusTarget}
-              />
-            ) : undefined
-          }
+          action={retryAction}
         />
       ) : null}
       {isError && afterFailure}
