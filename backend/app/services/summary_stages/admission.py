@@ -160,6 +160,12 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     filing_id, user_id = run.filing_id, run.user_id
     request_evidence = run.request_evidence
 
+    if run.admit_generation is not None:
+        refusal = run.admit_generation()
+        if refusal is not None:
+            yield {**refusal, "type": "error"}
+            return
+
     # Cache company data and filing attributes from the fetched filing
     run.company_name = run.filing_fields["company_name"]
     run.company_cik = run.filing_fields["company_cik"]

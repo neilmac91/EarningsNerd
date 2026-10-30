@@ -16,7 +16,7 @@ import datetime
 import json
 import logging
 from dataclasses import dataclass, replace
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Callable, Optional
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -52,6 +52,9 @@ from app.services.summary_schema import TRACKED_SECTIONS_V2
 # fake clock …). Nothing in this module calls most of them any more; they are kept here on purpose.
 # Gate: tests/unit/test_summary_stages_seams.py (every ``pipeline.<name>`` a stage uses must exist here).
 import time  # noqa: F401
+from app.error_codes import ErrorCode  # noqa: F401
+from app.services.edgar.exceptions import EdgarError, EdgarRateLimitError  # noqa: F401
+from app.services.sec_rate_limiter import SECRateLimiter  # noqa: F401
 # Keep the existing dispatch seam for lifecycle tests while tracking actual worker futures.
 from app.services.request_work import RequestWork, run_owned_sync as run_in_threadpool  # noqa: F401
 from app.services.ai.provider_requests import provider_start_signal  # noqa: F401
@@ -403,6 +406,7 @@ async def stream_filing_summary(
     refresh_xbrl: bool = False,
     rebuild_excerpt: bool = False,
     request_evidence: SummaryRequestEvidence | None = None,
+    admit_generation: Callable[[], Optional[dict]] | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
@@ -448,6 +452,7 @@ async def stream_filing_summary(
         refresh_xbrl=refresh_xbrl,
         rebuild_excerpt=rebuild_excerpt,
         request_evidence=request_evidence,
+        admit_generation=admit_generation,
     )
     run.emit_funnel(
         telemetry_distinct_id,

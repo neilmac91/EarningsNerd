@@ -18,6 +18,8 @@ from starlette.types import Receive, Scope, Send
 from app.services.posthog_client import capture_copilot_inference
 
 from app.config import settings
+from app.api_errors import CodedHTTPException
+from app.error_codes import ErrorCode, sse_error
 from app.database import get_db, SessionLocal
 from app.models import (
     Filing,
@@ -63,6 +65,9 @@ logger = logging.getLogger(__name__)
 # Both burst limiters are keyed on the account alone (``include_client_ip=False``): keying on
 # (IP, user) would let one account presenting several client IPs multiply its allowance.
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
+# Bound cheap replay/join handshakes separately. Only the actual generation leader spends
+# SUMMARY_LIMITER; retries and readers joining another run must not exhaust that work budget.
+SUMMARY_REQUEST_LIMITER = RateLimiter(limit=60, window_seconds=60)
 # Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
 # burst than summaries while still throttling abuse (per user, sliding window).
 ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
@@ -219,18 +224,38 @@ async def generate_summary_stream(
     )
     evidence.start()
     try:
-        client_host = request.client.host if request.client else "unknown"
         # The admission's unit releases the request's session, which detaches the user: read its id first.
         user_id = current_user.id
-        logger.info(f"[stream:{filing_id}] Incoming stream request from {user_id} (IP: {client_host}, force={force})")
+        logger.info("[stream:%s] Incoming stream request request_id=%s force=%s",
+                    filing_id, evidence.properties["request_id"], force)
 
-        enforce_rate_limit(
-            request,
-            SUMMARY_LIMITER,
-            f"summary:{user_id}",
-            error_detail="Too many summary requests. Try again shortly.",
-            include_client_ip=False,
-        )
+        try:
+            enforce_rate_limit(
+                request,
+                SUMMARY_REQUEST_LIMITER,
+                f"summary:{user_id}",
+                error_detail="Too many summary requests. Try again shortly.",
+                include_client_ip=False,
+            )
+        except HTTPException as exc:
+            raise CodedHTTPException(
+                ErrorCode.SUMMARY_RATE_LIMITED, exc.detail,
+                headers=exc.headers,
+            ) from exc
+
+        def admit_generation() -> Optional[dict]:
+            # Called after the pipeline's atomic local leader claim and cache rechecks, before
+            # quota reservation, a generation slot or SEC work. A failed leader's successor must
+            # pass this gate too; the client cannot label itself a free retry or a follower.
+            key = f"summary:{user_id}"
+            if SUMMARY_LIMITER.allow(key):
+                return None
+            evidence.reason = ErrorCode.SUMMARY_RATE_LIMITED.value
+            return sse_error(
+                "Too many summary requests. Try again shortly.", ErrorCode.SUMMARY_RATE_LIMITED,
+                retry_after_seconds=SUMMARY_LIMITER.retry_after(key) or SUMMARY_LIMITER.window_seconds,
+                request_id=evidence.properties["request_id"],
+            )
 
         def admit() -> _StreamAdmission:
             """The admission's session work and the session's release, as one unit off the event loop
@@ -377,6 +402,7 @@ async def generate_summary_stream(
                 replace_unready_only=refresh_unready or (force and not admission.had_summary),
                 refresh_xbrl=refresh_xbrl,
                 request_evidence=evidence,
+                admit_generation=admit_generation,
             )) as events:
                 async for event in events:
                     evidence.observe_terminal(event)

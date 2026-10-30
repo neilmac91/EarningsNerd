@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 import anyio
 
@@ -47,6 +47,9 @@ class GenerationRun:
     refresh_xbrl: bool = False
     rebuild_excerpt: bool = False
     request_evidence: SummaryRequestEvidence | None = None
+    # Optional caller policy for starting NEW work; followers and ready cache reads never call it.
+    # A synchronous decision cannot race another coroutine between the local claim and its spend.
+    admit_generation: Callable[[], Optional[dict]] | None = None
 
     # Timing: ``mark_stage`` closes the current stage and ``release`` logs the breakdown.
     pipeline_started_at: float = field(init=False)

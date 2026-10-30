@@ -11,7 +11,7 @@ import logging
 from typing import TYPE_CHECKING, AsyncIterator
 
 from app.services import summary_pipeline as pipeline
-from app.services.summary_stages import enrichment
+from app.services.summary_stages import enrichment, failure
 
 if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstring on import order
     from app.services.summary_stages.generation_run import GenerationRun
@@ -51,19 +51,25 @@ async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
         # exhibit / press-release text via the SixK extractor (separate from the Item/XBRL
         # pipeline). Falls back to the cover-page doc so a content-light 6-K still yields text.
         yield {'type': 'progress', 'stage': 'fetching', 'message': 'Retrieving 6-K exhibits from EDGAR...', 'percent': 10}
+        source_error = None
         try:
             with run.worker_owner.activate():
                 run.filing_text = await pipeline.get_sixk_text(run.filing_accession_number, run.company_cik) or ""
         except Exception as sixk_error:  # noqa: BLE001 — extractor is defensive, but never break the stream
             logger.warning(f"[stream:{filing_id}] 6-K exhibit extraction failed: {sixk_error}")
+            source_error = sixk_error
             run.filing_text = ""
         if not run.filing_text:
             try:
                 run.filing_text = await pipeline.sec_edgar_service.get_filing_document(run.filing_document_url, timeout=15.0) or ""
-            except Exception:  # noqa: BLE001
+            except Exception as cover_error:  # noqa: BLE001
+                source_error = cover_error
                 run.filing_text = ""
         if not run.filing_text:
-            yield {'type': 'error', 'message': 'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.'}
+            source_failure = await failure.source_failed(
+                run, source_error or ValueError("No 6-K source text"),
+            )
+            yield {**source_failure, 'type': 'error', 'message': 'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.'}
             return
         run.mark_stage("fetch_document")
         yield {'type': 'progress', 'stage': 'fetching', 'message': '6-K exhibits fetched', 'percent': 15}
@@ -112,7 +118,6 @@ async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
             yield {'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully', 'percent': 15}
 
         except Exception as fetch_error:
-            logger.error(f"[stream:{filing_id}] Error fetching SEC document: {fetch_error}", exc_info=True)
-            error_msg = "We could not generate this summary. Try again shortly."
-            yield {'type': 'error', 'message': error_msg}
+            source_failure = await failure.source_failed(run, fetch_error)
+            yield {**source_failure, 'type': 'error', 'message': 'We could not generate this summary. Try again shortly.'}
             return
