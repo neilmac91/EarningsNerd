@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def preparation_cap() -> int:
+    if settings.SUMMARY_NEW_JOBS_PAUSED:
+        return 0
     if not settings.SUMMARY_DURABLE_GENERATION_ENABLED or not settings.DURABLE_TASKS_ENABLED:
         return 0
     if settings.SUMMARY_PREWARM_MAX_PER_DAY <= 0:

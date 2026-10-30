@@ -121,3 +121,19 @@ async def test_internal_recovery_requires_auth_and_confirms_dispatch_before_succ
         assert (await client.post(path, headers=headers)).status_code == 503
         monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", False)
         assert (await client.post(path, headers=headers)).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_admission_pause_stops_preparation_but_keeps_recovery_running(enabled, monkeypatch):
+    from app.services import summary_jobs
+
+    monkeypatch.setattr(settings, "SUMMARY_NEW_JOBS_PAUSED", True)
+    run = AsyncMock(side_effect=AssertionError("paused preparation reached admission"))
+    monkeypatch.setattr(preparation, "run_owned_sync", run)
+    recover = AsyncMock(return_value=1)
+    monkeypatch.setattr(summary_jobs, "recover_due_jobs", recover)
+    assert preparation.preparation_cap() == 0
+    assert await preparation.prepare_notified_filings([1, 2]) == 0
+    assert await preparation.recover_summary_handoffs() == 1
+    run.assert_not_awaited()
+    recover.assert_awaited_once_with(limit=20)

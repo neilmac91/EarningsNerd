@@ -468,3 +468,79 @@ async def test_open_breaker_is_retryable_with_typed_remaining_cooldown(user_id, 
     assert retry.retry_at >= before + timedelta(seconds=43 if remaining is None else 91)
     assert _usage(user_id) == 0
     enqueue.assert_awaited_once()
+
+
+def test_admission_pause_serves_reads_and_joins_but_blocks_every_new_job(user_id, monkeypatch):
+    queued = _new(user_id)
+    failed, lease = _lease(user_id)
+    store.finish_job(lease, {"type": "error"})
+    ready_id, fresh_id = seed_company_filing(), seed_company_filing()
+    with SessionLocal() as db:
+        db.get(User, user_id).is_pro = True
+        db.get(SummaryJob, failed.job_id).next_attempt_at = utcnow() - timedelta(seconds=1)
+        db.add(Summary(filing_id=ready_id, business_overview="Existing grounded summary."))
+        db.commit()
+    admitted = []
+    monkeypatch.setattr(settings, "SUMMARY_NEW_JOBS_PAUSED", True)
+    assert store.ensure_job(queued.filing_id, user_id).job_id == queued.job_id
+    assert store.ensure_job(ready_id, user_id).status == "complete"
+    assert store.ensure_job(failed.filing_id, user_id).status == "failed"
+    for filing_id, kwargs in [(fresh_id, {}), (ready_id, {"force": True}),
+                              (failed.filing_id, {"retry_failed": True})]:
+        with pytest.raises(store.SummaryJobUnavailable, match="paused") as refused:
+            store.ensure_job(filing_id, user_id, admit_new=lambda: admitted.append(1), **kwargs)
+        assert refused.value.status_code == 503
+    assert admitted == []
+    assert store.read_filing_job(fresh_id) is None and store.read_filing_job(ready_id) is None
+    assert store.read_filing_job(failed.filing_id).generation == failed.generation
+    assert _usage(user_id) == 0
+
+
+@pytest.mark.asyncio
+async def test_existing_durable_worker_finishes_and_charges_once_while_new_jobs_paused(user_id, monkeypatch):
+    view = _new(user_id)
+    monkeypatch.setattr(settings, "SUMMARY_NEW_JOBS_PAUSED", True)
+    with stream_boundaries() as provider:
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        provider.assert_awaited_once()
+    assert store.read_job(view.job_id, view.generation).status == "complete"
+    assert _usage(user_id) == 1 and _receipt(view)[0] == "settled"
+
+
+@pytest.mark.asyncio
+async def test_paused_legacy_pipeline_serves_cached_and_active_results_without_new_source_work(monkeypatch):
+    from app.services import summary_pipeline as pipeline
+    monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", False)
+    monkeypatch.setattr(settings, "SUMMARY_NEW_JOBS_PAUSED", True)
+    ready_id, fresh_id, active_id = seed_company_filing(), seed_company_filing(), seed_company_filing()
+    with SessionLocal() as db:
+        db.add(Summary(filing_id=ready_id, business_overview="Existing grounded summary."))
+        db.commit()
+    calls = []
+    def stream(filing_id):
+        return pipeline.stream_filing_summary(
+            filing_id=filing_id, current_user=None, user_id=None,
+            telemetry_distinct_id="offline", telemetry_entry_point=None, telemetry_ctx={},
+            emit_funnel_telemetry=False, admit_generation=lambda: calls.append(1),
+        )
+    leader = pipeline._claim_inflight(active_id)
+    try:
+        with stream_boundaries() as provider:
+            cached = [event async for event in stream(ready_id)]
+            assert cached[-1]["type"] == "complete"
+            refused = [event async for event in stream(fresh_id)]
+            assert refused[-1]["code"] == "generation_paused"
+            joined = []
+            async for event in stream(active_id):
+                joined.append(event)
+                if event.get("stage") == "queued":
+                    with SessionLocal() as db:
+                        db.add(Summary(filing_id=active_id, business_overview="The existing producer finished."))
+                        db.commit()
+                    pipeline._release_inflight(active_id, leader)
+            assert joined[-1]["type"] == "complete"
+            provider.assert_not_awaited()
+            pipeline.sec_edgar_service.get_filing_document.assert_not_awaited()
+        assert calls == []
+    finally:
+        pipeline._release_inflight(active_id, leader)

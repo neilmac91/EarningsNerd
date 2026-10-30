@@ -140,6 +140,8 @@ bounded, explicit prewarm cohort; the default cap of zero disallows them.
             if wait:
                 raise SummaryJobUnavailable("This summary can be retried shortly", code="summary_retry_wait",
                                             status_code=429, retry_after_seconds=wait)
+        if settings.SUMMARY_NEW_JOBS_PAUSED:
+            raise SummaryJobUnavailable("New summary generation is temporarily paused. Try again shortly.")
         if user is not None:
             # One account lock serializes creation across DIFFERENT filings/instances. A
             # queued job does not hold a short-lived usage lease while waiting for capacity;

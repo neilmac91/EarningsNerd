@@ -160,6 +160,15 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     filing_id, user_id = run.filing_id, run.user_id
     request_evidence = run.request_evidence
 
+    # load_filing/join_or_lead have already served a ready result or joined its
+    # existing producer. Pausing admissions must not interrupt a durable worker.
+    if pipeline.settings.SUMMARY_NEW_JOBS_PAUSED and run.durable_lease is None:
+        if request_evidence is not None:
+            request_evidence.reason = pipeline.ErrorCode.GENERATION_PAUSED.value
+        yield {"type": "error", "code": pipeline.ErrorCode.GENERATION_PAUSED.value,
+               "message": "New summary generation is temporarily paused. Try again shortly."}
+        return
+
     if run.admit_generation is not None:
         refusal = run.admit_generation()
         if refusal is not None:

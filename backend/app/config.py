@@ -121,6 +121,8 @@ class Settings(BaseSettings):
     DURABLE_TASKS_ENABLED: bool = False
     # Requires validated worker/schema rollout. Existing SSE behavior remains the default.
     SUMMARY_DURABLE_GENERATION_ENABLED: bool = False
+    # Stop only NEW work for a drain/rollback; existing durable workers keep running.
+    SUMMARY_NEW_JOBS_PAUSED: bool = False
     SUMMARY_JOB_FAILED_RETRY_SECONDS: int = Field(default=60, ge=15, le=3600)
     SUMMARY_JOB_MAX_PENDING_PER_ACCOUNT: int = Field(default=3, ge=1, le=20)
     SUMMARY_JOB_MAX_ATTEMPTS: int = Field(default=4, ge=1, le=8)
