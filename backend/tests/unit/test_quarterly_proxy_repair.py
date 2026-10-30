@@ -2868,6 +2868,55 @@ def test_principal_review_5718798403_item_2_a_proxy_scaled_over_a_right_parse_is
                     if c["concept"] == "net_income" for p in c["points"]}["2025-05-31"] == 4_092e6
 
 
+@pytest.mark.parametrize(("then", "then_filed"), [(None, False), (103e6, False), (103e6, True)],
+                         ids=["corrected", "restated_current", "restated_not_current"])
+def test_principal_review_5718798403_item_2_a_report_backed_scale_error_takes_the_ordinary_path(
+        monkeypatch, then, then_filed):
+    # Principal review 5718798403, items 1 and 2 together (the M17 shape of the review of #1840). FY2025's 10-K tagged
+    # its net income 1,000 times too large, 100 billion; a 10-K/A corrected it to 100 million, and P26 quotes the first
+    # report's 100 billion. The backfill before #1622 replaced the 10-K/A's right parse, 100 million, with P26's figure.
+    # Since #1682 the FY2025 10-K's own figure, 100 billion, is a history row: a report row backing the value. The value
+    # is a scale-up of the original, but today's 10-K figure is on the original's scale, so the exemption does not
+    # stand, backed or not, and set 4's ordinary path decides. ``corrected``: the 10-K/A's figure confirms the original,
+    # which is restored, before #1682 and since. ``restated``: a later 10-K restated FY2025 to 103 million, 3% off the
+    # original. Before #1682 set 4's own test refuses; since, the history row backs the value, and the row is refused
+    # where it is the company's current figure and listed where it is not (the later 10-K's Filing stored first).
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _reported_then_overwritten(
+            db, monkeypatch, "PBS", "amendment", first=100e9, figure=100e6, then=then,
+            then_filed=then_filed)) as states:
+        (old, company, payload, filing), (new, *_rest) = states[False], states[True]
+        row = _overwritten_row(new, company, filing, 100e6, first=100e9)
+        assert row.is_latest == (not then_filed)
+        assert svc.extract_authoritative_values(payload)[("net_income", date(2025, 12, 31))] == (then or 100e6)
+        assert (_history_rows(old, company), _history_rows(new, company)) == (
+            [], [(_accn(company, "K25"), False, None, "companyfacts", "10-K", 100e9)])
+        [history] = [r for r in _rows(new, company, concept="net_income", filing_id=None)
+                     if r.accession == _accn(company, "K25")]
+        if then is None:
+            for db in (old, new):
+                plan = _preview(db, company, payload)["proxy"]
+                assert (plan["filing_rows_restored"], plan["left_report_backed"], plan["scale_up_retained"]) == (
+                    1, [], [])
+                _apply(db, company, payload)
+                restored = db.get(FinancialFact, row.id)
+                assert (restored.is_latest, restored.source, float(restored.value), _check(restored)["outcome"]) == (
+                    True, "edgar_xbrl", 100e6, "confirmed")
+            return
+        _refuses(old, company, payload, _refusal(old, (row.id, "the 10-K's figure disagrees with the recorded original "
+                                                               "value by more than 1%, and the filing row holds neither")))
+        if not then_filed:
+            _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("100000000000", "103000000"))))
+            return
+        stored = repair.snapshot(row)
+        plan = _preview(new, company, payload)["proxy"]
+        assert (plan["filing_rows_restored"], plan["scale_up_retained"]) == (0, [])
+        assert [(e["fact_id"], e["set"], e["figure"], e["authority"], [b["fact_id"] for b in e["backed_by"]])
+                for e in plan["left_report_backed"]] == [(row.id, 4, "100000000000", 103e6, [history.id])]
+        _apply(new, company, payload)
+        assert repair.snapshot(new.get(FinancialFact, row.id)) == stored
+        assert row.id not in {r.fact_id for r in new.query(FinancialFactRevision)}
+
+
 @pytest.mark.parametrize("later", ["amendment", "restatement"], ids=["item_1_amendment", "item_1_restatement"])
 def test_principal_review_5718798403_item_3_a_left_row_is_listed_with_its_backers_and_never_written(monkeypatch, later):
     # Principal review 5718798403, item 3: item 1's shapes, where the 10-K contradicts the original too (a later 10-K
