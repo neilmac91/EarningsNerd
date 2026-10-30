@@ -538,7 +538,7 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
                  covers the raw controls of every route's page and the feature modules it reaches, plus the
                  shared Switch, but for a residue that only shrinks (RING_RESIDUE: Markdown and chart
-                 renderers' props spreads, and one control of the filing page's sweep); field recipes retain
+                 renderers' props spreads); field recipes retain
                  their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
@@ -820,7 +820,10 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  exceeds the box by more than one CSS pixel. It observes the box and first child,
                  rebinds replaced children and measures window resizes without ResizeObserver. Start
                  disabled while the box is not rendered. Hints and scroll behavior remain surface-owned.
-                 The named region supports Left/Right by one measured column,
+                 A feature module writes the props out on the box (`role={overflowing ? 'region' :
+                 undefined}`, `tabIndex`, `aria-label`, `aria-describedby`), never as a spread, so the focus
+                 ring gate reads the box's Tab stop and holds it to the ring, and the dialog gate reads its role.
+                 The Analysis table's named region supports Left/Right by one measured column,
                  Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
                  number of columns. A layout effect measures before paint; resize and enlarged text
                  recompute rendered widths without accumulating padding or losing the prior column.
