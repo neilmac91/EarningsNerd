@@ -2196,25 +2196,39 @@ const readAlone = (reading: Reading, from: number, to: number, drops: Array<[num
     not valid signs everyone out." reads "because it is not valid signs everyone out" as one condition), so a negation
     in the condition's own clause read as the clause's and denied its verb, in either family. The condition holds a
     clause of its own, a noun phrase and a verb group (conditionClauseAt); past that group's verb, the clause's verb
-    group starts at the next word where a finite verb group does, in the form its subject takes: one with an
-    auxiliary, a modal, a negation or an adverb before its verb, or a verb alone in a past form or in a present form
-    that agrees, a third person's -s or, after a plural head in -s, the base ("because it is not valid | signs everyone
-    out", "when it is not needed | will end every session"). A verb after "to" is an infinitive the condition's clause
-    takes, an -ing form alone is no finite verb, and a base form after a singular subject is a bare infinitive or a
-    noun of that clause ("when it is not supposed to end every session | clears cookies", "when it does not let anyone
-    end every session | clears cookies", "because users do not request access | signs": Codex on fb7cf414). The
-    words are read one by one, not as noun phrases, since the reader reads a verb after an adjective as a noun ("valid
-    signs"). -1 where none starts in the condition. */
+    group starts at the next word where a finite verb group does, in the form its subject takes (finiteFor: "because
+    it is not valid | signs everyone out", "when it is not needed | will end every session"). A verb group after "to"
+    is an infinitive the condition's clause takes, and one that is not finite is that clause's too, so each is read
+    past whole ("when it is not supposed to end every session | clears cookies", "when it does not let anyone end
+    every session | clears cookies", "because users do not request access | signs": Codex on fb7cf414; "when it is
+    not worth automatically ending every session | clears cookies": Codex on 2ca36076). The words are read one by
+    one, not as noun phrases, since the reader reads a verb after an adjective as a noun ("valid signs"). -1 where
+    none starts in the condition. */
 const clauseVerbPast = (tokens: Token[], condition: Condition, plural: boolean): number => {
   const own = conditionClauseAt(tokens, condition)
   if (!own) return -1
   for (let k = verbGroupAt(tokens, own.predicate).verb + 1; k < condition.end; k++) {
-    if (!startsVerbGroup(tokens, k) || tokens[k - 1]?.lower === 'to') continue
-    const verb = verbGroupAt(tokens, k).verb
-    const form = formOf(tokens[verb])
-    if (verb > k || form === 'past' || form === (plural ? 'base' : 'third')) return k
+    if (!startsVerbGroup(tokens, k)) continue
+    const group = verbGroupAt(tokens, k)
+    if (tokens[k - 1]?.lower !== 'to' && finiteFor(tokens, group, plural)) return k
+    k = group.verb
   }
   return -1
+}
+/** The forms of an auxiliary that lead no finite verb group ("worth having ended every session", "being seen ending"). */
+const NON_FINITE = /^(?:be|been|being|having)$/i
+/** Whether a verb group is finite in the form its subject takes (clauseVerbPast), by the word that leads it past its
+    adverbs and a negation: an auxiliary or a modal, finite but for NON_FINITE; else a catenative before its "to"
+    ("seems to end") or the verb, finite in a past form or in the present form that agrees, a third person's -s or,
+    after a plural head in -s, the base. An adverb before an -ing form leads nothing finite ("automatically ending":
+    Codex on 2ca36076). */
+const finiteFor = (tokens: Token[], group: VerbGroup, plural: boolean) => {
+  const auxiliary = (token: Token | undefined) => !!token && (AUXILIARY.test(token.text) || NON_FINITE.test(token.text))
+  let lead = group.start
+  while (lead < group.verb && !auxiliary(tokens[lead]) && !(lead + 1 < group.verb && tokens[lead + 1].lower === 'to')) lead++
+  if (auxiliary(tokens[lead])) return !NON_FINITE.test(tokens[lead]?.text ?? '')
+  const form = formOf(tokens[lead])
+  return form === 'past' || form === (plural ? 'base' : 'third')
 }
 /** A word that opens a clause of time, cause or contrast, which says its clause happens, before a noun phrase and a
     verb group or before a gerund ("before ending every session"): the reader's subordinating words, and "before",
@@ -2454,7 +2468,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (403 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (409 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4536,6 +4550,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions when it is not supposed to end every session stay open after logging out.</li>', false],
       ['<li>Logging out when it is not worth ending every session clears cookies.</li>', false],
       ['<li>Logging out when it does not let anyone end every session clears cookies.</li>', false],
+      // Nor is a group an adverb leads to an -ing form, one "having" or "being" leads, or one after "to" with an
+      // adverb: each is read past whole, while an adverb before the clause's verb, or a catenative in the form its
+      // subject takes, leaves the clause's verb group finite (finiteFor; Codex on 2ca36076).
+      ['<li>Logging out when it is not worth automatically ending every session clears cookies.</li>', false],
+      ['<li>Logging out when it is not worth having ended every session clears cookies.</li>', false],
+      ['<li>Logging out when it is not worth being seen ending every session clears cookies.</li>', false],
+      ['<li>Sessions when it is not supposed to automatically end every session stay open after logging out.</li>', false],
+      ['<li>Logging out when it is not needed quickly ends every session.</li>', true],
+      ['<li>Logging out when it is not needed seems to end every session.</li>', true],
       // Conditions in a run before the verb, in commas or not, are read past together (the routine lens on fb7cf414).
       ['<li>Logging out when it is idle because it is not needed ends every session.</li>', true],
       ['<li>Reusing a refresh token, if you like, because it is not valid signs everyone out.</li>', true],
