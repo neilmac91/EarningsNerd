@@ -15,10 +15,11 @@ export const LOGGED_OUT_FIRST_MESSAGE =
   "You were already logged out here, so we couldn't log out your other devices. Log in, then choose “Log out of all devices” again."
 
 /** What "Log out of all devices" tells the reader when the route refused it for another account (E157 (2)): another
- * tab signed this browser in to that account, so ending its sessions is not what this tab asked for, and nothing ended.
- * The tab then reads /me and shows that account (ConnectedAccounts). */
+ * tab logged this browser in to that account, so ending its sessions is not what this tab asked for, and nothing ended.
+ * The tab then reads /me and shows that account (ConnectedAccounts), so they log in to the one they meant and press it
+ * again, as after LOGGED_OUT_FIRST_MESSAGE. */
 export const LOGGED_IN_AS_ANOTHER_MESSAGE =
-  'This browser is now signed in to another account, so no device was logged out.'
+  "This browser is now logged in to another account, so we didn't log out any devices. Log in to the account you meant, then choose “Log out of all devices” again."
 
 /** A logout of every session that posted nothing: the logout it waited for logged this device out (logoutAllInTurn). */
 export class LoggedOutFirst extends Error {

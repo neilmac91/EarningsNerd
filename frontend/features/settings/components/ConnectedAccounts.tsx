@@ -87,10 +87,11 @@ export default function ConnectedAccounts() {
         toast.error(LOGGED_OUT_FIRST_MESSAGE)
         return
       }
-      // The browser's session is another account's (another tab signed in, E29 (3)), so the route ended nothing (E157
-      // (2)). A read of /me moves this tab to that account, whose snapshots replace this section's, so a toast says it.
+      // The browser's session is another account's (another tab logged in, E29 (3)), so the route ended nothing (E157
+      // (2)). A read of /me moves this tab to that account, whose snapshots replace this section's, so a toast says it,
+      // an error as LoggedOutFirst's is: in both, no device was logged out.
       if (err instanceof ApiError && err.status === 409) {
-        toast.warning(LOGGED_IN_AS_ANOTHER_MESSAGE)
+        toast.error(LOGGED_IN_AS_ANOTHER_MESSAGE)
         void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
         return
       }
