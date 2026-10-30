@@ -271,6 +271,16 @@ def test_a_cohort_of_exactly_the_bound_is_accepted():
     assert len(impact.parse_cohort(args)) == impact.MAX_COHORT
 
 
+def test_a_range_over_the_bound_is_refused_before_its_ids_are_built(monkeypatch):
+    # Agent E's form on #1742: with `range` shadowed in the module, building the ids fails the test before it can
+    # allocate, so a regression of the order cannot exhaust a runner's memory.
+    import argparse
+
+    monkeypatch.setattr(impact, "range", lambda *args: pytest.fail("the ids were built"), raising=False)
+    with pytest.raises(ValueError, match="a cohort holds"):
+        impact.parse_cohort(argparse.Namespace(summary_ids=None, from_id=1, to_id=10**12))
+
+
 @pytest.mark.parametrize("argv", [
     [],
     ["--from-id", "5"],

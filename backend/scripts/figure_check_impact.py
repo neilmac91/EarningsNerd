@@ -224,6 +224,9 @@ def parse_cohort(args: argparse.Namespace) -> list[int]:
     elif args.from_id is not None and args.to_id is not None:
         if args.to_id < args.from_id:
             raise ValueError("--to-id is before --from-id")
+        # The span is bounded before its ids are built: a range of 10**12 ids would fill memory first.
+        if args.to_id - args.from_id + 1 > MAX_COHORT:
+            raise ValueError(f"a cohort holds 1 to {MAX_COHORT} summaries")
         ids = list(range(args.from_id, args.to_id + 1))
     else:
         raise ValueError("name a cohort: --summary-ids, or --from-id with --to-id")
