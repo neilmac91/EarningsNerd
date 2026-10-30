@@ -156,6 +156,59 @@ so the repository cannot enforce them; the gate checks the documented crons, tim
 timeouts. Check the live schedule with `gcloud scheduler jobs describe backfill-facts-weekly
 --location=us-west1 --format="value(schedule,timeZone)"`.
 
+An optional shared request admission gate is available behind
+`SEC_DISTRIBUTED_LIMIT_ENABLED=false`. The default-off capability does not change
+the production limits described here. When enabled on every participating process,
+`earningsnerd_sec_request_gate` holds one fleet-wide row: a short PostgreSQL
+transaction locks it without waiting, reads the database clock, and admits at most
+one new decision per 125 ms (8 per second), without saved burst credits or future
+reservations. Existing per-process pacing runs first. The transaction finishes
+before sleeping or contacting SEC. A missing table/row, coordinator error or
+exhausted wait fails closed as `SECAdmissionUnavailable`, never an upstream 429.
+The primary document deadline includes admission and does not count a local
+admission timeout against SEC's circuit breaker.
+
+The bound is on committed **request admission decisions**, not the timing of
+socket writes or when callers receive grants: a delayed commit, process pause or
+connection-pool wait can bunch later sends. Exact wire dispatch control would
+require an owned egress dispatcher. The owned HTTPX clients attach a per-send
+request hook, including redirects and auth resends, preserving proxy routing.
+The pinned EdgarTools manager uses the same gate below its disk cache; cache hits
+spend nothing, revalidation/retries/redirects each spend a permit. Its reachable
+short-SGML fallback is routed through a fresh cache-disabled manager sharing the
+same limiter, identity and TLS/proxy settings. A version/signature check refuses
+unknown dependency shapes when enabled. No global HTTPX class or installed
+dependency file is modified. Native transport retries remain zero; external
+clients/retry transports, manual diagnostics and traffic outside these owners are
+not covered. The unused dependency URL parser and XML-native forms stay outside
+the application's supported call paths; the tests guard that boundary.
+
+Activation is a separate operational change. Before enabling, read back every
+API revision, job image, task-worker child and manual execution; deploy the
+capability everywhere while disabled and drain old/off executions before claiming
+a fleet bound. Include all deploy environment maps in the activation change.
+Read back Cloud SQL headroom against the full overlap envelope: each process
+creates at most one additional lazy coordinator connection, no overflow, separate
+from request-owned sessions to avoid nested-pool deadlock. One dedicated async
+worker admits at most one outstanding DB unit per process; it never sends HTTP.
+Cancellation may waste a permit but cannot send later from that DB worker. An
+already-running synchronous Edgar worker cannot be cancelled by its async caller's
+deadline: it may continue later requests, each still requiring local and shared
+admission. The coordinator does not establish disconnect cancellation or an overall
+Edgar-operation deadline. The
+coordinator uses bounded checkout/connect/statement waits, leaves PGOPTIONS
+intact and runs no startup DDL. Apply the additive migration before activation;
+replaying it never resets the existing deadline. Activation must provide coordinator
+wait/error telemetry and compare request latency before increasing traffic; the
+current health endpoint does not expose this coordinator. Disabling removes the shared
+bound and retains the documented local limits; it is not a way to preserve a
+fleet guarantee during a database outage. No activation or egress change is part
+of this capability. SEC `Retry-After` is currently honored only by existing caller
+retry paths, not persisted as a fleet-wide cooldown. The manager limiter interface
+has no response feedback. Activation also requires complete, reviewed sync/async
+response feedback across both transport owners; this capability does not claim a
+global SEC cooldown or prove release-day availability.
+
 Not bounded by this pin: rollout-overlap instances, manual job executions and operator one-shots, a
 job task retried after a failure or timeout (no documented create command sets `--max-retries`, so
 Cloud Run's default of three retries applies, and each attempt restarts its task timeout: a retried

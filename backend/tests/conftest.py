@@ -71,6 +71,7 @@ os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_mock_stripe_webhook_12345"
 
 # Skip Redis initialization in tests - prevents 3+ second timeout per test
 os.environ["SKIP_REDIS_INIT"] = "true"
+os.environ["SEC_DISTRIBUTED_LIMIT_ENABLED"] = "false"
 
 # Disable the HaveIBeenPwned network call in tests so the suite stays hermetic and offline.
 os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"

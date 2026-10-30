@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     SEC_RATE_LIMIT_PER_SECOND: int = 10
     SEC_MAX_RETRIES: int = 5
     SEC_BASE_BACKOFF_SECONDS: float = 1.0
+    # Optional shared fleet admission. Enable only after all callers are deployed,
+    # old executions drain and one extra DB connection/process fits the DB budget.
+    SEC_DISTRIBUTED_LIMIT_ENABLED: bool = False
+    SEC_DISTRIBUTED_WAIT_SECONDS: float = Field(default=10.0, gt=0, le=30, allow_inf_nan=False)
     # Multi-Period Analysis: how long a company's ingested companyfacts history stays fresh before
     # the coverage endpoint re-syncs it (a Filing row newer than the stamp overrides the TTL).
     COMPANYFACTS_SYNC_TTL_HOURS: int = 24

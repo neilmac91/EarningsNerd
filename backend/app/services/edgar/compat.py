@@ -21,6 +21,7 @@ from urllib.parse import quote
 import httpx
 
 from .client import edgar_client
+from app.services.sec_request_gate import sec_request_options
 from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_stats
 from .exceptions import EdgarError, EdgarNetworkError, EdgarNotFoundError, EdgarRateLimitError, EdgarTimeoutError
 from .config import FilingType, EDGAR_IDENTITY
@@ -166,7 +167,7 @@ class SECEdgarServiceCompat:
                 # restart), so it must fail-fast and fall back to the stale cache below rather than
                 # sleep through the 5-attempt / Retry-After-120s ladder — that belongs to cron-shaped
                 # callers (S4 review #3). It carried the breaker but bypassed the limiter.
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(**sec_request_options()) as client:
                     async def _do_request() -> httpx.Response:
                         resp = await client.get(
                             "https://www.sec.gov/files/company_tickers.json",
@@ -426,7 +427,7 @@ class SECEdgarServiceCompat:
         physical_attempts = 0
         try:
             async with edgar_circuit_breaker:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(**sec_request_options()) as client:
                     async def _do_get() -> tuple[bytes, Dict[str, Any]]:
                         nonlocal physical_attempts
                         physical_attempts += 1
@@ -541,10 +542,17 @@ class SECEdgarServiceCompat:
 
         deadline = time.monotonic() + timeout
         phase = "admission"
+
+        def admission_wait(waiting: bool) -> None:
+            nonlocal phase
+            phase = "admission" if waiting else "request"
+
         try:
             async with edgar_circuit_breaker:
                 try:
-                    async with aio.timeout(timeout), httpx.AsyncClient() as client:
+                    async with aio.timeout(timeout), httpx.AsyncClient(
+                        **sec_request_options(on_wait=admission_wait),
+                    ) as client:
                         async def _do_get() -> httpx.Response:
                             nonlocal phase
                             phase = "request"

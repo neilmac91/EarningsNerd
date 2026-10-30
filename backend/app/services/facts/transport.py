@@ -63,6 +63,7 @@ async def _fetch_companyfacts_async(cik: str) -> Optional[dict]:
     backoff in ``sec_rate_limiter``. Returns ``None`` on any failure, including a malformed CIK.
     """
     import httpx
+    from app.services.sec_request_gate import sec_request_options
 
     from app.config import settings
     from app.services.sec_rate_limiter import sec_rate_limiter
@@ -74,7 +75,7 @@ async def _fetch_companyfacts_async(cik: str) -> Optional[dict]:
         url = companyfacts_url(cik)  # ValueError on a malformed CIK -> None, like any other failure
 
         async def _get() -> Any:
-            async with httpx.AsyncClient(timeout=20.0) as client:
+            async with httpx.AsyncClient(timeout=20.0, **sec_request_options()) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 return response.json()

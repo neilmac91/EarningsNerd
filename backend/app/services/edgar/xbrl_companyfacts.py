@@ -39,6 +39,7 @@ async def fallback_to_company_facts(
     """
     # Keep the receiver: resolve its parser after the response, so class/instance patches intercept.
     import httpx
+    from app.services.sec_request_gate import sec_request_options
 
     logger.info(f"Falling back to SEC company facts API for CIK {cik}")
 
@@ -50,7 +51,7 @@ async def fallback_to_company_facts(
         # fail-fasts rather than sleeping through the full backoff ladder (S4 review #3).
         # raise_for_status turns a non-2xx status into an exception, preserving "non-2xx -> None" via the
         # outer except; any 2xx body (a 203 or 206 too) is parsed, and one that is not JSON is None too.
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(**sec_request_options()) as client:
             async def _do_request() -> httpx.Response:
                 resp = await client.get(
                     facts_url,

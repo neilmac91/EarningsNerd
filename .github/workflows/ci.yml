@@ -335,6 +335,12 @@ jobs:
         env:
           PROGRESS_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_summary_progress_transactions.py
+      - name: Verify SEC request admission concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          SEC_ADMISSION_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_sec_request_gate_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
