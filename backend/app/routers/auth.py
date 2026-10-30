@@ -20,6 +20,7 @@ import httpx
 import jwt
 
 from app.database import get_db
+from app.dependencies import resolve_current_user_or_none
 from app.models import User
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -416,7 +417,7 @@ def _get_token_from_request(
 
 def _not_logged_in() -> HTTPException:
     """The refusal of a request no live credential authenticates: ``get_current_user``'s, and the logout of every
-    session's when neither its access token nor its refresh cookie names a user (E157 (2))."""
+    session's when no credential it reads names a user (E157 (2))."""
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="You are not logged in.",
@@ -1564,15 +1565,16 @@ async def logout_all(
     response: Response,
     payload: Optional[LogoutAllRequest] = None,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: Optional[User] = Depends(resolve_current_user_or_none),
 ):
     """Revoke every refresh token of the logged-in user (log out all devices) and clear this session.
 
-    The user is the access token's, a bearer before the access cookie, as on every route. Past the access token's 30
-    minutes, a request that names the account its tab shows (``account_id``) finds its user from the same cookie a
-    logout reads, if it carries a live refresh token (E157 (2)); one that names none, from a page loaded before the
-    field, is answered as before it. With no user, 401. A request that names another account than the user's is
-    refused with 409: nothing is revoked and the cookies stay."""
+    The user is the access token's, read as ``get_current_user`` reads it on every route: a bearer before the access
+    cookie, and an inactive account refused with 403. When no access token names a user (none came, or it has lapsed
+    after its 30 minutes or does not verify), a request that names the account its tab shows (``account_id``) finds
+    its user from the same cookie a logout reads, if it carries a live refresh token (E157 (2)); one that names none,
+    from a page loaded before the field, is answered as before it. With no user, 401. A request that names another
+    account than the user's is refused with 409: nothing is revoked and the cookies stay."""
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
     actor = (current_user.id, current_user.email) if current_user else None

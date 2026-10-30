@@ -73,6 +73,7 @@ from tests.support.account_agreement import ACCOUNT_AGREEMENT
 
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
 
@@ -1196,6 +1197,59 @@ def test_logout_all_with_a_live_access_token_reads_no_refresh_cookie(client, mai
         assert _cookies(resp) == ACCESS_CLEARED + REFRESH_CLEARED
         assert _live_refresh_tokens(user_id) == 0
         assert _logout_rows(user_id) == [*rows, ("user", email, True)]
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("names_account", [False, True])
+def test_logout_all_refuses_an_inactive_account_403_as_every_route_does(client, mail, names_account):
+    """The access token's user is read as get_current_user reads it on every route, so an inactive account with a
+    live access cookie is refused with its 403 whether or not the request names it, and nothing is revoked (E157 (2));
+    it never reads as "not logged in"."""
+    email, user_id, _other_device = _two_sessions(client, mail)
+    _update_user(email, is_active=False)
+
+    resp = client.post("/api/auth/logout-all", **_naming(user_id if names_account else None))
+
+    assert resp.status_code == 403
+    assert resp.json() == {"detail": "This account is inactive. Contact support with any questions."}
+    assert _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
+
+
+@pytest.mark.requires_db
+def test_logout_all_raises_a_failed_lookup_of_the_access_tokens_user(client, mail, monkeypatch):
+    """A lookup of the access token's user that fails raises, as get_current_user's does on every route: it neither
+    reads as "not logged in" while every session lives nor falls through to the refresh cookie (E157 (2))."""
+    from app.services import auth_account_service
+
+    _email, user_id, _other_device = _two_sessions(client, mail)
+
+    def unavailable(db, email):
+        raise OperationalError("SELECT users", {}, Exception("the pool timed out"))
+    monkeypatch.setattr(auth_account_service, "find_user_by_email", unavailable)
+
+    with pytest.raises(OperationalError):
+        client.post("/api/auth/logout-all", json={"account_id": user_id})
+    monkeypatch.undo()
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("content_type", ["text/plain", "application/x-www-form-urlencoded", None])
+def test_logout_all_reads_the_named_account_only_from_a_json_body(client, mail, content_type):
+    """A page on another site can post text/plain or a form without a CORS preflight, but not JSON. The account is
+    read only from a JSON body (FastAPI refuses any other with 422), so the refresh cookie's way past the access
+    token stays out of a simple cross-site request's reach, as SameSite=lax keeps the cookies out of it too
+    (E157 (2))."""
+    _email, user_id, _other_device = _two_sessions(client, mail)
+    client.cookies.delete(settings.COOKIE_NAME)
+    headers = {} if content_type is None else {"Content-Type": content_type}
+
+    resp = client.post("/api/auth/logout-all", content=json.dumps({"account_id": user_id}), headers=headers)
+
+    assert resp.status_code == 422
+    assert _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
 
 
 @pytest.mark.requires_db
