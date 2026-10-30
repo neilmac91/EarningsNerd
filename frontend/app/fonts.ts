@@ -19,7 +19,7 @@ export const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--fo
 // that face (webpack's loader keeps it beside a fallback list otherwise) and `fallback` ends --font-geist-mono in the
 // platform's monospace. `subsets` chooses only the files preloaded, and this instance rides every route: latin-ext
 // (14.7 KB: †, ₹, ₪, ₱) is declared with its unicode-range all the same and loads where its text paints, and the spec
-// renderer's charts wait for it before they paint (TrendChartsV2's CHART_TEXT; spec §0.5).
+// renderer's charts wait for it before they paint (useChartFont's CHART_TEXT; spec §0.5).
 export const geistMono = Geist_Mono({
   subsets: ['latin'],
   adjustFontFallback: false,

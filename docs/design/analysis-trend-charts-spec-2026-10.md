@@ -416,6 +416,10 @@ says so; everything else follows the spec.
     describer, with the same output. A describer names a period's header (its long name by default; `periodHeader`
     gives `FY2025 · year ended Sep 27, 2025` and its spoken form), whether a value is calculated (never a value that is
     not there), its note letter (none by default) and a series' spoken name.
+  - `components/ChartPlotFrame.tsx` is a plot's frame for any card: the width it measures, the plan, the plot or a
+    chart's sentence at the card's height when it does not apply, `VALUES_DONT_FIT`, and whether the plot waits for its
+    font. It hands those to its caller, so `TrendChartCard.tsx` keeps its subgrid's rows. `components/useChartFont.ts`
+    holds G4's wait, which `TrendChartsV2.tsx` held.
   - The gates. `chart-engine.spec.ts` runs the model checks, the reading sweep and the sticky-gutter sweep on every case
     in `tests/unit/fixtures/fundamentals-datasets.json`: production's filing 3 (AAPL's revenue, diluted EPS, net margin,
     current ratio, negative working capital and four years of equity) and synthetic filings (CNY, a bank's net interest
