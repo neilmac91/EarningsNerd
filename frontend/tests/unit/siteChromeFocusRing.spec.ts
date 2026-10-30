@@ -116,9 +116,8 @@ const RING_RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/CopilotMessage.tsx': 11, // Markdown renderer props spreads the scan cannot read; their one Tab stop, the answer's link, takes the ring from globals.css's prose-link rule (D-030, prose-links.spec.ts)
   'features/filings/components/copilot/ReaderTable.tsx': 1, // the Markdown renderer's props spread on its table, which the scan cannot read; the scroll box writes its region attributes out, so the scan holds its ring
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
-  'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
 }
-const RING_RESIDUE_MAX = { files: 5, stops: 18 }
+const RING_RESIDUE_MAX = { files: 4, stops: 16 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

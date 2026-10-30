@@ -59,7 +59,10 @@ from tests.support.ops_workflow import (
     ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
 )
 
-DB_COMMAND = re.compile(r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\bscripts/")
+DB_COMMAND = re.compile(
+    r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\bscripts/"
+    r"|\bpython3?\s+ops/summary_readout/readout\.py\b"
+)
 RUNNER_SCRIPT = re.compile(r"(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*(\S*\bscripts/[\w./-]+\.(?:py|sh))")
 CONNECTION_EVENTS = {"do_connect", "connect", "first_connect", "checkout", "engine_connect", "begin", "after_begin"}
 # The one connection-level listener allowed: database.py's UTC pin (E151), on `connect`, by this name.
@@ -107,6 +110,28 @@ def test_every_database_command_runs_after_the_proxy_for_its_operations_with_its
     reach = cloud_sql_reach()
     unused = {op for op in selected(proxy) if not any(op in selected(step) for _, step in reach)}
     assert unused == set(), f"the proxy starts for operations no Cloud SQL step uses: {sorted(unused)}"
+
+
+def test_summary_recovery_readout_is_fixed_read_only_and_retains_failure_evidence():
+    """The summary receipt operation cannot broaden into arbitrary SQL or a mutating task."""
+    name = "Read bounded summary recovery receipts"
+    at, step = BY_NAME[name]
+    assert selected(step) == {"summary-recovery-readout"}
+    assert step["run"] == "python3 ops/summary_readout/readout.py"
+    assert "continue-on-error" not in step
+    assert 0 < int(step["timeout-minutes"]) <= 2
+    options = step["env"]["PGOPTIONS"]
+    assert dict(pg_settings(options))["default_transaction_read_only"] == "on"
+    assert setting_ms(options, "statement_timeout") == 15_000
+    assert setting_ms(options, "lock_timeout") == 2_000
+    assert "summary-recovery-readout" in selected(BY_NAME[PROXY][1])
+    assert "summary-recovery-readout" in selected(BY_NAME["Refuse to run while a main push (deploy) is in flight"][1])
+    retained_at, retained = BY_NAME["Retain summary recovery readout"]
+    assert retained_at > at
+    assert retained["if"] == "always() && steps.request.outputs.operation == 'summary-recovery-readout'"
+    assert retained["with"]["path"] == "summary-recovery-receipt.json"
+    assert retained["with"]["if-no-files-found"] == "error"
+    assert int(retained["with"]["retention-days"]) <= 14
 
 
 def test_the_relabel_step_runs_for_exactly_the_relabel_operations_and_reads_their_outputs():
@@ -347,10 +372,12 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
         "the UTC pin may set the session's time zone and nothing else: anything more can set a guard again"
     )
     # The quarterly repair and lineage backfill scripts run their SQL through their services and the fact
-    # writers' lock, so those modules are read too. database.py's additive-column DDL and
-    # subscription_service.py bound their own lock waits on purpose, and stay out.
+    # writers' lock, so those modules are read too, the repair's proxy step included (it runs no SQL, but it
+    # sits on the repair's path). database.py's additive-column DDL and subscription_service.py bound their
+    # own lock waits on purpose, and stay out.
     sql_modules = [ROOT / "backend/app/services/quarterly_fact_repair.py", ROOT / "backend/app/services/facts/upsert.py",
-                   ROOT / "backend/app/services/filing_lineage_repair.py"]
+                   ROOT / "backend/app/services/filing_lineage_repair.py",
+                   ROOT / "backend/app/services/proxy_fact_repair.py"]
     for path in [*scripts, *sql_modules]:
         assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                              r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", path.read_text(encoding="utf-8"), re.I), (

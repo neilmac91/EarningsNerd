@@ -1,4 +1,4 @@
-import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, inSentence, ordinal } from '@/lib/format'
+import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, inSentence } from '@/lib/format'
 
 describe('numeric formatters', () => {
   it('formats currency values compactly by default', () => {
@@ -28,14 +28,6 @@ describe('numeric formatters', () => {
   it('formats percentages with sign handling', () => {
     expect(fmtPercent('0.157', { digits: 2, signed: true })).toBe('+0.16%')
     expect(fmtPercent('-0.031', { digits: 1, signed: true })).toBe('-0.0%')
-  })
-
-  it('reads ordinals in English: st, nd, rd, and th for the teens', () => {
-    const cases: Array<[number, string]> = [
-      [0, '0th'], [1, '1st'], [2, '2nd'], [3, '3rd'], [4, '4th'], [11, '11th'], [12, '12th'], [13, '13th'],
-      [21, '21st'], [22, '22nd'], [23, '23rd'], [50, '50th'], [99, '99th'], [100, '100th'], [101, '101st'], [111, '111th'],
-    ]
-    for (const [n, text] of cases) expect(ordinal(n)).toBe(text)
   })
 
   it('scales a share count as a magnitude, and keeps a net figure\'s sign when asked', () => {

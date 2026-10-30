@@ -281,6 +281,76 @@ def test_recovery_does_not_fill_batch_with_acknowledged_future_retries(user_id):
     assert (view.job_id, view.generation) not in store.due_jobs(20)
 
 
+@pytest.mark.asyncio
+async def test_recovery_skips_recently_dispatched_expired_owner_before_batch_limit(user_id, monkeypatch):
+    now = utcnow()
+    monkeypatch.setattr(store, "utcnow", lambda: now)
+    expired, _ = _lease(user_id)
+    live, _ = _lease(user_id)
+    queued = _new(user_id)
+    cooldown = timedelta(seconds=settings.SUMMARY_JOB_RECOVERY_SECONDS)
+    with SessionLocal() as db:
+        old = db.get(SummaryJob, expired.job_id)
+        old.created_at = now - timedelta(minutes=30)
+        old.lease_until = now - timedelta(seconds=1)
+        old.last_dispatched_at = now - cooldown + timedelta(seconds=1)
+        old_token = old.dispatch_token
+        old_ack = ensure_utc(old.last_dispatched_at)
+        active = db.get(SummaryJob, live.job_id)
+        active.created_at = now - timedelta(minutes=20)
+        active.lease_until = now + timedelta(minutes=5)
+        active.last_dispatched_at = now - cooldown
+        live_token = active.dispatch_token
+        db.get(SummaryJob, queued.job_id).created_at = now - timedelta(minutes=10)
+        db.commit()
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+
+    # A recovery-ineligible old owner must not consume the only slot before the
+    # dispatch transaction rejects it, leaving the newer unacknowledged job stuck.
+    assert await jobs.recover_due_jobs(limit=1) == 1
+    assert enqueue.call_args.args == ("summary", {"job_id": queued.job_id, "generation": queued.generation})
+    with SessionLocal() as db:
+        old = db.get(SummaryJob, expired.job_id)
+        assert old.dispatch_token == old_token and ensure_utc(old.last_dispatched_at) == old_ack
+        assert db.get(SummaryJob, live.job_id).dispatch_token == live_token
+        assert ensure_utc(db.get(SummaryJob, queued.job_id).last_dispatched_at) == now
+
+    # The exact cooldown boundary permits the expired owner, while an active
+    # lease remains excluded even though its acknowledgement is old enough.
+    now = old_ack + cooldown
+    assert store.due_jobs(1) == [(expired.job_id, expired.generation)]
+    assert (live.job_id, live.generation) not in store.due_jobs(50)
+    assert await jobs.recover_due_jobs(limit=1) == 1
+    assert enqueue.call_count == 2
+    assert enqueue.call_args.args == ("summary", {"job_id": expired.job_id, "generation": expired.generation})
+    with SessionLocal() as db:
+        old = db.get(SummaryJob, expired.job_id)
+        assert old.dispatch_token != old_token and ensure_utc(old.last_dispatched_at) == now
+        assert db.get(SummaryJob, live.job_id).dispatch_token == live_token
+
+
+@pytest.mark.asyncio
+async def test_recovery_keeps_expired_owner_without_dispatch_acknowledgement_eligible(user_id, monkeypatch):
+    now = utcnow()
+    monkeypatch.setattr(store, "utcnow", lambda: now)
+    view, _ = _lease(user_id)
+    with SessionLocal() as db:
+        row = db.get(SummaryJob, view.job_id)
+        row.lease_until = now
+        assert row.last_dispatched_at is None
+        token = row.dispatch_token
+        db.commit()
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+    assert await jobs.recover_due_jobs(limit=1) == 1
+    assert enqueue.call_args.args == ("summary", {"job_id": view.job_id, "generation": view.generation})
+    assert enqueue.call_args.kwargs["dedupe_key"] == f"summary:{view.job_id}:{view.generation}:{token}"
+    with SessionLocal() as db:
+        row = db.get(SummaryJob, view.job_id)
+        assert row.dispatch_token == token and ensure_utc(row.last_dispatched_at) == now
+
+
 def test_system_daily_admission_budget_is_not_refilled_by_failure(monkeypatch):
     monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 2)
     monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 1)
