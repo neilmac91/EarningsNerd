@@ -1128,3 +1128,45 @@ async def test_reply_to_protocol_isolates_all_live_states_from_old_readers(engin
         assert delivery.expire_stale(db, expired, kind=kind) == {"reclaimed": 0, "lease_expired": 1, "rekeyed": 0}
         db.refresh(sending)
         assert sending.status == "ambiguous" and sending.last_error_kind == delivery.ERROR_LEASE_EXPIRED
+
+
+@pytest.mark.asyncio
+async def test_empty_scan_releases_single_connection_before_recovering_queued_summary(tmp_path, monkeypatch):
+    """An empty mail drain leaves its selection read open; recovery needs another session."""
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import QueuePool
+    from app.models import SummaryJob
+    from app.services import summary_job_store, summary_jobs
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'scan-recovery.db'}", poolclass=QueuePool,
+                           pool_size=1, max_overflow=0, pool_timeout=0.15,
+                           connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False)
+    monkeypatch.setattr(summary_job_store, "SessionLocal", factory)
+    monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", True)
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 0)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 0)
+    enqueue = AsyncMock(return_value="synthetic-task-name")
+    monkeypatch.setattr(summary_jobs, "enqueue_task", enqueue)
+    try:
+        with factory() as db:
+            _seed(db, is_pro=True, realtime=True)
+            db.query(Watchlist).delete()
+            filing = Filing(company_id=1, accession_number="queued-exact-filing", filing_type="10-Q",
+                            filing_date=NOW, document_url="https://sec.example/queued.htm",
+                            sec_url="https://sec.example/queued/")
+            db.add(filing)
+            db.commit()
+            filing_id = filing.id
+        view = summary_job_store.ensure_job(filing_id, 1)
+        with factory() as db:
+            stats = await run_filing_scan(db, fetch_filings=AsyncMock(), now=NOW)
+            assert stats["companies_scanned"] == 0 and stats["alerts_sent"] == 0
+            assert engine.pool.checkedout() == 0
+            job = db.get(SummaryJob, view.job_id)
+            assert job.last_dispatched_at is not None
+            enqueue.assert_awaited_once()
+    finally:
+        engine.dispose()
