@@ -1633,7 +1633,7 @@ const FIGURE_FIELDS = new Set([
   'display', 'change_display', 'current_period', 'prior_period', 'currentPeriod', 'priorPeriod', 'value', 'arithmetic',
   'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'yoy_first_reported', 'n', 'marker', 'markers',
   // Numbers a reader reads as one.
-  'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'sic', 'dataset_version',
+  'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'dataset_version',
   'app_version',
   // Dates, periods and the keys that name them.
   'as_of', 'completed_at', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
@@ -3719,9 +3719,9 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
       'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
       'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx', 'app/delete-account/page.tsx',
-      // Reached only through their routes: the company page's peers panel, the filing page's summary, the
+      // Reached only through their routes: the company page's insider panel, the filing page's summary, the
       // flag-gated calendar and analysis, and the labs prototypes, public wherever their flags are on.
-      'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx',
+      'features/insiders/components/InsiderActivityPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx',
       'features/calendar/components/MonthView.tsx', 'app/analysis/page.tsx',
       'features/filing-redlines/components/FilingRedlines.tsx', 'features/research-evidence-packs/components/ResearchEvidencePacks.tsx',
       'features/financial-refresh-review/components/FinancialRefreshReview.tsx']) {

@@ -350,7 +350,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`tests/unit/badgeNeverAControl.spec.ts`, which reads a Badge and a control through their
   bindings and the control's whole face). The amendment link carries the brand focus ring.
 - **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
-  `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
+  `features/companies/components/CompanySearch.tsx`, `features/insiders`,
   `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
   `features/filings/components/FilingIndex.tsx`): a company that fails
   to load says "Couldn’t load this company" with "Try again" and never prints the raw error; only a 404
@@ -358,11 +358,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   with the search's scope ("No company with a ticker on SEC EDGAR matches
   …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
   search field reads "Search company or ticker" everywhere (the landing's string) and its result rows
-  take the inset focus ring. Sector peers and financial trends pick their metric through a compact select
-  sized to its content beside its "Metric" label (nine and up to 23 options, in sentence case on its
-  face); insider activity picks its window through the SegmentedControl; headings in sentence case; the
-  percentile is an ordinal ("21st percentile"); a trade's type carries a hidden ▲ or ▼ beside its
-  label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is; a trade's
+  take the inset focus ring. Financial trends picks its metric through a compact select sized to its
+  content beside its "Metric" label (up to 23 options, in sentence case on its face); the Sector peers
+  panel and its metric picker are retired until the SIC backfill gives it cohorts (D-066); insider
+  activity picks its window through the SegmentedControl; headings in sentence case; a trade's type
+  carries a hidden ▲ or ▼ beside its label and the discretionary net keeps its sign; the 10b5-1 note
+  says what a plan trade is; a trade's
   missing share count, value or date reads "unavailable", a missing name "name unavailable" and a row
   that lists neither a title nor a role "no role listed", each the missing-value element. "Full
   history on SEC.gov" opens the company's EDGAR list through the shared company link the lead
@@ -421,7 +422,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   on a bounded payload under the known universe: the chip shows there and nowhere else.
 - **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
   check-email countdown, the period quick picks, the narrative's "Show the N source figures" summary
-  and its bracketed Sources chip, the data notes' checked count, the peer rank and the summary's
+  and its bracketed Sources chip, the data notes' checked count and the summary's
   section index rest in the ink, and so do the values beside them: the filing viewer's "Showing ·"
   caption, which prints a section's name, and the "Sources & checks" links, which under the
   fundamentals chart print a figure's fiscal year. A What-changed chip on the dashboard is a figure's

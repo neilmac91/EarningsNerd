@@ -1679,9 +1679,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
-                 A long option set is not a segmented control: the company page's peer metric picker (nine
-                 options) and the filing page's trend metric picker (up to 23) are a raw compact select beside
-                 a visible "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 A long option set is not a segmented control: the filing page's trend metric picker (up to 23
+                 options) is a raw compact select beside a visible "Metric" label,
+                 inputClasses({ select: true, density: 'compact', autoWidth: true }),
                  options in sentence case; the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
@@ -2949,8 +2949,8 @@ lettered data notes with `SourceValue` buttons opening the shared Modal with sou
 operands and the applicable note; a calculated figure carries no dagger, and only a note that
 questions the number marks its figure (`noteMarksFigure`, D-061). The report-level disclosure
 groups concerns by reason and counts figures separately from inherited comparisons. Chart and
-narrative Notes controls open the same note and name marked letters only; filing fundamentals and
-peers retain their own source-check presentation. No mark takes warning ink. Legacy concerns remain
+narrative Notes controls open the same note and name marked letters only; filing fundamentals
+retains its own source-check presentation. No mark takes warning ink. Legacy concerns remain
 until their stored validation changes, unmarked but listed in the data notes and read in the dialog;
 missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
 Unavailable table values use — with an empty gutter and read “Unavailable” in the evidence view,
@@ -3009,10 +3009,9 @@ the secondary ink. The tooltip's series names follow secondary, `#D1D5DB` in dar
 `tests/unit/chartThemeTokens.spec.ts` holds every `chartTheme` ink to the tailwind token it copies, per theme. The
 chart export's secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
 `tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its mark's paint: `ChartTooltip` takes the row's `color`,
-else the series colour of its position. Recharts gives a row its series' own `fill`, so the peers chart, whose bars
-take their paint from their Cells, passes `swatchOf`, which paints each row's swatch as its bar: a peer's grey at 45%,
-the subject's `chart.1` (`tests/unit/peer-comparison-panel.spec.tsx`).
-Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
+which Recharts gives from its series' own `fill`, else the series colour of its position (the peers chart's
+per-bar swatch, `swatchOf`, left with its panel, D-066).
+Tooltip cursor: `barCursorProps(dark)` on the bar chart (filing fundamentals, the Recharts chart
 left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
@@ -3029,12 +3028,13 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
-since E195, D-064) draws those four charts, and only those: filing fundamentals and peers stay on Recharts. It paints the
-engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
-both themes. Since E195's token fold they name app tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the
-grid `chart.grid`, which the Recharts charts and the landing page's revenue bars take too (the peers chart draws no
-grid); the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and `chart.label.dark` in
-dark (the Recharts ticks take `chart.label`, the flat `#6B7280` in light); and the printed values `text.secondary` in
+since E195, D-064) draws those four charts, and only those: filing fundamentals stays on Recharts (the company page's
+peers chart left with its panel, D-066). It paints the engine's plan in literal SVG attributes from
+`features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for both themes. Since E195's token fold they name app
+tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the Recharts chart and the
+landing page's revenue bars take too; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in
+light and `chart.label.dark` in dark (the Recharts ticks take `chart.label`, the flat `#6B7280` in light); and the
+printed values `text.secondary` in
 light and the figure ink `text.primary` in dark (D-063). The dark notes (the subtitle, the footnotes, and the band's
 and the tooltip's letters) keep `chart.label.dark` rather than the figure surfaces' `note-dark` `#D1D5DB`: they take
 the tertiary step, as light's notes do, and `note-dark` is dark's secondary, the legend names' ink. So in dark a

@@ -18,8 +18,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
-import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
-import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
+import { ENABLE_RECOMMENDED_FILING, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
 import { CompanyIdentity } from '@/features/companies/components/CompanyIdentity'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 import { queryKeys } from '@/lib/queryKeys'
@@ -435,7 +434,6 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {ENABLE_FINANCIAL_CHARTS && <PeerComparisonPanel ticker={normalizedTicker} />}
         {/* Insider (Form 4) activity — self-fetches; live SEC read, off by default. FPIs are
             exempt from Form 4 reporting, so the panel shows an honest note (no live read). */}
         {ENABLE_INSIDER_ACTIVITY && (

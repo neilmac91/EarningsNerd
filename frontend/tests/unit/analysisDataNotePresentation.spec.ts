@@ -21,10 +21,9 @@ const COMPACT_SURFACES = [
 ]
 const OLD_BADGE = `${ANALYSIS}components/ReconciliationBadge`
 const SOURCE_BADGE = 'features/fundamentals/components/SourceCheckBadge'
-// Shrink-only: remove a consumer when it migrates; never add a new badge surface.
+// Shrink-only: remove a consumer when it migrates or goes (the peers panel, D-066); never add a new badge surface.
 const SOURCE_BADGE_CONSUMERS = new Set([
   'features/fundamentals/components/FundamentalsTrendChart.tsx',
-  'features/peers/components/PeerComparisonPanel.tsx',
 ])
 
 function parse(source: string, file = 'fixture.tsx'): ts.SourceFile {
@@ -178,7 +177,7 @@ describe('analysis data-note presentation gate', () => {
   })
 
   it('keeps the relocated source badge behind a shrink-only consumer allowlist', () => {
-    expect(SOURCE_BADGE_CONSUMERS.size).toBeLessThanOrEqual(2)
+    expect(SOURCE_BADGE_CONSUMERS.size).toBe(1)
     expect([...SOURCE_BADGE_CONSUMERS].some((file) => file.startsWith(ANALYSIS))).toBe(false)
     expect(sources.length, 'The import boundary must inspect frontend source').toBeGreaterThan(100)
     expect(sources.flatMap(badgeBoundaryViolations)).toEqual([])
