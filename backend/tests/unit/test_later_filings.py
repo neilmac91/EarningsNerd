@@ -9,7 +9,7 @@ truth (its spec is ``frontend/tests/unit/later-filings.spec.tsx``):
    producer builds from WP5b's REGN shape gives the places the fixture's REGN case plants.
 2. The decoder. ``_decode`` below is a Python port of the page's ``decodeLaterFilings`` and its checks
    (``checkFirstReported``, ``checkInputs``, ``carriesFinding``, ``checkPoint``, ``scaleSteps``, ``day``), as of F1's
-   a9ab712bc. Every dataset the producer builds here, the REGN shape and each finding's, passes it as JSON; so does
+   final head 002073612 (#1776). Every dataset the producer builds here, the REGN shape and each finding's, passes it as JSON; so does
    every shared case, which the page admits; and planted breaks of each rule fail it. When the page's rules change,
    this port follows them; it never decides them.
 """
@@ -132,6 +132,10 @@ def _check_inputs(provenance, annual, where):
         at = f"{where}.inputs[{index}]"
         if _present((operand or {}).get("first_reported")):
             _annual_only(annual, f"{at}.first_reported")
+            # An input carries evidence as a reported figure does; a calculated input's sits on its own inputs (item 5).
+            own = operand.get("provenance")
+            if isinstance(own, dict) and own.get("method") == "calculated":
+                raise Rejection(f"{at}.first_reported sits on a calculated input, whose evidence belongs on its inputs")
             _check_first_reported(operand["first_reported"], operand, at)
         _check_inputs((operand or {}).get("provenance"), annual, at)
 
@@ -226,6 +230,15 @@ class TestTheProducersDatasetsDecode:
         assert _decode(dataset) == dataset
         assert any("first_reported" in point for series in dataset["series"] for point in series["points"])
 
+    def test_the_sign_flip_dataset_holds_the_precedence_on_its_calculated_figure(self, db):
+        # The producer's own shape for the precedence: the margin's input carries the finding, so its growth as first
+        # reported is n/m on that year and the next, and the input it sits on is reported.
+        dataset = _wire(_build(db, _synced(db, PRODUCED["a-sign-flip"]())))
+        fy2018, fy2019 = _at(dataset, "net_margin", "FY2018"), _at(dataset, "net_margin", "FY2019")
+        assert "first_reported" not in fy2018 and _operand(fy2018, "net_income")["first_reported"]["disagreement"]
+        assert _operand(fy2018, "net_income")["provenance"]["method"] == "reported"
+        assert (fy2018["yoy_first_reported"], fy2019["yoy_first_reported"]) == ("nm", "nm")
+
     def test_the_regn_dataset_gives_the_places_the_shared_fixture_plants(self, db):
         regn = next(case for case in CASES if case["name"] == "regn_own_reports_beside_later_comparatives")
         assert later_filing_places(_build(db, _synced(db, _payload()))) == regn["expected"]
@@ -240,8 +253,16 @@ class TestTheProducersDatasetsDecode:
         (lambda d: _at(d, "net_income", "FY2017").update(yoy="nm", yoy_first_reported=None, qoq_first_reported=None),
          "QoQ"),
         (lambda d: d.update(mode="quarterly"), "only an annual run"),
+        # The net margin carries no evidence of its own; its net income input carries the sign flip (item 5), so its
+        # growth as first reported is n/m on that year and the next, never a number or null.
+        (lambda d: _at(d, "net_margin", "FY2018").update(yoy_first_reported=1.0), "must be n/m across"),
+        (lambda d: _at(d, "net_margin", "FY2019").update(yoy_first_reported=None), "must be n/m across"),
+        (lambda d: _operand(_at(d, "net_margin", "FY2018"), "net_income")["provenance"].update(method="calculated"),
+         "calculated input"),
+        (lambda d: _at(d, "net_income", "FY2018")["first_reported"].update(accession=""), "accession must be a nonempty"),
     ], ids=["a-number-across-a-finding", "null-across-a-finding", "on-a-calculated-figure", "a-false-finding",
-            "a-timestamp", "an-equal-value", "a-qoq", "a-quarterly-run"])
+            "a-timestamp", "an-equal-value", "a-qoq", "a-quarterly-run", "a-number-across-an-inputs-finding",
+            "null-across-the-year-befores-input-finding", "on-a-calculated-input", "an-empty-accession"])
     def test_the_port_refuses_each_planted_break(self, db, brk, message):
         dataset = _wire(_build(db, _synced(db, PRODUCED["a-sign-flip"]())))
         broken = copy.deepcopy(dataset)
@@ -250,6 +271,25 @@ class TestTheProducersDatasetsDecode:
             _decode(broken)
 
 
+def _operand(point, concept):
+    return next(operand for operand in point["provenance"]["inputs"] if operand["concept"] == concept)
+
+
 def _at(dataset, concept, period):
     series = next(series for series in dataset["series"] if series["concept"] == concept)
     return next(point for point in series["points"] if point["period"] == period)
+
+
+def test_the_producer_puts_no_evidence_on_a_calculated_input_at_any_depth():
+    # A calculated input whose own reported input changed (test_first_reports' shape): the evidence sits on the
+    # reported input, and the port, as the page, admits the figure.
+    from app.services.trend_analysis.first_reports import FirstReports
+    from tests.unit.test_first_reports import _figure, _own
+
+    point = {**_figure("net_margin", 47.5, "calculated", [_figure(method="calculated", inputs=[_figure()])]),
+             "period": "FY2018"}
+    FirstReports({}, {}, None, history=[_own()]).attach([point])
+    dataset = _wire({"mode": "annual", "series": [{"concept": "net_margin", "unit": "pure", "points": [point]}]})
+    assert _decode(dataset) == dataset
+    outer = dataset["series"][0]["points"][0]["provenance"]["inputs"][0]
+    assert "first_reported" not in outer and outer["provenance"]["inputs"][0]["first_reported"]
