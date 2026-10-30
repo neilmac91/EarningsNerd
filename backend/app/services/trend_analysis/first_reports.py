@@ -25,6 +25,12 @@ the value shown to the value first reported moving by more than ``BASIS_TOLERANC
 "nm" and carries the growth their own reports give (``yoy_first_reported``); a calculated figure's growth reads n/m
 where one of its inputs changed basis (D4). Nothing else of the comparison changes: its provenance and checks stand.
 
+A finding that signals a tagging error rather than a change of basis (item 4), an exact sign flip or an exact factor of
+1,000ⁿ between the two values (``disagreement``), also marks the figure with the existing ``source_conflict`` reason (D2
+option A: no new words, no data notes version), so its comparisons and window figures inherit the note as they inherit
+any; the mark rests only on an own row that passed its checks (D6), and growth as first reported across a finding on
+either year is "nm", since one of the two readings rests on the slip.
+
 Annual runs only (D5): WP5b stores fiscal-year rows alone, and the page refuses evidence in a quarterly run, so a
 quarterly dataset reads nothing more and carries none. No CAGR or window change reads n/m (D5, deferred).
 """
@@ -50,6 +56,13 @@ from app.utils.sec_urls import normalize_accession
 # this share of the own value (the restatement census's gap, |shown - own| / |own|). 0.1% keeps the rounding-only
 # gaps out (113 of 116 sit at or below it) and shows the small real changes one tap away.
 EVIDENCE_TOLERANCE = Decimal("0.001")
+# Item 4, D2 option A: a finding marks the figure with the reason the data notes already word ("The company's filings
+# report different values. We show the most recent filing's value.").
+SOURCE_CONFLICT = "source_conflict"
+# D2: a per-share figure is not sign-tested, since a small EPS can change sign in a legitimate recast (GE's FY2022
+# diluted EPS, -0.05 in its own report, 0.05 later); its scale still is.
+SIGN_TEST_EXEMPT = frozenset({"earnings_per_share", "eps_diluted"})
+SCALE_STEPS = (1, 2, 3)  # A factor of 1,000ⁿ for these n, either way.
 # D1: a YoY reads n/m across a change of basis where one year's shown-to-first-reported ratio differs from the other's
 # by more than this share (coherence.md section 1.6 item 3). A year without evidence has the ratio 1.
 BASIS_TOLERANCE = Decimal("0.01")
@@ -134,6 +147,43 @@ def basis_changed(now: Optional[Decimal], before: Optional[Decimal]) -> bool:
     return abs(now / before - 1) > BASIS_TOLERANCE
 
 
+def disagreement(concept: str, shown: float, own: float) -> Optional[str]:
+    """What an exact comparison of the two values finds (item 4), in Decimal so a factor that floats round still meets:
+    "opposite_sign" where the value shown is the own value negated (not for a per-share figure, D2), "scale" where one
+    is the other times 1,000ⁿ (``SCALE_STEPS``) with the same sign, else None."""
+    shown_d, own_d = Decimal(str(shown)), Decimal(str(own))
+    if shown_d == 0 or own_d == 0:
+        return None
+    if shown_d == -own_d:
+        return None if concept in SIGN_TEST_EXEMPT else "opposite_sign"
+    if (shown_d > 0) == (own_d > 0) and any(
+            shown_d == own_d * 1000 ** n or own_d == shown_d * 1000 ** n for n in SCALE_STEPS):
+        return "scale"
+    return None
+
+
+def _has_finding(value: Optional[Mapping[str, Any]]) -> bool:
+    """Whether a sign or scale finding sits in a figure's evidence: its own ``first_reported``, or an input's in its
+    provenance, at any depth (item 5's evidence)."""
+    if not value:
+        return False
+    if (value.get("first_reported") or {}).get("disagreement"):
+        return True
+    return any(_has_finding(operand) for operand in (value.get("provenance") or {}).get("inputs") or [])
+
+
+def grounds_a_mark(own: FinancialFact) -> bool:
+    """D6: a finding marks the figure only where the own report's row passed its checks, so a letter never rests on an
+    unchecked value; any row the publication policy shows still gives evidence."""
+    return provenance_for_fact(own)["validation"] == "passed"
+
+
+def _marked(provenance: Mapping[str, Any]) -> dict[str, Any]:
+    """A copy of a figure's provenance that questions it (item 4): needs review, for ``source_conflict``."""
+    return {**provenance, "validation": "needs_review",
+            "reasons": list(dict.fromkeys([*provenance.get("reasons", []), SOURCE_CONFLICT]))}
+
+
 def own_period_ends(rows: Iterable[FinancialFact], filings: Mapping[str, FilingDates]) -> dict[str, date]:
     """Each annual filing's own period end, by dashless accession, from the company's stored fiscal-year rows."""
     fiscal = [row for row in rows if row.fiscal_period == "FY"]
@@ -179,11 +229,10 @@ class FirstReports:
                                           self._filed(row.accession, provenance_for_fact(row).get("filed_at")) or "",
                                           row.accession), default=None)
 
-    def evidence(self, figure: Mapping[str, Any], later_filed: Any = None) -> Optional[dict[str, Any]]:
-        """The figure's ``first_reported``: its own report's value where that differs from the one shown (D1)."""
+    def _first_reported(self, figure: Mapping[str, Any], own: Optional[FinancialFact],
+                        later_filed: Any) -> Optional[dict[str, Any]]:
         shown = figure.get("value")
-        own = self.own_report(figure) if shown is not None else None
-        if own is None or not differs(shown, float(own.value)):
+        if own is None or shown is None or not differs(shown, float(own.value)):
             return None
         return {
             "value": float(own.value), "unit": own.unit, "form": own.form, "accession": own.accession,
@@ -192,19 +241,29 @@ class FirstReports:
             # row that lands later moves no snapshot.
             "source_url": source_link(self._cik, own.accession, self.documents),
             "later_filed_at": self._filed(figure.get("accession"), later_filed),
-            "disagreement": None,
+            "disagreement": disagreement(figure.get("concept"), shown, own.value),
         }
 
+    def evidence(self, figure: Mapping[str, Any], later_filed: Any = None) -> Optional[dict[str, Any]]:
+        """The figure's ``first_reported``: its own report's value where that differs from the one shown (D1)."""
+        return self._first_reported(figure, self.own_report(figure), later_filed)
+
     def attach(self, points: list[dict[str, Any]]) -> None:
-        """Give each reported figure of one series its evidence, before its comparisons copy its provenance."""
+        """Give each reported figure of one series its evidence, and mark it where the two filings disagree in a way
+        that signals a tagging error (item 4, D6), before its comparisons copy its provenance."""
         if not self._cells:
             return
         for point in points:
             provenance = point.get("provenance") or {}
-            if point.get("value") is not None and provenance.get("method") == "reported":
-                first = self.evidence(point, provenance.get("filed_at"))
-                if first is not None:
-                    point["first_reported"] = first
+            if point.get("value") is None or provenance.get("method") != "reported":
+                continue
+            own = self.own_report(point)
+            first = self._first_reported(point, own, provenance.get("filed_at"))
+            if first is None:
+                continue
+            point["first_reported"] = first
+            if first["disagreement"] and grounds_a_mark(own):
+                point["provenance"], point["reconciled"] = _marked(provenance), False
 
 
     def _input(self, operand: Mapping[str, Any]) -> Optional[dict[str, Any]]:
@@ -256,8 +315,13 @@ class FirstReports:
                 now_figures, before_figures = self._figures(concept, point, points), self._figures(concept, before, points)
                 if any(basis_changed(_ratio(now), _ratio(then)) for now, then in zip(now_figures, before_figures)):
                     point["yoy"] = NOT_MEANINGFUL
-                    point["yoy_first_reported"] = delta(self._as_first_reported(concept, point, now_figures),
-                                                        self._as_first_reported(concept, before, before_figures))
+                    # Across a finding in either year's evidence (item 4), one of the two readings rests on the slip:
+                    # n/m, never a number or null.
+                    found = _has_finding(point) or _has_finding(before) or any(
+                        figure and figure[1] and figure[1]["disagreement"] for figure in (*now_figures, *before_figures))
+                    point["yoy_first_reported"] = NOT_MEANINGFUL if found else delta(
+                        self._as_first_reported(concept, point, now_figures),
+                        self._as_first_reported(concept, before, before_figures))
         return series_list
 
 

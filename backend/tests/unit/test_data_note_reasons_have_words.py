@@ -1042,6 +1042,20 @@ def _drive(monkeypatch) -> set[str]:
             codes |= set(result["reasons"]) | {code for row in result["rows"] for code in row["reasons"]}
         codes |= set().union(*(reasons(row.provenance) for row in db.query(FinancialFact)))
     engine.dispose()
+
+    # The analysis dataset marks a figure whose year's own annual report gave it with the opposite sign
+    # (trend_analysis/first_reports.py, MPA WP5a item 4): the own report's stored row read beside the figure shown.
+    from app.services.trend_analysis.first_reports import FirstReports
+
+    own = SimpleNamespace(concept="net_income", unit="USD", period_start=date(2018, 1, 1), period_end=date(2018, 12, 31),
+                          fiscal_period="FY", form="10-K", accession="0000000001-19-000001", value=Decimal("5"),
+                          raw_tag="us-gaap:NetIncomeLoss", source="companyfacts", reconciled=True,
+                          provenance=reported_provenance({"reconciled": True}, "2019-02-07"))
+    shown = {"concept": "net_income", "value": -5.0, "unit": "USD", "period_start": "2018-01-01",
+             "period_end": "2018-12-31", "accession": "0000000001-21-000001",
+             "provenance": reported_provenance({"reconciled": True})}
+    FirstReports({}, {}, "1", history=[own]).attach([shown])
+    codes |= reasons(shown["provenance"])
     return codes
 
 

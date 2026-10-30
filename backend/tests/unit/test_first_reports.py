@@ -15,7 +15,9 @@ import pytest
 from sqlalchemy import event
 
 from app.services import facts_service as svc
-from app.services.trend_analysis.first_reports import BASIS_INPUTS, _CALCULATED, differs, own_period_ends
+from app.services.trend_analysis.first_reports import (
+    BASIS_INPUTS, _CALCULATED, _has_finding, differs, disagreement, own_period_ends,
+)
 from app.services.trend_analysis.source_documents import FilingDates
 from app.utils.sec_urls import build_sec_archive_url
 from tests.unit.test_companyfacts_own_report_history import (
@@ -95,6 +97,18 @@ def _restated(fy2018_own, fy2018_later, fy2019_own, fy2019_later):
         2020: {2018: fy2018_later, 2019: fy2019_later, 2020: 8_497.1e6},
         2021: {2019: fy2019_later, 2020: 8_497.1e6, 2021: 16_071.7e6},
     }
+
+
+def _point(dataset, concept, period):
+    series = next(series for series in dataset["series"] if series["concept"] == concept)
+    return next(point for point in series["points"] if point["period"] == period)
+
+
+def _net_income(later):
+    """REGN's net income, each report its own year and the two before, with the FY2020 10-K's comparatives changed."""
+    reports = {report: {year: _NET_INCOME[year] for year in range(report - 2, report + 1)} for report in _K}
+    reports[2020] = {**reports[2020], **later}
+    return {"NetIncomeLoss": {"units": {"USD": _items(reports)}}}
 
 
 def _up_to(year, revenue=None):
@@ -447,3 +461,113 @@ def test_d4_each_calculation_is_recomputed_as_ingest_computes_it():
     assert set(_CALCULATED) == set(BASIS_INPUTS) == set(derived)
     for concept, inputs in BASIS_INPUTS.items():
         assert _CALCULATED[concept](*(values[name] for name in inputs)) == derived[concept]
+
+
+@pytest.mark.requires_db
+class TestASignOrScaleFindingMarksTheFigure:
+    def test_an_exact_sign_flip_is_a_source_conflict_note_on_the_value_and_its_growth(self, db):
+        # The FY2020 10-K gives FY2018 net income with the opposite sign: the value, its growth either side and the
+        # data notes carry the existing source_conflict reason; the evidence says what the comparison found.
+        dataset = _build(db, _synced(db, _payload(tags=_net_income({2018: -2_444.4e6}))))
+        point = _point(dataset, "net_income", "FY2018")
+        assert (point["value"], point["first_reported"]["value"], point["first_reported"]["disagreement"]) == (
+            -2_444.4e6, 2_444.4e6, "opposite_sign")
+        assert (point["provenance"]["validation"], point["provenance"]["reasons"], point["reconciled"]) == (
+            "needs_review", ["source_conflict"], False)
+        for period in ("FY2018", "FY2019"):
+            grown = _point(dataset, "net_income", period)
+            # Across the finding the growth as first reported is n/m too, on the year itself and the year after.
+            assert (grown["yoy"], grown["yoy_first_reported"], grown["yoy_reconciled"]) == ("nm", "nm", False)
+            assert "source_conflict" in grown["yoy_provenance"]["reasons"]
+        [note] = [note for note in dataset["data_notes"]["notes"] if note["reasons"] == ["source_conflict"]]
+        assert (note["kind"], note["values"]) == ("review", [{"concept": "net_income", "label": "Net income",
+                                                              "period": "FY2018"}])
+        assert note["letter"]
+        # The margin built on it is calculated: no mark of its own (its input carries the evidence, item 5).
+        margin = _point(dataset, "net_margin", "FY2018")
+        assert "source_conflict" not in margin["provenance"]["reasons"] and margin["yoy_first_reported"] == "nm"
+
+    @pytest.mark.parametrize("factor, finding", [(1e-3, "scale"), (1e3, "scale"), (1e6, "scale"), (1e9, "scale"),
+                                                 (999.9, None)],
+                             ids=["a-thousandth", "1000x", "1000000x", "1000000000x", "a-near-miss"])
+    def test_an_exact_factor_of_a_thousand_to_the_n_marks_the_balance_and_its_window(self, db, factor, finding):
+        # The FY2019 10-K gives the FY2018 year-end balance at this multiple of the FY2018 10-K's.
+        assets = {2017: {2016: 9_520.2e6, 2017: 11_734.5e6}, 2018: {2017: 11_734.5e6, 2018: 15_163.8e6},
+                  2019: {2018: 15_163.8e6 * factor, 2019: 17_163.4e6}, 2020: {2019: 17_163.4e6, 2020: 19_994.1e6},
+                  2021: {2020: 19_994.1e6, 2021: 25_434.7e6}}
+        dataset = _build(db, _synced(db, _payload(assets=_items(assets, instant=True))), "FY2018", "FY2021")
+        point = _point(dataset, "total_assets", "FY2018")
+        assert point["first_reported"]["disagreement"] == finding
+        assert ("source_conflict" in point["provenance"]["reasons"]) is (finding is not None)
+        series = next(series for series in dataset["series"] if series["concept"] == "total_assets")
+        assert ("source_conflict" in series["cagr_provenance"]["reasons"]) is (finding is not None)
+        assert series["cagr_reconciled"] is (finding is None)
+        following = _point(dataset, "total_assets", "FY2019")
+        assert following["yoy"] == "nm" and (following["yoy_first_reported"] == "nm") is (finding is not None)
+
+    def test_a_per_share_factor_meets_in_decimal_where_floats_round(self, db):
+        # 0.07 x 1,000 is 70.00000000000001 in floats; the comparison is exact in Decimal.
+        eps = {2017: {2015: 0.05, 2016: 0.06, 2017: 0.06}, 2018: {2016: 0.06, 2017: 0.06, 2018: 0.07},
+               2019: {2017: 0.06, 2018: 0.07, 2019: 0.08}, 2020: {2018: 70.0, 2019: 0.08, 2020: 0.09},
+               2021: {2019: 0.08, 2020: 0.09, 2021: 0.1}}
+        dataset = _build(db, _synced(db, _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items(eps)}}})))
+        point = _point(dataset, "earnings_per_share", "FY2018")
+        assert (point["first_reported"]["disagreement"], point["provenance"]["reasons"]) == ("scale", ["source_conflict"])
+
+    def test_d2_a_per_share_sign_flip_is_evidence_with_no_finding(self, db):
+        eps = {2017: {2015: 0.5, 2016: 0.6, 2017: 0.7}, 2018: {2016: 0.6, 2017: 0.7, 2018: -0.05},
+               2019: {2017: 0.7, 2018: -0.05, 2019: 0.8}, 2020: {2018: 0.05, 2019: 0.8, 2020: 0.9},
+               2021: {2019: 0.8, 2020: 0.9, 2021: 1.0}}
+        dataset = _build(db, _synced(db, _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items(eps)}}})))
+        point = _point(dataset, "earnings_per_share", "FY2018")
+        assert (point["first_reported"]["value"], point["first_reported"]["disagreement"]) == (-0.05, None)
+        assert point["provenance"]["reasons"] == [] and point["reconciled"] is True
+
+    def test_d6_an_own_row_that_did_not_pass_its_checks_gives_evidence_and_no_mark(self, db):
+        company = _synced(db, _payload(tags=_net_income({2018: -2_444.4e6})))
+        [own] = _rows(db, company, concept="net_income", accession=K18, period_end=FY2018)
+        own.provenance = {**own.provenance, "validation": "needs_review", "reasons": ["source_check_needed"]}
+        db.commit()
+        point = _point(_build(db, company), "net_income", "FY2018")
+        assert point["first_reported"]["disagreement"] == "opposite_sign"
+        assert (point["provenance"]["validation"], point["provenance"]["reasons"], point["reconciled"]) == (
+            "passed", [], True)
+
+    def test_a_calculated_figure_reads_n_m_as_first_reported_across_its_inputs_finding(self, db):
+        # The FY2020 10-K gives FY2018 revenue in thousands: the margin's change reads n/m, and its growth as first
+        # reported is n/m on that year and the next, never a number (the input's finding, at any depth).
+        revenue = {**_REVENUE, 2020: {**_REVENUE[2020], 2018: 6_710.8e3}}
+        dataset = _build(db, _synced(db, _payload(_items(revenue))))
+        assert _point(dataset, "revenue", "FY2018")["first_reported"]["disagreement"] == "scale"
+        margin = _yoy(dataset, "net_margin")
+        assert margin["FY2018"] == margin["FY2019"] == ("nm", "nm")
+        assert margin["FY2020"][0] == "nm" and isinstance(margin["FY2020"][1], float)
+
+    def test_a_flip_of_a_non_negative_figure_never_reaches_the_dataset(self, db):
+        # Ingest drops a negative revenue (facts/own_reports.py), so FY2018's own report leaves no row: no evidence,
+        # no mark, while FY2019's evidence stands.
+        revenue = {**_REVENUE, 2018: {**_REVENUE[2018], 2018: -6_710.8e6}}
+        dataset = _build(db, _synced(db, _payload(_items(revenue))))
+        point = _point(dataset, "revenue", "FY2018")
+        assert "first_reported" not in point and point["provenance"]["reasons"] == []
+        assert "first_reported" in _point(dataset, "revenue", "FY2019")
+
+
+@pytest.mark.parametrize("concept, shown, own, finding", [
+    ("net_income", -5.0, 5.0, "opposite_sign"), ("net_income", 5.0, -5.0, "opposite_sign"),
+    ("revenue", 5_000.0, 5.0, "scale"), ("revenue", 5.0, 5_000.0, "scale"), ("revenue", 5e9, 5.0, "scale"),
+    ("revenue", 5e12, 5.0, None), ("revenue", -5_000.0, 5.0, None), ("revenue", 4_999.5, 5.0, None),
+    ("revenue", 0.0, 5.0, None), ("revenue", 5.0, 0.0, None), ("revenue", 5.5, 5.0, None),
+    ("earnings_per_share", 70.0, 0.07, "scale"), ("eps_diluted", 0.05, -0.05, None), ("net_income", 0.05, -0.05,
+                                                                                         "opposite_sign"),
+])
+def test_item_4_the_exact_findings(concept, shown, own, finding):
+    assert disagreement(concept, shown, own) == finding
+
+
+def test_a_finding_is_read_in_a_figures_own_evidence_and_its_inputs_at_any_depth():
+    finding = {"first_reported": {"disagreement": "scale"}}
+    nested = {"provenance": {"inputs": [{"provenance": {"inputs": [{"concept": "revenue"}, finding]}}]}}
+    assert _has_finding(finding) and _has_finding(nested)
+    assert not _has_finding({"first_reported": {"disagreement": None}, "provenance": {"inputs": [{}]}})
+    assert not _has_finding(None)
