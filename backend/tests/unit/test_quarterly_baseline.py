@@ -70,6 +70,7 @@ def execution(tmp_path, monkeypatch):
 
     def invoke(argv, **kwargs):
         if argv[0] == "git":
+            assert kwargs["stdout"] == subprocess.PIPE and kwargs["stderr"] == subprocess.DEVNULL
             answer = state["dirty"] if "status" in argv else "2" * 40 if "HEAD^{tree}" in argv else state["head"]
             return subprocess.CompletedProcess(argv, 0, answer, "")
         state["calls"].append((argv, kwargs))
@@ -78,8 +79,7 @@ def execution(tmp_path, monkeypatch):
         assert argv[4:8] == [",".join(COHORT), "--limit", "50", "--output"]
         assert len(argv) == 9
         Path(argv[-1]).write_text(json.dumps(state["report"]))
-        kwargs["stdout"].write(b"private diagnostic must not be retained")
-        kwargs["stderr"].write(b"private diagnostic must not be retained")
+        assert kwargs["stdout"] == kwargs["stderr"] == subprocess.DEVNULL
         return subprocess.CompletedProcess(argv, state["exit"])
 
     monkeypatch.setattr(BASELINE_MODULE.subprocess, "run", invoke)

@@ -227,7 +227,9 @@ gets, naming its held calculations by fact id, and decide each from its filing b
 figure against its winner, the first measure for rows with no stored report behind them. Read
 `made_unavailable` row by row in `changes`: each such figure leaves the public pages. Read the other
 corrections against a baseline: a plain preview of the same tickers on the commit before the step,
-saved before it merged. A company only set 5 names is first known after the merge (set 5 is new with
+saved before it merged. Where that measurement was missed, use the
+[recovered pre-step baseline](#recovered-pre-step-baseline-for-e211), which runs old source against
+current data and cannot recreate a pre-merge snapshot. A company only set 5 names is first known after the merge (set 5 is new with
 the step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
 
 **The journal.** The apply journals the step's rows with the rest of the run, under

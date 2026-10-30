@@ -29,8 +29,8 @@ FILES = ("backend/requirements.txt", "backend/scripts/repair_quarterly_facts.py"
 def verified_source() -> dict:
     """Refuse a different or modified checkout before installing or running its code."""
     def git(*args: str) -> str:
-        result = subprocess.run(["git", "-C", str(SOURCE), *args], capture_output=True,
-                                text=True, check=False)
+        result = subprocess.run(["git", "-C", str(SOURCE), *args], stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, text=True, check=False)
         if result.returncode:
             raise ValueError("baseline source could not be verified")
         return result.stdout.strip()
@@ -91,16 +91,15 @@ def run(output: Path) -> int:
         receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
 
     save_receipt()
-    # The old CLI prints exception strings. Capture both streams outside the artifact
-    # directory, and retain only the parsed report's closed error projection.
+    # The old CLI prints exception strings. Discard both streams, and retain only
+    # the privately parsed report's closed error projection.
     with tempfile.TemporaryDirectory(prefix="quarterly-baseline-private-") as private:
         raw_report = Path(private) / "report.json"
-        with (Path(private) / "stdout").open("wb") as stdout, (Path(private) / "stderr").open("wb") as stderr:
-            result = subprocess.run(
-                [sys.executable, "-I", str(SOURCE / "backend/scripts/repair_quarterly_facts.py"),
-                 "--tickers", ",".join(COHORT), "--limit", "50", "--output", str(raw_report)],
-                cwd=SOURCE / "backend", stdout=stdout, stderr=stderr, check=False,
-            )
+        result = subprocess.run(
+            [sys.executable, "-I", str(SOURCE / "backend/scripts/repair_quarterly_facts.py"),
+             "--tickers", ",".join(COHORT), "--limit", "50", "--output", str(raw_report)],
+            cwd=SOURCE / "backend", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+        )
         try:
             report = public_report(json.loads(raw_report.read_text()))
         except (OSError, ValueError, TypeError):
