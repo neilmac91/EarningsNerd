@@ -1,9 +1,10 @@
 """The Ops describe-jobs readback prints both SEC pins per job, withholds command values, lists every
-value defect before one exit, and keeps its literals equal to ci.yml and the other job gates."""
+resource and value defect before one exit, and keeps its literals equal to ci.yml and the other job gates."""
 import ast
 import importlib.util
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -13,30 +14,9 @@ from tests.unit.test_sec_process_budgets import EXPECTED_JOBS
 
 ROOT = Path(__file__).resolve().parents[3]
 STEP = "Describe expected job release configuration"
-MODULE = ROOT / "ops/describe/jobs.py"  # the readback the step runs after its shell loop
-# The step's whole run: block, byte for byte: the shell reads each job with stderr discarded, then runs the module.
-RUN = """set -euo pipefail
-JOB_DIR="$(mktemp -d /tmp/earningsnerd-expected-jobs.XXXXXX)"
-jobs=(
-  earningsnerd-pregenerate
-  earningsnerd-filing-scan
-  earningsnerd-filing-digest
-  earningsnerd-backfill-facts
-  earningsnerd-earnings-calendar-refresh
-  earningsnerd-earnings-day-alerts
-  earningsnerd-notable-filings
-  earningsnerd-retention-purge
-  earningsnerd-feedback-media-cleanup
-)
-for job in "${jobs[@]}"; do
-  if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then
-    echo "::error::expected Cloud Run job '$job' is missing or unreadable"
-    exit 1
-  fi
-done
-export JOB_DIR
-python3 ops/describe/jobs.py
-"""
+MODULE = ROOT / "ops/describe/jobs.py"
+RUN = "python3 ops/describe/jobs.py"
+IMAGE = "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:aaaaaaa"
 BACKFILL = "earningsnerd-backfill-facts"
 # Fixture command/argument tokens; the readback prints verdicts, never these.
 WITHHELD_TOKENS = ("python", "scripts/backfill_facts.py", "--only-new", "41")
@@ -49,9 +29,7 @@ def _step():
 
 
 def _split(step):
-    shell, suffix = step["run"].split("python3 ops/describe/jobs.py\n", 1)
-    assert not suffix.strip()  # the module invocation is the step's last line
-    return shell, MODULE.read_text()
+    return "", MODULE.read_text()
 
 
 def _literals(code):
@@ -78,7 +56,7 @@ def _job(name, pool):
            {"name": "SEC_RATE_LIMIT_PER_SECOND", "value": "1"}, {"name": "EDGAR_RATE_LIMIT_PER_SEC", "value": "1"},
            {"name": "UNRELATED", "value": "PRIVATE_JOB_ENV_SENTINEL"},
            {"name": "OPENAI_API_KEY", "valueFrom": {"secretKeyRef": {"name": "PRIVATE_JOB_SECRET_SENTINEL"}}}]
-    container = {"image": "release-image", "env": env}
+    container = {"image": IMAGE, "env": env}
     if name == BACKFILL:
         container.update({"command": ["python"], "args": ["scripts/backfill_facts.py", "--only-new"]})
     elif name == "earningsnerd-filing-digest":
@@ -97,40 +75,48 @@ def fixtures():
     return {name: _job(name, pool) for name, pool in _literals(_split(_step())[1])["expected_pools"].items()}
 
 
-def _run(tmp_path, monkeypatch, capfd, fixtures, *, files=None):
-    """Write each fixture to <JOB_DIR>/<name>.json, load the module by path, return (output, SystemExit or None)."""
-    for name, job in fixtures.items():
-        (tmp_path / f"{name}.json").write_text(json.dumps(job))
-    for name, text in (files or {}).items():
-        (tmp_path / f"{name}.json").write_text(text)
-    monkeypatch.setenv("JOB_DIR", str(tmp_path))
-    _split(_step())  # the step runs this module as its last line
+def _run(tmp_path, monkeypatch, capfd, fixtures, *, files=None, errors=None):
+    """Run the entire committed projector, stubbing only fixed external gcloud reads."""
+    monkeypatch.setenv("REGION", "us-west1")
     spec = importlib.util.spec_from_file_location("ops_describe_jobs", MODULE)
     module = importlib.util.module_from_spec(spec)
-    exit_ = None
-    try:
-        spec.loader.exec_module(module)
-    except SystemExit as exc:
-        exit_ = exc
+    spec.loader.exec_module(module)
+    calls = []
+
+    def read(argv, *, text, stderr, timeout):
+        assert argv[:3] == ["gcloud", "run", "jobs"] and argv[3] == "describe"
+        assert argv[5:] == ["--region=us-west1", "--format=json"]
+        assert text and stderr == subprocess.PIPE and timeout == 40
+        name = argv[4]
+        calls.append(name)
+        if name in (errors or {}):
+            raise errors[name]
+        if name in (files or {}):
+            return files[name]
+        if name not in fixtures:
+            raise subprocess.CalledProcessError(1, argv, stderr="NOT_FOUND PRIVATE_MISSING_SENTINEL")
+        return json.dumps(fixtures[name])
+
+    monkeypatch.setattr(module.subprocess, "check_output", read)
+    code = module.main()
     captured = capfd.readouterr()
     output = captured.out + captured.err
-    # No allow-list echo exists here: a sentinel anywhere in the output or the exit is a leak.
-    assert "PRIVATE_" not in output and "PRIVATE_" not in str(exit_ or "")
+    assert "PRIVATE_" not in output and "example.invalid" not in output
     for token in WITHHELD_TOKENS:
         assert token not in output
-    return output, exit_
+    assert calls == list(module.expected_pools)
+    return output, None if code == 0 else SystemExit(code)
 
 
-def test_describe_jobs_shell_reads_each_job_into_job_dir():
+def test_describe_jobs_step_uses_the_bounded_complete_collector():
     step = _step()
-    shell, code = _split(step)
     assert step["timeout-minutes"] == 10
-    assert step["run"] == RUN
-    assert "set -euo pipefail" in shell and "export JOB_DIR" in shell
-    assert 'if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then' in shell
-    assert "::error::expected Cloud Run job '$job' is missing or unreadable" in shell and "exit 1" in shell
-    array = re.search(r"jobs=\(\n((?:\s+earningsnerd-[a-z-]+\n)+)\s*\)", shell)
-    assert array is not None and array.group(1).split() == list(_literals(code)["expected_pools"])
+    assert step["run"].strip() == RUN
+    tree = ast.parse(MODULE.read_text())
+    timeout = next(ast.literal_eval(node.value) for node in tree.body
+                   if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+                   and node.targets[0].id == "GCLOUD_TIMEOUT")
+    assert timeout * len(_literals(MODULE.read_text())["expected_pools"]) <= 360
 
 
 def test_describe_jobs_prints_both_pins_and_withholds_command_values(tmp_path, monkeypatch, capfd, fixtures):
@@ -138,14 +124,13 @@ def test_describe_jobs_prints_both_pins_and_withholds_command_values(tmp_path, m
     assert exit_ is None
     assert output.count("== earningsnerd-") == 9
     assert output.count("  SEC_RATE_LIMIT_PER_SECOND: '1'") == 9 and output.count("  EDGAR_RATE_LIMIT_PER_SEC: '1'") == 9
-    assert ("== earningsnerd-backfill-facts\n  image: release-image\n  taskCount: 1\n  DB_POOL_SIZE: 1\n"
+    assert (f"== earningsnerd-backfill-facts\n  image: {IMAGE}\n  taskCount: 1\n  DB_POOL_SIZE: 1\n"
             "  DB_MAX_OVERFLOW: 0\n  SEC_RATE_LIMIT_PER_SECOND: '1'\n  EDGAR_RATE_LIMIT_PER_SEC: '1'\n"
             "  command/args: matches the committed entrypoint\n") in output
-    assert "== earningsnerd-pregenerate\n  image: release-image\n  taskCount: 1\n  DB_POOL_SIZE: 3\n" in output
+    assert f"== earningsnerd-pregenerate\n  image: {IMAGE}\n  taskCount: 1\n  DB_POOL_SIZE: 3\n" in output
     assert output.count("  command/args: image default") == 7
     assert output.count("  command/args: override present (values withheld)") == 1
-    assert ("  env: DB_POOL_SIZE(plain), DB_MAX_OVERFLOW(plain), SEC_RATE_LIMIT_PER_SECOND(plain), "
-            "EDGAR_RATE_LIMIT_PER_SEC(plain), UNRELATED(plain), OPENAI_API_KEY(secret-ref)") in output
+    assert output.count("  env: 5 plain, 1 secret-ref; names and other values withheld") == 9
     assert output.rstrip().endswith("All expected jobs use one release image with the production pool budget, "
                                     "both SEC pins at 1 and taskCount=1.\ndescribe-jobs: PASS")
 
@@ -161,9 +146,9 @@ def test_describe_jobs_collects_pin_defects_across_all_jobs(tmp_path, monkeypatc
         container["env"].append({"name": pin, "value": defect})
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
     assert exit_ is not None
-    assert f"earningsnerd-filing-digest must pin {pin}=1 as a plain value, got " in str(exit_)
+    assert f"earningsnerd-filing-digest must pin {pin}=1 as a plain value, got " in output
     assert output.count("== earningsnerd-") == 9  # every later block still prints
-    assert "describe-jobs: FAIL (1 invariant failure(s))" in output and "describe-jobs: PASS" not in output
+    assert "describe-jobs: FAIL (1 invariant failure(s); 0 unverified job(s))" in output and "describe-jobs: PASS" not in output
 
 
 def test_describe_jobs_lists_every_value_defect_once(tmp_path, monkeypatch, capfd, fixtures):
@@ -171,59 +156,109 @@ def test_describe_jobs_lists_every_value_defect_once(tmp_path, monkeypatch, capf
     fixtures["earningsnerd-retention-purge"]["spec"]["template"]["spec"]["taskCount"] = 2
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
     assert exit_ is not None
-    assert "earningsnerd-filing-scan pool must be 1+0, got 2+0." in str(exit_)
-    assert "earningsnerd-retention-purge taskCount must be 1." in str(exit_)
-    assert output.count("::error::") == 2 and "describe-jobs: FAIL (2 invariant failure(s))" in output
+    assert "earningsnerd-filing-scan must set plain DB_POOL_SIZE=1; observed 2." in output
+    assert "earningsnerd-retention-purge taskCount must be 1." in output
+    assert output.count("::error::") == 2 and "describe-jobs: FAIL (2 invariant failure(s); 0 unverified job(s))" in output
     assert output.count("== earningsnerd-") == 9
 
 
 @pytest.mark.parametrize("defect,expected", [
-    ("missing-file", "cannot read earningsnerd-notable-filings"),
-    ("empty-file", "cannot read earningsnerd-notable-filings"),  # a failed redirect leaves an empty file
-    ("two-containers", "one application container"),
-    ("name-mismatch", "response name does not match"),
-    ("duplicate-env", "missing or duplicate env name"),
-    ("secret-pool", "needs plain DB_POOL_SIZE"),
-    ("no-image", "image is missing"),
+    ("missing", "not_found"), ("invalid-json", "unreadable_response"),
+    ("two-containers", "application_container_unresolved"), ("name-mismatch", "response_name_mismatch"),
+    ("duplicate-env", "environment_names_unresolved"), ("no-image", "image_identity_unresolved"),
+    ("private-image", "image_identity_unresolved"), ("wrong-shape", "unreadable_response"),
+    ("too-many-env", "environment_shape_unresolved"),
 ])
-def test_describe_jobs_keeps_shape_invariants_immediate(tmp_path, monkeypatch, capfd, fixtures, defect, expected):
-    target = fixtures["earningsnerd-notable-filings"]  # the seventh job: six blocks print before it
-    spec = target["spec"]["template"]["spec"]["template"]["spec"]
+def test_describe_jobs_retains_later_evidence_after_unreadable_job(tmp_path, monkeypatch, capfd, fixtures, defect, expected):
+    name = "earningsnerd-notable-filings"
+    target = fixtures[name]
+    container = _container(target)
     files = None
-    if defect == "missing-file":
-        del fixtures["earningsnerd-notable-filings"]
-    elif defect == "empty-file":
-        del fixtures["earningsnerd-notable-filings"]
-        files = {"earningsnerd-notable-filings": ""}
+    if defect == "missing":
+        del fixtures[name]
+    elif defect == "invalid-json":
+        files = {name: "PRIVATE_JSON_SENTINEL"}
     elif defect == "two-containers":
-        spec["containers"] *= 2
+        target["spec"]["template"]["spec"]["template"]["spec"]["containers"] *= 2
     elif defect == "name-mismatch":
-        target["metadata"]["name"] = "other"
+        target["metadata"]["name"] = "PRIVATE_NAME_SENTINEL"
     elif defect == "duplicate-env":
-        spec["containers"][0]["env"].append({"name": "DB_POOL_SIZE", "value": "1"})
-    elif defect == "secret-pool":
-        spec["containers"][0]["env"][0] = {"name": "DB_POOL_SIZE",
-                                           "valueFrom": {"secretKeyRef": {"name": "PRIVATE_POOL_SENTINEL"}}}
+        container["env"].append({"name": "DB_POOL_SIZE", "value": "PRIVATE_VALUE_SENTINEL"})
+    elif defect == "no-image":
+        container.pop("image")
+    elif defect == "private-image":
+        container["image"] = "https://PRIVATE_IMAGE_SENTINEL.example.invalid/token"
+    elif defect == "wrong-shape":
+        target["spec"] = ["PRIVATE_SHAPE_SENTINEL"]
     else:
-        spec["containers"][0].pop("image")
+        container["env"] = [{"name": "PRIVATE_ENV_NAME_SENTINEL", "value": "value"}] * 257
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures, files=files)
-    assert exit_ is not None and expected in str(exit_)
-    assert output.count("== earningsnerd-") == 6 and "::error::" not in output and "describe-jobs:" not in output
+    assert exit_ is not None and f"  read: UNVERIFIED ({expected})" in output
+    assert output.count("== earningsnerd-") == 9
+    assert output.count("  Summary/SEC runtime configuration:") == 8
+    assert "== earningsnerd-feedback-media-cleanup\n  image: " in output
+    assert "Job inventory: expected=9 projected=8 unverified=1" in output
+    assert "describe-jobs: INCOMPLETE (0 invariant failure(s); 1 unverified job(s))" in output
+    assert "describe-jobs: PASS" not in output
+
+
+@pytest.mark.parametrize("error,expected", [
+    (subprocess.CalledProcessError(1, [], stderr="PERMISSION_DENIED PRIVATE_ERROR_SENTINEL"), "permission_denied"),
+    (subprocess.CalledProcessError(1, [], stderr="NOT_FOUND PRIVATE_ERROR_SENTINEL"), "not_found"),
+    (subprocess.CalledProcessError(1, [], stderr="UNAVAILABLE PRIVATE_ERROR_SENTINEL"), "unavailable"),
+    (subprocess.CalledProcessError(1, [], stderr="DEADLINE_EXCEEDED PRIVATE_ERROR_SENTINEL"), "unavailable"),
+    (subprocess.CalledProcessError(2, [], stderr="PRIVATE_ERROR_SENTINEL"), "error (gcloud exit 2)"),
+    (subprocess.TimeoutExpired([], 40, stderr="PRIVATE_ERROR_SENTINEL"), "timeout"),
+    (FileNotFoundError("PRIVATE_ERROR_SENTINEL"), "error (gcloud not executable)"),
+])
+def test_describe_jobs_collects_closed_failure_classes(tmp_path, monkeypatch, capfd, fixtures, error, expected):
+    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures,
+                         errors={"earningsnerd-pregenerate": error, "earningsnerd-feedback-media-cleanup": error})
+    assert exit_ is not None and output.count(f"  read: UNVERIFIED ({expected})") == 2
+    assert output.count("  Summary/SEC runtime configuration:") == 7
+    assert "Job inventory: expected=9 projected=7 unverified=2" in output
+    assert "describe-jobs: PASS" not in output
+
+
+def test_unreadable_job_never_masks_readable_drift(tmp_path, monkeypatch, capfd, fixtures):
+    del fixtures["earningsnerd-pregenerate"]
+    _container(fixtures["earningsnerd-filing-scan"])["env"][0]["value"] = "2"
+    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    assert exit_ is not None
+    assert "describe-jobs: FAIL (1 invariant failure(s); 1 unverified job(s))" in output
+
+
+def test_unexpected_env_names_pool_values_and_task_count_never_print(tmp_path, monkeypatch, capfd, fixtures):
+    container = _container(fixtures[BACKFILL])
+    container["env"].append({"name": "PRIVATE_ENV_NAME_SENTINEL", "value": "PRIVATE_VALUE_SENTINEL"})
+    container["env"][0]["value"] = "PRIVATE_POOL_SENTINEL"
+    fixtures[BACKFILL]["spec"]["template"]["spec"]["taskCount"] = "PRIVATE_TASK_COUNT_SENTINEL"
+    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    assert exit_ is not None and "  DB_POOL_SIZE: <unresolved withheld>" in output
+    assert "  taskCount: <invalid withheld>" in output
+
+
+def test_oversized_response_and_total_absence_remain_incomplete(tmp_path, monkeypatch, capfd, fixtures):
+    output, exit_ = _run(tmp_path, monkeypatch, capfd, {},
+                         files={"earningsnerd-pregenerate": " " * 1_048_577})
+    assert exit_ is not None and "UNVERIFIED (response_too_large)" in output
+    assert "Job inventory: expected=9 projected=0 unverified=9" in output
+    assert "describe-jobs: INCOMPLETE" in output and "do not share one release image" not in output
 
 
 def test_describe_jobs_reports_backfill_entrypoint_drift_without_values(tmp_path, monkeypatch, capfd, fixtures):
     _container(fixtures[BACKFILL])["args"] = ["scripts/backfill_facts.py"]
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
-    assert exit_ is None and "== earningsnerd-backfill-facts" in output
+    assert exit_ is not None and "== earningsnerd-backfill-facts" in output
     assert "  command/args: DOES NOT MATCH the committed entrypoint (values withheld; compare ci.yml)" in output
     assert "backfill_facts" not in output
 
 
 def test_describe_jobs_fails_on_image_parity_after_printing_all_blocks(tmp_path, monkeypatch, capfd, fixtures):
-    _container(fixtures["earningsnerd-filing-scan"])["image"] = "other-image"
+    _container(fixtures["earningsnerd-filing-scan"])["image"] = IMAGE.replace("aaaaaaa", "bbbbbbb")
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
-    assert exit_ is not None and "do not share one release image" in str(exit_)
-    assert output.count("== earningsnerd-") == 9 and "describe-jobs: FAIL (1 invariant failure(s))" in output
+    assert exit_ is not None and "do not share one release image" in output
+    assert output.count("== earningsnerd-") == 9 and "describe-jobs: FAIL (1 invariant failure(s); 0 unverified job(s))" in output
 
 
 def test_describe_jobs_literals_match_ci_and_the_other_gates():

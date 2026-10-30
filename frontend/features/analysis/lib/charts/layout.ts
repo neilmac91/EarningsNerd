@@ -289,11 +289,12 @@ function labelAt(bar: Bar) {
 }
 
 /** A3/A4: one decimal tier for the whole panel, the most precise whose labels stay inside the SVG and keep
- *  2 px from each other in both directions. Never thinned: a tier fits every label or none. */
+ *  2 px from each other in both directions. Never thinned: a tier fits every label or none. The tiers run from the
+ *  format's d0 down to 0: an amount's d0 … 0, a percent's 1 and 0, a ratio's 2, 1 and 0. */
 function planLabels(mark: ModelMark, box: PanelFrame, bars: Bar[], width: number): LabelPlan {
   if (!mark.labelled) return { decimals: null }
   const format = box.panel.axis.format
-  const tiers = format.kind === 'money' ? Array.from({ length: format.d0 + 1 }, (_, i) => format.d0 - i) : [1, 0]
+  const tiers = Array.from({ length: format.d0 + 1 }, (_, i) => format.d0 - i)
   const own = bars.filter((bar) => bar.seriesKey === mark.seriesKey)
   for (const digits of tiers) {
     const boxes = own.map((bar) => {

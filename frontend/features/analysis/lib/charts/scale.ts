@@ -2,7 +2,7 @@
  * Scale, tick and number-format rules for the trend charts (docs/design/analysis-trend-charts-spec-2026-10.md
  * §3.1: A1, A1b, A2, A3, F$). Pure and data-only: ticks never depend on the view's size, so the card, the
  * expanded view and the PNG export print the same ticks. Every string uses U+2212 for minus and prints zero
- * as "$0" or "0%".
+ * as "$0", "0%" or a ratio's "0×".
  */
 import { currencySymbol, dataFaceDraws } from '@/lib/format'
 
@@ -130,23 +130,30 @@ export function moneyPrefix(currency: string | null): string {
 }
 
 export interface AxisFormat {
-  kind: 'money' | 'percent' | 'growth'
+  kind: 'money' | 'percent' | 'growth' | 'ratio'
   unit: MoneyUnit
   /** A tick label: one unit and one decimal count for the whole axis. */
   tick: (value: number) => string
   /** A printed value (bar label, legend, strip) at `digits` decimals in the axis unit. */
   value: (value: number, digits?: number) => string
-  /** Decimals giving 3 significant figures on the largest |value| (A3's d0). */
+  /** Decimals giving 3 significant figures on the largest |value| (A3's d0); a ratio's 2. A4's label tiers run from
+   *  it down to 0. */
   d0: number
+  /** The tooltip's value (spec §3.1): an amount at 4 significant figures in its own unit, a per-share amount in cents,
+   *  a percent at 1 dp, a ratio at 2. */
+  tip: (value: number) => string
 }
 
 /**
  * A2 for an amount axis. The unit comes from the largest |tick| as well as the data, so an axis that
  * overshoots to 1,000M reads "$1B", never "−$1,000M". A printed value with fewer than 2 significant
  * figures at the axis precision prints in its own unit to 3 (BYND's equity "−$997K", not "−$0.001B");
- * ticks never take that step, so one axis keeps one unit.
+ * ticks never take that step, so one axis keeps one unit. A per-share amount (EPS) prints no finer than its
+ * cents, which its tooltip prints whole ("$0.31", never "$0.310"; "$40,256.55"), and one under half a cent prints
+ * A2's unsigned zero ("$0", never "−$0.00"). Ticks keep the step's decimals: a series under a cent, which no filing
+ * states, would tick finer than cents.
  */
-export function moneyFormat(values: number[], step: number, ticks: number[], currency: string | null): AxisFormat {
+export function moneyFormat(values: number[], step: number, ticks: number[], currency: string | null, perShare = false): AxisFormat {
   const prefix = moneyPrefix(currency)
   const maxAbs = Math.max(0, ...values.map(Math.abs))
   const unit = moneyUnit(Math.max(maxAbs, ...ticks.map(Math.abs)))
@@ -155,11 +162,15 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
   // of ten (999.7M on a $B axis reads "$1.00B", not "$1.000B").
   const magnitude = Math.floor(Math.log10(Math.max(maxAbs / unit.div, 1e-9)))
   const fit = Math.max(0, 2 - magnitude)
-  const d0 = fit > 0 && Math.floor(Math.log10(Number(fixed(maxAbs / unit.div, fit)) || 1)) > magnitude ? fit - 1 : fit
+  const sigFigs = fit > 0 && Math.floor(Math.log10(Number(fixed(maxAbs / unit.div, fit)) || 1)) > magnitude ? fit - 1 : fit
+  const d0 = perShare && !unit.suffix ? Math.min(2, sigFigs) : sigFigs
   const format = (value: number, digits: number, printed: boolean) => {
     if (value === 0) return `${prefix}0`
     const sign = value < 0 ? MINUS : ''
     const scaled = Math.abs(value / unit.div)
+    // Under half a cent is zero at the precision a per-share figure is filed in, whatever the label tier; a small amount
+    // a coarser tier would round away keeps its own unit below ("−$0.04" on a $40 axis).
+    if (printed && perShare && !unit.suffix && Number(fixed(scaled, 2)) === 0) return `${prefix}0`
     if (printed && scaled < Math.pow(10, 1 - digits)) return `${sign}${prefix}${ownUnit(value, 3)}`
     return `${sign}${prefix}${group(fixed(scaled, digits))}${unit.suffix}`
   }
@@ -169,15 +180,18 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
     tick: (value) => format(value, tickDigits, false),
     value: (value, digits = d0) => format(value, digits, true),
     d0,
+    tip: (value) => (perShare ? perShareMoney(value, currency) : tooltipMoney(value, currency)),
   }
 }
 
 /** A1 and A2 over the values given: an axis's domain, ticks and formats. The engine's own percent panels clip their
  *  outliers first (A3); a renderer that cannot print a clipped value at the plot edge (A3b) passes every value, so
  *  nothing is hidden. The Recharts trend charts before E195 did. */
-export function valueAxis(values: number[], cap: number, kind: AxisFormat['kind'], currency: string | null = null): NiceAxis & { format: AxisFormat } {
+export function valueAxis(values: number[], cap: number, kind: AxisFormat['kind'], currency: string | null = null, perShare = false): NiceAxis & { format: AxisFormat } {
   const axis = niceAxis(values, cap)
-  return { ...axis, format: kind === 'money' ? moneyFormat(values, axis.step, axis.ticks, currency) : percentFormat(axis.step, kind === 'growth') }
+  const format = kind === 'money' ? moneyFormat(values, axis.step, axis.ticks, currency, perShare)
+    : kind === 'ratio' ? ratioFormat(axis.step) : percentFormat(axis.step, kind === 'growth')
+  return { ...axis, format }
 }
 
 /** Two significant figures in the value's own unit, for a near-zero bar's label (A13b): "−$3.6M",
@@ -194,6 +208,15 @@ export function tooltipMoney(value: number, currency: string | null): string {
   const prefix = moneyPrefix(currency)
   if (value === 0) return `${prefix}0`
   return `${value < 0 ? MINUS : ''}${prefix}${ownUnit(value, 4, 3)}`
+}
+
+/** A per-share amount's tooltip value, in cents as a filing states it ("$6.13", "−$0.04", "$40,256.55"), with A2's sign
+ *  and zero rules: an amount under half a cent is "$0", never a signed "−$0.00". */
+export function perShareMoney(value: number, currency: string | null): string {
+  const prefix = moneyPrefix(currency)
+  const cents = fixed(Math.abs(value), 2)
+  if (Number(cents) === 0) return `${prefix}0`
+  return `${value < 0 ? MINUS : ''}${prefix}${group(cents)}`
 }
 
 /** A2 for a percent axis: margins unsigned, growth signed ("+50%", "0%", "−50%"). */
@@ -214,6 +237,29 @@ export function percentFormat(step: number, signed: boolean): AxisFormat {
     tick: (value) => format(value, tickDigits).replace(/^0\.0+%$/, '0%'),
     value: (value, digits = 1) => format(value, digits),
     d0: 1,
+    tip: (value) => format(value, 1),
+  }
+}
+
+/** A2 for a ratio axis, a multiple such as the current ratio: the step's decimals, then ×, with U+2212 for minus and
+ *  zero as "0×". A printed ratio takes 2 dp ("0.87×"), as a filing states one, and so does its tooltip; a non-zero
+ *  ratio that rounds to zero at its tier prints to its first significant figure ("0.4×", "0.004×"), never as a zero. */
+export function ratioFormat(step: number): AxisFormat {
+  const tickDigits = decimalsOf(step)
+  const format = (value: number, digits: number) => {
+    if (value === 0) return '0×'
+    const abs = Math.abs(value)
+    let text = group(fixed(abs, digits))
+    if (Number(text.replace(/,/g, '')) === 0) text = fixed(abs, Math.max(1, digits, -Math.floor(Math.log10(abs))))
+    return `${value < 0 ? MINUS : ''}${text}×`
+  }
+  return {
+    kind: 'ratio',
+    unit: { div: 1, suffix: '' },
+    tick: (value) => format(value, tickDigits),
+    value: (value, digits = 2) => format(value, digits),
+    d0: 2,
+    tip: (value) => format(value, 2),
   }
 }
 
