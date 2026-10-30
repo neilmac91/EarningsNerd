@@ -260,11 +260,9 @@ async def test_old_presentation_lazily_regenerates_as_system_invalidated(narrati
         elif obsolete == "notes":
             saved["narrative_presentation"]["data_notes_version"] = 0
         elif obsolete.startswith("notes_version_"):
-            # A row saved before data notes version 2 keeps version 1's words and letters, and one saved before version 3
-            # keeps version 2's (no words of their own for E211's proxy reasons). The page's check of the saved notes
-            # against the rebuilt dataset's would refuse one whose words or letters moved, so a row of an older version
-            # regenerates once, unmetered.
-            version = int(obsolete.removeprefix("notes_version_"))
+            # A row saved under either released notes version keeps its older words and letters. The page's check
+            # against the rebuilt dataset's would refuse it, so it regenerates once, unmetered.
+            version = int(obsolete.rsplit("_", 1)[1])
             saved["data_notes"]["version"] = saved["narrative_presentation"]["notes"]["version"] = version
             saved["narrative_presentation"]["data_notes_version"] = version
         else:

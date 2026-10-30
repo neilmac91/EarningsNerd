@@ -180,7 +180,18 @@ list included) and the str of a log's body that is not text only after `before_s
   directory of backend code is left out of the walk (a top-level virtualenv is skipped by its `pyvenv.cfg`,
   whatever its name). It reads only the block's own direct calls on the bound name. Outside it: an alias
   (`f = exc.errors`), or `getattr`; a helper the exception is handed to; a FastAPI exception-handler function;
-  an except* group's members. None exists today.
+  an except* group's members. One such handler exists: `main.py`'s `RequestValidationError` handler (E97) hands
+  `exc.errors()` to `app/services/auth_validation.py::public_validation_errors`, which keeps each error's `type`,
+  `loc` and `msg` only, and `backend/tests/unit/test_password_byte_limit.py`'s E97 section holds its answers, log
+  lines and Sentry items free of a refused password. `backend/tests/unit/test_request_validation_handler.py` holds
+  its answer on other routers and parameters. It imports each module that builds a FastAPI app and fails a second
+  `FastAPI(...)` call in a module, a module that keeps other than one app at module level, an app mounted in one of
+  them at any depth (behind the mount's own middleware, or one that keeps it as `app`), and an app whose
+  `RequestValidationError` handler, read from the app as it runs, is not a function whose own code names
+  `public_validation_errors` (a partial, a decorator's wrapper that does not name it, or a handler that sanitizes only
+  through a helper fails closed); the task worker's app is listed there, holding FastAPI's default, until #1711's
+  handoff row E97-R3 registers one. Its docstring names the forms out of its reach. None of the other forms exists
+  today.
 - **The repr.** A settings object's `repr()` is `Settings()`, its `str()` is empty, and Sentry's
   serialization of it is `Settings()`.
 - **Messages.** An AST walk over `app/config.py` fails a raise or assert message, in a function or at module

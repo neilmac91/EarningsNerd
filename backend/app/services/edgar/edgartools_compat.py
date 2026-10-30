@@ -29,3 +29,6 @@ def _walk_section_table(
 def apply_edgartools_backports() -> None:
     """Install the section compatibility hook, idempotently, before any parsing."""
     SECSectionExtractor._render_table = _walk_section_table
+    from .sec_admission import install_edgar_admission
+
+    install_edgar_admission()

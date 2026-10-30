@@ -239,7 +239,8 @@ def _structured_calls_with_input(tree: ast.Module) -> list[int]:
     settings error is caught today (scripts/deploy_check.py) catches Exception. Another object's `.json()` inside the
     handler (`exc.response.json()`, `response.json()`) is not the caught exception's, so it is not matched. Only the
     handler's own direct calls on its bound name are read: an alias (`f = exc.errors`), `getattr`, a helper the
-    exception is handed to, a FastAPI exception-handler function and an except* group's members are not.
+    exception is handed to, a FastAPI exception-handler function and an except* group's members are not. (One such
+    handler exists, main.py's RequestValidationError handler: test_password_byte_limit.py holds what it answers.)
     """
     lines = set()
     for handler in ast.walk(tree):

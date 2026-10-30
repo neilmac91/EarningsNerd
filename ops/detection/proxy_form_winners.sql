@@ -15,13 +15,13 @@
 -- proxy step (backend/app/services/proxy_fact_repair.py, E211). It names companies and changes nothing.
 -- Retire: the records PR that closes the repair deletes this file, and the unit test that holds its
 -- proxy-form pattern to is_proxy_form's (backend/tests/unit/test_proxy_form_detection_sql.py), by
--- 2026-12-31, or, if a refused company's line is still open then, when it closes, the extension recorded
--- on that line. It waits for a detection-sql run right after
+-- 2026-12-31, or, if a refused-company or held-calculation follow-up line is still open then, when
+-- every such line closes, the extension recorded on each open line. It waits for a detection-sql run right after
 -- the apply, before any companyfacts sync or facts backfill reaches a repaired company, in which, for
 -- every company the apply repaired, sets 2 and 3 read no rows and sets 4 and 5 read exactly the rows
 -- (fact_id) its report lists in proxy.detection_listed, each with the step's verdict
--- (docs/quarterly-data-repair.md, "Proxy-statement values (E211)"), and for each company it refused,
--- after that company's own follow-up. A sync or backfill in between can change the rows (a sync can
+-- (docs/quarterly-data-repair.md, "Proxy-statement values (E211)"), and after every refused-company
+-- and held-calculation follow-up closes. A sync or backfill in between can change the rows (a sync can
 -- store a later 10-K's comparative, a report row that takes a kept row off set 5): for a company one
 -- reached first, compare with a fresh dry run's proxy.detection_listed, which reads the rows as they stand.
 --

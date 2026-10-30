@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Messages are the data notes version 3 reason words (data_notes.REASONS and provenance.ts REASONS, equal), and marked notes take the first letters. record_only_reasons and summaries pin the marking rule's list and the fine print's summary words on both sides. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
   "record_only_reasons": [
     "legacy_calculation"
@@ -3070,7 +3070,7 @@
             "key": "[\"review\",[\"proxy_statement_value\"]]",
             "id": "analysis-data-note-aj",
             "letter": "aj",
-            "message": "Saved from a proxy or information statement, not an annual or quarterly report, so unavailable.",
+            "message": "Taken from a proxy or information statement, so unavailable.",
             "values": [
               {
                 "concept": "reason_36",
@@ -3094,7 +3094,7 @@
             "key": "[\"review\",[\"proxy_statement_operand\"]]",
             "id": "analysis-data-note-ak",
             "letter": "ak",
-            "message": "Withdrawn and unavailable: an input was saved from a proxy or information statement.",
+            "message": "Calculated from a proxy or information statement\u2019s figure, so unavailable.",
             "values": [
               {
                 "concept": "reason_37",
@@ -4028,7 +4028,7 @@
             "key": "[\"review\",[\"proxy_statement_value\"]]",
             "id": "analysis-data-note-aj",
             "letter": "aj",
-            "message": "Saved from a proxy or information statement, not an annual or quarterly report, so unavailable.",
+            "message": "Taken from a proxy or information statement, so unavailable.",
             "values": [
               {
                 "concept": "reason_36",
@@ -4052,7 +4052,7 @@
             "key": "[\"review\",[\"proxy_statement_operand\"]]",
             "id": "analysis-data-note-ak",
             "letter": "ak",
-            "message": "Withdrawn and unavailable: an input was saved from a proxy or information statement.",
+            "message": "Calculated from a proxy or information statement\u2019s figure, so unavailable.",
             "values": [
               {
                 "concept": "reason_37",

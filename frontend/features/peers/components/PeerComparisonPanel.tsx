@@ -7,7 +7,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtPercent, ordinal, sentenceCase } from '@/lib/format'
+import { fmtCurrency, fmtPercent, inSentence, ordinal } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
@@ -16,17 +16,18 @@ import SourceChecks from '@/features/analysis/components/SourceChecks'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
-// Metrics offered in the selector. `key` matches the backend's standardized concepts.
+// Metrics offered in the selector. `key` matches the backend's standardized concepts. Each label is stored in sentence
+// case, as the picker and the tooltip show it, and a sentence reads it through inSentence (E34).
 const METRICS: { key: string; label: string }[] = [
   { key: 'revenue', label: 'Revenue' },
-  { key: 'net_income', label: 'Net Income' },
-  { key: 'gross_profit', label: 'Gross Profit' },
-  { key: 'operating_income', label: 'Operating Income' },
-  { key: 'net_margin', label: 'Net Margin' },
-  { key: 'operating_margin', label: 'Operating Margin' },
-  { key: 'gross_margin', label: 'Gross Margin' },
+  { key: 'net_income', label: 'Net income' },
+  { key: 'gross_profit', label: 'Gross profit' },
+  { key: 'operating_income', label: 'Operating income' },
+  { key: 'net_margin', label: 'Net margin' },
+  { key: 'operating_margin', label: 'Operating margin' },
+  { key: 'gross_margin', label: 'Gross margin' },
   { key: 'eps_diluted', label: 'Diluted EPS' },
-  { key: 'total_assets', label: 'Total Assets' },
+  { key: 'total_assets', label: 'Total assets' },
 ]
 
 const MAX_BARS = 10
@@ -56,8 +57,12 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   // Chart factories (chartTheme/axis props/ChartTooltip) — no local hexes.
   const dark = useContext(ThemeContext)?.theme === 'dark'
   // De-emphasized peer bars: the theme's neutral grey at partial opacity keeps the
-  // subject (seriesColor(0)) unmistakably THE bar — a magnitude ranking, not deltas.
+  // subject (seriesColor(0, dark)) unmistakably THE bar — a magnitude ranking, not deltas.
   const peerFill = chartTheme(dark).flat
+  // A bar's paint: its Cell draws it, and the tooltip's swatch repeats it. Recharts gives a tooltip row the Bar's own
+  // fill, which these bars leave to their Cells, so without swatchOf a peer's swatch would take the subject's colour.
+  const paintOf = (isSubject: boolean) =>
+    isSubject ? { color: seriesColor(0, dark), opacity: 1 } : { color: peerFill, opacity: 0.45 }
 
   const [metric, setMetric] = useState('revenue')
   const { data, isLoading, isError } = useQuery<PeerComparisonResponse>({
@@ -128,7 +133,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
           {meaningful && subject?.rank != null && (
             <p className="mt-1 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
               Ranks <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">#{subject.rank}</span>{' '}
-              of {data!.peer_count} on {label}
+              of {data!.peer_count} on {inSentence(label)}
               {subject.percentile != null ? ` · ${ordinal(Math.round(subject.percentile))} percentile` : ''}
             </p>
           )}
@@ -142,7 +147,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
             onChange={(event) => setMetric(event.target.value)}
           >
             {METRICS.map((m) => (
-              <option key={m.key} value={m.key}>{sentenceCase(m.label)}</option>
+              <option key={m.key} value={m.key}>{m.label}</option>
             ))}
           </select>
         </label>
@@ -155,11 +160,11 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
         </div>
       ) : isError ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
-          Couldn&rsquo;t load peer data for {label}. Try another metric.
+          Couldn&rsquo;t load peer data for {inSentence(label)}. Try another metric.
         </p>
       ) : !meaningful ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
-          Not enough sector peers with {label} data yet.
+          Not enough sector peers with {inSentence(label)} data yet.
         </p>
       ) : (
         <div className="h-72 w-full" data-testid="peers-chart">
@@ -178,12 +183,19 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               <YAxis type="category" dataKey="ticker" {...yAxisProps(dark)} width={64 /* tickers outgrow the factory's 44px */} />
               <Tooltip
                 cursor={barCursorProps(dark)}
-                content={<ChartTooltip dark={dark} formatValue={(v) => formatValue(Number(v), kind, currency)} />}
+                content={
+                  <ChartTooltip
+                    dark={dark}
+                    formatValue={(v) => formatValue(Number(v), kind, currency)}
+                    swatchOf={(entry) => paintOf(Boolean((entry as (typeof chartData)[number] | undefined)?.isSubject))}
+                  />
+                }
               />
               <Bar dataKey="value" name={label} radius={[0, 4, 4, 0]} maxBarSize={28}>
-                {chartData.map((entry) => (
-                  <Cell key={entry.ticker} fill={entry.isSubject ? seriesColor(0) : peerFill} fillOpacity={entry.isSubject ? 1 : 0.45} />
-                ))}
+                {chartData.map((entry) => {
+                  const paint = paintOf(entry.isSubject)
+                  return <Cell key={entry.ticker} fill={paint.color} fillOpacity={paint.opacity} />
+                })}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -191,7 +203,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
       )}
 
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-        Same-SIC peers, most recent annual {label} from SEC filings. Coverage grows over time.
+        Same-SIC peers, most recent annual {inSentence(label)} from SEC filings. Coverage grows over time.
       </p>
       <SourceChecks values={(data?.peers ?? []).filter((point) => point.is_subject || chartData.some((shown) => shown.ticker === point.ticker) || point.provenance?.validation === 'unavailable').map((point) => ({ ...point, label: point.ticker }))} />
     </Card>

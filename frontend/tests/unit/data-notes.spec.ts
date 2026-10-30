@@ -136,10 +136,10 @@ describe('server data notes admission', () => {
     }
   })
 
-  it('a tab holding a version 1 report refuses a later version\'s completion until Run analysis reloads the report', () => {
+  it('a tab holding a version 1 report refuses a version 2 completion until Run analysis reloads the report', () => {
     // A report loaded before the server moved keeps version 1's words and letters (here one sentence of them); a
-    // narrative streamed after the move carries the later version's, so its report prefix is not the tab's and the page
-    // shows EVIDENCE_RECOVERY (DataNotesWire). Run analysis fetches the report again, which reads the same completion.
+    // narrative streamed after the move carries version 2's, so its report prefix is not the tab's and the page shows
+    // EVIDENCE_RECOVERY (DataNotesWire). Run analysis fetches the report again, which reads the same completion.
     const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
     const tabReport = { ...structuredClone(example.expected), version: 1 as const }
     tabReport.notes[0].message = 'Available sources disagree on this figure.'

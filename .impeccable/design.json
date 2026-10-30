@@ -399,6 +399,42 @@
         "displayName": "Periwinkle",
         "canonical": "#8B7BC0",
         "description": "Chart series 6 (Periwinkle); keep the configured order."
+      },
+      "chart-1-dark": {
+        "role": "categorical",
+        "displayName": "Teal (dark)",
+        "canonical": "#62B2A6",
+        "description": "Chart series 1 (Teal) in dark mode; keep the configured order."
+      },
+      "chart-2-dark": {
+        "role": "categorical",
+        "displayName": "Honey (dark)",
+        "canonical": "#D3A55C",
+        "description": "Chart series 2 (Honey) in dark mode; keep the configured order."
+      },
+      "chart-3-dark": {
+        "role": "categorical",
+        "displayName": "Cornflower (dark)",
+        "canonical": "#8CA6E3",
+        "description": "Chart series 3 (Cornflower) in dark mode; keep the configured order."
+      },
+      "chart-4-dark": {
+        "role": "categorical",
+        "displayName": "Coral (dark)",
+        "canonical": "#E8927C",
+        "description": "Chart series 4 (Coral) in dark mode; keep the configured order."
+      },
+      "chart-5-dark": {
+        "role": "categorical",
+        "displayName": "Slate Blue (dark)",
+        "canonical": "#97A6C2",
+        "description": "Chart series 5 (Slate Blue) in dark mode; keep the configured order."
+      },
+      "chart-6-dark": {
+        "role": "categorical",
+        "displayName": "Periwinkle (dark)",
+        "canonical": "#AFA2DE",
+        "description": "Chart series 6 (Periwinkle) in dark mode; keep the configured order."
       }
     },
     "typographyMeta": {
@@ -678,7 +714,7 @@
       },
       {
         "name": "The Capped Inset Rule",
-        "body": "Under enlarged text a surface's inset stops growing at narrow widths: a Card, a frame and a dialog's sections set padding of step 5 or more as the capped step (`p-cap-N`, `min(N × 0.25rem, N vw)`), and a frame inside a dialog's body from step 4, so a reader who doubles the text on a phone keeps the measure for the words rather than for the padding, while nothing moves from 400px up at the default size or from 800px up under a 200% text setting.",
+        "body": "Under enlarged text a surface's inset stops growing at narrow widths: a Card, a frame and a dialog's sections set padding of step 5 or more as the capped step (`p-cap-N`, `min(N × 0.25rem, N vw)`), and a frame inside a dialog's body from step 4, or below it where a measure shows its column still too tight (the invite share panel, the bulk invite summary), so a reader who doubles the text on a phone keeps the measure for the words rather than for the padding, while nothing moves from 400px up at the default size or from 800px up under a 200% text setting.",
         "section": "layout"
       },
       {

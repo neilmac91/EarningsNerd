@@ -352,7 +352,7 @@ NOTES_PROBE_CITATIONS = [
 # yet on main has saved nothing, so its digest is replaced instead. Version 1 predates this gate.
 NOTES_DIGESTS = {
     2: "c5dde3d9257c9c6e14312aaa22aba8ab5764a14849cb1b92eea8a4fe82984fff",
-    3: "e8e7da6491c2ddf92b89e5ccd7e8205df882db7db778319663b2a5e4c75675e6",
+    3: "6a34665c11f1777350feece4f6f1de5e906123c6a3445acd6945e5a51729461f",
 }
 
 
@@ -423,7 +423,7 @@ def test_saved_supported_notes_are_authoritative_and_detached():
 
 @pytest.mark.parametrize("present", [
     None, {}, {"version": True}, {"version": 3}, {"version": 3, "notes": None, "totals": {}},
-    # A well-formed envelope of another version: version 1's or 2's words and letters are not this server's.
+    # Older versions' words are not this server's, and a future version is not understood.
     {"version": 1, "notes": [], "totals": {}}, {"version": 2, "notes": [], "totals": {}},
     {"version": 4, "notes": [], "totals": {}},
 ])

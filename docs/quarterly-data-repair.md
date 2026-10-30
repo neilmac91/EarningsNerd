@@ -252,14 +252,14 @@ figure, and nothing rewrites it later: a sync or backfill skips a stored identit
 records only a calculation with no record, and the step's later runs leave its operand as the apply wrote
 it, so only this preview and its apply name it. Give each company with a held calculation one
 `tasks/todo.md` line, as a refused company gets, naming its held calculations by fact id, and decide each
-from its filing by a reviewed repair (one line per company keeps the file within its 120 lines). Every
-`winner_form` is `10-K` (a 10-K/A that carries the pay-versus-performance table is a report, and
-admitted); `gap` measures each retired figure against its winner, the first measure for rows with no
-stored report behind them. Read `made_unavailable` row by row in `changes`: each such figure leaves the
-public pages. Read the other corrections against a baseline: a plain preview of the same tickers on the
-commit before the step, saved before it merged. A company only set 5 names is first known after the merge
-(set 5 is new with the step), so it has no baseline: read its `other_*` corrections row by row in
-`changes` instead.
+from its filing by a reviewed repair (one line per company keeps the file within its 120 lines). The
+initial cohort is expected to have `10-K` winners; review each actual `winner_form`, since other report
+forms and amendments are admitted (including a 10-K/A carrying the pay-versus-performance table). `gap`
+measures each retired figure against its winner, the first measure for rows with no stored report behind
+them. Read `made_unavailable` row by row in `changes`: each such figure leaves the public pages. Read the
+other corrections against a baseline: a plain preview of the same tickers on the commit before the step,
+saved before it merged. A company only set 5 names is first known after the merge (set 5 is new with the
+step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
 
 **A company synced since #1682.** A sync since #1682 was deployed (2026-10-28 23:13Z) also stores, for
 each year a later report restated, the year's own report's figure as a non-current history row at that
@@ -351,8 +351,8 @@ records change. A company the apply refused
 stays listed in every set until its own follow-up line closes, by a reviewed repair or by recording why
 its rows stand.
 
-The step is temporary. Once that run holds for every repaired company and every refused company's
-line is closed, a records change deletes the detection file and its test, and a later change removes
+The step is temporary. Once that run holds for every repaired company and every refused-company and
+held-calculation follow-up line is closed, a records change deletes the detection file and its test, and a later change removes
 the step. Removing it earlier would remove the only repair for a refused company's current proxy rows.
 
 ## Optional directly reported quarterly EPS

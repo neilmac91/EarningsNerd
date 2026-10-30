@@ -11,6 +11,7 @@ import secrets
 import bcrypt
 
 from app.config import settings
+from app.services.auth_validation import is_valid_unicode
 
 # bcrypt work factor — pinned explicitly rather than relying on the library default so the cost
 # is visible and stable across bcrypt upgrades.
@@ -27,8 +28,12 @@ def validate_password_strength(value: str) -> str:
 
     NIST 800-63B-aligned: enforce length, not arbitrary composition rules (no forced
     upper/lower/digit). Breach screening (HaveIBeenPwned) is done in the endpoints because a
-    synchronous Pydantic validator cannot perform the async network call.
+    synchronous Pydantic validator cannot perform the async network call. A password that is not
+    valid Unicode (a lone surrogate, which no keyboard types) is refused first: it encodes to no
+    UTF-8, so the breach check and bcrypt would raise on it (``auth_validation``, E97).
     """
+    if not is_valid_unicode(value):
+        raise ValueError("Password contains a character that is not valid text.")
     if len(value) < settings.PASSWORD_MIN_LENGTH:
         raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
     if len(value) > PASSWORD_MAX_LENGTH:

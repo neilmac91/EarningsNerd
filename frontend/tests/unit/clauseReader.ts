@@ -7,7 +7,11 @@
  * 4c, so a shape one family reads the others read too
  * (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a
  * login, an endpoint or the whole API, another operation than the analytics' own, another credential than the token)
- * and matches it at the places this reading names (matchAt), not anywhere in the sentence.
+ * and matches it at the places this reading names (matchAt), not anywhere in the sentence. Since stage 4e the
+ * reader's own lexicon knows "reuse", the reuse family's verb, so "and reusing ..." opens a clause of its own and
+ * "that reuses ..." is a relative clause's verb; its bare form and "reused" read as main read them, a noun and a
+ * participle ("Refresh token reuse that you did not request ...", "A refresh token reused a second time ..."), and no
+ * other family's verdict moves with it.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -94,7 +98,9 @@
  * itself sign you out of every device." reads "a second time does not by itself" as one, which legalTruth.spec.tsx's
  * clause-by-clause reading reads as a participle: participleAt); a clause a subordinator opens between a clause's
  * subject and its verb runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out."
- * reads "because it is not valid signs everyone out" as one); and a noun the lexicon also lists as a verb ends a
+ * reads "because it is not valid signs everyone out" as one, which legalTruth.spec.tsx's clause-by-clause reading
+ * reads without the condition too since stage 4d: clauseVerbPast, where a word the reader does not place may be the
+ * clause's verb: placesWord, endsAPhrase); and a noun the lexicon also lists as a verb ends a
  * phrase after another noun unless its own verb group follows ("the access logs record every call" reads as "the
  * access" and a verb); a gerund's object with a determiner or a pronoun reads as a
  * relative clause on the gerund where a verb group follows it ("Changing your password ends every session." reads "your
@@ -226,12 +232,18 @@ leave let lie limit link list live load lock log look lose make manage mandate m
 monitor move need notify occur offer open outline own pass pay perform permit pick place plan poll prevent process produce
 promise protect prove provide proxy publish pull purchase push put query raise reach read receive recognise recognize
 recommend record redirect reduce refer refresh refuse register reject rely remain remember remove renew repeat replace reply
-report represent request require reset resolve respond restore restrict retain return reveal review revoke rotate route run
+report represent request require reset resolve respond restore restrict retain return reuse reveal review revoke rotate route run
 save say scan search secure see seem select sell send serve set share ship show sign sit sort specify start stay stand stop
 store stream submit suggest summarise summarize supply support suspend switch take talk tell test throttle track treat
 trigger try turn understand unlock update upload use validate vary verify view wait want warn watch work wrap write`
 /** Lemmas whose last consonant doubles before -ed and -ing. */
 const DOUBLED = words('log cap plan ship stop drop permit submit control')
+/** Forms the reading leaves out of a lemma's verbs, so a sentence reads them as main read it (Codex on #1812): the bare
+    "reuse" is the noun it is after a noun ("Refresh token reuse that you did not request signs everyone out."), and
+    "reused" the participle participleAt reads after one ("A refresh token reused a second time you did not authorize
+    signs everyone out."), as "present" stays out of the lemmas for "presented". Only "reuses" and "reusing" are verbs
+    ("that reuses ...", "and reusing ..."). */
+const NOT_VERB_FORMS = words('reuse reused')
 /** Past forms the rules below do not make. */
 const IRREGULAR_PAST = words('had did done took taken sat stood kept sent held wrote written ran got gotten gave given went gone came became saw seen knew known told said led sold found left paid built chose chosen forgot forgotten hid hidden lost meant met made broke broken shown spent brought fell understood lay lain')
 const IRREGULAR_OTHER = words('has does doing goes setting getting letting putting running hitting cutting sitting forgetting')
@@ -245,8 +257,8 @@ for (const lemma of words(LEMMAS)) {
   const third = y ? `${lemma.slice(0, -1)}ies` : /(?:s|x|z|ch|sh)$/.test(lemma) ? `${lemma}es` : `${lemma}s`
   const past = doubled ? `${doubled}ed` : y ? `${lemma.slice(0, -1)}ied` : e ? `${lemma}d` : `${lemma}ed`
   const ing = doubled ? `${doubled}ing` : lemma.endsWith('ie') ? `${lemma.slice(0, -2)}ying` : e && !lemma.endsWith('ee') ? `${lemma.slice(0, -1)}ing` : `${lemma}ing`
-  for (const form of [lemma, third, past, ing]) VERB_FORMS.add(form)
-  PAST_FORMS.add(past)
+  for (const form of [lemma, third, past, ing]) if (!NOT_VERB_FORMS.has(form)) VERB_FORMS.add(form)
+  if (!NOT_VERB_FORMS.has(past)) PAST_FORMS.add(past)
 }
 for (const form of IRREGULAR_PAST) VERB_FORMS.add(form)
 
@@ -695,8 +707,17 @@ export type Operation = { verb: Token; object: NounPhrase | null; end: number }
 export const knowsVerb = (token: Token | undefined, also?: RegExp) => isWord(token) && !CLOSED.has(lower(token)) && (VERB_FORMS.has(lower(token)) || !!also?.test(lower(token)))
 /** Whether a verb group starts at a token (startsPredicate), or a verb a family's own lexicon names (also). */
 export const startsVerbGroup = (tokens: Token[], at: number, also?: RegExp) => startsPredicate(tokens, at) || knowsVerb(tokens[at], also)
+/** Whether the reader places a word in a class of its lexicons, a closed-class word, a verb, an adjective or an
+    adverb, or reads it as a number or a mark (E162 stage 4d): a word it does not place may be a noun, or a verb the
+    lexicon lacks. */
+export const placesWord = (token: Token | undefined) =>
+  !isWord(token) || /^\p{N}/u.test(token?.text ?? '') || CLOSED.has(lower(token)) || VERB_FORMS.has(lower(token)) || ADJECTIVES.has(lower(token)) || isAdverb(token)
+/** Whether a word may end a phrase that a verb group follows (E162 stage 4d): a comma, a pronoun, an adjective or an
+    adverb the reader knows, or a word it does not place (placesWord) but a possessive ("the user's"). */
+export const endsAPhrase = (token: Token | undefined) =>
+  token?.text === ',' || PRONOUNS.has(lower(token)) || ADJECTIVES.has(lower(token)) || isAdverb(token) || (!placesWord(token) && !/'s$/.test(lower(token)))
 /** The verbs the lexicon knows in their base form, as an infinitive or a clause of time takes them. */
-const BASE_FORMS = words(LEMMAS)
+const BASE_FORMS = new Set([...words(LEMMAS)].filter((lemma) => !NOT_VERB_FORMS.has(lemma)))
 /** A gerund: an -ing form the lexicon knows, or one a family's own lexicon names (also: "disclosing"). */
 const isGerund = (token: Token | undefined, also?: RegExp) => knowsVerb(token, also) && /^[a-z]{2,}ing$/.test(lower(token))
 /** A verb in its base form: one the lexicon knows, or one a family's own lexicon names (also: "disclose"). */

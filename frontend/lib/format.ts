@@ -138,24 +138,17 @@ export const ordinal = (n: number): string => {
 }
 
 /**
- * A stored Title Case data label in sentence case, for a control's face (the company page's metric
- * pickers), segment by segment, a segment being a run between whitespace, '-' and '/'. A segment with no
- * lower-case letter is an acronym and stays as written: '&' and '.' sit inside a segment, so 'R&D',
- * 'SG&A' and 'U.S.' stay whole, and an acronym joined to a word by '-' or '/' keeps its capitals
- * ('Non-GAAP EPS' and 'Debt-to-EBITDA' stay, 'Price/EPS Ratio' to 'Price/EPS ratio'). A segment with a
- * capital after its first letter stays as written too ('YoY Growth' to 'YoY growth'). Every other
- * segment goes lower case except the label's first character, which stays as written ('Net Income' to
- * 'Net income', 'Non-Interest Income' to 'Non-interest income', 'Adjusted Non-GAAP Income' to
- * 'Adjusted non-GAAP income'). The stored labels themselves are E34's.
+ * A data label stored in sentence case as a sentence reads it past its start (the metric charts' lines, "Ranks #2 of 9
+ * on net income", E34, and the analysis report's notes): the label's first segment, a run up to whitespace, '-' or
+ * '/', takes a lower-case first letter unless it is an acronym. A segment with no lower-case letter is one, '&' and '.'
+ * sitting inside a segment ('EPS', 'R&D', 'U.S.'), and so is one with a capital after its first letter ('YoY'). So
+ * 'Net income' reads 'net income', 'Non-interest income' 'non-interest income' and 'Diluted EPS' 'diluted EPS', while
+ * 'EPS', 'U.S. revenue' and 'YoY growth' stay as written.
  */
-export const sentenceCase = (label: string): string => {
-  const first = label.search(/[^\s/-]/)
-  return label.replace(/[^\s/-]+/g, (segment: string, offset: number) => {
-    if (!/[a-z]/.test(segment) || /[A-Za-z].*[A-Z]/.test(segment)) return segment
-    const lower = segment.toLowerCase()
-    return offset === first ? segment.charAt(0) + lower.slice(1) : lower
-  })
-}
+export const inSentence = (label: string): string =>
+  label.replace(/^[^\s/-]+/, (segment) =>
+    !/[a-z]/.test(segment) || /[A-Za-z].*[A-Z]/.test(segment) ? segment : segment.charAt(0).toLowerCase() + segment.slice(1),
+  )
 
 /**
  * The glyphs past ASCII that the data face, Geist Mono, draws at its one 0.6em advance: the no-break space Intl puts

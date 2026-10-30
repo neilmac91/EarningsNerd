@@ -5,7 +5,9 @@
    secondary ink (a run that reports how far it has got shows a bar instead, as
    the summary's generating card does). Activity is never a Notice, of any
    variant (DESIGN_SYSTEM.md §4 › Inline notice): the Copilot rail's "Reading
-   the filing…" and the analysis page's history fetch are this line.
+   the filing…", the analysis page's history fetch, the trend analysis's
+   "Assembling the numbers…" and "Writing…", and /delete-account's "Checking
+   whether you are logged in…" are this line.
 
    The dot sits in a box as tall as the line's own text-sm line (h-5 and the
    line height are both 1.25rem, so the two grow together under enlarged text)
@@ -20,9 +22,15 @@
    coverage region exists before the history fetch's words arrive (it is
    mounted until the coverage answer settles, a failed read included), so they
    are heard. The Copilot's reading card is created with "Reading the filing…"
-   in it, so that line is not announced; the card is a status region for the
-   plan card's sentence, which replaces the line in the same element. A caller
-   whose words must be heard mounts its region first (review-checked).
+   in it, so the card does not announce that line; the research pane's sr-only
+   status region, between its tabs and its panels, says it (a rail outside the
+   filing workspace keeps a region of its own), and the card is a status region
+   for the plan card's sentence, which replaces the line in the same element.
+   The trend analysis's words sit in no live region, so the analysis page's
+   sr-only status region beside Run analysis, mounted before any run, says
+   them, and when the run completes "Analysis ready." (or the card's notice,
+   whole, for a range without enough history). A caller whose words must be
+   heard mounts its region first (review-checked).
 
    A pulsing round mark ships only here and in Badge's live dot:
    tests/unit/pulsingMarkAllowlist.spec.ts fails a class list that draws one

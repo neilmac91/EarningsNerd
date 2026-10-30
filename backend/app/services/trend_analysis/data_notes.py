@@ -6,11 +6,9 @@ from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any
 
-# Version 2: the reasons' words below and the marked notes lettered first. Version 3: the words of E211's two proxy
-# reasons (proxy_statement_value, proxy_statement_operand). The envelope's shape is version 1's, so the frontend reads
-# versions 1 to 3; a saved presentation of an older version regenerates once (presentation_is_current). A change to the
-# words, the record-only list or the letter order takes a new version: test_analysis_data_notes.py's NOTES_DIGESTS
-# holds each version's.
+# Version 3 adds the proxy repair's reasons, after #1769 taught the frontend to read it. A saved older presentation
+# regenerates once (presentation_is_current). The envelope keeps version 1's shape. A change to the words, the
+# record-only list or the letter order takes a new version: test_analysis_data_notes.py's NOTES_DIGESTS holds each.
 DATA_NOTES_VERSION = 3
 _MISSING = object()
 _KINDS = {"review": 0, "unknown": 1, "unavailable": 2}
@@ -60,8 +58,8 @@ REASONS = {
     "rolling_duration_not_fiscal_year": "Saved as a rolling twelve months, not the company’s fiscal year, so unavailable.",
     "calculation_parent_period_corrected": "Withdrawn and unavailable: an input was corrected or withdrawn.",
     "source_conflict": "The company’s filings report different values. We show the most recent filing’s value.",
-    "proxy_statement_value": "Saved from a proxy or information statement, not an annual or quarterly report, so unavailable.",
-    "proxy_statement_operand": "Withdrawn and unavailable: an input was saved from a proxy or information statement.",
+    "proxy_statement_value": "Taken from a proxy or information statement, so unavailable.",
+    "proxy_statement_operand": "Calculated from a proxy or information statement’s figure, so unavailable.",
 }
 # Reasons that describe a figure's record, not its value (D-061): their notes put no mark beside the figure. Closed: any
 # other reason marks, so a new reason shows until it is classified here. lib/dataNotes.ts holds the same list, and the

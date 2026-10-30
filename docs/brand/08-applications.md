@@ -388,9 +388,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   companies you follow."), the limit banner states the account's own count and nothing about
   Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
   and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
-  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide: `PRO_FAIR_USE_LINE` in
-  `frontend/lib/planLimits.ts`, built from `PRO_SUMMARY_MONTHLY_CAP` (the backend's `config.py` default), read by
-  the /pricing FAQ and the filing page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide: `proFairUseLine()` in
+  `frontend/lib/planLimits.ts`, built from `PRO_SUMMARY_MONTHLY_CAP` and, while the analysis flag ships the feature,
+  `ANALYSIS_MONTHLY_CAP` (the backend's `entitlements.py` constants, D-050), read by the /pricing FAQ and the filing
+  page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face. A watched
@@ -533,7 +534,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   mail asks "Verify your email address to subscribe to Pro.", what verifying gates (checkout), where it
   said "and you can start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
   "log in"; the filing alert's last line points at the filing ("The summary links to the filing, so you
-  can check it."), where it said "so you don't have to read the whole filing".
+  can check it."), where it said "so you don't have to read the whole filing"; and the waitlist welcome
+  mail no longer asks its reader to verify their address "to secure your place", a step no page took
+  (E46 (2)).
 - **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
   overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
   the OS setting; a status toast (success, error, warning, info) keeps the panel

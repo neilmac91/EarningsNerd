@@ -121,11 +121,13 @@ export const ENABLE_ANALYSIS =
   process.env.NEXT_PUBLIC_ENABLE_ANALYSIS === 'true'
 
 /**
- * Name 20-F filings on the plan cards. Mirrors the API's ENABLE_FPI_FILINGS, which decides whether
- * foreign private issuers' filings are served at all (backend/app/config.py defaults it off; the API
- * deploy step sets it on). The Free plan line reads "10-K, 10-Q and 20-F filings from SEC EDGAR" only
- * while this flag is set and "10-K and 10-Q filings from SEC EDGAR" otherwise, so the cards never name
- * a form the API keeps off. Set it in lockstep with the API's flag (tasks/todo.md F39).
+ * Name 20-F filings on the plan cards and offer the foreign-issuer rows (20-F, 6-K) in Filing alerts.
+ * Mirrors the API's ENABLE_FPI_FILINGS, which decides whether foreign private issuers' filings are
+ * served at all (backend/app/config.py defaults it off; the API deploy step sets it on). The Free plan
+ * line reads "10-K, 10-Q and 20-F filings from SEC EDGAR" only while this flag is set and "10-K and
+ * 10-Q filings from SEC EDGAR" otherwise, so the cards never name a form the API keeps off; the alert
+ * rows hide with it and keep the stored preferences (E33). Set it in lockstep with the API's flag
+ * (tasks/todo.md F39).
  * Default: disabled.
  */
 export const ENABLE_FPI_FILINGS =

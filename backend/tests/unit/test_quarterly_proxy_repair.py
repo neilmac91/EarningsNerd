@@ -704,7 +704,7 @@ def test_a_filing_row_the_cross_check_replaced_with_a_proxy_figure_is_restored(d
     # figure charts.
     assert chart() == {"2025-05-31": 4_092e6}
     [fy2023] = _rows(db, company, concept="net_income", period_end=date(2023, 5, 31), accession=filing.accession_number)
-    assert (fy2023.filing_id, fy2023.is_latest, float(fy2023.value)) == (None, True, 3_972e6)
+    assert (fy2023.filing_id, fy2023.is_latest, float(fy2023.value), fy2023.form) == (None, True, 3_972e6, "10-K")
     margin = _filing_row(db, filing, "net_margin")
     assert float(margin.value) == pytest.approx(4_092e6 / 87_926e6 * 100)
     assert {i["concept"]: i["value"] for i in margin.provenance["inputs"]}["net_income"] == 4_092e6

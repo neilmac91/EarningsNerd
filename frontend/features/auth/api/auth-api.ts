@@ -167,8 +167,13 @@ export class LogoutAllSuperseded extends Error {
 }
 
 /** The logout of every session. The app calls it only in the one-logout flight, never beside a Log out (E157:
- * accountQueryState's logoutAllInTurn; held by tests/unit/logoutCallSitesGate.spec.ts). */
-export const logoutAllSessions = async () => {
+ * accountQueryState's logoutAllInTurn; held by tests/unit/logoutCallSitesGate.spec.ts). It names the account the tab
+ * shows (`accountId`), and the route refuses with 409, ending nothing, when the browser's session is another account's:
+ * a tab learns of another tab's login only through /me (E29 (3)), so it can still show the account it loaded with
+ * (E157 (2)). Naming it also lets the route find that account from the refresh cookie once the access cookie has
+ * lapsed. Without an account to name, it names none, and the route answers as before the field: for the access
+ * token's account, or 401 once that has lapsed. */
+export const logoutAllSessions = async (accountId?: number) => {
   const generation = beginLogout()
   try {
     const response = await withSessionCookiesForPost(LOGOUT_REFRESH_WAIT_MS, async () => {
@@ -178,7 +183,7 @@ export const logoutAllSessions = async () => {
       // passive loss of the session meanwhile is no such transition: it still posts. The check runs after both waits,
       // in the post's turn.
       if (!isExplicitSessionGenerationCurrent(generation)) throw new LogoutAllSuperseded()
-      return api.post('/api/auth/logout-all')
+      return api.post('/api/auth/logout-all', accountId === undefined ? undefined : { account_id: accountId })
     })
     return response.data
   } finally {
@@ -268,21 +273,21 @@ function postPasswordChange(currentPassword: string | null, newPassword: string,
  * queued for the lock before its request, in any tab, while those asked for after it wait for its answer and go out
  * with the new token. Unlike a logout, at PASSWORD_CHANGE_REFRESH_WAIT_MS it posts nothing and rejects with client.ts's
  * SessionStillRenewing. It does not cancel this tab's refresh: one cancelled after the API rotated its token leaves the
- * browser holding the token rotated away, which the renewal below would present, and the replay sweep would end every
- * session of the account (E96). Nor does it post beside a refresh still unanswered. The route needs the access token,
- * but a refresh asked for under the hold would wait for the lock its own post holds, so the path is in client.ts's
- * NO_REFRESH_PATHS: a 401 (the access token lapsed) is renewed after the hold, by the identity read, whose own 401
- * refreshes and confirms a lost session as any read's does, and the post goes out once more through the hold. Neither
- * post goes out once a login or a logout has been accepted in this tab since the change was asked for. What this leaves
- * open: a refresh that waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; where the browser has
- * no lock manager or refuses the lock, any other tab's refresh, and this tab's own asked for while the post is out, can
- * answer after it; a Log out pressed in this tab while the post is out posts beside it, as on main, and their answers
- * can land in either order; the post can wait behind a refresh queued after another tab's login, then post with that
- * login's cookies, as a logout can (withSessionCookiesForPost); and it changes the password of the account the browser
- * holds, which the renewal's read does not compare with the account the tab shows, so a tab left stale by another tab's
- * sign-in changes that account's (E29 (6)). And the refusal's cost: a refresh that never answers (the refresh has no
- * timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it hangs, where a login or
- * a logout posts at its limit.
+ * browser holding the token rotated away, which the renewal below would present, and the replay sweep would end that
+ * token's chain, signing this browser out (E96). Nor does it post beside a refresh still unanswered. The route needs
+ * the access token, but a refresh asked for under the hold would wait for the lock its own post holds, so the path is
+ * in client.ts's NO_REFRESH_PATHS: a 401 (the access token lapsed) is renewed after the hold, by the identity read,
+ * whose own 401 refreshes and confirms a lost session as any read's does, and the post goes out once more through the
+ * hold. Neither post goes out once a login or a logout has been accepted in this tab since the change was asked for.
+ * What this leaves open: a refresh that waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; where
+ * the browser has no lock manager or refuses the lock, any other tab's refresh, and this tab's own asked for while the
+ * post is out, can answer after it; a Log out pressed in this tab while the post is out posts beside it, as on main,
+ * and their answers can land in either order; the post can wait behind a refresh queued after another tab's login, then
+ * post with that login's cookies, as a logout can (withSessionCookiesForPost); and it changes the password of the
+ * account the browser holds, which the renewal's read does not compare with the account the tab shows, so a tab left
+ * stale by another tab's sign-in changes that account's (E29 (6)). And the refusal's cost: a refresh that never answers
+ * (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it
+ * hangs, where a login or a logout posts at its limit.
  */
 export const changePassword = async (currentPassword: string | null, newPassword: string) => {
   const generation = getExplicitSessionGeneration()

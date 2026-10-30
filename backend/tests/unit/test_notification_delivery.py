@@ -140,7 +140,9 @@ async def test_batch_is_durable_and_sending_is_committed_before_the_provider_cal
         stats = await _scan_with_transport(db, send)
         (batch,) = _batches(db)
         # The text part is frozen with the page (E110), and the transport is handed the frozen text.
-        assert batch.body_text and "Read the AI summary: " in batch.body_text
+        # Discovery freezes a filing notification before any summary need exist.
+        assert batch.body_text and "View filing: " in batch.body_text
+        assert "Read the AI summary" not in batch.body_html
         assert observed == {"in_transaction": False, "status": REPLY_TO_STATUSES[STATUS_SENDING], "attempts": 1,
                             "first_dispatch_at": NOW.replace(tzinfo=None), "log_rows": 0, "watermark": None,
                             "text": batch.body_text}
@@ -164,6 +166,81 @@ async def _scan_with_transport(db, send, *, now=NOW):
         return await run_filing_scan(db, fetch_filings=_fetch, send_alert=None, now=now, cadence_minutes=0)
     finally:
         filing_scan_service._alert_transport = original
+
+
+@pytest.mark.asyncio
+async def test_new_alert_prepares_one_shared_filing_and_queue_failure_keeps_delivery(engine, monkeypatch):
+    from app.services import summary_job_store, summary_jobs, summary_preparation
+
+    monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", True)
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 1)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 2)
+    monkeypatch.setattr(summary_jobs, "recover_due_jobs", AsyncMock(return_value=0))
+    attempted = []
+
+    async def fail_queue_admission(function, filing_id, user_id, *, system):
+        assert function is summary_job_store.ensure_job and user_id is None and system is True
+        attempted.append(filing_id)
+        raise RuntimeError("synthetic preparation outage")
+
+    monkeypatch.setattr(summary_preparation, "run_owned_sync", fail_queue_admission)
+    send = AsyncMock(return_value="synthetic-provider-id")
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        first = await _scan_with_transport(db, send)
+        filing_id = db.query(Filing).one().id
+        assert attempted == [filing_id]
+        assert first["alerts_sent"] == 1
+        await _scan_with_transport(db, send)
+        # An already owned notification neither sends again nor expands paid preparation.
+        assert attempted == [filing_id] and send.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_scan_releases_single_connection_after_skipped_company_before_preparation(tmp_path, monkeypatch):
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import QueuePool
+    from app.models import SummaryJob
+    from app.services import summary_job_store, summary_jobs
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'scan-preparation.db'}", poolclass=QueuePool,
+                           pool_size=1, max_overflow=0, pool_timeout=0.15,
+                           connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", True)
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 1)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 2)
+    monkeypatch.setattr(summary_job_store, "SessionLocal", sessionmaker(bind=engine, expire_on_commit=False))
+    send = AsyncMock(return_value="synthetic-provider-id")
+    ensure = summary_job_store.ensure_job
+
+    def checked_ensure(*args, **kwargs):
+        assert send.await_count == 1, "discovery mail must precede queue work"
+        assert engine.pool.checkedout() == 0, "scan must release its read transaction"
+        return ensure(*args, **kwargs)
+
+    monkeypatch.setattr(summary_job_store, "ensure_job", checked_ensure)
+    enqueue = AsyncMock(return_value="synthetic-task-name")
+    monkeypatch.setattr(summary_jobs, "enqueue_task", enqueue)
+    try:
+        with Session(engine) as db:
+            _seed(db, is_pro=True, realtime=True)
+            db.add(Company(id=2, cik="2", ticker="T2", name="Already scanned", last_filings_check_at=NOW))
+            db.add(Watchlist(user_id=1, company_id=2, created_at=WATCH_SINCE))
+            db.commit()
+            # Exercise the real cadence skip after preparing the first company's alert.
+            from app.services import filing_scan_service
+            monkeypatch.setattr(filing_scan_service, "_alert_transport", lambda _legacy: send)
+            stats = await run_filing_scan(db, fetch_filings=_fetch, now=NOW, cadence_minutes=60)
+            assert stats["companies_scanned"] == 1 and stats["alerts_sent"] == 1
+            assert engine.pool.checkedout() == 0
+            job = db.query(SummaryJob).one()
+            assert job.status == "queued" and job.last_dispatched_at is not None
+            assert enqueue.await_count == 1
+    finally:
+        engine.dispose()
 
 
 # --------------------------------------------------------------------------- retries and identity
@@ -1051,3 +1128,45 @@ async def test_reply_to_protocol_isolates_all_live_states_from_old_readers(engin
         assert delivery.expire_stale(db, expired, kind=kind) == {"reclaimed": 0, "lease_expired": 1, "rekeyed": 0}
         db.refresh(sending)
         assert sending.status == "ambiguous" and sending.last_error_kind == delivery.ERROR_LEASE_EXPIRED
+
+
+@pytest.mark.asyncio
+async def test_empty_scan_releases_single_connection_before_recovering_queued_summary(tmp_path, monkeypatch):
+    """An empty mail drain leaves its selection read open; recovery needs another session."""
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import QueuePool
+    from app.models import SummaryJob
+    from app.services import summary_job_store, summary_jobs
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'scan-recovery.db'}", poolclass=QueuePool,
+                           pool_size=1, max_overflow=0, pool_timeout=0.15,
+                           connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False)
+    monkeypatch.setattr(summary_job_store, "SessionLocal", factory)
+    monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", True)
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 0)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 0)
+    enqueue = AsyncMock(return_value="synthetic-task-name")
+    monkeypatch.setattr(summary_jobs, "enqueue_task", enqueue)
+    try:
+        with factory() as db:
+            _seed(db, is_pro=True, realtime=True)
+            db.query(Watchlist).delete()
+            filing = Filing(company_id=1, accession_number="queued-exact-filing", filing_type="10-Q",
+                            filing_date=NOW, document_url="https://sec.example/queued.htm",
+                            sec_url="https://sec.example/queued/")
+            db.add(filing)
+            db.commit()
+            filing_id = filing.id
+        view = summary_job_store.ensure_job(filing_id, 1)
+        with factory() as db:
+            stats = await run_filing_scan(db, fetch_filings=AsyncMock(), now=NOW)
+            assert stats["companies_scanned"] == 0 and stats["alerts_sent"] == 0
+            assert engine.pool.checkedout() == 0
+            job = db.get(SummaryJob, view.job_id)
+            assert job.last_dispatched_at is not None
+            enqueue.assert_awaited_once()
+    finally:
+        engine.dispose()

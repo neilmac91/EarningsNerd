@@ -472,6 +472,28 @@ async def task_handoff_exception_handler(request: Request, exc: TaskUnavailable)
     )
 
 
+# A refused request's 422 lists each error's type, loc and msg only. FastAPI's default answer also
+# returned each refused value (for a missing field, the whole body), a password among them, and a
+# value that is not valid Unicode made rendering it raise: a 500 whose traceback quoted it (E97).
+from fastapi.exceptions import RequestValidationError
+
+from app.services.auth_validation import public_validation_errors
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=422, content={"detail": public_validation_errors(exc.errors())})
+
+
+# A coded refusal answers as the HTTPException it replaces did, plus the code a client routes on instead of its words
+# (E31; docs/audit/contracts/error-codes.md §4). No answer changes until a producer raises one.
+from app.api_errors import CodedHTTPException, coded_http_exception_handler
+
+app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """

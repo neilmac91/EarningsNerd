@@ -104,8 +104,8 @@ describe('generateSummaryStream', () => {
 
   // Pro's fair-use pause (admission.py) holds until the month turns, so a second attempt would only repeat the
   // blocked request: the error surfaces at once (isNonRetryableStreamError; streamErrorCopy.spec.ts holds the
-  // matcher to admission.py's sentence). An error frame a retry can help is attempted twice.
-  it("makes no automatic second attempt at Pro's fair-use pause, and one at an error a retry can help", async () => {
+  // matcher to admission.py's sentence). Terminal errors are surfaced without replaying server-owned work.
+  it("makes no automatic second attempt at a terminal application error", async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'info').mockImplementation(() => {})
     const attempts = async (message: string) => {
@@ -121,7 +121,7 @@ describe('generateSummaryStream', () => {
       "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
       'Please try again later or contact support.'
     expect(await attempts(pause)).toEqual({ requests: 1, shown: [[pause]] })
-    expect(await attempts('Provider unavailable')).toEqual({ requests: 2, shown: [['Provider unavailable']] })
+    expect(await attempts('Provider unavailable')).toEqual({ requests: 1, shown: [['Provider unavailable']] })
   })
 })
 
