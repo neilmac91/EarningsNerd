@@ -33,8 +33,12 @@ declared the default, the same file was a no-op.
 3. **After step 2, roll traffic back no further than step 1's revision.** An older revision maps the column and fails
    every read of the table, and `ops.yml`'s rollback takes any revision.
 
-E245's step 2 lands a gate for rule 2: a pull request whose migration drops a column that main's models still map
-fails. Until then, review checks it.
+The review gate holds rule 2: it fails a pull request whose migration drops a column the base branch's models still
+map (`backend/scripts/review_gate.py`, "Dropped columns"; `backend/tests/unit/test_review_gate.py`). It reads each
+migration the pull request adds or changes at its head, and the base's models from the checkout the workflow makes, by
+their source. Since the workflow runs the base's script, a change to the gate first checks the pull request after the
+one that makes it: E245's step 1 added it, so step 2 was the first drop it checked. Rules 1 and 3 stay review-checked,
+and so do a renamed column, a dropped table and a changed type, which break the serving code the same way.
 
 ## Evidence
 
@@ -47,3 +51,5 @@ fails. Until then, review checks it.
   - CI's triple pass runs the file on PostgreSQL 15, but it seeds `create_all` from the new model, so CI runs only
     the file's no-op branch.
 - `.github/workflows/ci.yml`: the `deploy-backend` steps, migrations first.
+- The gate on the real models: step 2's migration fails it against main's models, which map the column (step 1 and step
+  2 in one pull request), and passes it against step 1's.
