@@ -1,7 +1,7 @@
 import { countControlClass, cx } from '@/components/ui'
 import { needsSourceCheck, qualityReasons, sourceUrl, type QualityValue } from '@/features/analysis/lib/provenance'
 
-/** Small disclosure shared by the filing-scoped and peer-series surfaces. */
+/** Small disclosure under a filing-scoped series (the filing page's financial trends). */
 export default function SourceChecks({ values }: { values: (QualityValue & { label: string; source_url?: string | null })[] }) {
   const issues = values.filter(needsSourceCheck)
   const unavailable = values.filter((value) => value.provenance?.validation === 'unavailable')
