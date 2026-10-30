@@ -9,6 +9,12 @@ import type { ChartModel, ChartView, ModelMark, ModelPanel, NoteGlyph } from './
 import { compactMoney, linear } from './scale'
 
 export const FONT_PX = 11
+/** Every SVG text's family (G1), the face whose advance ADVANCE assumes; it mirrors tailwind's fontFamily.data. It
+ *  leads with var(--font-geist-mono): next/font self-hosts the face under a hashed family name, so the literal
+ *  "Geist Mono" never resolves in production, and without the variable a chart's text falls back to the platform's
+ *  monospace. */
+export const CHART_FONT =
+  'var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
 export const ADVANCE = FONT_PX * 0.6
 export const textWidth = (text: string) => [...text].length * ADVANCE
 

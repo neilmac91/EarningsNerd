@@ -156,10 +156,11 @@ says so; everything else follows the spec.
 
 - **Where each rule lives.** `scale.ts`: A1, A1b, A2, A3, F$ and compact $. `model.ts`: A5, A8, A9, A11, A12, the
   legend items and values (A10 without the wrapping, which is the renderer's) and the footnotes. `layout.ts`: A3b,
-  A4, A6, A7, A13 and A13b, and every pixel a renderer draws: bar rects with their stub and clip flags and label
-  baselines, the "—" and "n/m" gap texts, the off-scale bands, and the note glyphs' x. §4.0's interfaces are the
-  prototype's shape; the repository's types carry the same values, split between the model (data and strings) and
-  the layout (pixels).
+  A4, A6, A7, A13 and A13b, G1's stack (`CHART_FONT`, beside the 11 px size and the 0.6 em advance its widths take;
+  `components/ui/Chart.tsx` held it until E195 (D)), and every pixel a renderer draws: bar rects with their stub and
+  clip flags and label baselines, the "—" and "n/m" gap texts, the off-scale bands, and the note glyphs' x. §4.0's
+  interfaces are the prototype's shape; the repository's types carry the same values, split between the model (data
+  and strings) and the layout (pixels).
 - **Currency.** Amounts carry their filed currency (`lessons/frontend-xbrl-amounts-carry-their-own-currency.md`).
   Every `$` in this spec stands for the panel's own symbol from `lib/format.ts`'s `currencySymbol`: `¥2B`, `CA$2B`,
   and a code-like symbol followed by a space, `CHF 2B`. A unit that is not an ISO 4217 code prints no symbol, and the
@@ -350,13 +351,14 @@ says so; everything else follows the spec.
     halves, held to the tokens by `chartThemeTokens.spec.ts`. The sequences are `Chart.tsx`'s own, so no chart can
     index the light one in dark. Its x-axis line takes the grid too: Recharts draws a gridline at each edge of the
     plot and that line over the bottom one, and in the hairline `#E5E7EB` (Lc 8.8 on the light card) the light
-    baseline would have been the quietest rule; `chartThemeTokens.spec.ts` holds the baseline to the gridlines'
-    contrast. `chartExport.ts` needed no change: its `EXPORT_TEXT` mirrors `text.primary` and `text.secondary`, which
-    the fold leaves alone, and no Recharts chart exports a PNG. The renderer's PNG takes the card's own inks: its
-    header and notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary
-    measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend
-    names take it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the card's
-    notes on screen (`#B8BEC7`).
+    baseline would have been the quietest rule; `chartThemeTokens.spec.ts` held the baseline to the gridlines'
+    contrast. (E195 (D) removed that kit with Recharts, and those cases of `chartThemeTokens.spec.ts` with it; the
+    file keeps the landing page's tick-rule case.) `chartExport.ts` needed no change: its `EXPORT_TEXT` mirrors
+    `text.primary` and `text.secondary`, which the fold leaves alone, and no Recharts chart exports a PNG. The
+    renderer's PNG takes the card's own inks: its header and notes paint in the legend names' ink. That was `#B8BEC7`
+    on dark while the export's own dark secondary measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to
+    `#D1D5DB` (−77.3), and since E194 the legend names take it, so on dark the PNG's header and notes paint in the
+    export's own secondary, a step above the card's notes on screen (`#B8BEC7`).
   - `DESIGN.md` (item 3) documents `chart-1-dark…6-dark` in its frontmatter, as the sidecar's colorMeta does. DS §1
     and §10 (items 4 and 5) name the dark halves, and §10's dark labels are `chart.label.dark` `#B8BEC7`. Of item 5,
     DS §10's paragraph on the renderer states its inks; E195 rewrote its Recharts trend-chart contract (the hollow
@@ -1110,6 +1112,10 @@ The landing page's revenue bars take the first series' dark half, the dark label
 takes a review ink. The card's notes (the subtitle, the footnotes, and the band's and the tooltip's letters) keep
 `chart.label.dark` rather than the table's `note-dark` `#D1D5DB`, for the E194 note's reason: their light half is the
 tertiary step, and `note-dark` is the secondary step in dark (§0.5, "The tokens").)
+(E195 (D), 2026-10-30: Recharts left the app, and `components/ui/Chart.tsx`'s kit with it, so the `cursor` row's
+source, the DS's `barCursorProps`, and the tooltip value ink the 2026-10-25 note names in `Chart.tsx` are gone; the
+renderer's `cursor` and `figure` keep their values. The renderer's tooltip takes the Card recipe's surface and border,
+so the `tip` row's `chart.tip`, like `chart.crosshair`, has no reader; E252 retires both tokens.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
@@ -1145,7 +1151,8 @@ serialisation cannot lose them.
    `chart-note-layout`. Delete `features/analysis/lib/chartNoteLayout.ts`.
 
 **Status.** Every item is done: 6 (E199) and 7 (E195), and 1 to 5 with E195's token fold (C), 2026-10-29. Of item 5,
-E195 rewrote DS §10's Recharts trend-chart contract and the fold its dark labels.
+E195 rewrote DS §10's Recharts trend-chart contract and the fold its dark labels. E195 (D) then removed item 2's mirror
+with Recharts (the note above).
 
 ### 3.9 Tooltip and interaction states
 

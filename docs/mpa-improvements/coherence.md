@@ -574,9 +574,9 @@ WP1 builds on main, where #1606 landed; they share 21 files (§6).
   its records (`#1611`); step 5, reading a chart (E193, `#1617`); step 6's gates (E194: `#1620`,
   `#1624`, `#1631`); the data face's fallback and the plots' font wait (E199, `#1636`).
 - **Step 7** (E195): since the founder's switch (F66, D-064) the spec renderer draws every trend
-  chart; its token fold landed with E195 (C), and since E195 (G) CI's e2e job reads every script
-  the built route loads to draw its charts and fails on a Recharts class name in any script
-  (`frontend/tests/e2e/charts-v2.spec.ts`).
+  chart; its token fold landed with E195 (C), and with E195 (D) Recharts left the app:
+  `frontend/tests/unit/rechartsImporters.spec.ts` fails a script that names it or a lockfile that
+  installs it, where E195 (G)'s e2e case read the built route's scripts for its class names.
   Step 6's remainder, the notes band on this report's rule (below), landed with E194 on 2026-10-26.
 - **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
   the plot and puts them in a band under the period axis: a letter for every note on a plotted

@@ -32,13 +32,4 @@ export { GuidanceCard, GuidanceIconWell, type GuidanceCardProps, type GuidanceCa
 export { MarkedCopy, EnRef } from './MarkedCopy'
 // The marked copy's measure (its margin gives way below it), outside the 'use client' module for server components.
 export { markedBlockInsetClass, markedRowInsetClass } from './markedCopyLayout'
-// The chart kit: its tokens (seriesColor, CHART_FONT, chartTheme) serve every chart, the analysis engine's too;
-// the prop factories and ChartTooltip serve no chart since the filing page's Financial trends moved onto the engine
-// (D-067), and leave with Recharts in E195 (D)'s last step. E195 removed what nothing called.
-export {
-  CHART_SERIES_COUNT, CHART_FONT, seriesColor, chartTheme,
-  gridProps, xAxisProps, yAxisProps, barCursorProps,
-  ChartTooltip,
-  type ChartTheme, type ChartTooltipProps,
-} from './Chart'
 export { cx } from './cx'

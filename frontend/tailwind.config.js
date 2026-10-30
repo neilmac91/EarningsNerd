@@ -149,7 +149,7 @@ module.exports = {
         //   · known limits: chart.5+6 converge for dichromats (ΔE ~16), chart.6 vs
         //     chart.3 is near-identical for protanopes (ΔE 3) — at ≥5 series color no
         //     longer carries alone: add direct labels, markers, or dash patterns
-        // Gain/loss NEVER appear as series colors (direction only — see Chart.tsx),
+        // Gain/loss NEVER appear as series colors (direction only — DESIGN_SYSTEM.md §10),
         // and the sage brand NEVER appears inside a plot area.
         chart: {
           1: '#3E8E84', // teal        — cream 3.5:1 · navy 4.9:1
@@ -167,14 +167,14 @@ module.exports = {
           '6-dark': '#AFA2DE', // periwinkle  — Lc −52.8
           // ---- Chart chrome sub-tokens ----
           // Gridlines: Lc 16.8 / −15.0 on the card, visible enough to read a value across, quieter than the zero rule
-          // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8). The Recharts baseline and the
-          // landing page's tick rules (RevenueBars) take it too, so chart.axis, the hairline they drew in, is retired
-          // (E195's token fold).
+          // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8). The landing page's tick rules
+          // (RevenueBars) take it too, so chart.axis, the hairline they drew in, is retired (E195's token fold).
           grid: { light: '#DCD9D0', dark: '#525C6B' },
           // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
           // the card charts sit on; on bare cream use secondary). Dark = #B8BEC7, a step above text.TERTIARY:
           // gray-400 #9CA3AF measures Lc −48.6 on the dark card, under the 60 that 11–12 px text needs; #B8BEC7 is −63.6.
           label: { light: '#6B7280', dark: '#B8BEC7' },
+          // crosshair and tip: no reader since Recharts left the app (E195 (D)); E252 retires them app-wide.
           crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark

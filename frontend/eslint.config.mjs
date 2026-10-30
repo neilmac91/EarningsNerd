@@ -206,9 +206,9 @@ const DATE_HELPER_RULES = [
 // a machine gate in the same PR as the sweep). Tokens only: no raw hex, no raw palette classes, no
 // arbitrary z / radius / duration / sub-scale text, no off-ramp tracking, no window.alert.
 // Exemptions, each pinned to its own block below:
-//   - the sanctioned JS color mirrors (lib/motion.ts, lib/financialTone.ts, ui/Chart.tsx,
-//     features/analysis/lib/chartExport.ts) and the brand-mandated GoogleSignInButton skip the two
-//     color rules (tests/unit/designTokenParity.spec.ts checks the mirrors use only token hexes);
+//   - the sanctioned JS color mirrors (lib/motion.ts, features/analysis/lib/chartExport.ts) and the
+//     brand-mandated GoogleSignInButton skip the two color rules
+//     (tests/unit/designTokenParity.spec.ts checks the mirrors use only token hexes);
 //     so does features/analysis/lib/charts/theme.ts, the trend-chart spec renderer's mirror, which the
 //     parity spec checks too and tests/unit/chart-theme.spec.ts ties field by field to its tokens;
 //   - app/manifest.ts + app/layout.tsx declare the OS-facing theme colors (PWA manifest, <meta
@@ -228,7 +228,7 @@ const DATE_HELPER_RULES = [
 // ("PR #619") it is not. The mirrors above keep their exemption.
 const DESIGN_HEX_RULE = {
   selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(|\\[(?:[^\\]\\s]*[:_(,])?#[0-9a-f]{3,4}(?![0-9a-f])[^\\]\\s]*\\]|^#[0-9a-f]{3,4}$/i]',
-  message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport, charts/theme).',
+  message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, chartExport, charts/theme).',
 }
 // Every Tailwind palette name and every colour-bearing utility prefix, a side border (`border-l-`) and a ring
 // offset included (2026-10-24, the generating card's callout review: the rule had read six prefixes and
@@ -281,8 +281,6 @@ const withTemplates = (rules) =>
 const DESIGN_RULES = withTemplates([DESIGN_HEX_RULE, DESIGN_PALETTE_RULE, DESIGN_Z_RULE, ...DESIGN_SHARED_RULES])
 const DESIGN_COLOR_EXEMPT = [
   'lib/motion.ts',
-  'lib/financialTone.ts',
-  'components/ui/Chart.tsx',
   'features/analysis/lib/chartExport.ts',
   // The trend charts' spec tokens (§3.8), held to the spec's table by tests/unit/chart-theme.spec.ts.
   'features/analysis/lib/charts/theme.ts',

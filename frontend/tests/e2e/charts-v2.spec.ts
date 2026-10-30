@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
-import path from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
@@ -28,60 +25,13 @@ test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
 test.describe('the analysis route draws the spec renderer (E195)', () => {
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
-  // Whatever the build's env, as production builds it: no flag chooses a renderer any more. Which modules may import
-  // Recharts is tests/unit/rechartsImporters.spec.ts's gate.
-  test('its four charts are the spec renderer’s, and no Recharts chart draws', async ({ page, baseURL }) => {
+  // Whatever the build's env, as production builds it: no flag chooses a renderer any more. That no script names
+  // Recharts and the lockfile installs none is tests/unit/rechartsImporters.spec.ts's gate (E195 (D)).
+  test('its four charts are the spec renderer’s', async ({ page, baseURL }) => {
     await openAnalysis(page, baseURL!, 'captured', 'light')
     await expect(page.locator('[data-analysis-chart] > svg')).toHaveCount(4)
-    await expect(page.locator('.recharts-surface')).toHaveCount(0)
-  })
-
-  // The route's built scripts, as the browser loads them, hold no Recharts component (E195 G): the build's truth beside
-  // the source gate's, which reaches no bundler alias and no computed specifier. Every Recharts chart draws through its
-  // surface and wrapper, and the parts that draw outside a chart carry classes of their own, all named `recharts-…`; a
-  // minifier keeps strings, so a script that holds any of them holds the prefix. CI's e2e build turns
-  // NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS on, as production's does, so the code behind it is built here as it ships.
-  // Out of reach: Recharts' helpers that draw nothing (its scales and ticks) and name no class; and a chunk the route
-  // loads only after its charts draw, on a later action, or in another state (the free teaser, an annual run, an empty
-  // or failed one), which the source gate reads.
-  test('it loads no Recharts component: no script it loads to draw its charts holds a Recharts class name', async ({ page, baseURL }) => {
-    const scripts: { url: string; body: Promise<string> }[] = []
-    const unread: string[] = []
-    page.on('response', (response) => {
-      if (response.request().resourceType() !== 'script') return
-      const url = response.url()
-      scripts.push({ url, body: response.text().catch(() => { unread.push(url); return '' }) })
-    })
-    await openAnalysis(page, baseURL!, 'captured', 'light')
-    await expect(page.locator('[data-analysis-chart] > svg')).toHaveCount(4)
-    const loaded = await Promise.all(scripts.map(async ({ url, body }) => ({ url, body: await body })))
-    expect(unread, 'every script’s body was read').toEqual([])
-    // What was read includes the renderer's own chunk, which the route loads lazily: a Recharts import beside it lands
-    // in what this reads.
-    expect(loaded.filter(({ body }) => body.includes('data-axis-domain')).length, 'the renderer’s chunk was read').toBeGreaterThan(0)
-    expect(loaded.filter(({ body }) => RECHARTS_CLASS.test(body)).map(({ url }) => url)).toEqual([])
-  })
-
-  test('the class prefix it looks for is Recharts’ own: each chart’s surface and wrapper set it, as do the parts listed that draw alone', () => {
-    const es6 = path.join(path.dirname(createRequire(__filename).resolve('recharts/package.json')), 'es6')
-    for (const file of RECHARTS_DRAWING) expect(readFileSync(path.join(es6, file), 'utf8'), file).toMatch(RECHARTS_CLASS)
   })
 })
-
-/** Recharts' class-name prefix: `recharts-surface`, `recharts-wrapper`, `recharts-text`… */
-const RECHARTS_CLASS = /recharts-[a-z]/
-/** Where Recharts draws, in the package the build bundles (its `module` build): every chart's surface and wrapper,
- *  which a chart reaches through CategoricalChart or imports itself, and the parts that draw outside a chart (the
- *  responsive container, text and three shapes). */
-const RECHARTS_DRAWING = [
-  'container/Surface.js',
-  'chart/RechartsWrapper.js',
-  'component/ResponsiveContainer.js',
-  'component/Text.js',
-  'shape/Rectangle.js',
-  'shape/Sector.js',
-  'shape/Curve.js',
-]
 
 test.describe('trend charts v2 when the renderer’s chunk fails to load', () => {
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
