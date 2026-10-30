@@ -1271,8 +1271,9 @@ class TestProxyStatementItemsSync:
         # date. Where a sync between the 10-K and the proxy stored it, and the proxy's row then
         # demoted it, the upsert skips that identity and the proxy's row stays current: ingestion
         # never rewrites an identity. A margin is named by revenue's accession, so no sync recomputes
-        # it: one a sync first stored from the proxy's net income stays the proxy's. The existing
-        # quarterly repair recomputes it, and leaves the reported rows to a journaled repair of their own.
+        # it: one a sync first stored from the proxy's net income stays the proxy's. The quarterly
+        # repair recomputes it, and its proxy step (E211, proxy_fact_repair.py) retires each proxy row
+        # the sync left current and promotes the 10-K's stored row at its key.
         from app.database import SessionLocal
         from app.models import FinancialFact
         from app.services.facts import currency
@@ -1319,7 +1320,13 @@ class TestProxyStatementItemsSync:
                    for c in plan["changes"]}
         assert float(changed[("net_margin", "FY", "2021")]["value"]) == pytest.approx(
             _MRK_INCOME[2021] / _MRK_REVENUE[2021] * 100)
-        assert not any(concept == "net_income" and period == "FY" for concept, period, _year in changed)
+        proxy_rows = [c for c in plan["changes"] if c["before"]["form"] == "DEF 14A"]
+        if synced_before_the_proxy:  # each proxy row the sync could not heal is retired, the 10-K's promoted
+            assert {tuple(c["after"]["provenance"]["reasons"]) for c in proxy_rows} == {("proxy_statement_value",)}
+            assert (plan["proxy"]["retired"], plan["proxy"]["promoted"]) == (6, 6)
+        else:  # the sync healed every key, so no reported annual row changes
+            assert not any(concept == "net_income" and period == "FY" for concept, period, _year in changed)
+            assert (proxy_rows, plan["proxy"]["retired"]) == ([], 0)
         db.close()
 
     def test_a_proxy_row_never_displaced_a_10k_listed_locally(self, monkeypatch):
