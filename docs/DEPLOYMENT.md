@@ -164,8 +164,8 @@ API service's own describe included, prints only its closed class (`permission_d
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
-The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, the repair-ticker, the
-fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
+The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, `figure-check-count`, the repair-ticker,
+the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
 lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
