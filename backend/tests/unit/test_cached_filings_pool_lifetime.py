@@ -743,7 +743,7 @@ async def test_generate_stream_refuses_a_throttled_request_before_its_admission(
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
-    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "SUMMARY_REQUEST_LIMITER", RateLimiter(limit=0, window_seconds=60))
     monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
     monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
     token = auth.create_access_token({"sub": "throttled-reader@example.com"})

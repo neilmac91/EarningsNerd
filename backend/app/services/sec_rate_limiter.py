@@ -11,6 +11,7 @@ This module provides a robust rate limiter with:
 import asyncio
 import logging
 import random
+import sys
 import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -213,8 +214,16 @@ class SECRateLimiter:
         # 1*DIGIT): this honors "30" and clamps negatives to 0, but rejects "nan"/"inf"/"1e9"
         # — which float() would accept and (after the 120s cap) turn into a bogus 2-minute
         # stall instead of falling through to the normal exponential backoff.
+        if header.isascii() and header.isdigit():
+            # Normalize before int()'s digit limit. Huge valid source refusals
+            # remain finite metadata so durable jobs can persist a terminal hold.
+            header = header.lstrip("0") or "0"
+            if len(header) > 308:
+                return sys.float_info.max
         try:
             return max(0.0, float(int(header)))
+        except OverflowError:
+            return sys.float_info.max if not header.startswith("-") else 0.0
         except ValueError:
             pass
 

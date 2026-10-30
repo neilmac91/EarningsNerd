@@ -135,7 +135,8 @@ def get_filing_by_accession(company: EdgarCompany, accession_number: str) -> lis
 # spans resolutions of one company within its TTL (a regeneration, another filing of the same
 # company), reusing the already-loaded entity (edgartools keeps the loaded submissions on the
 # instance). The cache is deliberately small + short-TTL, and a fully-loaded mega-filer entity is
-# tens of MB, so we cap memory hard. Staleness is a non-issue here — we fetch a FIXED historical filing by accession, not "latest".
+# tens of MB, so we cap memory hard. A just-published accession can be absent from an
+# older entity's recent window: the resolver refreshes that snapshot before loading history.
 # NOTE: only the by-accession path uses this. The filings-LIST path (get_filings_multi) keeps building
 # a fresh entity per load so it always sees the newest recent window.
 _COMPANY_CACHE_TTL = timedelta(seconds=120)
@@ -161,17 +162,16 @@ def _get_company_lock(cik: str) -> threading.Lock:
         return lock
 
 
-def _get_or_build_company(cik: str) -> EdgarCompany:
+def _get_or_build_company(cik: str, *, refresh: bool = False) -> EdgarCompany:
     """Return a cached EdgarCompany for the CIK, building one on miss/expiry. The caller MUST hold the
     per-CIK lock so two concurrent same-CIK builds/loads can't race."""
     with _company_cache_lock:
         # Pop-then-reinsert on a hit so the reused entity moves to the back of the eviction queue
         # (LRU, matching _mark_empty_fallback). Without this, a distinct-company burst under
         # concurrency=40 could evict a company BETWEEN its two concurrent extractions — the exact
-        # double-build this cache prevents. Keep the build-time timestamp: the TTL is memory hygiene
-        # only, and staleness doesn't matter for fixed-accession lookups.
+        # double-build this cache prevents. Keep the build-time timestamp on a hit.
         entry = _company_cache.pop(cik, None)
-        if entry is not None and (utcnow() - entry[1]) < _COMPANY_CACHE_TTL:
+        if not refresh and entry is not None and (utcnow() - entry[1]) < _COMPANY_CACHE_TTL:
             _company_cache[cik] = entry
             return entry[0]
     # Build OUTSIDE the global lock (construction hits the network); the per-CIK lock the caller holds
@@ -196,7 +196,19 @@ def resolve_filing_by_accession(cik: str, accession_number: str) -> Tuple[EdgarC
     under the lock, concurrent with an earlier caller still holding the handle. Returns
     ``(company, filings)``. Synchronous — call inside the edgar thread pool."""
     with _get_company_lock(cik):
+        with _company_cache_lock:
+            previous = _company_cache.get(cik)
         company = _get_or_build_company(cik)
+        if previous is not None and company is previous[0]:
+            # A snapshot built before publication cannot gain a new accession by
+            # downloading older shards. Refresh recent submissions once on a cached
+            # miss, under the same CIK lock, before considering historical fallback.
+            # edgartools still owns HTTP freshness/pacing; an upstream/cache lag can
+            # return no filing, allowing the caller's later retry to resolve it.
+            recent = list(company.get_filings(accession_number=accession_number, trigger_full_load=False))
+            if recent:
+                return company, recent
+            company = _get_or_build_company(cik, refresh=True)
         return company, get_filing_by_accession(company, accession_number)
 
 

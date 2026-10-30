@@ -1661,7 +1661,7 @@ const WORD_FIELDS = new Set([
   // URLs and opaque ids.
   'document', 'document_url', 'fragment_url', 'invite_link', 'pageUrl', 'page_url', 'referral_link', 'secUrl', 'sec_url',
   'source_url', 'url', 'snapshot_id', 'stripe_customer_id', 'stripe_subscription_id', 'sha256', 'follow_up_ids',
-  'submission_id', 'submissionId', 'download_path',
+  'submission_id', 'submissionId', 'download_path', 'requestId', 'job_id',
   // The words a person types.
   'email', 'provider_email', 'user_email', 'message', 'subject', 'q', 'query', 'honeypot',
 ])

@@ -599,6 +599,7 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
 
 # Each PostgreSQL gate's step, "Verify <subject> on PostgreSQL", its test home and the variable the step sets.
 _POSTGRES_STEPS = [
+    ("durable summary ownership", "test_summary_job_transactions.py", "SUMMARY_JOB_TEST_DATABASE_URL"),
     ("Stripe transaction concurrency", "test_subscription_event_transactions.py",
      "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
     ("usage counter concurrency", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
@@ -618,6 +619,8 @@ _POSTGRES_STEPS = [
      "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL"),
     ("summary progress concurrency", "test_summary_progress_transactions.py",
      "PROGRESS_CONCURRENCY_TEST_DATABASE_URL"),
+    ("SEC request admission concurrency", "test_sec_request_gate_transactions.py",
+     "SEC_ADMISSION_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 
