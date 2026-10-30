@@ -58,6 +58,7 @@ from app.services.edgar.exceptions import (  # noqa: F401
 )
 from app.services.edgar.circuit_breaker import CircuitOpenError, edgar_circuit_breaker  # noqa: F401
 from app.services.sec_rate_limiter import SECRateLimiter  # noqa: F401
+from app.services.sec_request_gate import SECAdmissionUnavailable  # noqa: F401
 # Keep the existing dispatch seam for lifecycle tests while tracking actual worker futures.
 from app.services.request_work import RequestWork, run_owned_sync as run_in_threadpool  # noqa: F401
 from app.services.ai.provider_requests import provider_start_signal  # noqa: F401
