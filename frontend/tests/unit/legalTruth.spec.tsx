@@ -2642,9 +2642,9 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (601 rows since E162 stage 4f) takes 4.6s alone: the default 5s timed out in a full local run on a
+    self-check (602 rows since E162 stage 4f) takes 4.6s alone: the default 5s timed out in a full local run on a
     loaded machine, it took 35s in this spec under twenty-four busy loops on four cores, past a 30s budget, and 47s
-    under thirty-two, so the budget is 90s, about twice that. The removed claims' self-check (643 rows, through the
+    under thirty-two, so the budget is 90s, about twice that. The removed claims' self-check (645 rows, through the
     page's render and splitter) takes 1.0s alone, and the default 5s timed out in this spec under twenty-four busy
     loops. */
 const READS_EVERY_PLANTED_FORM = { timeout: 90_000 }
@@ -3458,8 +3458,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A gerund after a preposition in the participle is the preposition's object, with its own object, though the
       // lexicon lacks it ("obtaining"), so the clause's verb ends the participle and the wait it says is the clause's, as
       // main read these, and its denial passes, though main refused it (Codex on 4030bccd), adverbs before the gerund or
-      // not (Codex on 08d06015), and a perfect or passive gerund's participle stepped over alone (Codex on c38dbf9f and
-      // 3e038664).
+      // not (Codex on 08d06015), and after a perfect or passive gerund, whose object takes no relative clause without
+      // its relative word, whatever word the lexicon lacks heads it (Codex on c38dbf9f, 3e038664 and dad18dde).
       ['<p>Server events not sent without obtaining your permission are collected only after you opt in.</p>', true],
       ['<p>Server events not sent without obtaining your consent are recorded only after you opt in.</p>', true],
       ['<p>Analytics not gathered without obtaining your permission are collected only with your consent.</p>', true],
@@ -3474,6 +3474,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events not sent without being allocated an identifier are collected only after you opt in.</p>', true],
       ['<p>Server events not sent without being first allocated an identifier are collected only after you opt in.</p>', true],
       ['<p>Server events not sent without being allocated an identifier are not collected only after you opt in.</p>', false],
+      ['<p>Server events not sent without having sought your permission are collected only after you opt in.</p>', true],
+      ['<p>Server events not sent without having sought your permission are not collected only after you opt in.</p>', false],
       // A wait the participle says in contrast is its promise, as main read it (Codex on #1818).
       ['<p>Server events not collected except only with your consent are recorded.</p>', true],
       ['<p>Server events not collected except only after you opt in are recorded.</p>', true],
@@ -4725,12 +4727,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>We revoke every token not revoked by logging out, which ends every session.</li>', true],
       // A gerund the lexicon lacks after a preposition in the participle ends no participle before the clause's verb, so
       // the clause keeps its logout, as main read these (Codex on 4030bccd), adverbs before the gerund or not (Codex on
-      // 08d06015), and a perfect or passive gerund's participle stepped over alone (Codex on c38dbf9f and 3e038664),
-      // while one the lexicon knows starts a verb group there, so its logout is the clause's, as main read these.
+      // 08d06015), and after a perfect or passive gerund, whose object takes no relative clause without its relative
+      // word (Codex on c38dbf9f, 3e038664 and dad18dde), while a participle the lexicon knows starts a verb group there,
+      // so its logout is the clause's, as main read these.
       ['<li>Sessions not opened by obtaining a token end within 30 minutes of logging out.</li>', true],
       ['<li>Sessions not ended by obtaining a new token end when you log out.</li>', true],
       ['<li>Sessions not opened by first obtaining a token end within 30 minutes of logging out.</li>', true],
       ['<li>Sessions not opened by having obtained a token end within 30 minutes of logging out.</li>', true],
+      ['<li>Sessions not opened by having sought a token end within 30 minutes of logging out.</li>', true],
       ['<li>Sessions not ended by having logged out expire within 30 minutes.</li>', true],
       ['<li>Sessions not ended by being logged out expire within 30 minutes.</li>', true],
       // A new password is the context anywhere in its sentence, as main reads its password word (ANY_NEW_PASSWORD).

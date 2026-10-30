@@ -385,17 +385,18 @@ function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
     flag recorded in E162's row ("not ended by | log out expire": the fourth lens on 4030bccd). Inside it "following"
     is a preposition, though the lexicon lists it as a verb ("not revoked following a sign-out | expire": the fifth lens
     on 74fa9925), and adverbs, or "first", may stand between a preposition and its gerund ("not sent without first
-    obtaining your permission | are collected": Codex on 08d06015). Where no verb group starts at it, an adverb,
-    "first" or a past form is stepped over alone, not read as a phrase's head, which would take a relative clause that
-    runs over the clause's verb ("not sent without having obtained your permission | are collected", "not sent without
-    being allocated an identifier | are collected": Codex on c38dbf9f and 3e038664). After
+    obtaining your permission | are collected": Codex on 08d06015). A phrase after a gerund, its object or the
+    participle a perfect or passive gerund takes, takes no relative clause without its relative word, since the words
+    after it are the clause's own: a word the lexicon lacks read as that phrase's head would take one that runs over the
+    clause's verb ("not sent without having obtained your permission | are collected", "not sent without being
+    allocated an identifier | are collected", "not sent without having sought your permission | are collected": Codex
+    on c38dbf9f, 3e038664 and dad18dde). After
     "before" or "after" in a phrase past its clause's verb, the gerund may open a clause of time instead ("sessions not
     opened here before logging out | ends every session"), which this runs over; the session-end family leaves out of
     its context only a participle in a clause's subject, so that clause keeps its logout (the third lens on 84003ff5). */
 function negatedParticipleEnd(tokens: Token[], from: number): number {
   const preposition = (token: Token | undefined) => PREPOSITIONS.has(lower(token)) || lower(token) === 'following'
   const modifies = (token: Token | undefined) => isAdverb(token) || lower(token) === 'first'
-  const alone = (token: Token) => modifies(token) || PAST_FORMS.has(token.lower) || /^[a-z]{3,}ed$/.test(token.lower)
   /** Where a gerund after a preposition ends, past the adverbs before it, read from the token after the preposition:
       0 where none stands there. */
   const gerundEnd = (at: number) => {
@@ -404,12 +405,20 @@ function negatedParticipleEnd(tokens: Token[], from: number): number {
     return preposition(tokens[at - 1]) && /^[a-z]+ing$/.test(lower(tokens[j])) ? j + 1 : 0
   }
   let i = from
+  let afterGerund = false
   while (i < tokens.length && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) {
     if (tokens[i].lower === 'following') i++
-    else if (gerundEnd(i)) i = gerundEnd(i)
-    else if (startsPredicate(tokens, i)) break
-    else if (alone(tokens[i])) i++
-    else i = nounPhraseAt(tokens, i)?.end ?? i + 1
+    else if (gerundEnd(i)) {
+      i = gerundEnd(i)
+      afterGerund = true
+      continue
+    } else if (startsPredicate(tokens, i)) break
+    else {
+      const phrase = nounPhraseAt(tokens, i)
+      const reduced = afterGerund ? phrase?.postmodifiers.find((m) => m.kind === 'relative' && !RELATIVES.has(lower(tokens[m.start]))) : undefined
+      i = reduced?.start ?? phrase?.end ?? i + 1
+    }
+    afterGerund = false
   }
   return Math.min(i, tokens.length)
 }
