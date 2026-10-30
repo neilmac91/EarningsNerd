@@ -11,8 +11,15 @@ import {
   unlinkProvider,
   LogoutAllSuperseded,
   type AuthConnection,
+  type CurrentUser,
 } from '@/features/auth/api/auth-api'
-import { LOGGED_OUT_FIRST_MESSAGE, LoggedOutFirst, logoutAllInTurn } from '@/features/auth/lib/accountQueryState'
+import {
+  LOGGED_IN_AS_ANOTHER_MESSAGE,
+  LOGGED_OUT_FIRST_MESSAGE,
+  LoggedOutFirst,
+  logoutAllInTurn,
+} from '@/features/auth/lib/accountQueryState'
+import { ApiError } from '@/lib/api/client'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -64,7 +71,8 @@ export default function ConnectedAccounts() {
   // In the one-logout flight (logoutAllInTurn, E157): pressed while a Log out runs, it waits for that one, and posts
   // only while the session survived it; a Log out pressed while it runs waits for it, and runs on its own if it fails.
   const logoutAllMutation = useMutation({
-    mutationFn: logoutAllInTurn,
+    // It names the account this tab shows as it is pressed, and the route refuses another's (E157 (2)).
+    mutationFn: () => logoutAllInTurn(queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id),
     onSuccess: () => {
       queryClient.clear()
       router.push('/login')
@@ -77,6 +85,13 @@ export default function ConnectedAccounts() {
       // for a reader gone, so this section's error line would never show: a toast outlives the page.
       if (err instanceof LoggedOutFirst) {
         toast.error(LOGGED_OUT_FIRST_MESSAGE)
+        return
+      }
+      // The browser's session is another account's (another tab signed in, E29 (3)), so the route ended nothing (E157
+      // (2)). A read of /me moves this tab to that account, whose snapshots replace this section's, so a toast says it.
+      if (err instanceof ApiError && err.status === 409) {
+        toast.warning(LOGGED_IN_AS_ANOTHER_MESSAGE)
+        void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
         return
       }
       setError(

@@ -6,8 +6,8 @@ import type { ReactNode } from 'react'
 import api from '@/lib/api/client'
 import { LogoutAllSuperseded, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import {
-  LOGGED_OUT_FIRST_MESSAGE, LOGOUT_FAILED_MESSAGE, LoggedOutFirst, acceptLoginAndResetAccount, logoutAllInTurn, logoutAndResetAccount,
-  subscribeAccountQueryReset,
+  LOGGED_IN_AS_ANOTHER_MESSAGE, LOGGED_OUT_FIRST_MESSAGE, LOGOUT_FAILED_MESSAGE, LoggedOutFirst, acceptLoginAndResetAccount,
+  logoutAllInTurn, logoutAndResetAccount, subscribeAccountQueryReset,
 } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getExplicitSessionGeneration, hasActiveSession, markSessionActive } from '@/lib/api/session'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -79,7 +79,7 @@ const settle = () => act(async () => { await new Promise((resolve) => setTimeout
 const LOGOUT_INCOMPLETE = 'This browser is logged out, but we could not end the session on the server.'
 const refused = async (): Promise<void> => { throw { response: { status: 401 } } }
 /** This browser's cookies cleared: /me then answers no user, the refresh cookie is gone, and so is the logout of every
-    session, whose route needs the access cookie (`get_current_user`). */
+    session, whose route needs a live refresh token or the access cookie (E157 (2)). */
 const cookiesCleared = () => {
   Object.assign(server, { me: status(401, 'Not authenticated'), logoutAll: status(401, 'Not authenticated'), refresh: refused, renewed: false })
 }
@@ -419,5 +419,42 @@ describe('"Log out of all devices" with no Log out under way', () => {
     answer.resolve()
     await first
     expect(posts('/api/auth/logout-all')).toBe(1)
+  })
+})
+
+describe('"Log out of all devices" names the account the tab shows (E157 (2))', () => {
+  /** The bodies of the logout-of-every-session posts, as sent. */
+  const bodiesOf = (answer: Answer) => {
+    const bodies: unknown[] = []
+    server.logoutAll = async (config) => {
+      bodies.push(config.data === undefined ? undefined : JSON.parse(config.data as string))
+      return answer(config)
+    }
+    return bodies
+  }
+
+  it('in its request, and ends every session when the route finds that account', async () => {
+    const { clear } = await renderSettings()
+    const bodies = bodiesOf(endsEverySession)
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+    expect(nav.push).toHaveBeenCalledWith('/login')
+  })
+
+  it("and when the browser is another account's, ends nothing, says so, keeps the session flag and reads /me, which shows that account", async () => {
+    const { client, clear } = await renderSettings()
+    // Another tab signed this browser in to `other`; this tab still shows `reader`, as it learns only through /me.
+    server.me = ok(other)
+    const bodies = bodiesOf(status(409, 'This browser is signed in to another account than the one this page shows, so nothing was logged out.'))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.warning).toHaveBeenCalledWith(LOGGED_IN_AS_ANOTHER_MESSAGE))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    expect(hasActiveSession()).toBe(true)
+    expect(clear).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(screen.queryByText('Could not log out of all devices.')).not.toBeInTheDocument()
   })
 })

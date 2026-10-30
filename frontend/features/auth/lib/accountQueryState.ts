@@ -14,6 +14,12 @@ export const LOGOUT_FAILED_MESSAGE = "We couldn't log you out. Try again in a mo
 export const LOGGED_OUT_FIRST_MESSAGE =
   "You were already logged out here, so we couldn't log out your other devices. Log in, then choose “Log out of all devices” again."
 
+/** What "Log out of all devices" tells the reader when the route refused it for another account (E157 (2)): another
+ * tab signed this browser in to that account, so ending its sessions is not what this tab asked for, and nothing ended.
+ * The tab then reads /me and shows that account (ConnectedAccounts). */
+export const LOGGED_IN_AS_ANOTHER_MESSAGE =
+  'This browser is now signed in to another account, so no device was logged out.'
+
 /** A logout of every session that posted nothing: the logout it waited for logged this device out (logoutAllInTurn). */
 export class LoggedOutFirst extends Error {
   constructor() {
@@ -295,8 +301,10 @@ async function settleLogout(
  * joins it. One that failed puts the session flag back as it found it, as a failed Log out does for its read of /me:
  * its request clears the flag whatever the answer, and without it a lapsed access cookie would read as a guest while
  * the refresh cookie lives; a login accepted since marks its own. It resets nothing: its control clears the cache and
- * leaves once it took (ConnectedAccounts). */
-export function logoutAllInTurn(): Promise<void> {
+ * leaves once it took (ConnectedAccounts). It names the account the tab showed when it was pressed (`accountId`), which
+ * a wait keeps, since a login or another reader moves the generation and ends the wait as LogoutAllSuperseded; the
+ * route refuses another account's (E157 (2)), and that refusal leaves the session, so the flag goes back as for any. */
+export function logoutAllInTurn(accountId?: number): Promise<void> {
   const running = logoutUnderWay && isExplicitSessionGenerationCurrent(logoutUnderWay.generation) ? logoutUnderWay : null
   if (running?.everySession) return running.settled
   if (running) {
@@ -305,13 +313,13 @@ export function logoutAllInTurn(): Promise<void> {
       // It posts for the session that survived, never for a login accepted since: the check and the post's
       // `beginLogout`, which takes the generation it answers for, share this turn.
       if (!running.survived || !isExplicitSessionGenerationCurrent(running.generation)) throw new LogoutAllSuperseded()
-      return logoutAllInTurn()
+      return logoutAllInTurn(accountId)
     }
     return running.settled.then(next, next)
   }
   const run = { generation: getExplicitSessionGeneration(), everySession: true } as LogoutUnderWay
   const sessionWasActive = hasActiveSession()
-  run.settled = logoutAllSessions().then(
+  run.settled = logoutAllSessions(accountId).then(
     () => undefined,
     (error: unknown) => {
       // A loss confirmed meanwhile (a refused refresh) gets the flag back too, and the next 401 spends one refused
