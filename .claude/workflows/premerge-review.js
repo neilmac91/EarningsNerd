@@ -211,8 +211,8 @@ const results = await pipeline(
       const complete = v.length === T.refuters
       const stands = complete && v.every((x) => !x.refuted)
       // Each refuter holds the report at its corrected severity, or at the claimed one when it sets none (both
-      // prompts ask for a correction only when the claimed severity is wrong). The highest holding wins,
-      // whichever refuter gives it: one refuter's raise to blocker is never masked by the other's restated or
+      // prompts ask for a correction only when the claimed severity is wrong). Once the report stands, the highest
+      // holding wins, whichever refuter gives it: one refuter's raise to blocker is never masked by the other's restated or
       // lower severity, and a lowering needs every refuter of the tier (both on the high tier; the routine
       // tier's one refuter lowers alone).
       const held = v.map((x) => (rankOf(x.corrected_severity) > 0 ? x.corrected_severity : f.severity))

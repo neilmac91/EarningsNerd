@@ -453,7 +453,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     }
   })
 
-  it('refutes a report one refuter raises to blocker while the other refutes it, on both paths: a raise never outlives a refutation', async () => {
+  it('refutes a report one refuter raises to blocker while the other refutes it, or whose one vote refutes and raises at once, on both paths: a raise never outlives a refutation', async () => {
     const shouldOnly = (label: string): Findings => {
       const lens = label.split(':').pop() as string
       return { findings: [{ file: `${lens}.py`, title: `should-${lens}`, detail: 'd', severity: 'should-fix', evidence: 'e' }], summary: 's' }
@@ -491,15 +491,18 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('keeps a finding with a vote missing unverified at its claimed severity, whatever the other refuter holds', async () => {
-    // The should-fixes' refuter #2 returns nothing while #1 raises each to blocker; the blockers' pairs are whole.
+    // The should-fixes' refuter #2 returns nothing while #1 raises each to blocker, then lowers each to nit; the
+    // blockers' pairs are whole.
     const isShould = (label: string) => label.startsWith('verify:') && !label.includes('a.py')
-    const s = stub((label) => isShould(label) && label.endsWith('#2'), { corrected: (label) => (isShould(label) && label.endsWith('#1') ? 'blocker' : undefined) })
-    const [r] = (await load()({ prs: [pr('high')] }, s.agent)) as Result[]
-    expect(r.unverified.map((u) => [u.title, u.severity])).toEqual([['should', 'should-fix'], ['should', 'should-fix'], ['should', 'should-fix']])
-    expect(titles(r.confirmed)).toEqual(['blocker', 'blocker', 'blocker'])
-    expect(r.refuted).toHaveLength(0)
-    expect(r.incomplete).toBe(true)
-    expect(r.mergeable).toBe(false)
+    for (const held of ['blocker', 'nit']) {
+      const s = stub((label) => isShould(label) && label.endsWith('#2'), { corrected: (label) => (isShould(label) && label.endsWith('#1') ? held : undefined) })
+      const [r] = (await load()({ prs: [pr('high')] }, s.agent)) as Result[]
+      expect(r.unverified.map((u) => [u.title, u.severity]), held).toEqual([['should', 'should-fix'], ['should', 'should-fix'], ['should', 'should-fix']])
+      expect(titles(r.confirmed), held).toEqual(['blocker', 'blocker', 'blocker'])
+      expect(r.refuted, held).toHaveLength(0)
+      expect(r.incomplete, held).toBe(true)
+      expect(r.mergeable, held).toBe(false)
+    }
   })
 
   it('sends each group verdict to the report it names', async () => {
