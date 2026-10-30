@@ -94,6 +94,29 @@ function renderRail(overrides: Partial<React.ComponentProps<typeof AskCopilotRai
 
 }
 
+/** Lays out the rail's column around the composer, as jsdom does not: 300px tall at the window's top, its content
+ *  putting the composer's shell (the field and Send, inside one focus ring) 400 to 450px down. The column's scrollTop
+ *  and the shell's box follow each other, and every write to the scrollTop is recorded; `scroll` moves the column as
+ *  the reader would, unrecorded. */
+function layOutColumn(field: HTMLElement) {
+  const column = field.closest('form')!.parentElement!
+  const shell = field.closest('.scroll-mb-1')!
+  let top = 0
+  const writes: number[] = []
+  Object.defineProperty(column, 'scrollTop', {
+    configurable: true,
+    get: () => top,
+    set: (value: number) => {
+      top = value
+      writes.push(value)
+    },
+  })
+  Object.defineProperty(column, 'clientHeight', { configurable: true, get: () => 300 })
+  column.getBoundingClientRect = () => new DOMRect(0, 0, 400, 300)
+  shell.getBoundingClientRect = () => new DOMRect(0, 400 - top, 400, 50)
+  return { writes, at: () => top, scroll: (value: number) => { top = value } }
+}
+
 describe('AskCopilotRail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -240,84 +263,104 @@ describe('AskCopilotRail', () => {
     expect(screen.getByRole('button', { name: /what are the top risks/i })).toBeInTheDocument()
   })
 
-  it('brings the composer back into view when a question leaves focus in it, after Send or Enter', async () => {
+  it('brings the composer back into its column when a question leaves focus in it, after Send or Enter', async () => {
     vi.mocked(askFilingStream).mockImplementation(async () => {})
-    // jsdom has no scrollIntoView; record each call's element and options.
-    const calls: { el: Element; arg: unknown }[] = []
-    const jsdomScrollIntoView = Element.prototype.scrollIntoView
-    Element.prototype.scrollIntoView = vi.fn(function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
-      calls.push({ el: this, arg })
-    })
-    try {
-      const user = userEvent.setup()
-      // The column returns to the top, then the composer's shell (the box that draws its focus ring around the field
-      // and Send, never the whole form: CopilotComposer.spec.tsx) comes to its nearest edge, once per question.
-      for (const via of ['Send', 'Enter'] as const) {
-        calls.length = 0
-        const view = renderRail({ open: true })
-        const field = screen.getByLabelText(/ask about this filing/i)
-        await user.type(field, via === 'Enter' ? 'What changed?{Enter}' : 'What changed?')
-        if (via === 'Send') await user.click(screen.getByRole('button', { name: /^send$/i }))
-        expect(document.activeElement).toBe(via === 'Enter' ? field : screen.getByRole('button', { name: /^send$/i }))
-        expect(calls).toHaveLength(1)
-        expect(calls[0].arg).toEqual({ block: 'nearest' })
-        expect(calls[0].el.contains(field) && calls[0].el.contains(document.activeElement)).toBe(true)
-        expect(calls[0].el.tagName).not.toBe('FORM')
-        view.unmount()
-      }
-      expect(askFilingStream).toHaveBeenCalledTimes(2)
-    } finally {
-      Element.prototype.scrollIntoView = jsdomScrollIntoView
+    const user = userEvent.setup()
+    // The column returns to the top, then the composer's shell (the box that draws its focus ring around the field and
+    // Send, never the whole form: CopilotComposer.spec.tsx) comes to the column's nearest edge, once per question.
+    for (const via of ['Send', 'Enter'] as const) {
+      const view = renderRail({ open: true })
+      const field = screen.getByLabelText(/ask about this filing/i)
+      const column = layOutColumn(field)
+      // The open's focus, a frame later, brings the composer to the column's foot too.
+      await waitFor(() => expect(field).toHaveFocus())
+      expect(column.writes).toEqual([150])
+      column.writes.length = 0
+      await user.type(field, via === 'Enter' ? 'What changed?{Enter}' : 'What changed?')
+      if (via === 'Send') await user.click(screen.getByRole('button', { name: /^send$/i }))
+      expect(document.activeElement).toBe(via === 'Enter' ? field : screen.getByRole('button', { name: /^send$/i }))
+      expect(column.writes).toEqual([0, 150])
+      view.unmount()
     }
+    expect(askFilingStream).toHaveBeenCalledTimes(2)
   })
 
   it('anchors once per question: a progress heartbeat leaves the column and the composer where the reader put them', async () => {
     let captured!: CopilotHandlers
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { captured = handlers })
-    // jsdom has no scrollIntoView; count the reveals.
-    const reveals: Element[] = []
+    const user = userEvent.setup()
+    renderRail({ open: true })
+    const field = screen.getByLabelText(/ask about this filing/i)
+    const column = layOutColumn(field)
+    await waitFor(() => expect(field).toHaveFocus())
+    column.writes.length = 0
+
+    // Back to the top, then the composer to the column's foot.
+    await user.type(field, 'What changed?{Enter}')
+    expect(column.writes).toEqual([0, 150])
+
+    // The reader scrolls back up the column while the answer is read; the server's heartbeats keep coming.
+    column.scroll(120)
+    act(() => {
+      captured.onProgress?.('reading')
+      captured.onProgress?.('reading')
+    })
+    expect(column.writes).toEqual([0, 150])
+    expect(column.at()).toBe(120)
+
+    // The next question is a new turn, and anchors again.
+    act(() => captured.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+    await user.type(field, 'And margins?{Enter}')
+    expect(askFilingStream).toHaveBeenCalledTimes(2)
+    expect(column.writes).toEqual([0, 150, 0, 150])
+  })
+
+  // A press on Source should never move the page under the reader (E248, chief design on #1813): each focus the rail
+  // hands its composer is taken without scrolling, and the composer brings itself into its column alone.
+  it('focuses its composer without scrolling the page on every path: the open, ⌘K and "/" while open, a starter\'s hand-off, a prefill', async () => {
+    vi.mocked(askFilingStream).mockImplementation(async () => {})
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
     const jsdomScrollIntoView = Element.prototype.scrollIntoView
+    const pageScrolls: string[] = []
     Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
-      reveals.push(this)
+      pageScrolls.push(`scrollIntoView on ${this.tagName}`)
     })
     try {
       const user = userEvent.setup()
-      renderRail({ open: true })
+      const view = renderRail({ open: true })
       const field = screen.getByLabelText(/ask about this filing/i)
-      // The column that scrolls as one (the composer form's parent): record every write to its scrollTop.
-      const column = field.closest('form')!.parentElement!
-      const writes: number[] = []
-      let top = 0
-      Object.defineProperty(column, 'scrollTop', {
-        configurable: true,
-        get: () => top,
-        set: (value: number) => {
-          top = value
-          writes.push(value)
-        },
-      })
+      const fieldFocuses = () => focus.mock.contexts.filter((el) => el === field).length
+      const options = () => focus.mock.contexts.flatMap((el, i) => (el === field ? [focus.mock.calls[i][0]] : []))
+      await waitFor(() => expect(field).toHaveFocus())
+      expect(fieldFocuses()).toBe(1)
 
-      await user.type(field, 'What changed?{Enter}')
-      expect(writes).toEqual([0])
-      expect(reveals).toHaveLength(1)
+      // ⌘K and "/" while open, each from another control.
+      for (const key of [{ key: 'k', metaKey: true }, { key: '/' }]) {
+        act(() => screen.getByRole('button', { name: /what are the top risks/i }).focus())
+        fireEvent.keyDown(document.body, key)
+        expect(field).toHaveFocus()
+      }
+      expect(fieldFocuses()).toBe(3)
 
-      // The reader scrolls back up the column while the answer is read; the server's heartbeats keep coming.
-      top = 120
-      act(() => {
-        captured.onProgress?.('reading')
-        captured.onProgress?.('reading')
-      })
-      expect(writes).toEqual([0])
-      expect(top).toBe(120)
-      expect(reveals).toHaveLength(1)
+      // A starter pressed from the keyboard is replaced by the turn it starts: focus goes to the composer first.
+      act(() => screen.getByRole('button', { name: /what are the top risks/i }).focus())
+      await user.keyboard('{Enter}')
+      expect(field).toHaveFocus()
+      expect(fieldFocuses()).toBe(4)
+      view.unmount()
 
-      // The next question is a new turn, and anchors again.
-      act(() => captured.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
-      await user.type(field, 'And margins?{Enter}')
-      expect(askFilingStream).toHaveBeenCalledTimes(2)
-      expect(writes).toEqual([0, 0])
-      expect(reveals).toHaveLength(2)
+      // An "Ask about this" selection fills the composer and focuses it.
+      renderRail({ open: true, prefill: { text: 'Explain this excerpt', nonce: 1 } })
+      const filled = screen.getByLabelText(/ask about this filing/i) as HTMLTextAreaElement
+      await waitFor(() => expect(filled.value).toBe('Explain this excerpt'))
+      expect(filled).toHaveFocus()
+      const filledOptions = focus.mock.contexts.flatMap((el, i) => (el === filled ? [focus.mock.calls[i][0]] : []))
+      expect(filledOptions.length).toBeGreaterThan(0)
+
+      for (const taken of [...options(), ...filledOptions]) expect(taken).toEqual({ preventScroll: true })
+      expect(pageScrolls).toEqual([])
     } finally {
+      focus.mockRestore()
       Element.prototype.scrollIntoView = jsdomScrollIntoView
     }
   })

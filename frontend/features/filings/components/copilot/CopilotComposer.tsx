@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, type RefObject } from 'react'
 import { PaperPlaneTiltIcon } from '@/lib/icons'
 import { Button, Textarea, cx, inputClasses, primaryUnavailableClass } from '@/components/ui'
 
@@ -10,50 +10,81 @@ interface CopilotComposerProps {
    *  and stays focusable, and the field stays editable. Not named `disabled`: nothing turns natively
    *  disabled. */
   locked: boolean
+  /** The box that scrolls the composer: the rail's column. The composer's focus and its reveal move this box alone,
+   *  never the page; without it they move nothing. */
+  scrollerRef?: RefObject<HTMLElement | null>
 }
 
 export interface CopilotComposerHandle {
+  /** Focus the field without scrolling the page, then reveal it as `revealFocus` does. */
   focus: () => void
-  /** Replace the input with `text`, focus, grow to fit, and put the caret at the end. */
+  /** Replace the input with `text`, focus as `focus` does, grow to fit, and put the caret at the end. */
   prefill: (text: string) => void
   /** When focus is in the composer (its field or Send), scroll the shell that draws the focus ring around both to
-   *  the nearest edge of whatever scrolls it. Nothing moves when focus is elsewhere or the shell is already in view. */
+   *  the nearest edge of the box that scrolls it (`scrollerRef`), and nothing else. Nothing moves when focus is
+   *  elsewhere or the shell is already in view. */
   revealFocus: () => void
+}
+
+/**
+ * Bring `el` to the nearest edge of `box`, which scrolls it, keeping `el`'s scroll margins, and move `box` alone. A
+ * press on Source should never move the page under the reader (chief design on #1813). focus() and scrollIntoView
+ * scroll every box around their element, the page included, so a frame in which the opening pane's composer lay
+ * below the window scrolled the page down to it (E248). The nearest edge is the one scrollIntoView's
+ * `block: 'nearest'` picks, except that the top wins where `el` is taller than `box`.
+ */
+function revealInside(box: HTMLElement, el: HTMLElement): void {
+  const top = box.getBoundingClientRect().top + box.clientTop
+  const rect = el.getBoundingClientRect()
+  const style = getComputedStyle(el)
+  const above = top - (rect.top - (parseFloat(style.scrollMarginTop) || 0))
+  const below = rect.bottom + (parseFloat(style.scrollMarginBottom) || 0) - (top + box.clientHeight)
+  if (above > 0) box.scrollTop -= above
+  else if (below > 0) box.scrollTop += Math.min(below, -above)
 }
 
 /**
  * Bottom-pinned input for the Copilot rail. Enter submits, Shift+Enter inserts a newline.
  * Send is unavailable (aria-disabled, still focusable) while a stream is in flight or the input is
  * empty. Exposes `focus()` / `prefill()` handles so the rail can focus it on open (⌘K) or pre-fill
- * it from a "Ask about this" text selection.
+ * it from a "Ask about this" text selection. Neither scrolls the page: each moves only the rail's
+ * column, where the composer would otherwise be focused out of view.
  */
 const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
-  function CopilotComposer({ onSubmit, locked }, ref) {
+  function CopilotComposer({ onSubmit, locked, scrollerRef }, ref) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const shellRef = useRef<HTMLDivElement>(null)
 
   useImperativeHandle(
     ref,
-    () => ({
-      focus: () => textareaRef.current?.focus(),
-      prefill: (text: string) => {
-        setValue(text)
-        const el = textareaRef.current
-        if (!el) return
-        // Set the DOM value synchronously so the caret position is accurate immediately (React
-        // state catches up on the next render; height comes from the controlled path — Textarea's
-        // layout effect re-grows on the value change).
-        el.value = text
-        el.focus()
-        el.setSelectionRange(text.length, text.length)
-      },
-      revealFocus: () => {
+    () => {
+      const revealFocus = () => {
         const shell = shellRef.current
-        if (shell?.contains(document.activeElement)) shell.scrollIntoView?.({ block: 'nearest' })
-      },
-    }),
-    [],
+        const box = scrollerRef?.current
+        if (shell && box && shell.contains(document.activeElement)) revealInside(box, shell)
+      }
+      return {
+        focus: () => {
+          textareaRef.current?.focus({ preventScroll: true })
+          revealFocus()
+        },
+        prefill: (text: string) => {
+          setValue(text)
+          const el = textareaRef.current
+          if (!el) return
+          // Set the DOM value synchronously so the caret position is accurate immediately (React
+          // state catches up on the next render; height comes from the controlled path — Textarea's
+          // layout effect re-grows on the value change).
+          el.value = text
+          el.focus({ preventScroll: true })
+          el.setSelectionRange(text.length, text.length)
+          revealFocus()
+        },
+        revealFocus,
+      }
+    },
+    [scrollerRef],
   )
 
   const trimmed = value.trim()

@@ -2422,7 +2422,11 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
                  where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
                  Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
-                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). The launcher and
+                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). That focus moves
+                 no page (E248): the composer takes it without scrolling and brings its shell, ring included, to
+                 the nearest edge of the rail's column, the one box it moves, so where the pane opens shorter than
+                 its own tabs (1100x600 under 200% text) the field waits under the window's foot rather than the
+                 page moving under the reader, who scrolls or types to reach it. The launcher and
                  the coachmark's Try leave with the open, so a keyboard press on either hands focus to the
                  selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in the pane.
                  Below lg the sheet's trap (useSheetFocusTrap) focuses its first stop, Close, which precedes the
@@ -2436,7 +2440,10 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  restores to the chip or the launcher. Gates: tests/e2e/pane-close-focus.spec.ts holds the route
                  matrix on the real page (every open route x Escape and × at 1440, the sheet at 390);
                  tests/unit/FilingWorkspace.spec.tsx pins only the close path's own rules (an opener gone or
-                 hidden since the open, a chip that opened it later, a pointer press, focus moved elsewhere).
+                 hidden since the open, a chip that opened it later, a pointer press, focus moved elsewhere);
+                 tests/e2e/source-press-keeps-page.spec.ts holds a press on Source to the page's place, at
+                 1100x600 under 200% text among others, and the sheet's field whole in its column at 390 and
+                 320 under 200% text.
 
 Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exceeds it: the reader-only
                  rule sets `width: 100%`, up to the 88ch rail (a column-flex child with auto inline

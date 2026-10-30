@@ -239,7 +239,8 @@ export default function AskCopilotRail({
   }, [isCopilotActive])
 
   // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
-  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs).
+  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs). Its
+  // focus moves the column alone, never the page, wherever the opening pane's composer lies (E248).
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
     if (!open || !canAsk || !isCopilotActive) return
@@ -517,7 +518,7 @@ export default function AskCopilotRail({
 
       {/* Composer: Send locked (aria-disabled, still focusable) while streaming, or once a FREE
           user has spent their taste. */}
-      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} locked={isStreaming || !canAsk} />
+      <CopilotComposer ref={composerRef} scrollerRef={columnRef} onSubmit={handleSubmit} locked={isStreaming || !canAsk} />
 
       {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
           gentle upsell at exhaustion (the conversation above stays put). Pro's questions are capped
