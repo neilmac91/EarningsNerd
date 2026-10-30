@@ -442,6 +442,19 @@ describe('"Log out of all devices" names the account the tab shows (E157 (2))', 
     expect(nav.push).toHaveBeenCalledWith('/login')
   })
 
+  it('pressed while a Log out runs, names the same account once that Log out failed and the session survived it', async () => {
+    const { clear } = await renderSettings()
+    const bodies = bodiesOf(endsEverySession)
+    const answer = deferred<void>()
+    server.logout = heldUntil(answer.promise, unreachable)
+    logOut()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    fireEvent.click(everywhere())
+    answer.resolve()
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+  })
+
   it("and when the browser is another account's, ends nothing, says so, keeps the session flag and reads /me, which shows that account", async () => {
     const { client, clear } = await renderSettings()
     // Another tab signed this browser in to `other`; this tab still shows `reader`, as it learns only through /me.
