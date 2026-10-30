@@ -642,9 +642,13 @@ class TestASignOrScaleFindingMarksTheFigure:
         assert (note["kind"], note["values"]) == ("review", [{"concept": "net_income", "label": "Net income",
                                                               "period": "FY2018"}])
         assert note["letter"]
-        # The margin built on it is calculated: no mark of its own (its input carries the evidence, item 5).
+        # The margin built on it is calculated: no mark of its own, no evidence of its own; its net income input,
+        # reported, carries the finding (item 5), so its growth as first reported is n/m on that year and the next.
         margin = _point(dataset, "net_margin", "FY2018")
-        assert "source_conflict" not in margin["provenance"]["reasons"] and margin["yoy_first_reported"] == "nm"
+        assert "source_conflict" not in margin["provenance"]["reasons"] and "first_reported" not in margin
+        [income] = [operand for operand in margin["provenance"]["inputs"] if operand["concept"] == "net_income"]
+        assert (income["provenance"]["method"], income["first_reported"]["disagreement"]) == ("reported", "opposite_sign")
+        assert margin["yoy_first_reported"] == _point(dataset, "net_margin", "FY2019")["yoy_first_reported"] == "nm"
 
     @pytest.mark.parametrize("factor, finding", [(1e-3, "scale"), (1e3, "scale"), (1e6, "scale"), (1e9, "scale"),
                                                  (999.9, None)],

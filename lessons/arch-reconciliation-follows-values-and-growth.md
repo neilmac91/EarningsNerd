@@ -69,7 +69,8 @@ comparison whose two years sit on different bases reads n/m and carries the grow
 prints a number that joins two scopes (REGN's FY2018 revenue, −12.4% shown, +14.3% as filed). Only an exact sign flip
 or factor of 1,000ⁿ, a likely tagging error, adds a note, through the existing `source_conflict` reason so no data
 notes version moves, and only on an own row that passed its checks. Read "own report" by replaying ingest's rule on
-stored rows (`trend_analysis/first_reports.py`), never by trusting a row's columns, since a history row, a
-filing-owned row and a demoted winner hold the cell alike; `test_first_reports.py` holds the replay to the history
-rows WP5b's writer stores on its own shapes, and `test_later_filings.py` runs a port of the page's decoder over every
-dataset the producer builds.
+stored rows (`trend_analysis/first_reports.py`), ranking the figure's own filing with the rest, never by trusting a
+row's columns, since a history row, a filing-owned row and a demoted winner hold the cell alike; `test_first_reports.py`
+holds the replay to ingest's pick over sync sequences that leave several candidates in a cell. Hold a producer to the
+page's decoder, not to a copy of it: `test_first_reports_wire.py` pins the datasets the producer builds on four shapes
+over two windows, and `later-filings-producer.spec.ts` runs the page's real decoders over them.
