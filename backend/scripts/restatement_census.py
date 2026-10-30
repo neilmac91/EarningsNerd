@@ -32,6 +32,16 @@ another tag; and the largest gaps with both tags, accessions, filed dates and va
 reading their cause (whether either filing carries the other's value under another us-gaap tag, and a
 split-like ratio for per-share values).
 
+It also counts the YoY comparisons the analysis reads n/m across a change of basis (MPA WP5a item 3, D3), by
+the analysis's own rule (``trend_analysis/first_reports.py``: a year carries evidence where its within-tag own
+value differs from the winner by more than ``EVIDENCE_TOLERANCE``, and a comparison reads n/m where its two
+years' winner-to-own ratios differ by more than ``BASIS_TOLERANCE``), by kind: *crossing*, evidence on the later
+year alone (an own-basis year next to a later-basis one, REGN FY2018: a real change of basis); *leading edge*,
+evidence on the earlier year alone (the first year a recast left as filed, REGN FY2020: the recast's own
+comparison, possibly a false n/m); *inside a run*, evidence on both years at ratios that differ (REGN FY2019).
+Per-share figures are counted apart: D3 keeps them out of the rule. Reported concepts only: a calculated
+figure's n/m follows its inputs' (D4), which companyfacts carries as separate concepts.
+
 READ-ONLY: it writes nothing (no database, no files, no cache). Payloads stay in memory and are
 dropped after each company. It stops early, and says so, if SEC answers 403 or 429 repeatedly.
 
@@ -554,6 +564,52 @@ def _bucket_table(cells: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+BASIS_KINDS = ("crossing", "leading edge", "inside a run")
+
+
+def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The YoY comparisons the analysis would read n/m across a change of basis, each with its kind (module
+    docstring), by ``trend_analysis/first_reports.py``'s own rule over the within-tag own values a sync stores
+    (an own value ingest drops, a negative one of a non-negative concept, gives no evidence)."""
+    from app.services.facts.concepts import NON_NEGATIVE_CONCEPTS
+    from app.services.trend_analysis.dataset import _growth
+    from app.services.trend_analysis.first_reports import _ratio, basis_changed, differs
+
+    def evidence(cell: dict[str, Any]) -> Optional[dict[str, Any]]:
+        own, winner = cell["within"], cell["winner"]["value"]
+        if not cell["within_later"] or (cell["concept"] in NON_NEGATIVE_CONCEPTS and own["value"] < 0):
+            return None
+        return {"value": own["value"]} if differs(winner, own["value"]) else None
+
+    by_line = {(c["ticker"], c["concept"], c["unit"], c["fy"]): c for c in cells}
+    found = []
+    for (ticker, concept, unit, fy), cell in sorted(by_line.items()):
+        prior = by_line.get((ticker, concept, unit, fy - 1))
+        if prior is None or _growth(cell["winner"]["value"], prior["winner"]["value"]) is None:
+            continue
+        now, before = evidence(cell), evidence(prior)
+        if not basis_changed(_ratio((cell["winner"]["value"], now)), _ratio((prior["winner"]["value"], before))):
+            continue
+        kind = BASIS_KINDS[0] if not before else BASIS_KINDS[1] if not now else BASIS_KINDS[2]
+        found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": kind, "per_share": concept in PER_SHARE})
+    return found
+
+
+def _basis_table(cells: list[dict[str, Any]]) -> list[str]:
+    from app.services.trend_analysis.first_reports import BASIS_TOLERANCE, EVIDENCE_TOLERANCE
+
+    found = basis_comparisons(cells)
+    lines = [f"Evidence past {EVIDENCE_TOLERANCE * 100:g}% of the own value; n/m where the two years' ratios differ by "
+             f"more than {BASIS_TOLERANCE * 100:g}%. Each column: comparisons (companies).", "",
+             "| kind | n/m comparisons | per-share (D3 keeps them out) | other concepts |", "|---|---|---|---|"]
+    for kind in (*BASIS_KINDS, None):
+        group = [c for c in found if kind is None or c["kind"] == kind]
+        cols = [group, [c for c in group if c["per_share"]], [c for c in group if not c["per_share"]]]
+        lines.append(f"| {kind or '**all**'} | " + " | ".join(
+            f"{len(col)} ({len({c['ticker'] for c in col})})" for col in cols) + " |")
+    return lines
+
+
 def render(cells: list[dict[str, Any]], coverage: list[dict[str, Any]], args: argparse.Namespace,
            stopped: Optional[str], started: str) -> str:
     out: list[str] = ["# Restatement census (MPA WP5, coherence.md section 1.6)", ""]
@@ -601,6 +657,9 @@ def render(cells: list[dict[str, Any]], coverage: list[dict[str, Any]], args: ar
         out += ["", f"## Size: own differs from winner ({title})", "",
                 "Each tolerance column: cells (companies) whose gap exceeds it.", ""]
         out += _size_table(cells, which)
+
+    out += ["", "## Growth the analysis reads n/m across a change of basis (MPA WP5a, within the winning tag)", ""]
+    out += _basis_table(cells)
 
     for which in ("across", "within"):
         out += ["", f"## Rounding noise: relative-gap histogram ({which}, later-filing cells only)", ""]

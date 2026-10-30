@@ -553,6 +553,34 @@ class TestASignOrScaleFindingMarksTheFigure:
         assert "first_reported" in _point(dataset, "revenue", "FY2019")
 
 
+class TestTheCensusCountsTheAnalysissNM:
+    """``scripts/restatement_census.py`` counts the n/m comparisons by the producer's own rule (D3's measurement):
+    over WP5b's shapes, the comparisons it counts are the ones the dataset built from the same payload reads n/m."""
+
+    def test_regn_gives_one_comparison_of_each_kind(self):
+        from scripts import restatement_census
+
+        cells, _info = restatement_census.measure_company("REGN", _payload(), False, 10)
+        assert [(c["concept"], c["fy"], c["kind"], c["per_share"]) for c in restatement_census.basis_comparisons(cells)] \
+            == [("revenue", 2018, "crossing", False), ("revenue", 2019, "inside a run", False),
+                ("revenue", 2020, "leading edge", False)]
+        table = restatement_census._basis_table(cells)
+        assert "| **all** | 3 (1) | 0 (0) | 3 (1) |" in table and "| leading edge | 1 (1) | 0 (0) | 1 (1) |" in table
+
+    @pytest.mark.requires_db
+    @pytest.mark.parametrize("shape", list(_shapes()))
+    def test_the_census_counts_the_comparisons_the_dataset_reads_n_m(self, db, shape):
+        from scripts import restatement_census
+
+        payload = _shapes()[shape]
+        cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
+        counted = {(c["concept"], f"FY{c['fy']}") for c in restatement_census.basis_comparisons(cells)}
+        dataset = _build(db, _synced(db, payload), "FY2015", "FY2021")
+        read = {(series["concept"], point["period"]) for series in dataset["series"] for point in series["points"]
+                if "yoy_first_reported" in point and series["concept"] not in BASIS_INPUTS}
+        assert counted == read
+
+
 @pytest.mark.requires_db
 class TestACalculatedFiguresInputsCarryTheirEvidence:
     def _inputs(self, provenance):
