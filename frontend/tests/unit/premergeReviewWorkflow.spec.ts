@@ -13,9 +13,14 @@
  *     on the report it names, each refuter's vote counts once, a report missing from a refuter's verdicts or
  *     given two is unverified, one report can stand while another is refuted, and the dedupe, the group
  *     refuters and the lone refuters each get their own schema, pinned exactly (types and enums included);
- *     a blocker is never grouped, and the dedupe runs only on should-fixes from two or more lenses;
- *   - one refuter's corrected severity reaches the result on both paths: a should-fix raised to blocker,
- *     grouped or alone, by one refuter or both, is a confirmed blocker and blocks the merge;
+ *     a blocker is never grouped, and the dedupe runs only on should-fixes from two or more lenses (exactly
+ *     two included; three from one lens are not grouped); its prompt labels the pool [0] to [n-1] in lens
+ *     order and asks for indices from 0 to n-1, a group refuter is shown report 0 to report n-1, and the
+ *     stubs answer by the numbers they are shown, so a prompt numbered from 1 would misroute every verdict;
+ *   - a refuter's corrected severity reaches the result on both paths, and when the two refuters disagree the
+ *     highest correction wins whichever refuter gives it: a should-fix raised to blocker, grouped or alone, by
+ *     one refuter or both, is a confirmed blocker and blocks the merge, even when the other refuter restates
+ *     or lowers the severity; two lowerings that agree confirm the report at the lower severity;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -63,11 +68,14 @@ const lensFindings = (label: string): Findings => {
   }
 }
 
-const schemaKeys = (schema: unknown) => Object.keys((schema as { properties?: object } | undefined)?.properties ?? {}).sort()
-
-// The refuters' schemas, exactly: a type or an enum that drifts would let a real refuter refute every
+// The dedupe's and the refuters' schemas, exactly: a type or an enum that drifts would let a real refuter refute every
 // blocker or never raise one, which the stubbed agents below cannot show.
 const CORRECTED = { type: 'string', enum: ['blocker', 'should-fix', 'nit'] }
+const GROUPS_SCHEMA = {
+  type: 'object',
+  properties: { groups: { type: 'array', items: { type: 'array', items: { type: 'integer' } } } },
+  required: ['groups'],
+}
 const LONE_VERDICT_SCHEMA = {
   type: 'object',
   properties: { refuted: { type: 'boolean' }, reason: { type: 'string' }, corrected_severity: CORRECTED },
@@ -142,8 +150,10 @@ function stub(
     if (o.label.startsWith('review:')) return typeof opts.findings === 'function' ? opts.findings(o.label) : (opts.findings ?? FINDINGS)
     if (o.label.startsWith('dedupe:')) return opts.groups === undefined ? null : { groups: opts.groups }
     if (/^verify:\d+:group\d+#/.test(o.label)) {
-      const n = (prompt.match(/^report \d+:$/gm) ?? []).length
-      const all = Array.from({ length: n }, (_, report) => ({ report, refuted: opts.refuted ?? false, reason: 'r' }))
+      // Answer by the report numbers the prompt shows, as a real refuter would: a prompt that numbered its
+      // reports from 1 would send every verdict to the wrong report, and the tests below would see it.
+      const shown = Array.from(prompt.matchAll(/^report (\d+):$/gm), (m) => Number(m[1]))
+      const all = shown.map((report) => ({ report, refuted: opts.refuted ?? false, reason: 'r' }))
       return { verdicts: opts.verdicts ? opts.verdicts(o.label) : all }
     }
     const corrected = opts.corrected?.(o.label)
@@ -281,11 +291,15 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     }
     const dedupe = calls.filter((c) => c.label.startsWith('dedupe:'))
     expect(dedupe).toHaveLength(1)
-    expect(schemaKeys(dedupe[0].schema)).toEqual(['groups'])
+    expect(dedupe[0].schema).toEqual(GROUPS_SCHEMA)
     expect(dedupe[0].prompt).not.toContain('severity: blocker')
+    // The pool is labelled [0] to [n-1] in lens order, and the answer is asked for in those indices.
+    const labels = Array.from(dedupe[0].prompt.matchAll(/^\[(\d+)\] lens: ([\w-]+);/gm), (m) => [Number(m[1]), m[2]])
+    expect(labels).toEqual([[0, 'correctness'], [1, 'rules-and-brief'], [2, 'tests-and-gates']])
+    expect(dedupe[0].prompt).toContain('from 0 to 2 exactly once')
     // The grouping's indices name the pool's reports: group 1 holds correctness and rules-and-brief, not tests-and-gates.
     for (const call of verify.filter((c) => c.label.includes(':group'))) {
-      expect((call.prompt.match(/^report \d+:$/gm) ?? []).length).toBe(2)
+      expect(Array.from(call.prompt.matchAll(/^report (\d+):$/gm), (m) => Number(m[1]))).toEqual([0, 1])
       expect(call.prompt).toContain('should-correctness')
       expect(call.prompt).toContain('should-rules-and-brief')
       expect(call.prompt).not.toContain('should-tests-and-gates')
@@ -336,6 +350,38 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(kept.mergeable).toBe(true)
   })
 
+  it("takes the highest of the refuters' corrections whichever refuter gives it: a raise to blocker survives the other refuter restating or lowering the severity, on both paths", async () => {
+    const shouldOnly = (label: string): Findings => {
+      const lens = label.split(':').pop() as string
+      return { findings: [{ file: `${lens}.py`, title: `should-${lens}`, detail: 'd', severity: 'should-fix', evidence: 'e' }], summary: 's' }
+    }
+    const severities = (r: Result) => Object.fromEntries(r.confirmed.map((c) => [c.title, c.severity]))
+    // Group 1's refuters correct report 0 (correctness) and the lone refuters correct tests-and-gates: #1 says
+    // one thing, #2 another, in both orders. The blocker wins each time, whichever refuter gave it.
+    for (const [first, second] of [['nit', 'blocker'], ['blocker', 'nit'], ['should-fix', 'blocker'], ['blocker', 'should-fix']]) {
+      const pick = (label: string) => (label.endsWith('#1') ? first : second)
+      const s = stub(undefined, {
+        findings: shouldOnly,
+        groups: [[0, 1], [2]],
+        verdicts: (label) => [{ report: 0, refuted: false, reason: 'r', corrected_severity: pick(label) }, { report: 1, refuted: false, reason: 'r' }],
+        corrected: (label) => (label.includes('tests-and-gates.py#') ? pick(label) : undefined),
+      })
+      const [r] = (await load()({ prs: [pr('high')] }, s.agent)) as Result[]
+      expect(severities(r), `${first} then ${second}`).toEqual({ 'should-correctness': 'blocker', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'blocker' })
+      expect(r.mergeable, `${first} then ${second}`).toBe(false)
+    }
+    // Two lowerings that agree confirm the report as a nit, and the PR stays mergeable.
+    const low = stub(undefined, {
+      findings: shouldOnly,
+      groups: [[0, 1], [2]],
+      verdicts: () => [{ report: 0, refuted: false, reason: 'r', corrected_severity: 'nit' }, { report: 1, refuted: false, reason: 'r' }],
+      corrected: (label) => (label.includes('tests-and-gates.py#') ? 'nit' : undefined),
+    })
+    const [lowered] = (await load()({ prs: [pr('high')] }, low.agent)) as Result[]
+    expect(severities(lowered)).toEqual({ 'should-correctness': 'nit', 'should-rules-and-brief': 'should-fix', 'should-tests-and-gates': 'nit' })
+    expect(lowered.mergeable).toBe(true)
+  })
+
   it('sends each group verdict to the report it names', async () => {
     // Every group refuter refutes report 0 (should-correctness) and keeps report 1 (should-rules-and-brief).
     const verdicts: Verdicts = () => [{ report: 0, refuted: true, reason: 'r' }, { report: 1, refuted: false, reason: 'r' }]
@@ -363,7 +409,8 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('verifies each finding on its own when the dedupe returns nothing, throws, or gives a grouping that is not a partition', async () => {
-    const bad: unknown[] = [undefined, 'x', [[0, 1], [1, 2]], [[0, 1]], [[0, 1, 2, 3]], [[0.5, 1, 2]], [[], [0, 1, 2]], [[-1, 0, 1, 2]], [['0', 1, 2]], [[0], 1, 2]]
+    // [[1, 2], [3]] and [[-1, 0, 1]] have the right size, so only the bounds check rejects them (a 1-based answer).
+    const bad: unknown[] = [undefined, 'x', [[0, 1], [1, 2]], [[0, 1]], [[0, 1, 2, 3]], [[1, 2], [3]], [[-1, 0, 1]], [[0.5, 1, 2]], [[], [0, 1, 2]], [[-1, 0, 1, 2]], [['0', 1, 2]], [[0], 1, 2]]
     for (const groups of bad) {
       const { agent, calls } = stub(undefined, { groups })
       const [result] = (await load()({ prs: [pr('high')] }, agent)) as Array<Result & { groups: string[][] }>
@@ -402,6 +449,27 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(single.calls.filter((c) => c.label.startsWith('dedupe:'))).toHaveLength(0)
     expect(lone.agents).toBe(3 + 4 * 2)
     expect(titles(lone.confirmed)).toEqual(['blocker', 'blocker', 'should-1', 'should-2'])
+    // Should-fixes from exactly two lenses are grouped; the third lens's blocker keeps its own pair.
+    const twoLenses = (label: string): Findings =>
+      label.endsWith(':tests-and-gates')
+        ? blockersOnly
+        : { findings: [{ file: 'd.py', title: `dup-${label.split(':').pop()}`, detail: 'd', severity: 'should-fix', evidence: 'e' }], summary: 's' }
+    const pair = stub(undefined, { findings: twoLenses, groups: [[0, 1]] })
+    const [grouped] = (await load()({ prs: [pr('high')] }, pair.agent)) as Array<Result & { groups: string[][] }>
+    expect(pair.calls.filter((c) => c.label.startsWith('dedupe:'))).toHaveLength(1)
+    expect(pair.calls.filter((c) => c.label.includes(':group')).map((c) => c.label).sort()).toEqual(['verify:1:group1#1', 'verify:1:group1#2'])
+    expect(grouped.agents).toBe(3 + 1 + 2 + 2)
+    expect(grouped.groups).toEqual([['dup-correctness', 'dup-rules-and-brief']])
+    expect(titles(grouped.confirmed)).toEqual(['blocker', 'dup-correctness', 'dup-rules-and-brief'])
+    // Three should-fixes from one lens are never grouped, however many there are.
+    const threeFromOne = (label: string): Findings =>
+      label.endsWith(':correctness')
+        ? { findings: ['should-1', 'should-2', 'should-3'].map((title) => ({ file: 'b.py', title, detail: 'd', severity: 'should-fix', evidence: 'e' })), summary: 's' }
+        : blockersOnly
+    const trio = stub(undefined, { findings: threeFromOne, groups: [[0, 1, 2]] })
+    const [solo] = (await load()({ prs: [pr('high')] }, trio.agent)) as Result[]
+    expect(trio.calls.filter((c) => c.label.startsWith('dedupe:'))).toHaveLength(0)
+    expect(solo.agents).toBe(3 + 5 * 2)
   })
 
   it('lets one report of a group stand while another is refuted, and leaves a report unverified when a group refuter omits its verdict or gives two', async () => {
