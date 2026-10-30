@@ -1189,20 +1189,25 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
         engine.dispose()
 
 
-# The email verification's closes, as above: its one unit ends on a commit (the verification's, or the trial's) or on a
-# failed trial's rollback, so its release finds nothing open; an unknown link's read, or a write that fails after its
-# first query, leaves a transaction for the release. The dependency's finalizer finds nothing either way.
+# The email verification's closes, as above. A unit that ends on a commit (the verification's, or the trial's) or on a
+# failed trial's rollback leaves its release nothing open; one that ends on a read leaves its transaction for the
+# release: an unknown or expired link's, a write that fails after its first query, and the eligibility read that finds
+# the account already Pro. The dependency's finalizer finds nothing either way.
 _VERIFY_CLOSES = {
     "verify": [False, False],
     "verify_unknown": [True, False],
+    "verify_expired": [True, False],
     "verify_fails": [True, False],
     "verify_trial": [False, False],
+    "verify_trial_pro": [True, False],
     "verify_trial_fails": [False, False],
 }
 _VERIFY_ANSWERS = {
     "verify": (200, {"message": "Email verified."}),
     "verify_unknown": (400, {"detail": "Invalid or expired verification link."}),
+    "verify_expired": (400, {"detail": "Verification link has expired. Request a new one."}),
     "verify_trial": (200, {"message": "Email verified."}),
+    "verify_trial_pro": (200, {"message": "Email verified."}),
     "verify_trial_fails": (200, {"message": "Email verified."}),
 }
 
@@ -1217,8 +1222,12 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
     and committed there, and with the trial on read the account its commit had expired. A verification marks each
     account verified and burns its link; a granted trial gives each a trialing Pro subscription and sends its
     trial-started event, after the release; a failed grant leaves no subscription and still verifies; a refusal or a
-    failed write leaves every account as it was. The links carry no expiry, which SQLite would hand back without its
-    zone."""
+    failed write leaves every account as it was, and an account already Pro is verified with no grant. The links carry
+    no expiry but the expired case's, which loads tz-aware, as PostgreSQL returns it (SQLite drops the zone)."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy.orm.attributes import set_committed_value
+
     from app.config import settings
     from app.models import Subscription, User
     from app.routers import auth
@@ -1239,7 +1248,10 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
     with sessions() as db:
         db.add_all([
             User(email=email, is_active=True, hashed_password="the stored hash", email_verified=False,
-                 email_verification_token=auth_account_service._hash_token(f"verify-link-{i}"))
+                 is_pro=case == "verify_trial_pro",
+                 email_verification_token=auth_account_service._hash_token(f"verify-link-{i}"),
+                 email_verification_expires=(datetime(2020, 1, 1, tzinfo=timezone.utc)
+                                             if case == "verify_expired" else None))
             for i, email in enumerate(emails)
         ])
         db.commit()
@@ -1265,10 +1277,17 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
     event.listen(engine, "before_cursor_execute",
                  lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
     event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
-    events: list[tuple[str, str, dict, int]] = []
+    events: list[tuple[str, str, dict, int, int]] = []
 
     def capture(distinct_id: str, name: str, properties: dict) -> None:
-        events.append((distinct_id, name, properties, engine.pool.checkedout()))
+        # The connections out, and the latest request session's closes so far (for the request alone, its own).
+        closes = len(request_sessions[-1].open_at_close)
+        events.append((distinct_id, name, properties, engine.pool.checkedout(), closes))
+
+    def aware_expiry(target: Any, *_args: Any) -> None:
+        value = target.__dict__.get("email_verification_expires")
+        if value is not None and value.tzinfo is None:
+            set_committed_value(target, "email_verification_expires", value.replace(tzinfo=timezone.utc))
 
     def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
         db.query(User.id).first()
@@ -1282,6 +1301,8 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "capture_event", capture)
+    event.listen(User, "load", aware_expiry)
+    event.listen(User, "refresh", aware_expiry)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
     async def send(i: int) -> httpx.Response:
@@ -1290,9 +1311,10 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
             return await client.post("/api/auth/verify-email", json={"token": token})
 
     try:
-        # One request alone first: its trial-started event, if any, is sent with no connection out.
+        # One request alone first: its trial-started event, if any, is sent after its unit's release (its session's
+        # one close so far), with no connection out.
         responses = [await send(0)]
-        assert [out for *_, out in events] == ([0] if case == "verify_trial" else [])
+        assert [(out, closes) for *_, out, closes in events] == ([(0, 1)] if case == "verify_trial" else [])
         responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
         # Every checkout waited in the thread pool, and every statement and release ran there: none on the loop
         # (read before this test's own reads below).
@@ -1310,9 +1332,9 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
             stored = [(user.email_verified, user.email_verification_token is None, bool(user.is_pro))
                       for user in db.query(User).order_by(User.id)]
             trials = sorted((sub.user_id, sub.plan, sub.status) for sub in db.query(Subscription))
-        verified = case in ("verify", "verify_trial", "verify_trial_fails")
+        verified = case in ("verify", "verify_trial", "verify_trial_pro", "verify_trial_fails")
         granted = case == "verify_trial"
-        assert stored == [(verified, verified, granted)] * 9
+        assert stored == [(verified, verified, granted or case == "verify_trial_pro")] * 9
         assert trials == ([(user_id, "pro", "trialing") for user_id in account_ids] if granted else [])
         # Each granted trial's event names its own account, once.
         assert sorted(event[:3] for event in events) == ([
@@ -1320,6 +1342,8 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
             for user_id in sorted(account_ids, key=str)
         ] if granted else [])
     finally:
+        event.remove(User, "load", aware_expiry)
+        event.remove(User, "refresh", aware_expiry)
         engine.dispose()
 
 

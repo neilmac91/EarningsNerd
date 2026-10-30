@@ -716,6 +716,75 @@ def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, co
         assert db.query(InviteCode).filter(InviteCode.used_at.isnot(None)).count() == 1
 
 
+def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
+    """One verification link posted twice at once (a double click, or React's development double effect): the
+    second's token read waits at the account's row, which the first's read locked, until the first commits, then
+    finds the link burnt and refuses it as an unknown link, so the route answers the link's 400, as the event loop's
+    one-at-a-time order did on one instance (E121). Without the lock both read the link and both verified, and with
+    the reverse trial on the second logged a failed grant or sent a second trial-started event."""
+    email = f"verify-{uuid.uuid4().hex}@example.com"
+    with _session(postgres_engine) as db:
+        account = User(email=email, is_active=True, email_verified=False,
+                       email_verification_token=auth_account_service._hash_token("the-link"))
+        db.add(account)
+        db.commit()
+        user_id = account.id
+    role = threading.local()
+    first_locked = threading.Event()
+    second_pid: list[int] = []
+    waited: list[str] = []
+
+    def after_statement(conn, cursor, statement, parameters, context, executemany):
+        if getattr(role, "name", None) == "first" and " FOR UPDATE" in statement:
+            first_locked.set()
+
+    def before_commit(conn):
+        # The first commits only once PostgreSQL shows the second waiting on a lock, or at the hang guard.
+        if getattr(role, "name", None) != "first":
+            return
+        deadline = time.monotonic() + HANG_GUARD_S
+        while not waited and time.monotonic() < deadline:
+            with postgres_engine.connect() as probe:
+                row = probe.execute(
+                    text("SELECT wait_event_type, query FROM pg_stat_activity WHERE pid = :pid"),
+                    {"pid": second_pid[0]},
+                ).first() if second_pid else None
+            if row is not None and row.wait_event_type == "Lock":
+                waited.append(row.query.strip())
+            else:
+                time.sleep(0.01)
+
+    def run(name: str) -> object:
+        role.name = name
+        with _session(postgres_engine) as db:
+            if name == "second":
+                first_locked.wait(HANG_GUARD_S)
+                second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
+            try:
+                return auth_account_service.verify_email_token(db, "the-link")
+            except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
+                return exc
+
+    event.listen(postgres_engine, "after_cursor_execute", after_statement)
+    event.listen(postgres_engine, "commit", before_commit)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(run, "first"), pool.submit(run, "second")]
+            first, second = (future.result(timeout=3 * HANG_GUARD_S) for future in futures)
+    finally:
+        event.remove(postgres_engine, "after_cursor_execute", after_statement)
+        event.remove(postgres_engine, "commit", before_commit)
+    assert isinstance(first, tuple) and first[1] == user_id
+    assert isinstance(second, auth_account_service.AccountTokenInvalidError), second
+    # A plain read never waits on a row lock under PostgreSQL's MVCC, so a wait at the token read is the lock's
+    # (pg_stat_activity cuts the statement at 1024 characters, before its FOR UPDATE).
+    assert waited and waited[0].startswith("SELECT users."), waited
+    assert "WHERE users.email_verification_token" in waited[0], waited
+    with _session(postgres_engine) as db:
+        verified = db.get(User, user_id)
+        assert (verified.email_verified, verified.email_verification_token) == (True, None)
+
+
 @pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])
 def test_a_password_login_that_verified_the_old_password_mints_nothing_once_it_changes(
     postgres_engine, revocation, result, live_after,

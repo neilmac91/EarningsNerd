@@ -160,8 +160,13 @@ def record_password_login(
 
 def verify_email_token(db: Session, raw_token: str) -> Tuple[User, int]:
     """Mark the account holding ``raw_token`` verified, burn the token and commit. Returns the account and its
-    id, read before the commit expires the account, so a caller that needs only the id reads nothing after the
-    commit (E121).
+    id, read before the commit expires the account, so a caller can name it after the commit without reading the
+    account again (E121).
+
+    The token's lookup takes the account's users row lock, so two verifications of one link run one at a time on
+    PostgreSQL: the second waits for the first's commit, then finds the link burnt and raises
+    :class:`AccountTokenInvalidError`, on one instance and across instances alike. (Since E121 the route runs this in
+    the thread pool, where two posts of one link could otherwise both read it and both verify.)
 
     Raises :class:`AccountTokenInvalidError` for an unknown or used token and
     :class:`AccountTokenExpiredError` for an expired one; neither writes anything.
@@ -169,7 +174,7 @@ def verify_email_token(db: Session, raw_token: str) -> Tuple[User, int]:
     hashed = _hash_token(raw_token)
     now = datetime.now(timezone.utc)
 
-    user = db.query(User).filter(User.email_verification_token == hashed).first()
+    user = db.query(User).filter(User.email_verification_token == hashed).with_for_update().first()
     if not user:
         raise AccountTokenInvalidError()
     if user.email_verification_expires and user.email_verification_expires < now:

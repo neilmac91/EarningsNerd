@@ -555,6 +555,27 @@ def test_a_failed_trial_whose_rollback_fails_still_verifies(client, mail, events
     assert warning.exc_info[0] is RuntimeError and str(warning.exc_info[1]) == "billing store down"
 
 
+@pytest.mark.requires_db
+def test_a_trial_started_event_that_fails_still_verifies(client, mail, monkeypatch, caplog):
+    """The trial-started event is sent after the unit's release, best-effort like the grant: a telemetry failure is
+    logged and the verification and the trial, both committed, stand, and the route still answers verified (E121)."""
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
+    email, token = _register(client, mail)
+    user_id = _user(email).id
+
+    def posthog_down(*_args):
+        raise RuntimeError("posthog down")
+
+    monkeypatch.setattr(auth_module, "capture_event", posthog_down)
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = client.post("/api/auth/verify-email", json={"token": token})
+    assert resp.status_code == 200 and resp.json() == VERIFIED_BODY
+    assert _user(email).email_verified is True and _subscriptions(user_id) == [("pro", "trialing")]
+    failed = f"Trial-started telemetry failed for user {user_id}"
+    (warning,) = [r for r in caplog.records if r.getMessage() == failed]
+    assert warning.exc_info[0] is RuntimeError
+
+
 # ── Set-Cookie headers, in order ──────────────────────────────────────────────
 
 @pytest.mark.requires_db
