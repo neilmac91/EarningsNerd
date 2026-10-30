@@ -538,8 +538,8 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  app-wide field describe in tests/unit/siteChromeFocusRing.spec.ts). Every Tab stop
                  in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
                  covers the raw controls of every route's page and the feature modules it reaches, plus the
-                 shared Switch, but for a residue that only shrinks (RING_RESIDUE: Markdown and chart
-                 renderers' props spreads); field recipes retain
+                 shared Switch, but for a residue that only shrinks (RING_RESIDUE: Markdown renderers'
+                 props spreads); field recipes retain
                  their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
@@ -3011,12 +3011,11 @@ chart export's secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) fol
 `tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its mark's paint: `ChartTooltip` takes the row's `color`,
 which Recharts gives from its series' own `fill`, else the series colour of its position (the peers chart's
 per-bar swatch, `swatchOf`, left with its panel, D-066).
-Tooltip cursor: `barCursorProps(dark)` on the bar chart (filing fundamentals, the Recharts chart
-left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
-is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
-A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
-paint (FundamentalsTrendChart): a currency printed by its code ("CHF 800.0B", "KRW 800.0T"; fmtCurrency prints
-KRW, VND and XOF by code, E203) outgrew the fixed 70px it had.
+Tooltip cursor: `barCursorProps(dark)`, a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a
+hairline, as the spec renderer's column wash (`cursor`) is; no chart takes the Recharts kit since Financial trends
+moved onto the engine (D-067, below). `yAxisProps` width 44 is a default that currency and ticker labels override.
+The engine's value axis takes its widest tick label's width (`layout.ts`), so a currency printed by its code
+("CHF 800B", "KRW 800T"; KRW, VND and XOF print by code, E203) widens the axis, where a fixed 70px once cut it.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
 one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a
@@ -3028,13 +3027,13 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
-since E195, D-064) draws those four charts, and only those: filing fundamentals stays on Recharts (the company page's
-peers chart left with its panel, D-066). It paints the engine's plan in literal SVG attributes from
+since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
+chart in the app draws with Recharts (the company page's peers chart left with its panel, D-066). It paints the
+engine's plan in literal SVG attributes from
 `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for both themes. Since E195's token fold they name app
-tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the Recharts chart and the
-landing page's revenue bars take too; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in
-light and `chart.label.dark` in dark (the Recharts ticks take `chart.label`, the flat `#6B7280` in light); and the
-printed values `text.secondary` in
+tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the landing page's revenue
+bars take too; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and
+`chart.label.dark` in dark; and the printed values `text.secondary` in
 light and the figure ink `text.primary` in dark (D-063). The dark notes (the subtitle, the footnotes, and the band's
 and the tooltip's letters) keep `chart.label.dark` rather than the figure surfaces' `note-dark` `#D1D5DB`: they take
 the tertiary step, as light's notes do, and `note-dark` is dark's secondary, the legend names' ink. So in dark a
@@ -3073,6 +3072,24 @@ toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
 themes, 1280 and 390 px) and `tests/e2e/analysis-layout.spec.ts`. CI's required `e2e-tests` job runs all three
 unconditionally after E195 retires the separate chart job and its flag guards (F67).
+
+**Financial trends** (the filing page's card, `features/fundamentals/components/FundamentalsTrendChart.tsx`) draws
+through the same engine in the analysis charts' full look (E195 (D), D-067): `buildBarChart` (`lib/charts/barChart.ts`)
+models the chosen metric's annual series, `ChartPlotFrame` lays it out at the card's width, `useChartFont` holds G4's
+wait, and the readouts' core reads each year through the card's own describer. So the plot is the 320 px card plot with
+11 px ticks; every metric is chart-1, never a colour per picker position; every value prints on its bar (A4); a withheld
+year keeps its slot and prints "—"; a margin bar the percent axis clips is broken, prints its true value and adds the
+engine's footnote; and the values stop and the column-wash tooltip read each year ("FY2025 · year ended Sep 27, 2025"),
+a figure the backend derived marked "· Calculated". A metric whose every year is withheld says so at the plot's height,
+and where no label tier fits even at the widest slot (amounts in thousands of trillions of won, on a phone) the card
+says only "Values don’t fit at this width.", since no metrics table on the filing page lists the series' years.
+The card keeps its own chrome: the heading and its source-check badge, the subtitle, the compact metric picker, the
+footnote and Sources & checks (the source-check presentation above), and it has no PNG export. Its heading row wraps, so
+under 200% text the badge goes beneath the heading, and below a 24rem viewport the badge's label may wrap too, in the
+16px step, as the hero example's badge does (E156): on a line of its own the one-line badge is wider than a phone's card
+under 200% text. Gates: `tests/unit/fundamentals-trend-chart.spec.tsx` and `tests/e2e/filing-fundamentals-chart.spec.ts`
+(the mount, the engine's drawing and the DOM checks for one card in both themes at 390 and 1280 px, and every series at
+390, 360 and 320 px under 200% text).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
@@ -3127,8 +3144,7 @@ timers and rAF loops, which need numbers). **No raw ms or bezier strings anywher
   spinner becomes its static glyph,
   a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
   `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
-  value, the Recharts bars draw without their grow-in (`isAnimationActive`'s default, `'auto'`, reads the
-  preference), `scroll-behavior` is `auto`. Gates: the
+  value, `scroll-behavior` is `auto`. Gates: the
   `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
   for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
   motion on the home, sign-in and sign-up pages or in the dashboard loading states.

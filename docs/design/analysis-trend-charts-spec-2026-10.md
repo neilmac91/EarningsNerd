@@ -395,7 +395,7 @@ says so; everything else follows the spec.
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
   tests). M14, M15 and M19 run on the renderer (above), and M20 stays out of the product.
 - **A chart without an analysis dataset (E195 (D)).** The engine builds a one-metric bar chart from a plain
-  definition, for the filing page's Financial trends, which a later pull request draws with it.
+  definition, and the filing page's Financial trends draws with it in the analysis charts' full look (D-067).
   `lib/charts/barChart.ts`'s `buildBarChart` takes categories (a key, a one-line tick and a long name), one series'
   values and an axis, and returns the analysis charts' own model, so the layout, the readout and the renderer take it as
   it is: one bar mark in chart-1, every value printed (A4), on a money axis in its series' XBRL unit's currency
@@ -429,6 +429,20 @@ says so; everything else follows the spec.
     for them only by what such an axis prints: its currency's sign before `0`, `0×`, and the `DATA_FACE_GLYPHS`
     characters, × among them. Every model's period keys must be unique. `chart-readout.spec.ts` reads every case through
     Financial trends' describer.
+  - Financial trends (`features/fundamentals/components/FundamentalsTrendChart.tsx`) builds the chosen metric's chart
+    from its filing-scoped series: a slot per year the filing reports, withheld years included, keyed `FY2025` and
+    ticked `2025` (a point with no fiscal year takes its period end's year, and a name two points share keys each by
+    its place, since a key given twice is refused), on a money axis in the series' own unit (a per-share unit in cents),
+    a percent axis or a ratio axis by the metric's kind, chart-1 whatever the metric. Its describer heads a year
+    `FY2025 · year ended Sep 27, 2025` and reads calculated from the point's `provenance.method`; it reads no notes,
+    since the card keeps its source-check badge and Sources & checks (DS §10). A metric whose every year is withheld
+    takes `unavailable` and says so at the card's height. The card prints the model's footnotes under the plot in the
+    `note` ink; where A4 finds no tier it says only "Values don’t fit at this width.", since no metrics table on the
+    filing page lists the series' years. `tests/unit/fundamentals-trend-chart.spec.tsx` reads the engine's DOM, and
+    `tests/e2e/filing-fundamentals-chart.spec.ts` holds the card on a production build: the named SVG, chart-1 bars with
+    their values printed, the values stop at the newest fiscal year, net margin on a percent axis and the DOM checks of
+    `fixtures/chartChecks.ts` for one card (whose zero rule now reads a ratio axis's `0×`), in both themes at 390 and
+    1280 px, and every series at 390, 360 and 320 px under 200% text.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
@@ -457,11 +471,11 @@ says so; everything else follows the spec.
     `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that list, and the wait's sample test holds it
     to the sample, so a sign the face lacks paints in no plot (G2).
   - Outside the spec renderer, `fmtCurrency` prints the same codes (E203; chief design on #1652), so the KPI strip,
-    the source dialog's figure (`font-figure`, which falls through to Geist Mono), What changed's figures and the
-    Recharts charts that remain (`Chart.tsx`: filing fundamentals and peers) paint no sign in the fallback;
-    `formatters.spec.ts` holds it over the ISO 4217 list. The metrics table prints bare figures. A code is wider than
-    the sign: the KPI strip takes its columns from its widest value (E197), and the fundamentals chart's value axis
-    takes its labels' width (`width="auto"`), where a fixed 70px cut "KRW 800.0T", and "CHF 800.0B" before E203.
+    the source dialog's figure (`font-figure`, which falls through to Geist Mono) and What changed's figures paint no
+    sign in the fallback; `formatters.spec.ts` holds it over the ISO 4217 list. The metrics table prints bare figures.
+    A code is wider than the sign: the KPI strip takes its columns from its widest value (E197), and a chart's value
+    axis its widest tick's (`layout.ts`), where Financial trends' fixed 70px under Recharts cut "KRW 800.0T", and
+    "CHF 800.0B" before E203.
 - **What this spec supersedes.** Since the renderer replaced the Recharts charts (report §10, step 7; E195), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and since E194 only a note that questions the number letters,

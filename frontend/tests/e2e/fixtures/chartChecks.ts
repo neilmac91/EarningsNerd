@@ -4,7 +4,8 @@ import { apcaLc } from '../../unit/apca'
 
 /**
  * The trend charts' DOM checks in a browser (docs/design/analysis-trend-charts-spec-2026-10.md §6), on the spec renderer,
- * for charts-v2-gallery.spec.ts. measurePlots reads each plot in the page; expectSound and
+ * for charts-v2-gallery.spec.ts and the filing page's Financial trends (filing-fundamentals-chart.spec.ts, whose ratio
+ * axis zeroes at "0×"). measurePlots reads each plot in the page; expectSound and
  * expectInks hold it to the checks that need real text metrics, layout and computed colours:
  * - D1: every text box lies inside its SVG (at its edge: the spec's own layout sets captions and "Notes" at x = 0);
  * - D2: no two text boxes intersect;
@@ -107,12 +108,12 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       }
     }
     // A gap's glyph sits on its panel's zero rule: its baseline 3 px above the zero tick's line, which is on the half
-    // pixel (gridY), so within a pixel.
+    // pixel (gridY), so within a pixel. A zero tick reads 0 after any sign, "0%", or a ratio axis's "0×" (barChart.ts).
     const offZero: string[] = []
     for (const plot of panels) {
       const zero = [...plot.group.querySelectorAll('line[stroke]:not([stroke-dasharray])')].find((line) => {
         const y = Number(line.getAttribute('y1'))
-        return [...plot.group.querySelectorAll('text[data-text="tick"]')].some((tick) => /^[^1-9]*0(?:\.0+)?%?$/.test(tick.textContent ?? '') && Math.abs(Number(tick.getAttribute('y')) - y) <= 1)
+        return [...plot.group.querySelectorAll('text[data-text="tick"]')].some((tick) => /^[^1-9]*0(?:\.0+)?[%×]?$/.test(tick.textContent ?? '') && Math.abs(Number(tick.getAttribute('y')) - y) <= 1)
       })
       for (const gap of plot.group.querySelectorAll('text[data-text="gap"]')) {
         if (!zero || Math.abs(Number(gap.getAttribute('y')) + 3 - Number(zero.getAttribute('y1'))) > 1) offZero.push(`"${gap.textContent}" at y ${gap.getAttribute('y')} in ${plot.id}`)
@@ -142,7 +143,7 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
     for (const plot of panels) for (const line of plot.group.querySelectorAll('line[stroke]')) {
       // The zero tick's rule and A3b's dashed edge rules are marks; every other ruled line is a gridline. (A break mark's
       // strokes take their group's surface paint, a cut in the bar rather than a paint of its own.)
-      const zeroTick = [...plot.group.querySelectorAll('text[data-text="tick"]')].some((tick) => /^[^1-9]*0(?:\.0+)?%?$/.test(tick.textContent ?? '') && Math.abs(Number(tick.getAttribute('y')) - Number(line.getAttribute('y1'))) <= 1)
+      const zeroTick = [...plot.group.querySelectorAll('text[data-text="tick"]')].some((tick) => /^[^1-9]*0(?:\.0+)?[%×]?$/.test(tick.textContent ?? '') && Math.abs(Number(tick.getAttribute('y')) - Number(line.getAttribute('y1'))) <= 1)
       paints.push({ what: `${plot.id} rule at ${line.getAttribute('y1')}`, floor: zeroTick || line.hasAttribute('stroke-dasharray') ? 'marks' : 'grid', colour: getComputedStyle(line).stroke })
     }
     for (const mark of svg.querySelectorAll('[data-series]:not(text)')) {

@@ -2,17 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// recharts measures the DOM, which jsdom can't do — stub it for deterministic rendering.
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: ({ fill }: { fill?: string }) => <div data-testid="trend-bar" data-fill={fill} />,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-}))
-
 const getFilingFundamentals = vi.fn()
 vi.mock('@/features/fundamentals/api/fundamentals-api', () => ({
   getFilingFundamentals: (...args: unknown[]) => getFilingFundamentals(...args),
@@ -20,7 +9,9 @@ vi.mock('@/features/fundamentals/api/fundamentals-api', () => ({
 
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { seriesColor } from '@/components/ui'
+import { BROKEN_BARS } from '@/features/analysis/lib/charts/barChart'
+import { CARD_HEIGHT } from '@/features/analysis/lib/charts/layout'
+import { CHART_TOKENS } from '@/features/analysis/lib/charts/theme'
 
 /** The metric picker: a compact select beside its "Metric" label, its options in sentence case. */
 const metricPicker = () => screen.findByRole('combobox', { name: 'Metric' })
@@ -38,8 +29,19 @@ function renderChart(filingId = 285, subtitle?: string, theme?: 'light' | 'dark'
   return render(theme ? <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>{chart}</ThemeContext.Provider> : chart)
 }
 
-const point = (fy: number, value: number, unit: string, reconciled = true) => ({
-  period_end: `${fy}-12-31`,
+/** The engine's drawing of the active metric (TrendChartSvg), once its font wait is over: jsdom has no Font Loading
+ *  API, so the plot paints at once. */
+const drawn = async (name: string) => {
+  const svg = await screen.findByRole('img', { name: `${name} chart` })
+  return {
+    svg,
+    fills: [...svg.querySelectorAll('rect[data-series]')].map((bar) => bar.getAttribute('fill')),
+    printed: (role: string) => [...svg.querySelectorAll(`text[data-text="${role}"]`)].map((text) => text.textContent),
+  }
+}
+
+const point = (fy: number | null, value: number | null, unit: string, reconciled = true, extra: Record<string, unknown> = {}) => ({
+  period_end: fy == null ? null : `${fy}-12-31`,
   fiscal_year: fy,
   fiscal_period: 'FY',
   value,
@@ -47,6 +49,7 @@ const point = (fy: number, value: number, unit: string, reconciled = true) => ({
   form: '10-K',
   accession: `acc-${fy}`,
   reconciled,
+  ...extra,
 })
 
 const RESP = {
@@ -58,6 +61,8 @@ const RESP = {
     { concept: 'some_unfeatured_concept', unit: 'USD', points: [point(2023, 1, 'USD')] },
   ],
 }
+
+const respOf = (...concepts: { concept: string; unit: string; points: ReturnType<typeof point>[] }[]) => ({ ticker: 'TEST', company_name: 'Test Co.', concepts })
 
 describe('FundamentalsTrendChart', () => {
   beforeEach(() => {
@@ -90,7 +95,12 @@ describe('FundamentalsTrendChart', () => {
     })
     renderChart()
 
-    expect(await screen.findByText('Source check needed')).toBeInTheDocument()
+    const badge = await screen.findByText('Source check needed')
+    // Its row wraps and, below a 24rem viewport, so may its label (SourceCheckBadge), in the 16px step (the hero
+    // example's badge, E156): under 200% text the one-line badge is wider than a phone's card.
+    expect(badge.parentElement?.className).toMatch(/(^| )flex-wrap( |$)/)
+    expect(badge.className).toContain('[@media(max-width:24rem)]:whitespace-normal')
+    expect(badge.className).toContain('[@media(max-width:24rem)]:rounded-xl')
   })
 
   it('switches the active metric from the select', async () => {
@@ -120,61 +130,154 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.queryByRole('button', { name: 'Revenue' })).toBeNull()
   })
 
-  it('rotates the bar color per metric — positional across the visible tabs', async () => {
-    getFilingFundamentals.mockResolvedValue(RESP)
-    renderChart()
+  it('draws every metric in chart-1, in each theme’s half, with each value printed on its bar (D-067)', async () => {
+    for (const theme of ['light', 'dark'] as const) {
+      getFilingFundamentals.mockResolvedValue(RESP)
+      const { unmount } = renderChart(285, undefined, theme)
+      const chart1 = CHART_TOKENS[theme].series[0]
 
-    // Revenue is available[0] → chart series color 1 (teal). The unfeatured concept is
-    // filtered out, so Net Margin is available[1] → color 2 (honey).
-    const picker = await metricPicker()
-    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(0, false))
+      const picker = await metricPicker()
+      const revenue = await drawn('Revenue')
+      expect(revenue.fills, `${theme}: revenue`).toEqual([chart1, chart1])
+      expect(revenue.printed('label')).toEqual(['$394B', '$383B'])
+      expect(revenue.printed('x')).toEqual(['2022', '2023'])
 
-    pick(picker, 'Net margin')
-    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(1, false))
-  })
-
-  it('takes each colour’s dark half in the dark theme', async () => {
-    getFilingFundamentals.mockResolvedValue(RESP)
-    renderChart(285, undefined, 'dark')
-
-    const picker = await metricPicker()
-    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(0, true))
-
-    pick(picker, 'Net margin')
-    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(1, true))
-  })
-
-  it('walks the full 6-color palette in tab order and wraps at the 7th metric', async () => {
-    // 7 featured concepts, in FEATURED order → visible tabs at indices 0..6.
-    getFilingFundamentals.mockResolvedValue({
-      ticker: 'LLY',
-      company_name: 'Eli Lilly',
-      concepts: [
-        { concept: 'revenue', unit: 'USD', points: [point(2023, 34, 'USD')] },
-        { concept: 'net_income', unit: 'USD', points: [point(2023, 5, 'USD')] },
-        { concept: 'gross_profit', unit: 'USD', points: [point(2023, 26, 'USD')] },
-        { concept: 'operating_income', unit: 'USD', points: [point(2023, 10, 'USD')] },
-        { concept: 'operating_cash_flow', unit: 'USD', points: [point(2023, 8, 'USD')] },
-        { concept: 'investing_cash_flow', unit: 'USD', points: [point(2023, -5, 'USD')] },
-        { concept: 'financing_cash_flow', unit: 'USD', points: [point(2023, -3, 'USD')] },
-      ],
-    })
-    renderChart()
-
-    const walk: [string, string][] = [
-      ['Revenue', seriesColor(0, false)],
-      ['Net income', seriesColor(1, false)],
-      ['Gross profit', seriesColor(2, false)],
-      ['Operating income', seriesColor(3, false)],
-      ['Operating cash flow', seriesColor(4, false)],
-      ['Investing cash flow', seriesColor(5, false)],
-      ['Financing cash flow', seriesColor(0, false)], // index 6 wraps back to color 1
-    ]
-    const picker = await metricPicker()
-    for (const [label, color] of walk) {
-      pick(picker, label)
-      expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', color)
+      // Net margin was the second option, so it took the second series colour; now every metric is chart-1.
+      pick(picker, 'Net margin')
+      const margin = await drawn('Net margin')
+      expect(margin.fills, `${theme}: net margin`).toEqual([chart1])
+      expect(margin.printed('label')).toEqual(['25.3%'])
+      expect(margin.printed('tick')).toContain('0%')
+      unmount()
     }
+  })
+
+  it('reads each year through one values stop, from the newest: its fiscal year and end, and a derived figure says so', async () => {
+    getFilingFundamentals.mockResolvedValue(respOf(
+      { concept: 'revenue', unit: 'USD', points: [point(2024, 391035000000, 'USD'), point(2025, 416161000000, 'USD')] },
+      { concept: 'net_margin', unit: 'pure', points: [point(2025, 26.9, 'pure', true, { provenance: { version: 1, method: 'calculated', validation: 'passed', reasons: [] } })] },
+    ))
+    renderChart()
+
+    const picker = await metricPicker()
+    await drawn('Revenue')
+    const stop = screen.getByRole('slider', { name: 'Revenue chart values' })
+    expect(stop).toHaveAttribute('aria-valuetext', 'FY2025, year ended December 31, 2025. Revenue: $416.2 billion.')
+    fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+    expect(stop).toHaveAttribute('aria-valuetext', 'FY2024, year ended December 31, 2024. Revenue: $391.0 billion.')
+
+    pick(picker, 'Net margin')
+    await drawn('Net margin')
+    expect(screen.getByRole('slider', { name: 'Net margin chart values' }))
+      .toHaveAttribute('aria-valuetext', 'FY2025, year ended December 31, 2025. Net margin: 26.9%, calculated.')
+  })
+
+  it('keeps a withheld year’s slot and prints "—" in it, and Sources & checks still names it', async () => {
+    getFilingFundamentals.mockResolvedValue(respOf(
+      { concept: 'revenue', unit: 'USD', points: [
+        point(2023, 383285000000, 'USD'),
+        point(2024, null, 'USD', true, { provenance: { version: 1, method: 'reported', validation: 'unavailable', reasons: [] } }),
+        point(2025, 416161000000, 'USD'),
+      ] },
+    ))
+    renderChart()
+
+    const { printed } = await drawn('Revenue')
+    expect(printed('x')).toEqual(['2023', '2024', '2025'])
+    expect(printed('label')).toEqual(['$383B', '$416B'])
+    expect(printed('gap')).toEqual(['—'])
+    expect(screen.getByText(/^Revenue, 2024: unavailable\./)).toBeInTheDocument()
+  })
+
+  it('says why at the plot’s height when every year is withheld, and draws no plot', async () => {
+    const withheld = { provenance: { version: 1, method: 'calculated', validation: 'unavailable', reasons: ['unsupported_eps_calculation'] } }
+    getFilingFundamentals.mockResolvedValue(respOf(
+      { concept: 'eps_diluted', unit: 'USD/shares', points: [point(2024, null, 'USD/shares', true, withheld), point(2025, null, 'USD/shares', true, withheld)] },
+    ))
+    renderChart()
+
+    await metricPicker()
+    const sentence = await screen.findByText('No multi-year data available for this metric.')
+    expect(sentence).toHaveAttribute('data-chart-text', 'unavailable')
+    expect(sentence.style.height).toBe(`${CARD_HEIGHT}px`)
+    expect(screen.getByTestId('fundamentals-chart')).toContainElement(sentence)
+    expect(screen.queryByRole('img')).toBeNull()
+    expect(screen.queryByRole('slider')).toBeNull()
+  })
+
+  it('a margin bar the axis clips prints its true value, and the card says so under the plot', async () => {
+    getFilingFundamentals.mockResolvedValue(respOf(
+      { concept: 'net_margin', unit: 'pure', points: [point(2023, -18093, 'pure'), point(2024, -301.5, 'pure'), point(2025, -255.3, 'pure')] },
+    ))
+    renderChart()
+
+    const { printed } = await drawn('Net margin')
+    expect(printed('label')).toContain('−18,093%')
+    expect(screen.getByText(BROKEN_BARS.text)).toHaveAttribute('data-chart-text', 'footnote')
+  })
+
+  it('prints an amount in its own currency, named in the footnote, and a per-share one in cents', async () => {
+    getFilingFundamentals.mockResolvedValue(respOf(
+      { concept: 'revenue', unit: 'CNY', points: [point(2024, 941168000000, 'CNY'), point(2025, 996347000000, 'CNY')] },
+      { concept: 'eps_diluted', unit: 'CNY/shares', points: [point(2024, 3.13, 'CNY/shares'), point(2025, 5.66, 'CNY/shares')] },
+    ))
+    renderChart()
+
+    const picker = await metricPicker()
+    const revenue = await drawn('Revenue')
+    // A2: one unit per axis, the top tick's (CN¥1.2T).
+    expect(revenue.printed('label')).toEqual(['CN¥0.941T', 'CN¥0.996T'])
+    expect(screen.getByText(/Annual figures from SEC filings \(XBRL\), reported in CNY\./)).toBeInTheDocument()
+
+    pick(picker, 'Diluted EPS')
+    const eps = await drawn('Diluted EPS')
+    expect(eps.printed('label')).toEqual(['CN¥3.13', 'CN¥5.66'])
+    expect(screen.getByRole('slider', { name: 'Diluted EPS chart values' }))
+      .toHaveAttribute('aria-valuetext', 'FY2025, year ended December 31, 2025. Diluted EPS: CN¥5.66.')
+  })
+
+  it('says only that values don’t fit where no label tier fits the card’s width: no metrics table here lists the years', async () => {
+    // A phone's card (217px at 320px) and amounts in thousands of trillions of won, printed by code (E203).
+    const width = vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(217)
+    try {
+      getFilingFundamentals.mockResolvedValue(respOf(
+        { concept: 'revenue', unit: 'KRW', points: [point(2023, 123.456e12, 'KRW'), point(2024, 580.756e12, 'KRW'), point(2025, 1038.056e12, 'KRW')] },
+      ))
+      renderChart()
+
+      const { printed } = await drawn('Revenue')
+      expect(await screen.findByText('Values don’t fit at this width.')).toHaveAttribute('data-chart-text', 'fit')
+      expect(printed('label')).toEqual([])
+      expect(screen.queryByText(/metrics table/)).toBeNull()
+    } finally {
+      width.mockRestore()
+    }
+  })
+
+  it('names a year the backend leaves unnamed by its period end, and draws a year two points share twice', async () => {
+    getFilingFundamentals.mockResolvedValue(respOf(
+      { concept: 'revenue', unit: 'USD', points: [
+        { ...point(null, 100, 'USD'), period_end: '2023-06-30' },
+        { ...point(2024, 200, 'USD'), period_end: '2024-01-31' },
+        { ...point(2024, 300, 'USD'), period_end: '2024-12-31' },
+      ] },
+    ))
+    renderChart()
+
+    const { printed, svg } = await drawn('Revenue')
+    expect(printed('x')).toEqual(['2023', '2024', '2024'])
+    expect(printed('label')).toEqual(['$100', '$200', '$300'])
+    expect(new Set([...svg.querySelectorAll('rect[data-series]')].map((bar) => bar.getAttribute('data-period'))).size).toBe(3)
+  })
+
+  it('while loading shows its bones at the plot’s height, and no footnote or Sources & checks yet', async () => {
+    getFilingFundamentals.mockReturnValue(new Promise(() => {}))
+    renderChart()
+
+    const loading = await screen.findByRole('status', { name: 'Loading financial trends' })
+    expect((loading.firstElementChild as HTMLElement).style.height).toBe(`${CARD_HEIGHT}px`)
+    expect(screen.queryByText(/Annual figures from SEC filings/)).toBeNull()
+    expect(screen.queryByText('Sources & checks')).toBeNull()
   })
 
   it('renders nothing once loaded for a filing with no facts', async () => {
@@ -253,6 +356,8 @@ describe('FundamentalsTrendChart', () => {
     ])
     fireEvent.change(picker, { target: { value: 'free_cash_flow' } })
     expect(await screen.findByText(/Free cash flow by fiscal year\./)).toBeInTheDocument()
+    // The values stop speaks the stored name too.
+    expect(await screen.findByRole('slider', { name: 'Free cash flow chart values' })).toHaveAttribute('aria-valuetext', expect.stringContaining('. Free cash flow: $10.'))
   })
 
   it('fetches by filingId (roadmap B), not any company-wide endpoint', async () => {

@@ -5,8 +5,10 @@ import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-/** Recharts reaches only the chart not yet on the engine, and the analysis route loads none of it (E195).
- *  Shrink-only: moving it onto the engine deletes its line. The source is parsed, not text-matched
+/** No app script reaches Recharts any more, and the analysis route loads none of it (E195): the filing page's Financial
+ *  trends draws through the engine (D-067) and the company page's peers chart left with its panel (D-066), each with its
+ *  line here, so the list is empty and any script that names recharts fails. The package goes in E195 (D)'s last step,
+ *  with the config that transpiles it (MENTIONS). The source is parsed, not text-matched
  *  (lessons/test-gates-must-be-as-wide-as-their-rule.md), in every script the repository tracks outside the test homes,
  *  in every extension `allowJs` admits. Whatever loads a module names it by a string, so the gate reads every string a
  *  script holds rather than a list of loaders. A string naming recharts, as a package or as a path, marks its file. On
@@ -17,11 +19,8 @@ import { describe, expect, it } from 'vitest'
  *  bare; and, on the route, an import of a local module the repository does not hold. Out of reach, planted below as
  *  gaps: a name no script holds (a bundler alias), and a computed specifier handed to any other loader. The build
  *  reaches both where the route draws its charts: tests/e2e/charts-v2.spec.ts reads every script the built route loads
- *  to draw them and fails on a Recharts class name in any script, in CI's e2e job (E195 G). The company page's peers
- *  chart left with its panel (D-066), and its line with it. */
-const IMPORTERS = [
-  'features/fundamentals/components/FundamentalsTrendChart.tsx',
-]
+ *  to draw them and fails on a Recharts class name in any script, in CI's e2e job (E195 G). */
+const IMPORTERS: string[] = []
 /** The scripts that name recharts without loading it, with every recharts string each holds: Next's config transpiles
  *  the package. */
 const MENTIONS: Record<string, string[]> = { 'next.config.js': ['recharts'] }
@@ -213,7 +212,7 @@ describe('recharts importers', () => {
     }
   })
 
-  it('only the chart not yet on the engine names recharts, with the config that transpiles it', () => {
+  it('no script names recharts but the config that transpiles it', () => {
     const read = tracked.map((file) => ({ file, ...specifiers(file, readFileSync(file, 'utf8')) }))
     expect(read.flatMap(({ file, opaque }) => opaque.map((call) => `${file}: ${call}`)), 'a module named by a computed specifier or a folder').toEqual([])
     const naming = read.filter(({ strings }) => strings.some(isRecharts))
