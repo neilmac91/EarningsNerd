@@ -162,9 +162,13 @@ describe operations carry a ten-minute step timeout and run committed stdlib-onl
 API service's own describe included, prints only its closed class (`permission_denied`, `not_found`,
 `unavailable`, `timeout` after 80 s, `unreadable_response`, `error (gcloud exit N)` or
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
-host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
+host or a URL. `describe-jobs` makes its nine reads independently in Python, each with a
+40-second deadline (six minutes of gcloud waits inside its ten-minute step). It reports closed
+failure classes, retains every readable job's projection and finishes nonzero if any job is
+unverified or any readable invariant fails.
 
-The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, `figure-check-count`, the repair-ticker,
+The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `detection-sql`,
+`figure-check-count`, the repair-ticker,
 the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
 lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.
@@ -215,11 +219,15 @@ binding is a founder IAM item. When every block printed, the final line is `desc
 `describe-jobs` reports image, task count, pool values and both SEC pin values for all nine
 expected jobs, states whether `earningsnerd-backfill-facts` carries the committed
 `python scripts/backfill_facts.py --only-new` entrypoint (other jobs: override present or image
-default; values are never printed), prints every block before exiting when a value defect (pool,
-pin, task count, image parity) is found (a malformed job description exits at that job; a missing
-or unreadable job stops the shell loop before any block prints), and fails when the release
-or connection-budget invariants drift, when either SEC pin is missing or not `1` on any job, or when
-any expected job, including `earningsnerd-retention-purge`, is missing or unreadable. These two
+default; values are never printed). Every named job gets a block, including a closed UNVERIFIED
+classification when its read fails or its description is malformed. Readable blocks report fixed
+configuration fields and counts of environment entries; arbitrary environment names/values and
+unexpected image identities are withheld. The final inventory counts distinguish projected and
+unverified resources. A readable pool, pin, task-count, image-parity or backfill-entrypoint defect
+produces FAIL; an unreadable job without readable drift produces INCOMPLETE. Both exit nonzero.
+A missing or unreadable separately provisioned job, including feedback cleanup, never suppresses
+evidence for the other jobs and never silently becomes a healthy optional resource. Provisioning
+that resource remains its separate operational decision. These two
 operations access no database, application HTTP endpoint or model provider. In addition to the
 Cloud Run descriptions and worker IAM policy read, `describe-service` reads exactly three
 fixed resources: Scheduler jobs `filing-scan-hourly` and `summary-recovery-minute`, and the
@@ -249,8 +257,24 @@ scheduler, queue or traffic are changed, and no tasks are created.
 These are configuration receipts, not an activation decision. They do not prove scheduler
 execution/non-overlap, recovery success, queue age, mail latency, effective image defaults,
 database headroom, outbound SEC throughput or logical charge reconciliation. Use the existing
-bounded `capacity-readout` below for observed aggregates; summary receipt inspection requires
-a separate reviewed scope. Production flag and capacity changes still require founder approval.
+bounded `capacity-readout` below for observed aggregates and the fixed
+`summary-recovery-readout` for the separately scoped summary receipt snapshot. Production flag and capacity changes still require founder approval.
+
+`summary-recovery-readout` is a fixed database observation, not a recovery trigger. It checks
+REGN filings 45003/45004 against their exact accession, form and CIK, projects their current job
+and referenced reservation/result consistency, counts the oldest 1,000 known-active jobs with
+an explicit 1,001st-row truncation probe, and reads the shared SEC coordinator singleton.
+It accepts no scope or SQL arguments, emits no account/job/lease/reservation identifiers or
+filing bodies, and reads no monthly usage counters. Its fixed thresholds are reference values,
+not deployed Settings. See [the readout contract](../ops/summary_readout/README.md).
+
+The operation retains the deploy-in-flight preflight and uses the existing Cloud SQL proxy.
+Its repeatable-read transaction is read-only, with 15-second statement and 2-second lock bounds,
+a 25-second psql deadline and a 32 KiB accepted-output limit. Normalized evidence, including a
+closed UNVERIFIED failure where the reader ran, is retained as `summary-recovery-receipt.json`
+for 14 days. A valid snapshot may identify missing or inconsistent records: exit zero means
+observation completed, never that activation, delivery, recovery or billing reconciliation passed.
+No generation, queue dispatch, repair or settings change is performed.
 
 `capacity-readout` reads a bounded past window (`capacity_start`/`capacity_end`, UTC, at most two
 hours, ending in the past; end it at least five minutes before dispatch, because Cloud Tasks and

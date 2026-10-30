@@ -35,7 +35,6 @@ vi.mock('@/features/summaries/api/summaries-api', () => ({ getSummary: api.getSu
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurrentUserSafe }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
-  ENABLE_FINANCIAL_CHARTS: false,
   ENABLE_INSIDER_ACTIVITY: false,
 }))
 vi.mock('@/lib/analytics', () => ({

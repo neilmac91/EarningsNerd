@@ -579,14 +579,18 @@ test.describe('from lg the open menu lies over the page / 1100x800, a Pro reader
 
       for (const scrolled of [false, true]) {
         const where = `${size}, ${scrolled ? 'the page scrolled' : 'the top of the page'}`
-        if (scrolled) {
-          await page.evaluate(() => window.scrollTo(0, 1200))
-          await settle(page)
-        }
+        // Each pass starts at the scroll it names, whatever opening the pane left: in #1813's e2e run 41053542799 the
+        // top of the page's pass began at 495px.
+        await page.evaluate((y) => window.scrollTo(0, y), scrolled ? 1200 : 0)
+        await settle(page)
         const closed = await read()
+        if (!scrolled) expect(closed.scrollY, `${where}: the pass starts at the top`).toBe(0)
         expect(closed.height, `${where}: the pane is open with the menu closed`).toBeGreaterThan(200)
         if (scrolled) expect(closed.top, `${where}: the pane sticks under the bar`).toBe(parseInt(closed.published))
-        await page.getByRole('button', { name: 'Open menu' }).click()
+        // A click at the toggle's box, as a pointer presses it: Playwright's own click first scrolls a sticky element's
+        // box into view, which moved this page from 495 to 95px in that run. The case above presses the same way.
+        const toggle = (await page.getByRole('button', { name: 'Open menu' }).boundingBox())!
+        await page.mouse.click(toggle.x + toggle.width / 2, toggle.y + toggle.height / 2)
         await expect(menu).toBeVisible()
         await settle(page)
         const opened = await read()

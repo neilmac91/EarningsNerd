@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-/** Recharts reaches only the two charts not yet on the engine, and the analysis route loads none of it (E195).
- *  Shrink-only: moving either onto the engine deletes its line. The source is parsed, not text-matched
+/** Recharts reaches only the chart not yet on the engine, and the analysis route loads none of it (E195).
+ *  Shrink-only: moving it onto the engine deletes its line. The source is parsed, not text-matched
  *  (lessons/test-gates-must-be-as-wide-as-their-rule.md), in every script the repository tracks outside the test homes,
  *  in every extension `allowJs` admits. Whatever loads a module names it by a string, so the gate reads every string a
  *  script holds rather than a list of loaders. A string naming recharts, as a package or as a path, marks its file. On
@@ -17,10 +17,10 @@ import { describe, expect, it } from 'vitest'
  *  bare; and, on the route, an import of a local module the repository does not hold. Out of reach, planted below as
  *  gaps: a name no script holds (a bundler alias), and a computed specifier handed to any other loader. The build
  *  reaches both where the route draws its charts: tests/e2e/charts-v2.spec.ts reads every script the built route loads
- *  to draw them and fails on a Recharts class name in any script, in CI's e2e job (E195 G). */
+ *  to draw them and fails on a Recharts class name in any script, in CI's e2e job (E195 G). The company page's peers
+ *  chart left with its panel (D-066), and its line with it. */
 const IMPORTERS = [
   'features/fundamentals/components/FundamentalsTrendChart.tsx',
-  'features/peers/components/PeerComparisonPanel.tsx',
 ]
 /** The scripts that name recharts without loading it, with every recharts string each holds: Next's config transpiles
  *  the package. */
@@ -190,24 +190,30 @@ describe('recharts importers', () => {
     const scratch = mkdtempSync(path.join(os.tmpdir(), 'recharts-walk-'))
     const route = (name: string, source: string) => { const file = path.join(scratch, `${name}.ts`); writeFileSync(file, source); return walk([file]) }
     try {
-      const PANEL = 'features/peers/components/PeerComparisonPanel.tsx'
+      // The module the planted routes reach: a scratch chart that names recharts, as an importer does, in a folder of its
+      // own. The walk resolves `@/…` and `/…` from the project root, the working directory, so the routes name it by its
+      // path from there.
+      mkdirSync(path.join(scratch, 'charts'))
+      writeFileSync(path.join(scratch, 'charts', 'Chart.tsx'), "import { BarChart } from 'recharts'\nexport default BarChart\n")
+      const CHARTS = path.relative(process.cwd(), path.join(scratch, 'charts'))
+      const CHART = `${CHARTS}/Chart.tsx`
       // A string no loader the reader lists takes, from a registry or from the project root, is still followed.
       for (const [name, source] of [
-        ['registry', "export const panels = { peers: '@/features/peers/components/PeerComparisonPanel' }"],
-        ['rooted', `export const peers = () => new Worker(new URL('/${PANEL}', import.meta.url))`],
-      ]) expect(route(name, source).reached.some((chain) => chain.endsWith(PANEL)), name).toBe(true)
+        ['registry', `export const charts = { bars: '@/${CHARTS}/Chart' }`],
+        ['rooted', `export const bars = () => new Worker(new URL('/${CHART}', import.meta.url))`],
+      ]) expect(route(name, source).reached.some((chain) => chain.endsWith(CHART)), name).toBe(true)
       // A folder or a glob names modules the walk cannot list, whatever takes it.
       for (const [name, source] of [
-        ['folder', "export const panels = (load: any) => load.context('@/features/peers/components', false, /Panel/)"],
-        ['glob', "export const panels = (meta: any) => meta.glob('@/features/peers/components/*.tsx', { eager: true })"],
-        ['missing', "export { panel } from '@/features/peers/components/NoSuchPanel'"],
+        ['folder', `export const charts = (load: any) => load.context('@/${CHARTS}', false, /Chart/)`],
+        ['glob', `export const charts = (meta: any) => meta.glob('@/${CHARTS}/*.tsx', { eager: true })`],
+        ['missing', `export { chart } from '@/${CHARTS}/NoSuchChart'`],
       ]) expect(route(name, source).unread, name).toHaveLength(1)
     } finally {
       rmSync(scratch, { recursive: true, force: true })
     }
   })
 
-  it('only the charts not yet on the engine name recharts, with the config that transpiles it', () => {
+  it('only the chart not yet on the engine names recharts, with the config that transpiles it', () => {
     const read = tracked.map((file) => ({ file, ...specifiers(file, readFileSync(file, 'utf8')) }))
     expect(read.flatMap(({ file, opaque }) => opaque.map((call) => `${file}: ${call}`)), 'a module named by a computed specifier or a folder').toEqual([])
     const naming = read.filter(({ strings }) => strings.some(isRecharts))
