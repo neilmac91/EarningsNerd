@@ -22,8 +22,9 @@
  *     correction is asked for only when the claimed severity is wrong), and the highest holding wins whichever
  *     refuter gives it, on both paths: a should-fix raised to blocker, grouped or alone, by one refuter or
  *     both, is a confirmed blocker and blocks the merge, even when the other refuter restates or lowers it;
- *     a lowering needs both refuters, so a claimed blocker that one refuter lowers while the other is silent
- *     still blocks the merge; two lowerings that agree confirm the report at the lower severity;
+ *     a lowering needs every refuter of the tier (both on the high tier), so a claimed blocker that one refuter
+ *     lowers while the other is silent still blocks the merge; two lowerings that agree confirm the report at
+ *     the lower severity, and two that disagree confirm it at the higher of the two;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -392,7 +393,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(lowered.mergeable).toBe(true)
   })
 
-  it('holds a report at its claimed severity for a refuter that sets no correction, so a lowering needs both refuters: a claimed blocker that one refuter lowers while the other is silent still blocks the merge', async () => {
+  it('holds a report at its claimed severity for a refuter that sets no correction, so a lowering needs both refuters: a claimed blocker that one refuter lowers while the other is silent still blocks the merge, and two lowerings that disagree confirm the higher', async () => {
     // Every lens reports the blocker (a.py) and a should-fix; refuter #1 lowers each, refuter #2 sets nothing.
     const lowerFirst = stub(undefined, {
       groups: [[0, 1, 2]],
@@ -414,6 +415,17 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(lowered.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity)).toEqual(['should-fix', 'should-fix', 'should-fix'])
     expect(lowered.confirmed.filter((c) => c.title === 'should').map((c) => c.severity)).toEqual(['nit', 'nit', 'nit'])
     expect(lowered.mergeable).toBe(true)
+    // Two lowerings that disagree confirm the report at the higher of the two, whichever refuter gives it.
+    for (const [first, second] of [['nit', 'should-fix'], ['should-fix', 'nit']]) {
+      const lowerSplit = stub(undefined, {
+        groups: [[0, 1, 2]],
+        verdicts: () => [0, 1, 2].map((report) => ({ report, refuted: false, reason: 'r', corrected_severity: 'nit' })),
+        corrected: (label) => (label.includes('a.py#') ? (label.endsWith('#1') ? first : second) : undefined),
+      })
+      const [split] = (await load()({ prs: [pr('high')] }, lowerSplit.agent)) as Result[]
+      expect(split.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity), `${first} then ${second}`).toEqual(['should-fix', 'should-fix', 'should-fix'])
+      expect(split.mergeable, `${first} then ${second}`).toBe(true)
+    }
   })
 
   it('sends each group verdict to the report it names', async () => {

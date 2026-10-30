@@ -64,10 +64,10 @@ const VERDICT_SCHEMA = {
 
 // The high tier's lenses often report one should-fix defect two or three times: over 35 past runs the
 // grouper formed 40 groups of more than one report (30 of them audited as one defect), which absorbed 51
-// of 190 should-fix reports and cut the tier's Opus refuter calls by 27% (380 to 278). One Sonnet call groups the should-fix reports of the same defect, and each group, not each
+// of 190 should-fix reports and cut the Opus refuter calls spent on them by 27% (380 to 278). One Sonnet call groups the should-fix reports of the same defect, and each group, not each
 // report, gets the tier's refuters, who judge every report in it on its own claim, so each report still
 // gets its own complete vote. Blockers are never grouped: each keeps its own two refuters.
-// Severity order, for when a report's two refuters correct it differently.
+// Severity order, for taking the highest of the refuters' holdings on a report.
 const SEVERITY_RANK = { blocker: 3, 'should-fix': 2, nit: 1 }
 const rankOf = (sev) => (Object.prototype.hasOwnProperty.call(SEVERITY_RANK, sev) ? SEVERITY_RANK[sev] : 0)
 
@@ -213,7 +213,8 @@ const results = await pipeline(
       // Each refuter holds the report at its corrected severity, or at the claimed one when it sets none (both
       // prompts ask for a correction only when the claimed severity is wrong). The highest holding wins,
       // whichever refuter gives it: one refuter's raise to blocker is never masked by the other's restated or
-      // lower severity, and a lowering needs both refuters.
+      // lower severity, and a lowering needs every refuter of the tier (both on the high tier; the routine
+      // tier's one refuter lowers alone).
       const held = v.map((x) => (rankOf(x.corrected_severity) > 0 ? x.corrected_severity : f.severity))
       const sev = held.length ? held.reduce((a, b) => (rankOf(b) > rankOf(a) ? b : a)) : f.severity
       return { ...f, complete, stands, severity: stands ? sev : f.severity, votes: v.map((x) => ({ refuted: x.refuted, reason: x.reason })) }
