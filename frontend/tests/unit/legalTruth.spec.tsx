@@ -384,6 +384,9 @@ import {
  *    session." and "Reusing a refresh token because it is not valid signs everyone out." fail), and since stage 4e so
  *    is a clause that "after" or "before" opens inside its subject, which the reader takes for a preposition, where
  *    the clause's verb stands right past that clause ("Logging out after it is not needed ends every session." fails).
+ *    Since stage 4f the reader reads a participle a bare "not" negates after a head as the head's ("Sessions not opened
+ *    here end within 30 minutes of logging out." fails), and a past form it knows, first after a determiner or a
+ *    quantifier, as an adjective ("Presenting a used refresh token you do not own signs everyone out." fails).
  *    The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
@@ -399,9 +402,11 @@ import {
  *    clause makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." and "Passwords are hashed and
  *    idle sessions end after 30 minutes." pass. Planted forms score the
  *    reach; out of reach, planted as gaps: a promise split across two
- *    items, one said in other words ("nobody stays signed in"), a noun the lexicon also lists as a verb ("A password
- *    reset on a device you do not own ends every session.") and a negated participle on the subject ("Sessions not
- *    opened here end within 30 minutes of logging out.").
+ *    items, one said in other words ("nobody stays signed in"), a noun the lexicon also lists as a verb after another
+ *    noun ("A password reset on a device you do not own ends every session."), a participle a bare "not" negates that
+ *    the lexicon lacks and that does not end in -ed ("Sessions not begun here end when you log out.") and a subject of
+ *    two phrases, each with a negated participle ("Sessions not opened here and tokens not issued here end when you
+ *    log out.").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -2536,7 +2541,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (498 rows since E162 stage 4e) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (522 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4472,10 +4477,31 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
-      // And, since stage 4b, a noun the lexicon also lists as a verb, which ends its phrase and reads as the clause's verb
-      // ("reset"), and a negated participle on the subject, which reads as the clause's verb group.
+      // And, since stage 4b, a noun the lexicon also lists as a verb after another noun, which ends its phrase and reads as
+      // the clause's verb ("reset").
       ['<li>A password reset on a device you do not own ends every session.</li>', 'gap'],
-      ['<li>Sessions not opened here end within 30 minutes of logging out.</li>', 'gap'],
+      // E162 stage 4f: a participle a bare "not" negates after a head is the head's, as it is without the negation, so a
+      // clause read alone reads its subject without it ("not" denies no verb without an auxiliary), the lexicon's
+      // participle, an -ing word or an -ed word it lacks ("presented").
+      ['<li>Sessions not opened here end within 30 minutes of logging out.</li>', true],
+      ['<li>A session not opened here ends within 30 minutes of logging out.</li>', true],
+      ['<li>Sessions not opened on this device end when you log out of it.</li>', true],
+      ['<li>Every session not opened here ends when you log out.</li>', true],
+      ['<li>Sessions not opened here still end when you log out.</li>', true],
+      ['<li>Sessions not opened here end within 30 minutes of logging out of this device.</li>', true],
+      ['<li>Logging out of sessions not opened here ends every session.</li>', true],
+      ['<li>Sessions not using cookies end when you log out.</li>', true],
+      ['<li>Sessions not presented here end within 30 minutes of logging out.</li>', true],
+      // Its denials pass, the participle's own too.
+      ['<li>A session not opened here does not end when you log out.</li>', false],
+      ['<li>Sessions not opened here never end when you log out.</li>', false],
+      ['<li>Sessions not opened here are not ended when you log out.</li>', false],
+      ['<li>Sessions not ended by logging out stay open.</li>', false],
+      ['<li>Logging out does not end sessions not opened here.</li>', false],
+      // Out of reach, as on main: a participle the lexicon lacks that does not end in -ed reads as the clause's verb
+      // group, and a subject of two phrases joined by "and" as two clauses, the second naming no session.
+      ['<li>Sessions not begun here end when you log out.</li>', 'gap'],
+      ['<li>Sessions not opened here and tokens not issued here end when you log out.</li>', 'gap'],
       // E162 stage 4c: the reuse family's sweep is read in each clause alone too (reuseOfTheToken), so #1456's three
       // shapes of the shared step deny no sweep (a negation before a word of time, in a relative clause on the subject,
       // a denied subject before "that"), nor does a participle on the subject, the lexicon's or one it lacks
@@ -4613,9 +4639,20 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // relative clause's verb too.
       ['<li>Clients that reuse a refresh token they do not own sign everyone out.</li>', 'gap'],
       ['<li>A client that reused a refresh token it did not own signed everyone out.</li>', 'gap'],
-      // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
-      // so the gerund's object and its relative clause are not read.
-      ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
+      // Since stage 4f a past form the lexicon knows, first after a determiner or a quantifier, reads as an adjective, so
+      // the phrase runs on over a verb the lexicon knows ("a used refresh token") and the gerund's object and its
+      // relative clause are read; and a participle a bare "not" negates after a head is the head's ("a refresh token not
+      // issued to you").
+      ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', true],
+      ['<li>A used refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Presenting the used refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Presenting each used refresh token you do not own signs everyone out.</li>', true],
+      ['<li>All used refresh tokens you do not own sign everyone out.</li>', true],
+      ['<li>Reusing a refresh token not issued to you signs everyone out.</li>', true],
+      ['<li>A client reusing a refresh token not issued to it signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token not presented before signs everyone out.</li>', true],
+      ['<li>Presenting a used refresh token you do not own does not sign everyone out.</li>', false],
+      ['<li>No used refresh token you do not own signs everyone out.</li>', false],
       // A negation in a condition a subordinator opens between a clause's subject and its verb, which the reader runs on
       // to that verb, denies nothing there since stage 4d: the clause is read without the condition too, in either
       // family (clauseVerbPast; the routine lens on bca1801a).
