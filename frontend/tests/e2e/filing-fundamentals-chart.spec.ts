@@ -33,8 +33,8 @@ const THEMES: Theme[] = ['light', 'dark']
 const financialTrends = (page: Page) =>
   page.getByRole('heading', { level: 2, name: 'Financial trends', exact: true }).locator('xpath=ancestor::section[1]')
 
-/** Each series' unit as both renderers print it in their tick and value labels: an amount's currency sign, a margin's
- *  %, a multiple's ×. */
+/** Each series' unit as the Recharts chart prints it in its tick labels, and the trend charts' engine will in its ticks
+ *  and on its bars (3 of 5): an amount's currency sign, a margin's %, a multiple's ×. */
 const UNIT_SIGN: Record<string, string> = { revenue: '$', net_margin: '%', working_capital: '$', current_ratio: '×' }
 /** The series the fixture marks for a source check (calculated, `needs_review`), which the card badges. */
 const BADGED = new Set(['net_margin', 'working_capital', 'current_ratio'])

@@ -8,9 +8,10 @@ import type { Page } from '@playwright/test'
  * these fixtures — the public Apple FY2025 10-K as filing 3, its summary a trimmed copy in
  * filing-3-summary.json, its Financial trends series a trimmed copy in filing-3-fundamentals.json,
  * and the session / subscription endpoints for an anonymous visitor or a Pro
- * user. Shared by every e2e spec that calls `answerApi` (`git grep -l answerApi tests/e2e` lists
- * them: the filing page's chips, links, panes and Ask stream, the layout and contrast gates
- * reflow-200.spec.ts and text-floors.spec.ts, and filing-fundamentals-chart.spec.ts among them);
+ * user. Shared by every e2e spec that imports it (from the repository root,
+ * `git grep -l "fixtures/filing3Api'" frontend/tests/e2e` lists them: the filing page's chips, links,
+ * panes and Ask stream, the layout and contrast gates reflow-200.spec.ts and text-floors.spec.ts, and
+ * filing-fundamentals-chart.spec.ts among them);
  * a spec seeds its own browser state (theme, consent, coachmark) in its own addInitScript.
  */
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
