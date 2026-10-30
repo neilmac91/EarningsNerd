@@ -17,7 +17,8 @@
  * adjective ("a used refresh token you do not own", "used refresh tokens"), as "old" and "stale" do, the reuse family's
  * own words for such a token. Two other families read the participle too: to the endpoint family it narrows the
  * endpoints, as it does without "not" ("Every endpoint not listed below rejects anonymous requests." passes, though main
- * refused it), and the consent family reads a wait inside it as that "not" denies it, as main read it.
+ * refused it), and the consent family reads a wait inside it as that "not" denies it, as main read it, unless a
+ * denial around the participle cancels that one.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -444,8 +445,11 @@ function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
       phrase.postmodifiers.push({ kind: RELATIVES.has(token.lower) ? 'relative' : 'participle', start: i, end, restrictive: true, preposition: null, object: null })
       i = end
     } else if (token.lower === 'not' && participle(tokens, i + 1, true)) {
-      // A participle a bare "not" negates is the head's as well ("sessions not opened here end ...": E162 stage 4f).
-      const end = relativeEnd(tokens, i + 2, false)
+      // A participle a bare "not" negates is the head's as well ("sessions not opened here end ...": E162 stage 4f), and
+      // a gerund after a preposition in it is that preposition's object, not a verb that ends it ("not ended by logging
+      // out": Codex on #1818).
+      let end = relativeEnd(tokens, i + 2, false)
+      while (PREPOSITIONS.has(lower(tokens[end - 1])) && /^[a-z]+ing$/.test(lower(tokens[end]))) end = relativeEnd(tokens, end + 1, false)
       phrase.postmodifiers.push({ kind: 'participle', start: i, end, restrictive: true, preposition: null, object: null })
       i = end
     } else if (reducedRelative(tokens, i)) {

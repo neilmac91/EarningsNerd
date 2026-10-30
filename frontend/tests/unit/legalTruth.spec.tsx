@@ -229,7 +229,9 @@ import {
  *    clause reader's does: an aside in commas inside the subject that names the browser scopes it ("Server events,
  *    like PostHog in your browser, wait for your consent." passes, as on main). Since stage 4f a wait inside a
  *    participle a bare "not" opens reads as that "not" denies it, as main read it when the reader took "not gated" for
- *    the clause's verb group ("Server events not gated by consent are recorded by the API." passes).
+ *    the clause's verb group ("Server events not gated by consent are recorded by the API." passes), unless the
+ *    participle says it in contrast or a denial around it cancels that one ("We never record server events not gated
+ *    by your consent." fails).
  *    Ambiguous, so left unplanted: "Every endpoint validates your token.", "Every endpoint checks your token.",
  *    "Every endpoint needs a valid session.", "Only signed-in users can reach every endpoint." and "Our gateway fronts
  *    every endpoint and requires a login." (all refused since #1594's fourth round, as main's blanket refused them).
@@ -906,25 +908,39 @@ const deniesItsClause = (subject: NounPhrase | null) =>
     "rather", "instead" or "and" between at most, said in contrast with no "but" ("Analytics are not collected
     automatically, only after you consent.": Codex on #1618; "- only", "(only", ", rather only"), while a mark before
     anything else sets no contrast ("We do not collect analytics, usage data or events only with your consent."). */
-/** The spans of the participles a bare "not" opens after a head, in any noun phrase of a sentence (E162 stage 4f): the
-    reader reads "not gated by consent" after a head as the head's participle, so its "not" denies the wait inside it,
-    as main read it when the reader took "not gated" for the clause's verb group ("Server events not gated by consent
-    are recorded by the API.", "We record server events not gated by your consent."). */
-const negatedParticiples = (tokens: Token[]): Array<[number, number]> =>
-  tokens.flatMap((_, j) => (nounPhraseAt(tokens, j)?.postmodifiers ?? [])
-    .filter((m) => m.kind === 'participle' && tokens[m.start]?.lower === 'not')
-    .map((m): [number, number] => [m.start, m.end]))
-function denied(reading: Reading, p: Said, wait: Wait): boolean {
-  // A wait inside a participle a bare "not" opens is that "not"'s to deny (negatedParticiples).
-  if (negatedParticiples(reading.tokens).some(([start, end]) => wait.at >= start && wait.at < end)) return true
-  const governing = governs(reading, p, wait.at)
-  const between = reading.tokens.slice(governing?.group.verb ?? 0, wait.at)
+/** The participles a bare "not" opens after a head, in any noun phrase of a sentence, with the phrase that holds each
+    (E162 stage 4f): the reader reads "not gated by consent" after a head as the head's participle, so its "not" denies
+    the wait inside it ("Server events not gated by consent are recorded by the API.", "We record server events not
+    gated by your consent."), as main read it when the reader took "not gated" for the clause's verb group. */
+const negatedParticiples = (tokens: Token[]): Array<{ start: number; end: number; phrase: NounPhrase }> =>
+  tokens.flatMap((_, j) => {
+    const phrase = nounPhraseAt(tokens, j)
+    return phrase ? phrase.postmodifiers.filter((m) => m.kind === 'participle' && tokens[m.start]?.lower === 'not').map((m) => ({ start: m.start, end: m.end, phrase })) : []
+  })
+/** Whether the words between a denial's verb and a wait say the wait in contrast, which takes the denial off (see
+    denied()): a "but", "yet" or an exception among them, or "only" set off by a mark. */
+const contrasts = (between: Token[]) => {
   const only = between.map((t) => t.lower).lastIndexOf('only')
   let mark = only - 1
   while (mark >= 0 && /^(?:rather|instead|and)$/i.test(between[mark].text)) mark--
   const excepts = (t: Token, k: number) => /^(?:but|yet|unless|except|excepting)$/i.test(t.text) || (t.lower === 'than' && between[k - 1]?.lower === 'other')
-  const contrast = between.some(excepts) || (only > 0 && mark >= 0 && /^[,;:(\-\u2013\u2014]$/.test(between[mark].text))
-  if (!governing || contrast) return false
+  return between.some(excepts) || (only > 0 && mark >= 0 && /^[,;:(\-\u2013\u2014]$/.test(between[mark].text))
+}
+function denied(reading: Reading, p: Said, wait: Wait): boolean {
+  // A wait inside a participle a bare "not" opens is that "not"'s to deny (negatedParticiples), unless the participle
+  // says it in contrast ("not collected except only with your consent": Codex on #1818), or a denial around it cancels
+  // that one: the clause's own, its verb's or its subject's as below, or a "no" on the phrase that holds the participle
+  // where that phrase is not the subject ("We never record server events not gated by your consent." and "We record no
+  // server events not gated by your consent." promise the wait: the routine lens on 5351d546).
+  const held = negatedParticiples(reading.tokens).find(({ start, end }) => wait.at >= start && wait.at < end)
+  if (held) {
+    if (contrasts(reading.tokens.slice(held.start + 1, wait.at))) return false
+    const clause = deniedPlainly(reading, p.group) !== deniesItsClause(p.subject)
+    const phrase = held.phrase.start !== p.subject?.start && deniesItsClause(held.phrase)
+    return clause === phrase
+  }
+  const governing = governs(reading, p, wait.at)
+  if (!governing || contrasts(reading.tokens.slice(governing.group.verb, wait.at))) return false
   // A denied subject and a denied verb cancel ("No analytics are not collected only with your consent." promises). The
   // reader composes a denying word in the subjects only as its own subject's quantifier or head; one it does not
   // account for there (in a subject coordinated before its own, a carried subject, a determiner: "Nobody's analytics"),
@@ -2470,12 +2486,28 @@ const PASSWORD_ACTED_ON = new RegExp(
     minutes."), and the clause of a password only named (PASSWORD, clausesOf). A word in a neighbouring sentence or
     clause is no context: in "Passwords are hashed. Idle sessions end after 30 minutes." the idle timeout is no logout's
     end. */
+/** A sentence's text without the participles a bare "not" opens in it (negatedParticiples): a logging-out action or a
+    password named only there gives the sentence no context, since that "not" denies it, as main read it when the
+    reader took "not ended" for the clause's verb group ("Sessions not ended by logging out expire within 30
+    minutes.": Codex on #1818). */
+const withoutNegatedParticiples = (sentence: string) => {
+  const reading = readSentence(sentence)
+  const kept: string[] = []
+  let at = 0
+  for (const { start, end } of negatedParticiples(reading.tokens).sort((a, b) => a.start - b.start)) {
+    if (start < at) continue
+    kept.push(spanText(reading, at, start))
+    at = end
+  }
+  return [...kept, spanText(reading, at, reading.tokens.length)].join(' ')
+}
 const loggingOutSentences = (block: string) =>
-  sentencesOf(block).flatMap((sentence, i, all) =>
-    LOGGING_OUT.test(sentence) || LOGGING_OUT_ACTION.test(sentence) || NEW_PASSWORD.test(sentence) || PASSWORD_ACTED_ON.test(sentence) || (i > 0 && (LOGGING_OUT_ACTION.test(all[i - 1]) || PASSWORD_ACTED_ON.test(all[i - 1])))
+  sentencesOf(block).flatMap((sentence, i, all) => {
+    const own = withoutNegatedParticiples(sentence)
+    return LOGGING_OUT.test(own) || LOGGING_OUT_ACTION.test(own) || NEW_PASSWORD.test(own) || PASSWORD_ACTED_ON.test(own) || (i > 0 && (LOGGING_OUT_ACTION.test(all[i - 1]) || PASSWORD_ACTED_ON.test(all[i - 1])))
       ? [sentence]
-      : clausesOf(sentence).filter((clause) => PASSWORD.test(clause)),
-  )
+      : clausesOf(sentence).filter((clause) => PASSWORD.test(withoutNegatedParticiples(clause)))
+  })
 
 const E127_PROMISES: Array<[string, (block: string, blocks: string[]) => boolean]> = [
   [
@@ -2494,7 +2526,7 @@ const E127_PROMISES: Array<[string, (block: string, blocks: string[]) => boolean
         clauseByClause(sentence).some((text) => SESSION_END_TIMED_DENIABLE.test(text) || SESSION_END_UNTIMED_DENIABLE.test(text) || SESSION_END_MORE.test(text)),
       ) ||
       sentencesOf(block).some(
-        (sentence) => ANY_NEW_PASSWORD.test(sentence) && clauseByClause(sentence).some((text) => SESSION_END_TIMED_DENIABLE.test(text) || SESSION_END_UNTIMED_DENIABLE.test(text)),
+        (sentence) => ANY_NEW_PASSWORD.test(withoutNegatedParticiples(sentence)) && clauseByClause(sentence).some((text) => SESSION_END_TIMED_DENIABLE.test(text) || SESSION_END_UNTIMED_DENIABLE.test(text)),
       ),
   ],
 ]
@@ -2555,8 +2587,8 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (534 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
-    run on a loaded machine. The removed claims' self-check (593 rows, through the page's render and splitter) takes
+    self-check (537 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
+    run on a loaded machine. The removed claims' self-check (606 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
 
@@ -3366,6 +3398,25 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events not sent from your browser require your consent.</p>', true],
       ['<p>Server events not using cookies require your consent.</p>', true],
       ['<p>Server events not sent from your browser do not require your consent.</p>', false],
+      // A wait the participle says in contrast is its promise, as main read it (Codex on #1818).
+      ['<p>Server events not collected except only with your consent are recorded.</p>', true],
+      ['<p>Server events not collected except only after you opt in are recorded.</p>', true],
+      // A denial around the participle cancels its "not", so the wait is promised, as main read these, the clause's own
+      // denial or a "no" on the phrase that holds it; the last, which main passed, promises it too (the routine lens on
+      // 5351d546).
+      ['<p>We never collect analytics not gated by your consent.</p>', true],
+      ['<p>We do not record server events not gated by your consent.</p>', true],
+      ['<p>No analytics not gated by your consent are collected.</p>', true],
+      ['<p>No server events not gated by your consent are recorded.</p>', true],
+      ['<p>We record no server events not gated by your consent.</p>', true],
+      ['<p>We never record server events not collected only with your consent.</p>', true],
+      ['<p>We do not keep analytics not collected only after you allow analytics.</p>', true],
+      ['<p>No usage data not gated on your consent is recorded.</p>', true],
+      ['<p>We never send PostHog events not gated by your consent.</p>', true],
+      ['<p>Server events not gated by your consent are never recorded.</p>', true],
+      // A lost catch, named: after "There are" the reader reads the clause with no subject, so the phrase that holds the
+      // participle is no subject the family reads; main split the clause at "not gated" and caught it.
+      ['<p>There are no server events not gated by your consent.</p>', 'gap'],
       // A wait inside a participle without "not" stays the promise main read it as, past the clause's verb or not.
       ['<p>Server events gated by your consent are recorded by the API.</p>', true],
       ['<p>Analytics collected only with your consent are sent to PostHog.</p>', true],
@@ -4540,6 +4591,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions not opened here are not ended when you log out.</li>', false],
       ['<li>Sessions not ended by logging out stay open.</li>', false],
       ['<li>Logging out does not end sessions not opened here.</li>', false],
+      // A logging-out action named only inside the participle gives the sentence no logging-out context, since its "not"
+      // denies it, as main read it, while one outside it does (Codex on #1818).
+      ['<li>Sessions not ended by logging out expire within 30 minutes.</li>', false],
+      ['<li>Sessions not ended by a logout expire within 30 minutes.</li>', false],
+      ['<li>Sessions not ended by logging out end within 30 minutes of logging out.</li>', true],
       // Out of reach, as on main: a participle the lexicon lacks that does not end in -ed reads as the clause's verb
       // group, and so does one after "never", which, unlike a bare "not", may be a finite verb's own ("Sessions never
       // opened."); and a subject of two phrases joined by "and" reads as two clauses, the second naming no session.
