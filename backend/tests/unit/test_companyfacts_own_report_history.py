@@ -446,11 +446,16 @@ class TestHistoryRowsThroughTheSync:
         assert {(r.accession, float(r.value), r.is_latest, r.source, r.filing_id) for r in fy2018} == {
             (K20, 5_145.6e6, True, "companyfacts", None), (K18, 6_710.8e6, False, "companyfacts", None)}
         after = dataset()
-        assert _evidence_places(before) == set()
+        assert _evidence_places(before) == _basis_places(before) == set()
         assert _evidence_places(after) == {("revenue", "FY2018"), ("revenue", "FY2019"), ("total_assets", "FY2018")}
+        # Growth across the change of basis reads n/m, where it had a number.
+        assert _basis_places(after) == {(concept, f"FY{year}") for concept in ("revenue", "net_margin")
+                                        for year in (2018, 2019, 2020)}
+        assert {_point(after, *place)["yoy"] for place in _basis_places(after)} == {"nm"}
+        assert all(isinstance(_point(before, *place)["yoy"], float) for place in _basis_places(after))
         assert after["snapshot_id"] != before["snapshot_id"]
         # Every other key, the data notes included, is what it was.
-        assert _without_evidence(after) == _without_evidence(before)
+        assert _without_evidence(after, _basis_places(after)) == _without_evidence(before, _basis_places(after))
         assert trusted_fiscal_years(db, company.id, ends) == years_before
         db.close()
 
@@ -460,10 +465,26 @@ def _evidence_places(dataset):
             if "first_reported" in point}
 
 
-def _without_evidence(value):
-    """The dataset with every later-filing field dropped, at any depth, and its fingerprint."""
-    if isinstance(value, list):
-        return [_without_evidence(item) for item in value]
-    if not isinstance(value, dict):
-        return value
-    return {key: _without_evidence(item) for key, item in value.items() if key not in {"first_reported", "snapshot_id"}}
+def _basis_places(dataset):
+    return {(series["concept"], point["period"]) for series in dataset["series"] for point in series["points"]
+            if "yoy_first_reported" in point}
+
+
+def _point(dataset, concept, period):
+    series = next(series for series in dataset["series"] if series["concept"] == concept)
+    return next(point for point in series["points"] if point["period"] == period)
+
+
+def _without_evidence(dataset, places):
+    """The dataset with every later-filing field dropped, at any depth, the growth at these places and its fingerprint."""
+    def strip(value, concept=None):
+        if isinstance(value, list):
+            return [strip(item, concept) for item in value]
+        if not isinstance(value, dict):
+            return value
+        concept = value.get("concept", concept) if "points" in value else concept
+        dropped = {"first_reported", "yoy_first_reported", "snapshot_id",
+                   *(("yoy",) if (concept, value.get("period")) in places else ())}
+        return {key: strip(item, concept) for key, item in value.items() if key not in dropped}
+
+    return strip(dataset)

@@ -20,21 +20,29 @@ concept, unit and span, at another filing; an original wins over an amendment, t
 accession (companyfacts' listing order, ingest's last key, is not stored). ``tests/unit/test_first_reports.py`` holds
 the two rules to one answer over WP5b's own-report shapes.
 
+Growth across a change of basis reads n/m (item 3): where the two years of a YoY sit on different bases, the ratio of
+the value shown to the value first reported moving by more than ``BASIS_TOLERANCE`` between them, the comparison reads
+"nm" and carries the growth their own reports give (``yoy_first_reported``); a calculated figure's growth reads n/m
+where one of its inputs changed basis (D4). Nothing else of the comparison changes: its provenance and checks stand.
+
 Annual runs only (D5): WP5b stores fiscal-year rows alone, and the page refuses evidence in a quarterly run, so a
-quarterly dataset reads nothing more and carries none.
+quarterly dataset reads nothing more and carries none. No CAGR or window change reads n/m (D5, deferred).
 """
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from datetime import date
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
 from app.models import Company, FinancialFact
-from app.services.fact_provenance import METRIC_FORMULAS, provenance_for_fact, published_value, source_link
+from app.services.fact_provenance import (
+    METRIC_FORMULAS, METRIC_INPUTS, provenance_for_fact, published_value, source_link,
+)
 from app.services.facts.fiscal_naming import ANNUAL_FORMS, DRIFT_DAYS
+from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 from app.services.trend_analysis.source_documents import FilingDates, filing_documents
 from app.utils.sec_urls import normalize_accession
 
@@ -42,6 +50,26 @@ from app.utils.sec_urls import normalize_accession
 # this share of the own value (the restatement census's gap, |shown - own| / |own|). 0.1% keeps the rounding-only
 # gaps out (113 of 116 sit at or below it) and shows the small real changes one tap away.
 EVIDENCE_TOLERANCE = Decimal("0.001")
+# D1: a YoY reads n/m across a change of basis where one year's shown-to-first-reported ratio differs from the other's
+# by more than this share (coherence.md section 1.6 item 3). A year without evidence has the ratio 1.
+BASIS_TOLERANCE = Decimal("0.01")
+# D3: per-share figures keep their evidence but their growth never reads n/m by this rule: after a stock split every
+# earlier year is restated at one ratio, so the first year after it would read n/m across no change of what EPS measures.
+BASIS_EXEMPT = frozenset({"earnings_per_share", "eps_diluted"})
+# D4: a calculated figure's growth reads n/m where one of these inputs changed basis, each read from the figure's
+# recorded operand of that concept, else (a calculation stored before operands were recorded) from that concept's own
+# figure for the year in the dataset. Empty, calculated growth would keep its number beside its inputs' evidence.
+BASIS_INPUTS: Mapping[str, tuple[str, ...]] = METRIC_INPUTS
+# Each calculated figure from its inputs in METRIC_INPUTS' order, as facts/derive.py computes it, for the growth its
+# inputs' own reports give.
+_CALCULATED: Mapping[str, Callable[[float, float], Optional[float]]] = {
+    "net_margin": lambda numerator, revenue: numerator / revenue * 100 if revenue else None,
+    "operating_margin": lambda numerator, revenue: numerator / revenue * 100 if revenue else None,
+    "gross_margin": lambda numerator, revenue: numerator / revenue * 100 if revenue else None,
+    "free_cash_flow": lambda cash_flow, capex: cash_flow - abs(capex),
+    "working_capital": lambda assets, liabilities: assets - liabilities,
+    "current_ratio": lambda assets, liabilities: assets / liabilities if liabilities else None,
+}
 
 Cell = tuple[str, str, str, Optional[str]]  # concept, period end, unit, period start (ISO days)
 
@@ -78,6 +106,32 @@ def differs(shown: float, own: float) -> bool:
     if own_d == 0:
         return shown_d != 0
     return abs(shown_d - own_d) / abs(own_d) > EVIDENCE_TOLERANCE
+
+
+def _year_before(period: str) -> Optional[str]:
+    return f"FY{int(period[2:]) - 1}" if period.startswith("FY") and period[2:].isdigit() else None
+
+
+Figure = Optional[tuple[Any, Optional[dict[str, Any]]]]  # a value and its first_reported, or None where absent
+
+
+def _ratio(figure: Figure) -> Optional[Decimal]:
+    """A value shown over its first-reported value: 1 without evidence, None where the own value is 0 (unbounded)."""
+    value, first = figure or (None, None)
+    if value is None or not first:
+        return Decimal(1)
+    own = Decimal(str(first["value"]))
+    return Decimal(str(value)) / own if own else None
+
+
+def basis_changed(now: Optional[Decimal], before: Optional[Decimal]) -> bool:
+    """D1: whether two years' ratios (``_ratio``) sit on different bases: unbounded on either side, or apart by more
+    than ``BASIS_TOLERANCE``."""
+    if now is None or before is None:
+        return True
+    if before == 0:
+        return now != 0
+    return abs(now / before - 1) > BASIS_TOLERANCE
 
 
 def own_period_ends(rows: Iterable[FinancialFact], filings: Mapping[str, FilingDates]) -> dict[str, date]:
@@ -151,6 +205,60 @@ class FirstReports:
                 first = self.evidence(point, provenance.get("filed_at"))
                 if first is not None:
                     point["first_reported"] = first
+
+
+    def _input(self, operand: Mapping[str, Any]) -> Optional[dict[str, Any]]:
+        """A calculated figure's reported input's evidence, as a reported figure's (item 5)."""
+        reported = (operand.get("provenance") or {}).get("method") == "reported"
+        return self.evidence(operand, operand.get("filed_at")) if reported else None
+
+    def _figures(self, concept: str, point: Mapping[str, Any], points: Mapping[str, Mapping[str, Any]]) -> list[Figure]:
+        """What a year's growth rests on: a reported figure itself, a calculated one its inputs (D4)."""
+        if concept not in BASIS_INPUTS:
+            return [(point.get("value"), point.get("first_reported"))]
+        recorded: dict[str, Mapping[str, Any]] = {}
+        for operand in (point.get("provenance") or {}).get("inputs") or []:
+            recorded.setdefault(operand.get("concept"), operand)
+        figures: list[Figure] = []
+        for name in BASIS_INPUTS[concept]:
+            operand, shown = recorded.get(name), points.get(name, {}).get(point["period"])
+            figures.append((operand.get("value"), self._input(operand)) if operand is not None
+                           else (shown.get("value"), shown.get("first_reported")) if shown is not None else None)
+        return figures
+
+    @staticmethod
+    def _as_first_reported(concept: str, point: Mapping[str, Any], figures: list[Figure]) -> Optional[float]:
+        """The year's value as its own reports give it: a reported figure's own value, a calculated one recomputed from
+        its inputs' own values (the value shown where no input carries evidence)."""
+        if concept not in BASIS_INPUTS:
+            value, first = figures[0]
+            return first["value"] if first else value
+        if not any(figure and figure[1] for figure in figures):
+            return point.get("value")
+        values = [(figure[1]["value"] if figure[1] else figure[0]) if figure else None for figure in figures]
+        return None if any(value is None for value in values) else _CALCULATED[concept](*values)
+
+    def basis_rule(self, series_list: list[dict[str, Any]], growth: Callable, pp_delta: Callable) -> list[dict[str, Any]]:
+        """Item 3, once every series' growth is attached: a YoY whose two years sit on different bases reads n/m and
+        carries the growth their own reports give, computed as the series computes its own (``growth``, or
+        ``pp_delta`` for a margin). EPS is exempt (D3); its provenance and checks stand."""
+        if not self._cells:
+            return series_list
+        points = {series["concept"]: {point["period"]: point for point in series["points"]} for series in series_list}
+        for series in series_list:
+            concept, delta = series["concept"], pp_delta if series.get("percent") else growth
+            if concept in BASIS_EXEMPT:
+                continue
+            for point in series["points"]:
+                before = points[concept].get(_year_before(point["period"]) or "")
+                if point.get("yoy") is None or before is None:
+                    continue
+                now_figures, before_figures = self._figures(concept, point, points), self._figures(concept, before, points)
+                if any(basis_changed(_ratio(now), _ratio(then)) for now, then in zip(now_figures, before_figures)):
+                    point["yoy"] = NOT_MEANINGFUL
+                    point["yoy_first_reported"] = delta(self._as_first_reported(concept, point, now_figures),
+                                                        self._as_first_reported(concept, before, before_figures))
+        return series_list
 
 
 def read_first_reports(db: Session, company: Company, mode: str, current: list[FinancialFact],

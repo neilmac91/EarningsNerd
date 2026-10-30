@@ -290,7 +290,7 @@ def _series_points(
     instant_by_end: dict[tuple[str, date], FinancialFact],
 ) -> list[dict[str, Any]]:
     """Align each concept's points, linked to the filing documents they cite, with each year's own-report evidence in an
-    annual run (first_reports), and attach comparisons and window figures."""
+    annual run (first_reports), and attach comparisons (n/m across a change of basis) and window figures."""
     def _row_for(concept: str, bucket: dict[str, Any]) -> Optional[FinancialFact]:
         if mode == "quarterly" and concept in INSTANT_CONCEPTS:
             return instant_by_end.get((concept, bucket["period_end"]))
@@ -319,7 +319,7 @@ def _series_points(
             series_list, concept, unit, is_percent,
             cagr, cagr_window, window_pp, window_pp_range, points,
         )
-    return series_list
+    return reports.basis_rule(series_list, _growth, _pp_delta)
 
 
 def _assign_markers(series_list: list[dict[str, Any]]) -> None:

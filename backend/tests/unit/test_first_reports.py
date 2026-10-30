@@ -15,11 +15,11 @@ import pytest
 from sqlalchemy import event
 
 from app.services import facts_service as svc
-from app.services.trend_analysis.first_reports import differs, own_period_ends
+from app.services.trend_analysis.first_reports import BASIS_INPUTS, _CALCULATED, differs, own_period_ends
 from app.services.trend_analysis.source_documents import FilingDates
 from app.utils.sec_urls import build_sec_archive_url
 from tests.unit.test_companyfacts_own_report_history import (
-    K18, K19, K20, _K, _REVENUE, _history, _items, _payload, _shapes,
+    K18, K19, K20, _K, _NET_INCOME, _REVENUE, _history, _items, _payload, _shapes,
 )
 
 FY2018 = date(2018, 12, 31)
@@ -78,6 +78,23 @@ def _build(db, company, start="FY2017", end="FY2021", mode="annual"):
 def _evidence(dataset):
     return {(series["concept"], point["period"]): point["first_reported"]
             for series in dataset["series"] for point in series["points"] if "first_reported" in point}
+
+
+def _yoy(dataset, concept):
+    series = next(series for series in dataset["series"] if series["concept"] == concept)
+    return {point["period"]: (point.get("yoy"), point.get("yoy_first_reported", "absent")) for point in series["points"]
+            if point.get("value") is not None}
+
+
+def _restated(fy2018_own, fy2018_later, fy2019_own, fy2019_later):
+    """REGN's revenue shape with FY2018 and FY2019 as their own 10-Ks and the FY2020 10-K give them."""
+    return {
+        2017: {2015: 4_103.7e6, 2016: 4_860.4e6, 2017: 5_872.2e6},
+        2018: {2016: 4_860.4e6, 2017: 5_872.2e6, 2018: fy2018_own},
+        2019: {2017: 5_872.2e6, 2018: fy2018_own, 2019: fy2019_own},
+        2020: {2018: fy2018_later, 2019: fy2019_later, 2020: 8_497.1e6},
+        2021: {2019: fy2019_later, 2020: 8_497.1e6, 2021: 16_071.7e6},
+    }
 
 
 def _up_to(year, revenue=None):
@@ -331,3 +348,102 @@ class TestOneOwnReport:
             "000000000119000002": FY2018}
         assert own_period_ends([row(quarterly, FY2018, form=None)],
                                {"000000000119000002": FilingDates("10-Q", "2019-02-07", FY2018)}) == {}
+
+
+@pytest.mark.requires_db
+class TestGrowthAcrossAChangeOfBasis:
+    def test_regn_revenue_and_net_margin_growth_read_n_m_with_the_growth_their_own_reports_give(self, db):
+        dataset = _build(db, _synced(db, _payload()))
+        revenue, margin = _yoy(dataset, "revenue"), _yoy(dataset, "net_margin")
+        assert {period: value[0] for period, value in revenue.items()} == {
+            "FY2017": None, "FY2018": "nm", "FY2019": "nm", "FY2020": "nm", "FY2021": pytest.approx(16_071.7 / 8_497.1 - 1)}
+        assert [revenue[period][1] for period in ("FY2018", "FY2019", "FY2020")] == [
+            pytest.approx(6_710.8 / 5_872.2 - 1, abs=1e-9), pytest.approx(7_863.4 / 6_710.8 - 1, abs=1e-9),
+            pytest.approx(8_497.1 / 7_863.4 - 1, abs=1e-9)]
+        assert revenue["FY2021"][1] == "absent"
+        # D4: the margin's pp change reads n/m across its revenue input's change, and gives the change in percentage
+        # points between the margins the two years' own reports give.
+        own = {2017: 1_198.5 / 5_872.2, 2018: 2_444.4 / 6_710.8, 2019: 2_115.8 / 7_863.4, 2020: 3_513.2 / 8_497.1}
+        assert [margin[f"FY{year}"] for year in (2018, 2019, 2020)] == [
+            ("nm", pytest.approx(100 * (own[year] - own[year - 1]), abs=1e-6)) for year in (2018, 2019, 2020)]
+        assert margin["FY2021"][0] == pytest.approx(100 * (8_075.3 / 16_071.7 - 3_513.2 / 8_497.1), abs=1e-6)
+        # Net income kept its basis; total assets' 0.24% moves no ratio past 1%.
+        assert all(isinstance(value, float) and first == "absent" for period, (value, first)
+                   in {**_yoy(dataset, "net_income"), **_yoy(dataset, "total_assets")}.items() if period != "FY2017")
+
+    def test_an_n_m_across_a_change_of_basis_keeps_its_calculation_and_checks(self, db):
+        dataset = _build(db, _synced(db, _payload()))
+        point = next(series for series in dataset["series"] if series["concept"] == "revenue")["points"][1]
+        assert (point["period"], point["yoy"], point["yoy_reconciled"]) == ("FY2018", "nm", True)
+        assert point["yoy_provenance"]["validation"] == "passed" and point["yoy_provenance"]["reasons"] == []
+        assert point["yoy_provenance"]["formula"] == "year_over_year_growth"
+
+    def test_a_run_restated_at_one_ratio_keeps_its_growth(self, db):
+        # FY2018 and FY2019 both later reported at 80% of their own reports: the growth between them is the same on
+        # either basis; only the changes across the run's edges read n/m.
+        dataset = _build(db, _synced(db, _payload(_items(_restated(1_000.0e6, 800.0e6, 1_250.0e6, 1_000.0e6)))))
+        revenue = _yoy(dataset, "revenue")
+        assert revenue["FY2019"] == (pytest.approx(0.25), "absent")
+        assert revenue["FY2018"][0] == revenue["FY2020"][0] == "nm"
+
+    @pytest.mark.parametrize("fy2019_later, n_m", [(908.1e6, False), (909.0e6, False), (909.9e6, True)],
+                             ids=["0.9%", "exactly-1%", "1.1%"])
+    def test_d1_growth_reads_n_m_only_past_a_one_percent_move_of_the_ratio(self, db, fy2019_later, n_m):
+        # FY2018 later reported at 90% of its own report, FY2019 at 90.81%, 90.9% or 90.99%.
+        dataset = _build(db, _synced(db, _payload(_items(_restated(1_000.0e6, 900.0e6, 1_000.0e6, fy2019_later)))))
+        assert (_yoy(dataset, "revenue")["FY2019"][0] == "nm") is n_m
+
+    def test_a_change_of_sign_reads_n_m_with_no_growth_as_first_reported(self, db):
+        loss = {report: {year: (-500.0e6 if year == 2018 else _NET_INCOME[year]) for year in range(report - 2, report + 1)}
+                for report in _K}
+        dataset = _build(db, _synced(db, _payload(tags={"NetIncomeLoss": {"units": {"USD": _items(loss)}}})))
+        assert _yoy(dataset, "net_income")["FY2018"] == _yoy(dataset, "net_income")["FY2019"] == ("nm", "absent")
+
+    def test_d3_eps_keeps_its_evidence_and_its_growth_across_a_split(self, db):
+        # A 10-for-1 split before the FY2020 10-K: it restates FY2018 and FY2019 at a tenth.
+        eps = {2017: {2015: 5.0, 2016: 6.0, 2017: 10.0}, 2018: {2016: 6.0, 2017: 10.0, 2018: 12.0},
+               2019: {2017: 10.0, 2018: 12.0, 2019: 13.0}, 2020: {2018: 1.2, 2019: 1.3, 2020: 1.5},
+               2021: {2019: 1.3, 2020: 1.5, 2021: 2.0}}
+        dataset = _build(db, _synced(db, _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items(eps)}}})))
+        evidence = _evidence(dataset)
+        assert (evidence[("earnings_per_share", "FY2018")]["value"], evidence[("earnings_per_share", "FY2019")]["value"]) \
+            == (12.0, 13.0)
+        assert all(isinstance(value, float) and first == "absent"
+                   for period, (value, first) in _yoy(dataset, "earnings_per_share").items() if period != "FY2017")
+
+    def test_d4_a_calculation_stored_without_its_operands_reads_its_inputs_from_the_dataset(self, db):
+        # A margin stored before operands were recorded has none: the revenue the dataset shows for the year stands in.
+        from app.models import FinancialFact
+
+        company = _synced(db, _payload())
+        db.query(FinancialFact).filter_by(company_id=company.id, concept="net_margin").update(
+            {"provenance": None}, synchronize_session=False)
+        db.commit()
+        margin = _yoy(_build(db, company), "net_margin")
+        assert margin["FY2018"] == ("nm", pytest.approx(100 * (2_444.4 / 6_710.8 - 1_198.5 / 5_872.2), abs=1e-6))
+        assert isinstance(margin["FY2021"][0], float)
+
+    def test_the_catalogue_leaves_out_growth_across_a_change_of_basis(self, db):
+        from app.services.trend_analysis.observations import build_observation_catalogue
+
+        catalogue = build_observation_catalogue(_build(db, _synced(db, _payload())))
+        growth = [item for item in catalogue if item.markdown.startswith("Revenue growth in")]
+        assert [(item.markdown.split()[3], item.required) for item in growth] == [("FY2021", True)]
+
+
+def test_d4_each_calculation_is_recomputed_as_ingest_computes_it():
+    from app.services.facts.derive import derive_same_period_metrics
+
+    def fact(concept, value):
+        return {"company_id": 1, "concept": concept, "value": value, "unit": "USD", "period_start": date(2024, 1, 1),
+                "period_end": date(2024, 12, 31), "fiscal_year": 2024, "fiscal_period": "FY", "accession": "a",
+                "raw_tag": "us-gaap:X", "source": "companyfacts", "reconciled": True, "form": "10-K"}
+
+    values = {"revenue": 900.0, "net_income": 81.0, "operating_income": 117.0, "gross_profit": 405.0,
+              "operating_cash_flow": 150.0, "capital_expenditures": -40.0, "current_assets": 330.0,
+              "current_liabilities": 120.0}
+    derived = {item["concept"]: item["value"] for item in derive_same_period_metrics(
+        [fact(concept, value) for concept, value in values.items()])}
+    assert set(_CALCULATED) == set(BASIS_INPUTS) == set(derived)
+    for concept, inputs in BASIS_INPUTS.items():
+        assert _CALCULATED[concept](*(values[name] for name in inputs)) == derived[concept]
