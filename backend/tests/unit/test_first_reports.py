@@ -24,7 +24,7 @@ from app.services.trend_analysis.first_reports import (
 from app.services.trend_analysis.source_documents import FilingDates
 from app.utils.sec_urls import build_sec_archive_url
 from tests.unit.test_companyfacts_own_report_history import (
-    K18, K19, K20, K21, _K, _NET_INCOME, _REVENUE, _history, _item, _items, _payload, _shapes,
+    K18, K19, K20, K21, _K, _NET_INCOME, _REVENUE, _item, _items, _payload, _shapes,
 )
 
 FY2018 = date(2018, 12, 31)
@@ -361,24 +361,81 @@ class TestReads:
         assert "first_reported" not in text and dataset["series"]
 
 
+_K18A, _K18B, _K21A = "0001532176-19-000050", "0001532176-19-000060", "0001804220-22-000099"
+
+
+def _amended(base, amendments):
+    """A payload whose revenue gains these items (value, fiscal year, report year, accession, form, filed)."""
+    revenue = _items(base) + [_item(value, year, report, accn=accn, form=form, filed=filed)
+                              for value, year, report, accn, form, filed in amendments]
+    return _payload(revenue)
+
+
+def _sequences():
+    """Sync sequences, each a list of (filing rows to store first, payload): every WP5b own-report shape synced once,
+    and the shapes several syncs and partial filing rows leave in the database (demoted former winners, an amendment
+    kept non-current, an own report filed again)."""
+    later_k18 = (6_750.0e6, 2018, 2018, _K18A, "10-K/A", "2019-05-01")
+    refiled = (6_700.0e6, 2018, 2018, _K18B, "10-K", "2019-03-15")
+    without_k18 = {**_REVENUE, 2018: {}}
+    return {
+        **{f"once-{name}": [((), payload)] for name, payload in _shapes().items()},
+        "after-each-10-K": [((), _up_to(2018)), ((), _up_to(2019)), ((), _up_to(2020)), ((), _payload())],
+        "a-later-filings-demoted-comparative": [((), _up_to(2019, without_k18)), ((), _payload(_items(without_k18)))],
+        # The review's shape: the FY2021 10-K's filing row stored, a 10-K/A for FY2021 filed later and synced before
+        # its row lands, so the original stays current and the amendment's value is stored non-current.
+        "an-amendment-kept-non-current": [((K21,), _payload()), ((), _amended(_REVENUE, [
+            (16_500.0e6, 2021, 2021, _K21A, "10-K/A", "2022-05-01")]))],
+        # A 10-K/A for FY2018 filed after the original wins FY2018 until the FY2020 10-K: the original, its history,
+        # and the demoted amendment all hold FY2018 cells.
+        "an-amendment-filed-after-the-original": [
+            ((), _amended({year: values for year, values in _REVENUE.items() if year <= 2018}, [later_k18])),
+            ((), _amended(_REVENUE, [later_k18]))],
+        # The FY2018 10-K filed again five weeks later wins FY2018 at the first sync, the original kept as history,
+        # until the FY2020 10-K demotes it: two own reports of FY2018 stored, the earlier filed the year's own.
+        "an-own-report-filed-again-with-filing-rows": [
+            ((K18, K20), _amended({year: values for year, values in _REVENUE.items() if year <= 2018}, [refiled])),
+            ((), _amended(_REVENUE, [refiled]))],
+    }
+
+
 class TestOneOwnReport:
-    """Ingest's own report and the reader's are one rule (CLAUDE.md rule 12): over WP5b's own-report shapes, each
-    turning on one of its rules, the row the dataset reads as a year's own report is the history row the sync
-    stored for it, wherever the two differ past D1's tolerance."""
+    """Ingest's own report and the reader's are one rule (CLAUDE.md rule 12). Over sync sequences that leave several
+    own candidates in one cell, the year's own report the dataset reads is the one ingest's ``_own_report`` picks
+    from the last payload (through the census's within-tag lookup, which calls it): the dataset gives evidence exactly
+    where that report is another filing than the figure shown and differs from it past D1, with its value and
+    accession, and none anywhere else, a year whose own report is the figure shown included."""
 
     @pytest.mark.requires_db
-    @pytest.mark.parametrize("shape", list(_shapes()))
-    def test_the_reader_picks_the_history_row_ingest_stores(self, db, shape):
-        payload = _shapes()[shape]
-        facts, meta = svc.normalize_companyfacts(1, payload)
-        winners = {(fact["concept"], fact["fiscal_year"]): fact["value"] for fact in facts if fact["fiscal_period"] == "FY"}
-        stored = {key: (value, accession) for key, (value, accession) in _history(meta).items()
-                  if differs(winners[key], value)}
-        company = _synced(db, payload)
-        picked = {(concept, int(period[2:])): (first["value"], first["accession"])
-                  for (concept, period), first in _evidence(_build(db, company, "FY2015", "FY2021")).items()}
-        assert picked == stored
-        assert ("total_assets", 2018) in stored and (("revenue", 2018) in stored) is (shape != "another-span")
+    @pytest.mark.parametrize("sequence", list(_sequences()))
+    def test_the_reader_reads_the_own_report_ingest_picks(self, db, sequence):
+        from app.services.facts.concepts import NON_NEGATIVE_CONCEPTS
+        from scripts import restatement_census
+
+        steps = _sequences()[sequence]
+        company = _company(db)
+        for filings, payload in steps:
+            for accession in filings:
+                year = next(year for year, (number, _filed) in _K.items() if number == accession)
+                _filing(db, company, accession, _K[year][1], period_end=date(year, 12, 31))
+            svc._persist_companyfacts_payload(db, company, payload)
+        cells, _info = restatement_census.measure_company("REGN", steps[-1][1], False, 10)
+        ingest = {(cell["concept"], f"FY{cell['fy']}"): cell["within"] for cell in cells}
+        dataset = _build(db, company, "FY2015", "FY2021")
+        expected, picked = {}, {}
+        for series in dataset["series"]:
+            for point in series["points"]:
+                if point.get("value") is None or (point.get("provenance") or {}).get("method") != "reported":
+                    continue
+                place = (series["concept"], point["period"])
+                own = ingest.get(place)
+                if own and not (series["concept"] in NON_NEGATIVE_CONCEPTS and own["value"] < 0) \
+                        and own["accession"] != point["accession"] and differs(point["value"], own["value"]):
+                    expected[place] = (own["value"], own["accession"])
+                if "first_reported" in point:
+                    picked[place] = (point["first_reported"]["value"], point["first_reported"]["accession"])
+        assert picked == expected
+        assert expected
 
     def test_an_annual_filings_own_end_reads_its_annual_rows_and_its_filing_row(self):
         def row(accession, end, *, form="10-K", start=True, period="FY"):
