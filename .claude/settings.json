@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/excluded_dir_output_guard.py\" || exit 1",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/excluded_dir_output_guard.py\" --event PostToolUse || exit 1",
             "timeout": 10
           }
         ]
@@ -78,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/excluded_dir_output_guard.py\" || exit 1",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/excluded_dir_output_guard.py\" --event PostToolUseFailure || exit 1",
             "timeout": 10
           }
         ]

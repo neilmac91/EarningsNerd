@@ -12,55 +12,64 @@ The exclusion is a CODE RED rule only, so the hook is OPT-IN and silent for ever
 anything only when a marker file named ``code-red-excluded-dir-guard`` exists in the git common
 directory of EITHER the repository that contains the event's ``cwd`` OR the one that contains
 ``$CLAUDE_PROJECT_DIR`` (either suffices). A CODE RED session whose ``cwd`` has moved outside any
-repository (into a scratch folder) is therefore still guarded through the project directory, which
-is the clone whose settings registered the hook. The marker lives inside ``.git`` -- never
-committed, per clone, shared by every linked worktree (they share one common directory) -- so other
-clones and other writers' sessions are untouched. The common directory is resolved by reading files
-only, no subprocess: a linked worktree's ``.git`` is a file ``gitdir: <path>`` (absolute, or
-relative to the worktree), and ``<path>/commondir`` names the common directory relative to it. No
-marker anywhere -> exit 0 with no output, whatever the input.
+repository, or into another clone, is therefore still guarded through the project directory, the
+clone whose settings registered the hook. Turn it on with
+``touch "$(git rev-parse --git-common-dir)/code-red-excluded-dir-guard"``: the common directory is
+the main checkout's ``.git`` for every linked worktree (a worktree's own gitdir,
+``.git/worktrees/<name>``, is the wrong place and leaves the guard off). The marker is never
+committed, and other clones and other writers' sessions are untouched. The common directory is
+resolved by reading files only, no subprocess: a linked worktree's ``.git`` is a file
+``gitdir: <path>`` (absolute, or relative to the worktree), and ``<path>/commondir`` names the
+common directory relative to it. No marker anywhere -> exit 0 with no output, whatever the input.
 
 The two names are never written whole in this source or its test: each is built at run time from
 the fragments below, so reading the hook shows no name and no form the hook flags. One directory's
 last path component sits under a dated parent (``<word>-<date>/<component>``); the other is a
 two-word name (``<word>-<word>``). Before matching, every scanned string is normalised: case-fold,
-``\\/`` -> ``/``, ``%2f`` (any case) -> ``/``, and a whole-date token (one short mask run, or one
-bracketed token) that stands where the date would stand is rewritten to the plain date, so every
-cut rule below applies to token masks too. A string is flagged when it then contains either name
-whole; the dated name with its date per-digit masked (the structure kept); or a cut of either name
-at least eight characters long that spans a junction (the word/date, date/component or word/word
-boundary) and whose two ends are each clean. An end is clean when it is the name's own end, the
-text's edge, a non-path-character border (path characters: letters, digits, ``.`` ``_`` ``-`` ``/``;
-an ASCII or Unicode ellipsis is not one, so a truncation marker counts as a border), or -- for the
-left end -- a ``/`` where the cut begins at one of the name's own path-segment starts, so the name
-under a different parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` and ``../`` paths)
-is caught while a mid-segment look-alike is not. A listing that prints the dated parent directory's
-name alone is flagged by design: a cut of the longer name cannot be told from it. The scan is
-linear in the text's length (fixed-substring search to candidate junctions, a bounded walk around
-each; the regular expressions have no unbounded repetition and use only bounded slices).
+``\\/`` and ``%2f`` (any case) -> ``/``, and a whole-date token (one short mask run, or one bracketed
+token) that stands where the date would stand is rewritten to the plain date, so every cut rule
+below applies to token masks too. Each rewrite is tracked, so positions map back to the original
+text. A string is flagged when it then contains either name whole; the dated name with its date
+per-digit masked (the structure kept); or a cut of either name that spans a junction (the
+word/date, date/component or word/word boundary), is at least eight characters long in the ORIGINAL
+text (a rewritten token counts as its own characters, an escape as written), and whose two ends are
+each clean. An end is clean when it is the name's own end, the text's edge, a non-path-character
+border (path characters: letters, digits, ``.`` ``_`` ``-`` ``/``; an ASCII or Unicode ellipsis is
+not one, so a truncation marker counts as a border -- next to the date's tolerant digits too, where
+a dot of an ASCII ``...`` run is never taken for a masked digit), or -- for the left end -- a ``/``
+where the cut begins at one of the name's own path-segment starts, so the name under a different
+parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` and ``../`` paths) is caught while a
+mid-segment look-alike is not. A listing that prints the dated parent directory's name alone is
+flagged by design: a cut of the longer name cannot be told from it. The scan is linear in the
+text's length (fixed-substring search to candidate junctions, a bounded walk around each; the
+regular expressions have no unbounded repetition and use only bounded slices).
 
 What is scanned: for PostToolUse, every string inside ``tool_response`` -- recursively through
 objects (keys and values) and arrays, a top-level string too; for PostToolUseFailure, ``error`` and
-any ``tool_response``. Never ``tool_input``: the CODE RED git commands carry the two names as
-exclusion pathspecs, so scanning inputs would flag every such command.
+any ``tool_response``; for an unknown event, both. Never ``tool_input``: the CODE RED git commands
+carry the two names as exclusion pathspecs, so scanning inputs would flag every such command.
 
-Output channel. The registered command (``python3 -I -S ... || exit 1``, the form the other hooks
-use) maps Python's own exit 2 to shell exit 1, so an exit-2-to-stderr warning would not reach
-Claude. Instead, on a flag the hook writes -- on exit 0 -- a JSON object with ``systemMessage``
-(shown to the user) and, when the firing event is known, ``hookSpecificOutput.additionalContext``
-(a system reminder, saved in the transcript, documented for both PostToolUse and
-PostToolUseFailure) carrying that event's name. When the event is NOT known (an input the parser
-rejected), it emits ``systemMessage`` alone, with no ``hookSpecificOutput``: Claude Code validates
-``hookSpecificOutput.hookEventName`` against the firing event and rejects a mismatch ("Hook returned
-incorrect event name"), so a guessed name would be dropped, while ``systemMessage`` is a universal
-field accepted on either event. Doc (code.claude.com/docs/en/hooks): the exit-code table --
-"PostToolUse ... Shows stderr to Claude; the tool already ran" and "PostToolUseFailure ... Shows
-stderr to Claude; the tool already failed" -- and the JSON output fields, where ``additionalContext``
-is listed for PostToolUse and PostToolUseFailure and ``systemMessage`` is universal. It never emits
-exit 2, a traceback, or the matched text. The hook fails safe: opted in, any input the parser
-rejects (invalid JSON, or one so deeply nested or large that json raises RecursionError or
-MemoryError) yields a different fixed message saying the result could not be checked; not opted in,
-it stays silent.
+Output channel. The registration passes the event as an argument, one entry per event
+(``--event PostToolUse`` / ``--event PostToolUseFailure``, the form secret_scan_guard.py uses with
+``--session-start``), so the hook knows its event even when the input cannot be read. It takes a
+valid argv event first, else the parsed input's ``hook_event_name``. The registered command
+(``python3 -I -S ... || exit 1``, the form the other hooks use) maps Python's own exit 2 to shell
+exit 1, so an exit-2-to-stderr warning would not reach Claude. Instead the hook writes, on exit 0,
+a JSON object with ``systemMessage`` (shown to the user) and, with a known event,
+``hookSpecificOutput.additionalContext`` (a system reminder for Claude, saved in the transcript,
+documented for both events) carrying that event's name. Only when the event is unknown (invoked
+without ``--event`` and with no readable ``hook_event_name``) does it emit ``systemMessage`` alone:
+Claude Code validates ``hookSpecificOutput.hookEventName`` against the firing event and rejects a
+mismatch ("Hook returned incorrect event name"), so a guessed name would be dropped, while
+``systemMessage`` is a universal field accepted on either event. Doc (code.claude.com/docs/en/hooks):
+the exit-code table -- "PostToolUse ... Shows stderr to Claude; the tool already ran" and
+"PostToolUseFailure ... Shows stderr to Claude; the tool already failed" -- and the JSON output
+fields, where ``additionalContext`` is listed for PostToolUse and PostToolUseFailure and
+``systemMessage`` is universal. It never emits exit 2, a traceback, or the matched text. The hook
+fails safe: opted in, any input the parser rejects (invalid JSON, or one so deeply nested or large
+that json raises RecursionError or MemoryError) yields a different fixed message saying the result
+could not be checked, on the same channels (so Claude sees it with a registered event); not opted
+in, it stays silent.
 
 Limits. Fail-open modes (it stays silent): not opted in; a session that loads no repository hooks
 (a multi-repo cloud session, an untrusted folder, ``disableAllHooks``); and a run where Claude Code
@@ -75,10 +84,13 @@ Tests: backend/tests/unit/test_excluded_dir_output_guard.py.
 """
 from __future__ import annotations
 
+import bisect
 import json
 import os
 import re
 import sys
+
+EVENTS = ("PostToolUse", "PostToolUseFailure")
 
 # Fragments of the two names, joined only at run time; see the module docstring. Kept apart so this
 # source holds no joined name and no form the hook flags.
@@ -125,11 +137,14 @@ MAX_META_BYTES = 4096  # a .git pointer file and a commondir file are tiny; neve
 _TOKEN = r"[#*?xn]{1,10}|<[^>\n]{0,14}>|\[[^\]\n]{0,14}\]|\{[^}\n]{0,14}\}"
 # A whole-date token standing where the date stands: the word/date dash (its char on the left is the
 # word's last letter, never a date-content char, so a per-digit mask's own dashes do not match),
-# then one complete token, then the component slash, the text end, or a non-path non-mask character
-# (never '-' or another mask char, which would be a per-digit mask the walk already handles).
-# Rewritten to the plain date so the walk's cut rules (length, junctions, clean borders) apply to a
-# token mask as to a per-digit one. Built from fragments, so this source holds no joined form.
-_DATE_TOKEN_RE = re.compile(r"(?<![-0-9#*?xn])-(?:" + _TOKEN + r")(?=/|$|[^0-9a-z._/#*?-])")
+# then one complete token, then the component slash, the text end, an ASCII '...' run, or a non-path
+# non-mask character (never '-' or another mask char, which would be a per-digit mask the walk
+# already handles). Rewritten to the plain date so the walk's cut rules apply to a token mask as to
+# a per-digit one; the rewrite is tracked, so the eight-character minimum is measured on the
+# original text. Built from fragments, so this source holds no joined form.
+_DATE_TOKEN_RE = re.compile(r"(?<![-0-9#*?xn])-(?:" + _TOKEN + r")(?=/|$|\.\.\.|[^0-9a-z._/#*?-])")
+_ESCAPED_SLASH_RE = re.compile(r"\\/|%2f")  # after case-folding, %2F is %2f
+_NON_ASCII_RE = re.compile(r"[^\x00-\x7f]")
 
 FLAGGED = (
     "Excluded-directory guard: this tool result contains a form of a directory name that CODE RED "
@@ -148,17 +163,72 @@ def _is_path_char(ch: str) -> bool:
     return ch.isalnum() or ch in "._-/"
 
 
-def _normalize(text: str) -> str:
-    """Case-fold, undo the two escapings of a path slash the chief's masking can leave, then rewrite
-    a whole-date token in date position to the plain date."""
-    text = text.casefold()
-    if "\\/" in text:
-        text = text.replace("\\/", "/")
-    if "%2f" in text:  # already case-folded, so %2F is covered
-        text = text.replace("%2f", "/")
+def _tracked_sub(text: str, regex, replacement) -> tuple[str, list]:
+    """Replace each match of `regex` in `text` with `replacement(match)`. Returns the new text and the
+    rewrites as (new_start, new_len, old_start, old_len) in order, so a position maps back."""
+    pieces, records, last, shift = [], [], 0, 0
+    for match in regex.finditer(text):
+        new = replacement(match)
+        start, end = match.span()
+        pieces.append(text[last:start])
+        pieces.append(new)
+        records.append((start + shift, len(new), start, end - start))
+        shift += len(new) - (end - start)
+        last = end
+    if not records:
+        return text, records
+    pieces.append(text[last:])
+    return "".join(pieces), records
+
+
+def _fold(text: str) -> tuple[str, list]:
+    """Case-fold `text`. Returns it and, when folding changed its length (a few non-ASCII
+    characters fold to several), the per-character rewrites."""
+    if text.isascii():
+        return text.lower(), []
+    folded = text.casefold()
+    if len(folded) == len(text):  # every character folded to exactly one
+        return folded, []
+    records, shift = [], 0
+    for match in _NON_ASCII_RE.finditer(text):
+        new_len = len(match.group().casefold())
+        if new_len != 1:
+            start = match.start()
+            records.append((start + shift, new_len, start, 1))
+            shift += new_len - 1
+    return folded, records
+
+
+def _normalize(text: str) -> tuple[str, list]:
+    """The text the walk reads, and the rewrites (each step's, in order) that map its positions back
+    to the original: case-fold; undo the \\/ and %2f escapes of a slash; rewrite a whole-date token in
+    date position to the plain date."""
+    maps = []
+    text, records = _fold(text)
+    if records:
+        maps.append(([r[0] for r in records], records))
+    if "\\/" in text or "%2f" in text:
+        text, records = _tracked_sub(text, _ESCAPED_SLASH_RE, lambda match: "/")
+        if records:
+            maps.append(([r[0] for r in records], records))
     if "-" in text:
-        text = _DATE_TOKEN_RE.sub("-" + _DATE, text)
-    return text
+        text, records = _tracked_sub(text, _DATE_TOKEN_RE, lambda match: "-" + _DATE)
+        if records:
+            maps.append(([r[0] for r in records], records))
+    return text, maps
+
+
+def _map_back(position: int, maps: list) -> int:
+    """The original-text position of a position in the normalized text, through each rewrite step."""
+    for starts, records in reversed(maps):
+        i = bisect.bisect_right(starts, position) - 1
+        if i >= 0:
+            new_start, new_len, old_start, old_len = records[i]
+            if position < new_start + new_len:
+                position = old_start + min(position - new_start, old_len)
+            else:
+                position = old_start + old_len + (position - new_start - new_len)
+    return position
 
 
 def _cm1(ci: int, ch: str) -> bool:
@@ -184,6 +254,12 @@ _N1_JUNCTIONS = (
 _N2_JUNCTIONS = ((_C2[_J3_START:_J3_START + 3], _J3_START, 0),)
 
 
+def _in_ellipsis(text: str, i: int) -> bool:
+    """The '.' at index `i` belongs to an ASCII run of three or more dots (a truncation marker)."""
+    return (text[i:i + 3] == "..." or (i >= 1 and text[i - 1:i + 2] == "...")
+            or (i >= 2 and text[i - 2:i + 1] == "..."))
+
+
 def _border_before(text: str, i: int) -> bool:
     """A clean border ends just before index `i`: the text's start, a non-path character, or an
     ASCII '...' run (the truncation marker error strings carry)."""
@@ -194,13 +270,20 @@ def _border_after(text: str, j: int) -> bool:
     return j == len(text) or not _is_path_char(text[j]) or text[j:j + 3] == "..."
 
 
-def _walk(text: str, canon: str, cm, junctions, seg_starts) -> bool:
-    """Whether `text` holds a cut of `canon` (`cm` its per-offset match) spanning one of `junctions`,
-    at least eight characters long, with both ends clean. The right end is clean at the name's own
-    end, the text edge, a non-path border, or an ASCII ellipsis. The left end is clean there too, or
-    at a '/' where the cut begins at one of the name's path-segment starts. Plain and per-digit-masked
-    whole names are the longest such cuts, so this covers them too."""
+def _walk(text: str, maps: list, canon: str, cm, junctions, seg_starts, tolerant) -> bool:
+    """Whether `text` holds a cut of `canon` (`cm` its per-offset match, `tolerant` the offsets that
+    accept any masked character) spanning one of `junctions`, at least eight characters long in the
+    original text, with both ends clean. A tolerant offset never takes a dot of an ASCII '...' run,
+    so the run stays a border. The right end is clean at the name's own end, the text edge, a
+    non-path border, or an ASCII ellipsis. The left end is clean there too, or at a '/' where the cut
+    begins at one of the name's path-segment starts. Plain and per-digit-masked whole names are the
+    longest such cuts, so this covers them too."""
     n, m = len(text), len(canon)
+
+    def matches(ci: int, ti: int) -> bool:
+        ch = text[ti]
+        return cm(ci, ch) and not (ch == "." and ci in tolerant and _in_ellipsis(text, ti))
+
     for find_sub, c0, delta in junctions:
         start = 0
         while True:
@@ -211,26 +294,27 @@ def _walk(text: str, canon: str, cm, junctions, seg_starts) -> bool:
             t0 = hit + delta
             if t0 < 0 or t0 + 3 > n:
                 continue
-            if not (cm(c0, text[t0]) and cm(c0 + 1, text[t0 + 1]) and cm(c0 + 2, text[t0 + 2])):
+            if not (matches(c0, t0) and matches(c0 + 1, t0 + 1) and matches(c0 + 2, t0 + 2)):
                 continue
             ci, ti = c0 - 1, t0 - 1
-            while ci >= 0 and ti >= 0 and cm(ci, text[ti]):
+            while ci >= 0 and ti >= 0 and matches(ci, ti):
                 ci -= 1
                 ti -= 1
             left_c, left_t = ci + 1, ti + 1
             ci, ti = c0 + 3, t0 + 3
-            while ci < m and ti < n and cm(ci, text[ti]):
+            while ci < m and ti < n and matches(ci, ti):
                 ci += 1
                 ti += 1
             right_c, right_t = ci, ti
             if not (right_c == m or _border_after(text, right_t)):
                 continue
+            right_orig = _map_back(right_t, maps) if maps else right_t
             # Try the greedy left end and each segment start between it and the junction: a cut that
             # begins at a segment start preceded by '/' is the name under another parent.
             candidates = [(left_t, left_c)]
             candidates += [(left_t + (s - left_c), s) for s in seg_starts if left_c < s <= c0]
             for lt, lc in candidates:
-                if right_t - lt < 8:
+                if right_orig - (_map_back(lt, maps) if maps else lt) < 8:
                     continue
                 if lc == 0 or _border_before(text, lt) or (lc in seg_starts and lt > 0 and text[lt - 1] == "/"):
                     return True
@@ -241,12 +325,10 @@ def flagged(text: str) -> bool:
     """Whether a scanned string carries a form of either name."""
     if not isinstance(text, str) or not text:
         return False
-    norm = _normalize(text)
-    if _walk(norm, _C1, _cm1, _N1_JUNCTIONS, _N1_SEG_STARTS):
+    norm, maps = _normalize(text)
+    if _walk(norm, maps, _C1, _cm1, _N1_JUNCTIONS, _N1_SEG_STARTS, _N1_DIGIT_POS):
         return True
-    if _walk(norm, _C2, _cm2, _N2_JUNCTIONS, _N2_SEG_STARTS):
-        return True
-    return False
+    return _walk(norm, maps, _C2, _cm2, _N2_JUNCTIONS, _N2_SEG_STARTS, frozenset())
 
 
 def _iter_strings(roots):
@@ -328,12 +410,23 @@ def _opted_in(cwd) -> bool:
     return False
 
 
+def _argv_event(argv: list) -> str | None:
+    """The event the registration names (``--event <name>`` or ``--event=<name>``), when valid."""
+    for i, arg in enumerate(argv):
+        value = argv[i + 1] if arg == "--event" and i + 1 < len(argv) else None
+        if arg.startswith("--event="):
+            value = arg[len("--event="):]
+        if value in EVENTS:
+            return value
+    return None
+
+
 def _emit(message: str, event) -> int:
     """Write the fixed message on exit 0. systemMessage reaches the user on either event; when the
     firing event is known, additionalContext (with its name) reaches Claude. An unknown event gets
     systemMessage alone, so Claude Code does not reject a guessed hookEventName."""
     payload = {"systemMessage": message}
-    if event in ("PostToolUse", "PostToolUseFailure"):
+    if event in EVENTS:
         payload["hookSpecificOutput"] = {"hookEventName": event, "additionalContext": message}
     try:
         sys.stdout.write(json.dumps(payload))
@@ -343,6 +436,7 @@ def _emit(message: str, event) -> int:
 
 
 def main() -> int:
+    event = _argv_event(sys.argv[1:])  # the registration's event, known even when stdin is not
     try:
         raw = sys.stdin.read()
     except Exception:  # any read failure -> treat as unreadable
@@ -356,9 +450,8 @@ def main() -> int:
     cwd = data.get("cwd") if data is not None else None
     if not _opted_in(cwd):  # not opted in: silent, whatever the input
         return 0
-    event = data.get("hook_event_name") if data is not None else None
-    if event not in ("PostToolUse", "PostToolUseFailure"):
-        event = None  # unknown: _emit will send systemMessage alone
+    if event is None and data is not None and data.get("hook_event_name") in EVENTS:
+        event = data.get("hook_event_name")
     try:
         if data is None:  # opted in but the input was not a readable JSON object
             return _emit(UNCHECKED, event)
