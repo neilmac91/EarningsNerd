@@ -77,6 +77,7 @@ def test_change_password_with_correct_current(client):
         )
         assert resp.status_code == 200
         new_hash = _reload_hash(uid)
+        assert new_hash.startswith("$argon2id$")  # a changed password is Argon2id (E97)
         assert verify_password("BrandNewPassw0rd!", new_hash)
         assert not verify_password("OldStr0ngPassw0rd!", new_hash)
 
@@ -102,6 +103,7 @@ def test_oauth_only_user_can_set_password_without_current(client):
             json={"new_password": "FirstPassw0rd123!"},
         )
         assert resp.status_code == 200
+        assert _reload_hash(uid).startswith("$argon2id$")
         assert verify_password("FirstPassw0rd123!", _reload_hash(uid))
 
 

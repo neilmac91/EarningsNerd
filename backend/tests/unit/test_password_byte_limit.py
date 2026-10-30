@@ -1,32 +1,38 @@
-"""Gate: no policy-valid password reaches bcrypt over its 72-byte limit (CLAUDE.md rule 12).
+"""Gate: a new password hash keys on every byte, and every stored bcrypt hash keeps verifying (CLAUDE.md rule 12).
 
-The policy (``validate_password_strength``) caps a password at 128 CHARACTERS, up to 512 UTF-8
-bytes; bcrypt reads only the first 72 BYTES. bcrypt 4 dropped the rest silently, but bcrypt 5
-(pinned in requirements.txt) raises ``ValueError`` instead, and nothing above the hash catches it:
-register, reset-password and change-password answered 500 for a long passphrase or for about 37
-non-ASCII characters, and login refused such a password even against the hash bcrypt 4 had made.
+The policy (``validate_password_strength``) caps a password at 128 CHARACTERS, up to 512 UTF-8 bytes; bcrypt
+reads only the first 72 BYTES. bcrypt 4 dropped the rest silently, and bcrypt 5 (pinned in requirements.txt)
+raises ``ValueError`` instead, which once made register, reset-password and change-password answer 500 for a
+long passphrase. Since E97's Argon2id slice a new or changed password is hashed with Argon2id over the whole
+password (``get_password_hash``), so a password's tail past byte 72 counts. ``verify_password`` dispatches on
+the stored hash's marker: an Argon2id hash is checked over every byte, a bcrypt hash made before then still on
+its first 72 (``_bcrypt_input``, exactly what bcrypt 4 hashed), and any other value fails closed before a
+library sees it. No login rewrites a hash, so a bcrypt hash changes only when its owner sets a new password.
 
-``password_utils`` now hands bcrypt the first 72 bytes of the UTF-8 encoding in both
-``get_password_hash`` and ``verify_password``, exactly what bcrypt 4 hashed, so every stored hash
-keeps verifying and there is no new hash format. Bytes past 72 do not contribute to the hash.
+Breach screening (``pwned_passwords``) looks up the whole password once, since that is what a new hash keys on;
+while new hashes were bcrypt it screened their 72-byte prefix too, and the section below holds that such a
+prefix now opens nothing. Every hash and check runs on the one password thread (``in_password_thread``), which
+bounds the 32 MiB an Argon2 call holds to one call at a time per instance.
 
-The behaviour tests reach bcrypt only through those two functions, so a structural check holds the
-other paths: in every tracked backend Python file outside ``tests/``, bcrypt and passlib are
-imported only by ``app/services/password_utils.py``, and every use of ``bcrypt`` there is
-``bcrypt.gensalt`` or a ``bcrypt.hashpw``/``bcrypt.checkpw`` call whose first argument is
-``_bcrypt_input(...)``. ``BCRYPT_REACH_FORMS`` scores that walk on each way it can be broken and
-each look-alike that must pass. Out of its reach, each planted as a gap: a module named at run time
+Two structural checks hold the paths the behaviour tests cannot reach. In every tracked backend Python file
+outside ``tests/``: bcrypt, passlib and argon2 are imported only by ``app/services/password_utils.py``; every
+use of ``bcrypt`` there is a ``bcrypt.checkpw`` call whose first argument is ``_bcrypt_input(...)``, so no new
+hash is bcrypt (``hashpw`` and ``gensalt`` are bypasses); and every reference to ``get_password_hash`` or
+``verify_password`` outside that module is its import or the first argument of an ``in_password_thread(...)``
+call. ``HASH_REACH_FORMS`` and ``THREAD_FORMS`` score each walk on each way it can be broken and each
+look-alike that must pass. Out of their reach, each planted as a gap: a module named at run time
 (``import_module(name)``, ``getattr(module, "bcrypt")``, ``sys.modules``), and passlib inside
-``password_utils``, whose verify fallback hands passlib's bcrypt handler the whole password (dead
-under bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
+``password_utils``, whose legacy-check fallback hands passlib's bcrypt handler the whole password (dead under
+bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
 
 A password that is not valid text (a lone surrogate) is refused before either (E97): it encodes to no UTF-8, so the
 breach check and bcrypt raised on it, and FastAPI's own 422, which quoted every refused value (the whole body for a
 missing field), could not render it and answered 500 with a traceback that quoted the password. The section on it
 holds each password route at a 422 of type, loc and msg only (``auth_validation.public_validation_errors``, which
-``main.py`` answers ``RequestValidationError`` with), login and the current-password check at their usual refusal,
-and the 500's two channels (the log line, the Sentry event's exception chain) free of a refused password. An
-unencodable reset or verification token is refused as unknown, where its hash raised the same 500.
+``main.py`` answers ``RequestValidationError`` with), login and the current-password check at their usual refusal
+against either scheme's hash, and the 500's two channels (the log line, the Sentry event's exception chain) free of
+a refused password. An unencodable reset or verification token is refused as unknown, where its hash raised the same
+500.
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. SQLite hands
 ``DateTime(timezone=True)`` columns back naive while PostgreSQL hands them back aware; the
@@ -34,10 +40,13 @@ Real endpoints against the app's SQLite database, like the rest of the auth suit
 """
 import ast
 import asyncio
+import contextvars
 import hashlib
 import json
 import logging
 import subprocess
+import threading
+import time
 import uuid
 from datetime import timezone
 from pathlib import Path
@@ -46,6 +55,7 @@ from unittest.mock import AsyncMock
 
 import bcrypt
 import pytest
+from argon2 import PasswordHasher, Type, extract_parameters
 import sentry_sdk
 from tests.support.account_agreement import ACCOUNT_AGREEMENT
 
@@ -88,7 +98,8 @@ def _fresh(client, monkeypatch):
     reset_rate_limiters()
     client.cookies.clear()
     monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
-    monkeypatch.setattr(password_utils, "BCRYPT_ROUNDS", 4)  # cost is irrelevant to the byte limit
+    # Argon2id at its lowest costs: they are irrelevant to what a hash keys on (the costs test restores the pinned ones).
+    monkeypatch.setattr(password_utils, "_ARGON2", PasswordHasher(time_cost=1, memory_cost=8, parallelism=1))
     monkeypatch.setattr("app.services.email_service.send_verification_email", AsyncMock())
     yield
     client.cookies.clear()
@@ -125,31 +136,54 @@ def _login(client: TestClient, email: str, password: str):
     return resp
 
 
+_REAL_ARGON2 = password_utils._ARGON2  # the pinned costs, read before the fixture swaps in cheap ones
+
+
 def _bcrypt4_hash(password: str) -> str:
     """What bcrypt 4 stored for ``password``: the hash of its first 72 bytes."""
     return bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt(rounds=4)).decode("utf-8")
 
 
+def _first_72_bytes(password: str) -> str:
+    """The whole characters of ``password``'s first 72 bytes: what a bcrypt hash of it keys on, near enough."""
+    return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+
+
 # ── the hash and verify functions ────────────────────────────────────────────
 
-@pytest.mark.parametrize(
+POLICY_VALID = pytest.mark.parametrize(
     "password",
     [ASCII_87, CYRILLIC_42, ASCII_72, STRADDLE, FOUR_BYTE_MAX],
     ids=["ascii87", "cyrillic84b", "ascii72-boundary", "straddles-byte-72", "max-4-byte-chars"],
 )
+
+
+@POLICY_VALID
 def test_every_policy_valid_password_hashes_and_verifies(password):
     assert validate_password_strength(password) == password
     hashed = get_password_hash(password)
+    assert hashed.startswith("$argon2id$")  # a new hash is Argon2id, never bcrypt
     assert verify_password(password, hashed)
-    # The stored hash is bcrypt 4's hash of the same password: its first 72 bytes, no new format.
-    assert bcrypt.checkpw(password.encode("utf-8")[:72], hashed.encode("utf-8"))
+    assert get_password_hash(password) != hashed  # each hash has its own salt
 
 
-def test_bytes_past_72_do_not_contribute_and_every_byte_before_does():
-    hashed = get_password_hash(ASCII_87)
+@POLICY_VALID
+def test_every_byte_of_a_new_hash_counts(password):
+    """Two passwords that share their first 72 bytes and differ later do not open each other's hash, with a
+    multibyte character at the boundary or anywhere else (E97); under bcrypt they did."""
+    hashed = get_password_hash(password)
+    assert not verify_password(password[:-1] + ("b" if password[-1] != "b" else "c"), hashed)  # the last character
+    assert not verify_password(password + "x", hashed)  # a byte past the whole password
+    if len(password.encode("utf-8")) > 72:
+        assert not verify_password(_first_72_bytes(password), hashed)
+        assert not verify_password(_first_72_bytes(password) + " a different tail", hashed)
+
+
+def test_a_legacy_bcrypt_hash_keys_on_its_first_72_bytes_as_it_always_did():
+    hashed = _bcrypt4_hash(ASCII_87)
     assert verify_password(ASCII_87[:72] + " a different tail", hashed)  # bcrypt's documented limit
     assert not verify_password(ASCII_87[:71] + "#" + ASCII_87[72:], hashed)  # byte 72 still counts
-    straddle_hash = get_password_hash(STRADDLE)
+    straddle_hash = _bcrypt4_hash(STRADDLE)
     # "ж" starts with a different lead byte than "é", so the half character at byte 72 still counts.
     assert not verify_password("x" * 71 + "ж" + "tail", straddle_hash)
 
@@ -159,35 +193,124 @@ def test_a_hash_bcrypt4_made_from_a_long_password_still_verifies(password):
     assert verify_password(password, _bcrypt4_hash(password))
 
 
+@pytest.mark.parametrize("marker", ["$2a$", "$2b$", "$2x$", "$2y$"])
+def test_a_legacy_bcrypt_hash_verifies_under_each_marker_and_refuses_a_wrong_password(marker):
+    hashed = marker + _bcrypt4_hash(SHORT)[len("$2b$"):]  # as other bcrypt libraries write the same hash
+    assert verify_password(SHORT, hashed)
+    assert not verify_password("#" + SHORT[1:], hashed)
+
+
+def test_a_new_hash_refuses_a_wrong_password():
+    assert not verify_password("#" + SHORT[1:], get_password_hash(SHORT))
+    assert not verify_password("", get_password_hash(SHORT))
+
+
+# Neither marker: refused before either library is called.
+UNKNOWN_HASHES = {
+    "empty": "", "none": None, "plaintext": SHORT, "md5-crypt": "$1$saltsalt$qGQ6i1pZJ3p5yH0qC5b8a/",
+    "argon2i": lambda: get_password_hash(SHORT).replace("$argon2id$", "$argon2i$", 1),
+    "argon2d": lambda: get_password_hash(SHORT).replace("$argon2id$", "$argon2d$", 1),
+}
+# A marker, then a body its library refuses.
+MALFORMED_HASHES = {
+    "argon2id-marker-only": "$argon2id$", "argon2id-bad-params": "$argon2id$v=19$m=x,t=1,p=1$c2FsdA$aGFzaA",
+    "argon2id-truncated": lambda: get_password_hash(SHORT)[:-6], "bcrypt-garbage": "$2b$12$garbage",
+    "bcrypt-unknown-variant": lambda: "$2c$" + _bcrypt4_hash(SHORT)[len("$2b$"):],
+}
+
+
+@pytest.mark.parametrize("stored", list(UNKNOWN_HASHES.values()), ids=list(UNKNOWN_HASHES))
+def test_an_unknown_hash_fails_closed_before_any_library(monkeypatch, stored):
+    stored = stored() if callable(stored) else stored
+
+    def reached(*_args, **_kwargs):
+        raise AssertionError("an unknown hash reached a hashing library")
+
+    monkeypatch.setattr(password_utils.bcrypt, "checkpw", reached)
+    monkeypatch.setattr(password_utils, "_ARGON2", SimpleNamespace(verify=reached))
+    assert verify_password(SHORT, stored) is False
+
+
+@pytest.mark.parametrize("stored", list(MALFORMED_HASHES.values()), ids=list(MALFORMED_HASHES))
+def test_a_malformed_hash_fails_closed(stored):
+    assert verify_password(SHORT, stored() if callable(stored) else stored) is False
+
+
+def test_new_hashes_and_the_dummy_record_the_pinned_costs(monkeypatch):
+    """An unknown email's check costs a new account's: the dummy is Argon2id at the same pinned costs. The costs
+    are the measured ones (E97, the PR's benchmark): moving one needs a new measurement against bcrypt-12."""
+    monkeypatch.setattr(password_utils, "_ARGON2", _REAL_ARGON2)
+    pinned = (Type.ID, password_utils.ARGON2_TIME_COST, password_utils.ARGON2_MEMORY_COST_KIB,
+              password_utils.ARGON2_PARALLELISM, 32, 16)
+    assert pinned[1:4] == (10, 32 * 1024, 1)
+    for hashed in (get_password_hash(SHORT), password_utils._DUMMY_PASSWORD_HASH):
+        cost = extract_parameters(hashed)
+        assert (cost.type, cost.time_cost, cost.memory_cost, cost.parallelism, cost.hash_len, cost.salt_len) == pinned
+
+
+def test_password_work_runs_on_its_own_thread_one_call_at_a_time():
+    """Every hash and check waits for the one password thread (E97): never the event loop or its default executor,
+    never two at once, so one Argon2 call's 32 MiB is the most in flight per instance. The caller's context goes
+    with the call, as ``asyncio.to_thread`` carries it."""
+    request = contextvars.ContextVar("request", default=None)
+    lock, in_flight, peaks, seen = threading.Lock(), [0], [], []
+
+    def work(n: int) -> int:
+        with lock:
+            in_flight[0] += 1
+            peaks.append(in_flight[0])
+        seen.append((threading.get_ident(), threading.current_thread().name, request.get()))
+        time.sleep(0.02)
+        with lock:
+            in_flight[0] -= 1
+        return n
+
+    async def burst() -> tuple[list[int], int]:
+        request.set("req-1")
+        done = await asyncio.gather(*(password_utils.in_password_thread(work, n) for n in range(6)))
+        return done, threading.get_ident()
+
+    done, loop_thread = asyncio.run(burst())
+    assert done == list(range(6))
+    assert max(peaks) == 1
+    assert loop_thread not in {ident for ident, _, _ in seen}
+    assert {name for _, name, _ in seen} == {"password_hash_0"}
+    assert {value for _, _, value in seen} == {"req-1"}
+
+
 # ── the endpoints ────────────────────────────────────────────────────────────
 
 @pytest.mark.requires_db
 @LONG_PASSWORDS
-def test_register_accepts_a_long_password_and_login_takes_it(client, password):
+def test_register_accepts_a_long_password_and_login_takes_it_whole(client, password):
     email = _email()
     resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": password})
     assert resp.status_code == 200, resp.text
+    assert _stored_hash(email).startswith("$argon2id$")
     assert _login(client, email, password).status_code == 200
+    assert _login(client, email, _first_72_bytes(password)).status_code == 401  # the tail counts
 
 
 @pytest.mark.requires_db
 @LONG_PASSWORDS
-def test_reset_password_accepts_a_long_password_and_login_takes_it(client, password):
+def test_reset_password_accepts_a_long_password_and_login_takes_it_whole(client, password):
     email = _email()
-    _create_user(email, get_password_hash(SHORT))
+    _create_user(email, _bcrypt4_hash(SHORT))
     with SessionLocal() as db:
         token = auth_account_service.issue_password_reset_token(
             db, db.query(User).filter(User.email == email).one()
         )
     resp = client.post("/api/auth/reset-password", json={"token": token, "new_password": password})
     assert resp.status_code == 200, resp.text
+    assert _stored_hash(email).startswith("$argon2id$")  # a reset from a legacy hash stores the new format
     assert _login(client, email, password).status_code == 200
+    assert _login(client, email, _first_72_bytes(password)).status_code == 401
     assert _login(client, email, SHORT).status_code == 401
 
 
 @pytest.mark.requires_db
 @LONG_PASSWORDS
-def test_change_password_accepts_a_long_password_and_login_takes_it(client, password):
+def test_change_password_accepts_a_long_password_and_login_takes_it_whole(client, password):
     email = _email()
     _create_user(email, get_password_hash(SHORT))
     signed_in = _login(client, email, SHORT)
@@ -198,8 +321,10 @@ def test_change_password_accepts_a_long_password_and_login_takes_it(client, pass
         json={"current_password": SHORT, "new_password": password},
     )
     assert resp.status_code == 200, resp.text
+    assert _stored_hash(email).startswith("$argon2id$")
     client.cookies.clear()
     assert _login(client, email, password).status_code == 200
+    assert _login(client, email, _first_72_bytes(password)).status_code == 401
     assert _login(client, email, SHORT).status_code == 401
 
 
@@ -231,11 +356,26 @@ def test_change_password_takes_a_long_current_password_against_its_bcrypt4_hash(
         json={"current_password": password, "new_password": SHORT},
     )
     assert resp.status_code == 200, resp.text
+    assert _stored_hash(email).startswith("$argon2id$")  # the changed password is the new format
     client.cookies.clear()
     assert _login(client, email, SHORT).status_code == 200
 
 
-# ── breach screening sees what bcrypt keys on ───────────────────────────────
+@pytest.mark.requires_db
+@pytest.mark.parametrize("scheme", ["argon2id", "bcrypt"])
+def test_a_login_rewrites_no_hash(client, scheme):
+    """Neither a refused nor a successful login writes the stored hash: no upgrade on a legacy login (E97), so no
+    new write races a password change's check that the hash is still the one it verified."""
+    email = _email()
+    stored = get_password_hash(SHORT) if scheme == "argon2id" else _bcrypt4_hash(SHORT)
+    _create_user(email, stored)
+    assert _login(client, email, "#" + SHORT[1:]).status_code == 401
+    assert _stored_hash(email) == stored
+    assert _login(client, email, SHORT).status_code == 200
+    assert _stored_hash(email) == stored
+
+
+# ── breach screening sees what a new hash keys on: the whole password ────────
 
 # A breached password of exactly 72 bytes, and one of 71 so a 2-byte character straddles byte 72.
 BREACHED_72 = "breached passphrase " * 3 + "breached pas"  # gitleaks:allow
@@ -279,58 +419,41 @@ def range_api(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "password, breached, lookups",
+    "password",
+    [ASCII_72, ASCII_87, CYRILLIC_42, STRADDLE, THREE_BYTE_STRADDLE, FOUR_BYTE_STRADDLE, FOUR_BYTE_MAX],
+    ids=["ascii72", "ascii87", "cyrillic84b", "straddles-byte-72", "3-byte-char-straddles-byte-72",
+         "4-byte-char-straddles-byte-72", "max-4-byte-chars"],
+)
+def test_screening_looks_up_the_whole_password_once(range_api, password):
+    api = range_api({"password123"})
+    assert asyncio.run(pwned_passwords.is_password_pwned(password)) is False
+    assert api.asked == [hashlib.sha1(password.encode("utf-8")).hexdigest().upper()[:5]]
+
+
+def test_a_breached_password_is_screened_as_breached(range_api):
+    api = range_api({BREACHED_72})
+    assert asyncio.run(pwned_passwords.is_password_pwned(BREACHED_72)) is True
+    assert len(api.asked) == 1
+
+
+@pytest.mark.parametrize(
+    "password, breached",
     [
-        (BREACHED_72 + " and a tail nobody listed", BREACHED_72, 2),
-        # Byte 72 splits "é": the breached text that ends with the whole "é" shares bcrypt's key.
-        (BREACHED_71 + "é tail", BREACHED_71 + "é", 2),
-        (BREACHED_71 + "é tail", BREACHED_71, 3),
+        (BREACHED_72 + " and a tail nobody listed", BREACHED_72),
+        # Byte 72 splits "é": under bcrypt the breached text ending with the whole "é" shared the key.
+        (BREACHED_71 + "é tail", BREACHED_71 + "é"),
+        (BREACHED_71 + "é tail", BREACHED_71),
     ],
     ids=["breached-72-byte-prefix", "breached-text-ending-in-the-split-character",
          "breached-prefix-before-a-split-character"],
 )
-def test_a_breached_bcrypt_prefix_with_an_unlisted_tail_is_screened_as_breached(
-    range_api, password, breached, lookups
-):
+def test_a_breached_prefix_behind_an_unlisted_tail_passes_and_opens_nothing(range_api, password, breached):
+    """While new hashes were bcrypt such a prefix opened the account, so screening checked it too. A new hash keys
+    on every byte (E97): the prefix opens nothing, so the whole password, unlisted, passes in one lookup."""
     api = range_api({breached})
-    assert asyncio.run(pwned_passwords.is_password_pwned(password)) is True
-    assert len(api.asked) == lookups  # the whole password, then bcrypt_screen_texts in order, to the first hit
-
-
-@pytest.mark.parametrize(
-    "password",
-    [ASCII_87, CYRILLIC_42, STRADDLE, THREE_BYTE_STRADDLE, FOUR_BYTE_STRADDLE, FOUR_BYTE_MAX],
-    ids=["ascii87", "cyrillic84b", "straddles-byte-72", "3-byte-char-straddles-byte-72",
-         "4-byte-char-straddles-byte-72", "max-4-byte-chars"],
-)
-def test_the_first_screened_text_logs_in_wherever_the_password_does(password):
-    """The text screened first must share bcrypt's key: if it is breached, it opens the account."""
-    screened = password_utils.bcrypt_screen_texts(password)
-    assert screened and password.startswith(screened[0])
-    assert verify_password(screened[0], get_password_hash(password))
-
-
-@pytest.mark.parametrize(
-    "password, lookups",
-    [(STRADDLE, 3), ("x" * 71 + "é", 2)],  # gitleaks:allow
-    ids=["split-character-mid-password", "split-character-ends-the-password"],
-)
-def test_screening_looks_up_each_distinct_text_once(range_api, password, lookups):
-    api = range_api({"password123"})
     assert asyncio.run(pwned_passwords.is_password_pwned(password)) is False
-    assert len(api.asked) == lookups
-
-
-def test_a_long_password_with_an_unlisted_prefix_passes_screening(range_api):
-    api = range_api({"password123"})
-    assert asyncio.run(pwned_passwords.is_password_pwned(ASCII_87)) is False
-    assert len(api.asked) == 2
-
-
-def test_a_password_bcrypt_hashes_whole_is_looked_up_once(range_api):
-    api = range_api({"password123"})
-    assert asyncio.run(pwned_passwords.is_password_pwned(ASCII_72)) is False
     assert len(api.asked) == 1
+    assert not verify_password(breached, get_password_hash(password))
 
 
 @pytest.mark.parametrize("password", [ASCII_87, STRADDLE], ids=["ascii87", "straddles-byte-72"])
@@ -345,16 +468,23 @@ def test_an_unreachable_hibp_costs_one_lookup_and_fails_open(monkeypatch, passwo
 
     monkeypatch.setattr(pwned_passwords.httpx, "AsyncClient", _Down(set()))
     assert asyncio.run(pwned_passwords.is_password_pwned(password)) is False
-    assert len(asked) == 1  # one timeout, then fail open; not one per screened text
+    assert len(asked) == 1  # one timeout, then fail open
 
 
 @pytest.mark.requires_db
-def test_register_refuses_a_breached_bcrypt_prefix_behind_an_unlisted_tail(client, range_api):
+def test_register_takes_a_breached_prefix_behind_an_unlisted_tail_and_the_prefix_opens_nothing(client, range_api):
     range_api({BREACHED_72})
-    resp = client.post(
-        "/api/auth/register",
-        json={**ACCOUNT_AGREEMENT, "email": _email(), "password": BREACHED_72 + " and a tail nobody listed"},
-    )
+    email, password = _email(), BREACHED_72 + " and a tail nobody listed"
+    resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": password})
+    assert resp.status_code == 200, resp.text
+    assert _login(client, email, BREACHED_72).status_code == 401
+    assert _login(client, email, password).status_code == 200
+
+
+@pytest.mark.requires_db
+def test_register_refuses_a_breached_password(client, range_api):
+    range_api({BREACHED_72})
+    resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": _email(), "password": BREACHED_72})
     assert resp.status_code == 400, resp.text
     assert "known data breach" in resp.json()["detail"]
 
@@ -403,7 +533,7 @@ def test_register_refuses_a_password_that_is_not_valid_text(client, range_api, p
         _post_json(client, "/api/auth/register", {**ACCOUNT_AGREEMENT, "email": email, "password": password}), 422
     )
     assert body["detail"] == [{"type": "value_error", "loc": ["body", "password"], "msg": NOT_VALID_TEXT}]
-    assert lookups.asked == []  # refused before the breach check, so before bcrypt too
+    assert lookups.asked == []  # refused before the breach check, so before the hash too
     assert _stored_hash(email) is None
 
 
@@ -445,11 +575,12 @@ def test_change_password_refuses_a_new_password_that_is_not_valid_text(client, r
 
 
 @pytest.mark.requires_db
-def test_login_and_the_current_password_check_refuse_a_password_that_is_not_valid_text(client):
+@pytest.mark.parametrize("scheme", ["argon2id", "bcrypt"])
+def test_login_and_the_current_password_check_refuse_a_password_that_is_not_valid_text(client, scheme):
     # Neither applies the policy (a stored hash from any earlier rule keeps signing in), so each refuses as for any
-    # wrong password: no hash was ever made from a password bcrypt could not encode.
+    # wrong password, against either scheme's hash: no hash was ever made from a password UTF-8 cannot encode.
     email = _email()
-    _create_user(email, get_password_hash(SHORT))
+    _create_user(email, get_password_hash(SHORT) if scheme == "argon2id" else _bcrypt4_hash(SHORT))
     surrogate = MARK + "-long-enough\ud800-tail"
     login = _refused(_post_json(client, "/api/auth/login", {"email": email, "password": surrogate}), 401)
     assert login == {"detail": "Incorrect email or password"}
@@ -629,38 +760,40 @@ def test_is_valid_unicode(text, valid):
             validate_password_strength(password)
 
 
-# ── every path to bcrypt goes through _bcrypt_input ─────────────────────────
+# ── every path to a password hash goes through password_utils, on the password thread ───────
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 PASSWORD_UTILS = "app/services/password_utils.py"
-# bcrypt itself, and passlib, whose bcrypt handler hands bcrypt whatever password it is given.
-BCRYPT_LIBRARIES = {"bcrypt", "passlib"}
+# bcrypt itself, passlib, whose bcrypt handler hands bcrypt whatever password it is given, and argon2.
+HASH_LIBRARIES = {"bcrypt", "passlib", "argon2"}
+# Libraries password_utils may import by any form; bcrypt it imports only as a plain ``import bcrypt``.
+HOME_LIBRARIES = {"passlib", "argon2"}
+# password_utils' own hasher, legacy check and thread: reached from elsewhere, each skips the dispatch or the bound.
+PRIVATE = {"_ARGON2", "_verify_bcrypt", "_bcrypt_input", "_PASSWORD_THREADS"}
 
 
 def _sanctioned_bcrypt_use(name: ast.Name, parent: dict[ast.AST, ast.AST]) -> str | None:
-    """The bcrypt function a ``bcrypt`` name in ``password_utils`` reaches the sanctioned way, else
-    None: ``bcrypt.gensalt``, or a ``bcrypt.hashpw``/``bcrypt.checkpw`` call whose first argument
-    is ``_bcrypt_input(...)``."""
+    """The bcrypt function a ``bcrypt`` name in ``password_utils`` reaches the sanctioned way, else None: a
+    ``bcrypt.checkpw`` call whose first argument is ``_bcrypt_input(...)``, a legacy hash's check. No new hash is
+    bcrypt since E97, so ``bcrypt.hashpw`` and ``bcrypt.gensalt`` are bypasses."""
     attribute = parent.get(name)
     if not isinstance(attribute, ast.Attribute):
         return None
-    if attribute.attr == "gensalt":
-        return "gensalt"
     call = parent.get(attribute)
     first = call.args[0] if isinstance(call, ast.Call) and call.func is attribute and call.args else None
     if (
-        attribute.attr in {"hashpw", "checkpw"}
+        attribute.attr == "checkpw"
         and isinstance(first, ast.Call)
         and isinstance(first.func, ast.Name)
         and first.func.id == "_bcrypt_input"
     ):
-        return attribute.attr
+        return "checkpw"
     return None
 
 
-def _bcrypt_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
-    """One walk of ``source``, the backend file at ``rel``: the lines that can reach bcrypt without
-    ``_bcrypt_input``, and the bcrypt functions it calls the sanctioned way."""
+def _hash_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
+    """One walk of ``source``, the backend file at ``rel``: the lines that can reach a hashing library other than
+    through ``password_utils``' own functions, and the bcrypt functions it calls the sanctioned way."""
     tree = ast.parse(source)
     home = rel == PASSWORD_UTILS
     parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
@@ -672,15 +805,15 @@ def _bcrypt_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
                 library = alias.name.split(".")[0]
                 # Only a plain ``import bcrypt`` keeps every use spelled ``bcrypt.<fn>`` for the check below.
                 plain_bcrypt = alias.name == "bcrypt" and alias.asname is None
-                if library in BCRYPT_LIBRARIES and not (home and (plain_bcrypt or library == "passlib")):
+                if library in HASH_LIBRARIES and not (home and (plain_bcrypt or library in HOME_LIBRARIES)):
                     bypasses.append(node.lineno)
         elif isinstance(node, ast.ImportFrom):
             library = (node.module or "").split(".")[0] if node.level == 0 else ""
-            if library in BCRYPT_LIBRARIES:
-                if not (home and library == "passlib"):
+            if library in HASH_LIBRARIES:
+                if not (home and library in HOME_LIBRARIES):
                     bypasses.append(node.lineno)
-            elif any(alias.name in BCRYPT_LIBRARIES for alias in node.names):
-                bypasses.append(node.lineno)  # password_utils' bcrypt picked up as a re-export
+            elif any(alias.name in HASH_LIBRARIES or (alias.name in PRIVATE and not home) for alias in node.names):
+                bypasses.append(node.lineno)  # password_utils' library or helper picked up as a re-export
         elif isinstance(node, ast.Call):
             func = node.func
             called = getattr(func, "id", None) or getattr(func, "attr", "")  # f(...) or m.f(...)
@@ -689,11 +822,11 @@ def _bcrypt_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
                 called in {"__import__", "import_module"}
                 and isinstance(first, ast.Constant)
                 and isinstance(first.value, str)
-                and first.value.split(".")[0] in BCRYPT_LIBRARIES
+                and first.value.split(".")[0] in HASH_LIBRARIES
             ):
                 bypasses.append(node.lineno)
-        elif isinstance(node, ast.Attribute) and node.attr in BCRYPT_LIBRARIES and not home:
-            bypasses.append(node.lineno)  # ``password_utils.bcrypt``
+        elif isinstance(node, ast.Attribute) and node.attr in HASH_LIBRARIES | PRIVATE and not home:
+            bypasses.append(node.lineno)  # ``password_utils.bcrypt``, ``password_utils._ARGON2``
         elif home and isinstance(node, ast.Name) and node.id == "bcrypt":
             use = _sanctioned_bcrypt_use(node, parent)
             if use is None:
@@ -705,30 +838,39 @@ def _bcrypt_reach(source: str, rel: str) -> tuple[list[int], set[str]]:
 
 OTHER = "app/services/api_keys.py"
 # (case, file, source, "flag" | "clean" | "gap"); a gap is a bypass the walk cannot see, named above.
-BCRYPT_REACH_FORMS = [
+HASH_REACH_FORMS = [
     ("import-elsewhere", OTHER, "import bcrypt", "flag"),
     ("import-alias-elsewhere", OTHER, "import bcrypt as b", "flag"),
     ("from-import-elsewhere", OTHER, "from bcrypt import checkpw", "flag"),
     ("passlib-elsewhere", OTHER, "from passlib.context import CryptContext", "flag"),
     ("passlib-module-elsewhere", OTHER, "import passlib.hash", "flag"),
+    ("argon2-elsewhere", OTHER, "from argon2 import PasswordHasher", "flag"),
+    ("argon2-module-elsewhere", OTHER, "import argon2.low_level", "flag"),
     ("re-export-import", OTHER, "from app.services.password_utils import bcrypt", "flag"),
     ("re-export-attribute", OTHER, "password_utils.bcrypt.checkpw(secret.encode(), h)", "flag"),
+    ("private-hasher-elsewhere", OTHER, "password_utils._ARGON2.hash(secret)", "flag"),
+    ("private-hasher-import", OTHER, "from app.services.password_utils import _ARGON2", "flag"),
+    ("private-legacy-check-import", OTHER, "from app.services.password_utils import _verify_bcrypt", "flag"),
+    ("private-thread-elsewhere", OTHER, "loop.run_in_executor(password_utils._PASSWORD_THREADS, f)", "flag"),
     ("import-module-constant", OTHER, "importlib.import_module('bcrypt')", "flag"),
     ("dunder-import-constant", OTHER, "__import__('passlib.hash')", "flag"),
+    ("argon2-import-module-constant", OTHER, "importlib.import_module('argon2')", "flag"),
+    ("new-bcrypt-hash-at-home", PASSWORD_UTILS, "import bcrypt\nbcrypt.hashpw(_bcrypt_input(p), s)", "flag"),
+    ("bcrypt-salt-at-home", PASSWORD_UTILS, "bcrypt.gensalt(rounds=12)", "flag"),
     ("raw-hash-at-home", PASSWORD_UTILS, "bcrypt.hashpw(password.encode('utf-8'), salt)", "flag"),
     ("raw-verify-at-home", PASSWORD_UTILS, "def f(s, h):\n    return bcrypt.checkpw(s.encode(), h)", "flag"),
-    ("keyword-at-home", PASSWORD_UTILS, "bcrypt.hashpw(password=_bcrypt_input(p), salt=s)", "flag"),
-    ("extended-after-cut", PASSWORD_UTILS, "bcrypt.hashpw(_bcrypt_input(p) + pepper, s)", "flag"),
+    ("keyword-at-home", PASSWORD_UTILS, "bcrypt.checkpw(password=_bcrypt_input(p), hashed_password=h)", "flag"),
+    ("extended-after-cut", PASSWORD_UTILS, "bcrypt.checkpw(_bcrypt_input(p) + pepper, h)", "flag"),
     ("reference-at-home", PASSWORD_UTILS, "check = bcrypt.checkpw", "flag"),
-    ("getattr-at-home", PASSWORD_UTILS, "getattr(bcrypt, 'hashpw')(raw, salt)", "flag"),
-    ("from-import-at-home", PASSWORD_UTILS, "from bcrypt import hashpw", "flag"),
+    ("getattr-at-home", PASSWORD_UTILS, "getattr(bcrypt, 'checkpw')(raw, h)", "flag"),
+    ("from-import-at-home", PASSWORD_UTILS, "from bcrypt import checkpw", "flag"),
     ("alias-at-home", PASSWORD_UTILS, "import bcrypt as _b", "flag"),
-    ("hash-at-home", PASSWORD_UTILS, "import bcrypt\nbcrypt.hashpw(_bcrypt_input(p), s)", "clean"),
     ("verify-at-home", PASSWORD_UTILS, "bcrypt.checkpw(_bcrypt_input(p), h.encode('utf-8'))", "clean"),
-    ("gensalt-at-home", PASSWORD_UTILS, "bcrypt.gensalt(rounds=BCRYPT_ROUNDS)", "clean"),
     ("passlib-import-at-home", PASSWORD_UTILS, "from passlib.context import CryptContext", "clean"),
+    ("argon2-import-at-home", PASSWORD_UTILS, "from argon2 import PasswordHasher, Type", "clean"),
+    ("argon2-exceptions-at-home", PASSWORD_UTILS, "from argon2.exceptions import VerificationError", "clean"),
     ("helpers-elsewhere", OTHER, "from app.services.password_utils import get_password_hash", "clean"),
-    ("library-names-as-strings", OTHER, "CryptContext(schemes=['bcrypt'])\nx = ('passlib', 'passlib')", "clean"),
+    ("library-names-as-strings", OTHER, "CryptContext(schemes=['bcrypt'])\nx = ('passlib', 'argon2')", "clean"),
     ("variable-import", OTHER, "importlib.import_module(name)", "gap"),
     ("getattr-elsewhere", OTHER, "getattr(password_utils, 'bcrypt')", "gap"),
     ("sys-modules", OTHER, "sys.modules['bcrypt']", "gap"),
@@ -737,27 +879,106 @@ BCRYPT_REACH_FORMS = [
 
 
 @pytest.mark.parametrize(
-    "rel,source,expected", [form[1:] for form in BCRYPT_REACH_FORMS], ids=[form[0] for form in BCRYPT_REACH_FORMS]
+    "rel,source,expected", [form[1:] for form in HASH_REACH_FORMS], ids=[form[0] for form in HASH_REACH_FORMS]
 )
-def test_the_bcrypt_walk_scores_every_planted_form(rel, source, expected):
-    bypasses, _ = _bcrypt_reach(source, rel)
+def test_the_hash_walk_scores_every_planted_form(rel, source, expected):
+    bypasses, _ = _hash_reach(source, rel)
     assert bool(bypasses) == (expected == "flag")
 
 
-def test_every_path_to_bcrypt_goes_through_bcrypt_input():
+def _scanned() -> list[str]:
     tracked = subprocess.run(
         ["git", "ls-files", "*.py"], cwd=BACKEND_DIR, check=True, capture_output=True, text=True
     ).stdout.splitlines()
     scanned = [rel for rel in tracked if not rel.startswith("tests/")]
     assert len(scanned) > 100 and PASSWORD_UTILS in scanned  # a broken walk must not pass as clean
+    return scanned
+
+
+def test_every_path_to_a_password_hash_goes_through_password_utils():
     offenders: list[str] = []
-    for rel in scanned:
-        bypasses, sanctioned = _bcrypt_reach((BACKEND_DIR / rel).read_text(encoding="utf-8"), rel)
+    for rel in _scanned():
+        bypasses, sanctioned = _hash_reach((BACKEND_DIR / rel).read_text(encoding="utf-8"), rel)
         offenders.extend(f"{rel}:{line}" for line in bypasses)
         if rel == PASSWORD_UTILS:
-            assert {"hashpw", "checkpw"} <= sanctioned, "password_utils no longer hashes and verifies"
+            assert sanctioned == {"checkpw"}, "password_utils no longer checks legacy bcrypt hashes"
     assert not offenders, (
-        f"bcrypt reached without _bcrypt_input: {offenders}. Hash and verify passwords through "
-        "app.services.password_utils (get_password_hash, verify_password); inside it, pass "
-        "_bcrypt_input(...) as the first argument of every bcrypt.hashpw/bcrypt.checkpw call."
+        f"A hashing library reached outside password_utils' functions: {offenders}. Hash and verify passwords "
+        "through app.services.password_utils (get_password_hash, verify_password); inside it, a new hash is "
+        "Argon2id, and bcrypt is only a legacy hash's check: bcrypt.checkpw(_bcrypt_input(...), ...)."
+    )
+
+
+# get_password_hash and verify_password, which run a hash: only ever on the password thread.
+PASSWORD_WORK = {"get_password_hash", "verify_password"}
+
+
+def _off_the_password_thread(source: str, rel: str) -> tuple[list[int], int]:
+    """One walk of ``source``, an app file other than ``password_utils``: the lines that run a password hash or
+    check anywhere but the password thread, and how many times it hands one there. A reference to
+    ``get_password_hash`` or ``verify_password`` passes only as the first argument of an ``in_password_thread(...)``
+    call (or the name in an import that keeps it); any other (a call, ``asyncio.to_thread`` or
+    ``run_in_threadpool``, a sync unit that calls it, an alias) is flagged."""
+    tree = ast.parse(source)
+    parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    flagged: list[int] = []
+    handed = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            flagged.extend(node.lineno for alias in node.names if alias.name in PASSWORD_WORK and alias.asname)
+            continue
+        name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+        if name not in PASSWORD_WORK:
+            continue
+        call = parent.get(node)
+        to = (getattr(call.func, "id", None) or getattr(call.func, "attr", None)) if isinstance(call, ast.Call) else None
+        if to == "in_password_thread" and call.args and call.args[0] is node:
+            handed += 1
+        else:
+            flagged.append(node.lineno)
+    return flagged, handed
+
+
+THREAD_FORMS = [
+    ("on-the-loop", OTHER, "ok = verify_password(p, h)", "flag"),
+    ("default-executor", OTHER, "h = await asyncio.to_thread(get_password_hash, p)", "flag"),
+    ("thread-pool", OTHER, "ok = await run_in_threadpool(verify_password, p, h)", "flag"),
+    ("sync-unit", OTHER, "def unit():\n    return get_password_hash(p)", "flag"),
+    ("reference", OTHER, "check = verify_password", "flag"),
+    ("module-attribute", OTHER, "h = password_utils.get_password_hash(p)", "flag"),
+    ("aliased-import", OTHER, "from app.services.password_utils import verify_password as check", "flag"),
+    ("by-keyword", OTHER, "await in_password_thread(work=get_password_hash)", "flag"),
+    ("not-the-work", OTHER, "await in_password_thread(log, verify_password)", "flag"),
+    ("password-thread", OTHER, "h = await in_password_thread(get_password_hash, p)", "clean"),
+    ("password-thread-attribute", OTHER,
+     "ok = await password_utils.in_password_thread(password_utils.verify_password, p, h)", "clean"),
+    ("import", OTHER, "from app.services.password_utils import get_password_hash, verify_password", "clean"),
+    ("getattr", OTHER, "getattr(password_utils, 'verify_password')(p, h)", "gap"),
+]
+
+
+@pytest.mark.parametrize(
+    "rel,source,expected", [form[1:] for form in THREAD_FORMS], ids=[form[0] for form in THREAD_FORMS]
+)
+def test_the_thread_walk_scores_every_planted_form(rel, source, expected):
+    flagged, _ = _off_the_password_thread(source, rel)
+    assert bool(flagged) == (expected == "flag")
+
+
+def test_every_password_hash_and_check_runs_on_the_password_thread():
+    offenders: list[str] = []
+    handed: dict[str, int] = {}
+    for rel in _scanned():
+        if rel == PASSWORD_UTILS:
+            continue  # its import-time dummy hash runs before the app serves a request
+        flagged, count = _off_the_password_thread((BACKEND_DIR / rel).read_text(encoding="utf-8"), rel)
+        offenders.extend(f"{rel}:{line}" for line in flagged)
+        if count:
+            handed[rel] = count
+    # register, login, reset and the change's check and hash: a walk that finds none must not pass as clean.
+    assert handed == {"app/routers/auth.py": 5}, handed
+    assert not offenders, (
+        f"A password hash or check off the password thread: {offenders}. Await it as "
+        "in_password_thread(get_password_hash, ...) or in_password_thread(verify_password, ...): one thread "
+        "bounds Argon2id's 32 MiB a call to one call at a time per instance."
     )

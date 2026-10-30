@@ -1,26 +1,65 @@
-"""Password hashing + policy (bcrypt) — extracted from the auth router (roadmap S3).
+"""Password hashing + policy — extracted from the auth router (roadmap S3).
 
 Pure crypto/policy helpers, no HTTP concern. Re-exported by ``app.routers.auth`` so the endpoints,
-the Pydantic validators, and the existing test imports keep the same surface. Moved verbatim; since
-then hash and verify cut the password to bcrypt's 72-byte limit themselves (``_bcrypt_input``).
+the Pydantic validators, and the existing test imports keep the same surface.
+
+A new or changed password is hashed with Argon2id over the whole password (E97); ``verify_password``
+dispatches on the stored hash's scheme marker. A hash made before then is bcrypt, keyed on the password's
+first 72 bytes (``_bcrypt_input``), and keeps verifying exactly as it did; nothing rewrites it on a login,
+so it changes only when its owner sets a new password. Every hash and verify runs on the password thread
+(``in_password_thread``), never on the event loop or its default executor.
 """
 from __future__ import annotations
 
+import asyncio
+import contextvars
+import functools
 import secrets
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable, TypeVar
 
 import bcrypt
+from argon2 import PasswordHasher, Type
+from argon2.exceptions import InvalidHashError, VerificationError
 
 from app.config import settings
 from app.services.auth_validation import is_valid_unicode
 
-# bcrypt work factor — pinned explicitly rather than relying on the library default so the cost
-# is visible and stable across bcrypt upgrades.
-BCRYPT_ROUNDS = 12
+_T = TypeVar("_T")
+
+# Argon2id's costs, pinned (as bcrypt's work factor was) so a library upgrade cannot move them. Measured on
+# one CPU on 2026-10-30 against current guidance (E97): RFC 9106 section 4 picks the memory first, then the
+# most passes the time budget allows, and the budget here is bcrypt-12's verify (about 271 ms there, against
+# 278 ms for these costs), so an unknown email checked against the dummy hash below costs what a bcrypt
+# account's check does. 32 MiB is half RFC 9106's second recommended 64 MiB (its first needs 2 GiB, past this
+# 1 GiB service) and, at ten passes, about eight times OWASP's minimum memory-passes (19 MiB x 2). One lane:
+# on one vCPU more lanes are no faster, and their threads take the CPU from the event loop. A hash records
+# its own costs, so changing these leaves every stored hash verifying.
+ARGON2_TIME_COST = 10
+ARGON2_MEMORY_COST_KIB = 32 * 1024
+ARGON2_PARALLELISM = 1
+_ARGON2_MARKER = "$argon2id$"
+_ARGON2 = PasswordHasher(
+    time_cost=ARGON2_TIME_COST,
+    memory_cost=ARGON2_MEMORY_COST_KIB,
+    parallelism=ARGON2_PARALLELISM,
+    hash_len=32,
+    salt_len=16,
+    type=Type.ID,
+)
+# bcrypt's marker: ``$2`` and a variant letter (bcrypt 5 checks ``$2a$``, ``$2b$``, ``$2x$`` and ``$2y$``).
+_BCRYPT_MARKER = "$2"
 # Generous upper bound in characters (NIST 800-63B: accept long passphrases); up to 512 UTF-8 bytes.
 PASSWORD_MAX_LENGTH = 128
 # bcrypt reads only the first 72 bytes of a password. bcrypt 4 dropped the rest silently; bcrypt 5
-# raises ValueError instead, so hash and verify cut the input here (see ``_bcrypt_input``).
+# raises ValueError instead, so a legacy hash's check cuts the input here (see ``_bcrypt_input``).
 BCRYPT_MAX_PASSWORD_BYTES = 72
+
+# One thread for every hash and verify, of either scheme (E97). On the service's one vCPU more threads add no
+# throughput, and each Argon2 call in flight holds 32 MiB: measured, 40 logins at once finished sooner on one
+# thread than on one each, and held 33 MiB at their peak against 1.28 GiB, more than the 1 GiB instance has.
+# A request queues here holding no default-executor thread, which the loop shares with other work.
+_PASSWORD_THREADS = ThreadPoolExecutor(max_workers=1, thread_name_prefix="password_hash")
 
 
 def validate_password_strength(value: str) -> str:
@@ -42,44 +81,37 @@ def validate_password_strength(value: str) -> str:
 
 
 def _bcrypt_input(password: str) -> bytes:
-    """The bytes bcrypt reads: the UTF-8 encoding cut to bcrypt's 72-byte limit.
+    """The bytes a legacy bcrypt hash was keyed on: the UTF-8 encoding cut to bcrypt's 72-byte limit.
 
-    Exactly bcrypt 4's implicit truncation, so every stored hash keeps verifying and there is no
-    new hash format; bytes past 72 do not contribute to the hash. The cut may split a multibyte
-    character, as bcrypt 4's did. Breach screening sees the whole password and, when the cut drops
-    anything, :func:`bcrypt_screen_texts` as well.
+    Exactly bcrypt 4's implicit truncation, so every bcrypt hash stored before E97 keeps verifying; bytes
+    past 72 never contributed to one. The cut may split a multibyte character, as bcrypt 4's did. No new
+    hash is bcrypt: a new or changed password is Argon2id over every byte.
     """
     return password.encode('utf-8')[:BCRYPT_MAX_PASSWORD_BYTES]
 
 
-def bcrypt_screen_texts(password: str) -> tuple[str, ...]:
-    """What breach screening checks besides the whole password, when the 72-byte cut drops anything.
-
-    A password over the limit authenticates with its first 72 bytes alone, so any breached text that
-    shares those bytes logs in to the account, whatever tail the user typed after it. The first text
-    is the shortest whole-character prefix that covers all 72 bytes: it shares bcrypt's key exactly.
-    When byte 72 falls inside a multibyte character, that prefix ends with the whole split character
-    (its kept bytes are part of the key), and the whole characters before the split are screened too:
-    a breached prefix there is one partial character (one to three bytes) away from the key. The first
-    text is the whole password when the password ends on the split character, so the caller skips a
-    text equal to the password. Empty when the password fits, since the whole password is then
-    exactly what is hashed. Out of reach: another character that shares the split character's kept
-    bytes (``"À"`` for ``"é"``) also opens the account; exact-match screening checks the user's own.
-    """
-    encoded = password.encode('utf-8')
-    if len(encoded) <= BCRYPT_MAX_PASSWORD_BYTES:
-        return ()
-    # Valid UTF-8 cut short can only end in part of one character, which 'ignore' drops.
-    before_split = encoded[:BCRYPT_MAX_PASSWORD_BYTES].decode('utf-8', errors='ignore')
-    if len(before_split.encode('utf-8')) == BCRYPT_MAX_PASSWORD_BYTES:  # the cut falls between characters
-        return (before_split,)
-    return (password[: len(before_split) + 1], before_split)
-
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password - supports both bcrypt and passlib formats"""
+    """Check ``plain_password`` against a stored hash by the hash's scheme marker; never raises.
+
+    An Argon2id hash is checked over the whole password, at the costs it records. A bcrypt hash takes the
+    check every stored hash took before E97, unchanged (``_verify_bcrypt``). Anything else (empty, another
+    Argon2 variant or scheme, garbage) fails closed before any library sees it. A password that is not valid
+    text, which login does not validate, is a miss.
+    """
     if not hashed_password:
         return False
+    if hashed_password.startswith(_ARGON2_MARKER):
+        try:
+            return _ARGON2.verify(hashed_password, plain_password)
+        except (VerificationError, InvalidHashError, UnicodeEncodeError):  # a mismatch, a malformed hash
+            return False
+    if hashed_password.startswith(_BCRYPT_MARKER):
+        return _verify_bcrypt(plain_password, hashed_password)
+    return False
+
+
+def _verify_bcrypt(plain_password: str, hashed_password: str) -> bool:
+    """A legacy bcrypt hash's check, as ``verify_password`` ran it for every hash before E97."""
     try:
         return bcrypt.checkpw(_bcrypt_input(plain_password), hashed_password.encode('utf-8'))
     except Exception:
@@ -92,13 +124,18 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    """Hash password using bcrypt with an explicitly-pinned work factor."""
-    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-    hashed = bcrypt.hashpw(_bcrypt_input(password), salt)
-    return hashed.decode('utf-8')
+    """An Argon2id hash of the whole password, at the pinned costs, with its own random salt."""
+    return _ARGON2.hash(password)
 
 
-# A fixed bcrypt hash of a random value. On login for an unknown email we verify the supplied
-# password against this so the request does the same expensive bcrypt work as a known-email
-# request — removing the timing side-channel that would otherwise reveal whether an email exists.
+async def in_password_thread(work: Callable[..., _T], *args: object) -> _T:
+    """``asyncio.to_thread(work, *args)`` on the password thread, with the same context copy."""
+    call = functools.partial(contextvars.copy_context().run, work, *args)
+    return await asyncio.get_running_loop().run_in_executor(_PASSWORD_THREADS, call)
+
+
+# A fixed Argon2id hash of a random value, at the same costs. On login for an unknown email the supplied
+# password is checked against it, so the request does an account's expensive check and its timing does not
+# say whether the email exists. A legacy bcrypt account's check costs about the same (see the costs above);
+# the gap is measured on one CPU, not on Cloud Run.
 _DUMMY_PASSWORD_HASH = get_password_hash(secrets.token_urlsafe(32))

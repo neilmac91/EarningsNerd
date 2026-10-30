@@ -10,15 +10,18 @@ Last updated alongside the auth-hardening pass on branch `claude/clever-keller-l
 Self-hosted, custom FastAPI auth (no managed provider). Three sign-in methods:
 email+password, Google OAuth, Apple Sign In (Apple is feature-flagged off by default).
 
-- **Passwords:** salted bcrypt, work factor pinned at 12. Policy = ≥12 chars, ≤128 chars,
+- **Passwords:** Argon2id over the whole password (t=10, 32 MiB, one lane; E97), on one thread of its own;
+  a bcrypt hash (work factor 12) made before then is checked by its marker until its owner sets a new
+  password, and no login rewrites one. Policy = ≥12 chars, ≤128 chars,
   no forced composition (NIST 800-63B), screened against HaveIBeenPwned (k-anonymity, fail-open).
 - **Sessions:** short-lived HS256 access JWT (30 min) in an HttpOnly cookie + opaque refresh
   token (30 d), stored hashed, rotated single-use, with reuse/theft detection and revocation.
 - **OAuth:** both Google and Apple id_tokens are cryptographically verified (signature +
   audience + issuer; Apple also binds a nonce). Linking a social identity to a pre-existing
   account emails the owner and writes an audit row.
-- **Login hardening:** unified 401 for all failure modes (no enumeration), bcrypt run on
-  unknown emails (no timing oracle), per-IP + per-account throttles.
+- **Login hardening:** unified 401 for all failure modes (no enumeration), an Argon2id check
+  run on unknown emails against a dummy hash (no timing oracle; its cost is matched to a bcrypt-12
+  check, measured on one CPU and not yet on Cloud Run), per-IP + per-account throttles.
 - **Audit trail:** login success/failure, register, logout, OAuth login/link, data export,
   account deletion — all with a SHA-256-hashed client IP. See `audit_logs` table.
 
@@ -107,7 +110,7 @@ Confirmed: **no user PII reaches the LLM** (only filing text + financial metrics
 **Resolved since this was written:**
 - **Register account-enumeration (was P0):** DONE — `/register` is now verify-first and
   anti-enumeration (`app/routers/auth.py::register`). It returns a byte-identical opaque message
-  whether the email is new or existing, always pays the bcrypt cost (no timing oracle), never
+  whether the email is new or existing, always pays the hashing cost (no timing oracle), never
   auto-logs-in, and emails an out-of-band "someone tried to sign up" notice to the real owner of an
   existing address. New accounts start `email_verified=False` and finish via the emailed link (or by
   logging in with the chosen password). No product decision outstanding.

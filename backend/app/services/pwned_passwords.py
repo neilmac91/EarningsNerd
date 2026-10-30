@@ -15,7 +15,6 @@ import logging
 import httpx
 
 from app.config import settings
-from app.services.password_utils import bcrypt_screen_texts
 
 logger = logging.getLogger(__name__)
 
@@ -26,23 +25,16 @@ _TIMEOUT_SECONDS = 2.5
 async def is_password_pwned(password: str) -> bool:
     """Return True only if ``password`` is known to appear in public breach corpora.
 
-    A password longer than bcrypt's 72-byte limit authenticates with its first 72 bytes alone,
-    so the text bcrypt keys on is screened too (``password_utils.bcrypt_screen_texts``): a
-    breached password plus an unlisted tail must not pass as unbreached.
+    One lookup of the whole password, which is what a new hash keys on: it is Argon2id over every byte
+    (``password_utils.get_password_hash``, E97), so a breached text that shares only its first 72 bytes
+    does not open the account and is not screened as it was while new hashes were bcrypt.
 
-    Returns False when the check is disabled, the password is empty, or a lookup fails for any
-    reason (fail-open). The first failed lookup ends the screen: a slow or unreachable HIBP costs one
-    timeout, not one per screened text.
+    Returns False when the check is disabled, the password is empty, or the lookup fails for any
+    reason (fail-open).
     """
     if not settings.PWNED_PASSWORD_CHECK_ENABLED or not password:
         return False
-    for text in (password, *(t for t in bcrypt_screen_texts(password) if t != password)):
-        listed = await _is_listed(text)
-        if listed is None:
-            return False
-        if listed:
-            return True
-    return False
+    return bool(await _is_listed(password))
 
 
 async def _is_listed(password: str) -> bool | None:

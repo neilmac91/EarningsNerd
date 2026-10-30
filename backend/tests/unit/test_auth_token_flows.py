@@ -779,10 +779,11 @@ def _failed_login_audits(email: str) -> int:
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize("account", ["unknown_email", "no_password"])
-def test_a_login_with_no_password_to_check_still_runs_bcrypt(client, mail, monkeypatch, account):
-    """bcrypt runs whether or not the email has an account with a password, against a fixed dummy hash
-    when it has none (an unknown email, or an account that signs in only through Google or Apple), so
-    the answer's timing does not tell which emails are registered; the answer is the generic 401."""
+def test_a_login_with_no_password_to_check_still_runs_the_hash_check(client, mail, monkeypatch, account):
+    """The hash check runs whether or not the email has an account with a password, against a fixed dummy
+    hash when it has none (an unknown email, or an account that signs in only through Google or Apple), so
+    the answer's timing does not tell which emails are registered; the answer is the generic 401. The dummy
+    is Argon2id, as a new account's hash is (E97)."""
     if account == "unknown_email":
         email = _email()
     else:
@@ -799,6 +800,7 @@ def test_a_login_with_no_password_to_check_still_runs_bcrypt(client, mail, monke
     resp = _login(client, email, PASSWORD)
     assert resp.status_code == 401 and resp.json() == {"detail": "Incorrect email or password"}
     assert hashes_checked == [auth_module._DUMMY_PASSWORD_HASH]
+    assert auth_module._DUMMY_PASSWORD_HASH.startswith("$argon2id$")
 
 
 @pytest.mark.requires_db

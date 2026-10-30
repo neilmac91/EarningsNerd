@@ -28,11 +28,18 @@ whole split character. Dropping that character screened a text with a different 
 text ending in it passed while it opened the account. A screen that fails open must also stop at its
 first failure: one HIBP timeout per screened text doubled an outage's wait, or tripled it.
 
-**Evidence**: `backend/app/services/password_utils.py` (`_bcrypt_input`, `bcrypt_screen_texts`); gate
+**Update (2026-10-30, E97's Argon2id slice)**: the cut was the compatible fix, not the end state. A new
+or changed password is now Argon2id over every byte, and `verify_password` dispatches on the stored hash's
+marker, so the 72-byte cut survives only in a legacy bcrypt hash's check. The breach screen of the 72-byte
+prefix went with it: once the hash keys on the whole password, a breached prefix opens nothing, and
+screening it would refuse a password whose hash it cannot open. The rule above still holds for the hashes
+bcrypt made, which keep their 72-byte key until their owners set new passwords.
+
+**Evidence**: `backend/app/services/password_utils.py` (`_bcrypt_input`, now in `_verify_bcrypt` alone); gate
 `backend/tests/unit/test_password_byte_limit.py` (a 128-character password of 4-byte characters,
 the exact 72-byte boundary, a character straddling byte 72, a bcrypt-4-shaped hash of a long
-password through login and change-password, and an AST walk that keeps every bcrypt call behind
-`_bcrypt_input`, scored on planted forms with its gaps named; breach screening of the 72-byte
-prefix through `pwned_passwords.is_password_pwned` and register, and a check that the first
-screened text verifies against the password's own hash, a split 2- or 4-byte character included).
+password through login and change-password, and an AST walk that keeps every bcrypt call a legacy
+check behind `_bcrypt_input`, with argon2 imported only there, scored on planted forms with its gaps
+named; since E97 also that every byte of a new hash counts and that a breached 72-byte prefix behind an
+unlisted tail passes screening and opens nothing).
 Hashes made with bcrypt 4.3.0 from 84- to 512-byte passwords verify under bcrypt 5.0.0 with the fix.

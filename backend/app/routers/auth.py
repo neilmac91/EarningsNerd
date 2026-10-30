@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
-import asyncio
 import hashlib
 import hmac
 import json
@@ -47,6 +46,7 @@ from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_
 from app.services.password_utils import (
     _DUMMY_PASSWORD_HASH,
     get_password_hash,
+    in_password_thread,
     validate_password_strength,
     verify_password,
 )
@@ -649,7 +649,7 @@ async def register(
 
     # Closed-beta gate. When invite-only, require a valid, unexpired, unused invite BEFORE any
     # account work. It rejects uniformly regardless of email, so it is not an enumeration vector;
-    # the email-existence anti-enumeration (opaque response + bcrypt timing) is preserved below for
+    # the email-existence anti-enumeration (opaque response + hashing timing) is preserved below for
     # the valid-invite path. In "public" mode the invite is ignored and nothing changes.
     invite = None
     if settings.REGISTRATION_MODE == "invite_only":
@@ -668,9 +668,9 @@ async def register(
             detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
-    # Always pay the bcrypt cost, even for an existing email, so response timing doesn't reveal
+    # Always pay the hashing cost, even for an existing email, so response timing doesn't reveal
     # whether the account is new (hash + insert) vs. existing (no insert) — closes the timing oracle.
-    hashed_password = await asyncio.to_thread(get_password_hash, user_data.password)
+    hashed_password = await in_password_thread(get_password_hash, user_data.password)
 
     existing_user = auth_account_service.find_user_by_email(db, user_data.email)
     if existing_user:
@@ -746,13 +746,13 @@ async def login(
     user_agent, ip = request.headers.get("user-agent"), _client_ip(request)
 
     def look_up() -> tuple[Optional[int], Optional[tuple[int, Optional[str], bool]]]:
-        # One unit in the thread pool, released before bcrypt, so no login holds a pool slot while it
+        # One unit in the thread pool, released before the hash check, so no login holds a pool slot while it
         # hashes (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
             # Durable per-account lockout: bounds distributed brute-force/spray against one account
             # across many IPs, holds across instances/restarts, and is keyed on the email hash so a
             # non-existent address locks the same as a real one (no 429-vs-401 enumeration). Peek
-            # before bcrypt.
+            # before the hash check.
             lock_seconds = login_lockout.seconds_until_unlock(db, email)
             if lock_seconds is not None:
                 return lock_seconds, None
@@ -770,13 +770,13 @@ async def login(
         )
     user_id, verified_hash, is_active = account or (None, None, False)
 
-    # Always run bcrypt — against the real hash if we have one, else a fixed dummy — so the
-    # response timing is the same whether or not the email exists (no timing oracle). Offloaded
-    # to a worker thread so the ~250ms hash doesn't block the event loop under login load.
-    password_ok = await asyncio.to_thread(verify_password, user_data.password, verified_hash or _DUMMY_PASSWORD_HASH)
+    # Always run the hash check — against the real hash if we have one, else a fixed dummy — so the
+    # response timing is the same whether or not the email exists (no timing oracle). On the password
+    # thread, so the ~270ms check doesn't block the event loop under login load (password_utils).
+    password_ok = await in_password_thread(verify_password, user_data.password, verified_hash or _DUMMY_PASSWORD_HASH)
 
     def finish() -> Optional[str]:
-        # One unit in the thread pool after bcrypt, released before the route returns.
+        # One unit in the thread pool after the hash check, released before the route returns.
         try:
             if verified_hash and password_ok and is_active:
                 # Under the account's lock, and only while the hash just verified is still its own (E121).
@@ -1006,7 +1006,7 @@ async def reset_password(
     """Set a new password using the single-use token from the reset email.
 
     Two units in the thread pool, the token's account read and the reset, each released before what follows
-    it, so the breached-password check and bcrypt hold no pooled connection and no statement or lock wait runs
+    it, so the breached-password check and the hash hold no pooled connection and no statement or lock wait runs
     on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md)."""
     def find_account() -> int:
         try:
@@ -1027,7 +1027,7 @@ async def reset_password(
             detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
-    hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
+    hashed_password = await in_password_thread(get_password_hash, payload.new_password)
 
     def reset() -> None:
         # Sets the password, burns the token, confirms the email (the user proved control of the inbox)
@@ -1063,8 +1063,8 @@ async def change_password(
     Applies the same strength + breached-password (HIBP) checks as registration/reset.
 
     Two units in the thread pool around the waits (E121): the auth lookup's read is released first, so no
-    pooled connection is out while bcrypt checks the current password, the breached-password check runs or
-    bcrypt hashes the new one; the change and this device's new session are then one unit, released before
+    pooled connection is out while the current password is checked, the breached-password check runs or
+    the new one is hashed; the change and this device's new session are then one unit, released before
     the route returns (lessons/ops-release-cached-filing-reads-before-yield.md).
     """
     # The release detaches the user without expiring it: the id, email and hash the lookup loaded stay
@@ -1080,7 +1080,7 @@ async def change_password(
     )
     verified_hash = current_user.hashed_password
     if verified_hash:
-        ok = await asyncio.to_thread(verify_password, payload.current_password or "", verified_hash)
+        ok = await in_password_thread(verify_password, payload.current_password or "", verified_hash)
         if not ok:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
@@ -1092,7 +1092,7 @@ async def change_password(
             detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
-    new_password_hash = await asyncio.to_thread(get_password_hash, payload.new_password)
+    new_password_hash = await in_password_thread(get_password_hash, payload.new_password)
 
     def change() -> bool:
         # A password change must evict every existing session (a stolen/old refresh token must not
