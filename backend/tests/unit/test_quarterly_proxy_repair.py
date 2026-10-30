@@ -2219,17 +2219,22 @@ def test_a_backed_row_not_current_whose_original_the_10k_confirms_is_restored_be
             assert repair.snapshot(db.get(FinancialFact, backer.id)) == stale
 
 
-@pytest.mark.parametrize(("start", "fiscal_year"), [("2025-01-01", 2025), ("2025-01-02", 2025), ("2025-01-01", 2024)],
-                         ids=["labels-agree", "start-differs", "fiscal-year-differs"])
-def test_a_current_left_row_within_1pct_of_the_10k_is_left_whatever_its_labels(monkeypatch, start, fiscal_year):
+@pytest.mark.parametrize(("start", "fiscal_year", "parsed"), [
+    ("2025-01-01", 2025, 17_000e6), ("2025-01-02", 2025, 17_000e6), ("2025-01-01", 2024, 17_000e6),
+    ("2025-01-01", 2025, 18_770e6),
+], ids=["labels-agree", "start-differs", "fiscal-year-differs", "original-agrees"])
+def test_a_current_left_row_within_1pct_of_the_10k_is_left_whatever_its_labels(monkeypatch, start, fiscal_year, parsed):
     # P27 quotes FY2025 as the FY2025 10-K first reported it, 18,560 million, 0.2% under the 10-K's 18,600: the FY2026
     # 10-K's comparative, parsed 17,000 and replaced with P27's figure, is FY2025's current row. Since #1682 the history
     # row backs it. The current-figure refusal reads the value alone, which the old cross-check changed, never a start
-    # or fiscal year, so the row is left and listed whatever its labels.
+    # or fiscal year, so the row is left and listed whatever its labels. Where the parse was 18,770, 0.9% off the 10-K's
+    # figure (and 1.1% off P27's, which replaced it), the row is left and listed too: set 4 restores a backed row whose original the 10-K confirms only where its value is
+    # more than 1% off the 10-K's figure (review of #1840, SF-B), and this one is within 1%, a figure the cross-check
+    # would itself confirm. Synced as before #1682, no report row backs it, and set 4 restores it.
     def build(db, monkeypatch):
         company = _company(db, "AGR")
         payload, filing = _restated_and_quoted_as_first_reported(
-            db, monkeypatch, company, old_sync=False, own_fy2025=18_560e6, quoted=18_560e6, parsed=17_000e6,
+            db, monkeypatch, company, old_sync=False, own_fy2025=18_560e6, quoted=18_560e6, parsed=parsed,
             start=start, fiscal_year=fiscal_year)
         _sync(db, monkeypatch, company, payload)
         return company, payload, filing
@@ -2239,11 +2244,17 @@ def test_a_current_left_row_within_1pct_of_the_10k_is_left_whatever_its_labels(m
         [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
         assert (row.is_latest, float(row.value), row.period_start.isoformat(), row.fiscal_year) == (
             True, 18_560e6, start, fiscal_year)
-        # Before #1682 set 4's own check refuses it: its recorded original, 17,000, is 8.6% off the 10-K's figure.
-        # Since, the history row backs it, and the refusal disappears (docs, "A refusal can disappear").
-        _refuses(old, company, payload, _refusal(old, (row.id, "the 10-K's figure disagrees with the recorded original "
-                                                               "value by more than 1%, and the filing row holds neither")))
+        assert _check(row)["original_value"] == parsed
+        if parsed == 17_000e6:
+            # Before #1682 set 4's own check refuses it: its recorded original, 17,000, is 8.6% off the 10-K's figure.
+            # Since, the history row backs it, and the refusal disappears (docs, "A refusal can disappear").
+            _refuses(old, company, payload, _refusal(old, (row.id, "the 10-K's figure disagrees with the recorded "
+                                                                   "original value by more than 1%, and the filing row "
+                                                                   "holds neither")))
+        else:
+            assert _preview(old, company, payload)["proxy"]["filing_rows_restored"] == 1
         plan = _preview(new, company, payload)["proxy"]
+        assert plan["filing_rows_restored"] == 0
         assert [(e["fact_id"], e["set"], e["authority"]) for e in plan["left_report_backed"]] == [
             (row.id, 4, 18_600e6)]
 
