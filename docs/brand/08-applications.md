@@ -376,7 +376,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (new) fails a SegmentedControl given more than five options, so a long set takes the compact select,
   and the filings form filter, a set known only at run time, renders as the toolbar's compact select
   past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than
-  five; `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
+  five; `tests/unit/formatters.spec.ts` holds the signed `fmtShares`.
 - **Dashboard and watchlist** (`frontend/app/dashboard/page.tsx`, `app/dashboard/watchlist/page.tsx`,
   `features/dashboard/components/*`, `features/watchlist/components/SummaryStatusBadge.tsx`): each
   watched company's card states its summary from the server's status (ready, being written, none yet,

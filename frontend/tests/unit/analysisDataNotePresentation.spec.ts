@@ -147,7 +147,7 @@ function badgeBoundaryViolations(file: ts.SourceFile): string[] {
   return moduleReferences(file).flatMap(({ node, target }) => {
     if (target === OLD_BADGE) return [`${location(file, node)}: retired analysis ReconciliationBadge import/re-export`]
     if (target === SOURCE_BADGE && !SOURCE_BADGE_CONSUMERS.has(file.fileName)) {
-      return [`${location(file, node)}: SourceCheckBadge is reserved for the two existing fundamentals/peers consumers`]
+      return [`${location(file, node)}: SourceCheckBadge is reserved for its existing consumer, the filing page's fundamentals chart`]
     }
     return []
   })
