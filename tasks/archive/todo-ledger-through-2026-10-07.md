@@ -7070,13 +7070,17 @@ Full local and hosted verification plus independent exact-head review precede re
   read-only survey of the window before the record was written. Fifteen main merges, ten of them backend
   deploys, each healthy by its own deploy job, every other push run's deploy job skipping every deploy
   step; no job cut off at its time limit; the advisory pip-audit step exited 1, as inferred, in all fifteen
-  main runs; production not read live; after the stamp eight more main merges, five of them
-  backend deploys, four healthy by their own deploy jobs and #1732's then in progress, and the
-  dnspython bump in #1698 ending the advisory pip-audit step's exit 1 on main.
+  main runs; production not read live; after the stamp eight more main merges before the record's
+  commit, five of them backend deploys, each healthy by its own deploy job, #1732's after the
+  commit, and the advisory pip-audit step exiting 1 in none of the main runs from #1698's
+  dnspython bump on, as inferred, which fits an advisory against that pin; after the commit three
+  more main merges, each skipping every deploy step.
   No CODE RED spend; no ledger event; twenty-one paid steps on other writers' heads on GitHub; four
   balance readouts dispatched under the shared account, none by the chief. No chief defect known, the
   lapses counted from the chief's notes and its own commands; no hook refusal and no permission-classifier
-  refusal of the chief's commands in the window. Closure 219.
+  refusal of the chief's commands in the window. After the commit the fact-check's 44 findings
+  were verified, 27 taken and 17 kept, and the founder answered all fifteen founder actions.
+  Closure 219.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
