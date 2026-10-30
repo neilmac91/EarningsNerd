@@ -395,9 +395,17 @@ scale finding in either year's evidence, an input's included. On WP5b's REGN sha
 total assets FY2018 carry evidence (3 figures at 0.1%, not the 2 the 1% wording above gives); revenue growth
 FY2018–FY2020 reads n/m with +14.3%, +17.2% and +8.1% as first reported, and the net margin's changes with +16.0pp,
 −9.5pp and +14.4pp; FY2021 keeps +89.1%. The data notes' line takes its places from the points (the page's `laterFilingPlaces`, and its
-backend twin in X), so the envelope is unchanged. Evidence appears company by
-company as each company's next companyfacts sync after #1682 stores its history rows; each affected saved analysis
-regenerates its narrative once, unmetered.
+backend twin in X), so the envelope is unchanged.
+
+The rebuild wave comes in two parts, since the reader takes a year's own report from any non-current row in the cell.
+At B's deploy, every company whose stored rows already hold one beside a later filing's value (a demoted former
+winner, a row the per-filing writer stored, or a history row a sync since #1682 stored) gains its evidence and n/m
+with no sync. The rest follow company by company, as each one's next companyfacts sync after #1682 stores its history
+rows (lazy, on the coverage route, 24-hour TTL, no backfill). Either way the dataset's fingerprint moves, so each saved
+annual analysis whose window holds such a year regenerates its narrative once at next open, unmetered, and its saved
+PDF answers 409 until the analysis is re-run (`backend/app/routers/analysis.py`, the PDF export). The size is
+unmeasured until the founder runs `ops/detection/later_filing_wave.sql` (Ops `detection-sql`, read-only): an upper
+bound on the cells, companies and saved annual analyses that move at deploy.
 
 ### 1.7 The full-population measurement
 
