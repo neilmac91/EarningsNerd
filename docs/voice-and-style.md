@@ -230,8 +230,10 @@ Before editing a string, check what it's wired to:
   beta, which the email dropped in #1547, adds that figures are checked against the SEC filing where
   they can be, carries its link inline and asks not to be forwarded; the email greets the reader
   first, carries a button and asks them to review the account requirements when they sign up. Keep
-  their intent aligned, not their wording (`frontend/tests/unit/shareInvite.spec.ts` and
-  `backend/tests/unit/test_invitation_readiness.py` hold the promise, subjects included).
+  their intent aligned, not their wording. `frontend/tests/unit/shareInvite.spec.ts` and
+  `backend/tests/unit/test_invitation_readiness.py` hold both, subjects included, to five
+  patterns: no Pro, no "on us", nothing free, no card and no trial. A promise in other words
+  stays review-checked.
 - Component and e2e tests assert exact copy (headings such as "Generation interrupted" and
   "Page not found" are pinned by name). Any copy change runs `npx vitest run` before push and
   updates the coupled assertion in the same PR (see `lessons/test-vitest-for-copy-changes.md`).

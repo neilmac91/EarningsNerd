@@ -64,13 +64,12 @@ with account creation and invite redemption in the same transaction, exported wi
 deleted with it. Existing accounts are not assigned fictional historical acceptance. A future
 existing-user agreement transition must preserve login and privacy rights.
 
-The registration test fixtures now provide explicit synthetic assent and opt into a synthetic
-published operator through the nonautomatic `collection_ready` fixture. Original password,
-token, invite, provider-identity and webhook security assertions remain in force. Two previous
-contracts deliberately change: direct admin provisioning returns an authenticated 409 refusal,
-and plain Google login stores one-use state with no invite or agreement instead of storing no row.
-Export now includes agreement evidence, and a policy-version gate keeps the Terms date aligned
-with the version accepted by the API.
+The registration test fixtures provide explicit synthetic assent and opt into a synthetic
+published operator through the nonautomatic `collection_ready` fixture. The password, token,
+invite, provider-identity and webhook security assertions remain in force. Direct admin
+provisioning returns an authenticated 409 refusal, and a plain Google login stores one-use state
+with no invite or agreement. Export includes agreement evidence, and a policy-version gate keeps
+the Terms date aligned with the version accepted by the API.
 
 ## Rollout and remaining work
 

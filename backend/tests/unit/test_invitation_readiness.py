@@ -182,11 +182,11 @@ async def test_dormant_invitation_copy_promises_account_access_without_pro(deliv
 
     delivery.assert_awaited_once()
     # The patterns frontend/tests/unit/shareInvite.spec.ts holds the admin's default invite message to: no Pro, no "on us"
-    # (as written, so "on US filings" passes), nothing free, no card or trial (docs/LEGAL_READINESS.md: invitation wording
-    # promises account access only). The subject is held too.
+    # (in its sentence and title cases, so "on US filings" passes), nothing free, no card or trial (docs/LEGAL_READINESS.md:
+    # invitation wording promises account access only). The subject is held too.
     sent = delivery.call_args.kwargs
     for part in (sent["subject"], sent["html"], sent["text"]):
-        for promise, flags in ((r"\bpro\b", re.I), (r"\b[Oo]n us\b", 0), (r"\bfree\b", re.I),
+        for promise, flags in ((r"\bpro\b", re.I), (r"\b[Oo]n [Uu]s\b", 0), (r"\bfree\b", re.I),
                                (r"no (credit[- ]?)?card", re.I), (r"\btrials?\b", re.I)):
             assert not re.search(promise, part, flags), promise
     for part in (delivery.call_args.kwargs["html"], delivery.call_args.kwargs["text"]):

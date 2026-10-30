@@ -1,7 +1,7 @@
 /**
  * Pure helpers for building invite share copy + deep links. No DOM, no React — kept
  * separate from the ShareInvite component so the substitution and URL-encoding logic can
- * be unit-tested in isolation (see tests/unit/shareInvite.test.ts).
+ * be unit-tested in isolation (see tests/unit/shareInvite.spec.ts).
  *
  * Privacy note: nothing here logs or transmits the link/token. The single-use invite link
  * only ever travels into the share targets the admin explicitly picks.
