@@ -385,7 +385,13 @@ export default function StreamingSummaryDisplay({
           <>
             Showing the previously loaded summary.
             <span className="mt-2 block">{failureReason}</span>
-            {retryAfterSeconds > 0 && <span className="mt-2 block">Available in {retryAfterSeconds} seconds.</span>}
+            {retryAfterSeconds > 0 && (
+              <span className="mt-2 block">
+                You can try again in {retryAfterSeconds < 60
+                  ? plural(retryAfterSeconds, 'second')
+                  : plural(Math.ceil(retryAfterSeconds / 60), 'minute')}.
+              </span>
+            )}
           </>
         }
         action={retryAction}
