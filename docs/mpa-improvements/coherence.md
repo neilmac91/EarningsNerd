@@ -370,6 +370,32 @@ FDX, the case that found the defect, holds none of them.
 
 The mark's words and ink belong to this notation system (§2.2).
 
+**As shipped (WP5a-B).** The producer is `backend/app/services/trend_analysis/first_reports.py`, built on the
+recommendations of the WP5a decision brief, each held in one named constant or function a review can overturn:
+- D1: a figure carries its own report's value where the two differ by more than 0.1% of the own value
+  (`EVIDENCE_TOLERANCE`); growth reads n/m where the two years' shown-to-first-reported ratios differ by more than 1%
+  (`BASIS_TOLERANCE`), a year without evidence at ratio 1.
+- D2, option A: the sign-or-scale mark is the existing `source_conflict` reason, so no data notes version moves; the
+  dialog's evidence says what was found (`disagreement`). Per-share figures are not sign-tested (`SIGN_TEST_EXEMPT`).
+- D3: EPS basic and diluted keep their evidence and never read n/m by this rule (`BASIS_EXEMPT`).
+- D4: margins, free cash flow, working capital and the current ratio read n/m where an input changed basis
+  (`BASIS_INPUTS`), read from the recorded operand, else from the input's own figure for a calculation stored before
+  operands were recorded; item 5's evidence sits on the recorded operands.
+- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E246, E247).
+- D6: any own row the publication policy shows gives evidence; only one that passed its checks grounds the mark
+  (`grounds_a_mark`).
+
+The own report is ingest's rule replayed on stored rows: an accession's own year is the latest fiscal-year row stored
+there, a balance included, unless its filing row's period of report lies further on, and a test holds the reader to
+the history row the sync stores for each of WP5b's own-report shapes. Growth as first reported is n/m across a sign or
+scale finding in either year's evidence, an input's included. On WP5b's REGN shape: revenue FY2018 and FY2019 and
+total assets FY2018 carry evidence (3 figures at 0.1%, not the 2 the 1% wording above gives); revenue growth
+FY2018–FY2020 reads n/m with +14.3%, +17.2% and +8.1% as first reported, and the net margin's changes with +16.0pp,
+−9.5pp and +14.4pp; FY2021 keeps +89.1%. The data notes' line takes its places from the points
+(`trend_analysis/later_filings.py`, the page's twin), so the envelope is unchanged. Evidence appears company by
+company as each company's next companyfacts sync after #1682 stores its history rows; each affected saved analysis
+regenerates its narrative once, unmetered.
+
 ### 1.7 The full-population measurement
 
 [`ops/detection/mpa_notation_frequency.sql`](../../ops/detection/mpa_notation_frequency.sql)

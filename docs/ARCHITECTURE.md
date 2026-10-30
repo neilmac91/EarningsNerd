@@ -239,6 +239,18 @@ old snapshots without this field use a presentation-only fallback. The web admit
 at the API boundary against the dataset's quality fields, rejecting malformed or mismatched
 metadata rather than silently falling back. Notes do not change financial values or validation.
 
+An annual dataset also reads, once, the company's non-current fiscal-year rows (`trend_analysis/first_reports.py`,
+MPA WP5a): where a later filing reports a value more than 0.1% from the one the year's own annual report gave (the
+companyfacts own-report rows below, or a filing-owned or demoted row in that cell), a reported figure carries the own
+report's value as `first_reported`, a calculated figure's inputs carry theirs, and a YoY whose two years sit on
+different bases (their shown-to-first-reported ratios more than 1% apart) reads "nm" with `yoy_first_reported`. That
+is evidence, not a note: values, validation and totals stand. The one exception is read-time: an exact sign flip or
+factor of 1,000ⁿ between the two values marks the figure `needs_review` with the existing `source_conflict` reason,
+on a copy of its provenance, where the own row passed its checks. "Own report" replays `facts/own_reports.py`'s rule
+on stored rows, held to it by `test_first_reports.py`; quarterly datasets read and carry none of it.
+`trend_analysis/later_filings.py` gives the data notes' later-filing line its places from the points, so the notes
+envelope and its version are unchanged.
+
 `presentation.py` formats selected observations after selection, preserving the model-facing
 catalogue and prompt. Its `narrative_presentation` completion member binds structured red-flag
 operands and UTF-16 text spans to the financial snapshot. Inline operand text remains in stored
@@ -449,7 +461,8 @@ unused since generation became account-required in #619; kept because migrations
   a non-current row under the own report's accession, found within the winning tag only, the
   original preferred over an amendment, then the earliest filed. It is stored only where its
   identity is free, so it never demotes, promotes or replaces a row, and it never enters the
-  normalizer's `facts`, which the derivations read. The restatement note will read them. It is
+  normalizer's `facts`, which the derivations read. The analysis dataset reads them as evidence
+  (`trend_analysis/first_reports.py`, above). It is
   the own report's figure at that report's accession, so a reader of that filing's rows (the
   annual chart, the Copilot) reads it as the filing's own: the FY2018 10-K of REGN shows the
   6,710.8M it gave, never the FY2020 10-K's 5,145.6M, which only the later report's rows carry.

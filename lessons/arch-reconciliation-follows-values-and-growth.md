@@ -60,3 +60,16 @@ print (`analysis_export_metadata.fine_print_summary`): each marked note's places
 in our data", "N figures with no check recorded" and, apart, "N growth figures with no check recorded",
 "N calculated from filed figures", and "No figures need review · N checked" never beside a record-only
 note; `test_export_note_marks.py` holds both exports' letters to the shared fixture's `marked_letters`.
+
+**A later filing's value is evidence, not a note (2026-10-30, MPA WP5a-B)**: where a later filing reports a value other
+than the year's own annual report gave, the figure shows the later value and carries the own one as `first_reported`
+(a calculated figure's inputs carry theirs), and its checks, letters and totals stand: a recast is the comparable basis
+for the years after it, and marking every difference would mark about 4% of all figures. What changes is growth: a
+comparison whose two years sit on different bases reads n/m and carries the growth as first reported, so the page never
+prints a number that joins two scopes (REGN's FY2018 revenue, −12.4% shown, +14.3% as filed). Only an exact sign flip
+or factor of 1,000ⁿ, a likely tagging error, adds a note, through the existing `source_conflict` reason so no data
+notes version moves, and only on an own row that passed its checks. Read "own report" by replaying ingest's rule on
+stored rows (`trend_analysis/first_reports.py`), never by trusting a row's columns, since a history row, a
+filing-owned row and a demoted winner hold the cell alike; `test_first_reports.py` holds the replay to the history
+rows WP5b's writer stores on its own shapes, and `test_later_filings.py` runs a port of the page's decoder over every
+dataset the producer builds.
