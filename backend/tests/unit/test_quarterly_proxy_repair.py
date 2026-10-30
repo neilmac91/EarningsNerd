@@ -2958,6 +2958,27 @@ def test_principal_review_5718798403_item_3_a_left_row_is_listed_with_its_backer
                                                                "value by more than 1%, and the filing row holds neither")))
 
 
+def test_principal_review_5718798403_item_3_left_report_backed_names_every_backer():
+    # A pure test of the planner (principal review 5718798403, item 3): the listing names every stored report row that
+    # holds the left row's figure, in the planner's order, not the first alone. Here a non-current filing row holds a
+    # proxy's 100 million, behind the year's own 10-K row at K25 and a later 10-K's comparative at K26, each holding
+    # 100 million, and today's 10-K figure contradicts its original too (104 against 120 million).
+    row = {**_state(period_start=date(2025, 1, 1), period_end=date(2025, 12, 31), fiscal_year=2025, value=100e6,
+                    accession="KA25", form="10-K/A", filing_id=3, is_latest=False)[1],
+           "provenance": {"version": 1, "checks": {"authoritative": {"outcome": "replaced", "original_value": 120e6,
+                                                                     "authoritative_value": 100e6}}}}
+    backers = {2: {**row, "filing_id": None, "accession": "K25", "form": "10-K", "provenance": None},
+               3: {**row, "filing_id": None, "accession": "K26", "form": "10-K", "provenance": None}}
+    proxy_row = {**row, "filing_id": None, "form": "DEF 14A", "accession": "P26", "provenance": None}
+    payload = _payload({"NetIncomeLoss": {"units": {"USD": [
+        _item(104e6, "2025-12-31", start="2025-01-01", accn="K27", fy=2027, filed="2028-02-25")]}}})
+    plan = proxy.plan({1: row, **backers, 4: proxy_row}, {}, [], {}, payload)
+    [left] = plan.left
+    assert (left["fact_id"], left["authority"]) == (1, 104e6)
+    assert left["backed_by"] == [{"fact_id": fact_id, "accession": state["accession"], "form": "10-K", "is_latest": False,
+                                  "filing_id": None, "source": "companyfacts"} for fact_id, state in backers.items()]
+
+
 @pytest.mark.parametrize("proxy_rows", [False, True], ids=["current", "behind_the_proxy_row"])
 def test_principal_review_5718798403_item_2_a_scale_up_with_no_10k_figure_is_listed_retained_and_never_written(
         monkeypatch, proxy_rows):
