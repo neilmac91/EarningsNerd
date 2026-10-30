@@ -1,6 +1,6 @@
 # Merge only once the ready mark's own Codex review of the head has completed with no unresolved finding
 
-Date: 2026-10-21, updated 2026-10-22 (#1496) and 2026-10-23 (F58 call 1)   Area: ops / review
+Date: 2026-10-21, updated 2026-10-22 (#1496), 2026-10-23 (F58 call 1) and 2026-10-30 (the session hook)   Area: ops / review
 
 **Context**: #1469 (records) had Codex's clean review of its head `60210176` (requested, completed at 22:11Z) and CI
 green, and was marked ready at 22:24:41Z. The ready mark starts a second Codex review of the same head, its summary row's
@@ -38,8 +38,12 @@ the same head (F58 changed both; **Gate** below).
   until that review completes or is an hour old. A transition or request made while a review runs therefore costs the
   hour: its start stays open until then, and the gate then needs one fresh review. An overlap hidden behind another
   completion no longer passes while a review still runs (B1 in review 6341504879), whichever run finishes first. That
-  replay is this rule's machine gate (rule 12), and the gate prints each reason as it polls. Once the summary reads
-  Completed (it shows only the newest review, so a superseded run may stay Running behind it):
+  replay is this rule's machine gate (rule 12), and the gate prints each reason as it polls. In a Claude Code session,
+  `.claude/hooks/codex_review_overlap_guard.py` refuses the ready mark or the review request itself while the summary
+  shows a review Running, or one asked for in the last five minutes has not shown yet, and, where it can read the
+  summary's edit history, while that replay holds a review open; Codex and Astra sessions hold the rule by hand
+  (AGENTS.md §5). Once the summary reads Completed (it shows only the newest review, so a superseded run may stay
+  Running behind it):
   - if the gate names a review still open, wait for the time its message names: the job times out after 20 minutes,
     so once that review completes or turns an hour old, re-run the timed-out job (re-run its failed jobs; a review
     request would start another overlap);
@@ -88,7 +92,12 @@ none (the S1 note, comment 6351439364). On 2026-10-23 four merges waited on the 
 (`b7d4b164`, a manual review Running from 23:12 the night before, merged on a review override), #1497 (`383b6f73`,
 Running from 22:38, treated as abandoned on the founder's call), #1507 (`cdf9ee04`, Running from 00:49, marked ready on
 the founder's word) and #1519 (`89b469dc`, its ready review Running from 13:27:56Z, merged on a review override). The
-founder then approved call 1.
+founder then approved call 1. On #1530 on 2026-10-24 the ready review of `b72df2c4` started at 09:37:22Z; `1d5a1089`
+was pushed at 09:39:05Z and the review command posted at 09:39:09Z while it ran. The ready review never completed, and
+the review of `1d5a1089` completed clean. `review-gate` waited 20 minutes on the open start (job 120840391727), then, past
+its hour, on "no completed cycle for the latest ready mark; a manual review cannot replace it" (job 120850974333). One
+fresh transition at 10:46:08–18Z, with no manual request, passed at 10:48:57Z (run 40087236961). The session hook
+followed, so the request is refused before it is sent.
 
 **Gate**: The founder approved F58 on 2026-10-22. `backend/scripts/review_gate.py` reads the
 summary's full-head machine state, the live PR head/draft flag, GitHub's ready-transition timeline,
@@ -120,3 +129,21 @@ new-head correction path, which keeps a PR ready when its completed ready cycle 
 reference, draft, identity and short-SHA ambiguity guards. The workflow loads the gate from the
 trusted base branch, so #1486's own required check ran the previous implementation. The separate
 F55 paid-evaluation reservation remains review-checked.
+
+The gate finds an overlap after it has cost the hour; `.claude/hooks/codex_review_overlap_guard.py` (2026-10-30) stops
+it before it starts. It acts on a review request (the command alone, through the GitHub MCP `add_issue_comment`, or `gh
+pr comment` or `gh issue comment`) and a ready mark (`update_pull_request` with `draft` false, `gh pr ready`, or the
+`ccr/ready_for_review` route Claude Code's remote sessions use). Through `review_gate.py`'s own reads, it refuses while
+the newest Codex summary shows a review Running under the hour (`_review`, `_open_at`), while a review Codex was asked
+for in the last five minutes has not shown in the summary yet (a person's review command, a ready mark, or an opening
+ready, newer than the review the summary's row shows, which a re-render keeps; Codex shows one some seconds after it is
+asked), and, where it can read the summary's edit history, while `_require_no_live_start` would hold the gate, with the
+gate's own message. Claude Code's remote sessions are refused GraphQL, and a summary never edited has no history, so
+there the summary's own state decides. A ready mark on a pull request already ready starts no review and passes, unless
+the same line first turns it back to draft. A gh command that names its pull request by branch or not at all, or an API
+route that names it through a variable, is refused until it names the number or URL. When the hook cannot read the
+summary (no GitHub token, a failed or slow read, a summary the gate will not read, or a history GitHub fails to serve or
+the gate will not trust), it lets the call through with a note to Claude, since blocking would hold every ready mark of
+a session that cannot reach GitHub; `review-gate` stays the merge gate. Tests:
+`backend/tests/unit/test_codex_review_overlap_guard.py`, against a loopback fake of GitHub serving summaries in Codex's
+own format.

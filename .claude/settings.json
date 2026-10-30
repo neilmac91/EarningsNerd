@@ -34,6 +34,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/codex_review_overlap_guard.py\" || exit 1",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$",
+        "hooks": [
+          {
+            "type": "command",
             "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/secret_scan_guard.py\" || exit 1",
             "timeout": 60
           }
