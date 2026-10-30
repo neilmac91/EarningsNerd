@@ -2,12 +2,18 @@
 decision is pure, pinned offline, and the workflow that publishes it runs on every pull-request event without write
 permissions. It never skips that job, because a skipped job counts as passing; a draft fails it instead."""
 import base64
+import http.client
+import io
 import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
+import urllib.error
 import urllib.parse
+import urllib.request
+import urllib.response
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -1714,3 +1720,244 @@ def test_review_start_must_follow_the_whole_github_event_second(boundary, second
                         finish="2026-09-15T18:42:00Z")
         verdict, message = _verdict([_comment(opened)], pr_timeline=[])
     assert verdict == expected, message
+
+
+# ── GitHub's transient errors (F57) ───────────────────────────────────────────
+
+# What a GitHub error can carry and the gate never prints: the request's URL, the token, a header and the body.
+LEAKS = ("https://", "api.github.com", "never-print-me", "body-never-printed")
+LEAKY_URL = "https://api.github.com/repos/o/r/issues/7/comments?page=1&echo=never-print-me"
+RETRY = "a transient error; the gate retries within its wait"
+
+
+def _http_error(code: int) -> urllib.error.HTTPError:
+    """The HTTPError urllib raises for a ``code`` answer, its URL, a header and its body holding what must not print."""
+    headers = http.client.HTTPMessage()
+    headers["X-Echo"] = "never-print-me"
+    return urllib.error.HTTPError(LEAKY_URL, code, "body-never-printed", headers,
+                                  io.BytesIO(b'{"message": "body-never-printed"}'))
+
+
+# Each error the gate retries, as a read meets it, and the name its wait line gives.
+TRANSIENT = [
+    ("HTTPError 500", lambda: _http_error(500)),
+    ("HTTPError 502", lambda: _http_error(502)),
+    ("HTTPError 503", lambda: _http_error(503)),
+    ("HTTPError 504", lambda: _http_error(504)),
+    ("URLError", lambda: urllib.error.URLError(OSError(-2, f"Name or service not known: {LEAKY_URL}"))),
+    ("URLError", lambda: urllib.error.URLError(TimeoutError(f"connecting to {LEAKY_URL} timed out"))),
+    ("TimeoutError", lambda: TimeoutError(f"reading {LEAKY_URL} timed out")),
+    ("ConnectionResetError", lambda: ConnectionResetError(104, f"reset while reading {LEAKY_URL}")),
+    ("IncompleteRead", lambda: http.client.IncompleteRead(b"body-never-printed", 64)),
+    ("RemoteDisconnected", lambda: http.client.RemoteDisconnected(f"{LEAKY_URL} closed without a response")),
+    ("BadStatusLine", lambda: http.client.BadStatusLine("body-never-printed")),
+]
+TRANSIENT_IDS = ["500", "502", "503", "504", "a-dns-failure", "a-connect-timeout", "a-read-timeout",
+                 "a-connection-reset", "an-incomplete-read", "a-remote-disconnect", "a-bad-status-line"]
+
+
+def _f57_env(monkeypatch, poll="20", timeout="20"):
+    """The workflow's 20-second poll and 20-minute wait, unless a case sets its own."""
+    monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
+    monkeypatch.setenv("REVIEW_GATE_POLL_SECONDS", poll)
+    monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", timeout)
+
+
+def _timed():
+    """A sleep that moves the gate's clock on as time would, without waiting: the sleeps asked for, the sleep, the
+    clock."""
+    sleeps = []
+    return sleeps, sleeps.append, lambda: float(sum(sleeps))
+
+
+def _reads(*answers):
+    """A fetch that meets each answer in turn: an exception is raised, a snapshot returned."""
+    queue = list(answers)
+
+    def fetch():
+        answer = queue.pop(0)
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+    return fetch
+
+
+def _passing():
+    return _state([_summary(COMPLETED, HEAD[:7])], "body", [HEAD], False)
+
+
+def _waiting():
+    return _state([_summary(RUNNING, HEAD[:7])], "body", [HEAD], False)
+
+
+def _no_leak(lines):
+    """Whether no printed line holds a URL, the token, a header or the response body."""
+    return not [line for line in lines if any(leak in line for leak in LEAKS)]
+
+
+def test_main_waits_out_one_503_and_passes_on_the_next_complete_read(monkeypatch, capsys):
+    """F57: one 503 makes that poll a wait, the gate sleeps one poll interval, and the next complete read passes."""
+    _f57_env(monkeypatch)
+    sleeps, sleep, clock = _timed()
+    assert review_gate.main(fetch=_reads(_http_error(503), _passing()), sleep=sleep, clock=clock, wall=lambda: NOW) == 0
+    assert sleeps == [20]
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == [f"review-gate: GitHub could not be read (HTTPError 503), {RETRY}",
+                     "review-gate: current-head Codex cycle completed with no unresolved findings for a834193"]
+    assert _no_leak(lines)
+
+
+@pytest.mark.parametrize("poll, timeout, expected", [
+    # The workflow's 20-second poll in its 20-minute wait: doubled to the two-minute cap, the last sleep cut to the 100
+    # seconds left, and the read at the deadline times out.
+    ("20", "20", [20, 40, 80] + [120] * 8 + [100]),
+    # The time left cuts a doubled sleep short before it reaches the cap.
+    ("5", "1", [5, 10, 20, 25]),
+    # A poll interval longer than the cap is the cap.
+    ("200", "20", [200] * 6),
+], ids=["the-workflows-poll", "cut-to-the-time-left", "a-poll-longer-than-the-cap"])
+def test_transient_errors_in_a_row_back_off_to_the_cap_and_the_deadline_then_time_out(
+        monkeypatch, capsys, poll, timeout, expected):
+    """F57: after the k-th transient error in a row the gate sleeps poll * 2 ** (k - 1), at most two minutes (or the
+    poll interval, when that is longer) and never past its deadline; errors until the deadline end in the timeout."""
+    _f57_env(monkeypatch, poll, timeout)
+    sleeps, sleep, clock = _timed()
+
+    def fetch():
+        raise _http_error(503)
+    assert review_gate.main(fetch=fetch, sleep=sleep, clock=clock, wall=lambda: NOW) == 1
+    assert sleeps == expected
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:-1] == [f"review-gate: GitHub could not be read (HTTPError 503), {RETRY}"] * (len(expected) + 1)
+    assert lines[-1].startswith(f"review-gate: timed out after {timeout} minutes waiting for trusted, clean review ")
+    assert _no_leak(lines)
+
+
+@pytest.mark.parametrize("answered", ["a-waiting-snapshot", "a-changed-snapshot"])
+def test_a_poll_github_answers_resets_the_backoff(monkeypatch, capsys, answered):
+    """F57: a read that completed, whatever decide made of it, and one that met a concurrent update both had GitHub's
+    answers, so the next transient error sleeps one poll interval again, not two."""
+    _f57_env(monkeypatch)
+    sleeps, sleep, clock = _timed()
+    between = _waiting() if answered == "a-waiting-snapshot" else review_gate.SnapshotChanged("concurrent ready event")
+    fetch = _reads(_http_error(503), between, _http_error(503), _passing())
+    assert review_gate.main(fetch=fetch, sleep=sleep, clock=clock, wall=lambda: NOW) == 0
+    assert sleeps == [20, 20, 20]
+    lines = capsys.readouterr().out.splitlines()
+    assert [RETRY in line for line in lines] == [True, False, True, False] and _no_leak(lines)
+
+
+@pytest.mark.parametrize("named, error", TRANSIENT, ids=TRANSIENT_IDS)
+def test_each_transient_error_is_retried(monkeypatch, capsys, named, error):
+    """F57: GitHub's 5xx, a network error urllib wraps, and a socket or HTTP error met while the response is read each
+    make that poll a wait, named by its class (and an HTTPError's status) alone."""
+    _f57_env(monkeypatch)
+    sleeps, sleep, clock = _timed()
+    assert review_gate.main(fetch=_reads(error(), _passing()), sleep=sleep, clock=clock, wall=lambda: NOW) == 0
+    assert sleeps == [20]
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == f"review-gate: GitHub could not be read ({named}), {RETRY}" and _no_leak(lines)
+
+
+@pytest.mark.parametrize("code", [400, 401, 403, 404, 409, 422, 429])
+def test_a_4xx_fails_at_once_naming_its_status(monkeypatch, capsys, code):
+    """F57 retries no 4xx (a bad request or token, a missing permission or resource, a rate limit): the gate fails on it
+    at once, without a sleep, though the next read would pass."""
+    _f57_env(monkeypatch)
+    sleeps, sleep, clock = _timed()
+    assert review_gate.main(fetch=_reads(_http_error(code), _passing()), sleep=sleep, clock=clock, wall=lambda: NOW) == 1
+    assert sleeps == []
+    assert capsys.readouterr().out == f"review-gate: failed to read trusted GitHub evidence: HTTPError {code}\n"
+
+
+@pytest.mark.parametrize("error, printed", [
+    (review_gate.EvidenceError("the pull request's file list has an entry without a path"),
+     "the pull request's file list has an entry without a path; failing closed"),
+    (ValueError(f"unexpected {LEAKY_URL}"), "ValueError"),
+    (KeyError("body-never-printed"), "KeyError"),
+    (TypeError(f"unexpected {LEAKY_URL}"), "TypeError"),
+    (json.JSONDecodeError("Expecting value", "<html>body-never-printed</html>", 0), "JSONDecodeError"),
+    (ssl.SSLError(1, f"decryption failed or bad record mac reading {LEAKY_URL}"), "SSLError"),
+], ids=["the-gates-own-error", "a-value-error", "a-key-error", "a-type-error", "a-body-that-is-not-json",
+        "an-ssl-error-mid-response"])
+def test_the_gates_own_error_and_any_other_still_fail_at_once(monkeypatch, capsys, error, printed):
+    """F57 retries only the transient: the gate's own error and any other exception fail at once, as before."""
+    _f57_env(monkeypatch)
+    sleeps, sleep, clock = _timed()
+    assert review_gate.main(fetch=_reads(error, _passing()), sleep=sleep, clock=clock, wall=lambda: NOW) == 1
+    assert sleeps == []
+    assert capsys.readouterr().out == f"review-gate: failed to read trusted GitHub evidence: {printed}\n"
+
+
+class _StillPolling(Exception):
+    """A test's sleep raises it to end a poll loop that would wait on."""
+
+
+@pytest.mark.parametrize("reading", ["frozen", "running-backwards", "erratic", "past-the-deadline"])
+def test_a_fetch_that_only_ever_fails_transiently_never_passes_whatever_the_clock_reads(monkeypatch, capsys, reading):
+    """F57: the gate passes only on a complete read, so while GitHub keeps failing it waits on (stopped here after
+    1,500 polls) or times out, whatever its clock reads; it never returns 0, and no sleep passes the cap."""
+    _f57_env(monkeypatch)
+    readings, sleeps = [], []
+
+    def clock():
+        readings.append(None)
+        n = len(readings)
+        return {"frozen": 0.0, "running-backwards": -60.0 * n, "erratic": float(n * 7_919 % 1_000),
+                "past-the-deadline": 1e9 * n}[reading]
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        if len(sleeps) == 1_500:
+            raise _StillPolling
+
+    def fetch():
+        raise TRANSIENT[len(sleeps) % len(TRANSIENT)][1]()
+    try:
+        code = review_gate.main(fetch=fetch, sleep=sleep, clock=clock, wall=lambda: NOW)
+    except _StillPolling:
+        code = None
+    assert code == (1 if reading == "past-the-deadline" else None)
+    lines = capsys.readouterr().out.splitlines()
+    if code == 1:
+        assert lines.pop().startswith("review-gate: timed out after 20 minutes")
+    assert lines and all(line.endswith(RETRY) for line in lines) and _no_leak(lines)
+    assert all(0 < seconds <= review_gate.TRANSIENT_BACKOFF_CAP for seconds in sleeps)
+
+
+def test_main_waits_out_the_503_urllib_itself_raises_through_the_gates_own_reads(monkeypatch, capsys):
+    """F57 on the exception urllib really raises: fetch_state and _github read through urllib's own opener, its HTTPS
+    handler swapped for one that answers from memory, and the first answer is a 503, so urllib's error processor raises
+    the HTTPError. The gate waits one poll; the next reads the pull request whole and passes on its override."""
+    _f57_env(monkeypatch, "5", "1")
+    monkeypatch.setenv("REVIEW_GATE_REPO", "o/r")
+    monkeypatch.setenv("REVIEW_GATE_PR", "7")
+    monkeypatch.setenv("GITHUB_TOKEN", "never-print-me")
+    pull = {"draft": False, "head": {"sha": HEAD}, "created_at": CREATED, "updated_at": CREATED, "title": "title",
+            "body": OVERRIDE_LINE}
+    answers = {"/repos/o/r/pulls/7": pull, "/repos/o/r/pulls/7/commits": [{"sha": HEAD, "commit": {"message": "m"}}]}
+    served = []
+
+    class GitHub(urllib.request.HTTPSHandler):
+        """Answers each request from ``answers`` (any other listing is empty) and the first with a 503; it stands in
+        for urllib's HTTPS handler, so no socket opens."""
+
+        def https_open(self, request):
+            served.append(request.full_url)
+            status = 503 if len(served) == 1 else 200
+            body = ({"message": "body-never-printed"} if status == 503
+                    else answers.get(urllib.parse.urlsplit(request.full_url).path, []))
+            response = urllib.response.addinfourl(io.BytesIO(json.dumps(body).encode("utf-8")),
+                                                  http.client.HTTPMessage(), request.full_url, status)
+            response.msg = "Service Unavailable" if status == 503 else "OK"
+            return response
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), GitHub)
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: opener.open(request, timeout=timeout))
+    sleeps, sleep, clock = _timed()
+    assert review_gate.main(sleep=sleep, clock=clock, wall=lambda: NOW) == 0
+    assert sleeps == [5]
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == [f"review-gate: GitHub could not be read (HTTPError 503), {RETRY}",
+                     "review-gate: override recorded in the pull request body: Codex bot out of credits; two "
+                     "independent lenses reviewed the diff."]
+    assert _no_leak(lines)
