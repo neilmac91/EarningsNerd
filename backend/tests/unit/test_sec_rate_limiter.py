@@ -180,6 +180,8 @@ async def test_document_source_observation_preserves_transport_and_decoded_text(
     import hashlib
     from app.services.edgar import compat
 
+    monkeypatch.setattr(compat.random, "uniform", lambda low, high: high)
+
     url = "https://sec.example/selected.htm"
     final_url = "https://sec.example/final.htm" if mode == "redirect" else url
     raw = b" <html><body>caf\xe9</body></html>\n"

@@ -11,6 +11,9 @@ Usage:
 
 import hashlib
 import logging
+import math
+import random
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
@@ -19,7 +22,7 @@ import httpx
 
 from .client import edgar_client
 from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_stats
-from .exceptions import EdgarError, EdgarNetworkError, EdgarRateLimitError, EdgarTimeoutError
+from .exceptions import EdgarError, EdgarNetworkError, EdgarNotFoundError, EdgarRateLimitError, EdgarTimeoutError
 from .config import FilingType, EDGAR_IDENTITY
 from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 from app.services.sec_rate_limiter import sec_rate_limiter
@@ -30,6 +33,29 @@ logger = logging.getLogger(__name__)
 
 MAX_SEC_ATTACHMENT_BYTES = 32 * 1024 * 1024
 SEC_ATTACHMENT_CHUNK_BYTES = 64 * 1024
+
+
+def _document_transport_error(exc: httpx.HTTPError, timeout: float) -> EdgarError:
+    """Classify before leaving the breaker; permanent HTTP refusals are not outages."""
+    if isinstance(exc, httpx.TimeoutException):
+        return EdgarTimeoutError(timeout_seconds=timeout, cause=exc)
+    if isinstance(exc, httpx.RequestError):
+        return EdgarNetworkError("SEC document transport failed", cause=exc)
+    status = exc.response.status_code
+    context = {"status_code": status}
+    retry_after = sec_rate_limiter._retry_after_seconds(exc)
+    if retry_after is not None:
+        context["retry_after_seconds"] = retry_after
+    if status == 429:
+        return EdgarRateLimitError(
+            retry_after=math.ceil(retry_after) if retry_after is not None else 60,
+            cause=exc, context=context,
+        )
+    if status == 408 or status >= 500:
+        return EdgarNetworkError("SEC document server failed", cause=exc, context=context)
+    if status == 404:
+        return EdgarNotFoundError("SEC document is not available", cause=exc, context=context)
+    return EdgarError("SEC document request refused", code="EDGAR_HTTP_REFUSED", cause=exc, context=context)
 
 
 def _decoded_source_provenance(
@@ -492,40 +518,69 @@ class SECEdgarServiceCompat:
         timeout: Optional[float] = None,
         max_retries: int = 3,
     ) -> tuple[str, str, Optional[str]]:
-        """
-        Get filing document content by URL.
+        """Fetch the document within one deadline, including pacing and retries.
 
-        Note: This method uses direct HTTP as EdgarTools doesn't expose URL-based access.
+        HTTPX timeouts alone apply per network operation, not to limiter waits or
+        the whole retry ladder. A server cooldown that cannot fit the remaining
+        deadline is returned to the caller, never shortened into an early retry.
         """
-        timeout = timeout or 60.0
+        timeout = 60.0 if timeout is None else timeout
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be a positive finite number")
+        if type(max_retries) is not int or max_retries < 1:
+            raise ValueError("max_retries must be a positive integer")
         import asyncio as aio
 
+        deadline = time.monotonic() + timeout
+        phase = "admission"
         try:
             async with edgar_circuit_breaker:
-                async with httpx.AsyncClient() as client:
-                    # Each attempt acquires a limiter token before hitting sec.gov (the fetch carried
-                    # the breaker but bypassed the limiter). The manual exponential backoff below owns
-                    # retries, so use execute() (token wait) not execute_with_backoff.
-                    async def _do_get() -> httpx.Response:
-                        resp = await client.get(
-                            document_url,
-                            headers={"User-Agent": EDGAR_IDENTITY},
-                            timeout=timeout,
-                            follow_redirects=True,
-                        )
-                        resp.raise_for_status()
-                        return resp
+                try:
+                    async with aio.timeout(timeout), httpx.AsyncClient() as client:
+                        async def _do_get() -> httpx.Response:
+                            nonlocal phase
+                            phase = "request"
+                            resp = await client.get(
+                                document_url,
+                                headers={"User-Agent": EDGAR_IDENTITY},
+                                timeout=max(0.001, deadline - time.monotonic()),
+                                follow_redirects=True,
+                            )
+                            resp.raise_for_status()
+                            return resp
 
-                    for attempt in range(max_retries):
-                        try:
-                            response = await sec_rate_limiter.execute(_do_get)
-                            return response.text, str(response.url), response.headers.get("content-type")
-                        except Exception:
-                            if attempt == max_retries - 1:
-                                raise
-                            await aio.sleep(2 ** attempt)
+                        for attempt in range(max_retries):
+                            phase = "admission"
+                            try:
+                                response = await sec_rate_limiter.execute(_do_get)
+                                return response.text, str(response.url), response.headers.get("content-type")
+                            except httpx.HTTPError as exc:
+                                error = _document_transport_error(exc, timeout)
+                                status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+                                retryable = (
+                                    isinstance(exc, httpx.TransportError)
+                                    or status in {408, 429, 500, 502, 503, 504}
+                                )
+                                if not retryable or attempt == max_retries - 1:
+                                    raise error from exc
+                                retry_after = sec_rate_limiter._retry_after_seconds(exc)
+                                delay = max(random.uniform(0, 2 ** attempt), retry_after or 0)
+                                if delay >= deadline - time.monotonic():
+                                    raise error from exc
+                                phase = "backoff"
+                                await aio.sleep(delay)
+                except TimeoutError as exc:
+                    if phase == "request":
+                        raise EdgarTimeoutError(timeout_seconds=timeout, cause=exc) from exc
+                    # Local queueing is not evidence that SEC is unhealthy.
+                    raise EdgarError(
+                        "SEC document deadline expired while waiting",
+                        code="EDGAR_WAIT_TIMEOUT", cause=exc, context={"phase": phase, "timeout_seconds": timeout},
+                    ) from exc
         except CircuitOpenError as e:
             raise EdgarError(f"SEC EDGAR circuit breaker is open: {e}", cause=e)
+        except EdgarError:
+            raise
         except Exception as e:
             raise EdgarError(f"Failed to fetch document: {e}", cause=e)
 
