@@ -257,6 +257,9 @@ export const generateSummaryStream = async (
 
     const canRetry =
       attempt < MAX_ATTEMPTS &&
+      // A lost refresh response may hide a committed result. Replaying force could buy a
+      // second generation; without a job-scoped resume token, leave recovery to an ordinary Retry.
+      !options?.force &&
       !deliveredContent &&
       result.retryable &&
       !isNonRetryableStreamError(result.error, result.failure?.code) &&
@@ -294,7 +297,9 @@ const runStreamAttempt = async (
   const apiUrl = getApiUrl()
   const params = new URLSearchParams()
   if (options?.force) params.set('force', 'true')
-  if (options?.retryFailed) params.set('retry_failed', 'true')
+  // Only the reader's first action may reopen a failed job. A transport replay observes
+  // persisted state even when the first response took longer than that job's cooldown.
+  if (options?.retryFailed && clientAttempt === 1) params.set('retry_failed', 'true')
   if (options?.entryPoint) params.set('entry_point', options.entryPoint)
 
   const controller = new AbortController()

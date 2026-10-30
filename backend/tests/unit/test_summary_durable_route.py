@@ -1,5 +1,6 @@
 """Exercise authenticated durable admission, recovery and observer ownership with real DB jobs."""
 import asyncio
+import base64
 from contextlib import aclosing
 from datetime import timedelta
 import json
@@ -7,21 +8,23 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from starlette.requests import ClientDisconnect
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models import Summary, SummaryGenerationProgress, SummaryJob, User
+from app.models import Summary, SummaryGenerationProgress, SummaryJob, User, UserUsage
 from app.routers import summaries
 from app.routers.auth import get_current_user
-from app.services import summary_job_store as store, summary_jobs as jobs
+from app.services import durable_tasks as transport, summary_job_store as store, summary_jobs as jobs
+from app.services.ai.provider_requests import signal_provider_start
 from app.services import summary_request_evidence as evidence_module
 from app.services.rate_limiter import ActiveStreamLimiter, RateLimiter
 from app.utils.datetimes import utcnow
 from main import app
-from tests.support.summary_stream_harness import seed_company_filing, stream_boundaries
+from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, seed_company_filing, stream_boundaries
 
 
 @pytest.fixture
@@ -239,3 +242,47 @@ def test_disabled_ownership_retains_legacy_but_missing_task_delivery_fails_close
             provider.assert_not_awaited()
     boundary.enqueue.assert_not_awaited()
     assert store.read_filing_job(fid) is None
+
+
+def test_accepted_queue_response_lost_worker_finishes_reload_recovers_once(boundary, monkeypatch):
+    for key, value in {
+        "TASKS_PROJECT_ID": "test-project", "TASKS_LOCATION": "us-west1", "TASKS_QUEUE": "background",
+        "TASKS_WORKER_URL": "https://worker-xyz-uw.a.run.app",
+        "TASKS_INVOKER_EMAIL": "task-worker@test-project.iam.gserviceaccount.com",
+    }.items():
+        monkeypatch.setattr(settings, key, value)
+    fid = seed_company_filing()
+    accepted = []
+
+    def accepted_but_lost(request):
+        task = json.loads(request.content)["task"]
+        accepted.append(json.loads(base64.b64decode(task["httpRequest"]["body"])))
+        raise httpx.ReadTimeout("offline simulated lost acknowledgment", request=request)
+
+    client_class = httpx.AsyncClient
+    monkeypatch.setattr(transport, "_access_token", AsyncMock(return_value="offline-metadata-fixture"))
+    monkeypatch.setattr(transport.httpx, "AsyncClient", lambda **kwargs: client_class(transport=httpx.MockTransport(accepted_but_lost), **kwargs))
+    monkeypatch.setattr(jobs, "enqueue_task", transport.enqueue_task)
+    with stream_boundaries() as provider, TestClient(app) as browser:
+        async def paid_provider(*args, **kwargs):
+            signal_provider_start()
+            return CANONICAL_PAYLOAD
+        provider.side_effect = paid_provider
+        response = browser.post(route(fid))
+        assert response.status_code == 503
+        assert response.headers["Retry-After"] == "5"
+        view = store.read_filing_job(fid)
+        assert view.last_dispatched_at is None
+        assert len(accepted) == 1
+        # Cloud Tasks accepted the task despite its caller losing the acknowledgment.
+        asyncio.run(jobs.run_summary_task(accepted[0]["payload"]))
+        provider.assert_awaited_once()
+        with TestClient(app) as reloaded_browser:
+            summary = reloaded_browser.get(f"/api/summaries/filing/{fid}").json()
+            replay = reloaded_browser.post(route(fid))
+        assert summary["business_overview"]
+        assert frames(replay)[-1]["summary_id"] == summary["id"]
+        assert len(accepted) == 1
+        provider.assert_awaited_once()
+        with SessionLocal() as db:
+            assert sum(row.summary_count for row in db.query(UserUsage).filter_by(user_id=boundary.actor.id)) == 1

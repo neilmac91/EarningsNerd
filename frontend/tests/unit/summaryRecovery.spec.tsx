@@ -175,6 +175,26 @@ describe('the fresh-filing recovery flow', () => {
 })
 
 describe('typed stream failures', () => {
+  it.each(['eof', 'network', 'unavailable'] as const)('does not repeat paid refresh intent after ambiguous %s', async (fault) => {
+    const fetch = vi.fn(async () => {
+      if (fault === 'network') throw new TypeError('Offline connection dropped')
+      return fault === 'eof' ? new Response('') : new Response('{}', { status: 503 })
+    })
+    vi.stubGlobal('fetch', fetch)
+    await expect(generateSummaryStream(filing.id, vi.fn(), vi.fn(), vi.fn(), vi.fn(),
+      { force: true, retryFailed: true })).rejects.toThrow()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('reconnects without repeating an explicit failed-job reopen intent', async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(new Response('')).mockResolvedValueOnce(
+      new Response(frame({ type: 'complete', summary_id: READY.id })))
+    vi.stubGlobal('fetch', fetch)
+    await generateSummaryStream(filing.id, vi.fn(), vi.fn(), vi.fn(), vi.fn(), { retryFailed: true })
+    expect(String(fetch.mock.calls[0][0])).toContain('retry_failed=true')
+    expect(String(fetch.mock.calls[1][0])).not.toContain('retry_failed=true')
+  })
+
   it('cancels a pending transport retry when its reader leaves', async () => {
     const fetch = vi.fn(async () => new Response(''))
     vi.stubGlobal('fetch', fetch)
