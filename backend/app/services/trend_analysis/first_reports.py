@@ -15,10 +15,13 @@ value a later filing changed), so here it is the latest fiscal-year row stored a
 included, of an annual form, an item with no form counting where its accession is an annual report's, as ingest reads
 it. A stored row never lies past its filing's own end, so this end is ingest's or earlier; a filing row whose period of
 report lies beyond it by more than ``DRIFT_DAYS`` says the filing's own year was never stored, and then none of its rows
-is its own. A row is a figure's own report where its accession's own end is the figure's period end, for the same
-concept, unit and span, at another filing; an original wins over an amendment, then the earliest filed, then the
-accession (companyfacts' listing order, ingest's last key, is not stored). ``tests/unit/test_first_reports.py`` holds
-the two rules to one answer over WP5b's own-report shapes.
+is its own. The year's own reports are the rows whose accession's own end is the figure's period end, for the same
+concept, unit and span, the figure's own row among them where its filing is one; they rank as ingest ranks them, an
+original before an amendment, then the earliest filed, then the accession (companyfacts' listing order, ingest's last
+key, is not stored). The first is the year's own report, and where that is the figure's own filing there is no evidence,
+as ingest then stores no history row. A span is the start date; a missing one is "duration unknown" for a flow (the
+per-filing writer's rows before #831), so it matches nothing, while a balance has none by nature.
+``tests/unit/test_first_reports.py`` holds the two rules to one answer over WP5b's own-report shapes synced in sequence.
 
 Growth across a change of basis reads n/m (item 3): where the two years of a YoY sit on different bases, the ratio of
 the value shown to the value first reported moving by more than ``BASIS_TOLERANCE`` between them, the comparison reads
@@ -36,6 +39,7 @@ quarterly dataset reads nothing more and carries none. No CAGR or window change 
 """
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping
 from datetime import date
 from decimal import Decimal
@@ -47,6 +51,7 @@ from app.models import Company, FinancialFact
 from app.services.fact_provenance import (
     METRIC_FORMULAS, METRIC_INPUTS, provenance_for_fact, published_value, source_link,
 )
+from app.services.facts.concepts import COMPANYFACTS_INSTANT_TAGS
 from app.services.facts.fiscal_naming import ANNUAL_FORMS, DRIFT_DAYS
 from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 from app.services.trend_analysis.source_documents import FilingDates, filing_documents
@@ -85,6 +90,7 @@ _CALCULATED: Mapping[str, Callable[[float, float], Optional[float]]] = {
 }
 
 Cell = tuple[str, str, str, Optional[str]]  # concept, period end, unit, period start (ISO days)
+_BALANCES = frozenset(COMPANYFACTS_INSTANT_TAGS)  # Concepts read at an instant: no start by nature.
 
 
 def _key(accession: Any) -> str:
@@ -110,6 +116,13 @@ def _day(value: Any) -> Optional[str]:
 def _cell(figure: Any) -> Cell:
     get = figure.get if isinstance(figure, Mapping) else lambda name: getattr(figure, name, None)
     return get("concept"), _iso(get("period_end")), get("unit"), _iso(get("period_start"))
+
+
+def _finite(value: Any) -> bool:
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
 
 
 def differs(shown: float, own: float) -> bool:
@@ -210,28 +223,56 @@ class FirstReports:
         history = list(history)
         self._own_ends = own_period_ends([*current, *history], dates) if history else {}
         self._cells: dict[Cell, list[FinancialFact]] = {}
+        self._stored: dict[tuple[Cell, str], FinancialFact] = {}
         for row in history:
-            # A calculated metric's evidence sits on its inputs (item 5); a withheld row is no one's evidence.
-            if row.concept not in METRIC_FORMULAS and published_value(row) is not None:
+            # A calculated metric's evidence sits on its inputs (item 5); a withheld row, or one whose stored value is
+            # not a finite number, is no one's evidence.
+            if row.concept not in METRIC_FORMULAS and published_value(row) is not None and _finite(row.value):
                 self._cells.setdefault(_cell(row), []).append(row)
+        if self._cells:
+            for row in current:
+                if row.fiscal_period == "FY":
+                    self._stored[(_cell(row), _key(row.accession))] = row
 
     def _filed(self, accession: Any, stored: Any = None) -> Optional[str]:
         """The day a filing was filed: the value's own record of it, else its filing row's."""
         return _day(stored) or getattr(self._dates.get(_key(accession)), "filed", None)
 
+    def _rank(self, form: Any, accession: Any, filed: Any) -> tuple[bool, str, str]:
+        """Ingest's order of a year's own reports (``own_reports._own_report``): an original before an amendment, then
+        the earliest filed, then (for companyfacts' listing order, which is not stored) the accession."""
+        return (str(form or "").endswith("/A"), self._filed(accession, filed) or "", str(accession))
+
+    def _figures_rank(self, figure: Mapping[str, Any], cell: Cell, accession: str) -> tuple[bool, str, str]:
+        """The figure's own filing ranked as an own report: its stored row's form and filed day, else its own record's."""
+        row = self._stored.get((cell, accession))
+        if row is not None:
+            return self._rank(row.form, row.accession, provenance_for_fact(row).get("filed_at"))
+        stored = figure.get("filed_at") or (figure.get("provenance") or {}).get("filed_at")
+        return self._rank(figure.get("form") or getattr(self._dates.get(accession), "form", None),
+                          figure.get("accession"), stored)
+
     def own_report(self, figure: Mapping[str, Any]) -> Optional[FinancialFact]:
-        """The stored row of the figure's year's own annual report, at another filing than the figure's, or None."""
-        accession = _key(figure.get("accession"))
-        owns = [row for row in self._cells.get(_cell(figure), ())
-                if _key(row.accession) != accession and self._own_ends.get(_key(row.accession)) == row.period_end]
-        return min(owns, key=lambda row: ((row.form or "").endswith("/A"),
-                                          self._filed(row.accession, provenance_for_fact(row).get("filed_at")) or "",
-                                          row.accession), default=None)
+        """The stored row of the figure's year's own annual report where that is another filing than the figure's, else
+        None. Ingest's rule: every own report of the year ranks, the figure's own filing among them where it is one, and
+        where that ranks first the year's own report is the value shown."""
+        cell, accession = _cell(figure), _key(figure.get("accession"))
+        if cell[3] is None and cell[0] not in _BALANCES:
+            return None  # A flow of unknown duration (no start) is no span to match.
+        ranked = [(self._rank(row.form, row.accession, provenance_for_fact(row).get("filed_at")), row)
+                  for row in self._cells.get(cell, ())
+                  if _key(row.accession) != accession and self._own_ends.get(_key(row.accession)) == row.period_end]
+        if not ranked:
+            return None
+        own_end = self._own_ends.get(accession)
+        if own_end is not None and own_end.isoformat() == cell[1]:
+            ranked.append((self._figures_rank(figure, cell, accession), None))
+        return min(ranked, key=lambda pair: pair[0])[1]
 
     def _first_reported(self, figure: Mapping[str, Any], own: Optional[FinancialFact],
                         later_filed: Any) -> Optional[dict[str, Any]]:
         shown = figure.get("value")
-        if own is None or shown is None or not differs(shown, float(own.value)):
+        if own is None or not _finite(shown) or not differs(shown, float(own.value)):
             return None
         return {
             "value": float(own.value), "unit": own.unit, "form": own.form, "accession": own.accession,

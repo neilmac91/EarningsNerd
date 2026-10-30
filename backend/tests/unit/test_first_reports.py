@@ -24,7 +24,7 @@ from app.services.trend_analysis.first_reports import (
 from app.services.trend_analysis.source_documents import FilingDates
 from app.utils.sec_urls import build_sec_archive_url
 from tests.unit.test_companyfacts_own_report_history import (
-    K18, K19, K20, _K, _NET_INCOME, _REVENUE, _history, _items, _payload, _shapes,
+    K18, K19, K20, K21, _K, _NET_INCOME, _REVENUE, _history, _item, _items, _payload, _shapes,
 )
 
 FY2018 = date(2018, 12, 31)
@@ -259,6 +259,41 @@ class TestTheEvidenceOnReportedFigures:
         evidence = _evidence(_build(db, company))
         assert (("revenue", "FY2018") in evidence) is kept and (("total_assets", "FY2018") in evidence) is kept
 
+    def test_the_figure_shown_ranks_with_the_years_own_reports(self, db):
+        # The FY2021 10-K's filing row is stored; a 10-K/A restating its revenue is filed later, and the next sync runs
+        # before its filing row lands, so the bulk writer keeps the original current and stores the amendment's value
+        # non-current. The original is the year's own report (an original before an amendment) and is the figure
+        # shown: no evidence, no n/m, as ingest stores no history row for it.
+        company = _company(db)
+        _filing(db, company, K21, "2022-02-07", period_end=date(2021, 12, 31))
+        svc._persist_companyfacts_payload(db, company, _payload())
+        amended = "0001804220-22-000099"
+        svc._persist_companyfacts_payload(db, company, _payload(_items(_REVENUE) + [
+            _item(16_500.0e6, 2021, 2021, accn=amended, form="10-K/A", filed="2022-05-01")]))
+        rows = {(row.accession, row.is_latest) for row in _rows(db, company, concept="revenue", period_end=date(2021, 12, 31))}
+        assert rows == {(K21, True), (amended, False)}
+        dataset = _build(db, company)
+        assert ("revenue", "FY2021") not in _evidence(dataset)
+        assert _yoy(dataset, "revenue")["FY2021"] == (pytest.approx(16_071.7 / 8_497.1 - 1), "absent")
+
+    def test_a_flow_of_unknown_duration_matches_nothing(self, db):
+        # The per-filing writer stored durations without a start before #831 ("duration unknown"): a flow whose start
+        # is missing matches no own row, not even another without one, while a balance has no start by nature.
+        from app.models import FinancialFact
+        from app.services.fact_provenance import reported_provenance
+
+        company = _company(db)
+        for accession, end, value, current in ((K18, FY2018, 6_710.8e6, False), (K20, FY2018, 5_145.6e6, True),
+                                               (K19, date(2019, 12, 31), 7_863.4e6, True)):
+            for concept, start in (("revenue", None), ("total_assets", None)):
+                db.add(FinancialFact(company_id=company.id, concept=concept, raw_tag="us-gaap:X", unit="USD",
+                                     period_start=start, period_end=end, fiscal_year=end.year, fiscal_period="FY",
+                                     value=value, form="10-K", accession=accession, source="edgar_xbrl",
+                                     reconciled=True, is_latest=current, provenance=reported_provenance({"reconciled": True})))
+        db.commit()
+        evidence = _evidence(_build(db, company, "FY2018", "FY2019"))
+        assert set(evidence) == {("total_assets", "FY2018")}
+
     def test_no_calculated_figure_carries_evidence_of_its_own(self, db):
         company = _synced(db, _payload())
         dataset = _build(db, company)
@@ -477,6 +512,14 @@ def _figure(concept="revenue", value=5_145.6e6, method="reported", inputs=()):
     return {"concept": concept, "value": value, "unit": "USD", "period_start": "2018-01-01",
             "period_end": "2018-12-31", "accession": K20, "filed_at": "2021-02-08",
             "provenance": {**reported_provenance({"reconciled": True}), "method": method, "inputs": list(inputs)}}
+
+
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+def test_an_own_row_whose_stored_value_is_not_finite_gives_no_evidence(value):
+    # The per-filing writer admits any float; one such row must not take the whole annual dataset down.
+    point = _figure()
+    FirstReports({}, {}, None, history=[_own(value=value)]).attach([point])
+    assert "first_reported" not in point
 
 
 def test_item_5_an_input_at_any_depth_carries_its_evidence_on_a_copy():
