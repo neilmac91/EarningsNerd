@@ -2556,7 +2556,7 @@ const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
     self-check (534 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
-    run on a loaded machine. The removed claims' self-check (588 rows, through the page's render and splitter) takes
+    run on a loaded machine. The removed claims' self-check (593 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
 
@@ -3366,6 +3366,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events not sent from your browser require your consent.</p>', true],
       ['<p>Server events not using cookies require your consent.</p>', true],
       ['<p>Server events not sent from your browser do not require your consent.</p>', false],
+      // A wait inside a participle without "not" stays the promise main read it as, past the clause's verb or not.
+      ['<p>Server events gated by your consent are recorded by the API.</p>', true],
+      ['<p>Analytics collected only with your consent are sent to PostHog.</p>', true],
+      ['<p>Server events collected only after you allow analytics are kept.</p>', true],
+      ['<p>We record server events gated by your consent.</p>', true],
+      ['<p>Usage data gated on your consent is recorded.</p>', true],
       ['<p>It is not true that we doubt that analytics wait for your consent.</p>', true],
       // An exception before "only" sets the promise apart from the denial, as "but" does.
       ['<p>Analytics are not collected unless only with your consent.</p>', true],
