@@ -10,8 +10,8 @@ pass each of its parameters at least once and run every line of the module, save
 reach, named in ``UNRUN`` with why. Checks hold the inputs to both, so a branch they skip fails here
 until they take it. It reads every public value the module holds too, which a caller may send. It runs
 them in an interpreter of their own, with these settings, which a check holds the render to:
-- ``FRONTEND_URL`` is set to a sentinel that keeps its trailing slash, so an address built when the
-  module loads is built on the sentinel too;
+- ``FRONTEND_URL`` is set to a sentinel, so an address built when the module loads is built on the
+  sentinel too;
 - the site's other origins (``CORS_ORIGINS_STR``) are set to hosts of their own.
 
 It reads every string a function sends, through the module's name for the transport or the transport itself, or
@@ -28,7 +28,7 @@ An address into the site's files is one into a directory or a root file under ``
 an origin of the site's or on none. It is resolved as a client resolves it: backslashes, dot segments,
 percent-escapes, a host's trailing dot. Each such address must be a whole registered path
 (``frontend/tests/unit/publishedAssetUrls.json``), spelled as registered, its query and fragment aside.
-It must also be built on ``FRONTEND_URL`` with that slash stripped:
+It must also be built on ``FRONTEND_URL``:
 - on no other origin of the site's: ``earningsnerd.io`` or a host under it, another origin the settings
   set, or a loopback host, a setting's local default;
 - never without an origin, since a mail has no base URL, nor relative to a ``<base href>``, which a mail
@@ -158,10 +158,10 @@ PUBLIC = REPO / "frontend" / "public"
 REGISTER = json.loads((REPO / "frontend" / "tests" / "unit" / "publishedAssetUrls.json").read_text(encoding="utf-8"))
 REGISTERED = frozenset(entry["url"] for entry in REGISTER["paths"])
 SITE_NAMES = frozenset(p.name for p in PUBLIC.iterdir() if not p.name.startswith("."))
-SENTINEL = "https://frontend.example.test/"  # FRONTEND_URL with a trailing slash, which a value may keep
+SENTINEL = "https://frontend.example.test"  # FRONTEND_URL, which Settings loads without a trailing slash (E111)
 SENTINEL_HOST = urlsplit(SENTINEL).hostname
-BUILT_ON = SENTINEL.rstrip("/") + "/"
-TILE = f"{SENTINEL.rstrip('/')}/assets/earningsnerd-appicon.png"
+BUILT_ON = f"{SENTINEL}/"
+TILE = f"{SENTINEL}/assets/earningsnerd-appicon.png"
 # The site's other origins, as the render sets them: an address on one is on an origin of the site's.
 OTHER_ORIGINS = ("https://cors-one.example.test", "https://cors-two.example.test")
 OTHER_HOSTS = frozenset(urlsplit(origin).hostname for origin in OTHER_ORIGINS)
@@ -406,7 +406,7 @@ def problem(address: str) -> str | None:
     if host != SENTINEL_HOST:
         return "is on an origin of the site's other than FRONTEND_URL: build it on FRONTEND_URL"
     if parts.path.startswith("//"):
-        return "keeps FRONTEND_URL's trailing slash, and a doubled slash answers 308: strip it"
+        return "has a doubled slash after its origin, which answers 308"
     if not address.startswith(BUILT_ON):
         return "is not built on FRONTEND_URL as it is set"
     if parts.path not in REGISTERED and _resolved(parts.path) in REGISTERED:
@@ -563,9 +563,8 @@ def _module_names(tree: ast.Module) -> set[str]:
 
 
 def test_the_render_runs_on_the_sentinel_and_on_origins_of_its_own(rendered):
-    # The slash is what shows a FRONTEND_URL left unstripped, through an alias or a fill the code scan
-    # cannot follow; the hosts are what show an address on another origin of the site's.
-    assert SENTINEL.endswith("/") and rendered["settings"] == {"FRONTEND_URL": SENTINEL, "CORS_ORIGINS": list(OTHER_ORIGINS)}, (
+    # The hosts are what show an address on another origin of the site's.
+    assert rendered["settings"] == {"FRONTEND_URL": SENTINEL, "CORS_ORIGINS": list(OTHER_ORIGINS)}, (
         f"the render ran on {rendered['settings']}: run it on FRONTEND_URL={SENTINEL} and CORS_ORIGINS_STR={','.join(OTHER_ORIGINS)}"
     )
 
@@ -2568,7 +2567,7 @@ ADDRESSES = [
     ("the IPv6 loopback", _img("http://[::1]:3000/assets/earningsnerd-appicon.png"), "an origin of the site's other than FRONTEND_URL"),
     ("a host under localhost", _img("http://app.localhost:3000/assets/earningsnerd-appicon.png"), "an origin of the site's other than FRONTEND_URL"),
     ("a bare www address in text", "<p>See www.earningsnerd.io/assets/earningsnerd-appicon.png</p>", "an origin of the site's other than FRONTEND_URL"),
-    ("FRONTEND_URL unstripped", _img(f"{SENTINEL}/assets/earningsnerd-appicon.png"), "keeps FRONTEND_URL's trailing slash"),
+    ("a doubled slash after FRONTEND_URL", _img(f"{SENTINEL}//assets/earningsnerd-appicon.png"), "a doubled slash after its origin"),
     ("FRONTEND_URL on another scheme", _img(f"http://{SENTINEL_HOST}/assets/earningsnerd-appicon.png"), "not built on FRONTEND_URL"),
     ("a host's trailing dot", _img(f"https://{SENTINEL_HOST}./assets/earningsnerd-appicon.png"), "not built on FRONTEND_URL"),
     # Pass.

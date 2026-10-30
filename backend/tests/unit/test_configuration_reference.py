@@ -67,7 +67,29 @@ def test_frontend_url_loads_as_one_canonical_origin(configured, monkeypatch):
 
     monkeypatch.setattr(settings, "FRONTEND_URL", loaded)
     links = [invite_service.build_invite_link("tok-1"), waitlist_service.build_referral_link("ref-1"),
-             email_service._filing_url(7, None)]
+             email_service._filing_url(7, None),
+             *re.findall(r'<img src="([^"]+)"', email_service._wrap_html("<p>Body</p>", preheader="A line."))]
     assert links == ["https://www.earningsnerd.io/register?invite=tok-1",
                      "https://www.earningsnerd.io/waitlist?ref=ref-1",
-                     "https://www.earningsnerd.io/filing/7"]
+                     "https://www.earningsnerd.io/filing/7",
+                     "https://www.earningsnerd.io/assets/earningsnerd-appicon.png"]
+
+
+@pytest.mark.asyncio
+async def test_the_feedback_notice_links_its_inbox_on_one_canonical_origin(monkeypatch):
+    # E111: the notice appends "/admin/feedback" to FRONTEND_URL as Settings loads it, a trailing slash and all.
+    from app.config import settings
+    from app.routers import feedback
+    from app.schemas.feedback import FeedbackCreate
+
+    sent = []
+
+    async def send(**kwargs):
+        sent.append(kwargs)
+        return {"id": "email_test"}
+
+    monkeypatch.setattr(feedback, "send_email", send)
+    monkeypatch.setattr(settings, "FEEDBACK_NOTIFICATION_EMAIL", "support@example.com")
+    monkeypatch.setattr(settings, "FRONTEND_URL", Settings(FRONTEND_URL="https://www.earningsnerd.io/", _env_file=None).FRONTEND_URL)
+    await feedback._notify_admin(1, "reader@example.com", 7, FeedbackCreate(type="bug", message="I found a broken link"))
+    assert re.findall(r'href="([^"]*/admin/feedback)"', sent[0]["html"]) == ["https://www.earningsnerd.io/admin/feedback"]
