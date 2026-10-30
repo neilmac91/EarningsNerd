@@ -33,6 +33,7 @@ from app.models import Company, Filing, NotificationLog, User, Watchlist
 from app.models.notification_delivery import KIND_FILING_DIGEST, KIND_FILING_REALTIME
 from app.models.notifications import CHANNEL_EMAIL
 from app.services import email_service
+from app.services import summary_preparation
 from app.services import notification_delivery_service as delivery
 from app.services.entitlements import Entitlements, get_entitlements
 from app.services.notification_service import evaluate_delivery, get_or_create_preferences
@@ -276,6 +277,9 @@ async def run_filing_scan(
         fetch_filings = sec_edgar_service.get_filings
 
     stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0, "source_errors": 0}
+    await summary_preparation.recover_summary_handoffs()
+    preparation_cap = summary_preparation.preparation_cap()
+    preparation_ids: set[int] = set()
     recent_since = _window_start(now)  # a watermark's own day stays open for the span a digest covers
 
     company_ids = [row[0] for row in db.query(Watchlist.company_id).distinct().all()]
@@ -331,8 +335,11 @@ async def run_filing_scan(
                     db, kind=KIND_FILING_REALTIME, user_id=user.id, subject=subject, html=html, text=text,
                     filing_ids=[filing.id], now=now,
                 )
+                if len(preparation_ids) < preparation_cap and filing.filing_type in {"10-Q", "10-K", "8-K"}:
+                    preparation_ids.add(filing.id)
             db.commit()
 
+    await summary_preparation.prepare_notified_filings(sorted(preparation_ids))
     drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=_alert_transport(send_alert), now=delivery_now)
     _merge_drain(stats, drained, sent_key="alerts_sent", failed_key="alerts_failed")
     return stats

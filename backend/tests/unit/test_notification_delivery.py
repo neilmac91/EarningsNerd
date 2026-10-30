@@ -168,6 +168,35 @@ async def _scan_with_transport(db, send, *, now=NOW):
         filing_scan_service._alert_transport = original
 
 
+@pytest.mark.asyncio
+async def test_new_alert_prepares_one_shared_filing_and_queue_failure_keeps_delivery(engine, monkeypatch):
+    from app.services import summary_job_store, summary_jobs, summary_preparation
+
+    monkeypatch.setattr(settings, "SUMMARY_DURABLE_GENERATION_ENABLED", True)
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_SCAN", 1)
+    monkeypatch.setattr(settings, "SUMMARY_PREWARM_MAX_PER_DAY", 2)
+    monkeypatch.setattr(summary_jobs, "recover_due_jobs", AsyncMock(return_value=0))
+    attempted = []
+
+    async def fail_queue_admission(function, filing_id, user_id, *, system):
+        assert function is summary_job_store.ensure_job and user_id is None and system is True
+        attempted.append(filing_id)
+        raise RuntimeError("synthetic preparation outage")
+
+    monkeypatch.setattr(summary_preparation, "run_owned_sync", fail_queue_admission)
+    send = AsyncMock(return_value="synthetic-provider-id")
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+        first = await _scan_with_transport(db, send)
+        filing_id = db.query(Filing).one().id
+        assert attempted == [filing_id]
+        assert first["alerts_sent"] == 1
+        await _scan_with_transport(db, send)
+        # An already owned notification neither sends again nor expands paid preparation.
+        assert attempted == [filing_id] and send.await_count == 1
+
+
 # --------------------------------------------------------------------------- retries and identity
 
 @pytest.mark.asyncio
