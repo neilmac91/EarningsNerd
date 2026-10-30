@@ -123,9 +123,10 @@ item's done criteria; *tests-and-gates* checks every new test has a mutation pro
 tests are byte-identical. A refutation restates the finding without its rationale, then tries to
 disprove it against the code; the finding stands only if the attempts fail. A refuter that finds a
 finding standing at the wrong severity corrects it; each refuter's vote holds its correction or, without
-one, the claimed severity, and the highest holding wins, so on a finding no attempt refutes, one
-refuter's raise to blocker blocks the merge and a lowering needs every refuter of the tier. Missing
-review output is never clearance. Record the tier and the review in the PR body under "Review".
+one, the claimed severity; on a finding every refuter votes on and none refutes, the highest holding
+wins, so one refuter's raise to blocker blocks the merge and a lowering needs every refuter of the tier,
+and a finding with a vote missing stays unverified at its claimed severity. Missing review output is
+never clearance. Record the tier and the review in the PR body under "Review".
 
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
