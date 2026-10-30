@@ -160,6 +160,8 @@ FEEDBACK_RUNTIME_IMPORTS = {
     "app.services.request_work",
 }
 OPS_SIBLING_IMPORTS = {
+    "ops/describe/service.py": {"ops.describe.summary_configuration"},
+    "ops/describe/jobs.py": {"ops.describe.summary_configuration"},
     "ops/feedback_media/manage.py": {"ops.feedback_media.verify_manage"},
     "ops/feedback_media/verify_manage.py": {"manage"},
 }
@@ -231,7 +233,7 @@ def _service_env(workflow):
 
 
 def _service_reads(region):
-    """The six describe-service reads in order (argv after `gcloud`), answered with minimal passing shapes."""
+    """The nine describe-service reads in order, answered with minimal passing shapes."""
     pins = [{"name": "SEC_RATE_LIMIT_PER_SECOND", "value": "1"}, {"name": "EDGAR_RATE_LIMIT_PER_SEC", "value": "1"}]
 
     def status(revision):
@@ -240,6 +242,7 @@ def _service_reads(region):
                              "url": "https://PRIVATE_TRAFFIC_URL_SENTINEL.example.invalid"}]}
 
     tail = [f"--region={region}", "--format=json"]
+    metadata_tail = [f"--location={region}", "--project=earnings-nerd", "--format=json"]
     return [
         (["run", "services", "describe", "earningsnerd-backend", *tail], {"status": status("serving")}),
         (["run", "revisions", "describe", "serving", *tail], {"spec": {"containers": [{"image": "i", "env": pins}]}}),
@@ -250,6 +253,9 @@ def _service_reads(region):
          {"spec": {"containers": [{"image": "k", "env": pins}]}}),
         (["run", "services", "get-iam-policy", "earningsnerd-task-worker", *tail],
          {"bindings": [{"role": "roles/run.invoker", "members": ["serviceAccount:PRIVATE_INVOKER@example.invalid"]}]}),
+        (["scheduler", "jobs", "describe", "filing-scan-hourly", *metadata_tail], {"state": "ENABLED"}),
+        (["scheduler", "jobs", "describe", "summary-recovery-minute", *metadata_tail], {"state": "ENABLED"}),
+        (["tasks", "queues", "describe", "earningsnerd-background", *metadata_tail], {"state": "RUNNING"}),
     ]
 
 
@@ -283,7 +289,7 @@ def test_describe_service_step_keeps_gcloud_stderr_out_of_a_passing_run(tmp_path
     answers["*"] = {"stderr": "ERROR: unexpected call " + SENTINEL, "rc": 2}
     result, calls = _step_shell(steps[SERVICE_STEP]["run"], tmp_path, answers, _service_env(workflow))
     assert result.returncode == 0 and result.stderr == "", result.stderr
-    assert calls == [argv for argv, _ in reads]  # six reads, the service's own first, each with its exact argv
+    assert calls == [argv for argv, _ in reads]  # all nine reads, the service's own first, with exact argv
     assert result.stdout.startswith('Serving traffic: [{"percent": 100, "revisionName": "serving"}]\n')
     assert result.stdout.endswith("describe-service: PASS\n")
     assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
@@ -432,7 +438,8 @@ def _policy_class(monkeypatch, capsys, failure, code):
     reads = {tuple(argv[1:4]): body for argv, body in _service_reads("fixture-region")}
 
     def fake(argv, *, text, stderr, timeout):
-        assert text is True and stderr is subprocess.PIPE and timeout == 100
+        assert text is True and stderr is subprocess.PIPE
+        assert timeout == (80 if argv[1] == "run" else 20)
         if tuple(argv[2:5]) == ("services", "get-iam-policy", "earningsnerd-task-worker"):
             raise subprocess.CalledProcessError(code, argv, output="", stderr=failure)
         return json.dumps(reads[tuple(argv[2:5])])

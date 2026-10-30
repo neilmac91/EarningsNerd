@@ -77,6 +77,7 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     ['a first-reported value beside no value shown', (ds) => { pointOf(ds, 'revenue', 'FY2018').value = null }],
     ['a unit that is not the figure’s', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.unit = 'EUR' }],
     ['the shown filing’s accession as the own report’s', (ds) => { const point = pointOf(ds, 'revenue', 'FY2018'); point.first_reported!.accession = point.accession! }],
+    ['an own report with no accession', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.accession = '' }],
     ['an empty form', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.form = '' }],
     ['a filed day that does not exist', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.filed_at = '2019-02-30' }],
     ['a filed day in words', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.filed_at = '7 Feb 2019' }],
@@ -94,6 +95,11 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     ['a first-reported value on a calculated figure', (ds) => {
       const margin = pointOf(ds, 'net_margin', 'FY2018')
       margin.first_reported = { ...pointOf(ds, 'revenue', 'FY2018').first_reported!, value: 36.4248, unit: 'pure' }
+    }],
+    // An input carries evidence as a reported figure does: a calculated input's sits on its own inputs.
+    ['a first-reported value on a calculated input', (ds) => {
+      const revenue = pointOf(ds, 'net_margin', 'FY2018').provenance!.inputs[1]
+      revenue.provenance = { ...revenue.provenance!, method: 'calculated' }
     }],
     // Every place an input can sit is read: a growth's inputs, an input's own inputs, a window's inputs.
     ['a growth input’s first-reported value in another unit', (ds) => {
@@ -366,6 +372,25 @@ describe('a basis n/m says its cause (D12)', () => {
     expect(container).toHaveTextContent('n/m means not meaningful.')
     await userEvent.click(within(container.querySelector('[data-analysis-kpi]') as HTMLElement).getByRole('button'))
     expect(screen.getByRole('dialog')).not.toHaveTextContent(/one or both/)
+  })
+
+  it('where the shown values change sign and the basis changed too, the later-filing cause wins everywhere', async () => {
+    // Revenue FY2018 shown below zero: FY2018's and FY2019's YoY read n/m for the sign alone, and each still carries its
+    // growth as first reported, as the producer sends it where the basis changed too.
+    const dataset = planted(REGN)
+    pointOf(dataset, 'revenue', 'FY2018').value = -5_145_600_000
+    expect(() => decodeLaterFilings(dataset)).not.toThrow()
+    const model = buildToplineModel(dataset, resolveDataNotes(dataset))
+    expect(model.footnotes.filter((footnote) => footnote.mark === 'n/m')).toEqual([
+      { mark: 'n/m', text: 'Not meaningful: a later filing reports a different value for one or both years (FY2018–FY2020).' },
+    ])
+    expect(laterFilingPlaces(dataset).comparisons.filter((ref) => ref.concept === 'revenue').map((ref) => ref.period)).toEqual(['FY2018', 'FY2019', 'FY2020'])
+    // The rendered line too, so a filter inside DataNotes cannot drop the sign-changed years.
+    const { container } = render(<DataNotes dataset={dataset} />)
+    expect(container.querySelector(LINE)!.textContent).toContain('Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020;')
+    cleanup()
+    const fy2019 = comparisonOf(await dialogFor(dataset, /^Revenue, FY2019: /))
+    expect(fy2019).toHaveTextContent(`${CAUSE}As first reported: +17.2%`)
   })
 
   it('in the table: a QoQ cell’s dialog never takes a YoY’s cause', async () => {

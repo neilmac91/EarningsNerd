@@ -29,7 +29,9 @@ const ANSWER = {
   citations: [
     { n: 1, excerpt: 'As a result, the Company believes, in general, gross margins will be subject to volatility and downward pressure.', section_ref: 'Item 7. MD&A – Gross Margin', verified: true, fragment_url: `${DOCUMENT}#:~:text=As%20a%20result` },
     { n: 2, excerpt: 'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.', section_ref: 'Item 7. MD&A – Products and Services Performance', verified: true, fragment_url: `${DOCUMENT}#:~:text=Services%20net%20sales` },
-    { n: 'F1', excerpt: 'RevenueFromContractWithCustomerExcludingAssessedTax = 416,161,000,000 USD (FY2025)', section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax', verified: true, fragment_url: DOCUMENT },
+    { n: 'F1', excerpt: 'RevenueFromContractWithCustomerExcludingAssessedTax = 416,161,000,000 USD (FY2025)', section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax', verified: true, fragment_url: DOCUMENT,
+      // The fact payload fact_to_citation sends (backend/app/services/copilot_tools.py): its concept makes it a figure (E179).
+      concept: 'RevenueFromContractWithCustomerExcludingAssessedTax', value: 416161000000, value_kind: null },
   ],
   followups: ['Which segment declined in 2025?', 'What drove the lower effective tax rate?'],
 }
@@ -134,7 +136,7 @@ for (const vp of [
         expect(await actionHitsItself()).toBe(true)
         await page.setViewportSize({ width: vp.width, height: vp.height })
         await expect(page.locator(PANE)).toHaveAttribute('aria-modal', 'true')
-        await expect.poll(() => original.evaluate((el) => el.closest('[role="group"]')?.parentElement?.getAttribute('aria-label') === 'Filing source and Ask')).toBe(true)
+        await expect.poll(() => original.evaluate((el, pane) => el.closest('[role="group"]')?.parentElement?.matches(pane) === true, PANE)).toBe(true)
         await expect(original).toBeFocused()
         expect(await actionHitsItself()).toBe(true)
       }

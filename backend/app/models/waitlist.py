@@ -14,7 +14,6 @@ class WaitlistSignup(Base):
     referred_by = Column(String(8), index=True, nullable=True)
     source = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    email_verified = Column(Boolean, default=False, nullable=False)
     welcome_email_sent = Column(Boolean, default=False, nullable=False)
     position = Column(Integer, nullable=False)
     priority_score = Column(Integer, default=0, nullable=False)

@@ -13,7 +13,7 @@
    dialogAllowlist.spec.ts).
 ============================================================================= */
 
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { XIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
 import { Notice } from '@/components/ui'
@@ -42,23 +42,29 @@ export function DayDetailDialog({
   const { lanes } = groupIntoLanes(events, 0)
   const holiday = marketHolidayName(iso)
 
+  const close = useCallback(() => {
+    // Native close restores the opener's focus; removing an open dialog from React does not.
+    ref.current?.close()
+    onClose()
+  }, [onClose])
+
   useEffect(() => {
     const dialog = ref.current
     if (!dialog) return
     if (!dialog.open) dialog.showModal()
     const onCancel = (e: Event) => {
       e.preventDefault()
-      onClose()
+      close()
     }
     dialog.addEventListener('cancel', onCancel)
     return () => dialog.removeEventListener('cancel', onCancel)
-  }, [onClose])
+  }, [close])
 
   return (
     <dialog
       ref={ref}
       aria-label={`Earnings on ${formatLocalDate(iso, 'EEEE, MMMM d')}`}
-      onClick={(e) => e.target === ref.current && onClose()}
+      onClick={(e) => e.target === ref.current && close()}
       className={cx(
         'w-[min(560px,calc(100vw-32px))] rounded-xl border border-border-light bg-panel-light p-0 text-text-primary-light shadow-e5',
         'backdrop:bg-overlay dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark',
@@ -75,7 +81,7 @@ export function DayDetailDialog({
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={close}
           aria-label="Close"
           className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-text-tertiary-light transition-colors duration-fast hover:bg-brand-weak hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-tertiary-dark dark:hover:bg-brand-weak-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark"
         >

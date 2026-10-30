@@ -833,7 +833,8 @@
                 },
                 "yoy": 8.899591576872929
               }
-            ]
+            ],
+            "cagr_window": null
           },
           {
             "concept": "total_assets",
@@ -1119,7 +1120,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "neutral",
-            "cagr": 0.21336232952574807,
+            "cagr": 0.20939833774536787,
             "cagr_window": "FY2017..FY2019",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -1288,7 +1289,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "normal",
-            "cagr": 0.6111284132757937,
+            "cagr": 0.3286735428222809,
             "cagr_window": "FY2017..FY2019",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -1401,7 +1402,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "neutral",
-            "cagr": 0.21336232952574807,
+            "cagr": 0.20939833774536787,
             "cagr_window": "FY2017..FY2019",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -1570,7 +1571,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "normal",
-            "cagr": 0.2862199593367645,
+            "cagr": 0.2850420918634131,
             "cagr_window": "FY2018..FY2020",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -1701,7 +1702,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "normal",
-            "cagr": 0.6111284132757937,
+            "cagr": 0.19885124745857152,
             "cagr_window": "FY2018..FY2020",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -1815,7 +1816,7 @@
             "percent": true,
             "tone": "normal",
             "cagr": null,
-            "window_pp": 29.835735331948985,
+            "window_pp": -6.1587932348999885,
             "window_pp_range": "FY2018..FY2020",
             "window_pp_reconciled": true,
             "window_pp_provenance": {
@@ -2052,7 +2053,8 @@
                 "yoy": "nm",
                 "yoy_first_reported": "nm"
               }
-            ]
+            ],
+            "cagr_window": null
           }
         ],
         "inflections": []
@@ -2127,7 +2129,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "normal",
-            "cagr": 0.6111284132757937,
+            "cagr": 0.3286735428222809,
             "cagr_window": "FY2017..FY2019",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -2303,7 +2305,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "normal",
-            "cagr": 0.2862199593367645,
+            "cagr": -0.12373556758965976,
             "cagr_window": "FY2017..FY2018",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -2383,7 +2385,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "neutral",
-            "cagr": 0.21336232952574807,
+            "cagr": 0.2953342707401252,
             "cagr_window": "FY2017..FY2018",
             "cagr_reconciled": true,
             "cagr_provenance": {
@@ -2749,7 +2751,7 @@
             "unit": "USD",
             "percent": false,
             "tone": "normal",
-            "cagr": 0.2862199593367645,
+            "cagr": 0.29576369403440284,
             "cagr_window": "FY2019..FY2020",
             "cagr_reconciled": true,
             "cagr_provenance": {

@@ -59,6 +59,7 @@ export interface SummaryDisplayProps {
   demoMode?: boolean
   isAuthenticated: boolean
   onRetry?: () => void
+  onRegenerate?: () => void
   /** Opens the Copilot rail with an optional pre-filled question; `surface` attributes the entry point. */
   onAsk: (prefill: string, surface: string) => void
   /** The server-read change report: What changed renders with the summary, not after it. */
@@ -77,6 +78,7 @@ export function SummaryDisplay({
   demoMode,
   isAuthenticated,
   onRetry,
+  onRegenerate,
   onAsk,
   initialChangeReport,
   headingRef,
@@ -126,7 +128,7 @@ export function SummaryDisplay({
   const coverageTier = isPartial || quality?.tier === 'partial' ? 'partial' : quality?.tier === 'full' ? 'full' : 'unknown'
   const coverageReasons = [...new Set((quality?.reasons ?? []).map(reasonWords))]
   const showQualityBadge = ENABLE_QUALITY_BADGE
-  const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry)
+  const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRegenerate)
 
   // T2: the single structured projection the page renders (metrics, risks-with-provenance, prose,
   // tables — one home per number). Computed on read by the backend from the enriched raw_summary.
@@ -224,7 +226,7 @@ export function SummaryDisplay({
               )}
               {/* Pro-only force-regeneration (backend gates it to Pro); hidden in demo mode. */}
               {showRegenerate && (
-                <Button variant="secondary" onClick={onRetry}>
+                <Button variant="secondary" onClick={onRegenerate}>
                   Regenerate summary
                 </Button>
               )}

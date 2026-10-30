@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 # Each PostgreSQL gate's test home, and the variable its CI step sets.
 POSTGRES_GATES = {
+    "test_summary_job_transactions.py": "SUMMARY_JOB_TEST_DATABASE_URL",
     "test_subscription_event_transactions.py": "STRIPE_CONCURRENCY_TEST_DATABASE_URL",
     "test_usage_counter_transactions.py": "USAGE_CONCURRENCY_TEST_DATABASE_URL",
     "test_login_lockout_transactions.py": "LOGIN_CONCURRENCY_TEST_DATABASE_URL",
@@ -46,6 +47,7 @@ POSTGRES_GATES = {
     "test_admin_invite_transactions.py": "ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL",
     "test_feedback_submission_transactions.py": "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL",
     "test_summary_progress_transactions.py": "PROGRESS_CONCURRENCY_TEST_DATABASE_URL",
+    "test_sec_request_gate_transactions.py": "SEC_ADMISSION_TEST_DATABASE_URL",
 }
 # Each gate home's PostgreSQL engine fixture: a case that takes it, directly or through another fixture, is one of
 # the home's PostgreSQL cases.

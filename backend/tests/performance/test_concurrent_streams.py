@@ -6,6 +6,7 @@ import pytest
 import asyncio
 import json
 import httpx
+from fastapi import Request
 from unittest.mock import AsyncMock, MagicMock, patch
 import os
 # Set safe dummy secret key for testing
@@ -111,7 +112,7 @@ async def test_heartbeat_events_emitted_at_interval():
 @pytest.mark.asyncio
 async def test_concurrent_stream_connections():
     """
-    Test that server can handle multiple concurrent long-running connections.
+    Test five independent readers, preserving the separate per-account stream cap.
     """
     n_concurrent = 5
     filing_id = 123
@@ -142,8 +143,13 @@ async def test_concurrent_stream_connections():
     mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = mock_filing
     mock_db.query.return_value.filter.return_value.first.return_value = None
 
-    async def override_get_current_user():
-        return mock_user
+    async def override_get_current_user(request: Request):
+        # Each simulated browser is a different authenticated account. The
+        # per-account active-stream bound has its own lifecycle regression gate.
+        reader = MagicMock()
+        reader.id = user_id + int(request.headers["X-Test-Reader"])
+        reader.is_pro = True
+        return reader
     
     def override_get_db():
         return mock_db
@@ -168,11 +174,11 @@ async def test_concurrent_stream_connections():
 
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
                 
-                async def make_request():
+                async def make_request(reader_index):
                     async with client.stream(
                         "POST", 
                         f"/api/summaries/filing/{filing_id}/generate-stream",
-                        headers={"Authorization": "Bearer test-token"}
+                        headers={"Authorization": "Bearer test-token", "X-Test-Reader": str(reader_index)}
                     ) as response:
                         assert response.status_code == 200
                         lines = []
@@ -180,7 +186,7 @@ async def test_concurrent_stream_connections():
                             lines.append(line)
                         return lines
 
-                tasks = [make_request() for _ in range(n_concurrent)]
+                tasks = [make_request(i) for i in range(n_concurrent)]
                 results = await asyncio.gather(*tasks)
                 
                 assert len(results) == n_concurrent

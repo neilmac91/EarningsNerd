@@ -14,6 +14,9 @@ export const PANE_PANEL_IDS: Record<CopilotView, string> = {
   copilot: 'copilot-pane-panel',
   filing: 'filing-pane-panel',
 }
+// The header's "Source", which names the pane's shell (aria-labelledby in FilingWorkspace), so the name a
+// screen reader hears is the title a sighted reader sees.
+export const PANE_TITLE_ID = 'source-pane-title'
 
 // Tab order: the filing first, then Ask (2026-10 critique P-06).
 const ORDER: CopilotView[] = ['filing', 'copilot']
@@ -97,7 +100,7 @@ export default function SecondaryPaneTabs({
     <div className="border-b border-border-light dark:border-white/10">
       <div className="flex items-start justify-between gap-3 px-4 pt-3">
         <div className="min-w-0 pt-1">
-          <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Source</p>
+          <p id={PANE_TITLE_ID} className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Source</p>
           {sourceLabel && (
             <p className="break-words font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">{sourceLabel}</p>
           )}

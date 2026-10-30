@@ -30,6 +30,20 @@ _CALENDAR_DATE = re.compile(
     r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)"
     r"\s+(?:[12]?\d|3[01]),?\s+(?:19|20)\d{2}\b", re.I,
 )
+# A complete declaration already owns its amount, denomination, payment date and
+# record date. A following page number cannot turn this sentence into a bare label.
+# This is deliberately a closed grammar, not a punctuation or sentence-length test.
+_DATED_DIVIDEND_DECLARATION = re.compile(
+    r"In (?:January|February|March|April|May|June|July|August|September|October|November|December)"
+    r" (?:19|20)\d{2}, the Company declared a cash dividend of "
+    + _PER_SHARE.pattern
+    + r" on the Company['’]s common stock(?: and Class [A-Z] stock)?, payable on "
+    + _CALENDAR_DATE.pattern
+    + r" to shareholders of record as of "
+    + _CALENDAR_DATE.pattern
+    + r"\.",
+    re.I,
+)
 
 
 def _self_contained_numbers(text: str) -> bool:
@@ -51,7 +65,8 @@ def _is_bare_table_label(quote: str, source_text: str) -> bool:
     """Reject a whole source-line label immediately followed by a numeric table cell.
 
     Mid-line prose clauses and ordinary fragments remain eligible; this does not
-    infer grammar or financial meaning from terminal punctuation.
+    infer grammar or financial meaning from terminal punctuation. The closed dated
+    dividend declaration above is self-contained even before a numeric page footer.
     """
     start = source_text.find(quote)
     if start < 0:
@@ -62,6 +77,8 @@ def _is_bare_table_label(quote: str, source_text: str) -> bool:
     if line_end < 0 or source_text[line_start:start].strip() or source_text[end:line_end].strip():
         return False
     following = next((line.strip() for line in source_text[line_end + 1:].splitlines() if line.strip()), "")
+    if following.isascii() and following.isdigit() and _DATED_DIVIDEND_DECLARATION.fullmatch(quote):
+        return False
     return bool(following and re.fullmatch(r"[\d\s$€£¥()+−,%.\-]+", following))
 
 
@@ -139,6 +156,17 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
     candidates = list(passages) if isinstance(passages, list) else []
     if isinstance(highlights, list):
         candidates.extend(highlights)
+    # Space/NBSP are a same-length typography equivalence only. Recover the actual
+    # source bytes; never normalize the emitted quotation, join lines, or repair words.
+    matching_source = source_text.replace("\u00a0", " ")
+
+    def source_passage(quote: str) -> str | None:
+        offered = quote.replace("\u00a0", " ")
+        start = matching_source.find(offered)
+        if start < 0 or matching_source.find(offered, start + 1) >= 0:
+            return None
+        return source_text[start:start + len(quote)]
+
     def qualifies(quote: str) -> bool:
         return (25 <= len(quote) <= 2000 and bool(source_text)
                 and source_text.count(quote) == 1 and _self_contained_numbers(quote)
@@ -148,7 +176,8 @@ def bind_capital_allocation(sections: dict, metrics: Any, source_text: str = "")
     for quote in candidates:
         if not isinstance(quote, str) or not 25 <= len(quote) <= 2000:
             continue
-        if not qualifies(quote):
+        quote = source_passage(quote)
+        if quote is None or not qualifies(quote):
             continue
         if not any(quote in existing for existing in verified):
             verified = [existing for existing in verified if existing not in quote]

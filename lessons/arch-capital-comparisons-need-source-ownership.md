@@ -18,3 +18,13 @@ Boundary correction before publication: independent review found both extraction
 
 
 September 13 second-assessment correction: a nonempty model quote list can contain bare table labels or unrelated program quotes, so emptiness cannot own explanation preservation. Select the qualifying internal source passage independently, then containment-deduplicate it with legitimate quotations. Reject whole-line labels followed by numeric cells structurally; a sentence-ending requirement would discard valid fragments. Source-exact attribution still does not certify causality or make a prior-period passage current. This supersedes the empty-only fallback above.
+
+October 30 earnings-release canary: two retained draws exposed distinct false omissions.
+An ordinary space in a model's date failed against a source nonbreaking space; recover the
+unique exact source substring under that same-length typography equivalence, preserving its
+source bytes. Do not repair words, join source lines, relax denomination, or admit a match
+shared by two source occurrences. A complete cash-dividend declaration was also followed by
+a numeric page footer. Its closed declaration/amount/share-class/payment-date/record-date
+grammar may establish self-contained prose; punctuation or length alone must not exempt a
+bare table label. `test_financing_comparison.py` retains both positive paths through final
+rendering and the ambiguous-source, word/line/scale and punctuated/long-label exclusions.
