@@ -6,6 +6,7 @@ import { resendVerification } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
+import AddressText from '@/features/auth/components/AddressText'
 import AuthShell from '@/features/auth/components/AuthShell'
 import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { Notice } from '@/components/ui'
@@ -63,10 +64,11 @@ function CheckEmailContent() {
           <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
             We send verification links to
           </p>
-          {/* An address has no break opportunity, so at 200% text a long one overflows the column;
-              break-words lets it break at the edge (the column is a block of definite width). */}
+          {/* An address has no break opportunity, so at 200% text a long one overflows the column. It breaks
+              after its @ (AddressText), and break-words breaks inside a part only where the part is longer than
+              the line (the column is a block of definite width), so it ends on a fragment only there (E232). */}
           <p className="mt-1 break-words text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-            {email}
+            <AddressText address={email} />
           </p>
           <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Open the newest one to verify your email address. Each link expires 24 hours after we send it.
@@ -114,7 +116,7 @@ function CheckEmailContent() {
           aria-busy={resendLoading || undefined}
           className="group rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed"
         >
-          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin text-brand-strong/50 motion-reduce:animate-none dark:text-brand-strong-dark/50" />}
+          {resendLoading && <CircleNotchIcon aria-hidden="true" className="h-3 w-3 animate-spin text-brand-strong/50 motion-reduce:animate-none dark:text-brand-strong-dark/50" />}
           {/* The label sets the ink and draws the underline, so the underline is always the label's
               colour (a button's own underline is drawn in the button's inherited secondary ink). The
               countdown carries a number, so it rests in the secondary ink at full strength while the

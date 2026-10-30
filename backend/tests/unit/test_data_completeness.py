@@ -25,6 +25,7 @@ from app.services import universe_seed_service
 from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl
 from app.services.edgar.fiscal_periods import fiscal_label
+from app.services.trend_analysis.data_notes import REASONS
 
 
 @pytest.fixture
@@ -216,9 +217,9 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
     citations = analysis.resolve_narrative_citations("Revenue [F1]. Growth [F3].", index)[1]
     assert all(c["reconciled"] is False and c["verified"] for c in citations)
     wb = load_workbook(BytesIO(build_analysis_workbook(dataset)))
-    assert wb["Metrics"]["D2"].comment.text.startswith("Data note a: A source check remains unresolved.")
-    assert wb["Metrics"]["F2"].comment.text.startswith("Data note a: A source check remains unresolved.")
-    assert wb["Revenue & growth"]["C3"].comment.text.startswith("Data note a: A source check remains unresolved.")
+    assert wb["Metrics"]["D2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Metrics"]["F2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Revenue & growth"]["C3"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):
@@ -379,7 +380,7 @@ def test_pdf_retains_value_and_citation_quality():
     html = export_service.generate_analysis_pdf_html(record, SimpleNamespace(name="A", ticker="A"))
     assert '$123<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
     assert 'Revenue grew [1]<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
-    assert html.count("A source check remains unresolved. Review the original filing before use.") == 1
+    assert html.count(REASONS["source_check_needed"]) == 1
     assert "Citation verification confirms traceability, not financial reconciliation." in html
 
 
@@ -456,7 +457,7 @@ def test_bulk_delayed_response_preserves_known_amendment(sessions, incoming_know
             "accession": "002", "form": "10-Q/A", "value": 200}])
         result = facts_service.upsert_facts_bulk(db, [{**common, "filing_id": None,
             "accession": "001", "form": "10-Q", "value": 100}])
-        assert result == {"inserted": 1, "skipped": 0, "demoted": 0}
+        assert result == {"inserted": 1, "skipped": 0, "demoted": 0, "history": 0}
         assert [(row.accession, row.value) for row in db.query(FinancialFact).filter_by(is_latest=True)] == [("002", 200)]
         assert db.query(FinancialFact).filter_by(accession="001").one().value == 100
         # A later comparative filing still becomes current when its metadata establishes order.

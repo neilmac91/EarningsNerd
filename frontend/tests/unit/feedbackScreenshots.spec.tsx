@@ -48,6 +48,24 @@ describe('private feedback screenshots', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:private-screenshot')
   })
 
+  it('holds a loading screenshot’s place in a status region named for it, at the image’s own ratio, until the image crossfades in', async () => {
+    let arrive: ((blob: Blob) => void) | undefined
+    api.getFeedbackAttachment.mockImplementation(() => new Promise<Blob>((resolve) => { arrive = resolve }))
+    mount()
+    const region = await screen.findByRole('status', { name: 'Loading screenshot 1' })
+    // A bone takes the image's own width to height, so the block is the image's height before the image is there.
+    const ratio = Array.from(region.querySelectorAll<HTMLElement>('[aria-hidden="true"]'), (bone) => bone.style.aspectRatio).find(Boolean)
+    await waitFor(() => expect(arrive).toBeDefined())
+    await act(async () => { arrive?.(new Blob(['image'], { type: 'image/png' })) })
+    const image = await screen.findByRole('img', { name: 'Screenshot 1' })
+    expect(ratio).toBe(`${image.getAttribute('width')} / ${image.getAttribute('height')}`)
+    expect(screen.queryByRole('status', { name: 'Loading screenshot 1' })).not.toBeInTheDocument()
+    // What replaces the bones crossfades in (hooks/useContentIn), at once under reduced motion.
+    for (const arrived of [image, screen.getByRole('button', { name: 'Download screenshot 1' })]) {
+      expect(arrived).toHaveClass('animate-content-in', 'motion-reduce:animate-none')
+    }
+  })
+
   it('admits at most two image reads and cancels queued reads when details closes', async () => {
     const releases: Array<(blob: Blob) => void> = []
     api.getFeedbackAttachment.mockImplementation(() => new Promise<Blob>((resolve) => releases.push(resolve)))

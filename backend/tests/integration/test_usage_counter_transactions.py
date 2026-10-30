@@ -461,13 +461,14 @@ def _parallel(engine, uid, reserve, workers=3):
         return [f.result(timeout=8) for f in [pool.submit(run) for _ in range(workers)]]
 
 
-@pytest.mark.parametrize("reserve,setting,kind,column", [
-    (usage.reserve_qa_use, "COPILOT_MONTHLY_QUESTION_CAP", usage.QA_RESERVATION_KIND, 2),
-    (usage.reserve_analysis_use, "ANALYSIS_MONTHLY_CAP", usage.ANALYSIS_RESERVATION_KIND, 3),
+@pytest.mark.parametrize("reserve,owner,cap,kind,column", [
+    # Copilot's cap is a setting; Analysis's is a plan constant the usage service reads (D-050).
+    (usage.reserve_qa_use, settings, "COPILOT_MONTHLY_QUESTION_CAP", usage.QA_RESERVATION_KIND, 2),
+    (usage.reserve_analysis_use, usage, "ANALYSIS_MONTHLY_CAP", usage.ANALYSIS_RESERVATION_KIND, 3),
 ])
-def test_postgres_parallel_monthly_reservations_admit_exactly_the_cap(postgres_engine, monkeypatch, reserve, setting, kind, column):
+def test_postgres_parallel_monthly_reservations_admit_exactly_the_cap(postgres_engine, monkeypatch, reserve, owner, cap, kind, column):
     _pin_month(monkeypatch)
-    monkeypatch.setattr(settings, setting, 2)
+    monkeypatch.setattr(owner, cap, 2)
     uid = _seed(postgres_engine, (0, 1, 1))  # one completed use of each kind already counted
     outcomes = _parallel(postgres_engine, uid, reserve)
     admitted = [o for o in outcomes if o[0]]

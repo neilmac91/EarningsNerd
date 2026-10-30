@@ -38,3 +38,11 @@ second call to a pinned function), and it cannot tell two writes of one kind apa
 objects the walk cannot name (parameters, `self` attributes, return values) and calls through an
 unaliased `import app.x` are still not followed. For the Apple OAuth start, the database state row is
 single-use and the signed browser cookie supplies the separate browser binding.
+
+The fleet SEC admission gate adds one bounded operational-write exception, not a read-only label or
+a GET-route exemption. Only its four audited coordination sites are covered, and only while exact
+write counts, the normalized owner/model code and bounded, disabled-by-default Settings match their
+pins. The reviewed owner touches the singleton SEC gate row and its two scheduling fields; its one
+feedback task owns bounded database work. Domain writes, extra tasks and same-count substitutions
+of a domain model remain rejected. A code-pin change requires reviewing the whole small owner/model
+again; copying a fresh fingerprint without that review is not maintenance of the invariant.

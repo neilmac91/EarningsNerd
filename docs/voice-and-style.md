@@ -71,7 +71,7 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 | "Where the numbers come from" (section heading) | "Figures with their receipts." |
 | "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | A legend that sets each label beside its meaning: "Matches filing: both years' figures match the numbers Apple reported in the filing's data, after rounding." "Linked, not checked: we link to where the figure is reported but don't check it." "Quote found in filing: the quoted words appear in the filing, word for word." |
 | "Speed matters. Markets move fast. You need clarity before the next earnings call." (waitlist) | "Filings are long. The signal is spread across a hundred pages, and checking a number takes an afternoon. We read it with you and point at the passage." |
-| "Join 0+ others on the waitlist" | (nothing, until the count is worth saying) |
+| "Join 0+ others on the waitlist" | (nothing, until the count is worth saying; then "Join 1,234+ others": the verb of the "Join the waitlist" it replaces, and short enough that the status above the form keeps its height) |
 | "Choose the plan that fits your workflow" (pricing subtitle) | "Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price." |
 | "You're on the EarningsNerd waitlist! 🎉" (email subject) | "You're on the EarningsNerd waitlist" |
 | "Please verify your email address to unlock AI-powered SEC filing summaries." | "Verify your email address to subscribe to Pro." (what verifying gates: checkout, as the site's banner says) |
@@ -225,11 +225,15 @@ Before editing a string, check what it's wired to:
 - Copy duplicated across frontend and backend must be changed on both sides in the same PR.
   The beta invite is not such a pair: the message an admin copies (`DEFAULT_INVITE_MESSAGE` in
   `features/admin/lib/shareLinks.ts`) and the invite email (`send_invite_email` in
-  `backend/app/services/email_service.py`) both say "You're invited to the EarningsNerd private
-  beta. Full Pro access, on us.", and the rest differs on purpose: the message adds that figures
-  are checked against the SEC filing where they can be, carries its link inline and asks not to be
-  forwarded; the email greets the reader first, carries a button and says "No credit card required."
-  Keep their intent aligned, not their wording.
+  `backend/app/services/email_service.py`) both promise an account and nothing more: no Pro
+  access and no offer (`docs/LEGAL_READINESS.md`). The rest differs: the message names the private
+  beta, which the email dropped in #1547, adds that figures are checked against the SEC filing where
+  they can be, carries its link inline and asks not to be forwarded; the email greets the reader
+  first, carries a button and asks them to review the account requirements when they sign up. Keep
+  their intent aligned, not their wording. `frontend/tests/unit/shareInvite.spec.ts` and
+  `backend/tests/unit/test_invitation_readiness.py` hold both, subjects included, to five
+  patterns: no Pro, no "on us", nothing free, no card and no trial. A promise in other words
+  stays review-checked.
 - Component and e2e tests assert exact copy (headings such as "Generation interrupted" and
   "Page not found" are pinned by name). Any copy change runs `npx vitest run` before push and
   updates the coupled assertion in the same PR (see `lessons/test-vitest-for-copy-changes.md`).

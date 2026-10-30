@@ -118,10 +118,23 @@ async def test_verify_wraps_jwt_error():
 
 # ── callback redirect branches (no DB / crypto needed) ────────────────────────
 
-def test_apple_login_unconfigured_returns_503(client):
-    """With APPLE_CLIENT_ID unset (test default), initiating Apple login is a 503."""
-    resp = client.get("/api/auth/apple", follow_redirects=False)
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/auth/apple"), ("POST", "/api/auth/apple/start"),
+    ("GET", "/api/auth/google"), ("POST", "/api/auth/google/start"),
+])
+def test_an_unconfigured_provider_start_is_a_503_and_stores_no_state(client, monkeypatch, method, path):
+    """With the provider's client id unset, each start, the redirecting GET and the POST alike, answers 503 and
+    writes no state row."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "")
+    with SessionLocal() as db:
+        stored = db.query(OAuthState).count()
+    resp = client.get(path, follow_redirects=False) if method == "GET" else client.post(path, json={})
     assert resp.status_code == 503
+    with SessionLocal() as db:
+        assert db.query(OAuthState).count() == stored
 
 
 def test_callback_user_denied_redirects(client):

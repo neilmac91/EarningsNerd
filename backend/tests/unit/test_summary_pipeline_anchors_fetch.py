@@ -34,8 +34,10 @@ STEP_ONE = {
 FETCHED_OK = {"type": "progress", "stage": "fetching", "message": "File validated and fetched successfully", "percent": 15}
 SIXK_RETRIEVING = {"type": "progress", "stage": "fetching", "message": "Retrieving 6-K exhibits from EDGAR...", "percent": 10}
 SIXK_FETCHED = {"type": "progress", "stage": "fetching", "message": "6-K exhibits fetched", "percent": 15}
-SEC_FETCH_ERROR = {"type": "error", "message": "We could not generate this summary. Try again shortly."}
-SIXK_FETCH_ERROR = {"type": "error", "message": "We could not retrieve this 6-K from SEC EDGAR. Try again shortly."}
+SEC_FETCH_ERROR = {"type": "error", "message": "We could not generate this summary. Try again shortly.",
+                   "code": "filing_source_unavailable", "retryable": False}
+SIXK_FETCH_ERROR = {"type": "error", "message": "We could not retrieve this 6-K from SEC EDGAR. Try again shortly.",
+                    "code": "filing_source_unavailable", "retryable": False}
 FETCH_MESSAGES = [
     "Connecting to SEC EDGAR...",
     "Downloading filing document...",
@@ -159,8 +161,8 @@ async def test_sec_fetch_heartbeats_rotate_messages_and_cap_percent_at_15(caplog
 @pytest.mark.asyncio
 async def test_empty_sec_document_ends_the_stream_with_the_generic_failure(caplog):
     """An empty fetch result is a fetch failure: the stream ends with the generic failure sentence
-    as its only terminal (no parsing stage, no provider call, no Summary row, no ``error`` progress
-    record), logs the ValueError text at ERROR with a traceback, and gives back the generation slot
+    as its only terminal (no parsing stage, no provider call, no Summary row), records terminal
+    error progress and safe exception metadata, and gives back the generation slot
     and in-flight leadership."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
@@ -176,10 +178,11 @@ async def test_empty_sec_document_ends_the_stream_with_the_generic_failure(caplo
     assert _terminals(events) == [events[-1]]
     error_records = [r for r in caplog.records if r.name == LOGGER and r.levelno == logging.ERROR]
     assert [r.getMessage() for r in error_records] == [
-        f"[stream:{filing_id}] Error fetching SEC document: Filing document is empty or inaccessible"
+        f"[stream:{filing_id}] Source fetch failed code=filing_source_unavailable "
+        "upstream_status=None exception_class=ValueError request_id=None"
     ]
-    assert error_records[0].exc_info is not None and error_records[0].exc_info[0] is ValueError
-    assert _stages(record_progress) == ["fetching"]
+    assert error_records[0].exc_info is None
+    assert _stages(record_progress) == ["fetching", "error"]
     summarize.assert_not_called()
     assert _summary_rows(filing_id) == []
     assert semaphore._value == slots_before
@@ -230,7 +233,7 @@ async def test_sixk_extractor_failure_falls_back_to_the_cover_document(caplog):
 async def test_sixk_without_any_grounding_text_ends_with_the_sixk_error(extractor_result, document_result):
     """When the exhibit extractor yields nothing and the cover-document fetch raises or is empty, the
     stream ends right after the 10% event with the 6-K-specific error as its only terminal: no
-    provider call, no Summary row, only the ``fetching`` progress record, slot and leadership
+    provider call, no Summary row, terminal ``error`` progress record, slot and leadership
     released."""
     filing_id = seed_company_filing(filing_type="6-K")
     document_url, accession, cik = _filing_identity(filing_id)
@@ -252,7 +255,7 @@ async def test_sixk_without_any_grounding_text_ends_with_the_sixk_error(extracto
     assert _terminals(events) == [events[-1]]
     get_sixk_text.assert_awaited_once_with(accession, cik)
     fetch_document.assert_awaited_once_with(document_url, timeout=15.0)
-    assert _stages(record_progress) == ["fetching"]
+    assert _stages(record_progress) == ["fetching", "error"]
     summarize.assert_not_called()
     assert _summary_rows(filing_id) == []
     assert semaphore._value == slots_before

@@ -85,6 +85,9 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
         trace_excerpt=run.excerpt or run.filing_text
     )
     raw_summary["quality"] = quality
+    if run.filing_source_provenance is not None:
+        # Application-owned source identity, committed with this exact summary.
+        raw_summary["filing_source_provenance"] = run.filing_source_provenance
     untraceable = quality.get("figures_untraceable") or []
     if untraceable:
         # T3.2 advisory-phase measurement channel. The gate ships flag-off, so untraceable dollar
@@ -211,6 +214,10 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
     # DB OP: Persist summary
     def save_summary_sync():
         with database.SessionLocal() as session:
+            job = None
+            if run.durable_lease is not None:
+                from app.services.summary_job_store import lock_job_for_result, settle_job_result
+                job = lock_job_for_result(session, run.durable_lease)
             if force_regenerate:
                 # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
                 # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
@@ -248,6 +255,9 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                             "[stream:%s] unready refresh: the stored summary became ready meanwhile; keeping it",
                             filing_id,
                         )
+                        if job is not None:
+                            settle_job_result(job, existing.id, "complete")
+                            session.commit()
                         return existing.id
                     if stored_shown and pipeline.quality_tier_rank(new_tier) < pipeline.quality_tier_rank(stored_tier):
                         # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
@@ -256,6 +266,9 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                             "[stream:%s] refresh keep-better: keeping stored tier=%s over new tier=%s",
                             filing_id, stored_tier, new_tier,
                         )
+                        if job is not None:
+                            settle_job_result(job, existing.id, "complete")
+                            session.commit()
                         return existing.id
                     existing.business_overview = markdown
                     existing.financial_highlights = normalized_financial_section
@@ -279,6 +292,8 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                             replace_excerpt=True,
                             clear_stale_excerpt=run.rebuild_excerpt,
                         )
+                    if job is not None:
+                        settle_job_result(job, existing.id, run.summary_payload.get("status", "complete"))
                     session.commit()
                     return existing.id
                 # force on a filing with no stored summary yet: fall through to a normal INSERT.
@@ -319,6 +334,9 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                 )
 
             try:
+                if job is not None:
+                    session.flush()
+                    settle_job_result(job, summary.id, run.summary_payload.get("status", "complete"))
                 session.commit()
                 return summary.id
             except IntegrityError:
@@ -340,8 +358,8 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
         # failure refunds it.
         run.charged_month = None
         run.charge_future = None  # nothing left to settle: the unit is owed
-    elif user_id and count_usage and run.usage_reservation_token is None:
-        # No lease was held (background drain, uncapped Pro): the historical
+    elif user_id and count_usage and run.usage_reservation_token is None and run.durable_lease is None:
+        # No lease was held (the background drain): the historical
         # completion-time count, full results only. A lease still held here was left
         # uncharged on purpose (an unsignalled timeout fallback); `release` releases it.
         def track_usage_sync():

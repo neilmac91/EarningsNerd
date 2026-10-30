@@ -14,6 +14,7 @@ import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
 import { Notice } from '@/components/ui/Notice'
 import { ApiError } from '@/lib/api/client'
+import { CheckIcon } from '@/lib/icons'
 import { getErrorStatus } from '@/lib/api/types'
 
 /** The message maximum as the hint and the refusal print it (2,000). */
@@ -155,19 +156,7 @@ function OpenContactForm({ recheck }: { recheck: () => Promise<LegalReadiness | 
       <div className="rounded-2xl border border-border-light bg-panel-light p-cap-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-light/10 dark:bg-success-dark/15">
-            <svg
-              className="h-6 w-6 text-success-light dark:text-success-dark"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+            <CheckIcon className="h-6 w-6 text-success-light dark:text-success-dark" aria-hidden="true" />
           </div>
           <h2
             ref={successHeadingRef}

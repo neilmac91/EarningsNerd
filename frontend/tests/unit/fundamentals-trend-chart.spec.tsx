@@ -19,20 +19,23 @@ vi.mock('@/features/fundamentals/api/fundamentals-api', () => ({
 }))
 
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
-import { CHART_SERIES } from '@/components/ui'
+import { ThemeContext } from '@/components/ThemeProvider'
+import { seriesColor } from '@/components/ui'
 
 /** The metric picker: a compact select beside its "Metric" label, its options in sentence case. */
 const metricPicker = () => screen.findByRole('combobox', { name: 'Metric' })
 const pick = (picker: HTMLElement, label: string) =>
   fireEvent.change(picker, { target: { value: (screen.getByRole('option', { name: label }) as HTMLOptionElement).value } })
 
-function renderChart(filingId = 285, subtitle?: string) {
+/** Without a theme the chart renders provider-less, as SSR does, and takes the light fallback. */
+function renderChart(filingId = 285, subtitle?: string, theme?: 'light' | 'dark') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  const chart = (
     <QueryClientProvider client={qc}>
       <FundamentalsTrendChart filingId={filingId} subtitle={subtitle} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
+  return render(theme ? <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>{chart}</ThemeContext.Provider> : chart)
 }
 
 const point = (fy: number, value: number, unit: string, reconciled = true) => ({
@@ -124,10 +127,21 @@ describe('FundamentalsTrendChart', () => {
     // Revenue is available[0] → chart series color 1 (teal). The unfeatured concept is
     // filtered out, so Net Margin is available[1] → color 2 (honey).
     const picker = await metricPicker()
-    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', CHART_SERIES[0])
+    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(0, false))
 
     pick(picker, 'Net margin')
-    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', CHART_SERIES[1])
+    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(1, false))
+  })
+
+  it('takes each colour’s dark half in the dark theme', async () => {
+    getFilingFundamentals.mockResolvedValue(RESP)
+    renderChart(285, undefined, 'dark')
+
+    const picker = await metricPicker()
+    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(0, true))
+
+    pick(picker, 'Net margin')
+    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', seriesColor(1, true))
   })
 
   it('walks the full 6-color palette in tab order and wraps at the 7th metric', async () => {
@@ -148,13 +162,13 @@ describe('FundamentalsTrendChart', () => {
     renderChart()
 
     const walk: [string, string][] = [
-      ['Revenue', CHART_SERIES[0]],
-      ['Net income', CHART_SERIES[1]],
-      ['Gross profit', CHART_SERIES[2]],
-      ['Operating income', CHART_SERIES[3]],
-      ['Operating cash flow', CHART_SERIES[4]],
-      ['Investing cash flow', CHART_SERIES[5]],
-      ['Financing cash flow', CHART_SERIES[0]], // index 6 wraps back to color 1
+      ['Revenue', seriesColor(0, false)],
+      ['Net income', seriesColor(1, false)],
+      ['Gross profit', seriesColor(2, false)],
+      ['Operating income', seriesColor(3, false)],
+      ['Operating cash flow', seriesColor(4, false)],
+      ['Investing cash flow', seriesColor(5, false)],
+      ['Financing cash flow', seriesColor(0, false)], // index 6 wraps back to color 1
     ]
     const picker = await metricPicker()
     for (const [label, color] of walk) {
@@ -214,6 +228,31 @@ describe('FundamentalsTrendChart', () => {
       'Revenue', 'Investing cash flow', 'Financing cash flow', 'Current assets', 'Current liabilities',
       'Working capital', 'Current ratio',
     ])
+  })
+
+  it('names every metric in sentence case as stored, and the footnote reads it at its start (E34)', async () => {
+    const keys = [
+      'revenue', 'net_interest_income', 'noninterest_income', 'premiums_earned', 'net_investment_income', 'net_income',
+      'gross_profit', 'operating_income', 'operating_cash_flow', 'investing_cash_flow', 'financing_cash_flow',
+      'free_cash_flow', 'eps_diluted', 'earnings_per_share', 'gross_margin', 'operating_margin', 'net_margin',
+      'total_assets', 'current_assets', 'current_liabilities', 'working_capital', 'current_ratio', 'shareholders_equity',
+    ]
+    getFilingFundamentals.mockResolvedValue({
+      ticker: 'JPM',
+      company_name: 'JPMorgan Chase',
+      concepts: keys.map((concept) => ({ concept, unit: 'USD', points: [point(2023, 10, 'USD')] })),
+    })
+    renderChart()
+
+    const picker = await metricPicker()
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Revenue', 'Net interest income', 'Non-interest income', 'Premiums earned', 'Net investment income', 'Net income',
+      'Gross profit', 'Operating income', 'Operating cash flow', 'Investing cash flow', 'Financing cash flow',
+      'Free cash flow', 'Diluted EPS', 'EPS', 'Gross margin', 'Operating margin', 'Net margin', 'Total assets',
+      'Current assets', 'Current liabilities', 'Working capital', 'Current ratio', "Shareholders' equity",
+    ])
+    fireEvent.change(picker, { target: { value: 'free_cash_flow' } })
+    expect(await screen.findByText(/Free cash flow by fiscal year\./)).toBeInTheDocument()
   })
 
   it('fetches by filingId (roadmap B), not any company-wide endpoint', async () => {

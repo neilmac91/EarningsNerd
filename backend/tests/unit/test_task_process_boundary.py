@@ -5,7 +5,6 @@ import asyncio
 import gzip
 import io
 import json
-import logging
 import os
 import socket
 import subprocess
@@ -22,6 +21,7 @@ import httpx
 from app.config import settings
 from app.services import task_process_service as service
 from app.services.durable_tasks import TaskEnvelope
+from tests.support.worker_logging import preserved_logging
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -29,20 +29,8 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 @pytest.fixture
 def preserve_worker_logging():
     """The private entrypoint configures process logging on its first import."""
-    root = logging.getLogger()
-    handlers, level = list(root.handlers), root.level
-    library_levels = {name: logging.getLogger(name).level
-                      for name in ("httpx", "httpcore", "urllib3", "edgar", "markdown_it")}
-    try:
+    with preserved_logging():
         yield
-    finally:
-        for handler in root.handlers:
-            if handler not in handlers:
-                handler.close()
-        root.handlers[:] = handlers
-        root.setLevel(level)
-        for name, previous_level in library_levels.items():
-            logging.getLogger(name).setLevel(previous_level)
 
 
 @pytest.mark.asyncio

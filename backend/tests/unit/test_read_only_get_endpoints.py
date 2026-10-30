@@ -77,8 +77,16 @@ count is of the calls written in a function, not of how often they run: a loop, 
 to a pinned function, repeats its writes without changing any count. Nor can a count tell two
 calls of one kind apart, so swapping a pinned call for another of the same kind (a read-only
 ``execute`` for a writing one) passes. Both remain review concerns.
+
+Fleet SEC admission is a separate operational mutation, not a read-only execute or a domain
+GET exemption. Only its four audited owner sites are removed from the domain-write census,
+and only while exact marker counts, normalized owner/model code and bounded Settings match.
+The code pins cover the single coordination table/id, field assignments, sole feedback task,
+deadline, semaphore and dedicated pool; they also reject a same-count domain-table substitution.
+Changing a pin requires reviewing that whole small owner again, not merely copying a new hash.
 """
 import ast
+import hashlib
 import sys
 from collections import Counter
 from collections.abc import Iterator
@@ -164,6 +172,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/routers/analysis.py::get_coverage": {"create_task": 1},
         "app/services/facts/ingest.py::_persist_companyfacts_payload": {"commit": 1},
         "app/services/facts/upsert.py::upsert_facts_bulk": {"add": 1, "commit": 1},
+        # The same ingest's own-report history rows, which the bulk upsert stores beside its winners.
+        "app/services/facts/own_reports.py::insert_history_rows": {"add": 1},
     },
     ("app/routers/auth.py", "apple_login"): {
         "app/services/oauth_account_service.py::save_apple_state": {"commit": 1},
@@ -228,6 +238,56 @@ READ_ONLY_EXECUTE_SITES: dict[str, tuple[int, str]] = {
         1, "the database health probe runs SELECT 1 in a session of its own and writes nothing"
     ),
 }
+
+# These are REAL infrastructure writes reachable from SEC-backed reads. No route
+# is exempted, and no row containing account, filing, summary or paid-work state
+# is covered. All other reached writes/tasks keep their normal GET treatment.
+SEC_COORDINATION_WRITE_SITES = {
+    "app/services/sec_request_gate.py::PostgresRequestGate._locked_row": {"execute": 4},
+    "app/services/sec_request_gate.py::PostgresRequestGate.try_grant": {"execute": 1},
+    "app/services/sec_request_gate.py::PostgresRequestGate.try_defer": {"execute": 1},
+    "app/services/sec_request_gate.py::record_response_async": {"create_task": 1},
+}
+# Exact reviewed code, excluding comments/docstrings and source positions.
+# The owner pins all imports too: rebinding SECRequestGate to a domain model
+# must not pass just because the four side-effect counts stayed unchanged.
+SEC_COORDINATION_CODE_PINS = {
+    "app/services/sec_request_gate.py": "df1035f2ad42ca0997ffcabcde0b4b528987891cff9c6c3d1e3b8f8c498ea9fb",
+    "app/models/sec_request_gate.py": "028c9504de661dde54fd8c2c39e4920357ce96cecb45adabb4bca180afa8c00b",
+}
+
+
+def _code_digest(path: Path) -> str:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant) \
+                    and isinstance(node.body[0].value.value, str):
+                node.body = node.body[1:]
+    return hashlib.sha256(ast.dump(tree, include_attributes=False).encode()).hexdigest()
+
+
+def _sec_coordination_contract_problems() -> list[str]:
+    problems = [
+        f"{name}: coordination code changed; review the whole owner/model before updating its pin"
+        for name, expected in SEC_COORDINATION_CODE_PINS.items()
+        if not (BACKEND_DIR / name).is_file() or _code_digest(BACKEND_DIR / name) != expected
+    ]
+    config = BACKEND_DIR / "app/config.py"
+    if not config.is_file():
+        return [*problems, "coordination Settings are missing"]
+    settings_class = next((node for node in _module(config).body
+                           if isinstance(node, ast.ClassDef) and node.name == "Settings"), None)
+    fields = {node.target.id: ast.unparse(node.value) for node in settings_class.body
+              if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+              and node.value is not None} if settings_class else {}
+    for name, expected in {
+        "SEC_DISTRIBUTED_LIMIT_ENABLED": "False",
+        "SEC_DISTRIBUTED_WAIT_SECONDS": "Field(default=10.0, gt=0, le=30, allow_inf_nan=False)",
+    }.items():
+        if fields.get(name) != expected:
+            problems.append(f"{name}: reviewed disabled/default wait bound changed")
+    return problems
 
 _SESSION_NAMES = {"db", "session"}
 _ENGINE_NAMES = {"engine"}  # app.database's engine; one bound from create_engine() counts as well
@@ -722,12 +782,26 @@ def _without_pinned_reads(markers: list[_Marker]) -> list[_Marker]:
     return [(site, kind, label) for site, kind, label in markers if not (kind == "execute" and site in reads)]
 
 
+def _without_reviewed_sec_coordination(markers: list[_Marker], *, reviewed: bool) -> list[_Marker]:
+    if not reviewed:
+        return markers
+    counts: dict[str, Counter] = {}
+    for site, kind, _ in markers:
+        counts.setdefault(site, Counter())[kind] += 1
+    covered = {site for site, expected in SEC_COORDINATION_WRITE_SITES.items()
+               if counts.get(site) == Counter(expected)}
+    return [marker for marker in markers if marker[0] not in covered]
+
+
 def _side_effecting_handlers(files: list[Path]) -> dict[tuple[str, str], list[_Marker]]:
     found: dict[tuple[str, str], list[_Marker]] = {}
+    coordination_reviewed = not _sec_coordination_contract_problems()
     for py in files:
         rel = py.relative_to(BACKEND_DIR).as_posix()
         for fn in _get_handlers(py):
-            markers = _without_pinned_reads(_handler_markers(py, fn))
+            markers = _without_reviewed_sec_coordination(
+                _without_pinned_reads(_handler_markers(py, fn)), reviewed=coordination_reviewed,
+            )
             if markers:
                 found[(rel, fn.name)] = markers
     return found
@@ -845,6 +919,19 @@ def test_read_only_execute_pins_match_their_sites():
         + "\nA pin covers the reads it was granted for. An execute added beside them may write: put it "
         "behind POST/PUT/DELETE, or raise the count if it only reads. None left: prune the pin."
     )
+
+
+def test_sec_coordination_exception_matches_reviewed_owner_and_reached_writes():
+    assert not _sec_coordination_contract_problems(), _sec_coordination_contract_problems()
+    reached = {}
+    for py in _scanned_files():
+        for fn in _get_handlers(py):
+            counts: dict[str, Counter] = {}
+            for site, kind, _ in _handler_markers(py, fn):
+                if site in SEC_COORDINATION_WRITE_SITES:
+                    counts.setdefault(site, Counter())[kind] += 1
+            reached.update(counts)
+    assert reached == SEC_COORDINATION_WRITE_SITES, "Prune or review changed coordination sites; never exempt a GET route."
 
 
 _SYNTHETIC_TREE = {
@@ -1041,6 +1128,64 @@ def _use_tree(tmp_path: Path, monkeypatch, tree: dict[str, str]) -> None:
     monkeypatch.setattr(module, "_BINDINGS", {})
     monkeypatch.setattr(module, "_IMPORTS_APP", {})
     monkeypatch.setattr(module, "_FACTORIES", {})
+
+
+@pytest.mark.parametrize("change", [
+    "reviewed", "comment", "domain_binding_same_count", "domain_table", "domain_write",
+    "extra_task", "longer_wait", "route_write",
+])
+def test_sec_coordination_exception_never_hides_domain_writes_or_extra_work(tmp_path, monkeypatch, change):
+    owner = "app/services/sec_request_gate.py"
+    model = "app/models/sec_request_gate.py"
+    route = "app/routers/sec_reader.py"
+    tree = {
+        name: (BACKEND_DIR / name).read_text(encoding="utf-8")
+        for name in [*SEC_COORDINATION_CODE_PINS, "app/config.py"]
+    }
+    tree.update({
+        "app/__init__.py": "", "app/services/__init__.py": "", "app/models/__init__.py": "",
+        "app/database.py": "SessionLocal = None\n",
+        route: (
+            "from app.services import sec_request_gate as gate\n"
+            "@router.get('/source')\nasync def read_source(db):\n"
+            "    await gate.acquire_async()\n    await gate.record_response_async(429, '30')\n"
+        ),
+    })
+    if change == "comment":
+        tree[owner] += "\n# Wording does not change the reviewed operational behavior.\n"
+    elif change == "domain_binding_same_count":
+        tree[owner] = tree[owner].replace(
+            "from app.models.sec_request_gate import SECRequestGate", "from app.models import Filing as SECRequestGate",
+        )
+    elif change == "domain_table":
+        tree[model] = tree[model].replace('"earningsnerd_sec_request_gate"', '"filings"')
+    elif change == "domain_write":
+        tree[owner] = tree[owner].replace("row = self._locked_row(db)", "row = self._locked_row(db)\n                db.query(User).delete()", 1)
+    elif change == "extra_task":
+        tree[owner] = tree[owner].replace(
+            "task = asyncio.create_task(_persist_cooldown(hint))",
+            "task = asyncio.create_task(_persist_cooldown(hint))\n    asyncio.create_task(_persist_cooldown(hint))",
+        )
+    elif change == "longer_wait":
+        tree["app/config.py"] = tree["app/config.py"].replace(
+            "Field(default=10.0, gt=0, le=30, allow_inf_nan=False)",
+            "Field(default=10.0, gt=0, le=300, allow_inf_nan=False)",
+        )
+    elif change == "route_write":
+        tree[route] += "    db.commit()\n"
+    _use_tree(tmp_path, monkeypatch, tree)
+    found = _side_effecting_handlers([tmp_path / route])
+    if change in {"reviewed", "comment"}:
+        assert not found and not _sec_coordination_contract_problems()
+    else:
+        assert (route, "read_source") in found, "The coordination exception hid a new domain write/task."
+        assert bool(_sec_coordination_contract_problems()) is (change != "route_write")
+        if change == "domain_binding_same_count":
+            handler = _get_handlers(tmp_path / route)[0]
+            counts: dict[str, Counter] = {}
+            for site, kind, _ in _handler_markers(tmp_path / route, handler):
+                counts.setdefault(site, Counter())[kind] += 1
+            assert counts == SEC_COORDINATION_WRITE_SITES, "This case must retain the original write counts."
 
 
 def test_walk_follows_every_documented_form(tmp_path, monkeypatch):

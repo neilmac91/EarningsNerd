@@ -25,6 +25,7 @@ from app.models.notification_delivery import DeliveryBatch, DeliveryItem
 from app.models.filing_section_text import FilingSectionText
 from app.models.section_review import SectionReview
 from app.models.account_agreement import AccountAgreement
+from app.models.summary_job import SummaryJob, SummaryPreparationBudget
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +315,7 @@ class UserUsage(Base):
     # "Ask this Filing" Copilot (A2) monthly question count, metered separately from summaries.
     qa_count = Column(Integer, default=0, nullable=False)
     # Multi-Period Analysis monthly generation count (fresh AI narratives only — cached re-serves
-    # are free). Fair-use cap: settings.ANALYSIS_MONTHLY_CAP.
+    # are free). Fair-use cap: entitlements.ANALYSIS_MONTHLY_CAP.
     analysis_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -374,6 +375,8 @@ __all__ = [
     "StripeEvent",
     "Subscription",
     "Summary",
+    "SummaryJob",
+    "SummaryPreparationBudget",
     "SummaryGenerationProgress",
     "TrendAnalysis",
     "User",

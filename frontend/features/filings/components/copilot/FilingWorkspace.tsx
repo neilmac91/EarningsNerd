@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { ArrowSquareOutIcon, FileTextIcon } from '@/lib/icons'
 import PaneResizer from './PaneResizer'
-import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
+import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS, PANE_TITLE_ID } from './SecondaryPaneTabs'
 import CopilotCoachmark from './CopilotCoachmark'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
+import { PaneStatusContext } from './PaneStatusContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useConsentLayer } from '@/hooks/useConsentLayer'
@@ -94,7 +95,7 @@ interface FilingWorkspaceProps {
 /**
  * Desktop "research desk" layout for the filing page (audit 1.1): the summary and the research pane
  * sit side by side as reflowing CSS-grid panes a draggable divider resizes. The pane is named for the
- * source (2026-10 critique P-06): "Source", labelled "Filing source and Ask", one shell hosting the
+ * source (2026-10 critique P-06): its header "Source" names it, one shell hosting the
  * [Filing · Ask] tabs — the in-app filing reader first, the Ask conversation beside it (a citation
  * flips to the filing view next to the answer). Below lg the grid collapses to one column and the
  * shell becomes a bottom sheet with dialog semantics; at lg+ it is a complementary landmark.
@@ -115,6 +116,8 @@ export default function FilingWorkspace({
   children,
 }: FilingWorkspaceProps) {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH)
+  // The pane's status line (PaneStatusContext), whose words the Ask rail sets.
+  const [paneStatus, setPaneStatus] = useState('')
   const viewer = useFilingViewer()
   const activeView = viewer?.activeView ?? 'copilot'
   const shellRef = useRef<HTMLDivElement>(null)
@@ -430,7 +433,7 @@ export default function FilingWorkspace({
             <div
               ref={shellRef}
               role={isMobile ? 'dialog' : 'complementary'}
-              aria-label="Filing source and Ask"
+              aria-labelledby={PANE_TITLE_ID}
               aria-modal={modalActive ? true : undefined}
               aria-hidden={!paneOpen}
               className={`${SHELL_CLASSES} ${paneOpen ? 'lg:border-l lg:border-border-light dark:lg:border-white/10' : 'hidden'}`}
@@ -446,6 +449,12 @@ export default function FilingWorkspace({
                 onClose={() => onOpenChange(false)}
                 sourceLabel={sourceLabel}
               />
+              {/* The pane's status line, sr-only: between the tabs and the panels, so it is heard whichever tab shows
+                  (a hidden panel takes everything in it out of the accessibility tree). The Ask rail says what it is
+                  doing here: "Reading the filing…" as a question is sent, "Answer ready." when the answer
+                  completes, and the card's sentence for an error that lands while the Filing tab shows
+                  (AskCopilotRail.tsx). */}
+              <p role="status" className="sr-only">{paneStatus}</p>
               <div className="flex min-h-0 flex-1 flex-col" onClickCapture={markPanelActivation}>
                 <div
                   id={PANE_PANEL_IDS.copilot}
@@ -453,7 +462,7 @@ export default function FilingWorkspace({
                   aria-labelledby={PANE_TAB_IDS.copilot}
                   className={activeView === 'copilot' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
                 >
-                  {copilotBody}
+                  <PaneStatusContext.Provider value={setPaneStatus}>{copilotBody}</PaneStatusContext.Provider>
                 </div>
                 <div
                   id={PANE_PANEL_IDS.filing}

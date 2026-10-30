@@ -57,9 +57,16 @@ const CASES: { jump: string; chip: ReactNode; registers: string; lands: string }
   // Ask: an XBRL fact, verified, whose label the text holds (the matcher's leading-slice fallback finds it).
   {
     jump: 'an XBRL fact from Ask, [F1]',
-    chip: <CitationChip citation={{ n: 'F1', excerpt: 'Products net sales (FY2025)', section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax', verified: true, fragment_url: null }} />,
+    chip: <CitationChip citation={{ n: 'F1', excerpt: 'Products net sales (FY2025)', section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax', verified: true, fragment_url: null, fact: true }} />,
     registers: FIND,
     lands: 'Products net sales',
+  },
+  // Ask: a verified passage the model labelled "XBRL · …", with no fact payload, is the passage it quotes (E179).
+  {
+    jump: 'an Ask passage labelled "XBRL · …" without the fact payload',
+    chip: <CitationChip citation={{ n: 1, excerpt: TAKEAWAY, section_ref: 'XBRL · model label', verified: true, fragment_url: null }} />,
+    registers: LOCATED,
+    lands: TAKEAWAY.slice(0, 40),
   },
 ]
 

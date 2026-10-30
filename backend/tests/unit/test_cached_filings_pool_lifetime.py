@@ -12,8 +12,18 @@ One rule, three parts in this one module:
   in the thread pool, and a throttled generate-stream request must be refused before its admission reads a
   filing or summary; each auth session route (logout signed in, with only the refresh cookie and
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
-  one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
-  and a refusal of each, the waitlist join and verification, the contact form and the feedback
+  one, which also holds no connection while it hashes; the password reset and change, their refusals
+  and a failing write included, which hold none while they hash or wait for the breached-password
+  check; the connections list and unlink, their refusals and a failing unlink included, but for an
+  unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer; the four
+  OAuth starts, which save their state in the thread pool; the two OAuth callbacks, a sign-in, a sign-up,
+  a link to an existing account, a refusal and a lost race each, which hold no connection while they wait
+  for the provider or send the linked-account notice; and the password login, the refresh and each OAuth
+  callback still answer with their committed session when every statement after its commit fails; and the email
+  verification, its refusal and a failing write included, and behind its flag the reverse trial's grant and a
+  failed one, which still verifies), each
+  watchlist route and its refusals, each analysis route
+  and a refusal of each, the waitlist join, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
@@ -733,7 +743,7 @@ async def test_generate_stream_refuses_a_throttled_request_before_its_admission(
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
-    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "SUMMARY_REQUEST_LIMITER", RateLimiter(limit=0, window_seconds=60))
     monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
     monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
     token = auth.create_access_token({"sub": "throttled-reader@example.com"})
@@ -881,6 +891,81 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_logout_all_with_only_the_refresh_cookie_releases_its_connection_off_the_loop(monkeypatch, tmp_path):
+    """Past the access token, a logout-all that names its account finds its user from the refresh cookie (E157 (2)):
+    that read joins the revocation and the audit row in the route's one thread-pool unit, released before it returns.
+    Eight readers' logouts on four slots each end their own sessions, and nothing checks out on the loop."""
+    from app.config import settings
+    from app.models import AuditLog, RefreshToken, User
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'logout-all-cookie.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        readers = [User(email=f"reader-{i}@example.com", is_active=True) for i in range(8)]
+        db.add_all(readers)
+        db.flush()
+        reader_ids = [reader.id for reader in readers]
+        raw_tokens = [refresh_token_service.create_refresh_token(db, reader)[1] for reader in readers]
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(
+                "/api/auth/logout-all",
+                headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}={raw_tokens[i]}"},
+                json={"account_id": reader_ids[i]},
+            )
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert [response.status_code for response in responses] == [200] * 8
+        assert [response.json() for response in responses] == [{"status": "success", "sessions_revoked": 1}] * 8
+        assert engine.pool.checkedout() == 0
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        with sessions() as db:
+            assert db.query(RefreshToken).filter(RefreshToken.revoked_at.is_(None)).count() == 0
+            logged = sorted(int(row.user_id) for row in db.query(AuditLog).filter(AuditLog.action == "logout"))
+        assert logged == sorted(reader_ids)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["right_password", "wrong_password", "locked_out"])
 async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_loop(
     monkeypatch, tmp_path, outcome,
@@ -983,16 +1068,1120 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
         engine.dispose()
 
 
+# Each request session's closes, in order, by whether the session still held a transaction: a unit's
+# release, then the dependency's finalizer, which must find nothing. A unit whose last statement was a
+# commit releases nothing open; one that read, or failed after its first query, releases its transaction.
+_PASSWORD_CLOSES = {
+    "reset": [True, False, False],  # the token's read, then the committed reset
+    "reset_unknown": [True, False],  # the token's read, refused
+    "reset_fails": [True, True, False],
+    "change": [True, False, False],  # the auth lookup's read, then the committed change
+    "change_wrong": [True, False],  # the auth lookup's read; refused at bcrypt, before any write
+    "change_throttled": [True, False],  # the auth lookup's read, released before the rate limit refuses
+    "change_fails": [True, True, False],
+}
+# The waits a request makes, and the connections out during each, for one request alone.
+_PASSWORD_WAITS = {
+    "reset": [("pwned", 0), ("hash", 0)],
+    "reset_unknown": [],
+    "reset_fails": [("pwned", 0), ("hash", 0)],
+    "change": [("verify", 0), ("pwned", 0), ("hash", 0)],
+    "change_wrong": [("verify", 0)],
+    "change_throttled": [],
+    "change_fails": [("verify", 0), ("pwned", 0), ("hash", 0)],
+}
+_PASSWORD_ANSWERS = {
+    "reset": (200, {"message": "Password updated. You can now log in with your new password."}),
+    "reset_unknown": (400, {"detail": "Invalid or expired reset link."}),
+    "change": (200, {"message": "Password updated."}),
+    "change_wrong": (400, {"detail": "Current password is incorrect."}),
+    "change_throttled": (429, {"detail": "Too many password change attempts. Try again later."}),
+}
+# Each failing case's write, made to raise after its first query: the unit's release rolls it back.
+_PASSWORD_UNIT_FAILS = {"reset_fails": "complete_password_reset_by_id", "change_fails": "stage_password_change"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_PASSWORD_CLOSES))
+async def test_password_reset_and_change_release_their_connection_before_their_waits_and_off_the_loop(
+    monkeypatch, tmp_path, case,
+):
+    """The password reset reads its token's account in one thread-pool unit and resets it in a second; the
+    password change releases its auth lookup's read in one, before its rate limit, and changes the password
+    and mints this device's session in a second. Each unit is released before what follows it, so one request
+    alone has no connection out while bcrypt checks the current password, the breached-password check waits
+    or bcrypt hashes the new one, and nine requests on four slots make no checkout, statement or release on
+    the loop and leave nothing for the finalizer, their refusals and a failing write included. On the loop
+    each route read and wrote there, waited there for the account's users row lock, and kept its
+    connection checked out across bcrypt and the breach check (E121). A reset sets each account's password,
+    burns its link, confirms its email and revokes its session; a change sets its password, revokes its
+    session and leaves one new one, the cookie's; a refusal or a failed write leaves every account as it was.
+    The fakes stand in for bcrypt (a blocking call in its worker thread) and HaveIBeenPwned (an await);
+    the links carry no expiry, which SQLite would hand back without its zone."""
+    from app.config import settings
+    from app.models import RefreshToken, User
+    from app.routers import auth
+    from app.services import auth_account_service, refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'passwords.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
+    emails = [f"password-{i}@example.com" for i in range(9)]
+    with sessions() as db:
+        accounts = [
+            User(email=email, is_active=True, hashed_password="the stored hash", email_verified=False,
+                 password_reset_token=auth_account_service._hash_token(f"reset-link-{i}"))
+            for i, email in enumerate(emails)
+        ]
+        db.add_all(accounts)
+        db.flush()
+        for account in accounts:
+            refresh_token_service.create_refresh_token(db, account)
+        db.commit()
+        account_ids = {account.email: account.id for account in accounts}
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    waits: list[tuple[str, int]] = []
+    bcrypt_on_loop: list[bool] = []
+
+    def verify(plain: str, hashed: str) -> bool:
+        waits.append(("verify", engine.pool.checkedout()))
+        bcrypt_on_loop.append(threading.get_ident() == loop_thread)
+        time.sleep(0.02)  # bcrypt's cost, blocking its worker thread
+        return plain == current and hashed == "the stored hash"
+
+    def hash_password(plain: str) -> str:
+        waits.append(("hash", engine.pool.checkedout()))
+        bcrypt_on_loop.append(threading.get_ident() == loop_thread)
+        time.sleep(0.02)
+        return f"the hash of {plain}"
+
+    async def pwned(_password: str) -> bool:
+        waits.append(("pwned", engine.pool.checkedout()))
+        await asyncio.sleep(0.02)  # HaveIBeenPwned's round trip
+        return False
+
+    if case in _PASSWORD_UNIT_FAILS:
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        monkeypatch.setattr(auth_account_service, _PASSWORD_UNIT_FAILS[case], fails_after_its_first_query)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(auth, "verify_password", verify)
+    monkeypatch.setattr(auth, "get_password_hash", hash_password)
+    monkeypatch.setattr(auth, "is_password_pwned", pwned)
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=0 if case == "change_throttled" else 100,
+                                                           window_seconds=60))
+    route = "reset" if case.startswith("reset") else "change"
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        if route == "reset":
+            headers = {}
+            body = {"token": "never-issued" if case == "reset_unknown" else f"reset-link-{i}", "new_password": new}
+        else:
+            headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
+            body = {"current_password": "not-the-password" if case == "change_wrong" else current,  # gitleaks:allow
+                    "new_password": new}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
+            return await client.post(f"/api/auth/{route}-password", json=body)
+
+    try:
+        # One request alone first: no connection is out while it hashes or waits for the breach check.
+        responses = [await send(0)]
+        assert waits == _PASSWORD_WAITS[case]
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert bcrypt_on_loop == [False] * len(bcrypt_on_loop)
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once; the dependency's finalizer found nothing open.
+        assert [request.open_at_close for request in request_sessions] == [_PASSWORD_CLOSES[case]] * 9
+        status, payload = _PASSWORD_ANSWERS.get(case, (500, None))
+        assert [response.status_code for response in responses] == [status] * 9
+        if payload is not None:
+            assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            stored = [(user.hashed_password, user.password_reset_token is None, user.email_verified)
+                      for user in db.query(User).order_by(User.id)]
+            originals = db.query(RefreshToken).filter(RefreshToken.id <= 9).order_by(RefreshToken.id).all()
+            minted = db.query(RefreshToken).filter(RefreshToken.id > 9).all()
+            revoked = [token.revoked_at is not None for token in originals]
+        if case == "reset":
+            # Reset never signs the reader in.
+            assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
+            assert stored == [(f"the hash of {new}", True, True)] * 9
+            assert (revoked, minted) == ([True] * 9, [])
+        elif case == "change":
+            # Each response carries the session minted for its own account, the only one that account has live.
+            assert stored == [(f"the hash of {new}", False, False)] * 9
+            assert revoked == [True] * 9
+            owner_by_hash = {token.token_hash: token.user_id for token in minted if token.revoked_at is None}
+            assert [
+                owner_by_hash.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
+                for response in responses
+            ] == [account_ids[email] for email in emails]
+            assert len(minted) == 9
+        else:
+            assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
+            assert stored == [("the stored hash", False, False)] * 9
+            assert (revoked, minted) == ([False] * 9, [])
+    finally:
+        engine.dispose()
+
+
+# The email verification's closes, as above. A unit that ends on a commit (the verification's, or the trial's) or on a
+# failed trial's rollback leaves its release nothing open; one that ends on a read leaves its transaction for the
+# release: an unknown or expired link's, a write that fails after its first query, and the eligibility read that finds
+# the account already Pro. The dependency's finalizer finds nothing either way.
+_VERIFY_CLOSES = {
+    "verify": [False, False],
+    "verify_unknown": [True, False],
+    "verify_expired": [True, False],
+    "verify_fails": [True, False],
+    "verify_trial": [False, False],
+    "verify_trial_pro": [True, False],
+    "verify_trial_fails": [False, False],
+}
+_VERIFY_ANSWERS = {
+    "verify": (200, {"message": "Email verified."}),
+    "verify_unknown": (400, {"detail": "Invalid or expired verification link."}),
+    "verify_expired": (400, {"detail": "Verification link has expired. Request a new one."}),
+    "verify_trial": (200, {"message": "Email verified."}),
+    "verify_trial_pro": (200, {"message": "Email verified."}),
+    "verify_trial_fails": (200, {"message": "Email verified."}),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_VERIFY_CLOSES))
+async def test_email_verification_releases_its_connection_off_the_loop(monkeypatch, tmp_path, case):
+    """The email verification runs in one thread-pool unit, released before the route answers: the link's account
+    read, the verification's commit and, behind ``REVERSE_TRIAL_ENABLED``, the trial's eligibility read, grant and
+    commit, or a failed grant's rollback. Nine requests on four slots make no checkout, statement or release on the
+    loop and leave nothing for the finalizer, a refused link and a failing write included. On the loop the route read
+    and committed there, and with the trial on read the account its commit had expired. A verification marks each
+    account verified and burns its link; a granted trial gives each a trialing Pro subscription and sends its
+    trial-started event, after the release; a failed grant leaves no subscription and still verifies; a refusal or a
+    failed write leaves every account as it was, and an account already Pro is verified with no grant. The links carry
+    no expiry but the expired case's, which loads tz-aware, as PostgreSQL returns it (SQLite drops the zone)."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy.orm.attributes import set_committed_value
+
+    from app.config import settings
+    from app.models import Subscription, User
+    from app.routers import auth
+    from app.services import auth_account_service, subscription_sync
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'verify.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, Subscription):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"verify-{i}@example.com" for i in range(9)]
+    with sessions() as db:
+        db.add_all([
+            User(email=email, is_active=True, hashed_password="the stored hash", email_verified=False,
+                 email_verification_token=auth_account_service._hash_token(f"verify-link-{i}"),
+                 email_verification_expires=(datetime(2020, 1, 1, tzinfo=timezone.utc)
+                                             if case == "verify_expired" else None))
+            for i, email in enumerate(emails)
+        ])
+        db.commit()
+        account_ids = [account.id for account in db.query(User).order_by(User.id)]
+        if case == "verify_trial_pro":  # Pro by an active subscription, with the is_pro mirror left off
+            db.add_all([Subscription(user_id=user_id, plan="pro", status="active") for user_id in account_ids])
+            db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    events: list[tuple[str, str, dict, int, int]] = []
+
+    def capture(distinct_id: str, name: str, properties: dict) -> None:
+        # The connections out, and the latest request session's closes so far (for the request alone, its own).
+        closes = len(request_sessions[-1].open_at_close)
+        events.append((distinct_id, name, properties, engine.pool.checkedout(), closes))
+
+    def aware_expiry(target: Any, *_args: Any) -> None:
+        value = target.__dict__.get("email_verification_expires")
+        if value is not None and value.tzinfo is None:
+            set_committed_value(target, "email_verification_expires", value.replace(tzinfo=timezone.utc))
+
+    def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+        db.query(User.id).first()
+        raise RuntimeError("the unit failed after its first query")
+
+    if case == "verify_fails":
+        monkeypatch.setattr(auth_account_service, "verify_email_token", fails_after_its_first_query)
+    if case == "verify_trial_fails":
+        monkeypatch.setattr(subscription_sync, "start_reverse_trial", fails_after_its_first_query)
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", case.startswith("verify_trial"))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "capture_event", capture)
+    event.listen(User, "load", aware_expiry)
+    event.listen(User, "refresh", aware_expiry)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = "never-issued" if case == "verify_unknown" else f"verify-link-{i}"
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post("/api/auth/verify-email", json={"token": token})
+
+    try:
+        # One request alone first: its trial-started event, if any, is sent after its unit's release (its session's
+        # one close so far), with no connection out.
+        responses = [await send(0)]
+        assert [(out, closes) for *_, out, closes in events] == ([(0, 1)] if case == "verify_trial" else [])
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        # Every checkout waited in the thread pool, and every statement and release ran there: none on the loop
+        # (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once; the dependency's finalizer found nothing open.
+        assert [request.open_at_close for request in request_sessions] == [_VERIFY_CLOSES[case]] * 9
+        status, payload = _VERIFY_ANSWERS.get(case, (500, None))
+        assert [response.status_code for response in responses] == [status] * 9
+        if payload is not None:
+            assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            stored = [(user.email_verified, user.email_verification_token is None, bool(user.is_pro))
+                      for user in db.query(User).order_by(User.id)]
+            trials = sorted((sub.user_id, sub.plan, sub.status) for sub in db.query(Subscription))
+        verified = case in ("verify", "verify_trial", "verify_trial_pro", "verify_trial_fails")
+        granted = case == "verify_trial"
+        assert stored == [(verified, verified, granted)] * 9
+        status_seeded = {"verify_trial": "trialing", "verify_trial_pro": "active"}.get(case)
+        assert trials == ([(user_id, "pro", status_seeded) for user_id in account_ids] if status_seeded else [])
+        # Each granted trial's event names its own account, once.
+        assert sorted(event[:3] for event in events) == ([
+            (str(user_id), auth.EVENT_TRIAL_STARTED, {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS})
+            for user_id in sorted(account_ids, key=str)
+        ] if granted else [])
+    finally:
+        event.remove(User, "load", aware_expiry)
+        event.remove(User, "refresh", aware_expiry)
+        engine.dispose()
+
+
+# The connections routes' closes, as above. The auth lookup's read runs on into the route's one unit, whose release
+# ends it; a provider the route does not know is refused before any unit, and the finalizer ends the read, in the
+# thread pool, with nothing awaited in between. An unlink's last statement is its audit row's refresh.
+_CONNECTION_CLOSES = {
+    "list": [True, False],
+    "list_no_password": [True, False],
+    "unlink": [True, False],
+    "unlink_not_linked": [True, False],
+    "unlink_last_method": [True, False],
+    "unlink_unknown": [True],
+    "unlink_fails": [True, False],
+}
+_CONNECTION_ANSWERS = {
+    "unlink": (200, {"status": "success", "unlinked": "google"}),
+    "unlink_not_linked": (404, {"detail": "That provider is not linked to your account."}),
+    "unlink_last_method": (
+        400, {"detail": "You can't remove your only sign-in method. Set a password first, then unlink."},
+    ),
+    "unlink_unknown": (400, {"detail": "Unknown provider."}),
+    "unlink_fails": (500, None),
+}
+_CONNECTION_PROVIDERS = {"unlink_not_linked": "apple", "unlink_unknown": "myspace"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_CONNECTION_CLOSES))
+async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(monkeypatch, tmp_path, case):
+    """The connections list reads the account's links in one thread-pool unit, and an unlink deletes its link and
+    writes its oauth_unlinked audit row in one, each released before the route returns. Nine requests on four slots
+    make no checkout, statement or release on the loop and leave nothing for the finalizer, their refusals and a
+    failing unlink included, but for an unknown provider's 400: it runs no unit, so the finalizer ends its auth
+    lookup's read, in the thread pool. On the loop the list read there, and the unlink deleted, committed and
+    audited there, then read the user its commit had expired, to name it in the audit row (E121). An unlink removes
+    each account's link, then writes its row; a refusal or a failed unlink leaves every link as it was and writes
+    none. The unlink's users row lock is SQLite's no-op here; the PostgreSQL races in
+    tests/integration/test_refresh_rotation_transactions.py pin it."""
+    from app.models import OAuthAccount, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'connections.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, OAuthAccount, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"connections-{i}@example.com" for i in range(9)]
+    password = None if case in ("unlink_last_method", "list_no_password") else "the stored hash"
+    with sessions() as db:
+        accounts = [User(email=email, is_active=True, hashed_password=password) for email in emails]
+        db.add_all(accounts)
+        db.flush()
+        db.add_all([
+            OAuthAccount(user_id=account.id, provider="google", provider_account_id=f"google-sub-{i}",
+                         provider_email=f"google-{i}@example.com")
+            for i, account in enumerate(accounts)
+        ])
+        db.commit()
+        account_ids = [account.id for account in accounts]
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    # Each thread's link deletes and audit inserts, in order: a unit runs on one thread, so an unlink's delete
+    # comes just before its audit row there.
+    writes: dict[int, list[str]] = {}
+
+    def record_write(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        for prefix, kind in (("DELETE FROM oauth_accounts", "delete"), ("INSERT INTO audit_logs", "audit")):
+            if statement.startswith(prefix):
+                writes.setdefault(threading.get_ident(), []).append(kind)
+
+    event.listen(engine, "before_cursor_execute", record_write)
+
+    if case == "unlink_fails":
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unlink failed after its first query")
+
+        monkeypatch.setattr(oauth_account_service, "unlink_oauth_provider", fails_after_its_first_query)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
+            if case.startswith("list"):
+                return await client.get("/api/auth/connections")
+            return await client.delete(f"/api/auth/connections/{_CONNECTION_PROVIDERS.get(case, 'google')}")
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(9)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once, and the dependency's finalizer found nothing open; an unknown
+        # provider's 400 ran no unit, so the finalizer ended its read.
+        assert [request.open_at_close for request in request_sessions] == [_CONNECTION_CLOSES[case]] * 9
+        if case.startswith("list"):
+            assert [response.status_code for response in responses] == [200] * 9
+            assert [
+                (body["has_password"], [(p["provider"], p["provider_email"], type(p["linked_at"])) for p in body["providers"]])
+                for body in (response.json() for response in responses)
+            ] == [(case == "list", [("google", f"google-{i}@example.com", str)]) for i in range(9)]
+        else:
+            status, payload = _CONNECTION_ANSWERS[case]
+            assert [response.status_code for response in responses] == [status] * 9
+            if payload is not None:
+                assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            links = [(link.user_id, link.provider) for link in db.query(OAuthAccount).order_by(OAuthAccount.user_id)]
+            audits = [(row.action, row.user_id, row.user_email, row.details)
+                      for row in db.query(AuditLog).order_by(AuditLog.id)]
+        if case == "unlink":
+            assert links == []
+            assert sum(kinds.count("delete") for kinds in writes.values()) == 9
+            assert all(kinds == ["delete", "audit"] * (len(kinds) // 2) for kinds in writes.values()), writes
+            assert sorted(audits, key=lambda row: row[2]) == [
+                ("oauth_unlinked", str(account_id), email, {"provider": "google"})
+                for account_id, email in zip(account_ids, emails)
+            ]
+        else:
+            assert links == [(account_id, "google") for account_id in account_ids]
+            assert audits == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_an_unlink_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
+    """The unlink's unit releases its session after the link's delete and its audit row have committed. A close
+    that fails there must be logged, not raised: a 500 would report a done unlink as failed, and the retry it
+    invites would answer 404. The first close, the unit's release, raises once it has closed; the route answers
+    200, and the finalizer's close finds nothing open."""
+    from app.models import OAuthAccount, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'unlink-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, OAuthAccount, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="failed-unlink-close@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        db.add(OAuthAccount(user_id=user.id, provider="google", provider_account_id="google-sub"))
+        db.commit()
+        user_id = user.id
+
+    at_close: list[bool] = []
+
+    class FailingFirstClose(Session):
+        """Records, at each close, whether the session held a transaction; the first close, the unlink unit's
+        release after its commits, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append(self.in_transaction())
+            super().close()
+            if len(at_close) == 1:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingFirstClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    token = auth.create_access_token({"sub": "failed-unlink-close@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.delete("/api/auth/connections/google")
+        assert response.status_code == 200 and response.json() == {"status": "success", "unlinked": "google"}
+        # The unit's failed close, after the audit row's refresh, and the finalizer's.
+        assert at_close == [True, False]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            assert db.query(OAuthAccount).count() == 0
+            assert [(row.action, row.user_id) for row in db.query(AuditLog)] == [("oauth_unlinked", str(user_id))]
+    finally:
+        engine.dispose()
+
+
+# Each OAuth start: its method and path, its answer's status, and where its consent URL and state cookie are.
+_OAUTH_STARTS = {
+    "google_login": ("GET", "/api/auth/google", 302, "https://accounts.google.com/", "oauth_state"),
+    "google_start": ("POST", "/api/auth/google/start", 200, "https://accounts.google.com/", "oauth_state"),
+    "apple_login": ("GET", "/api/auth/apple", 302, "https://appleid.apple.com/", "apple_oauth_state"),
+    "apple_start": ("POST", "/api/auth/apple/start", 200, "https://appleid.apple.com/", "apple_oauth_state"),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", list(_OAUTH_STARTS))
+async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp_path, route):
+    """Each OAuth start saves its single-use state row in the thread pool, the route handing its session to
+    ``run_in_threadpool`` itself (E121); the helper that rate limits and builds the consent URL takes no session.
+    Nine starts on four slots make no checkout, statement or release on the loop, and the finalizer finds each
+    session's one commit done. Each answers with a consent URL for its own state and the cookie that binds it,
+    and leaves that state's row."""
+    from urllib.parse import parse_qs, urlparse
+
+    from app.config import settings
+    from app.models import OAuthState
+    from app.routers import auth
+
+    method, path, status, consent, cookie = _OAUTH_STARTS[route]
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'oauth-starts.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    OAuthState.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "google-client")
+    monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "apple-client")
+    monkeypatch.setattr(auth, "OAUTH_START_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            if method == "GET":
+                return await client.get(path, follow_redirects=False)
+            return await client.post(path, json={})
+
+    try:
+        responses = await asyncio.gather(*[send() for _ in range(9)])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # One close per request, the finalizer's, with the save's commit already done.
+        assert [request.open_at_close for request in request_sessions] == [[False]] * 9
+        assert [response.status_code for response in responses] == [status] * 9
+        urls = [response.headers["location"] if method == "GET" else response.json()["url"] for response in responses]
+        assert all(url.startswith(consent) for url in urls)
+        states = [parse_qs(urlparse(url).query)["state"][0] for url in urls]
+        # Each answer's cookie binds its own state: Google's carries it, Apple's its HMAC.
+        bind = auth._apple_state_cookie_value if cookie == "apple_oauth_state" else str
+        assert [response.cookies.get(cookie) for response in responses] == [bind(state) for state in states]
+        with sessions() as db:
+            assert sorted(row.state for row in db.query(OAuthState)) == sorted(states)
+        assert len(set(states)) == 9
+    finally:
+        engine.dispose()
+
+
+# The OAuth callbacks' cases: what the nine accounts are before their callbacks, and what each sign-in writes. A
+# sign-in finds its provider link; a sign-up creates its account (public mode, signup assent on its state); a link
+# attaches the provider to the verified account with that email, and sends the linked-account notice; a refusal is a
+# new account with an unverified email (its state carries signup assent, so the email decides); a lost race is a
+# sign-up whose mint meets another sign-in's committed row, and rolls its own account back.
+_CALLBACK_AUDITS = {
+    "signin": ["oauth_login"],
+    "signup": ["register", "oauth_login"],
+    "link": ["oauth_login", "oauth_linked"],
+    "refused": [],
+    "lost_race": [],
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_CALLBACK_AUDITS))
+@pytest.mark.parametrize("provider", ["google", "apple"])
+async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_path, collection_ready, provider, case):
+    """Each OAuth callback consumes its state in one thread-pool unit, waits for the provider with no connection
+    out, then resolves the account, mints and commits the sign-in, sets the session cookies and writes its audit
+    rows in a second, released before it sends the linked-account notice with no connection out (E121). On the
+    loop the base resolved, committed and audited there, and the session cookies refreshed the user the mint's
+    commit had expired. One callback alone first: no connection is out while it waits; then eight more on four
+    slots make no checkout, statement or release on the loop and leave nothing for the finalizer. Each answer
+    carries the session of its own account; a refusal or a lost race carries none and writes no account, link or
+    row, the lost race's rollback leaving nothing for the release."""
+    from types import SimpleNamespace
+
+    import jwt
+    from sqlalchemy.exc import IntegrityError
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service, refresh_token_service
+    from app.services.account_agreement_service import accept_current_agreement
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'oauth-callbacks.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"callback-{i}@example.com" for i in range(9)]
+    subjects = [f"{provider}-subject-{i}" for i in range(9)]
+    with sessions() as db:
+        if case in ("signin", "link"):
+            accounts = [User(email=email, is_active=True, email_verified=True, full_name=f"Reader {i}")
+                        for i, email in enumerate(emails)]
+            db.add_all(accounts)
+            db.flush()
+            if case == "signin":
+                db.add_all([OAuthAccount(user_id=account.id, provider=provider, provider_account_id=subject)
+                            for account, subject in zip(accounts, subjects)])
+        agreement = accept_current_agreement() if case in ("signup", "refused", "lost_race") else None
+        for i in range(9):
+            oauth_account_service.store_oauth_state(db, f"state-{i}", f"nonce-{i}", None, agreement)
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    # The provider's claims for each request's code or token, and the waits each request makes, with the
+    # connections out during each.
+    claims = {
+        f"token-{i}": {
+            "sub": subjects[i], "email": emails[i], "name": f"Reader {i}",
+            "email_verified": (case != "refused") if provider == "google" else str(case != "refused").lower(),
+        }
+        for i in range(9)
+    }
+    waits: list[tuple[str, int]] = []
+    sent: list[tuple[str, str | None, str]] = []
+
+    class TokenResponse:
+        def __init__(self, token: str) -> None:
+            self.token = token
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"id_token": self.token}
+
+    class GoogleClient:
+        """Google's code exchange, one round trip."""
+
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "GoogleClient":
+            return self
+
+        async def __aexit__(self, *_exc: Any) -> bool:
+            return False
+
+        async def post(self, _url: str, data: dict) -> TokenResponse:
+            waits.append(("provider", engine.pool.checkedout()))
+            await asyncio.sleep(0.02)
+            return TokenResponse(data["code"].replace("code-", "token-"))
+
+    async def verify_google(token: str) -> dict:
+        return claims[token]
+
+    async def verify_apple(token: str, raw_nonce: str) -> dict:
+        waits.append(("provider", engine.pool.checkedout()))
+        await asyncio.sleep(0.02)  # Apple's key fetch
+        assert raw_nonce == token.replace("token-", "nonce-")
+        return claims[token]
+
+    async def send_linked(*, to_email: str, name: str | None, provider: str) -> None:
+        waits.append(("mail", engine.pool.checkedout()))
+        sent.append((to_email, name, provider))
+        await asyncio.sleep(0.02)  # Resend's round trip
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
+    monkeypatch.setattr(auth, "httpx", SimpleNamespace(AsyncClient=GoogleClient))
+    monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
+    monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
+    monkeypatch.setattr("app.services.email_service.send_oauth_linked_email", send_linked)
+    if case == "lost_race":
+        def lose_at_the_mint(db: Session, *_args: Any, **_kwargs: Any) -> str:
+            db.flush()  # the staged link and assent rows, as the token's flush would send them
+            raise IntegrityError("INSERT INTO refresh_tokens", {}, Exception("another sign-in committed first"))
+
+        monkeypatch.setattr(refresh_token_service, "mint_refresh_token", lose_at_the_mint)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        state = f"state-{i}"
+        if provider == "google":
+            cookies = {auth._OAUTH_STATE_COOKIE: state}
+        else:
+            cookies = {auth._APPLE_STATE_COOKIE: auth._apple_state_cookie_value(state)}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", cookies=cookies) as client:
+            if provider == "google":
+                return await client.get("/api/auth/google/callback", params={"code": f"code-{i}", "state": state},
+                                        follow_redirects=False)
+            return await client.post("/api/auth/apple/callback", data={"state": state, "id_token": f"token-{i}"},
+                                     follow_redirects=False)
+
+    try:
+        # One callback alone first: no connection is out while it waits for the provider or sends the notice.
+        responses = [await send(0)]
+        assert waits == [("provider", 0)] + ([("mail", 0)] if case == "link" else [])
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # The state's unit commits and leaves nothing open; the sign-in unit's release ends its transaction, or finds
+        # none after the lost race's rollback; the finalizer finds nothing.
+        closes = [False, False] if case == "lost_race" else [True, False]
+        assert [request.open_at_close for request in request_sessions] == [closes] * 9
+        assert [response.status_code for response in responses] == [302] * 9
+        refused = case in ("refused", "lost_race")
+        error = "email_unverified" if case == "refused" else f"{provider}_account_conflict"
+        landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else settings.FRONTEND_URL
+        assert [response.headers["location"] for response in responses] == [landing] * 9
+        assert sorted(sent) == ([] if case != "link" else sorted(
+            (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
+        with sessions() as db:
+            account_ids = {user.email: user.id for user in db.query(User)}
+            links = sorted((link.user_id, link.provider, link.provider_account_id) for link in db.query(OAuthAccount))
+            live = {token.token_hash: token.user_id for token in db.query(RefreshToken)}
+            audits = sorted((row.user_email, row.action) for row in db.query(AuditLog))
+            assert db.query(OAuthState).count() == 0
+        if refused:
+            assert (account_ids, links, live, audits) == ({}, [], {}, [])
+            assert [settings.REFRESH_COOKIE_NAME in response.cookies for response in responses] == [False] * 9
+        else:
+            assert sorted(account_ids) == sorted(emails)
+            assert links == sorted((account_ids[email], provider, subject) for email, subject in zip(emails, subjects))
+            # Each answer's refresh cookie is its own account's only session.
+            assert [
+                live.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
+                for response in responses
+            ] == [account_ids[email] for email in emails]
+            # And its access cookie names its own account.
+            assert [
+                jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})["sub"]
+                for response in responses
+            ] == emails
+            assert audits == sorted((email, action) for email in emails for action in _CALLBACK_AUDITS[case])
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["google", "apple"])
+async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_commit_fails(
+    monkeypatch, tmp_path, collection_ready, provider,
+):
+    """A sign-up whose every statement after the mint's commit fails: the dropped connection, the pool
+    timeout, the database gone. The account, its link and its session have committed, so the callback must still
+    answer with that session; only its best-effort audit rows are missing. The session cookies take the address
+    the unit read before the commit: reading it from the user that commit expired was a statement after it, and
+    its failure answered 500 for a committed sign-in, the refresh token minted and never delivered (E121)."""
+    from types import SimpleNamespace
+
+    import jwt
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service, refresh_token_service
+    from app.services.account_agreement_service import accept_current_agreement
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'callback-after-commit.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        oauth_account_service.store_oauth_state(db, "state-0", "nonce-0", None, accept_current_agreement())
+        db.commit()
+
+    # Once a commit follows the refresh token's insert, every statement fails.
+    minted, failing = threading.Event(), threading.Event()
+
+    def watch(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        if failing.is_set():
+            raise OperationalError(statement, {}, Exception("the server went away"))
+        if statement.startswith("INSERT INTO refresh_tokens"):
+            minted.set()
+
+    def committed(_conn: Any) -> None:
+        if minted.is_set():
+            failing.set()
+
+    event.listen(engine, "before_cursor_execute", watch)
+    event.listen(engine, "commit", committed)
+
+    class TokenResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"id_token": "token-0"}
+
+    class GoogleClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "GoogleClient":
+            return self
+
+        async def __aexit__(self, *_exc: Any) -> bool:
+            return False
+
+        async def post(self, *_args: Any, **_kwargs: Any) -> TokenResponse:
+            return TokenResponse()
+
+    claims = {"sub": f"{provider}-subject-0", "email": "after-commit@example.com", "name": None,
+              "email_verified": True if provider == "google" else "true"}
+
+    async def verify_google(_token: str) -> dict:
+        return claims
+
+    async def verify_apple(_token: str, raw_nonce: str) -> dict:
+        assert raw_nonce == "nonce-0"
+        return claims
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
+    monkeypatch.setattr(auth, "httpx", SimpleNamespace(AsyncClient=GoogleClient))
+    monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
+    monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
+    if provider == "google":
+        cookies = {auth._OAUTH_STATE_COOKIE: "state-0"}
+    else:
+        cookies = {auth._APPLE_STATE_COOKIE: auth._apple_state_cookie_value("state-0")}
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            cookies=cookies,
+        ) as client:
+            if provider == "google":
+                response = await client.get("/api/auth/google/callback",
+                                            params={"code": "code-0", "state": "state-0"}, follow_redirects=False)
+            else:
+                response = await client.post("/api/auth/apple/callback",
+                                             data={"state": "state-0", "id_token": "token-0"}, follow_redirects=False)
+        assert failing.is_set()
+        assert response.status_code == 302 and response.headers["location"] == settings.FRONTEND_URL
+        access = jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
+        assert access["sub"] == "after-commit@example.com"
+        assert engine.pool.checkedout() == 0
+        event.remove(engine, "before_cursor_execute", watch)
+        with sessions() as db:
+            [user] = db.query(User).all()
+            assert user.email == "after-commit@example.com"
+            assert [(link.provider, link.provider_account_id) for link in db.query(OAuthAccount)] == [
+                (provider, f"{provider}-subject-0")]
+            [token] = db.query(RefreshToken).all()
+            assert refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
+            # The audit writes failed and were swallowed; the sign-in stands without them.
+            assert db.query(AuditLog).count() == 0
+            assert db.query(OAuthState).count() == 0
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["login", "refresh"])
+async def test_a_login_or_refresh_keeps_its_session_when_a_statement_after_its_commit_fails(
+    monkeypatch, tmp_path, route,
+):
+    """A password login, or a refresh, whose every statement after its commit fails: the dropped connection, the
+    pool timeout. The new refresh token has committed, so the answer must carry it and an access token for the
+    account; only the login's best-effort audit row is missing. The access token takes the stored address the
+    service read before its commit. Read from the user that commit expired, it was a statement after the commit,
+    and its failure answered 500: a login that had committed, or a rotation whose new token the client never got,
+    so its next refresh replayed the one rotated away and met the replay sweep (E121)."""
+    import jwt
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'session-after-commit.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="after-commit@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        _, raw_token = refresh_token_service.create_refresh_token(db, user)
+        db.commit()
+
+    # Once a commit follows a new refresh token's insert, every statement fails.
+    minted, failing = threading.Event(), threading.Event()
+
+    def watch(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        if failing.is_set():
+            raise OperationalError(statement, {}, Exception("the server went away"))
+        if statement.startswith("INSERT INTO refresh_tokens"):
+            minted.set()
+
+    def committed(_conn: Any) -> None:
+        if minted.is_set():
+            failing.set()
+
+    event.listen(engine, "before_cursor_execute", watch)
+    event.listen(engine, "commit", committed)
+    password = "Sup3rSecretPassw0rd!"  # gitleaks:allow - test fixture, not a credential
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "verify_password", lambda plain, hashed: (plain, hashed) == (password, "the stored hash"))
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+        ) as client:
+            if route == "login":
+                response = await client.post(
+                    "/api/auth/login", json={"email": "after-commit@example.com", "password": password},
+                )
+            else:
+                client.cookies.set(settings.REFRESH_COOKIE_NAME, raw_token)
+                response = await client.post("/api/auth/refresh")
+        assert failing.is_set()
+        assert response.status_code == 200, response.text
+        access = jwt.decode(response.json()["access_token"], options={"verify_signature": False})
+        assert access["sub"] == "after-commit@example.com"
+        assert response.cookies[settings.COOKIE_NAME] == response.json()["access_token"]
+        assert engine.pool.checkedout() == 0
+        event.remove(engine, "before_cursor_execute", watch)
+        with sessions() as db:
+            live = {token.token_hash for token in db.query(RefreshToken).filter(RefreshToken.revoked_at.is_(None))}
+            # The answer carries the new token, live; a login leaves the earlier session too, a refresh rotated it.
+            carried = refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME])
+            earlier = refresh_token_service._hash_token(raw_token)
+            assert live == ({carried, earlier} if route == "login" else {carried}) and carried != earlier
+            assert db.query(AuditLog).count() == 0
+    finally:
+        engine.dispose()
+
+
+def test_issue_session_refuses_a_minted_refresh_token_without_its_address():
+    """The rule the post-commit cases above hold each caller to, for every future one: a caller that minted its
+    own refresh token has committed, so it passes the address it read before that commit (E121). Without one,
+    ``issue_session`` would read the user that commit expired, a statement after it, and raises instead."""
+    from types import SimpleNamespace
+
+    from fastapi import Response
+
+    from app.routers import auth
+
+    with pytest.raises(TypeError, match="needs email="):
+        auth.issue_session(None, SimpleNamespace(email="unread@example.com"), Response(), None, refresh_token="minted")
+
+
 @pytest.mark.asyncio
 async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypatch, tmp_path, caplog):
     """The refresh releases its session inside its unit, after the rotation has committed. A close
-    whose rollback fails there (a connection that dropped after the unit's last statement) must not
-    turn the response into a 500: the old token is already rotated away, so a reader who never
-    receives the new cookie refreshes with the old one next, and the replay sweep signs them out
-    everywhere. The first close drops the real DBAPI connection before it runs, so its rollback
-    fails as a dropped connection's does. SQLAlchemy reads that as a disconnect: it invalidates the
-    connection and returns its slot, the session lets go of its transaction, the release logs the
-    failure, and the route answers with the rotated cookie."""
+    that fails there must not turn the response into a 500: the old token is already rotated away, so
+    a reader who never receives the new cookie refreshes with the old one next and meets the replay
+    sweep, which ends that token's chain, signing that browser out. Since E121 the unit reads nothing
+    after the rotation's commit (the access token takes the address read before it), so no transaction
+    or slot is open at the release, and no dropped connection can fail its rollback. The first close,
+    the unit's release, raises once it has run, as the password change's case below does; the release
+    logs the failure, and the route answers with the rotated cookie."""
     from app.config import settings
     from app.models import AuditLog, RefreshToken, User
     from app.services import refresh_token_service
@@ -1017,6 +2206,68 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
 
     at_close: list[tuple[bool, int]] = []
 
+    class FailingFirstClose(Session):
+        """Records, at each close, whether the session held a transaction and how many slots were out.
+        The first close, the unit's release, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append((self.in_transaction(), engine.pool.checkedout()))
+            super().close()
+            if len(at_close) == 1:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingFirstClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/auth/refresh", headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}={raw_token}"},
+            )
+        assert response.status_code == 200 and response.json()["token_type"] == "bearer"
+        # The rotation's commit was the unit's last statement: nothing open at either close.
+        assert at_close == [(False, 0), (False, 0)]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
+        # The reader holds the rotated token, so the next refresh is no replay.
+        assert original.revoked_at is not None and original.replaced_by_id == replacement.id
+        assert refresh_token_service._hash_token(
+            response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_a_refused_refresh_keeps_its_401_when_its_release_finds_the_connection_dropped(
+    monkeypatch, tmp_path, caplog,
+):
+    """A refresh with a token the store does not hold: the rotation's lookup reads, finds none and raises,
+    committing nothing, so its transaction and one slot are still open when the unit releases. The release's
+    close drops the real DBAPI connection first, so its rollback fails as a connection that dropped after the
+    unit's last statement does. SQLAlchemy reads that as a disconnect: it invalidates the connection and returns
+    its slot, the session lets go of its transaction, ``release_request_session`` logs the failure instead of
+    raising it, and the route answers its 401, not a 500, with nothing left for the finalizer."""
+    from app.config import settings
+    from app.models import AuditLog, RefreshToken, User
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'refused-refresh-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken, AuditLog):
+        model.__table__.create(engine)
+
+    at_close: list[tuple[bool, int]] = []
+
     class DroppedCloseSession(Session):
         """Records, at each close, whether the session held a transaction and how many slots were out.
         The first close drops its DBAPI connection first, as a server that went away would."""
@@ -1034,20 +2285,91 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/api/auth/refresh", headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}={raw_token}"},
+                "/api/auth/refresh", headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}=a-token-never-issued"},
             )
-        assert response.status_code == 200 and response.json()["token_type"] == "bearer"
-        # The unit's close held the user read's transaction and one slot; by the finalizer's close
-        # the dropped connection had been invalidated and its slot returned.
+        assert response.status_code == 401 and response.json() == {"detail": "Your session has ended. Log in again."}
+        # The unit's close held the lookup's transaction and one slot; by the finalizer's close the dropped
+        # connection had been invalidated and its slot returned.
         assert at_close == [(True, 1), (False, 0)]
         [logged] = [record for record in caplog.records
                     if "Releasing the request session failed" in record.getMessage()]
         assert logged.exc_info[1].connection_invalidated
         assert engine.pool.checkedout() == 0
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
+    """The change's second unit releases its session after the mint's commit. A close that fails there must be
+    logged, not raised: the new password, the revocation of every other session and this device's new token
+    have committed, so a 500 would sign the reader out everywhere, this device included, and a retry with the
+    password they had would be refused as wrong. No transaction is open after that commit, so no dropped
+    connection can fail this close as one fails a refused refresh's release above; the second close raises
+    instead, once its own close has run, and the route answers with the new session's cookie."""
+    from app.config import settings
+    from app.models import RefreshToken, User
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'change-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="failed-close@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        refresh_token_service.create_refresh_token(db, user)
+        db.commit()
+
+    at_close: list[bool] = []
+
+    class FailingSecondClose(Session):
+        """Records, at each close, whether the session held a transaction; the second close, the change
+        unit's release after the mint's commit, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append(self.in_transaction())
+            super().close()
+            if len(at_close) == 2:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingSecondClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "verify_password", lambda plain, hashed: (plain, hashed) == (current, "the stored hash"))
+    monkeypatch.setattr(auth, "get_password_hash", lambda plain: f"the hash of {plain}")
+    token = auth.create_access_token({"sub": "failed-close@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.post(
+                "/api/auth/change-password", json={"current_password": current, "new_password": new},
+            )
+        assert response.status_code == 200 and response.json() == {"message": "Password updated."}
+        # The lookup's read released before the waits, the failed close after the commit, and the finalizer's.
+        assert at_close == [True, False, False]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
         with sessions() as db:
+            stored = db.query(User.hashed_password).scalar()
             original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
-        # The reader holds the rotated token, so the next refresh is no replay.
-        assert original.revoked_at is not None and original.replaced_by_id == replacement.id
+        assert stored == f"the hash of {new}"
+        assert original.revoked_at is not None and replacement.revoked_at is None
         assert refresh_token_service._hash_token(
             response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
     finally:
@@ -1212,18 +2534,18 @@ async def test_watchlist_routes_release_their_connection_off_the_loop(monkeypatc
         engine.dispose()
 
 
-_WAITLIST_STATUS = {"join_bad_referral": 400, "verify_missing": 404}
+_WAITLIST_STATUS = {"join_bad_referral": 400}
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
-    "join", "join_referred", "join_existing", "join_bad_referral", "verify", "verify_missing",
+    "join", "join_referred", "join_existing", "join_bad_referral",
 ])
 async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch, tmp_path, case):
-    """The waitlist join and the email verification run their session work in thread-pool units, the
-    join's refusals included, so eight joiners on four slots leave nothing for the finalizer and
-    make no checkout on the loop. The join releases before its mails go out (its own case below)."""
-    from app.services import turnstile, waitlist_service
+    """The waitlist join runs its session work in thread-pool units, its refusals included, so eight
+    joiners on four slots leave nothing for the finalizer and make no checkout on the loop. The join
+    releases before its mails go out (its own case below)."""
+    from app.services import turnstile
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'waitlist-writes.db'}",
@@ -1240,7 +2562,7 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
             # A referrer per joiner, so no two joins credit one row.
             db.add(WaitlistSignup(email=f"referrer-{i}@example.com", referral_code=f"refcode{i}",
                                   position=i + 1, priority_score=0))
-            if case in ("join_existing", "verify"):
+            if case == "join_existing":
                 db.add(WaitlistSignup(email=f"joiner-{i}@example.com", referral_code=f"joincod{i}",
                                       position=i + 9, priority_score=0))
         db.commit()
@@ -1288,9 +2610,6 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
     async def send(i: int) -> httpx.Response:
         email = f"joiner-{i}@example.com"
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            if case.startswith("verify"):
-                token = waitlist_service.create_verification_token(email, f"joincod{i}")
-                return await client.post(f"/api/waitlist/verify/{token}")
             body = {"email": email}
             if case == "join_referred":
                 body["referral_code"] = f"refcode{i}"
@@ -1308,14 +2627,10 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
         elif case == "join_existing":
             assert [(payload["error"], payload["referral_code"]) for payload in payloads] == [
                 ("already_registered", f"joincod{i}") for i in range(8)]
-        elif case == "join_bad_referral":
+        else:
             assert payloads == [{
                 "success": False, "error": "invalid_referral", "message": "Referral code not recognized.",
             }] * 8
-        elif case == "verify":
-            assert payloads == [{"success": True, "message": "Email verified."}] * 8
-        else:
-            assert payloads == [{"detail": "Waitlist entry not found."}] * 8
         assert engine.pool.checkedout() == 0
         # Each unit released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
@@ -1333,8 +2648,6 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
                 assert [rows[f"referrer-{i}@example.com"].priority_score for i in range(8)] == [1] * 8
             if case == "join_bad_referral":
                 assert sorted(rows) == [f"referrer-{i}@example.com" for i in range(8)]
-            if case == "verify":
-                assert [rows[email].email_verified for email in joiners] == [True] * 8
     finally:
         engine.dispose()
 
@@ -1550,7 +2863,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
     from app.config import settings
     from app.models import Subscription, User, UserUsage
     from app.routers import auth
-    from app.services.entitlements import get_entitlements
+    from app.services.entitlements import ANALYSIS_MONTHLY_CAP, get_entitlements
     from app.services.subscription_service import get_current_month
 
     engine = create_engine(
@@ -1630,7 +2943,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
                 "summaries_used": i, "summaries_limit": plan.monthly_summary_limit, "is_pro": with_row,
                 "month": month, "qa_used": 10 + i, "qa_limit": settings.COPILOT_MONTHLY_QUESTION_CAP,
                 "copilot_free_taste_used": i % 3, "copilot_free_taste_total": plan.copilot_free_taste,
-                "analysis_used": 20 + i, "analysis_limit": settings.ANALYSIS_MONTHLY_CAP,
+                "analysis_used": 20 + i, "analysis_limit": ANALYSIS_MONTHLY_CAP,
             } for i in range(8)]
         else:
             assert [(payload["plan"], payload["stripe_customer_id"], payload["status"]) for payload in payloads] == [
@@ -2724,7 +4037,7 @@ async def _account_record_request(transport: httpx.ASGITransport, method: str, i
 # with nothing left for the finalizer.
 _ACCOUNT_RECORD_FAILS = {
     "export_fails": ("app.services.user_data_export_service", "build_user_data_export"),
-    "delete_fails": ("app.services.user_account_service", "delete_user"),
+    "delete_fails": ("app.services.user_account_service", "delete_account"),
 }
 
 
@@ -2781,11 +4094,12 @@ async def test_account_export_and_deletion_release_their_connection_off_the_loop
         with sessions() as db:
             accounts = db.query(User.id).count()
             audit = [action for (action,) in db.query(AuditLog.action)]
-        # The export's audit row follows its payload, and the deletion's precedes the account's deletion, so a
-        # failed delete keeps its row (pre-existing; test_account_deletion_api.py pins it over HTTP).
+        # The export's audit row follows its payload. The deletion's is written inside delete_account, which the
+        # failing case replaces, so none is left: the route writes none outside it (test_account_deletion_api.py
+        # pins over HTTP that the row commits with the deletion or not at all, F19).
         assert accounts == (0 if case == "delete" else 8)
         assert audit == {"export": ["data_exported"] * 8, "delete": ["user_deleted"] * 8,
-                         "export_fails": [], "delete_fails": ["user_deleted"] * 8}[case]
+                         "export_fails": [], "delete_fails": []}[case]
     finally:
         engine.dispose()
 
@@ -3853,13 +5167,15 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 # thread dispatcher is a call whose last name is in ``_THREAD_DISPATCHERS``.
 #
 # Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
-# though a callee may never use it on the loop. On main four such hand-offs never do: the four OAuth
-# starts' ``_start_google`` and ``_start_apple`` put their state write in the thread pool themselves
-# (since #1547). ``admin_account_service.create_free_account``, a refusal, took the session until E171's
-# invite slice dropped it.
-# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` is not one: it reads
-# ``user.email``, which the mint's commit expired, so it refreshes the user through the request
-# session, on the loop. A logged or type-checked session (``logger.info("%s", db)``,
+# though a callee may never use it on the loop. The four OAuth starts handed theirs to ``_start_google``
+# and ``_start_apple``, which put the state write in the thread pool themselves (since #1547), until
+# E121 had each start hand its session to ``run_in_threadpool`` itself.
+# ``admin_account_service.create_free_account``, a refusal, took the session until E171's invite slice
+# dropped it. No hand-off left on main is such a strict over-count.
+# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` was not one either: it read
+# ``user.email``, which the mint's commit expired, so it refreshed the user through the request session,
+# on the loop, until E121 put it in each callback's sign-in unit with the address read before that commit.
+# A logged or type-checked session (``logger.info("%s", db)``,
 # ``isinstance(db, Session)``) counts too, and so do a dispatcher reached through an import alias, a
 # session inside ``functools.partial`` or a generator expression handed to the thread pool, an uncalled
 # method handed to a dispatcher by keyword, a comprehension's variable named like the session
@@ -3897,8 +5213,9 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 # - a session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
 #   finalizer);
 # - an ORM instance's lazy load, or its refresh once a commit has expired it (the generate stream's
-#   force branch, E104, has its own case above, and the OAuth callbacks' ``issue_session`` counts as
-#   the hand-off it is).
+#   force branch, E104, has its own case above; the OAuth callbacks' ``issue_session`` read the user
+#   their mint's commit expired until E121 had it take the address read before that commit, in a unit
+#   their burst case holds off the loop).
 #
 # ``test_walk_sees_each_form`` scores the walk on planted forms, the gaps and strict forms among them,
 # so a regression in the walk fails there instead of passing every router vacuously.
@@ -3913,29 +5230,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # 2026-10-25. The blank line between entries keeps in-place number edits on different entries mergeable in
 # any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/auth.py", "apple_callback"): 6,
-
-    ("app/routers/auth.py", "apple_login"): 1,
-
-    ("app/routers/auth.py", "apple_start"): 1,
-
-    ("app/routers/auth.py", "change_password"): 2,
-
-    ("app/routers/auth.py", "google_callback"): 6,
-
-    ("app/routers/auth.py", "google_login"): 1,
-
-    ("app/routers/auth.py", "google_start"): 1,
-
-    ("app/routers/auth.py", "list_connections"): 1,
-
     ("app/routers/auth.py", "register"): 5,
-
-    ("app/routers/auth.py", "reset_password"): 2,
-
-    ("app/routers/auth.py", "unlink_connection"): 2,
-
-    ("app/routers/auth.py", "verify_email"): 3,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.

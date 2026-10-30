@@ -19,6 +19,8 @@
  * two matchers route on still occur in the sentences that must trigger them.
  */
 export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
+  'New summary generation is temporarily paused. Try again shortly.':
+    'New summary generation is temporarily paused. Try again shortly.',
   // fetch.py: a 6-K's exhibits could not be fetched from EDGAR.
   'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.':
     'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.',
@@ -35,7 +37,8 @@ export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
   'Filing not found': 'This filing could not be found.',
   // admission.py: Pro's fair-use ceiling. Never an upsell (a Pro user is not paywalled), and never a retry: the
   // ceiling holds until the month turns, so the stream does not retry it and its card offers no Retry. Nor a
-  // promise of more: the ceiling is one global setting, with no per-account override or reset support could use.
+  // promise of more: the ceiling is one plan constant (entitlements.py, D-050), with no per-account override or reset
+  // support could use.
   // It counts what the meter counts: every summary generation, a regeneration among them (lib/planLimits.ts).
   "We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.":
     "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",

@@ -657,13 +657,14 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
     ])
   })
 
-  it("fails on the settings page's old `if (userLoading)` gate, and passes its held one", () => {
+  // The page's gate reads isPending since E29 (2), as the dashboard's does; the loop was its old `if (userLoading)`.
+  it("fails on the settings page's gate without its hold, the old `if (userLoading)` loop, and passes its held one", () => {
     const settings = readFileSync(path.join(frontendRoot, 'app/dashboard/settings/page.tsx'), 'utf8')
-    const held = 'if (userLoading && !userFailure.failed) {'
+    const held = 'if (userPending && !userFailure.failed) {'
     expect(settings).toContain(held)
     expect(unheldGates(settings, 'app/dashboard/settings/page.tsx', shared)).toEqual([])
-    const old = unheldGates(settings.replace(held, 'if (userLoading) {'), 'app/dashboard/settings/page.tsx', shared)
-    expect(old.map(pin)).toEqual(['userLoading [queryKeys.currentUser]'])
+    const old = unheldGates(settings.replace(held, 'if (userPending) {'), 'app/dashboard/settings/page.tsx', shared)
+    expect(old.map(pin)).toEqual(['userPending [queryKeys.currentUser]'])
   })
 
   it('reads a key held in a same-file const as the family it holds, never by the const\'s name', () => {
