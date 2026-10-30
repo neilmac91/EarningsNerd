@@ -208,9 +208,11 @@ LIMIT 200;
 \echo '   listed while no other stored report row holds that figure. The scale-up exclusion also hides a proxy'
 \echo '   tagged 1,000 or 1,000,000 times a right parse (FedEx''s error mirrored), which this file cannot tell'
 \echo '   apart without the payload''s 10-K figure. The repair reads that figure: where it is off the value''s'
-\echo '   scale step, the row takes set 4''s ordinary path (restored where the original is within 1% of'
-\echo '   the 10-K''s figure, refused beyond; left and listed, or refused when current, where a report row'
-\echo '   holds its value), and this file lists nothing for it before or after.'
+\echo '   scale step, of the other sign or zero, the row takes set 4''s ordinary path (restored where the'
+\echo '   original is within 1% of the 10-K''s figure, a report row behind its value or not; beyond, refused,'
+\echo '   or left and listed where a report row holds its value and refused when current); where there is no'
+\echo '   10-K figure, or one on the value''s step more than 1% off it, the repair keeps the row and lists it'
+\echo '   in scale_up_retained. This file lists nothing for it before or after.'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
