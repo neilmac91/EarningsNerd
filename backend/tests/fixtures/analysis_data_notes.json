@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Messages are the data notes version 2 reason words (data_notes.REASONS and provenance.ts REASONS, equal), and marked notes take the first letters. record_only_reasons and summaries pin the marking rule's list and the fine print's summary words on both sides. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
+  "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Messages are the data notes version 3 reason words (data_notes.REASONS and provenance.ts REASONS, equal), and marked notes take the first letters. record_only_reasons and summaries pin the marking rule's list and the fine print's summary words on both sides. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
   "record_only_reasons": [
     "legacy_calculation"
   ],
