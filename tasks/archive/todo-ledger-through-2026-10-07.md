@@ -7079,8 +7079,7 @@ Full local and hosted verification plus independent exact-head review precede re
   balance readouts dispatched under the shared account, none by the chief. No chief defect known, the
   lapses counted from the chief's notes and its own commands; no hook refusal and no permission-classifier
   refusal of the chief's commands in the window. After the commit the fact-check's 44 findings
-  were verified, 27 taken and 17 kept, and the founder answered all fifteen founder actions.
-  Closure 219.
+  were verified, 27 taken and 17 kept, and the founder answered all fifteen founder actions. Closure 219.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
