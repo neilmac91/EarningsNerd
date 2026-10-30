@@ -94,6 +94,19 @@ def _select(primary_html: str, document_url: str, cik: str, accession_number: st
     for anchor in soup.find_all("a", href=True):
         label = anchor.get_text(" ", strip=True)
         row = anchor.find_parent("tr")
+        if row is None:
+            # Some filers render exhibit entries as sibling spans in a div (or
+            # paragraph/list item), with only the description linked. Accept a
+            # leaf entry with one exhibit identity and one link; a page wrapper
+            # must never associate a distant exhibit number with another link.
+            entry = anchor.find_parent(["div", "p", "li"])
+            if (
+                entry is not None
+                and entry.find(["div", "p", "li", "tr"]) is None
+                and len(entry.find_all("a", href=True)) == 1
+                and len(_exhibit_numbers(entry.get_text(" ", strip=True))) == 1
+            ):
+                row = entry
         row_text = row.get_text(" ", strip=True) if row is not None else label
         # An exhibit-number link or its exhibit-list row identifies membership;
         # Item 2.02 alone is not permission to follow arbitrary press-release links.

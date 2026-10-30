@@ -187,3 +187,52 @@ async def test_fragmented_exhibit_number_matches_advertised_member(monkeypatch, 
     result = await ex.get_eightk_grounding(primary, PRIMARY_URL, CIK, ACCESSION)
     assert "Revenue $5.1 billion" in result.text
     fetch.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("block", ["div", "p", "li"])
+async def test_leaf_exhibit_entry_associates_sibling_number_with_description_link(monkeypatch, block):
+    fetch = transport(monkeypatch)
+    primary = (
+        '<p>Item 2.02 Results of Operations. The earnings release is furnished as Exhibit 99.1.</p>'
+        '<p>Item 9.01 Financial Statements and Exhibits.</p>'
+        f'<{block}><span>99.1 </span><span><a href="release.htm">'
+        f'Press Release, dated October 30, 2026, Reporting Third Quarter Results.</a></span></{block}>'
+    )
+    result = await ex.get_eightk_grounding(primary, PRIMARY_URL, CIK, ACCESSION)
+    assert "Revenue $5.1 billion" in result.text
+    assert [member["filename"] for member in result.provenance["members"]] == ["release.htm"]
+    fetch.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entry", [
+    '<div><p>99.1</p><a href="unrelated.htm">Press release</a></div>',
+    '<div>99.1 <a href="first.htm">Press release</a><a href="second.htm">Other release</a></div>',
+    '<div>99.1 and 99.2 <a href="only-one.htm">Press release</a></div>',
+    '<div>99.2 <a href="ancillary.htm">Press release</a></div>',
+])
+async def test_non_table_entries_cannot_resolve_ambiguous_or_missing_advertised_member(monkeypatch, entry):
+    fetch = transport(monkeypatch)
+    primary = (
+        '<p>Item 2.02 Results of Operations. The earnings release is furnished as Exhibit 99.1.</p>'
+        '<p>Item 9.01 Exhibits.</p>' + entry
+    )
+    with pytest.raises(EdgarError) as caught:
+        await ex.get_eightk_grounding(primary, PRIMARY_URL, CIK, ACCESSION)
+    assert caught.value.context["reason"] == "advertised_exhibit_missing"
+    fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_div_release_does_not_hide_a_second_advertised_missing_exhibit(monkeypatch):
+    fetch = transport(monkeypatch)
+    primary = (
+        '<p>Item 2.02 Earnings materials are furnished as Exhibits 99.1 and 99.2.</p>'
+        '<p>Item 9.01 Exhibits.</p><div><span>99.1</span>'
+        '<span><a href="release.htm">Press release</a></span></div>'
+    )
+    with pytest.raises(EdgarError) as caught:
+        await ex.get_eightk_grounding(primary, PRIMARY_URL, CIK, ACCESSION)
+    assert caught.value.context["reason"] == "advertised_exhibit_missing"
+    fetch.assert_not_awaited()
