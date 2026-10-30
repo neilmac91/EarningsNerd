@@ -35,9 +35,9 @@ FETCHED_OK = {"type": "progress", "stage": "fetching", "message": "File validate
 SIXK_RETRIEVING = {"type": "progress", "stage": "fetching", "message": "Retrieving 6-K exhibits from EDGAR...", "percent": 10}
 SIXK_FETCHED = {"type": "progress", "stage": "fetching", "message": "6-K exhibits fetched", "percent": 15}
 SEC_FETCH_ERROR = {"type": "error", "message": "We could not generate this summary. Try again shortly.",
-                   "code": "filing_source_unavailable"}
+                   "code": "filing_source_unavailable", "retryable": False}
 SIXK_FETCH_ERROR = {"type": "error", "message": "We could not retrieve this 6-K from SEC EDGAR. Try again shortly.",
-                    "code": "filing_source_unavailable"}
+                    "code": "filing_source_unavailable", "retryable": False}
 FETCH_MESSAGES = [
     "Connecting to SEC EDGAR...",
     "Downloading filing document...",
