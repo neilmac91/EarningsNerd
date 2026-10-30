@@ -7140,6 +7140,23 @@ Full local and hosted verification plus independent exact-head review precede re
   permission-classifier refusal of the chief's commands in the window; four corrections to record 70.
   Gates (d) and (a) built and reviewed locally. The fact-check's 45 findings were verified, 28 taken
   and 17 kept.
+- 2026-10-30 (record 72, `runtime/control/DECISIONS-72.md`): PR #1814 (record 71) merged `85b6ae67` by
+  the chief's own squash, pinned to its head, on the founder's word (sixty-seventh deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step), after its corrections commit, its
+  reviewer's full pass, a delta commit, the reviewer's clean delta check and the chief's one ready mark,
+  whose own Codex review completed with no finding. Closure 223 registers record 71's survey, fact-check
+  and reviewer, gate (a)'s three reviews, gate (d)'s round-1 review and F57's implementation agent, and
+  pre-registers this record's survey and fact-check and record 73's reviewer. A read-only survey of the
+  window before the record was written. Six main merges, the chief's gate (a) (#1815) among them, one a
+  backend deploy (#1813's), healthy by its own deploy job, the other five deploy jobs skipping every
+  deploy step, and #1811's deploy job ending healthy in the window; no job cut off at its time limit;
+  the advisory audits exiting 1, as inferred, in none of the main runs. Production read live after
+  #1811's and #1813's deploys: describe-service passing and logs-probe reading logging permitted each
+  time. No CODE RED spend; no ledger event; another writer's paid steps in one CI run and one Copilot
+  run. No chief defect; the lapses counted from the chief's notes and its own commands, seven note times
+  later than their notes found by a new check that now writes the notes; no hook refusal and no
+  permission-classifier refusal of the chief's commands in the window; five corrections to record 71.
+  Gate (a) merged; gate (d) and F57 built and reviewed locally, their review findings being taken.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
