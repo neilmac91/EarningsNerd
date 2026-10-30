@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
+from sqlalchemy.exc import OperationalError, TimeoutError as PoolTimeoutError
 
 from app.services import sec_request_gate as gate
 
@@ -31,7 +32,7 @@ def test_default_off_never_opens_coordinator(monkeypatch):
 async def test_actual_httpx_redirects_and_retry_each_get_one_grant(enabled, monkeypatch):
     grants, sends = [], []
 
-    async def acquire():
+    async def acquire(**kwargs):
         grants.append(len(sends))
 
     async def send(request):
@@ -53,7 +54,7 @@ async def test_actual_httpx_redirects_and_retry_each_get_one_grant(enabled, monk
 async def test_proxy_mount_still_runs_owned_client_hook(enabled, monkeypatch):
     events = []
 
-    async def acquire():
+    async def acquire(**kwargs):
         events.append("grant")
 
     async def send(self, request):
@@ -154,7 +155,7 @@ async def test_outer_document_deadline_during_admission_does_not_trip_sec_breake
         **kwargs, transport=httpx.MockTransport(send),
     ))
 
-    async def wait_forever():
+    async def wait_forever(**kwargs):
         await asyncio.Event().wait()
 
     async def immediately(call):
@@ -227,11 +228,11 @@ async def test_feedback_coordinator_error_closes_owned_client_response(enabled, 
 
     body = Body()
 
-    async def admit():
+    async def admit(**kwargs):
         pass
 
     async def unavailable(hint):
-        raise gate.SECAdmissionUnavailable("SEC cooldown coordinator is unavailable")
+        raise gate.SECAdmissionUnavailable("SEC cooldown coordinator is unavailable", retryable=True)
 
     monkeypatch.setattr(gate, "acquire_async", admit)
     monkeypatch.setattr(gate, "_persist_cooldown", unavailable)
@@ -239,9 +240,10 @@ async def test_feedback_coordinator_error_closes_owned_client_response(enabled, 
         transport=httpx.MockTransport(lambda request: httpx.Response(429, headers={"Retry-After": "60"}, stream=body)),
         **gate.sec_request_options(),
     ) as client:
-        with pytest.raises(gate.SECAdmissionUnavailable):
+        with pytest.raises(gate.SECAdmissionUnavailable) as failure:
             await client.get("https://fixture.invalid/document")
     assert body.closed
+    assert failure.value.retryable and failure.value.retry_after_seconds == 60
 
 
 @pytest.mark.parametrize("failure,expected_attempts", [("admission", 0), ("feedback", 1)])
@@ -262,7 +264,7 @@ async def test_attachment_counts_only_admitted_transport_attempts(enabled, monke
     ))
     monkeypatch.setattr(compat, "edgar_circuit_breaker", CircuitBreaker("attachment-gate", CircuitBreakerConfig()))
 
-    async def acquire():
+    async def acquire(**kwargs):
         if failure == "admission":
             raise gate.SECAdmissionUnavailable("SEC admission coordinator is unavailable")
 
@@ -281,3 +283,55 @@ async def test_attachment_counts_only_admitted_transport_attempts(enabled, monke
         )
     assert error.value.context["physical_attempts"] == expected_attempts
     assert len(sends) == expected_attempts
+
+
+@pytest.mark.parametrize("sqlstate,expected", [
+    ("08006", True), ("40001", True), ("53300", True), ("57014", True),
+    ("42P01", False), ("42703", False), ("42501", False), ("28P01", False),
+])
+def test_coordinator_sqlstates_have_closed_retry_policy(sqlstate, expected):
+    private = SimpleNamespace(pgcode=sqlstate)
+    db_error = OperationalError("synthetic query", {}, private)
+    subject = gate.PostgresRequestGate(Mock())
+    subject._sessions.begin = Mock(side_effect=db_error)
+    with pytest.raises(gate.SECAdmissionUnavailable) as error:
+        subject.try_grant()
+    assert error.value.retryable is expected
+    assert error.value.retry_after_seconds is None
+    assert str(error.value) == "SEC admission coordinator is unavailable"
+
+
+def test_pool_wait_is_retryable_but_unknown_internal_defect_is_not():
+    assert gate._transient_database_failure(PoolTimeoutError("synthetic pool wait"))
+    assert not gate._transient_database_failure(ValueError("unknown internal defect"))
+    assert not gate.SECAdmissionUnavailable("unsupported configuration").retryable
+
+
+@pytest.mark.asyncio
+async def test_long_shared_embargo_returns_typed_retry_hint_before_outer_deadline(enabled, monkeypatch):
+    from app.services.edgar import compat
+    from app.services.edgar.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+    from app.services.summary_stages.failure import _source_failure_details, _source_retryable
+
+    real_client = httpx.AsyncClient
+    send = Mock(return_value=httpx.Response(200))
+    monkeypatch.setattr(compat.httpx, "AsyncClient", lambda **kwargs: real_client(
+        **kwargs, transport=httpx.MockTransport(send),
+    ))
+    monkeypatch.setattr(compat, "edgar_circuit_breaker", CircuitBreaker("shared-embargo", CircuitBreakerConfig()))
+
+    async def blocked():
+        return gate.AdmissionDecision(90.4)
+
+    async def execute(call):
+        return await call()
+
+    monkeypatch.setattr(gate, "_try_grant_async", blocked)
+    monkeypatch.setattr(compat.sec_rate_limiter, "execute", execute)
+    with pytest.raises(compat.EdgarError) as error:
+        await compat.sec_edgar_service.get_filing_document("https://fixture.invalid/filing", timeout=1)
+    code, status, name, delay = _source_failure_details(error.value)
+    assert (code.value, status, name, delay) == ("filing_source_unavailable", None, "SECAdmissionUnavailable", 91)
+    assert _source_retryable(error.value, status)
+    assert not compat.edgar_circuit_breaker.is_open
+    send.assert_not_called()

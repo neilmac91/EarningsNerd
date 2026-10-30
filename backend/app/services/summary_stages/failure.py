@@ -15,6 +15,7 @@ import httpx
 
 from app import database
 from app.services import summary_pipeline as pipeline
+from app.services.sec_request_gate import SECAdmissionUnavailable
 
 if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstring on import order
     from app.services.summary_stages.generation_run import GenerationRun
@@ -48,6 +49,8 @@ def _source_failure_details(error: Exception) -> tuple[pipeline.ErrorCode, int |
         if isinstance(current, pipeline.EdgarRateLimitError):
             limited = True
             delay = delay if delay is not None else current.retry_after
+        if isinstance(current, SECAdmissionUnavailable):
+            delay = current.retry_after_seconds
         if isinstance(current, pipeline.CircuitOpenError):
             # A half-open probe denial has no timestamp: use the breaker's own
             # configured recovery period rather than retrying immediately.
@@ -74,6 +77,8 @@ def _source_retryable(error: Exception, status: int | None) -> bool:
         if current is None or id(current) in seen:
             break
         seen.add(id(current))
+        if isinstance(current, SECAdmissionUnavailable):
+            return current.retryable
         if isinstance(current, (pipeline.EdgarNetworkError, pipeline.FilingNotFoundError, pipeline.CircuitOpenError,
                                 httpx.TransportError, TimeoutError)):
             return True

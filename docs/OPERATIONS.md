@@ -167,6 +167,13 @@ before sleeping or contacting SEC. A missing table/row, coordinator error or
 exhausted wait fails closed as `SECAdmissionUnavailable`, never an upstream 429.
 The primary document deadline includes admission and does not count a local
 admission timeout against SEC's circuit breaker.
+The typed local error carries retryability only for bounded admission/pool waits
+and recognized transient database failures. Unsupported setup, missing schema or
+state, permissions/authentication failures and unknown internal defects remain
+terminal. A shared embargo that cannot fit the caller's remaining wait returns
+its remaining delay immediately; durable generation schedules recovery under its
+existing attempt/age caps and does not spend retries inside that embargo. This
+stays `filing_source_unavailable` with no upstream status, not a synthetic SEC 429.
 
 The bound is on committed **request admission decisions**, not the timing of
 socket writes or when callers receive grants: a delayed commit, process pause or

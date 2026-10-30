@@ -509,6 +509,43 @@ async def test_open_breaker_is_retryable_with_typed_remaining_cooldown(user_id, 
     enqueue.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("temporary", [False, True])
+async def test_typed_sec_coordinator_failure_uses_bounded_job_recovery(user_id, monkeypatch, temporary):
+    from app.services import summary_pipeline as pipeline
+    from app.services.sec_request_gate import SECAdmissionUnavailable
+
+    view = _new(user_id)
+    error = pipeline.EdgarError("document unavailable", cause=SECAdmissionUnavailable(
+        "SEC coordinator unavailable" if temporary else "unsupported SEC coordinator setup",
+        retryable=temporary, retry_after_seconds=90.4 if temporary else None,
+    ))
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, "enqueue_task", enqueue)
+    before = utcnow()
+    with stream_boundaries() as provider, monkeypatch.context() as local_patch:
+        local_patch.setattr(pipeline.sec_edgar_service, "get_filing_document", AsyncMock(side_effect=error))
+        await jobs.run_summary_task({"job_id": view.job_id, "generation": view.generation})
+        provider.assert_not_awaited()
+    result = store.read_job(view.job_id, view.generation)
+    assert result.error_code == "filing_source_unavailable"
+    assert result.status == ("retry_wait" if temporary else "failed")
+    assert _usage(user_id) == 0
+    if temporary:
+        assert result.retry_at >= before + timedelta(seconds=91)
+        enqueue.assert_awaited_once()
+        assert store.claim_job(view.job_id, view.generation) is None
+        with SessionLocal() as db:
+            row = db.get(SummaryJob, view.job_id)
+            row.attempts = settings.SUMMARY_JOB_MAX_ATTEMPTS
+            row.next_attempt_at = utcnow() - timedelta(seconds=1)
+            db.commit()
+        assert store.claim_job(view.job_id, view.generation) is None
+        assert store.read_job(view.job_id, view.generation).status == "failed"
+    else:
+        enqueue.assert_not_awaited()
+
+
 def test_admission_pause_serves_reads_and_joins_but_blocks_every_new_job(user_id, monkeypatch):
     queued = _new(user_id)
     failed, lease = _lease(user_id)

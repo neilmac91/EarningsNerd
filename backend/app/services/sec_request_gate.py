@@ -13,19 +13,22 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 import logging
+import math
 import random
+import sys
 import threading
 import time
 from typing import Callable, TypeVar
 
 from sqlalchemy import DateTime, cast, create_engine, func, literal, select
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DBAPIError, OperationalError, TimeoutError as PoolTimeoutError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
 from app.database import SessionLocal
 from app.models.sec_request_gate import SECRequestGate
+from app.utils.datetimes import utcnow
 
 MIN_INTERVAL_SECONDS = 0.125
 _BUSY_WAIT_SECONDS = 0.025
@@ -35,6 +38,27 @@ T = TypeVar("T")
 
 class SECAdmissionUnavailable(Exception):
     """Local coordinator failure; never evidence of an upstream SEC 429."""
+
+    def __init__(self, message: str, *, retryable: bool = False, retry_after_seconds: float | None = None):
+        super().__init__(message)
+        self.retryable = retryable is True
+        self.retry_after_seconds = (
+            retry_after_seconds if isinstance(retry_after_seconds, (int, float))
+            and not isinstance(retry_after_seconds, bool) and math.isfinite(retry_after_seconds)
+            and retry_after_seconds > 0 else None
+        )
+
+
+def _transient_database_failure(error: Exception) -> bool:
+    """Recognized local availability errors only; no exception-prose parsing."""
+    if isinstance(error, PoolTimeoutError):
+        return True
+    if isinstance(error, DBAPIError):
+        code = getattr(error.orig, "pgcode", None)
+        if isinstance(code, str) and code:
+            return code[:2] in {"08", "40", "53"} or code in {"55P03", "57014", "57P01", "57P02", "57P03"}
+        return isinstance(error, OperationalError)  # A connection failure may have no server SQLSTATE.
+    return False
 
 
 @dataclass(frozen=True)
@@ -70,6 +94,20 @@ def response_cooldown(status: int, retry_after: str | None) -> Cooldown | None:
     # A refusal without a usable hint still pauses the fleet briefly. A 503
     # without a hint retains the owner's existing transient-error behavior.
     return Cooldown(seconds=1) if status == 429 else None
+
+
+def _feedback_failure(error: SECAdmissionUnavailable, hint: Cooldown) -> SECAdmissionUnavailable:
+    """A failed coordinator write cannot discard the refusal already observed."""
+    if hint.indefinite:
+        seconds = sys.float_info.max
+    elif hint.until is not None:
+        seconds = max(0, (hint.until - utcnow()).total_seconds())
+    else:
+        seconds = hint.seconds or 0
+    return SECAdmissionUnavailable(
+        "SEC cooldown publication failed", retryable=error.retryable,
+        retry_after_seconds=max(error.retry_after_seconds or 0, seconds),
+    )
 
 
 class PostgresRequestGate:
@@ -112,11 +150,15 @@ class PostgresRequestGate:
         except DBAPIError as exc:
             if getattr(exc.orig, "pgcode", None) == "55P03":
                 return AdmissionDecision(_BUSY_WAIT_SECONDS)
-            raise SECAdmissionUnavailable("SEC admission coordinator is unavailable") from None
+            raise SECAdmissionUnavailable(
+                "SEC admission coordinator is unavailable", retryable=_transient_database_failure(exc),
+            ) from None
         except SECAdmissionUnavailable:
             raise
-        except Exception:
-            raise SECAdmissionUnavailable("SEC admission coordinator is unavailable") from None
+        except Exception as exc:
+            raise SECAdmissionUnavailable(
+                "SEC admission coordinator is unavailable", retryable=_transient_database_failure(exc),
+            ) from None
         finally:
             self._attempt_lock.release()
 
@@ -140,11 +182,15 @@ class PostgresRequestGate:
         except DBAPIError as exc:
             if getattr(exc.orig, "pgcode", None) == "55P03":
                 return False
-            raise SECAdmissionUnavailable("SEC cooldown coordinator is unavailable") from None
+            raise SECAdmissionUnavailable(
+                "SEC cooldown coordinator is unavailable", retryable=_transient_database_failure(exc),
+            ) from None
         except SECAdmissionUnavailable:
             raise
-        except Exception:
-            raise SECAdmissionUnavailable("SEC cooldown coordinator is unavailable") from None
+        except Exception as exc:
+            raise SECAdmissionUnavailable(
+                "SEC cooldown coordinator is unavailable", retryable=_transient_database_failure(exc),
+            ) from None
         finally:
             self._attempt_lock.release()
 
@@ -184,27 +230,37 @@ def admission_deadline() -> float:
     return time.monotonic() + settings.SEC_DISTRIBUTED_WAIT_SECONDS
 
 
-def _remaining(deadline: float) -> float:
+def _remaining(deadline: float, *, retry_after_seconds: float | None = None) -> float:
     remaining = deadline - time.monotonic()
     if remaining <= 0:
-        raise SECAdmissionUnavailable("SEC admission wait expired")
+        raise SECAdmissionUnavailable(
+            "SEC admission wait expired", retryable=True, retry_after_seconds=retry_after_seconds,
+        )
     return remaining
 
 
 def _delay(decision: AdmissionDecision, deadline: float) -> float:
-    return min(_remaining(deadline), min(max(decision.wait_seconds, 0.005), 0.25) + random.uniform(0, 0.01))
+    remaining = _remaining(deadline, retry_after_seconds=decision.wait_seconds)
+    if decision.wait_seconds >= remaining:
+        raise SECAdmissionUnavailable(
+            "SEC admission cannot fit the remaining wait", retryable=True,
+            retry_after_seconds=decision.wait_seconds,
+        )
+    return min(remaining, min(max(decision.wait_seconds, 0.005), 0.25) + random.uniform(0, 0.01))
 
 
 def acquire_sync(*, deadline: float | None = None) -> None:
     if not settings.SEC_DISTRIBUTED_LIMIT_ENABLED:
         return
     deadline = min(deadline, admission_deadline()) if deadline is not None else admission_deadline()
+    wait_hint = None
     while True:
-        _remaining(deadline)
+        _remaining(deadline, retry_after_seconds=wait_hint)
         decision = _get_gate().try_grant()
-        _remaining(deadline)  # A delayed DB return cannot authorize a late send.
+        _remaining(deadline, retry_after_seconds=wait_hint)  # A late DB return cannot authorize a send.
         if decision.granted_at is not None:
             return
+        wait_hint = decision.wait_seconds
         time.sleep(_delay(decision, deadline))
 
 
@@ -235,17 +291,21 @@ async def acquire_async(*, deadline: float | None = None) -> None:
     if not settings.SEC_DISTRIBUTED_LIMIT_ENABLED:
         return
     deadline = min(deadline, admission_deadline()) if deadline is not None else admission_deadline()
+    wait_hint = None
     try:
         async with asyncio.timeout(_remaining(deadline)):
             while True:
-                _remaining(deadline)
+                _remaining(deadline, retry_after_seconds=wait_hint)
                 decision = await _try_grant_async()
-                _remaining(deadline)
+                _remaining(deadline, retry_after_seconds=wait_hint)
                 if decision.granted_at is not None:
                     return
+                wait_hint = decision.wait_seconds
                 await asyncio.sleep(_delay(decision, deadline))
     except TimeoutError:
-        raise SECAdmissionUnavailable("SEC admission wait expired") from None
+        raise SECAdmissionUnavailable(
+            "SEC admission wait expired", retryable=True, retry_after_seconds=wait_hint,
+        ) from None
 
 
 def record_response_sync(status: int, retry_after: str | None) -> None:
@@ -255,11 +315,14 @@ def record_response_sync(status: int, retry_after: str | None) -> None:
     if hint is None:
         return
     deadline = admission_deadline()
-    while True:
-        _remaining(deadline)
-        if _get_gate().try_defer(hint):
-            return
-        time.sleep(min(_BUSY_WAIT_SECONDS, _remaining(deadline)))
+    try:
+        while True:
+            _remaining(deadline)
+            if _get_gate().try_defer(hint):
+                return
+            time.sleep(min(_BUSY_WAIT_SECONDS, _remaining(deadline)))
+    except SECAdmissionUnavailable as error:
+        raise _feedback_failure(error, hint) from None
 
 
 async def _persist_cooldown(hint: Cooldown) -> None:
@@ -272,7 +335,7 @@ async def _persist_cooldown(hint: Cooldown) -> None:
                     return
                 await asyncio.sleep(min(_BUSY_WAIT_SECONDS, _remaining(deadline)))
     except TimeoutError:
-        raise SECAdmissionUnavailable("SEC cooldown persistence wait expired") from None
+        raise SECAdmissionUnavailable("SEC cooldown persistence wait expired", retryable=True) from None
 
 
 _feedback_tasks: set[asyncio.Task] = set()
@@ -298,7 +361,10 @@ async def record_response_async(status: int, retry_after: str | None) -> None:
     task = asyncio.create_task(_persist_cooldown(hint))
     _feedback_tasks.add(task)
     task.add_done_callback(_feedback_finished)
-    await asyncio.shield(task)
+    try:
+        await asyncio.shield(task)
+    except SECAdmissionUnavailable as error:
+        raise _feedback_failure(error, hint) from None
 
 
 def sec_request_options(*, on_wait: Callable[[bool], None] | None = None) -> dict:
@@ -314,7 +380,14 @@ def sec_request_options(*, on_wait: Callable[[bool], None] | None = None) -> dic
     async def admit(request) -> None:
         if on_wait is not None:
             on_wait(True)
-        await acquire_async()
+        phase_limits = [value for value in request.extensions.get("timeout", {}).values()
+                        if isinstance(value, (int, float)) and not isinstance(value, bool)
+                        and math.isfinite(value) and value > 0]
+        # The primary owner passes its remaining total budget as the HTTPX
+        # timeout. A long shared embargo must return its hint before that outer
+        # deadline loses the typed local error and consumes blind retries.
+        deadline = time.monotonic() + min(phase_limits) if phase_limits else None
+        await acquire_async(deadline=deadline)
         if on_wait is not None:
             on_wait(False)
 

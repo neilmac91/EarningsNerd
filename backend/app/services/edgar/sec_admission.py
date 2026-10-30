@@ -106,14 +106,14 @@ class FleetAdmissionLimiter:
     def try_acquire(self, name: str) -> bool:
         deadline = gate.admission_deadline()
         if not self.local_limiter.try_acquire(name, timeout=gate._remaining(deadline)):
-            raise gate.SECAdmissionUnavailable("SEC local admission wait expired")
+            raise gate.SECAdmissionUnavailable("SEC local admission wait expired", retryable=True)
         gate.acquire_sync(deadline=deadline)
         return True
 
     async def try_acquire_async(self, name: str) -> bool:
         deadline = gate.admission_deadline()
         if not await self.local_limiter.try_acquire_async(name, timeout=gate._remaining(deadline)):
-            raise gate.SECAdmissionUnavailable("SEC local admission wait expired")
+            raise gate.SECAdmissionUnavailable("SEC local admission wait expired", retryable=True)
         await gate.acquire_async(deadline=deadline)
         return True
 
