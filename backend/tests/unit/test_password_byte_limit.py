@@ -222,13 +222,18 @@ MALFORMED_HASHES = {
 @pytest.mark.parametrize("stored", list(UNKNOWN_HASHES.values()), ids=list(UNKNOWN_HASHES))
 def test_an_unknown_hash_fails_closed_before_any_library(monkeypatch, stored):
     stored = stored() if callable(stored) else stored
+    reached: list[str] = []  # recorded, not raised: the legacy check swallows a library's exception
 
-    def reached(*_args, **_kwargs):
-        raise AssertionError("an unknown hash reached a hashing library")
+    def recording(library: str):
+        def call(*_args, **_kwargs):
+            reached.append(library)
+            return True  # an answer that would open the account, were the hash handed on
+        return call
 
-    monkeypatch.setattr(password_utils.bcrypt, "checkpw", reached)
-    monkeypatch.setattr(password_utils, "_ARGON2", SimpleNamespace(verify=reached))
+    monkeypatch.setattr(password_utils.bcrypt, "checkpw", recording("bcrypt"))
+    monkeypatch.setattr(password_utils, "_ARGON2", SimpleNamespace(verify=recording("argon2")))
     assert verify_password(SHORT, stored) is False
+    assert reached == []
 
 
 @pytest.mark.parametrize("stored", list(MALFORMED_HASHES.values()), ids=list(MALFORMED_HASHES))
