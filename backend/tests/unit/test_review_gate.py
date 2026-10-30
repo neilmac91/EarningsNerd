@@ -508,18 +508,34 @@ class Plain:
     ("ALTER TABLE t ALTER COLUMN c DROP DEFAULT; ALTER TABLE t ALTER COLUMN c DROP NOT NULL;\n"
      "ALTER TABLE t DROP CONSTRAINT IF EXISTS k; ALTER TABLE t ALTER COLUMN c DROP IDENTITY IF EXISTS;\n"
      "ALTER TABLE t ALTER COLUMN c DROP EXPRESSION; DROP INDEX IF EXISTS ix; DROP TABLE IF EXISTS gone;", []),
-], ids=["guarded_behind_comments", "quoted_schema_and_a_list", "other_drops"])
+    ("ALTER TABLE waitlist_signups\n    DROP COLUMN email_verified,\n    DROP COLUMN legacy;",
+     [("waitlist_signups", "email_verified"), ("waitlist_signups", "legacy")]),
+    ("/* one */ ALTER TABLE t DROP COLUMN c; /* two */", [("t", "c")]),
+    # After COLUMN any name is the column's, a keyword's included; without it, a name that only starts like one is too.
+    ("ALTER TABLE t DROP COLUMN notes, DROP COLUMN identity, DROP COLUMN IF EXISTS expression, DROP IF EXISTS c,\n"
+     "    DROP notify_x;",
+     [("t", "notes"), ("t", "identity"), ("t", "expression"), ("t", "c"), ("t", "notify_x")]),
+], ids=["guarded_behind_comments", "quoted_schema_and_a_list", "other_drops", "multi_line", "between_comments",
+        "names_like_keywords"])
 def test_dropped_columns_reads_each_column_an_alter_table_drops_and_nothing_else(sql, expected):
     assert review_gate.dropped_columns(sql) == expected
 
 
 def test_dropped_columns_fails_closed_on_a_drop_column_it_cannot_attribute_and_reads_every_migration_on_disk():
     """A DROP COLUMN built in dynamic SQL names no table the gate can read, so it raises rather than pass unread. Every
-    migration in the repository reads, and none drops a column: step 1 sets a default."""
+    migration in the repository reads, and none drops a column this tree's models still map: the code it ships with
+    would fail on the table once it ran."""
     with pytest.raises(ValueError, match="DROP COLUMN outside an ALTER TABLE statement"):
         review_gate.dropped_columns("DO $$ BEGIN EXECUTE format('ALTER TABLE %I DROP COLUMN %I', 't', 'c'); END $$;")
+    with pytest.raises(ValueError, match="DROP COLUMN outside an ALTER TABLE statement"):
+        review_gate.dropped_columns("do $$ begin execute 'alter table ' || t || ' drop column c'; end $$;")
+    with pytest.raises(ValueError, match="an ALTER TABLE on a table the gate cannot read"):
+        review_gate.dropped_columns("DO $$ BEGIN EXECUTE format('ALTER TABLE %I DROP %I', 't', 'c'); END $$;")
+    # Dynamic SQL that drops nothing reads, as the rest of a migration does.
+    assert review_gate.dropped_columns("DO $$ BEGIN EXECUTE format('ALTER TABLE %I ADD COLUMN x int', 't'); END $$;") == []
     migrations = sorted((ROOT / "backend" / "migrations").glob("*.sql"))
-    assert migrations and [m.name for m in migrations if review_gate.dropped_columns(m.read_text(encoding="utf-8"))] == []
+    dropped = {drop for m in migrations for drop in review_gate.dropped_columns(m.read_text(encoding="utf-8"))}
+    assert migrations and not dropped & review_gate.read_mapped_columns(review_gate.MODELS)
 
 
 def test_mapped_columns_reads_each_tables_columns_by_the_name_the_model_gives():
@@ -541,7 +557,7 @@ def test_mapped_columns_fails_closed_on_a_column_it_cannot_attribute(source, err
 
 def test_the_models_columns_read_from_source_are_the_ones_sqlalchemy_maps():
     """The gate reads the base's models by their source, since it runs before any dependency installs; on this tree
-    that reading finds every column SQLAlchemy maps, and no other. Models it cannot read are None, never empty."""
+    that reading finds every column SQLAlchemy maps, and no other. Models it cannot read raise, never read as empty."""
     import app.models  # noqa: F401 - registers every model on Base.metadata
     from app.database import Base
 
@@ -550,7 +566,8 @@ def test_the_models_columns_read_from_source_are_the_ones_sqlalchemy_maps():
               for table in Base.metadata.tables.values() for column in table.columns}
     assert review_gate.read_mapped_columns(review_gate.MODELS) == mapped
     assert ("waitlist_signups", "email") in mapped and ("waitlist_signups", "email_verified") not in mapped
-    assert review_gate.read_mapped_columns(ROOT / "no-such-models") is None
+    with pytest.raises(FileNotFoundError):
+        review_gate.read_mapped_columns(ROOT / "no-such-models")
 
 
 def test_a_migration_that_drops_a_column_the_base_still_maps_fails_the_gate_draft_or_not_and_override_or_not():
@@ -575,20 +592,22 @@ def test_a_migration_that_drops_a_column_the_base_still_maps_fails_the_gate_draf
     unmapped = {("waitlist_signups", "email")}
     assert _decide(HEAD, comments, "body", [HEAD], resolve, pr_draft=False, pr_files=[MIGRATION], pr_drops=[drop],
                    mapped=unmapped)[0] == "pass"
-    # Models the gate could not read fail a pull request that drops a column, and no other.
-    verdict, message = _decide(HEAD, comments, "body", [HEAD], resolve, pr_draft=False, pr_drops=[drop], mapped=None)
-    assert verdict == "fail" and "the base branch's models could not be read" in message
+    # Models the gate could not read, or none given, fail a pull request that drops a column, and no other.
+    for given in ({"mapped": None}, {}):
+        verdict, message = _decide(HEAD, comments, "body", [HEAD], resolve, pr_draft=False, pr_drops=[drop], **given)
+        assert verdict == "fail" and "the base branch's models could not be read" in message
     assert _decide(HEAD, comments, "body", [HEAD], resolve, pr_draft=False, mapped=None)[0] == "pass"
 
 
 def test_fetch_state_reads_each_migration_the_pull_request_adds_or_changes_at_its_head_once(monkeypatch):
-    """A removed migration and every other file go unread; a migration the API does not return, or whose drops the
-    gate cannot read, fails closed."""
+    """A removed migration and every other file, another directory's SQL included, go unread; a migration the API does
+    not return, or whose drops the gate cannot read, fails closed."""
     other = "backend/migrations/20261102_other.sql"
     contents = {MIGRATION: GUARDED_DROP, other: "ALTER TABLE a DROP COLUMN b;"}
     files = [{"filename": MIGRATION, "status": "added"}, {"filename": other, "status": "modified"},
              {"filename": "backend/migrations/20200101_gone.sql", "status": "removed"},
              {"filename": "backend/migrations/README.md", "status": "modified"},
+             {"filename": "ops/feedback_media/cleanup.sql", "status": "added"},
              {"filename": "backend/app/models/waitlist.py", "status": "modified"}]
     reads = []
 
@@ -634,11 +653,47 @@ def test_main_reads_the_base_checkouts_models_and_fails_a_drop_they_map(monkeypa
     drop = (MIGRATION, "waitlist_signups", "email_verified")
     state = review_gate.State([_summary(RUNNING, "a834193")], "body", [HEAD], False, None, (), CREATED, [], HEAD,
                               (MIGRATION,), True, (drop,))
-    for where, reported in ((models, "drops waitlist_signups.email_verified, which the base branch's models still map"),
-                            (tmp_path / "no-models", "the base branch's models could not be read")):
+    mixin = tmp_path / "mixin"
+    mixin.mkdir()
+    (mixin / "stamped.py").write_text("class Stamped:\n    created = Column(DateTime)\n", encoding="utf-8")
+    for where, reported in ((models, ["drops waitlist_signups.email_verified, which the base branch's models still map"]),
+                            (tmp_path / "no-models", ["the base branch's models are unreadable (FileNotFoundError: no "
+                                                      "model file under", "the base branch's models could not be read"]),
+                            (mixin, ["the base branch's models are unreadable (ValueError: class Stamped assigns a "
+                                     "column but names no table)", "the base branch's models could not be read"])):
         assert review_gate.main(fetch=lambda: state, sleep=pytest.fail, clock=lambda: 0.0, wall=lambda: NOW,
                                 todo=todo, models=where) == 1
-        assert reported in capsys.readouterr().out
+        out = capsys.readouterr().out
+        assert all(text in out for text in reported), out
+
+
+def test_main_reads_the_models_once_and_says_what_evidence_it_could_not_read(monkeypatch, capsys, tmp_path):
+    """The base's models are read before the polls, once; a migration the gate cannot read fails it with the gate's own
+    words, the migration's name escaped, not the bare class of the error."""
+    monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
+    monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", "1")
+    monkeypatch.setenv("REVIEW_GATE_POLL_SECONDS", "5")
+    todo = tmp_path / "todo.md"
+    todo.write_text(TODO_ROWS, encoding="utf-8")
+    reads = []
+    real = review_gate.read_mapped_columns
+    monkeypatch.setattr(review_gate, "read_mapped_columns", lambda models: reads.append(models) or real(models))
+    state = review_gate.State([_summary(RUNNING, "a834193")], "body", [HEAD], False, None, (), CREATED, [], HEAD,
+                              (MIGRATION,), True, ())
+    sleeps, ticks = [], iter([0.0, 0.0, 30.0, 70.0])
+    assert review_gate.main(fetch=lambda: state, sleep=sleeps.append, clock=lambda: next(ticks, 70.0), wall=lambda: NOW,
+                            todo=todo) == 1
+    assert len(sleeps) >= 1 and reads == [review_gate.MODELS]  # polled more than once, read once
+    capsys.readouterr()
+
+    odd = "backend/migrations/x\n::error::y.sql"
+
+    def unreadable():
+        raise review_gate.EvidenceError(f"the migration {odd!r} could not be read")
+    assert review_gate.main(fetch=unreadable, todo=todo) == 1
+    out = capsys.readouterr().out
+    assert "failed to read trusted GitHub evidence: the migration 'backend/migrations/x" in out and "failing closed" in out
+    assert "\n::error::" not in out
 
 
 # A span written as a call (`isXbrlCitation()`) names a function, which the gate can never hold. It need not resolve

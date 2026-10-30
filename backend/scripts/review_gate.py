@@ -55,10 +55,13 @@ mapping it, and a later one drops it once that one's deploy is green (``lessons/
 Each such migration is read at the head through the API, comments aside: every ``DROP [COLUMN] [IF EXISTS] name`` in
 an ``ALTER TABLE`` statement. The base's models are read from the checkout by their source: each name assigned a
 ``Column`` or ``mapped_column`` call in a class body that sets ``__tablename__``, under the name the call gives.
-Names compare folded to lower case. A DROP COLUMN outside an ALTER TABLE statement the gate reads (one built in
-dynamic SQL), a migration it cannot read at the head, and models it cannot read all fail closed when the pull request
-drops a column. A renamed column, a dropped table and a changed type break the serving code too, and stay
-review-checked.
+Names compare folded to lower case. A drop the gate cannot attribute to a table (one built in dynamic SQL) and a
+migration it cannot read at the head fail the pull request closed, and the log says which; models it cannot read
+fail one whose migrations drop a column. Comments are stripped without regard to string literals, so a ``--`` or
+``/*`` inside a string can hide what follows it on its line or in its comment; no migration here writes one. The
+gate reads the base as the pull request would merge into it, so whether the deploy that stopped mapping the column
+is green before the drop merges stays review-checked (AGENTS.md §6), and so do a renamed column, a dropped table and a
+changed type, which break the serving code too.
 
 Override: a line ``Review override: <reason>`` (at least ten characters of reason) in the pull
 request body passes the gate with the reason echoed into the job log. That is the rule's own
@@ -270,28 +273,37 @@ SQL_COMMENT = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
 # ``ALTER TABLE [IF EXISTS] [ONLY] [schema.]table`` and the rest of its statement, to its semicolon.
 ALTER_TABLE = re.compile(r'\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(?:"?\w+"?\s*\.\s*)?"?(?P<table>\w+)"?'
                          r"(?P<body>[^;]*)", re.IGNORECASE)
-# A column the statement drops, ``DROP [COLUMN] [IF EXISTS] name``. DROP before CONSTRAINT, DEFAULT, NOT (NULL),
-# IDENTITY or EXPRESSION drops something else.
-DROP = re.compile(r'\bDROP\s+(?:COLUMN\s+)?(?:IF\s+EXISTS\s+)?(?!(?:CONSTRAINT|DEFAULT|NOT|IDENTITY|EXPRESSION)\b)'
-                  r'"?(?P<column>\w+)"?', re.IGNORECASE)
+# A column the statement drops. After COLUMN, ``DROP COLUMN [IF EXISTS] name`` names it, whatever the name; without
+# COLUMN, ``DROP [IF EXISTS] name`` drops a column unless the word after DROP is CONSTRAINT, DEFAULT, NOT (NULL),
+# IDENTITY or EXPRESSION, which drop something else.
+DROP = re.compile(r'\bDROP\s+(?:COLUMN\s+(?:IF\s+EXISTS\s+)?"?(?P<column>\w+)"?'
+                  r'|(?:IF\s+EXISTS\s+)?(?!(?:CONSTRAINT|DEFAULT|NOT|IDENTITY|EXPRESSION|COLUMN)\b)"?(?P<bare>\w+)"?)',
+                  re.IGNORECASE)
 DROP_COLUMN = re.compile(r"\bDROP\s+COLUMN\b", re.IGNORECASE)
+ALTER_TABLE_WORDS = re.compile(r"\bALTER\s+TABLE\b", re.IGNORECASE)
+DROP_WORD = re.compile(r"\bDROP\b", re.IGNORECASE)
 COLUMN_CALLS = ("Column", "mapped_column")
 Drop = Tuple[str, str, str]  # (migration file, table, column)
 
 
 def dropped_columns(sql: str) -> List[Tuple[str, str]]:
-    """Each ``(table, column)`` a migration's SQL drops, names folded to lower case, comments aside. A DROP COLUMN
-    outside an ALTER TABLE statement the gate can read, such as one built in dynamic SQL, raises ValueError, so the
+    """Each ``(table, column)`` a migration's SQL drops, names folded to lower case, comments aside. A drop the gate
+    cannot attribute to a table, such as one built in dynamic SQL (a DROP COLUMN outside an ALTER TABLE statement it
+    reads, or an ALTER TABLE on a table it cannot read whose statement drops something), raises ValueError, so the
     gate fails closed rather than miss it."""
     text = SQL_COMMENT.sub(" ", sql)
     found: List[Tuple[str, str]] = []
     bodies: List[Tuple[int, int]] = []
     for statement in ALTER_TABLE.finditer(text):
         bodies.append(statement.span("body"))
-        found.extend((statement.group("table").lower(), drop.group("column").lower())
+        found.extend((statement.group("table").lower(), (drop.group("column") or drop.group("bare")).lower())
                      for drop in DROP.finditer(statement.group("body")))
     if any(not any(start <= match.start() < end for start, end in bodies) for match in DROP_COLUMN.finditer(text)):
         raise ValueError("a DROP COLUMN outside an ALTER TABLE statement the gate reads")
+    read = {match.start() for match in ALTER_TABLE.finditer(text)}
+    if any(match.start() not in read and DROP_WORD.search(text[match.end():].split(";", 1)[0])
+           for match in ALTER_TABLE_WORDS.finditer(text)):
+        raise ValueError("an ALTER TABLE on a table the gate cannot read, whose statement drops something")
     return found
 
 
@@ -341,14 +353,13 @@ def mapped_columns(sources: Iterable[str]) -> Set[Tuple[str, str]]:
     return mapped
 
 
-def read_mapped_columns(models: Path) -> Optional[Set[Tuple[str, str]]]:
-    """The columns the models under ``models`` map, or None when they cannot be read: no model file, one that is
-    unreadable or does not parse, or a class ``mapped_columns`` cannot read."""
-    try:
-        sources = [path.read_text(encoding="utf-8") for path in sorted(models.glob("*.py"))]
-        return mapped_columns(sources) if sources else None
-    except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
-        return None
+def read_mapped_columns(models: Path) -> Set[Tuple[str, str]]:
+    """The columns the models under ``models`` map. It raises when they cannot be read: no model file
+    (FileNotFoundError), one that is unreadable or does not parse, or a class ``mapped_columns`` cannot read."""
+    sources = [path.read_text(encoding="utf-8") for path in sorted(models.glob("*.py"))]
+    if not sources:
+        raise FileNotFoundError(f"no model file under {models}")
+    return mapped_columns(sources)
 
 
 Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in the repository, or None
@@ -665,7 +676,7 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
            pr_files_complete: bool = True, open_rows: Iterable[OwnedRow] = (),
            pr_created_at: Optional[str] = None, pr_timeline: Optional[List[Dict[str, Any]]] = None,
            pr_head: Optional[str] = None, now: Optional[datetime] = None, pr_drops: Iterable[Drop] = (),
-           mapped: Optional[Collection[Tuple[str, str]]] = frozenset()) -> Verdict:
+           mapped: Optional[Collection[Tuple[str, str]]] = None) -> Verdict:
     """Pure decision over the pull request's comments, title, body, commits (SHAs and messages), changed
     files, the columns its migrations drop and live draft flag for one head SHA, and the base branch's open rows and
     mapped columns (``mapped``, None when its models could not be read).
@@ -721,7 +732,7 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
     if drops and mapped is None:
         return "fail", ("review-gate: this pull request's migrations drop columns, and the base branch's models could not "
                         "be read to tell whether the code serving maps them; failing closed")
-    still = [(name, table, column) for name, table, column in drops if (table, column) in (mapped or ())]
+    still = [(name, table, column) for name, table, column in drops if mapped is not None and (table, column) in mapped]
     if still:
         # A file's name is the pull request's own text, escaped as the open rows' are; the names come from \w+.
         listed = "; ".join(f"{name.encode('unicode_escape').decode('ascii')} drops {table}.{column}"
@@ -996,13 +1007,26 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         print(f"review-gate: the base branch's tasks/todo.md is unreadable ({type(exc).__name__}); failing closed",
               flush=True)
         return 1
-    mapped = read_mapped_columns(models)  # None fails closed only a pull request that drops a column
+    mapped: Optional[Set[Tuple[str, str]]]
+    try:
+        mapped = read_mapped_columns(models)
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+        # Only a pull request whose migrations drop a column needs them, and decide fails that one closed.
+        mapped = None
+        reason = f"{type(exc).__name__}: {exc}".encode("unicode_escape").decode("ascii")
+        print(f"review-gate: the base branch's models are unreadable ({reason}); a pull request whose migrations drop a "
+              "column fails closed", flush=True)
     started = clock()
     while True:
         try:
             state = State(*fetch())
         except SnapshotChanged as exc:
             verdict, message = "wait", f"review-gate: {exc}"
+        except EvidenceError as exc:
+            # The gate's own words, which name what it could not read (a migration's name among them, escaped).
+            reason = str(exc).encode("unicode_escape").decode("ascii")
+            print(f"review-gate: failed to read trusted GitHub evidence: {reason}; failing closed", flush=True)
+            return 1
         except Exception as exc:  # noqa: BLE001 - API failures never publish success; retries are F57, not F58
             print(f"review-gate: failed to read trusted GitHub evidence: {type(exc).__name__}", flush=True)
             return 1

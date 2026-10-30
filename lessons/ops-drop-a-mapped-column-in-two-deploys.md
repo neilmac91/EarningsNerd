@@ -33,12 +33,15 @@ declared the default, the same file was a no-op.
 3. **After step 2, roll traffic back no further than step 1's revision.** An older revision maps the column and fails
    every read of the table, and `ops.yml`'s rollback takes any revision.
 
-The review gate holds rule 2: it fails a pull request whose migration drops a column the base branch's models still
-map (`backend/scripts/review_gate.py`, "Dropped columns"; `backend/tests/unit/test_review_gate.py`). It reads each
-migration the pull request adds or changes at its head, and the base's models from the checkout the workflow makes, by
-their source. Since the workflow runs the base's script, a change to the gate first checks the pull request after the
-one that makes it: E245's step 1 added it, so step 2 was the first drop it checked. Rules 1 and 3 stay review-checked,
-and so do a renamed column, a dropped table and a changed type, which break the serving code the same way.
+The review gate holds rule 2's order, not its wait. It fails a pull request whose migration drops a column the base
+branch's models still map (`backend/scripts/review_gate.py`, "Dropped columns"; `backend/tests/unit/test_review_gate.py`),
+so step 2 cannot merge before step 1, nor with it. It reads the base as the pull request would merge into it, not the
+deploy: whether step 1's `deploy-backend` job is green before step 2 merges stays review-checked, as AGENTS.md §6's wait
+for a backend merge's deploy does. It reads each migration the pull request adds or changes at its head, and the base's
+models from the checkout the workflow makes, by their source. Since the workflow runs the base's script, a change to
+the gate first checks the pull request after the one that makes it: E245's step 1 added it, so step 2 is the first drop
+it checks. `test_migration_lock_safety.py` holds rule 2's guard. Rules 1 and 3 stay review-checked, and so do a renamed
+column, a dropped table and a changed type, which break the serving code the same way.
 
 ## Evidence
 
