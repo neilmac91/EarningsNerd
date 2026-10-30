@@ -584,6 +584,9 @@ describe('a one-metric bar chart (barChart.ts): Financial trends on the engine (
     // Under half a cent is A2's zero, unsigned, on the bar and in the tooltip alike.
     const penny = bars('AAPL diluted EPS').panels[0].axis.format
     expect([penny.value(-0.004), penny.tip(-0.004), penny.tip(0.004), penny.value(-0.006)]).toEqual(['$0', '$0', '$0', `${MINUS}$0.01`])
+    // Only an amount under half a cent: on a coarser tier (a $40 EPS beside a loss of 4 cents) a cent keeps its value.
+    const wide = bars('AAPL diluted EPS', (def) => { def.series.values = def.series.values.map((_, i) => (i === 0 ? -0.04 : 40)) }).panels[0].axis.format
+    expect([wide.d0, wide.value(-0.04), wide.value(-0.004), wide.tip(-0.04)]).toEqual([1, `${MINUS}$0.04`, '$0', `${MINUS}$0.04`])
   })
 
   it('a ratio prints ×: "0×" at zero, its ticks at the step’s decimals, 2 dp on its bars and in its tooltip', () => {

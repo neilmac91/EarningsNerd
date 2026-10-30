@@ -168,7 +168,9 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
     if (value === 0) return `${prefix}0`
     const sign = value < 0 ? MINUS : ''
     const scaled = Math.abs(value / unit.div)
-    if (printed && perShare && !unit.suffix && Number(fixed(scaled, Math.min(digits, 2))) === 0) return `${prefix}0`
+    // Under half a cent is zero at the precision a per-share figure is filed in, whatever the label tier; a small amount
+    // a coarser tier would round away keeps its own unit below ("−$0.04" on a $40 axis).
+    if (printed && perShare && !unit.suffix && Number(fixed(scaled, 2)) === 0) return `${prefix}0`
     if (printed && scaled < Math.pow(10, 1 - digits)) return `${sign}${prefix}${ownUnit(value, 3)}`
     return `${sign}${prefix}${group(fixed(scaled, digits))}${unit.suffix}`
   }
