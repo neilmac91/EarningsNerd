@@ -7080,6 +7080,25 @@ Full local and hosted verification plus independent exact-head review precede re
   lapses counted from the chief's notes and its own commands; no hook refusal and no permission-classifier
   refusal of the chief's commands in the window. After the commit the fact-check's 44 findings
   were verified, 27 taken and 17 kept, and the founder answered all fifteen founder actions. Closure 219.
+- 2026-10-30 (record 69, `runtime/control/DECISIONS-69.md`): PR #1797 (record 68) merged `bd785259` by
+  the chief's own squash, pinned to its head, on the founder's word (sixty-fourth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step); before it, its fact-check, whose first
+  launch a container restart stopped, the founder's answers to all fifteen founder actions, its
+  corrections commit, its reviewer's full pass, which a second restart interrupted and the same context
+  finished, whose four nits a fourth commit took, the same reviewer's clean check of that commit, and the
+  chief's one ready mark, whose own Codex review completed with no finding. Closure 220 registers record
+  68's survey, fact-check and reviewer and pre-registers this record's survey and fact-check, record 70's
+  reviewer and four engineering PRs' agents. A read-only survey of the window before the record was
+  written. Twelve main merges, five of them backend deploys, each healthy by its own deploy job, every
+  other push run's deploy job skipping every deploy step; no job cut off at its time limit; the advisory
+  pip-audit step exited 1, as inferred, in four main runs and in none from #1698's dnspython bump on.
+  Production read live after the stamp, for the first time under the founder's answer: describe-service
+  passing and logs-probe reading logging permitted.
+  No CODE RED spend; no ledger event; five paid steps on other writers' heads on GitHub; two balance
+  readouts dispatched under the shared account, none by the chief. No chief defect known, the lapses
+  counted from the chief's notes and its own commands; no hook refusal and no permission-classifier
+  refusal of the chief's commands in the window; the checkpoint's founder item 21 drops two carried
+  figures from another writer's comment.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
