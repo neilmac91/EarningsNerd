@@ -41,8 +41,10 @@ deploy: whether step 1's `deploy-backend` job is green before step 2 merges stay
 for a backend merge's deploy does. It reads each migration the pull request adds or changes at its head, and the base's
 models from the checkout the workflow makes, by their source. Since the workflow runs the base's script, a change to
 the gate first checks the pull request after the one that makes it: E245's step 1 added it, so step 2 is the first drop
-it checks. `test_migration_lock_safety.py` holds rule 2's guard. Rules 1 and 3 stay review-checked, and so do a renamed
-column, a dropped table and a changed type, which break the serving code the same way.
+it checks. `test_migration_lock_safety.py` holds rule 2's guard, and that the guard checks the very table and column
+its branch drops: a guard that names another reads false on every database, so the file applies as a no-op and the
+column stays. Rules 1 and 3 stay review-checked, and so do a renamed column, a dropped table and a changed type,
+which break the serving code the same way.
 
 ## Evidence
 
