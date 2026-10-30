@@ -4,7 +4,7 @@
 
 ## Context
 
-E245 is the repository's first column drop: `waitlist_signups.email_verified`, which nothing has read or set since
+E245 is the repository's first column drop: `waitlist_signups.email_verified`, whose value nothing has used since
 E46 (2).
 
 `deploy-backend` applies a merge's migrations before anything that runs its code: the task worker, the service and
@@ -31,7 +31,8 @@ declared the default, the same file was a no-op.
    column (`DO $$ … IF EXISTS (… information_schema.columns …) THEN ALTER TABLE … DROP COLUMN … END IF $$`), per
    `lessons/ops-migrations-need-lock-timeout.md`.
 3. **After step 2, roll traffic back no further than step 1's revision.** An older revision maps the column and fails
-   every read of the table, and `ops.yml`'s rollback takes any revision.
+   every read and insert of a whole row (a count still works), and `ops.yml`'s rollback takes any revision. Name the
+   limit in `docs/DEPLOYMENT.md`'s rollback section, where a responder looks, as E245's is.
 
 The review gate holds rule 2's order, not its wait. It fails a pull request whose migration drops a column the base
 branch's models still map (`backend/scripts/review_gate.py`, "Dropped columns"; `backend/tests/unit/test_review_gate.py`),
@@ -46,13 +47,25 @@ column, a dropped table and a changed type, which break the serving code the sam
 ## Evidence
 
 - `backend/migrations/20261030_waitlist_email_verified_default.sql` is step 1 of E245. On PostgreSQL 16 locally:
-  - On a table `create_all` made from main's model, the new model's insert was refused with `NotNullViolation` before
-    the file ran, and inserted `false` after it.
+  - On a table `create_all` made from the model before step 1, the new model's insert was refused with
+    `NotNullViolation` before the file ran, and inserted `false` after it.
   - On the same table, the old model's insert (the code still serving) also inserted `false`.
   - A replay of the file under a held reader went through. Its guard's catalog read takes ACCESS SHARE, so only an
     ACCESS EXCLUSIVE holder blocks it.
   - CI's triple pass runs the file on PostgreSQL 15, but it seeds `create_all` from the new model, so CI runs only
     the file's no-op branch.
+- `backend/migrations/20261030_waitlist_email_verified_drop.sql` is step 2, which merges only once step 1's
+  `deploy-backend` job is green. On PostgreSQL 16 locally:
+  - On tables made both ways and brought to step 1's state, it dropped the column and kept every row, with no table
+    rewrite.
+  - Under a held reader it hit the lock timeout, which `apply_migrations.sh` retries.
+  - Replays of either step were no-ops.
+  - The model before step 1 (`f125759e2`) was then refused with `UndefinedColumn`, the failure step 1's deploy had to
+    come first to avoid; a count of the table still worked.
+  - Through `apply_migrations.sh` after step 1's files it applied alone (applied=1 skipped=51), and after a ledger
+    reset all 52 applied again, the column staying dropped.
+  - CI's triple pass seeds `create_all` from step 2's models, so it runs only the file's no-op branch: the DROP ran
+    only in these local runs, on PostgreSQL 16, where production runs 15.
 - `.github/workflows/ci.yml`: the `deploy-backend` steps, migrations first.
-- The gate on the real models: step 2's migration fails it against main's models, which map the column (step 1 and step
-  2 in one pull request), and passes it against step 1's.
+- The gate on the real models: step 2's migration fails it against the models before step 1, which map the column
+  (step 1 and step 2 in one pull request), and passes it against step 1's.

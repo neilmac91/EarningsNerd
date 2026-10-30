@@ -292,7 +292,13 @@ gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-r
 Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
 `--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
 E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
-`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back.
+`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back. Never roll back
+past `earningsnerd-backend-00661-zr9`, E245's step 1 (#1808): since step 2 dropped
+`waitlist_signups.email_verified`, an older revision maps the column, and the waitlist's join and
+status routes fail until traffic rolls forward. If an older revision must serve, re-add the column
+first (`email_verified BOOLEAN NOT NULL DEFAULT FALSE`; every row then reads false); the drop
+discarded its values, which only a database backup keeps
+(`lessons/ops-drop-a-mapped-column-in-two-deploys.md`).
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
