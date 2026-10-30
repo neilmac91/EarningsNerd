@@ -692,6 +692,33 @@ repository). Neither is in place, and the gap is accepted (the founder left this
 
 ### Agent production readbacks (F51)
 
+The fixed `regn-summary-incident-readout` Ops operation reads only the API service's
+`earningsnerd-backend-00661-zr9` logs for filing IDs 45003 and 45004 between
+2026-10-30 11:00 and 11:15 UTC. Dispatch it from reviewed `main`; the workflow's
+main-only and apply-approval restrictions are unchanged. It reads no SQL or secrets,
+makes no SEC or model request, and is exempt from the deployment preflight because
+its source is historical Logging data. It retains the ordinary `ops` concurrency
+group, so check for pending/running Ops operations before dispatching it.
+
+`ops/diagnostics/regn_summary_incident.py` emits only validated timestamps, the two
+filing IDs, fixed stage/reason codes, and HTTP status numbers parsed from the primary
+document transport's HTTPX error prefix. It never emits raw messages, tracebacks,
+URLs, user identifiers, or gcloud stderr. Reasons are `http_forbidden` (403),
+`http_rate_limited` (429), `http_not_found` (404), `http_server_error` (5xx),
+`http_other_client_error` (other 4xx), `circuit_open`, `empty_document`, `timeout`,
+`connection_error`, `invalid_url`, or `unclassified`. An unclassified failure remains
+unknown; a 403 does not by itself prove rate limiting or identify SEC's blocking rule.
+
+The read requests at most 501 entries and projects the first 500, marking a lookahead
+as `truncated`. Rejected shapes/scopes make an otherwise untruncated read `partial`.
+`complete` describes the bounded log query, not proof that all requests logged or
+succeeded; no matching entries cannot exonerate an upstream. Responses over 8 MiB
+are rejected after capture, with a 60-second command timeout and a two-minute job
+step limit. The byte check is an acceptance bound, not a subprocess memory bound.
+Read failures emit `unavailable` and a closed reason, failing the step. No raw-log
+artifact is created. This one-incident operation takes no query inputs and does not
+extend the three Claude Code command allow rules below.
+
 After a backend deploy has concluded, a Claude Code session may read production through two read-only
 Ops operations. `.claude/settings.json` allows exactly these three commands, each as an exact-match rule:
 
