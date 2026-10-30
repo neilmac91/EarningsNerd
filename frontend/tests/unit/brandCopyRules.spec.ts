@@ -1631,14 +1631,15 @@ function accessStep(key: ts.Expression): Step {
 const FIGURE_FIELDS = new Set([
   // Formatted figures, growths (a number, or "nm") and numbers.
   'display', 'change_display', 'current_period', 'prior_period', 'currentPeriod', 'priorPeriod', 'value', 'arithmetic',
-  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'n', 'marker', 'markers',
+  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'yoy_first_reported', 'n', 'marker', 'markers',
   // Numbers a reader reads as one.
   'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'sic', 'dataset_version',
   'app_version',
   // Dates, periods and the keys that name them.
   'as_of', 'completed_at', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
-  'expires_at', 'extracted_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date', 'linked_at',
-  'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods', 'report_date', 'start_period',
+  'expires_at', 'extracted_at', 'filed_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date',
+  'later_filed_at', 'linked_at', 'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods',
+  'report_date', 'start_period',
   'startdt', 'summary_created_at', 'summary_updated_at', 'synced_at', 'timestamp', 'transaction_date', 'trial_end',
   'used_at', 'week_end', 'week_start',
   // The text written about the filing, which quotes its figures, a table's or a list's included.

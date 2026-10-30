@@ -6,6 +6,7 @@
  */
 import type { AnalysisDataset, AnalysisPoint, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { markedNote, resolveDataNotes, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { basisChanged } from '@/features/analysis/lib/laterFilings'
 import { annualTickLabel, formatAnalysisPeriod, formatAnalysisWindow, quarterlyTickLines } from '@/features/analysis/lib/periodLabels'
 import { currencySymbol } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
@@ -26,7 +27,8 @@ export interface ModelPoint {
   value: number | null
   /** Set on a percent panel's clipped value (A3); the value stays the true one. */
   offscale?: 'above' | 'below'
-  /** A growth slot that is not meaningful: a zero base or a sign change. */
+  /** A growth slot that is not meaningful: a zero base, a sign change, or a later filing's value for one or both of
+   *  its periods (MPA WP5a). */
   nm?: boolean
   /** A growth slot whose year-earlier period comes before the window (A11's structural state). */
   structural?: boolean
@@ -189,14 +191,16 @@ function valuesOf(ds: AnalysisDataset, series: AnalysisSeries | undefined): Mode
   return ds.periods.map(({ key }) => ({ period: key, value: byPeriod.get(key)?.value ?? null }))
 }
 
-type GrowthState = 'value' | 'structural' | 'nm-zero' | 'nm-sign' | 'unavailable'
+type GrowthState = 'value' | 'structural' | 'nm-zero' | 'nm-sign' | 'nm-basis' | 'unavailable'
 
 /** The same period a year earlier, keyed as the backend's comparisons key it (FY2023 → FY2022, 2024Q2 → 2023Q2). */
 const yearEarlier = (key: string) => key.replace(/^FY(\d{4})$/, (_, year) => `FY${Number(year) - 1}`).replace(/^(\d{4})(Q[1-4])$/, (_, year, quarter) => `${Number(year) - 1}${quarter}`)
 
 /** YoY growth as percent, with the state of every slot (spec §3.4, A11). A valued slot whose year-earlier period comes
  *  before the window is structural; any other slot without a comparison (no value of its own, a gap in the window, a
- *  missing prior value) is unavailable, as D17 counts them. FY and quarter keys each sort as their periods do. */
+ *  missing prior value) is unavailable, as D17 counts them. An "nm" is a sign change's unless the point carries its
+ *  growth as first reported, the mark of a change of basis (MPA WP5a, laterFilings.ts basisChanged). FY and quarter keys
+ *  each sort as their periods do. */
 function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelPoint[]; states: GrowthState[] } {
   const byPeriod = new Map(series.points.map((point) => [point.period, point]))
   const first = ds.periods[0]?.key ?? ''
@@ -209,11 +213,11 @@ function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelP
     }
     const priorKey = yearEarlier(key)
     const prior = byPeriod.get(priorKey)
-    const state: GrowthState = point?.yoy === 'nm' ? 'nm-sign'
+    const state: GrowthState = point?.yoy === 'nm' ? (basisChanged(point) ? 'nm-basis' : 'nm-sign')
       : point?.value != null && prior?.value === 0 ? 'nm-zero'
         : point?.value != null && priorKey < first ? 'structural' : 'unavailable'
     states.push(state)
-    return { period: key, value: null, nm: state === 'nm-sign' || state === 'nm-zero', structural: state === 'structural' }
+    return { period: key, value: null, nm: state === 'nm-sign' || state === 'nm-zero' || state === 'nm-basis', structural: state === 'structural' }
   })
   return { points, states }
 }
@@ -411,12 +415,15 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const notesOf = notesBandOf(ds, notes, [top], top)
   const { band, partly } = notesOf
   const statePeriods = (...states: GrowthState[]) => ds.periods.filter((_, i) => states.includes(growth.states[i])).map((period) => period.key)
-  // One line for every growth slot printed "—", structural or unavailable, and one for every "n/m" (spec §3.3).
+  // One line for every growth slot printed "—", structural or unavailable, and one for every "n/m" by its cause (spec
+  // §3.3): a zero base or a sign change, or a later filing's value (MPA WP5a, D12), which never reads as a sign change.
   const dashed = statePeriods('structural', 'unavailable')
   const notMeaningful = statePeriods('nm-zero', 'nm-sign')
+  const laterFiling = statePeriods('nm-basis')
   const growthNotes: Footnote[] = [
     ...(dashed.length ? [{ mark: '—', text: `YoY growth needs the same period a year earlier; none for ${periodRuns(ds, dashed)}.` }] : []),
     ...(notMeaningful.length ? [{ mark: 'n/m', text: `Not meaningful: the prior-year figure was zero or of the opposite sign (${periodRuns(ds, notMeaningful)}).` }] : []),
+    ...(laterFiling.length ? [{ mark: 'n/m', text: `Not meaningful: a later filing reports a different value for one or both years (${periodRuns(ds, laterFiling)}).` }] : []),
     ...(growthMark.points.some((point) => point.offscale) ? [{ mark: '', text: 'Growth bars beyond the axis are broken; their printed value is the true value.' }] : []),
   ]
   return {
