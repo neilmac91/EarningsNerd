@@ -236,3 +236,18 @@ async def test_div_release_does_not_hide_a_second_advertised_missing_exhibit(mon
         await ex.get_eightk_grounding(primary, PRIMARY_URL, CIK, ACCESSION)
     assert caught.value.context["reason"] == "advertised_exhibit_missing"
     fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("narrative_link", ["our website", "our press release archive"])
+async def test_narrative_link_does_not_override_later_exact_exhibit_entry(monkeypatch, narrative_link):
+    fetch = transport(monkeypatch)
+    primary = (
+        '<p>Item 2.02 Results of Operations. Our press release is furnished as Exhibit 99.1. '
+        f'See <a href="https://issuer.example">{narrative_link}</a>.</p>'
+        '<p>Item 9.01 Exhibits.</p><div><span>99.1 </span><span>'
+        '<a href="release.htm">Press release</a></span></div>'
+    )
+    result = await ex.get_eightk_grounding(primary, PRIMARY_URL, CIK, ACCESSION)
+    assert [member["filename"] for member in result.provenance["members"]] == ["release.htm"]
+    fetch.assert_awaited_once()

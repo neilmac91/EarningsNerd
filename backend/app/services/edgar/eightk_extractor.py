@@ -99,12 +99,17 @@ def _select(primary_html: str, document_url: str, cik: str, accession_number: st
             # paragraph/list item), with only the description linked. Accept a
             # leaf entry with one exhibit identity and one link; a page wrapper
             # must never associate a distant exhibit number with another link.
+            # A narrative paragraph mentioning EX-99 is not an exhibit index:
+            # the entry starts with its number and links the earnings description.
             entry = anchor.find_parent(["div", "p", "li"])
+            entry_text = entry.get_text(" ", strip=True) if entry is not None else ""
             if (
                 entry is not None
                 and entry.find(["div", "p", "li", "tr"]) is None
                 and len(entry.find_all("a", href=True)) == 1
-                and len(_exhibit_numbers(entry.get_text(" ", strip=True))) == 1
+                and len(_exhibit_numbers(entry_text)) == 1
+                and _EXHIBIT.match(entry_text)
+                and _EARNINGS.search(label)
             ):
                 row = entry
         row_text = row.get_text(" ", strip=True) if row is not None else label
