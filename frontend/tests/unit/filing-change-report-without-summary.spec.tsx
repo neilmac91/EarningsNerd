@@ -21,7 +21,11 @@ const state = vi.hoisted(() => ({
   getFiling: vi.fn(),
 }))
 vi.mock('next/navigation', () => ({ useParams: () => ({ id: '42' }), useRouter: () => ({ back: vi.fn(), push: vi.fn() }) }))
-vi.mock('@/lib/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() }, getApiUrl: vi.fn() }))
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  default: { get: vi.fn().mockResolvedValue({ data: {} }), post: vi.fn() },
+  getApiUrl: vi.fn(),
+}))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => Promise.resolve(state.user) }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getSubscriptionStatus: () => Promise.resolve({ is_pro: false }) }))
 vi.mock('@/features/filings/api/filings-api', () => ({
