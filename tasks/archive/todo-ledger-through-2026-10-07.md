@@ -7097,8 +7097,10 @@ Full local and hosted verification plus independent exact-head review precede re
   No CODE RED spend; no ledger event; five paid steps on other writers' heads on GitHub; two balance
   readouts dispatched under the shared account, none by the chief. No chief defect known, the lapses
   counted from the chief's notes and its own commands; no hook refusal and no permission-classifier
-  refusal of the chief's commands in the window; the checkpoint's founder item 21 drops two carried
-  figures from another writer's comment.
+  refusal of the chief's commands in the window; two corrections to record 68: the checkpoint's founder
+  item 21 drops every figure it carried from another writer's comments and readings, and its first
+  container restart began after 2026-10-29T23:14:51Z. The fact-check's 42 findings were verified, 26
+  taken and 16 kept.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
