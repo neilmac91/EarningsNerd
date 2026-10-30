@@ -45,7 +45,9 @@ export function regionName(box: HTMLElement): string {
  * While, and only while, the table is wider than its box, the box is a named region in the tab
  * order, so a keyboard user can reach it and scroll it with the arrow keys; a table that fits stays
  * out of the tab order and unnamed. The box measures itself whenever it or its table changes size: a
- * pane resize, the web font arriving, the Filing tab shown again after being hidden.
+ * pane resize, the web font arriving, the Filing tab shown again after being hidden. Its region
+ * attributes are written out, not spread, so tests/unit/siteChromeFocusRing.spec.ts reads the box's
+ * Tab stop and holds it to the ring.
  */
 export default function ReaderTable({ node: _n, ...rest }: ComponentProps<'table'> & MdExtra) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -74,7 +76,9 @@ export default function ReaderTable({ node: _n, ...rest }: ComponentProps<'table
     <div
       ref={boxRef}
       className="filing-table-scroll overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-      {...(name ? { role: 'region', 'aria-label': name, tabIndex: 0 } : {})}
+      role={name ? 'region' : undefined}
+      aria-label={name ?? undefined}
+      tabIndex={name ? 0 : undefined}
     >
       <table {...rest} />
     </div>

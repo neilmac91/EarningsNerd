@@ -9,7 +9,7 @@ import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE, KPI_MARK_GAP, kpiValueGlyphs, kpiValueWidth, kpiWidestCss } from '@/features/analysis/lib/kpiStripLayout'
 import { NOTE_MARK } from '@/features/analysis/components/DataNoteMark'
-import { compactCurrencyCountUp, fmtCurrency } from '@/lib/format'
+import { compactCurrencyCountUp, DATA_FACE_GLYPHS, fmtCurrency } from '@/lib/format'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 
 type Theme = { fontSize: Record<string, [string, unknown]>; spacing: Record<string, string>; borderWidth: Record<string, string> }
@@ -178,9 +178,13 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
   })
 
   it('counts a glyph the figure face lacks at 1.25em, wider than any face found to draw one', () => {
-    // Geist Mono has no ₩ or ₫ (E203) and no narrow no-break space ("F CFA"); DejaVu Sans Bold draws ₩ at 1.103em.
+    // Geist Mono has no ₩ or ₫ and no narrow no-break space ("F CFA"). fmtCurrency prints those currencies by code
+    // (E203), so no value the strip prints reaches this; a glyph the face lacks still counts wider than any face found to
+    // draw one: DejaVu Sans Bold draws ₩ at 1.103em.
     expect(kpiValueWidth('₩22.8B')).toBeCloseTo(kpiValueWidth('$22.8B') + (1.25 - 0.6) * 1.5, 9)
     for (const glyph of ['\u202f', '₩', '₫']) expect(kpiValueWidth(glyph), glyph).toBeCloseTo(1.25 * 1.5, 9)
+    // Every glyph past ASCII the face draws counts 0.6em: lib/format's one list, which the e2e measures in the built face.
+    for (const glyph of DATA_FACE_GLYPHS) expect(kpiValueWidth(glyph), `U+${glyph.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`).toBeCloseTo(0.9, 9)
     // Its latin-ext file has the peso, rupee and shekel signs at 0.6em.
     for (const value of ['₱22.8B', '₹22.8B', '₪22.8B', '€22.8B', 'CHF\u00a01.0B']) expect(kpiValueWidth(value), value).toBeCloseTo([...value].length * 0.9, 9)
   })
@@ -221,12 +225,19 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     expect(drawn(usd)).toHaveLength(2)
     covers(drawn(usd))
     expect(strip().style.getPropertyValue('--kpi-cols')).toBe('2')
+    // A won filer's values print its code (E203): "KRW 300.9T", ten glyphs the face draws, sets the width.
+    const krw = dataset('KRW', [300_900_000_000_000, 22_768_000_000_000, 14_831_000_000_000])
+    rerender(<KpiStrip dataset={krw} />)
+    expect(drawn(krw)).toHaveLength(3)
+    covers(drawn(krw))
+    expect(Math.max(...drawn(krw))).toBeCloseTo(kpiValueWidth('KRW\u00a0300.9T'), 9)
+    expect(Math.max(...drawn(krw))).toBeCloseTo(10 * KPI_FIGURE_ADVANCE, 9)
   })
 
   it('counts up in the unit its value ends in, so no frame is wider than that value', () => {
     expect(STRIP).toMatch(/compactCurrencyCountUp\(point\.value as number, series\.unit\.split\('\/'\)\[0\]\)/)
     const finals = [22_768_000_000, 968_000_000, -1_746_000_000, 384_500_000, 999_960_000_000, 5_000_000, 12_300, 0.5, 999.9]
-    for (const currency of ['USD', 'CAD', 'CHF', 'JPY', 'EUR', 'HKD']) for (const final of finals) {
+    for (const currency of ['USD', 'CAD', 'CHF', 'JPY', 'EUR', 'HKD', 'KRW', 'VND']) for (const final of finals) {
       const frame = compactCurrencyCountUp(final, currency)
       const last = fmtCurrency(final, { compact: true, currency })
       expect(frame(final), `${currency} ${final}`).toBe(last)

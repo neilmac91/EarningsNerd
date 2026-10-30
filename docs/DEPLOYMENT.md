@@ -160,12 +160,12 @@ merge's `deploy-backend` job has concluded: a describe during a deploy can fail 
 describe operations carry a ten-minute step timeout and run committed stdlib-only modules,
 `ops/describe/service.py` and `ops/describe/jobs.py`. In `describe-service` a failed gcloud read, the
 API service's own describe included, prints only its closed class (`permission_denied`, `not_found`,
-`unavailable`, `timeout` after 100 s, `unreadable_response`, `error (gcloud exit N)` or
+`unavailable`, `timeout` after 80 s, `unreadable_response`, `error (gcloud exit N)` or
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
-The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, the repair-ticker, the
-fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
+The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, `figure-check-count`, the repair-ticker,
+the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
 lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
@@ -220,9 +220,37 @@ pin, task count, image parity) is found (a malformed job description exits at th
 or unreadable job stops the shell loop before any block prints), and fails when the release
 or connection-budget invariants drift, when either SEC pin is missing or not `1` on any job, or when
 any expected job, including `earningsnerd-retention-purge`, is missing or unreadable. These two
-operations call only Cloud Run describe APIs and one IAM policy read
-(`gcloud run services get-iam-policy` on the worker); they do not access the database, application
-HTTP endpoints, or model providers.
+operations access no database, application HTTP endpoint or model provider. In addition to the
+Cloud Run descriptions and worker IAM policy read, `describe-service` reads exactly three
+fixed resources: Scheduler jobs `filing-scan-hourly` and `summary-recovery-minute`, and the
+`earningsnerd-background` Cloud Tasks queue, all in the configured region of `earnings-nerd`.
+Each additional read has a 20-second timeout; the six existing reads have 80-second timeouts,
+so their combined timeout budget is 540 seconds inside the unchanged ten-minute step.
+
+Both describe operations print a separate typed summary/SEC configuration block: durable
+summary/task switches, new-job pause, shared SEC admission switch/wait, job cooldown/backlog/
+attempt/lease/recovery/age limits, preparation caps and task work deadline. Only valid booleans
+and bounded numbers print. Absent fields are `not_set_image_default_unverified`; a secret
+reference, duplicate field or malformed value remains unresolved, never an inferred default
+or a printed value. The internal-job token is presence-only, never its value or reference.
+This can inspect images predating those capabilities without claiming that their defaults apply.
+
+Scheduler output contains state, supported numeric cron, recognized timezone, deadline/retry
+limits, an exact POST-target match and authentication/header presence. URLs, identities,
+audiences, header values and request bodies never print. `summary-recovery-minute` is a proposed
+canonical name, not a scheduler this release creates: `not_found` concerns that name alone;
+other caller names are not searched. The recovery endpoint needs its internal-token header;
+OAuth/OIDC presence alone is not authentication evidence. Queue output contains state,
+dispatch rate/concurrency/burst and retry limits. Missing or denied optional reads report
+`UNVERIFIED` with the closed failure class, a warning and a qualified final verdict; they never
+erase a prior failure. Unsupported field shapes remain null/unresolved. No settings, IAM,
+scheduler, queue or traffic are changed, and no tasks are created.
+
+These are configuration receipts, not an activation decision. They do not prove scheduler
+execution/non-overlap, recovery success, queue age, mail latency, effective image defaults,
+database headroom, outbound SEC throughput or logical charge reconciliation. Use the existing
+bounded `capacity-readout` below for observed aggregates; summary receipt inspection requires
+a separate reviewed scope. Production flag and capacity changes still require founder approval.
 
 `capacity-readout` reads a bounded past window (`capacity_start`/`capacity_end`, UTC, at most two
 hours, ending in the past; end it at least five minutes before dispatch, because Cloud Tasks and
@@ -292,7 +320,16 @@ gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-r
 Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
 `--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
 E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
-`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back.
+`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back. Never roll back
+past `earningsnerd-backend-00661-zr9`, E245's step 1 (#1808): since step 2 dropped
+`waitlist_signups.email_verified`, an older revision maps the column, and the waitlist's join and
+status routes fail until traffic rolls forward. If an older revision must serve, re-add the column
+first, by hand through the Cloud SQL proxy, since a migration file would deploy and route traffic
+back to the newest revision (`email_verified BOOLEAN NOT NULL DEFAULT FALSE`; every row then reads
+false). Once traffic rolls forward the column stays, the ledger having recorded the drop: delete the
+drop file's `migration_ledger` row and the next deploy drops it again. The drop discarded the
+column's values, which only a database backup keeps
+(`lessons/ops-drop-a-mapped-column-in-two-deploys.md`).
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every

@@ -41,7 +41,7 @@ NAME = '<a href="x">x</a>'
 ESCAPED_NAME = html.escape(NAME)
 
 SENDERS = [
-    (send_waitlist_welcome_email, dict(position=3, referral_link="https://e.test/r/abc", verification_link="https://e.test/v/t")),
+    (send_waitlist_welcome_email, dict(position=3, referral_link="https://e.test/r/abc")),
     (send_referral_success_email, dict(new_position=2, referral_link="https://e.test/r/abc")),
     (send_verification_email, dict(verification_link="https://e.test/v/t")),
     (send_invite_email, dict(magic_link="https://e.test/i/t")),
@@ -131,7 +131,7 @@ def test_every_sender_renders_a_markup_shaped_name_as_text(sender, kwargs, sent)
 @pytest.mark.parametrize(
     "render, kwargs",
     [
-        (render_welcome_email, dict(position=1, referral_link="https://e.test/r", verification_link="https://e.test/v")),
+        (render_welcome_email, dict(position=1, referral_link="https://e.test/r")),
         (render_referral_success_email, dict(new_position=1, referral_link="https://e.test/r")),
     ],
     ids=["welcome", "referral_success"],

@@ -13,6 +13,10 @@ const TrendChartsV2 = dynamic(() => import('./TrendChartsV2'), {
     return <TrendChartsSkeleton />
   },
 })
+// The chunk starts loading with this module, before a run's results ask for it; a failure is reported where it
+// counts, when the grid's own load throws it to the boundary. The module is named twice, not through one shared
+// function, because on a server render Next preloads a dynamic() chunk only when its import() is written inside the
+// call (its lazy-loading guide).
 import('./TrendChartsV2').catch(() => {})
 
 export default function TrendCharts({ dataset, exportEnabled = false }: { dataset: AnalysisDataset; exportEnabled?: boolean }) {

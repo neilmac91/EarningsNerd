@@ -20,6 +20,14 @@ each look-alike that must pass. Out of its reach, each planted as a gap: a modul
 ``password_utils``, whose verify fallback hands passlib's bcrypt handler the whole password (dead
 under bcrypt 5, whose length check fails passlib's self-test; removing it is a separate cleanup).
 
+A password that is not valid text (a lone surrogate) is refused before either (E97): it encodes to no UTF-8, so the
+breach check and bcrypt raised on it, and FastAPI's own 422, which quoted every refused value (the whole body for a
+missing field), could not render it and answered 500 with a traceback that quoted the password. The section on it
+holds each password route at a 422 of type, loc and msg only (``auth_validation.public_validation_errors``, which
+``main.py`` answers ``RequestValidationError`` with), login and the current-password check at their usual refusal,
+and the 500's two channels (the log line, the Sentry event's exception chain) free of a refused password. An
+unencodable reset or verification token is refused as unknown, where its hash raised the same 500.
+
 Real endpoints against the app's SQLite database, like the rest of the auth suite. SQLite hands
 ``DateTime(timezone=True)`` columns back naive while PostgreSQL hands them back aware; the
 ``_postgres_shaped_expiries`` fixture gives the reset-token expiry the production shape.
@@ -27,6 +35,8 @@ Real endpoints against the app's SQLite database, like the rest of the auth suit
 import ast
 import asyncio
 import hashlib
+import json
+import logging
 import subprocess
 import uuid
 from datetime import timezone
@@ -36,6 +46,7 @@ from unittest.mock import AsyncMock
 
 import bcrypt
 import pytest
+import sentry_sdk
 from tests.support.account_agreement import ACCOUNT_AGREEMENT
 
 from fastapi.testclient import TestClient
@@ -47,7 +58,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import User
 from app.routers.auth import create_access_token
-from app.services import auth_account_service, password_utils, pwned_passwords
+from app.services import auth_account_service, auth_validation, password_utils, pwned_passwords
 from app.services.password_utils import get_password_hash, validate_password_strength, verify_password
 from tests.support.summary_stream_harness import reset_rate_limiters
 
@@ -346,6 +357,276 @@ def test_register_refuses_a_breached_bcrypt_prefix_behind_an_unlisted_tail(clien
     )
     assert resp.status_code == 400, resp.text
     assert "known data breach" in resp.json()["detail"]
+
+
+# ── a password that is not valid text is refused where it enters, and no refused password comes back (E97) ────
+
+# A refused password's distinctive part: no answer, log line or Sentry item may carry it. A lone surrogate after it
+# (json.loads decodes the JSON escape "\ud800" to one) encodes to no UTF-8, so before E97 a short one made the 422
+# itself fail to render, a 500 whose traceback quoted the password, and a long one passed the length rule and raised
+# the same 500 in the breach check or bcrypt.
+MARK = "Qx7mark"  # gitleaks:allow
+SURROGATE_PASSWORDS = pytest.mark.parametrize(
+    "password", [MARK + "\ud800", MARK + "-long-enough\ud800-tail"], ids=["under-the-floor", "over-the-floor"]
+)
+NOT_VALID_TEXT = "Value error, Password contains a character that is not valid text."
+MALFORMED_JSON = '{"email": "a@example.com", "password": "' + MARK + '-long-enough-pass"'  # no closing brace
+
+
+def _post_json(client: TestClient, path: str, payload, **headers):
+    # json.dumps escapes a lone surrogate as "\ud800" (ensure_ascii), the bytes a client sends; httpx's own `json=`
+    # encodes UTF-8 and would raise on it.
+    return client.post(path, content=json.dumps(payload), headers={"content-type": "application/json", **headers})
+
+
+def _refused(resp, status: int):
+    assert resp.status_code == status, resp.text
+    assert MARK not in resp.text
+    body = resp.json()
+    if status == 422:
+        assert all(set(error) == {"type", "loc", "msg"} for error in body["detail"]), body
+    return body
+
+
+def _stored_hash(email: str) -> str | None:
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.email == email).first()
+        return user.hashed_password if user else None
+
+
+@pytest.mark.requires_db
+@SURROGATE_PASSWORDS
+def test_register_refuses_a_password_that_is_not_valid_text(client, range_api, password):
+    lookups = range_api(set())
+    email = _email()
+    body = _refused(
+        _post_json(client, "/api/auth/register", {**ACCOUNT_AGREEMENT, "email": email, "password": password}), 422
+    )
+    assert body["detail"] == [{"type": "value_error", "loc": ["body", "password"], "msg": NOT_VALID_TEXT}]
+    assert lookups.asked == []  # refused before the breach check, so before bcrypt too
+    assert _stored_hash(email) is None
+
+
+@pytest.mark.requires_db
+@SURROGATE_PASSWORDS
+def test_reset_password_refuses_a_password_that_is_not_valid_text(client, range_api, password):
+    lookups = range_api(set())
+    email = _email()
+    _create_user(email, get_password_hash(SHORT))
+    with SessionLocal() as db:
+        token = auth_account_service.issue_password_reset_token(
+            db, db.query(User).filter(User.email == email).one()
+        )
+    before = _stored_hash(email)
+    body = _refused(_post_json(client, "/api/auth/reset-password", {"token": token, "new_password": password}), 422)
+    assert body["detail"] == [{"type": "value_error", "loc": ["body", "new_password"], "msg": NOT_VALID_TEXT}]
+    assert lookups.asked == []
+    assert _stored_hash(email) == before
+    assert _login(client, email, SHORT).status_code == 200
+
+
+@pytest.mark.requires_db
+@SURROGATE_PASSWORDS
+def test_change_password_refuses_a_new_password_that_is_not_valid_text(client, range_api, password):
+    lookups = range_api(set())
+    email = _email()
+    _create_user(email, get_password_hash(SHORT))
+    before = _stored_hash(email)
+    resp = _post_json(
+        client,
+        "/api/auth/change-password",
+        {"current_password": SHORT, "new_password": password},
+        Authorization=f"Bearer {create_access_token(data={'sub': email})}",
+    )
+    body = _refused(resp, 422)
+    assert body["detail"] == [{"type": "value_error", "loc": ["body", "new_password"], "msg": NOT_VALID_TEXT}]
+    assert lookups.asked == []
+    assert _stored_hash(email) == before
+
+
+@pytest.mark.requires_db
+def test_login_and_the_current_password_check_refuse_a_password_that_is_not_valid_text(client):
+    # Neither applies the policy (a stored hash from any earlier rule keeps signing in), so each refuses as for any
+    # wrong password: no hash was ever made from a password bcrypt could not encode.
+    email = _email()
+    _create_user(email, get_password_hash(SHORT))
+    surrogate = MARK + "-long-enough\ud800-tail"
+    login = _refused(_post_json(client, "/api/auth/login", {"email": email, "password": surrogate}), 401)
+    assert login == {"detail": "Incorrect email or password"}
+    client.cookies.clear()
+    change = _post_json(
+        client,
+        "/api/auth/change-password",
+        {"current_password": surrogate, "new_password": SHORT + "-next"},
+        Authorization=f"Bearer {create_access_token(data={'sub': email})}",
+    )
+    assert _refused(change, 400) == {"detail": "Current password is incorrect."}
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(
+    "path, payload, detail",
+    [
+        ("/api/auth/reset-password", {"token": "tok\ud800", "new_password": SHORT + "-next"},
+         "Invalid or expired reset link."),
+        ("/api/auth/verify-email", {"token": "tok\ud800"}, "Invalid or expired verification link."),
+    ],
+    ids=["reset-password", "verify-email"],
+)
+def test_an_account_token_that_is_not_valid_text_is_refused_as_unknown(client, path, payload, detail):
+    # No minted token holds a lone surrogate (they are URL-safe ASCII), so the lookup refuses it as it refuses any
+    # unknown token, where its hash's encode raised a 500 before E97.
+    resp = _post_json(client, path, payload)
+    assert (resp.status_code, resp.json()) == (400, {"detail": detail}), resp.text
+
+
+@pytest.mark.requires_db
+def test_an_invite_that_is_not_valid_text_is_no_invite(client, monkeypatch):
+    # Invite-only registration reads the invite before anything else; one holding a lone surrogate is refused as any
+    # invalid invite is, where its hash's encode raised a 500 before E97.
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only")
+    payload = {**ACCOUNT_AGREEMENT, "email": _email(), "password": SHORT + "-next", "invite_code": "inv\ud800"}
+    surrogate, unknown = (
+        _post_json(client, "/api/auth/register", payload),
+        _post_json(client, "/api/auth/register", {**payload, "email": _email(), "invite_code": "inv"}),
+    )
+    assert surrogate.status_code != 500, surrogate.text
+    assert (surrogate.status_code, surrogate.json()) == (unknown.status_code, unknown.json())
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(
+    "path, raw, detail",
+    [
+        # A missing field's `input` is the whole body, the password beside it.
+        (
+            "/api/auth/register",
+            json.dumps({**ACCOUNT_AGREEMENT, "password": MARK + "-long-enough-pass"}),
+            [{"type": "missing", "loc": ["body", "email"], "msg": "Field required"}],
+        ),
+        (
+            "/api/auth/register",
+            json.dumps({**ACCOUNT_AGREEMENT, "email": "short@example.com", "password": MARK}),
+            [{"type": "value_error", "loc": ["body", "password"],
+              "msg": f"Value error, Password must be at least {settings.PASSWORD_MIN_LENGTH} characters."}],
+        ),
+        # A body of the wrong shape is the `input` of the one error it raises.
+        (
+            "/api/auth/login",
+            json.dumps([{"email": "list@example.com", "password": MARK + "-long-enough-pass"}]),
+            [{"type": "model_attributes_type", "loc": ["body"],
+              "msg": "Input should be a valid dictionary or object to extract fields from"}],
+        ),
+        # Malformed JSON: its decoder's message went out as `ctx`.
+        (
+            "/api/auth/login",
+            MALFORMED_JSON,
+            [{"type": "json_invalid", "loc": ["body", len(MALFORMED_JSON)], "msg": "JSON decode error"}],
+        ),
+    ],
+    ids=["missing-field", "under-the-floor", "wrong-shape", "malformed-json"],
+)
+def test_a_refused_request_s_422_keeps_type_loc_and_msg_only(client, path, raw, detail):
+    resp = client.post(path, content=raw, headers={"content-type": "application/json"})
+    assert _refused(resp, 422)["detail"] == detail
+
+
+@pytest.fixture
+def sentry_items():
+    # The API's own Sentry options with a transport that keeps every item (test_never_echo_environment_values.py).
+    from tests.unit.test_never_echo_environment_values import _capturing
+
+    yield from _capturing("_sentry_options")
+
+
+def _send_refused_passwords(client: TestClient) -> list:
+    under_the_floor = {**ACCOUNT_AGREEMENT, "email": _email(), "password": MARK + "\ud800"}
+    return [
+        _post_json(client, "/api/auth/register", under_the_floor),  # answered 500 before E97
+        _post_json(client, "/api/auth/register", {**ACCOUNT_AGREEMENT, "password": MARK + "-pass"}),  # quoted the body
+    ]
+
+
+# What a Sentry event carries of a request's body is the event scrubber's (its denylist withholds `password`,
+# `new_password` and `current_password`; test_never_echo_environment_values.py holds it), not this section's: Sentry
+# starts here after the app is built, so the integration attaches no body to these events. These two cases hold the
+# channels the 500 used. Two cases, observed before E97: while a Sentry client was active, the API's log line of the 500 printed no exception
+# chain and its Sentry event carried the RequestValidationError, whose text prints each error's `input`; with none
+# active, the log line's traceback printed it. Each channel is read in the configuration that sent the password there.
+@pytest.mark.requires_db
+def test_a_refused_password_reaches_no_log_line(client, caplog):
+    caplog.set_level(logging.DEBUG)
+    answers = _send_refused_passwords(client)
+    formatter = logging.Formatter()
+    logged = [
+        record.getMessage() + (formatter.formatException(record.exc_info) if record.exc_info else "")
+        for record in caplog.records
+    ]
+    assert logged, "the capture saw no log line: it would pass with nothing to read"
+    assert [line for line in logged if MARK in line] == []
+    for answer in answers:
+        _refused(answer, 422)
+
+
+@pytest.mark.requires_db
+def test_a_refused_password_reaches_no_sentry_item(client, sentry_items):
+    answers = _send_refused_passwords(client)
+    sentry_sdk.flush()
+    assert sentry_items, "the capture kept no item: it would pass with nothing to read"
+    assert [item for item in sentry_items if MARK in json.dumps(item, default=str)] == []
+    for answer in answers:
+        _refused(answer, 422)
+
+
+# The pure function main.py answers RequestValidationError with, on the error shapes pydantic writes.
+def test_public_validation_errors_drop_everything_but_type_loc_and_msg():
+    errors = [
+        {"type": "missing", "loc": ("body", "email"), "msg": "Field required", "input": {"password": MARK}},
+        {"type": "value_error", "loc": ("body", "password"), "msg": "Value error, no.", "input": MARK,
+         "ctx": {"error": ValueError(MARK)}, "url": "https://errors.pydantic.dev/x", "later_key": MARK},
+        {"type": "json_invalid", "loc": ("body", 12), "msg": "JSON decode error", "input": {}, "ctx": {"error": MARK}},
+    ]
+    assert auth_validation.public_validation_errors(errors) == [
+        {"type": "missing", "loc": ["body", "email"], "msg": "Field required"},
+        {"type": "value_error", "loc": ["body", "password"], "msg": "Value error, no."},
+        {"type": "json_invalid", "loc": ["body", 12], "msg": "JSON decode error"},
+    ]
+
+
+def test_public_validation_errors_never_raise_on_an_odd_error():
+    # A raise here would chain the RequestValidationError, whose text prints every input, into the 500's log line.
+    odd = [None, "text", {"type": "x", "loc": None, "msg": None, "input": MARK}, {"loc": "body", "input": MARK}]
+    assert auth_validation.public_validation_errors(odd) == [
+        {"type": "", "loc": [], "msg": ""},
+        {"type": "", "loc": [], "msg": ""},
+        {"type": "x", "loc": [], "msg": "None"},
+        {"type": "", "loc": [], "msg": ""},
+    ]
+
+
+def test_public_validation_errors_return_only_text_utf8_can_carry():
+    # A dict key from the body lands in `loc` (an extra field, a mapping's key), and a validator's message may quote
+    # what it was handed; each lone surrogate becomes "?", so the answer always renders.
+    errors = [{"type": "extra_forbidden", "loc": ("body", "k\ud800", 3), "msg": "m\udfff"}]
+    public = auth_validation.public_validation_errors(errors)
+    assert public == [{"type": "extra_forbidden", "loc": ["body", "k?", 3], "msg": "m?"}]
+    json.dumps(public, ensure_ascii=False).encode("utf-8")
+
+
+@pytest.mark.parametrize(
+    "text, valid",
+    [("plain", True), ("пароль", True), ("\U0001F510", True), ("a\ud800", False), ("\udc00z", False),
+     ("\ud83d\udd10", False)],  # a pair only json.loads joins; as two code points it is two lone surrogates
+    ids=["ascii", "cyrillic", "astral", "lone-high", "lone-low", "unjoined-pair"],
+)
+def test_is_valid_unicode(text, valid):
+    assert auth_validation.is_valid_unicode(text) is valid
+    password = text + "x" * settings.PASSWORD_MIN_LENGTH  # over the floor, whatever it is, so only the text decides
+    if valid:
+        assert validate_password_strength(password) == password
+    else:
+        with pytest.raises(ValueError, match="not valid text"):
+            validate_password_strength(password)
 
 
 # ── every path to bcrypt goes through _bcrypt_input ─────────────────────────

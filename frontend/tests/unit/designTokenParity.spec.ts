@@ -6,7 +6,8 @@
    and the motion mirror (lib/motion.ts) must stay value-identical to the token
    sources (tailwind.config.js + globals.css :root). Nothing fails visibly when
    one drifts — this spec does. chart-theme.spec.ts ties each charts/theme.ts
-   field to its own named token as well.
+   field to its own named token as well, and chartThemeTokens.spec.ts each of
+   Chart.tsx's inks.
 ============================================================================= */
 
 import { describe, expect, it } from 'vitest'
@@ -41,35 +42,17 @@ const MIRRORS = [
   'app/layout.tsx',
 ]
 
-/** The trend-chart spec renderer's own pairs (tailwind.config.js, E194), its own until E195's token fold names them. */
-const RENDERER_PAIRS = ['s1', 's2', 's3', 's4', 's5', 's6', 'tick', 'value', 'gridline', 'review']
-const RENDERER_MIRROR = 'features/analysis/lib/charts/theme.ts'
-
 describe('JS color mirrors stay token-true', () => {
   const tokens = collect(config.theme.extend.boxShadow, collect(config.theme.extend.colors, new Set<string>()))
   // Plain white/black are legal literals (export canvas ground, on-fill ink).
   tokens.add('#ffffff')
   tokens.add('#000000')
-  // The hexes only the renderer's pairs hold: its new dark series and inks, its own until the token fold (E195's follow-up).
-  const { chart, ...others } = config.theme.extend.colors
-  const elsewhere = collect(config.theme.extend.boxShadow, collect({ ...others, chart: Object.fromEntries(Object.entries(chart).filter(([key]) => !RENDERER_PAIRS.includes(key))) }, new Set<string>()))
-  const rendererOnly = [...collect(RENDERER_PAIRS.map((key) => chart[key]), new Set<string>())].filter((hex) => !elsewhere.has(hex))
-
   for (const file of MIRRORS) {
     it(`${file} uses only config token hexes`, () => {
       const hexes = [...new Set((stripComments(read(file)).match(HEX) ?? []).map((h) => h.toLowerCase()))]
       expect(hexes.filter((h) => !tokens.has(h))).toEqual([])
-      // Only the renderer's own mirror takes its pairs' new values: another mirror that did (Chart.tsx's dark labels or
-      // series) would ship them outside /analysis before the token fold, and every hex would still be a token.
-      if (file !== RENDERER_MIRROR) expect(hexes.filter((h) => rendererOnly.includes(h)), 'the spec renderer’s own hexes, until the token fold (E195’s follow-up)').toEqual([])
     })
   }
-
-  it('reads the renderer’s own hexes', () => {
-    expect(RENDERER_PAIRS.every((key) => key in chart)).toBe(true)
-    expect(rendererOnly).toEqual(expect.arrayContaining(['#62b2a6', '#b8bec7', '#dcd9d0', '#525c6b', '#fbbf24']))
-    expect(MIRRORS).toContain(RENDERER_MIRROR)
-  })
 })
 
 describe('lib/motion.ts mirrors the globals.css motion tokens', () => {

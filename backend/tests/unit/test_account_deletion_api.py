@@ -1,15 +1,20 @@
 """DELETE /api/users/me: account deletion (GDPR Art. 17), characterized over HTTP.
 
-Pins what is observable over HTTP: the ``user_deleted`` audit row commits before the account row
-is deleted (a failed delete still leaves it behind); on success the Set-Cookie headers equal the
-logout helpers' output in call order (access + session-presence, then refresh); and a failed delete
-rolls the session back before it closes, keeps the account and sends no Set-Cookie at all. Whether
-the cookies are cleared before or after the delete is not observable here: when the handler raises
-HTTPException, FastAPI builds the 500 without the headers set on the injected ``response``. The
-failure is injected inside the request's own session (a ``before_flush`` listener), not by
-patching a function, so the test holds wherever the delete code lives. A delete that finds the
-account already gone, as the second of two deletions at once does, answers that 500 too and names
-the account in its log line; there the first deletion is played inside the Stripe step.
+Pins what is observable over HTTP: the ``user_deleted`` audit row commits with the account's deletion,
+in one transaction, and records the provider outcomes the response reports; a failed audit insert,
+deletion or commit leaves neither behind, so the account stays and no failed deletion is audited as a
+success (F19), except a commit the database applied whose reply was lost, which answers the same 500
+over a deleted, audited account; on success the Set-Cookie headers equal the logout helpers' output in
+call order (access + session-presence, then refresh); and a failed delete rolls the session back before
+it closes, keeps the account and sends no Set-Cookie at all. Whether the cookies are cleared before or
+after the delete is not observable here: when the handler raises HTTPException, FastAPI builds the 500
+without the headers set on the injected ``response``. The failure is injected inside the request's own
+session (flush listeners), or at the database driver's commit for a commit whose reply was lost, not by
+patching a function, so the test holds wherever the delete code lives. A delete that finds the account
+already gone, as the second of two deletions at once does, answers that 500 too, names the account in
+its log line and stages no audit row; there the first deletion is played inside the Stripe step. A
+failure after Stripe cancelled keeps the account: the cancellation is not undone, and the failure's log
+line carries the outcomes the audit row would have held.
 
 The Stripe step is pinned on the wire for the same reason. A fake ``requests`` session inside the
 real ``stripe.RequestsClient`` plays Stripe's subscription list and cancel endpoints, so the list
@@ -20,6 +25,7 @@ reaches, as it would on Stripe.
 import json
 import logging
 import re
+import sqlite3
 import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -32,7 +38,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event
 
 from main import app
-from app.database import SessionLocal, get_db
+from app.database import SessionLocal, engine, get_db
 from app.models import AuditLog, User
 from app.routers import users
 from app.routers.auth import _clear_auth_cookie, _clear_refresh_cookie, get_current_user
@@ -110,6 +116,69 @@ def _audit_rows(email: str) -> list[tuple[str, str, str]]:
         db.close()
 
 
+def _last_audit_id() -> int:
+    db = SessionLocal()
+    try:
+        return db.query(AuditLog.id).order_by(AuditLog.id.desc()).limit(1).scalar() or 0
+    finally:
+        db.close()
+
+
+def _deletion_audits_since(mark: int) -> list[tuple]:
+    """Every ``user_deleted`` row written after ``mark``, whatever email it holds (a row staged for an account
+    already gone could hold none, which an email filter would not see)."""
+    db = SessionLocal()
+    try:
+        rows = db.query(AuditLog).filter(AuditLog.id > mark, AuditLog.action == "user_deleted").order_by(AuditLog.id)
+        return [(row.user_email, row.entity_id, row.status) for row in rows]
+    finally:
+        db.close()
+
+
+def _audit_details(email: str) -> list[dict]:
+    db = SessionLocal()
+    try:
+        return [row.details for row in db.query(AuditLog).filter(AuditLog.user_email == email).order_by(AuditLog.id)]
+    finally:
+        db.close()
+
+
+# Each write of the deletion's transaction _failing_db can refuse, and the cause its refusal raises.
+FAILURE_CAUSES = {
+    "audit": "injected audit-insert failure",
+    "account": "injected account-delete failure",
+    "commit": "injected commit failure",
+}
+
+
+def _failing_db(failed_write: str, session_events: list[str]):
+    """A ``get_db`` whose session refuses one write of the deletion's transaction: the audit row's insert, the
+    account's delete, or the commit once both are flushed. It records the session's rollback and close."""
+    def refuse_before_flush(session, flush_context, instances):
+        if failed_write == "audit" and any(isinstance(obj, AuditLog) for obj in session.new):
+            raise RuntimeError(FAILURE_CAUSES["audit"])
+        if failed_write == "account" and any(isinstance(obj, User) for obj in session.deleted):
+            raise RuntimeError(FAILURE_CAUSES["account"])
+
+    def refuse_after_flush(session, flush_context):
+        # The flush has written the audit row and the account's delete; the commit never comes.
+        if failed_write == "commit" and any(isinstance(obj, User) for obj in session.deleted):
+            raise RuntimeError(FAILURE_CAUSES["commit"])
+
+    def get_failing_db():
+        db = SessionLocal()
+        event.listen(db, "before_flush", refuse_before_flush)
+        event.listen(db, "after_flush", refuse_after_flush)
+        event.listen(db, "after_rollback", lambda session: session_events.append("rollback"))
+        try:
+            yield db
+        finally:
+            session_events.append("close")
+            db.close()
+
+    return get_failing_db
+
+
 def _user_exists(uid: int) -> bool:
     db = SessionLocal()
     try:
@@ -183,12 +252,20 @@ def _delete_account_of_customer(client, monkeypatch, statuses, stripe_result="su
     """Delete an account whose Stripe customer holds one subscription per given status."""
     stripe_api = _FakeStripe(statuses, **fake_options)
     monkeypatch.setattr(stripe, "default_http_client", stripe.RequestsClient(session=stripe_api))
-    with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, _email):
+    with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, email):
         resp = client.delete("/api/users/me")
         assert resp.status_code == 200
         # The handler swallows a Stripe failure and reports it here (``error: …``).
         assert re.fullmatch(stripe_result, resp.json()["third_party_deletions"]["stripe"])
         assert not _user_exists(uid)
+        # Sentry's step runs whatever Stripe's outcome; PostHog's is skipped, as it has no client here.
+        assert resp.json()["third_party_deletions"]["sentry"] == "anonymized"
+        assert resp.json()["third_party_deletions"]["posthog"] == "skipped"
+        # On a 200 the session cookies are cleared, a Stripe failure or not.
+        assert _clock_free(resp.headers.get_list("set-cookie")) == _clock_free(_cleared_session_cookies())
+        # The audit row records the outcomes the response reports, Stripe's included.
+        assert [details["third_party_deletions"] for details in _audit_details(email)] == [
+            resp.json()["third_party_deletions"]]
     # Every list query is this customer's, over every status, in pages of 100.
     assert stripe_api.list_queries
     assert all({key: query[key] for key in ("customer", "status", "limit") if key in query}
@@ -199,6 +276,7 @@ def _delete_account_of_customer(client, monkeypatch, statuses, stripe_result="su
 @pytest.mark.requires_db
 def test_delete_account_audits_deletes_and_clears_session_cookies(client):
     with _seeded_user() as (uid, email):
+        mark = _last_audit_id()
         resp = client.delete("/api/users/me")
 
         assert resp.status_code == 200
@@ -213,39 +291,65 @@ def test_delete_account_audits_deletes_and_clears_session_cookies(client):
         assert _clock_free(resp.headers.get_list("set-cookie")) == _clock_free(cleared)
         assert not _user_exists(uid)
         assert _audit_rows(email) == [("user_deleted", str(uid), "success")]
+        assert _deletion_audits_since(mark) == [(email, str(uid), "success")]
+        [details] = _audit_details(email)
+        assert details["third_party_deletions"] == body["third_party_deletions"]
+        assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z", details["timestamp"]), details
 
 
 @pytest.mark.requires_db
-def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client):
+@pytest.mark.parametrize("failed_write", list(FAILURE_CAUSES))
+def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client, failed_write):
+    # "audit" is the mandatory audit: before F19 its insert failure was swallowed and the account deleted anyway.
     with _seeded_user() as (uid, email):
         session_events: list[str] = []
-
-        def _refuse_user_delete(session, flush_context, instances):
-            if any(isinstance(obj, User) for obj in session.deleted):
-                raise RuntimeError("injected account-delete failure")
-
-        def _failing_db():
-            db = SessionLocal()
-            event.listen(db, "before_flush", _refuse_user_delete)
-            event.listen(db, "after_rollback", lambda session: session_events.append("rollback"))
-            try:
-                yield db
-            finally:
-                session_events.append("close")
-                db.close()
-
-        app.dependency_overrides[get_db] = _failing_db
+        app.dependency_overrides[get_db] = _failing_db(failed_write, session_events)
+        mark = _last_audit_id()
         resp = client.delete("/api/users/me")
 
         assert resp.status_code == 500
         assert resp.json() == {"detail": FAILED_DETAIL}
         assert resp.headers.get_list("set-cookie") == []
-        # The handler rolls back before the request's session is closed.
+        # The handler rolls back before the request's session is closed. For "commit" SQLAlchemy rolls the failed
+        # flush back itself, so only "audit" and "account" prove the route's own rollback.
         assert "rollback" in session_events
         assert session_events.index("rollback") < session_events.index("close")
         assert _user_exists(uid)
-        # Pre-existing behaviour, pinned as-is: the audit row committed before the delete failed.
+        assert _audit_rows(email) == []  # before F19 the success row had committed ahead of the delete
+        assert _deletion_audits_since(mark) == []
+
+
+@pytest.mark.requires_db
+def test_a_commit_whose_reply_was_lost_answers_500_over_a_deleted_audited_account(client, monkeypatch, caplog):
+    # The one exception to the rollback (F18's matrix): the database applied the commit and only its reply was lost.
+    # The DBAPI commit runs and then raises, as a dropped connection does, so the session never records the commit,
+    # the route's rollback undoes nothing, and the logged cause is the lost reply's own error.
+    dialect = engine.dialect
+    real_commit = dialect.do_commit
+    armed = []
+
+    def commit_then_lose_the_reply(dbapi_connection):
+        real_commit(dbapi_connection)
+        if armed:
+            armed.clear()
+            raise sqlite3.OperationalError("server closed the connection unexpectedly")
+
+    with _seeded_user() as (uid, email):
+        mark = _last_audit_id()
+        monkeypatch.setattr(dialect, "do_commit", commit_then_lose_the_reply)
+        armed.append(True)  # the request's next commit is the deletion's
+        with caplog.at_level(logging.ERROR, logger="app.routers.users"):
+            resp = client.delete("/api/users/me")
+
+        assert not armed
+        assert resp.status_code == 500
+        assert resp.json() == {"detail": FAILED_DETAIL}
+        assert resp.headers.get_list("set-cookie") == []
+        assert not _user_exists(uid)
         assert _audit_rows(email) == [("user_deleted", str(uid), "success")]
+        assert _deletion_audits_since(mark) == [(email, str(uid), "success")]
+        assert (f"Error deleting user account {uid}: (sqlite3.OperationalError) server closed the connection "
+                "unexpectedly") in caplog.text
 
 
 @pytest.mark.requires_db
@@ -296,11 +400,63 @@ def test_a_listed_subscription_of_another_customer_is_never_cancelled(client, mo
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("failed_write", list(FAILURE_CAUSES))
+def test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs_the_outcomes(
+    client, monkeypatch, caplog, failed_write,
+):
+    # Stripe's cancellation is not part of the database transaction and is not undone. The account stays, no
+    # audit row commits, and the failure's log line carries the outcomes the audit row would have recorded
+    # (F19; F18's operator evidence).
+    stripe_api = _FakeStripe(["trialing"])
+    monkeypatch.setattr(stripe, "default_http_client", stripe.RequestsClient(session=stripe_api))
+    with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, email):
+        app.dependency_overrides[get_db] = _failing_db(failed_write, [])
+        mark = _last_audit_id()
+        with caplog.at_level(logging.ERROR, logger="app.routers.users"):
+            resp = client.delete("/api/users/me")
+
+        assert resp.status_code == 500
+        assert resp.json() == {"detail": FAILED_DETAIL}
+        assert resp.headers.get_list("set-cookie") == []
+        assert stripe_api.cancelled == ["sub_0_trialing"]
+        assert _user_exists(uid)
+        assert _audit_rows(email) == [] and _deletion_audits_since(mark) == []
+        assert (f"Error deleting user account {uid}: {FAILURE_CAUSES[failed_write]}. Third-party deletion "
+                f"results: {{'stripe': 'subscriptions_cancelled', ") in caplog.text
+
+
+@pytest.mark.requires_db
+def test_a_retry_after_a_deletion_failed_past_stripe_deletes_the_account_and_cancels_nothing_twice(client, monkeypatch):
+    # The retry after a partial cleanup (F18's runbook): the first request cancelled the subscription and then failed
+    # in the database, keeping the account and committing no audit row. The retry walks the same subscriptions, finds
+    # the cancelled one ended and cancels nothing again, then deletes the account with one audit row of its own. Its
+    # Stripe outcome reads "subscriptions_cancelled" because its walk finished, not because it cancelled anything.
+    stripe_api = _FakeStripe(["trialing"])
+    monkeypatch.setattr(stripe, "default_http_client", stripe.RequestsClient(session=stripe_api))
+    with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, email):
+        mark = _last_audit_id()
+        app.dependency_overrides[get_db] = _failing_db("account", [])
+        first = client.delete("/api/users/me")
+        assert first.status_code == 500 and _user_exists(uid)
+        assert _deletion_audits_since(mark) == []
+        app.dependency_overrides.pop(get_db)
+
+        retry = client.delete("/api/users/me")
+
+        assert retry.status_code == 200, retry.text
+        assert retry.json()["third_party_deletions"]["stripe"] == "subscriptions_cancelled"
+        assert stripe_api.cancelled == ["sub_0_trialing"]  # once, by the first request
+        assert not _user_exists(uid)
+        assert _deletion_audits_since(mark) == [(email, str(uid), "success")]
+
+
+@pytest.mark.requires_db
 def test_a_delete_that_finds_the_account_gone_answers_the_routes_500(client, monkeypatch, caplog):
     # A second deletion of the account at once: the first deletes the row while this one makes its Stripe call,
     # so under the account's lock this one finds no row. It answers 500, as at the base (the deletion-failure
     # policy is F18's), but now the route's own 500 and log line, where the base's error log read the deleted
-    # row and raised, so main.py's global handler answered. The audit row is written before the delete.
+    # row and raised, so main.py's global handler answered. Its audit row is staged only once the lock finds the
+    # account, so this deletion commits none (before F19 its success row committed ahead of the delete).
     def first_deletion_commits(stripe_customer_id, _user_id):
         with SessionLocal() as other:
             other.query(User).filter(User.stripe_customer_id == stripe_customer_id).delete()
@@ -308,6 +464,7 @@ def test_a_delete_that_finds_the_account_gone_answers_the_routes_500(client, mon
 
     monkeypatch.setattr(users, "_cancel_billable_subscriptions", first_deletion_commits)
     with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, email):
+        mark = _last_audit_id()
         with caplog.at_level(logging.ERROR, logger="app.routers.users"):
             resp = client.delete("/api/users/me")
 
@@ -315,5 +472,5 @@ def test_a_delete_that_finds_the_account_gone_answers_the_routes_500(client, mon
         assert resp.json() == {"detail": FAILED_DETAIL}
         assert resp.headers.get_list("set-cookie") == []
         assert not _user_exists(uid)
-        assert _audit_rows(email) == [("user_deleted", str(uid), "success")]
+        assert _audit_rows(email) == [] and _deletion_audits_since(mark) == []
         assert f"Error deleting user account {uid}: Account {uid} was deleted after its lookup" in caplog.text

@@ -18,6 +18,7 @@ import pytest
 from openpyxl import load_workbook
 
 from app.services.excel_export_service import build_analysis_workbook
+from app.services.trend_analysis.data_notes import REASONS
 
 EXPORTED_AT = datetime(2026, 7, 6, tzinfo=timezone.utc)
 
@@ -201,7 +202,10 @@ class TestOverviewSheet:
     def test_conventions_are_stated(self, workbook):
         texts = self._texts(workbook)
         assert any("true Excel percentages" in t for t in texts)
-        assert any("Computed Q4" in t or "computed Q4" in t for t in texts)  # † legend (derived present)
+        # Which figures carry a comment is the closing line's to say, once: a calculation, computed Q4 included, whose
+        # comment names it ("Calculated figure." or "Computed Q4.").
+        assert sum("a figure with a data note or a calculation carries a comment" in t for t in texts) == 1
+        assert "Calculation method is separate from whether the source checks passed." in texts  # derived present
 
     def test_brand_mark_png_is_embedded(self, workbook_bytes):
         # openpyxl does not read images back — the zip container is the proof.
@@ -268,6 +272,21 @@ class TestMetricsSheet:
         assert ws["D4"].value == 1.11 and ws["D4"].number_format == "#,##0.00"
         assert ws["D5"].value == 1.5 and ws["D5"].number_format == '0.00"x"'
 
+    def test_a_gap_stays_empty_and_its_note_says_no_dash(self, workbook):
+        # The page and the PDF print a gap as a dash; the workbook leaves its cell empty (its charts an empty slot), so
+        # the note it carries here and in the Overview says only that the figure is not in our data, never zero (data
+        # notes v2). A gap marks nothing (D-061): its comment and its Overview entry name no letter, and the summary
+        # says how this workbook draws it.
+        cell = workbook["Metrics"]["E3"]
+        assert cell.value is None and cell.number_format == "0.0%"
+        note = f"Data note: {REASONS['not_in_dataset']}"
+        assert cell.comment.text == note
+        overview = [row[0] for row in workbook["Overview"].iter_rows(values_only=True) if row[0]]
+        assert (f"{REASONS['not_in_dataset']} Net margin (FY2023); EPS (diluted) (FY2023); Current ratio (FY2023). "
+                "3 figures.") in overview
+        assert any(text.startswith("3 not in our data, left blank · ") for text in overview)
+        assert "dash" not in note and "\u2014" not in note
+
     def test_derived_q4_gets_a_comment_never_a_fill(self, workbook):
         ws = workbook["Metrics"]
         derived = ws["F2"]  # revenue FY2024
@@ -275,7 +294,7 @@ class TestMetricsSheet:
         assert derived.comment.text.endswith(
             "Computed Q4. Calculation details are unavailable in this older snapshot.")
         assert derived.fill.patternType is None  # no fill — comments only
-        assert ws["D2"].comment.text.startswith("Data note a:")  # legacy validation remains unknown
+        assert ws["D2"].comment.text.startswith("Data note: ")  # legacy validation remains unknown, and marks nothing
 
     def test_annual_window_figures(self, workbook):
         ws = workbook["Metrics"]
@@ -292,8 +311,9 @@ class TestMetricsSheet:
             "method": "calculated", "validation": "needs_review", "reasons": ["source_conflict"],
         })
         alternative = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]["G3"]
-        assert alternative.value == 0.5 and alternative.number_format == "0.0%"
-        assert alternative.comment.text.startswith("Data note a: Available sources disagree on this figure.")
+        # Filings that disagree question the number (D-061): the letter follows the figure, set by its format.
+        assert alternative.value == 0.5 and alternative.data_type == "n" and alternative.number_format == '0.0%" a"'
+        assert alternative.comment.text.startswith(f"Data note a: {REASONS['source_conflict']}")
 
     def test_quarterly_dataset_omits_window_columns(self):
         quarterly = _dataset()
@@ -401,7 +421,9 @@ class TestPanelSheets:
         assert input_row[15].hyperlink.target == "https://example.com/filing"
         texts = [str(cell.value) for row in source_sheet for cell in row if cell.value is not None]
         assert "unsupported_eps_calculation" in texts
-        assert "Note" in texts and any(text.startswith("Data note ") for text in texts)
+        # The Note column names an unmarked note in its words, never a letter the grid does not print (D-061).
+        assert "Note" in texts and REASONS["unsupported_eps_calculation"] in texts
+        assert not any(text.startswith("Data note") for text in texts)
         overview = [cell.value for row in workbook["Overview"] for cell in row]
         assert "a" * 64 in overview and "quarterly-v2" in overview
         assert "July 1, 2026, 09:00 UTC" in overview and "2026-07-01T09:00:00Z" not in overview

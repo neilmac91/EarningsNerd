@@ -107,16 +107,15 @@ const UNSOURCED_MAX = 4
 /** Literal tests the scan reads that test something other than a message the code writes. */
 const NOT_MESSAGES: Record<string, string> = {
   'features/analysis/api/analysis-api.ts startsWith data:': 'an SSE frame prefix',
-  'features/filings/api/copilot-api.ts test ^f\\s*\\d+$': 'a citation id',
-  'features/filings/api/copilot-api.ts startsWith XBRL': 'a section reference (two sites)',
+  'features/filings/api/copilot-api.ts startsWith XBRL': 'a section reference (xbrlTag)',
   'features/filings/api/copilot-api.ts test ^f\\s*[1-9]\\d*$': 'a citation id',
   'features/filings/api/copilot-api.ts startsWith data:': 'an SSE frame prefix',
   'features/summaries/api/summaries-api.ts startsWith data: ': 'an SSE frame prefix',
+  'features/summaries/api/summaries-api.ts test ^\\d+(?:\\.\\d+)?$': 'Retry-After seconds, not an error message',
   'lib/api/client.ts includes Network Error': "axios's own error message, not the backend's",
   'lib/api/client.ts includes ECONNREFUSED': "axios's own error code, not the backend's",
   'lib/api/client.ts includes timeout': "axios's own error message, not the backend's",
   'features/summaries/hooks/useSummaryGeneration.ts includes timeout': "axios's own error message (\"timeout of …ms exceeded\"), not the backend's: the test lib/api/client.ts makes",
-  'features/analysis/components/DataNotes.tsx search : |\\. ': "no word is matched: the data notes' summary line cuts a note's message at its first clause, \": \" or \". \", and shows a message with neither whole; nothing is routed on it (D-061)",
 }
 
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']

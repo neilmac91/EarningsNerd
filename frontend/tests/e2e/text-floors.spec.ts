@@ -67,6 +67,8 @@ const BRAND_INK = {
   dark: hexToRgb(TAILWIND.theme.extend.colors.brand['strong-dark']),
 }
 const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Source"]'
+/** The in-flight card's pending step, the label the "summary in flight" route waits for. */
+const PENDING_STEP = 'Writing the summary and checking figures against the filing'
 
 const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
 const companyFiling = (id: number, filing_type: string, filing_date: string, report_date: string) => ({
@@ -151,7 +153,7 @@ const ROUTES: Route[] = [
     },
     ready: async (p) => {
       await expect(p.getByRole('heading', { level: 2, name: 'Generating the summary' })).toBeVisible()
-      await expect(p.getByText('Writing the summary', { exact: true })).toBeVisible()
+      await expect(p.getByText(PENDING_STEP, { exact: true })).toBeVisible()
       // The status line crossfades in on mount (animate-fadeIn): the census reads the header once that has finished, never mid-opacity.
       await settled(p.getByRole('heading', { level: 2, name: 'Generating the summary' }).locator('xpath=..'))
     },
@@ -394,7 +396,8 @@ test.describe('main routes at 1440x900, light theme', () => {
       // Anti-vacuity: the homepage keeps tertiary labels inside its sample cards (on panel and white), and
       // the in-flight card its pending step labels.
       if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name}`).toBeGreaterThan(10)
-      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain('Writing the summary')
+      // The census keeps a text's first 48 characters (inkCensus), so the step is matched on as much.
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain(PENDING_STEP.slice(0, 48))
       // Soft: one run reports every floor a route misses.
       expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name}`).toEqual([])
 
@@ -486,7 +489,7 @@ test.describe('main routes at 1440x900, dark theme', () => {
       const census = await inkCensus(page, TERTIARY_INK_DARK, route.foldOpacity)
       // Anti-vacuity, as in light: the homepage's sample cards and the in-flight card's pending steps.
       if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name} in dark`).toBeGreaterThan(10)
-      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name} in dark`).toContain('Writing the summary')
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name} in dark`).toContain(PENDING_STEP.slice(0, 48))
       expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name} in dark`).toEqual([])
 
       if (route.name === 'company') {

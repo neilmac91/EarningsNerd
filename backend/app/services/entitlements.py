@@ -37,6 +37,19 @@ FREE_TIER_SUMMARY_LIMIT = 5
 FREE_EARNINGS_ALERT_LIMIT = 3
 PRO_EARNINGS_ALERT_LIMIT = 100
 
+# Pro's summary and analysis fair-use ceilings (D-050; the Copilot's is a setting its usage
+# response states). Pro's summaries and Multi-Period Analysis are unlimited as a plan
+# (``monthly_summary_limit`` stays None, so the plan API states no summary limit), and these bound
+# the generations one account runs in a calendar month (UTC), regenerations included: a summary run
+# takes a unit once its provider request is issued, and an analysis run takes one when its fresh
+# narrative completes, a reader's forced refresh among them (a cached re-serve takes none, nor does
+# a regeneration the system starts after new facts or a prompt change once its result is stored).
+# The pricing page states them (the analysis one while the frontend's analysis flag is on), through
+# ``frontend/lib/planLimits.ts``'s mirror, which ``tests/unit/planLimitsLockstep.spec.ts`` holds to
+# these values, so they are constants here and never settings a deploy could move.
+PRO_SUMMARY_MONTHLY_CAP = 300
+ANALYSIS_MONTHLY_CAP = 1000
+
 # Statuses that grant Pro. Mirrors ``app.models.subscription.ACTIVE_STATUSES`` (kept local to avoid
 # importing the model layer for a constant); ``trialing`` is the 7-day reverse trial.
 _ACTIVE_STATUSES = frozenset({"active", "trialing"})
@@ -69,7 +82,7 @@ class Entitlements:
     copilot: bool = False
     # Multi-Period Analysis: N-period trend datasets + grounded AI narrative (Pro flagship).
     # Free users see the page with a locked demo teaser; the dataset/stream/export endpoints gate
-    # on this flag (fair-use cap: settings.ANALYSIS_MONTHLY_CAP, metered like Copilot).
+    # on this flag (fair-use cap: ANALYSIS_MONTHLY_CAP above, metered like Copilot).
     can_analyze_trends: bool = False
     # Free "taste" of Copilot (roadmap 2.2): a lifetime allowance of grounded questions for users
     # without the full `copilot` entitlement, after which they hit the upsell. 0 = no taste (Pro

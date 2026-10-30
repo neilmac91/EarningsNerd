@@ -271,26 +271,19 @@ def render_welcome_email(
     name: str | None,
     position: int,
     referral_link: str,
-    verification_link: str,
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're on the EarningsNerd waitlist.</p>
-    <p style="margin:0 0 16px;">Your current position: <strong>#{position}</strong></p>
-    <p style="margin:0 0 24px;">
-      Please verify your email to secure your place:
-      <a href="{verification_link}" style="color:#3C6650;font-weight:600;">Verify email</a>
-    </p>
+    <p style="margin:0;">Your current position: <strong>#{position}</strong></p>
     """
     text_body = (
         f"{_greeting_text(name)}\n\n"
         "You're on the EarningsNerd waitlist.\n"
-        f"Your current position: #{position}\n\n"
-        "Please verify your email to secure your place:\n"
-        f"Verify email: {verification_link}"
+        f"Your current position: #{position}"
     )
-    preheader = f"You're number {position} on the waitlist. Verify your email to secure your place."
+    preheader = f"You're number {position} on the waitlist."
     return _wrap_html(html_body, footer=_WAITLIST_FOOTER, preheader=preheader), _wrap_text(text_body, _WAITLIST_FOOTER)
 
 
@@ -329,13 +322,11 @@ async def send_waitlist_welcome_email(
     name: str | None,
     position: int,
     referral_link: str,
-    verification_link: str,
 ) -> None:
     page, text = render_welcome_email(
         name=name,
         position=position,
         referral_link=referral_link,
-        verification_link=verification_link,
     )
     await send_email(to=[to_email], subject="You're on the EarningsNerd waitlist", html=page, text=text)
 
@@ -366,7 +357,7 @@ async def send_verification_email(
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
-    <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address and you can start reading.</p>
+    <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address to subscribe to Pro.</p>
     <p style="margin:0 0 24px;">
       <a href="{verification_link}" style="display:inline-block;background-color:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Verify my email</a>
     </p>
@@ -375,7 +366,7 @@ async def send_verification_email(
     """
     text_body = (
         f"{_greeting_text(name)}\n\n"
-        "Thanks for creating an EarningsNerd account. Verify your email address and you can start reading.\n\n"
+        "Thanks for creating an EarningsNerd account. Verify your email address to subscribe to Pro.\n\n"
         f"Verify my email: {verification_link}\n\n"
         "This link expires in 24 hours. If you didn't create an account, you can safely ignore this email."
     )
@@ -464,19 +455,19 @@ async def send_oauth_linked_email(
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
-    <p style="margin:0 0 16px;">A <strong>{provider}</strong> sign-in was just linked to your EarningsNerd account.</p>
-    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">If this was you, no action is needed — you can now sign in with {provider}.</p>
+    <p style="margin:0 0 16px;">A <strong>{provider}</strong> login was just linked to your EarningsNerd account.</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">If this was you, no action is needed: you can now log in with {provider}.</p>
     <p style="margin:0;font-size:14px;color:#B91C1C;">If this <strong>wasn&apos;t</strong> you, please reset your password immediately and contact support.</p>
     """
     text_body = (
-        f"{_greeting_text(name)}\n\nA {provider} sign-in was just linked to your EarningsNerd account.\n\n"
-        f"If this was you, no action is needed: you can now sign in with {provider}.\n\n"
+        f"{_greeting_text(name)}\n\nA {provider} login was just linked to your EarningsNerd account.\n\n"
+        f"If this was you, no action is needed: you can now log in with {provider}.\n\n"
         "If this wasn't you, please reset your password immediately and contact support."
     )
     preheader = "If this was you, there's nothing to do. If it wasn't, reset your password now."
     await send_email(
         to=[to_email],
-        subject=f"A {provider} sign-in was linked to your EarningsNerd account",
+        subject=f"A {provider} login was linked to your EarningsNerd account",
         html=_wrap_html(html_body, preheader=preheader),
         text=_wrap_text(text_body),
     )
@@ -578,16 +569,16 @@ def render_new_filing_alert(
       <strong>{e_type}</strong> with the SEC <span style="white-space:nowrap;">({e_date}).</span></p>
     {_wording_html(wording, url)}
     <p style="margin:0 0 24px;">
-      <a href="{url}" style="display:inline-block;background-color:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Read the AI summary</a>
+      <a href="{url}" style="display:inline-block;background-color:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">View filing</a>
     </p>
-    <p style="margin:0;font-size:13px;color:#6B7280;">We summarise what changed so you don&apos;t have to read the whole filing.</p>
+    <p style="margin:0;font-size:13px;color:#6B7280;">Open the filing to check its summary status and read the original source.</p>
     """
     text_body = (
         f"{_greeting_text(name)}\n\n{company_name} ({ticker}) just filed a {filing_type} with the SEC "
         f"({filing_date}).\n\n"
         + (f"{wording} Review the changes: {url}#what-changed\n\n" if wording else "")
-        + f"Read the AI summary: {url}\n\n"
-        "We summarise what changed so you don't have to read the whole filing."
+        + f"View filing: {url}\n\n"
+        "Open the filing to check its summary status and read the original source."
     )
     preheader = f"{company_name} filed with the SEC on {filing_date}."
     return _wrap_html(html_body, footer=_ALERT_FOOTER, preheader=preheader), _wrap_text(text_body, _ALERT_FOOTER)
@@ -613,7 +604,7 @@ def render_daily_digest(
           <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;{_BREAK_ANYWHERE}">
             <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
             <span style="color:#6B7280;white-space:nowrap;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
-            <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">Read the summary →</a>
+            <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">View filing →</a>
           </td>
         </tr>"""
         for it in items
@@ -628,7 +619,7 @@ def render_daily_digest(
         return "\n".join([
             f"{it['company_name']} ({it['ticker']}) · {it['filing_type']} · {it['filing_date']}",
             *([line] if line else []),
-            f"Read the summary: {_filing_url(it.get('filing_id'), it.get('filing_url'))}",
+            f"View filing: {_filing_url(it.get('filing_id'), it.get('filing_url'))}",
         ])
 
     text_body = (

@@ -10,9 +10,9 @@ import type { Page } from '@playwright/test'
  * user. Shared by filing-source-chip.spec.ts (EN-01), consent-bar-yields.spec.ts (EN-02),
  * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top),
  * filing-reader-wide-tables.spec.ts (EN-04, the `tables` content), prose-links.spec.ts (D-030,
- * which routes an answer with a link) and header-covers-nothing.spec.ts (the pane under the
- * open menu); a spec seeds its own browser
- * state (theme, consent, coachmark) in its own addInitScript.
+ * which routes an answer with a link), header-covers-nothing.spec.ts (the pane under the
+ * open menu) and copilot-status-line.spec.ts (E238, which holds the Ask stream); a spec seeds
+ * its own browser state (theme, consent, coachmark) in its own addInitScript.
  */
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 export const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-summary.json'), 'utf8')) as Record<string, unknown>
@@ -30,8 +30,9 @@ export const FILING = {
 }
 /** The takeaway chip's verified excerpt (filing-3-summary.json, Total net sales). */
 export const EXCERPT = 'Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone and Services.'
-/** The research pane (2026-10 critique P-06): a dialog below lg, an aside (complementary) on lg+. */
-export const PANE = '[aria-label="Filing source and Ask"]'
+/** The research pane (2026-10 critique P-06): a dialog below lg, an aside (complementary) on lg+, named
+    "Source" by its header. */
+export const PANE = '[aria-labelledby="source-pane-title"]'
 /** The synthetic filing text with wide statement tables (see the fixture's header comment); its
  * header comment is stripped, because react-markdown renders an HTML comment as literal text. */
 export const TABLES_TEXT = readFileSync(path.join(__dirname, 'filing-3-content.md'), 'utf8').replace(/^<!--[\s\S]*?-->\n\n/, '')

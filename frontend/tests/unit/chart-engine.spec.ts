@@ -17,9 +17,10 @@ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { compactMoney, DATA_FACE_SIGNS, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
+import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
-import { currencySymbol } from '@/lib/format'
+import { reasonText } from '@/features/analysis/lib/provenance'
+import { currencySymbol, dataFaceDraws } from '@/lib/format'
 import { MIXED_NOTES, questioned, withMixedNotes } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
@@ -336,13 +337,15 @@ describe('the cases the step-1 data required', () => {
 
   it('MIXED_NOTES, the sweeps’ own dataset: only a questioned value or comparison letters, an n/m one included (D-061)', () => {
     const ds = dataset(MIXED_NOTES)
+    // Data notes version 2: the notes that mark a figure take the first letters, so the record-only one follows them.
     expect(resolveDataNotes(ds).notes.map((note) => [note.letter, note.kind, noteMarksFigure(note)]), 'every kind a band can meet')
-      .toEqual([['a', 'review', true], ['b', 'review', false], ['c', 'review', true], ['d', 'unknown', false], ['e', 'unavailable', false]])
+      .toEqual([['a', 'review', true], ['b', 'review', true], ['c', 'review', false], ['d', 'unknown', false], ['e', 'unavailable', false]])
     const band = (chart: ChartId) => Object.fromEntries(Object.entries(buildChartModel(chart, ds).notesBand ?? {}).map(([period, glyphs]) => [period, glyphs.map((glyph) => glyph.text)]))
-    expect(band('topline'), 'a questioned comparison, on a number and on an n/m').toEqual({ FY2024: ['a'], FY2025: ['c'] })
+    expect(band('topline'), 'a questioned comparison, on a number and on an n/m').toEqual({ FY2024: ['a'], FY2025: ['b'] })
+    // A footnote's words are its reason's, from the one map the shared notes fixture holds equal to the backend's.
     expect(buildChartModel('topline', ds).footnotes.slice(0, 2)).toEqual([
-      { mark: 'a', text: 'Revenue YoY FY2024: Available sources disagree on this figure.' },
-      { mark: 'c', text: 'Revenue YoY FY2025: The source inputs cover incompatible reporting periods.' },
+      { mark: 'a', text: `Revenue YoY FY2024: ${reasonText('source_conflict')}` },
+      { mark: 'b', text: `Revenue YoY FY2025: ${reasonText('period_mismatch')}` },
     ])
     expect(band('margins'), 'operating margin’s questioned flags; net margin’s record-only ones letter nothing').toEqual({ FY2023: ['a'], FY2024: ['a'], FY2025: ['a'] })
     expect(band('cash'), 'free cash flow’s unrecorded checks letter nothing').toEqual({})
@@ -599,9 +602,9 @@ describe('amounts carry their filer’s currency, never a default dollar sign', 
     expect([moneyPrefix('KRW'), moneyPrefix('VND'), moneyPrefix('INR'), moneyPrefix('ILS'), moneyPrefix('PHP')]).toEqual(['KRW ', 'VND ', '₹', '₪', '₱'])
     // XOF's "F CFA" holds a narrow no-break space (U+202F), which no Geist Mono face draws, so it prints its code too.
     expect(moneyPrefix('XOF')).toBe('XOF ')
-    // Over the ISO 4217 list, every glyph past ASCII that a prefix prints is a sign the data face draws (G2).
+    // Over the ISO 4217 list, every glyph that a prefix prints is one the data face draws (G2).
     const printed = Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])
-    expect([...new Set(printed)].filter((glyph) => glyph > '\u007f' && !DATA_FACE_SIGNS.includes(glyph))).toEqual([])
+    expect([...new Set(printed)].filter((glyph) => !dataFaceDraws(glyph))).toEqual([])
     expect(printed, 'the list is the one Intl prints from').toEqual(expect.arrayContaining(['₹', '₪', '₱', '€', '£', '¥']))
   })
 

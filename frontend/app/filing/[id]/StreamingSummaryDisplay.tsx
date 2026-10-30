@@ -16,17 +16,20 @@
    (backend/app/services/summary_pipeline.py), not here.
 ============================================================================= */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
+import { plural } from '@/features/filings/lib/sectionChanges'
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { Badge, Card, GuidanceCard, SkeletonText, buttonVariants } from '@/components/ui'
-import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
+import { CheckIcon } from '@/lib/icons'
+import { isNonRetryableStreamError, isPaywallStreamError, type SummaryStreamFailure } from '@/features/summaries/api/summaries-api'
+import { secondaryUnavailableClass } from '@/components/ui/Button'
 import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
-import { PRO_FAIR_USE_LINE, TRIAL_DAYS } from '@/lib/planLimits'
+import { TRIAL_DAYS, proFairUseLine } from '@/lib/planLimits'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { RetryButton } from '@/hooks/useRetainedFailure'
@@ -41,7 +44,9 @@ import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 // (DESIGN_SYSTEM.md §4 › Inline notice, §9). The pools follow the pipeline
 // (backend/app/services/summary_stages): fetching downloads, parsing reads the sections, and the
 // figure work runs under summarizing (analyzing is two yields between two progress writes,
-// enrichment.py:187-195, so it lasts milliseconds), so those two stages share a pool.
+// enrichment.py:187-195, so it lasts milliseconds), so those two stages share a pool. A line says what the step
+// beside it does not: "Checking the figures against the filing's data…" left the summarizing pool once the
+// writing step said the same (E230).
 const STATUS_LINES = {
   fetching: ['Opening the filing…'],
   parsing: [
@@ -50,7 +55,6 @@ const STATUS_LINES = {
     'Reviewing the line called Other…',
   ],
   summarizing: [
-    'Checking the figures against the filing’s data…',
     'Finding where the filing says that…',
     'Translating management’s phrasing into plain English…',
   ],
@@ -82,14 +86,19 @@ const statusLine = (stage: string, filingId: number, isStalled: boolean): string
 // live stage below — not from a timer — so the log reflects what is actually happening.
 const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing', 'summarizing', 'completed'] as const
 
-// Honest progress steps mapped to real backend stages. The filing-type label is
-// derived from the actual filing (no more hard-coded "10-Q"), and there is no
-// "vectorizing"/"semantic analysis" step because the summary path does no embedding.
+// Honest progress steps mapped to real backend stages, each step the stages it covers, in order. The filing-type
+// label is derived from the actual filing (no more hard-coded "10-Q"), and there is no "vectorizing"/"semantic
+// analysis" step because the summary path does no embedding. The figures are checked while the summary is written:
+// the backend's `analyzing` stage passes in milliseconds, two yields between two progress writes, and the XBRL
+// cross-reference and the grounding check before the summary is stored both run under `summarizing`. So one step
+// covers both stages and says both, where a step of its own ticked done before any figure was checked (E196 (6)). The
+// check says "figures", never "its figures": the code checks only some, so the label claims no more than the step it
+// replaced did (docs/voice-and-style.md › Claims). "Against the filing" is true of both checks: the figure trace reads
+// the filing's text, and the projection beside it the filing's own XBRL.
 const buildLoadingSteps = (filingType: string) => [
-  { stage: 'fetching', label: `Fetching the ${filingType || 'filing'} from SEC.gov` },
-  { stage: 'parsing', label: 'Reading the statements, risk factors and MD&A' },
-  { stage: 'analyzing', label: 'Checking figures against the filing’s data' },
-  { stage: 'summarizing', label: 'Writing the summary' },
+  { stages: ['fetching'], label: `Fetching the ${filingType || 'filing'} from SEC.gov`, code: filingType || undefined },
+  { stages: ['parsing'], label: 'Reading the statements, risk factors and MD&A' },
+  { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking figures against the filing' },
 ]
 
 // Screen-reader announcement for the live region. Derived from the stage (never the percent), so the
@@ -98,7 +107,7 @@ const buildLoadingSteps = (filingType: string) => [
 // stalled reads both again).
 const stageAnnouncement = (stage: string, filingType: string): string => {
   if (stage === 'completed') return 'Summary ready.'
-  const step = buildLoadingSteps(filingType).find((s) => s.stage === stage)
+  const step = buildLoadingSteps(filingType).find((s) => s.stages.includes(stage))
   if (step) return `${step.label}.`
   if (stage === 'initializing' || stage === 'queued') return 'Starting summary generation.'
   return 'Generating the summary.'
@@ -119,6 +128,20 @@ const STAGE_PROGRESS_MAP: Record<string, number> = {
 
 type StepStatus = 'complete' | 'active' | 'pending'
 
+/** A step's label with its form code kept whole, one whitespace-nowrap run, as the live-status line keeps it: at 390px
+    under 200% text the fetching step broke "10-K" at its hyphen (E230). The live region reads the plain label. */
+function StepLabel({ label, code }: { label: string; code?: string }) {
+  const at = code ? label.indexOf(code) : -1
+  if (!code || at < 0) return <>{label}</>
+  return (
+    <>
+      {label.slice(0, at)}
+      <span className="whitespace-nowrap">{code}</span>
+      {label.slice(at + code.length)}
+    </>
+  )
+}
+
 /** Quiet, backend-driven step log — brand check (done) / static dot (active) / empty hairline
     circle (pending). Every label stays at full opacity: a pending one is tertiary ink (4.9:1 and up),
     never faded text. No connector line, no ping, no bounce. */
@@ -127,18 +150,22 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
   return (
     <ul className="space-y-3">
       {steps.map((step) => {
-        const stepIdx = STAGE_ORDER.indexOf(step.stage as (typeof STAGE_ORDER)[number])
+        // A step is active through each stage it covers and done once the run is past its last.
+        const firstIdx = STAGE_ORDER.indexOf(step.stages[0] as (typeof STAGE_ORDER)[number])
+        const lastIdx = STAGE_ORDER.indexOf(step.stages[step.stages.length - 1] as (typeof STAGE_ORDER)[number])
         const status: StepStatus =
-          stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > stepIdx)
+          stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > lastIdx)
             ? 'complete'
-            : displayStageIdx === stepIdx
+            : displayStageIdx >= firstIdx && displayStageIdx <= lastIdx
               ? 'active'
               : 'pending'
 
         return (
+          // The marker aligns to the label's first line: its circle and the label's line are both 1.25rem, so a label
+          // that wraps (the writing step's, at phone widths) keeps its dot beside its first line, not between lines.
           <li
-            key={step.stage}
-            className="flex items-center gap-3"
+            key={step.stages[0]}
+            className="flex items-start gap-3"
           >
             <span
               className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors duration-base ${
@@ -150,9 +177,8 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
               }`}
             >
               {status === 'complete' ? (
-                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                // Bold: at 12px regular's stroke is 0.75px, under a device pixel (DESIGN.md › Icons).
+                <CheckIcon weight="bold" className="h-3 w-3" aria-hidden="true" />
               ) : status === 'active' ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
               ) : null}
@@ -166,7 +192,7 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
                     : 'text-text-tertiary-light dark:text-text-tertiary-dark'
               }`}
             >
-              {step.label}
+              <StepLabel label={step.label} code={step.code} />
             </span>
           </li>
         )
@@ -183,10 +209,14 @@ export default function StreamingSummaryDisplay({
   message,
   filing,
   error,
-  onRetry,
+  onRetry: requestRetry,
   elapsedSeconds = 0,
   trialEligible = false,
   afterFailure,
+  failure,
+  retryAfterSeconds = 0,
+  retainedResult = false,
+  retainedFocusTarget,
 }: {
   streamingText: string
   stage: string
@@ -203,7 +233,16 @@ export default function StreamingSummaryDisplay({
   /** Shown under the failure surface once the run has ended without a summary (an error, or the
    * monthly limit): the filing page passes its change report, which needs no summary. */
   afterFailure?: ReactNode
+  failure?: SummaryStreamFailure
+  retryAfterSeconds?: number
+  /** A failed refresh keeps its previously loaded summary below this compact notice. */
+  retainedResult?: boolean
+  retainedFocusTarget?: RefObject<HTMLElement | null>
 }) {
+  const onRetry = requestRetry ? () => {
+    if (retryAfterSeconds > 0) return
+    requestRetry()
+  } : undefined
   const [isClient, setIsClient] = useState(false)
   const [optimisticProgress, setOptimisticProgress] = useState(0)
   // Focus targets: the progress card's heading takes focus from a Retry that leaves (RetryButton's
@@ -214,14 +253,14 @@ export default function StreamingSummaryDisplay({
   // card's heading when its press starts the run, or this card's own heading when the card stays without its
   // Retry (a signed-out press starts no run, and its sign-in sentence is one no retry can help).
   const retryFocusTarget = useMemo(() => ({
-    get current() { return progressHeadingRef.current ?? failureHeadingRef.current },
-  }), [])
+    get current() { return retainedFocusTarget?.current ?? progressHeadingRef.current ?? failureHeadingRef.current },
+  }), [retainedFocusTarget])
 
   const isError = stage === 'error' || !!error
   // Stalled: derived in render, not stored, so the stage and the stall land in one commit and the live region
   // below changes once per transition. Normal generation runs ~30-60s; only flag a genuine stall well past that
   // window, and never while the summary is being written, so we never signal "failure" during a healthy run.
-  const isStalled = elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError
+  const isStalled = elapsedSeconds > 45 && stage !== 'queued' && stage !== 'completed' && stage !== 'summarizing' && !isError
   // A failed generation (or the monthly limit) ends the run the user is waiting on, often from page load
   // with focus on <body>: its card's heading takes focus then, so the next Tab is the card's action, not
   // the site header. Gated on isClient: the first client render is the skeleton, with no card to focus.
@@ -240,6 +279,11 @@ export default function StreamingSummaryDisplay({
       return
     }
     if (isError) return
+    if (stage === 'queued') {
+      // A durable queue or source retry has no measured completion percentage yet.
+      setOptimisticProgress(0)
+      return
+    }
 
     // Get base progress for current stage
     const baseProgress = STAGE_PROGRESS_MAP[stage] || 0
@@ -313,13 +357,47 @@ export default function StreamingSummaryDisplay({
   // The live-status line: the stage's line of the voice while healthy, the stalled sentence when stalled.
   // Only rendered inside the progress card, which is itself hidden on error — so the GuidanceCard is the
   // single failure surface (one error surface, not two).
-  const line = statusLine(stage, filing.id, isStalled)
+  const line = stage === 'queued' ? message || 'Preparing this summary…' : statusLine(stage, filing.id, isStalled)
   // The trial sentence is true only while the trial ships (ENABLE_PRO_TRIAL, flipped with the backend's
   // PRO_TRIAL_DAYS) and this user would get it (trialEligible, from the page).
   const showTrial = ENABLE_PRO_TRIAL && trialEligible
   // The reason the run stopped, in the product's words: the raw message still decides the card (the
   // paywall matcher reads it), the reader sees its mapped sentence.
   const failureReason = streamErrorCopy(error || message) || 'It timed out before the summary finished. Try again to pick it up.'
+  // One retry policy for an interrupted first summary and an interrupted refresh. The latter
+  // uses ordinary recovery too; it must never repeat a paid refresh implicitly.
+  const retryAction = onRetry && !isNonRetryableStreamError(error || message || '', failure?.code) ? (
+    <RetryButton
+      aria-disabled={retryAfterSeconds > 0 || undefined}
+      className={secondaryUnavailableClass}
+      size={retainedResult ? 'sm' : undefined}
+      failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
+      focusTarget={retryFocusTarget}
+    />
+  ) : undefined
+
+  if (retainedResult && isError) {
+    return (
+      <Notice
+        variant="error"
+        title="Could not confirm the refreshed summary."
+        description={
+          <>
+            Showing the previously loaded summary.
+            <span className="mt-2 block">{failureReason}</span>
+            {retryAfterSeconds > 0 && (
+              <span className="mt-2 block">
+                You can try again in {retryAfterSeconds < 60
+                  ? plural(retryAfterSeconds, 'second')
+                  : plural(Math.ceil(retryAfterSeconds / 60), 'minute')}.
+              </span>
+            )}
+          </>
+        }
+        action={retryAction}
+      />
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -363,7 +441,7 @@ export default function StreamingSummaryDisplay({
               </span>
               {isGenerating && (
                 <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-                  Usually 30–60s
+                  Estimated progress
                 </span>
               )}
             </div>
@@ -399,7 +477,7 @@ export default function StreamingSummaryDisplay({
           pitch renders ONLY for trial-eligible users — a churned ex-Pro hitting this card gets a
           plain upgrade CTA, because checkout would charge them immediately (staff review, #619).
           Everything else keeps the honest error, and a retry where one can help. */}
-      {isError && isPaywallStreamError(error || message || '') ? (
+      {isError && isPaywallStreamError(error || message || '', failure?.code) ? (
         <GuidanceCard
           title="You've hit this month's free limit"
           headingLevel="h2"
@@ -409,8 +487,8 @@ export default function StreamingSummaryDisplay({
               {showTrial
                 ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
                 : 'Your free summaries reset next month. Or go unlimited now with Pro.'}
-              {/* What "unlimited" holds, stated once app-wide (lib/planLimits.ts PRO_FAIR_USE_LINE, E58). */}
-              <span className="mt-2 block">{PRO_FAIR_USE_LINE}</span>
+              {/* What "unlimited" holds, stated once app-wide (lib/planLimits.ts proFairUseLine(), E58, D-050). */}
+              <span className="mt-2 block">{proFairUseLine()}</span>
             </>
           }
           action={
@@ -425,25 +503,19 @@ export default function StreamingSummaryDisplay({
           title="Generation interrupted"
           headingLevel="h2"
           headingRef={failureHeadingRef}
-          description={failureReason}
-          action={
-            // Only for a failure a retry can help. The raw message decides, read by the matcher that also stops
-            // the stream's automatic retry: Pro's fair-use pause, a sign-in or a permission error keeps its
-            // sentence and offers no Retry, since a press would only repeat the blocked request.
-            onRetry && !isNonRetryableStreamError(error || message || '') ? (
-              // RetryButton (secondary by default: an error retry is never the page's primary action).
-              // It restarts the SSE stream, not a query, so its failure is the stream's own state, not
-              // useRetainedFailure's hold: a press clears the error in the render that starts the stream,
-              // so this card never shows a run in flight (busy stays false) and leaves with the press when
-              // the run starts; focus then goes to the progress card's heading, in the branch that replaced
-              // this one. A signed-out press starts no run: the card stays with the sign-in sentence, which
-              // no retry can help, so the Retry leaves and focus goes to this card's heading.
-              <RetryButton
-                failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
-                focusTarget={retryFocusTarget}
-              />
-            ) : undefined
+          description={
+            <>
+              {failureReason}
+              {retryAfterSeconds > 0 && (
+                <span className="mt-2 block">
+                  You can try again in {retryAfterSeconds < 60
+                    ? plural(retryAfterSeconds, 'second')
+                    : plural(Math.ceil(retryAfterSeconds / 60), 'minute')}.
+                </span>
+              )}
+            </>
           }
+          action={retryAction}
         />
       ) : null}
       {isError && afterFailure}

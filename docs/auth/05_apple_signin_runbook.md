@@ -4,6 +4,9 @@ Status: **blocked on Apple Developer membership approval.** Run this the moment 
 account shows **Active** (not "Pending"). Everything below is split into *what you do*
 and *what I build*.
 
+Once it is set up, the check of what a person sees before signing in with Apple (or Google) is
+[`07_oauth_provider_check.md`](07_oauth_provider_check.md) (F38).
+
 ---
 
 ## Part 1 — Apple Developer Console (you)

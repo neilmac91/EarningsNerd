@@ -2,8 +2,8 @@
    Motion constants — lib/motion.ts
    -----------------------------------------------------------------------------
    JS mirror of the CSS motion tokens (globals.css :root)
-   for consumers that need NUMBERS, not var() strings: Recharts animationDuration
-   (ui/Chart.tsx lineProps) and the useCountUp rAF loop. The CSS :root block and
+   for consumers that need NUMBERS, not var() strings: the useCountUp rAF loop,
+   the citation flash's timer and the streaming summary's tick. The CSS :root block and
    this file are the only sanctioned homes for raw motion values — keep in sync.
 ============================================================================= */
 
@@ -12,7 +12,7 @@ export const MOTION = {
   fast: 150,
   /** 200ms — crossfades, theme switch, skeleton→content. */
   base: 200,
-  /** 600ms — entrances, draw-ins, count-up. */
+  /** 600ms — entrances, count-up. */
   slow: 600,
   /** 1800ms — ambient loops + attention decay (shimmer, pulse, citation-flash). */
   ambient: 1800,

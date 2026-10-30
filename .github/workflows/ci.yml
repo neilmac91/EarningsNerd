@@ -323,12 +323,24 @@ jobs:
         env:
           FEEDBACK_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_feedback_submission_transactions.py
+      - name: Verify durable summary ownership on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          SUMMARY_JOB_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_summary_job_transactions.py
       - name: Verify summary progress concurrency on PostgreSQL
         working-directory: backend
         timeout-minutes: 3
         env:
           PROGRESS_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_summary_progress_transactions.py
+      - name: Verify SEC request admission concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          SEC_ADMISSION_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_sec_request_gate_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -725,6 +737,9 @@ jobs:
           NEXT_PUBLIC_ENABLE_CALENDAR: 'true'
           NEXT_PUBLIC_CALENDAR_FIXTURES: 'true'
           NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH: 'true'
+          # Production shows the summary page's coverage badge, so the browser gates build it too: reflow-200.spec.ts's
+          # coverage cases hold it at 320 to 390px under 200% text, and fail on a build without it (E181).
+          NEXT_PUBLIC_ENABLE_QUALITY_BADGE: 'true'
       - name: Start frontend server
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run start &
@@ -736,6 +751,7 @@ jobs:
           NEXT_PUBLIC_ENABLE_CALENDAR: 'true'
           NEXT_PUBLIC_CALENDAR_FIXTURES: 'true'
           NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH: 'true'
+          NEXT_PUBLIC_ENABLE_QUALITY_BADGE: 'true'
       - name: Wait for frontend server
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npx wait-on http://localhost:3000 --timeout 60000

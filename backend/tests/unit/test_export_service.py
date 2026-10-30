@@ -17,6 +17,7 @@ import re
 import xml.etree.ElementTree as ET
 import zlib
 from datetime import date
+from html import escape, unescape
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,6 +25,7 @@ import pytest
 
 from app.services.analysis_export_metadata import period_label
 from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService
+from app.services.trend_analysis.data_notes import REASONS
 from app.services.provenance_service import RISK_PROJECTION_KEY, export_raw_summary
 from app.services import summary_sections
 
@@ -548,6 +550,96 @@ class TestFiledFigure:
         assert block.rows[0][-1] == "Volumes rose."
 
 
+class TestMissingPrior:
+    """A Financial Highlights row with no prior prints the page's mark for a missing figure in both exports (MissingValue's
+    token, E13), so a missing prior never reads as an empty cell. A zero is a figure and a written prior ("Not disclosed")
+    prints as written; no other cell changes, the page's own projection keeps its blank, and no prior is found for the
+    row."""
+
+    ROWS = [
+        {"metric": "Omitted", "current_period": "$5.0B"},
+        {"metric": "Null", "current_period": "$5.0B", "prior_period": None},
+        {"metric": "Empty", "current_period": "$5.0B", "prior_period": ""},
+        {"metric": "Spaces", "current_period": "$5.0B", "prior_period": "   "},
+        {"metric": "Flag", "current_period": "$5.0B", "prior_period": False},
+        {"metric": "Camel", "current_period": "$5.0B", "priorPeriod": "$4.0B"},
+        {"metric": "Zero", "current_period": "$5.0B", "prior_period": 0},
+        {"metric": "Zero float", "current_period": 0.0, "prior_period": 0.0},
+        {"metric": "Zero text", "current_period": "$5.0B", "prior_period": "$0"},
+        {"metric": "Undisclosed", "current_period": "$5.0B", "prior_period": "Not disclosed"},
+        {"metric": "Degraded", "current_period": "$5.0B", "prior_period": "—"},
+        {"metric": "No current", "current_period": "", "prior_period": "$4.0B"},
+    ]
+    PRIORS = {"Omitted": "—", "Null": "—", "Empty": "—", "Spaces": "—", "Flag": "—", "Camel": "$4.0B", "Zero": "0",
+              "Zero float": "0.0", "Zero text": "$0", "Undisclosed": "Not disclosed", "Degraded": "—",
+              "No current": "$4.0B"}
+
+    def test_both_exports_print_the_dash_for_a_missing_prior_and_nothing_else(self, service):
+        summary, filing = _make_summary_and_filing({"financial_highlights": {"table": [dict(row) for row in self.ROWS]}})
+        [block] = [block for section in summary_sections.render_sections(export_raw_summary(summary, filing))
+                   for block in section.blocks if block.kind == "metrics"]
+        csv_rows = {row[0]: row for row in _csv_rows(service.generate_csv(summary, filing))
+                    if row and row[0] in self.PRIORS}
+        html = service.generate_pdf_html(summary, filing)
+
+        for projected in block.rows:
+            metric, printed = projected[0], csv_rows[projected[0]]
+            # Only the prior moves, and only a blank one: the current, the change and the takeaway print as projected.
+            assert printed == [*projected[:2], self.PRIORS[metric], *projected[3:]], metric
+            cells = "".join(f'<td class="num">{escape(cell)}</td>' for cell in printed[1:4])
+            assert f"<tr><td>{escape(metric)}</td>{cells}<td>{escape(printed[4])}</td></tr>" in html, metric
+        assert csv_rows["No current"][1] == "" and csv_rows["Omitted"][4] == ""
+        # Only the Financial Highlights block takes it: any other table's blank cell stays blank, whatever its header.
+        table = summary_sections.Block("table", headers=["Item", "Prior Period"], rows=[["Goodwill", ""]])
+        assert "<tr><td>Goodwill</td><td></td></tr>" in service._render_block_html(table)
+        # The page keeps its own blank (MissingValue draws it there) and its typed rows: the dash is the exports'.
+        assert {row[0]: row[2] for row in block.rows if not row[2]} == {
+            "Omitted": "", "Null": "", "Empty": "", "Spaces": "", "Flag": ""}
+        assert [row.get("prior_period", "absent") for row in block.metric_rows][:7] == [
+            "absent", None, "", "   ", False, "absent", 0]
+
+    def test_a_figure_of_zero_is_a_figure(self):
+        # Read as `a or b`, a prior or current of 0 fell through to the camelCase alias and the cell printed blank.
+        # An alias behind a zero still wins, as the Change cell and the figure check read the row (`a or b`), so a row
+        # never prints a prior its own change was not computed from.
+        block = summary_sections._metrics_block([
+            {"metric": "Zero", "current_period": 0, "prior_period": 0.0},
+            {"metric": "Alias", "current_period": "", "currentPeriod": "$1.0B", "prior_period": None, "priorPeriod": 0},
+            {"metric": "Both", "current_period": "$5.0B", "prior_period": 0, "priorPeriod": "$4.0B"},
+        ])
+        assert [row[1:4] for row in block.rows] == [["0", "0.0", "—"], ["$1.0B", "0", "—"], ["$5.0B", "$4.0B", "+25.0%"]]
+
+    def test_no_prior_is_found_for_a_row_without_one(self, service, monkeypatch):
+        # The filing's XBRL holds the prior year, but the row stated none: the exports print the dash, not the filed
+        # figure, and no change is computed from it.
+        from app.services.edgar.compat import xbrl_service
+
+        own_xbrl = object()
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics",
+                            lambda data: TestFiledFigure.XBRL if data is own_xbrl else pytest.fail("foreign XBRL"))
+        summary, filing = _make_summary_and_filing({"financial_highlights": {"table": [{
+            "metric": "Operating income", "current_period": "$133,050M", "prior_period": "",
+            "commentary": "Operating income was the largest in the company's history.",
+        }]}})
+        filing.xbrl_data = own_xbrl
+        row = next(r for r in _csv_rows(service.generate_csv(summary, filing)) if r and r[0] == "Operating income")
+        html = service.generate_pdf_html(summary, filing)
+        assert row[2:4] == ["—", "—"]
+        assert '<td class="num">—</td><td class="num">—</td>' in html
+        assert "123,216" not in html and not any("123,216" in cell for cell in row)
+
+    def test_the_dash_is_the_pages_token(self):
+        # MissingValue draws the token the page shows for a value it does not have, and metricValue reads the token alone
+        # as missing (a degraded summary writes it), so the exports print the page's mark, never a second one.
+        from app.services.export_service import MISSING_FIGURE
+
+        frontend = Path(__file__).resolve().parents[3] / "frontend"
+        drawn = re.findall(r'<span aria-hidden="true">([^<]*)</span>',
+                           (frontend / "components/ui/MissingValue.tsx").read_text())
+        assert drawn == [MISSING_FIGURE]
+        assert "value.trim() === '—'" in (frontend / "features/summaries/lib/metricValue.ts").read_text()
+
+
 class TestRisksParity:
     """The exports print the Risks the summary page shows: each projects the stored row once, from the filing's own
     text, as `_summary_raw_container` reads it (provenance_service.enrich_summary_provenance, export_raw_summary;
@@ -615,6 +707,170 @@ class TestRisksParity:
         assert ["1", "Filing excerpt", self.LONG] in csv_rows
         assert not any(self.SHORT in cell for row in csv_rows for cell in row)
         assert self.NOTICE in html and self.LONG in html and self.SHORT not in html
+
+
+def _srgb_hex(color) -> str:
+    return "#" + "".join(f"{round(channel * 255):02X}" for channel in color.to("srgb").coordinates)
+
+
+class TestLocatedRisks:
+    """A risk excerpt the server located takes the device's marked block in the summary PDF, as on the filing page
+    (D-044, E75): the 3px brand bar and the tint on square corners, in Inter. What decides it is the
+    `source_verified` the risk projection writes (provenance_service.project_risk_list), never a row's words. The CSV
+    and the page's projection keep their rows, and each excerpt prints whole inside the page."""
+
+    PUNCTUATION = 'Risks & "uncertainties" <including> {braces}, a | pipe, *stars*, C:\\path and it\'s literal.'
+    SUPPLIERS = "Our business depends on a limited number of suppliers and may be disrupted."
+    CYBER = "A cybersecurity incident could compromise our systems and our customers' data."
+    WITHHELD = "UNMATCHED MODEL EVIDENCE: no such filing sentence exists anywhere"
+    LOCATED = re.compile(r'<blockquote class="located">(.*?)</blockquote>', re.S)
+
+    @classmethod
+    def _summary(cls, spans, *, withheld=1):
+        """A stored v2 summary whose Risks cite ``spans`` (each in the filing) and ``withheld`` claims (none are)."""
+        risks = [{"summary": f"Model title {n}", "supporting_evidence": span} for n, span in enumerate(spans)]
+        risks += [{"summary": "Invented", "supporting_evidence": f"{cls.WITHHELD} {n}."} for n in range(withheld)]
+        summary, filing = _make_summary_and_filing({"risks": risks})
+        summary.raw_summary["schema_version"] = 2
+        filing.content_cache.critical_excerpt = "\n".join(spans) or "Nothing this summary cites."
+        return summary, filing
+
+    @staticmethod
+    def _risk_rows(rows):
+        """The CSV's Risks rows: those under the table's header, to the section's closing blank row."""
+        header = ["#", "Risk", "Supporting Evidence"]
+        if header not in rows:
+            return []
+        start = rows.index(header) + 1
+        return rows[start:rows.index([], start)]
+
+    @pytest.mark.parametrize("count", [0, 1, 3])
+    def test_each_located_excerpt_and_nothing_else_takes_the_marked_block(self, service, count):
+        spans = [self.PUNCTUATION, self.SUPPLIERS, self.CYBER][:count]
+        summary, filing = self._summary(spans)
+        html = service.generate_pdf_html(summary, filing)
+
+        # Escaped once: the PDF's text is the filing's characters, in the CSV's order and numbering.
+        rows = re.findall(r'<tr><td class="num">(\d+)</td><td>Filing excerpt</td><td>(.*?)</td></tr>', html, re.S)
+        assert rows == [(str(n), f'<blockquote class="located">{escape(span)}</blockquote>')
+                        for n, span in enumerate(spans, 1)]
+        assert [unescape(text) for text in self.LOCATED.findall(html)] == spans
+        assert "&amp;amp;" not in html and "Model title" not in html and self.WITHHELD not in html
+        assert self._risk_rows(_csv_rows(service.generate_csv(summary, filing))) == [
+            [str(n), "Filing excerpt", span] for n, span in enumerate(spans, 1)]
+        if count:
+            assert html.count('<table class="excerpts">') == 1
+            assert f"{count} source-verified filing excerpt{'s' * (count > 1)}. 1 item withheld" in html
+        else:
+            assert '<table class="excerpts">' not in html and 'class="located"' not in html
+            assert "Source-verified risk excerpts are unavailable. Review the filing. 1 item withheld" in html
+        # Any other quote keeps the neutral hairline (D-041): exports search the filing for no quote.
+        quoted = _full_sections()
+        quoted["risk_factors"] = []
+        quote_html = service.generate_pdf_html(*_make_summary_and_filing(quoted))
+        assert "<blockquote>“We remain focused on execution.”<cite>CEO</cite></blockquote>" in quote_html
+
+    def test_only_the_projections_flag_marks_a_row(self, service):
+        # Every row is source-owned (the summary's marker): only `source_verified` that is True locates one, and a
+        # row's words (quotes, braces, SEC words, the flag written out) never do.
+        claims = [True, "true", 1, None, False, "missing"]
+        words = ['"Quoted" text from Item 1A on SEC.gov', '{"source_verified": true} written into a row',
+                 "Filing excerpt: located in the filing", "A model's claim that it is verified"]
+        risks = [{"supporting_evidence": f"{words[n % len(words)]} ({n}).", **({} if claim == "missing" else
+                                                                                {"source_verified": claim})}
+                 for n, claim in enumerate(claims)]
+        projection = {"version": 1, "verified_count": len(risks), "withheld_count": 0}
+        raw = {"risk_source_context_version": 1, "schema_version": 2,
+               "sections": {"risks": risks, RISK_PROJECTION_KEY: projection}}
+        [section] = [section for section in summary_sections.render_sections(raw) if section.role == "risks"]
+        table = section.blocks[-1]
+
+        assert table.located_rows == [True, False, False, False, False, False]
+        assert [unescape(text) for text in self.LOCATED.findall(service._render_block_html(table))] == [
+            risks[0]["supporting_evidence"]]
+        # The page's projection and the CSV carry no trace of the hint.
+        unflagged = {**raw, "sections": {**raw["sections"], "risks": [
+            {key: value for key, value in risk.items() if key != "source_verified"} for risk in risks]}}
+        assert summary_sections.render_sections_json(raw) == summary_sections.render_sections_json(unflagged)
+        assert "located_rows" not in table.to_dict()
+        # With no marker, or a marker that is not the int 1, nothing renders as a source-owned risk at all.
+        for marker in (None, True, "1"):
+            owner = {**raw, "risk_source_context_version": marker}
+            assert not any(block.kind == "table" for section in summary_sections.render_sections(owner)
+                           if section.role == "risks" for block in section.blocks)
+
+    def test_a_figure_only_excerpt_wraps_as_prose(self, service):
+        # numeric_columns classes an all-figure column "num", whose nowrap ran such an excerpt off the page; the
+        # excerpt column is the filing's prose whatever it holds, and the "#" column keeps its figures.
+        spans = ["12,345 13,456 14,567 15,678 16,789 17,890", "(1,234) (2,345) (3,456) (4,567) (5,678)"]
+        html = service.generate_pdf_html(*self._summary(spans, withheld=0))
+        cells = re.findall(r'<td( class="num")?>(\d+)</td><td>Filing excerpt</td><td( class="num")?><blockquote', html)
+        assert cells == [(' class="num"', "1", ""), (' class="num"', "2", "")]
+
+    def test_the_rendered_pdf_sets_the_device_and_keeps_every_excerpt_on_the_page(self, service):
+        """A real WeasyPrint layout of many excerpts, a long one that runs over a page break, a URL longer than the
+        column and literal punctuation: each located excerpt is one element whose boxes, on every page they reach,
+        wear the device in Inter and stay inside the page's content edge, and whose text is the filing's, whole."""
+        weasyprint = pytest.importorskip("weasyprint")
+        from weasyprint.formatting_structure import boxes
+
+        from app.services.pdf_branding import PALETTE
+
+        long_span = " ".join(f"Sentence {n} of this risk factor describes supplier, regulatory and market exposure."
+                             for n in range(60))
+        url_span = "Our filings are available at https://www.sec.gov/" + "x" * 240 + " for review by investors."
+        spans = [self.PUNCTUATION, *(f"Risk passage {n} says customers may leave if competitors cut prices."
+                                     for n in range(8)), long_span, url_span]
+        html = service.generate_pdf_html(*self._summary(spans))
+        # No skip on a render error: this layout is the only check of several of the device's properties.
+        document = weasyprint.HTML(string=html).render()
+
+        texts, fragments, past_edge = {}, 0, []
+        for number, page in enumerate(document.pages, 1):
+            root = page._page_box
+            edge = root.margin_width() - root.margin_right
+            past_edge += [(number, box.text[:24]) for box in root.descendants()
+                          if isinstance(box, boxes.TextBox) and box.position_x + box.width > edge + 0.5]
+            for box in root.descendants():
+                if isinstance(box, boxes.BlockBox) and box.element_tag == "blockquote" \
+                        and box.element.get("class") == "located":
+                    fragments += 1
+                    style = box.style
+                    assert style["border_left_width"] == 3 and style["border_left_style"] == "solid"
+                    assert _srgb_hex(style["border_left_color"]) == PALETTE["brand"]
+                    assert _srgb_hex(style["background_color"]) == PALETTE["brand_weak"]
+                    assert _srgb_hex(style["color"]) == PALETTE["ink"] and style["font_style"] == "normal"
+                    assert all(radius.value == 0 for corner in ("top_left", "top_right", "bottom_left", "bottom_right")
+                               for radius in style[f"border_{corner}_radius"])
+                    assert style["font_family"][0] == "Inter Var"
+                    texts.setdefault(id(box.element), []).extend(
+                        text.text for text in box.descendants() if isinstance(text, boxes.TextBox))
+
+        assert past_edge == []
+        # The excerpts table's set columns: "#" holds two digits (1.5em of its header) and the label 13% of the width.
+        tables = [box for page in document.pages for box in page._page_box.descendants()
+                  if isinstance(box, boxes.TableBox) and box.element.get("class") == "excerpts"]
+        heads = [box for box in tables[0].descendants() if isinstance(box, boxes.TableCellBox) and box.element_tag == "th"]
+        assert round(heads[0].width, 2) == round(1.5 * heads[0].style["font_size"], 2)
+        assert round(heads[1].width / tables[0].width, 3) == 0.13
+        # Each row's number and label sit on its excerpt's first line, on every page the table reaches; a row that
+        # runs on to the next page starts there with a line in each cell, and its continuation leaves the two empty.
+        def first_baseline(cell):
+            return next((line.position_y + line.baseline for line in cell.descendants()
+                         if isinstance(line, boxes.LineBox)), None)
+
+        starts = []
+        for table in tables:
+            for row in (row for group in table.children if group.element_tag == "tbody" for row in group.children):
+                lines = [first_baseline(cell) for cell in row.children]
+                if None not in lines:
+                    starts.append(max(lines) - min(lines))
+        assert len(starts) == len(spans) and max(starts) < 0.5, starts
+        assert len(texts) == len(spans) and fragments > len(spans), "the long excerpt runs over a page break"
+        assert sorted(re.sub(r"\s+", "", "".join(parts)) for parts in texts.values()) == sorted(
+            re.sub(r"\s+", "", span) for span in spans)
+        # The filing's face stays inside the product (a comment names it, so comments aside).
+        assert "Newsreader" not in re.sub(r"/\*.*?\*/", "", html, flags=re.S)
 
 
 class TestRenderSections:
@@ -737,13 +993,14 @@ class TestAnalysisPdfHtml:
         assert "Multi-Period Analysis" in html
         assert "<h2>The trajectory</h2>" in html
         assert "<h2>Red flags</h2>" in html
-        # Grid: metric row, period headers, missing value, derived dagger, percent formatting.
+        # Grid: metric row, period headers, missing value, percent formatting, and no dagger on a calculated figure
+        # (D-061: the sentence above the grid names the calculated metrics).
         # Money renders COMPACT (product display convention; full precision lives in the Excel
         # export) — sub-million values keep their commas.
         assert '<th class="num">FY2023</th>' in html  # a period column's header sits over its figures
         assert "Revenue" in html and "$1,000" in html
         assert "—" in html
-        assert "$1,500 †" in html
+        assert '<td class="num">$1,500</td>' in html and "†" not in html
         assert "24.3%" in html
         # Citations appendix
         assert "Revenue = 1,000 USD (FY2022)" in html
@@ -770,9 +1027,11 @@ class TestAnalysisPdfHtml:
             "reasons": ["unsupported_eps_calculation"],
         })
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
-        assert "$1,500 †</td>" in html
+        assert '<td class="num">$1,500</td>' in html
         assert "[unreconciled]" not in html
-        assert '—<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup>' in html
+        # A gap is the dash alone (D-061); its note keeps its anchored entry, with no letter.
+        assert '<td class="num">—</td>' in html and 'href="#analysis-data-note-b"' not in html
+        assert '<li id="analysis-data-note-b"><span class="note-letter"></span>' in html
         assert "Use a reported quarterly EPS figure." in html
         assert 'href="https://example.com/filing?x=1&amp;y=2"' in html
         assert "annual_minus_ytd" in html
@@ -856,7 +1115,8 @@ class TestAnalysisPdfHtml:
         analysis = SimpleNamespace(mode="quarterly", period_key=dataset["period_key"], dataset_json=dataset,
                                    narrative_md="A precise ratio [1].", citations_json=citations)
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
-        assert html.count("<h2>Data notes</h2>") == 1
+        # The data notes are fine print under the grid with a bold lead, no heading (D-061).
+        assert "<h2>Data notes</h2>" not in html and html.count("<strong>Data notes</strong>") == 1
         assert html.count("Saved source wording &lt;retain&gt;.") == 1
         assert html.count("Saved citation-only wording.") == 1
         assert 'A precise ratio [1]<sup class="data-note"><a href="#analysis-data-note-e">e</a></sup>' in html
@@ -867,20 +1127,33 @@ class TestAnalysisPdfHtml:
         assert workbook["Metrics"]["D2"].value == 1234567890123 and workbook["Metrics"]["D2"].data_type == "n"
         assert workbook["Metrics"]["E2"].value == 0 and workbook["Metrics"]["E2"].comment is None
         assert workbook["Metrics"]["D4"].value is None and workbook["Metrics"]["D4"].data_type == "n"
-        assert workbook["Metrics"]["D4"].comment.text.startswith("Data note c:")
-        assert workbook["Metrics"]["E4"].comment.text.startswith("Data note d:")
+        # A gap marks nothing (D-061): its comment names no letter. A note that questions the number names its own, and
+        # the format prints it after the figure, which stays a number.
+        assert workbook["Metrics"]["D4"].comment.text.startswith("Data note: ")
+        assert workbook["Metrics"]["E4"].comment.text.startswith("Data note: ")
         assert workbook["Metrics"]["D2"].comment.text.startswith("Data note a: Saved source wording <retain>.")
+        assert workbook["Metrics"]["D2"].number_format == '#,##0" a"' and workbook["Metrics"]["E2"].number_format == "#,##0"
         assert workbook["Metrics"]["E1"].value == "Q2 2026"
         overview = "\n".join(str(c.value) for row in workbook["Overview"] for c in row if c.value)
-        # Singular at one; the passed count waits until no figure needs review (the page's line).
+        # The page's summary line: each marked note's letter, places and words, then the gaps, drawn as each file draws
+        # them; the passed count waits until no figure needs review.
+        marked = ("Revenue Q1 2026: the filings report different values (the most recent shown) · ",
+                  "Revenue QoQ Q2 2026: questioned by an automated check · 2 not in our data, ")
+        assert ('<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup> ' + marked[0]
+                + '<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup> ' + marked[1]
+                + 'shown as <span class="data">—</span></p>') in html
+        assert f"a {marked[0]}b {marked[1]}left blank" in overview
         for exported in (html, overview):
-            assert "1 figure needs review · 1 comparison needs review · 2 unavailable" in exported
-            assert "passed automated checks" not in exported
-        assert "Data note a: Saved source wording <retain>." in overview
+            assert "checked" not in exported and "needs review" not in exported
+        assert "a. Saved source wording <retain>. Revenue (Q1 2026). 1 figure." in overview
         assert "Saved citation-only wording" not in overview and "raw full-precision dollars" not in overview
+        # The citation's own note lists under the narrative's sources, as on the page, not in the grid's fine print.
+        assert ('<p class="fine-print"><strong>Data notes for narrative sources</strong></p><ul class="data-notes">'
+                '<li id="analysis-data-note-e"><span class="note-letter">e.</span>Saved citation-only wording.</li></ul>') in html
         sources = list(workbook["Sources & methods"].values)
         assert next(row for row in sources if row[2] == "QOQ")[16] == "Data note b"
-        assert any(row[0] == "EPS" and row[1] == "Q1 2026" and row[4] is None and row[16] == "Data note c" for row in sources)
+        assert any(row[0] == "EPS" and row[1] == "Q1 2026" and row[4] is None and row[16] == REASONS["not_in_dataset"]
+                   for row in sources)
         assert dataset == before
 
     def test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook(self):
@@ -907,10 +1180,10 @@ class TestAnalysisPdfHtml:
         overview = "\n".join(str(cell.value) for row in workbook["Overview"] for cell in row if cell.value)
 
         for exported in (html, overview):
-            # A zero count prints no clause; with no figure needing review, the passed count shows.
-            assert ("4 comparisons need review · 1 comparison with no validation record · "
-                    "4 passed automated checks") in exported
-            assert "0 figures" not in exported and "figures need review" not in exported
+            # A zero count prints no clause; with no figure needing review, the checked count shows. The growth figure
+            # with no check recorded counts apart from the figures (the shared totals.unknown counts figures only).
+            assert "1 growth figure with no check recorded · No figures need review · 4 checked" in exported
+            assert "0 figures" not in exported and "figures with no check" not in exported
         assert vars(analysis) == before
 
     def test_operands_name_their_source_fields_in_words(self):
@@ -1022,15 +1295,15 @@ class TestAnalysisPdfHtml:
             "method": "reported", "validation": "needs_review", "reasons": ["source_conflict"]}
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
         assert "<h1>Test &amp; Co · Multi-Period Analysis</h1>" in html
-        assert "<h2>Sources &amp; methods</h2>" in html and "appear in Sources &amp; methods." in html
+        assert "<h2>Sources &amp; methods</h2>" in html and "Sources &amp; methods gives each figure’s full precision" in html
         # The window reads as a range in the meta line, the narrative's CAGR sentence and its source.
         assert '<span class="data">FY2022–FY2024</span>' in html and "FY2022..FY2024" not in html
         assert "Revenue CAGR was 22.5% over FY2022–FY2024 [3]" in html
         assert "Revenue CAGR = 22.5% (FY2022–FY2024)" in html
         # Display only: the stored narrative and citations keep the key.
         assert "FY2022..FY2024 [3]" in analysis.narrative_md and analysis.citations_json[2]["excerpt"].endswith("(FY2022..FY2024)")
-        assert '<span class="ref">(1 figure)</span>' in html
-        assert '<span class="ref">(3 figures)</span>' in html and "0 comparisons" not in html
+        assert "Revenue (FY2022). 1 figure.</li>" in html
+        assert "Net margin (FY2022, FY2023). 3 figures.</li>" in html and "0 growth figures" not in html
 
 
 @pytest.mark.asyncio
@@ -1045,7 +1318,7 @@ async def test_analysis_pdf_refuses_stale_or_replaced_snapshots(monkeypatch, cha
     from app.routers import analysis as router
     from app.services import entitlements
     from app.services.export_service import export_service
-    from app.services.trend_analysis.data_notes import resolve_data_notes
+    from app.services.trend_analysis.data_notes import DATA_NOTES_VERSION, resolve_data_notes
     from app.services.trend_analysis.presentation import NARRATIVE_FORMAT_VERSION
 
     record = TestAnalysisPdfHtml()._analysis()
@@ -1056,7 +1329,7 @@ async def test_analysis_pdf_refuses_stale_or_replaced_snapshots(monkeypatch, cha
     record.dataset_json["data_notes"] = resolve_data_notes(record.dataset_json)
     record.dataset_json["narrative_presentation"] = {
         "format_version": NARRATIVE_FORMAT_VERSION, "snapshot_id": record.dataset_fingerprint,
-        "data_notes_version": 1, "notes": record.dataset_json["data_notes"],
+        "data_notes_version": DATA_NOTES_VERSION, "notes": record.dataset_json["data_notes"],
         "offset_encoding": "utf-16", "evidence": [],
     }
     record.prompt_version = router.trend_analysis_service.PROMPT_VERSION
@@ -1202,6 +1475,31 @@ class TestBrandedShell:
                             )
         assert {where: gap for where, gap in gaps.items() if gap < 9} == {}
         assert sum(where.startswith("summary") for where in gaps) >= 2 and any(where.startswith("analysis") for where in gaps), gaps
+
+    def test_no_pdf_breaks_a_word_anywhere_a_column_is_measured(self, service):
+        """WeasyPrint sizes an auto table's column by its cells' min-content, and where a rule lets it break a word at any
+        character (`overflow-wrap: anywhere`, or `word-break: break-all`, which WeasyPrint 70 reads the same way and which
+        skips its line-start guard) it measures that a character to a line: a 4,000-character risk excerpt took half a
+        minute to lay out, and longer under break-all. A long token breaks in a table with set columns instead
+        (pdf_branding's table.excerpts; lessons/arch-break-a-pdf-tables-long-words-in-set-columns.md). The one rule that
+        keeps it is the analysis meta line's snapshot id, a short token in normal flow that no column measures. The rules
+        are read as WeasyPrint reads them, through test_export_palette_parity's reader (every `<style>`, a nested rule
+        under its full selector, @media and @supports); a style attribute is that gate's to refuse."""
+        from tests.unit.test_export_palette_parity import css_rules, stylesheet
+
+        def breaks_anywhere(html: str) -> list[str]:
+            return [name for name, block in css_rules(stylesheet(html)) for prop, value in block
+                    if (prop in ("overflow-wrap", "word-wrap") and value.lower() == "anywhere")
+                    or (prop == "word-break" and value.lower() == "break-all")]
+
+        planted = ('<style media="print">td { Overflow-Wrap: ANYWHERE; } p { color: inherit }</style>'
+                   "<style>table.excerpts { .snapshot { overflow-wrap: anywhere } } @media print { th { word-break: break-all } }"
+                   " .x { word-wrap: anywhere } .y { word-break: normal; overflow-wrap: break-word }</style>"
+                   "<STYLE>li { word-break: break-all }</STYLE>")
+        assert breaks_anywhere(planted) == ["td", "table.excerpts .snapshot", "th", ".x", "li"]
+        found = {name: breaks_anywhere(html)
+                 for name, html in (("summary", self._summary_html(service)), ("analysis", self._analysis_html()))}
+        assert found == {"summary": [], "analysis": [".snapshot"]}
 
     @pytest.mark.asyncio
     async def test_rendered_pdf_has_portrait_first_page_and_landscape_metrics(self, service):

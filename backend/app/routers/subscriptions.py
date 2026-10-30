@@ -19,7 +19,9 @@ from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
 from app.services.stripe_threads import run_on_stripe_threads
-from app.services.entitlements import get_entitlements, get_plan, is_pro_user, subscription_awaits_payment
+from app.services.entitlements import (
+    ANALYSIS_MONTHLY_CAP, get_entitlements, get_plan, is_pro_user, subscription_awaits_payment,
+)
 from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
@@ -126,7 +128,7 @@ async def get_usage(
                 copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
                 copilot_free_taste_total=ent.copilot_free_taste,
                 analysis_used=get_user_analysis_count(current_user.id, month, db),
-                analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
+                analysis_limit=ANALYSIS_MONTHLY_CAP,
             )
         finally:
             filing_list_service.release_request_session(db)

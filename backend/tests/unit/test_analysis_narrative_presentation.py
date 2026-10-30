@@ -244,7 +244,7 @@ async def test_fresh_cached_and_saved_presentation_are_identical(narrative_compa
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("obsolete", ["absent", "format", "notes", "snapshot"])
+@pytest.mark.parametrize("obsolete", ["absent", "format", "notes", "notes_version_1", "notes_version_2", "snapshot"])
 async def test_old_presentation_lazily_regenerates_as_system_invalidated(narrative_company, monkeypatch, obsolete):
     from app.models import TrendAnalysis
 
@@ -259,6 +259,12 @@ async def test_old_presentation_lazily_regenerates_as_system_invalidated(narrati
             saved["narrative_presentation"]["format_version"] = "retired"
         elif obsolete == "notes":
             saved["narrative_presentation"]["data_notes_version"] = 0
+        elif obsolete.startswith("notes_version_"):
+            # A row saved under either released notes version keeps its older words and letters. The page's check
+            # against the rebuilt dataset's would refuse it, so it regenerates once, unmetered.
+            version = int(obsolete.rsplit("_", 1)[1])
+            saved["data_notes"]["version"] = saved["narrative_presentation"]["notes"]["version"] = version
+            saved["narrative_presentation"]["data_notes_version"] = version
         else:
             saved["narrative_presentation"]["snapshot_id"] = "0" * 64
         row.dataset_json = saved
@@ -269,6 +275,12 @@ async def test_old_presentation_lazily_regenerates_as_system_invalidated(narrati
     assert regenerated["analysis_id"] == fresh["analysis_id"]
     assert regenerated["narrative_presentation"] == fresh["narrative_presentation"]
     assert regenerated["snapshot_id"] == fresh["snapshot_id"]
+    # Once, never a loop: the regenerated row is current, so the next view is served from it with no model call.
+    events, calls = await _drain(identifier, monkeypatch)
+    served = events[-1]
+    assert calls == [] and served["cached"] is True and served["invalidated"] is False
+    assert served["analysis_id"] == fresh["analysis_id"]
+    assert served["narrative_presentation"] == fresh["narrative_presentation"]
 
 
 @pytest.mark.asyncio

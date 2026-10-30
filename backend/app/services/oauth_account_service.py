@@ -350,6 +350,12 @@ def mint_oauth_refresh_token(
 
     A concurrent first sign-in for the same identity loses here with ``IntegrityError`` (the token's
     flush or the commit): the session is rolled back and :class:`OAuthAccountConflictError` raised.
+    No lock serializes two callbacks for one identity, or two sign-ups with one invite: they interleave in
+    their routes' thread-pool units on one instance, as they always could across the API's instances (E121).
+    The unique ``users.email``, the unique ``uq_oauth_provider_account`` and the invite's guarded redemption
+    decide. The loser is refused by the resolve (a new account's lost create race, ``invite_required``) or,
+    for a link to an existing account, loses here, with nothing of its own committed; the PostgreSQL races in
+    ``tests/integration/test_refresh_rotation_transactions.py`` pin each.
     """
     try:
         return refresh_token_service.mint_refresh_token(db, user, user_agent=user_agent, ip=ip)
@@ -365,20 +371,29 @@ def list_oauth_accounts(db: Session, user_id: int) -> list[OAuthAccount]:
     return db.query(OAuthAccount).filter(OAuthAccount.user_id == user_id).all()
 
 
-def unlink_oauth_provider(db: Session, user: User, provider: str) -> None:
+def unlink_oauth_provider(db: Session, user_id: int, provider: str) -> None:
     """Delete the user's link for ``provider`` and commit, unless it is their last sign-in method.
 
-    Raises :class:`ProviderNotLinkedError` when there is no such link and
-    :class:`LastSignInMethodError` when removing it would leave neither a password nor another link.
+    Under the account's users row lock (``refresh_token_service.lock_user_tokens``), taken before the guard
+    reads the password and the links: two unlinks of one account, one per provider or a double click on one,
+    run one after the other, and the second counts what the first left (READ COMMITTED). The password is read
+    by a column query, not from a user the session loaded before the lock. The route runs this in the thread
+    pool, where two requests on one instance interleave; on one instance's event loop they did not, and across
+    the API's instances they always could (E121).
+
+    Raises :class:`ProviderNotLinkedError` when there is no such link (an account deleted meanwhile has none)
+    and :class:`LastSignInMethodError` when removing it would leave neither a password nor another link.
     """
-    rows = list_oauth_accounts(db, user.id)
+    refresh_token_service.lock_user_tokens(db, user_id)
+    has_password = bool(db.query(User.hashed_password).filter(User.id == user_id).scalar())
+    rows = list_oauth_accounts(db, user_id)
     target = next((r for r in rows if r.provider == provider), None)
     if not target:
         raise ProviderNotLinkedError()
 
     # Lockout guard: after removing this provider the user must keep at least one credential
     # (a password or another linked provider).
-    remaining = (1 if user.hashed_password else 0) + (len(rows) - 1)
+    remaining = (1 if has_password else 0) + (len(rows) - 1)
     if remaining < 1:
         raise LastSignInMethodError()
 

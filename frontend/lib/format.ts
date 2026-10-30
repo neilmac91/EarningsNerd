@@ -138,24 +138,31 @@ export const ordinal = (n: number): string => {
 }
 
 /**
- * A stored Title Case data label in sentence case, for a control's face (the company page's metric
- * pickers), segment by segment, a segment being a run between whitespace, '-' and '/'. A segment with no
- * lower-case letter is an acronym and stays as written: '&' and '.' sit inside a segment, so 'R&D',
- * 'SG&A' and 'U.S.' stay whole, and an acronym joined to a word by '-' or '/' keeps its capitals
- * ('Non-GAAP EPS' and 'Debt-to-EBITDA' stay, 'Price/EPS Ratio' to 'Price/EPS ratio'). A segment with a
- * capital after its first letter stays as written too ('YoY Growth' to 'YoY growth'). Every other
- * segment goes lower case except the label's first character, which stays as written ('Net Income' to
- * 'Net income', 'Non-Interest Income' to 'Non-interest income', 'Adjusted Non-GAAP Income' to
- * 'Adjusted non-GAAP income'). The stored labels themselves are E34's.
+ * A data label stored in sentence case as a sentence reads it past its start (the metric charts' lines, "Ranks #2 of 9
+ * on net income", E34, and the analysis report's notes): the label's first segment, a run up to whitespace, '-' or
+ * '/', takes a lower-case first letter unless it is an acronym. A segment with no lower-case letter is one, '&' and '.'
+ * sitting inside a segment ('EPS', 'R&D', 'U.S.'), and so is one with a capital after its first letter ('YoY'). So
+ * 'Net income' reads 'net income', 'Non-interest income' 'non-interest income' and 'Diluted EPS' 'diluted EPS', while
+ * 'EPS', 'U.S. revenue' and 'YoY growth' stay as written.
  */
-export const sentenceCase = (label: string): string => {
-  const first = label.search(/[^\s/-]/)
-  return label.replace(/[^\s/-]+/g, (segment: string, offset: number) => {
-    if (!/[a-z]/.test(segment) || /[A-Za-z].*[A-Z]/.test(segment)) return segment
-    const lower = segment.toLowerCase()
-    return offset === first ? segment.charAt(0) + lower.slice(1) : lower
-  })
-}
+export const inSentence = (label: string): string =>
+  label.replace(/^[^\s/-]+/, (segment) =>
+    !/[a-z]/.test(segment) || /[A-Za-z].*[A-Z]/.test(segment) ? segment : segment.charAt(0).toLowerCase() + segment.slice(1),
+  )
+
+/**
+ * The glyphs past ASCII that the data face, Geist Mono, draws at its one 0.6em advance: the no-break space Intl puts
+ * after a currency code, ¢ £ ¤ ¥ € in its latin file and ₪ ₱ ₴ ₹ ₽ in latin-ext, as a production build serves them. No
+ * file draws ₩ or ₫, though latin-ext's range claims both (chief design read the six files on #1652). next/font fetches
+ * the faces at build, so tests/e2e/analysis-layout.spec.ts measures each glyph in the built face: a font that drops one
+ * fails there. The trend charts' prefix (moneyPrefix), fmtCurrency and the KPI strip's width all read this one list.
+ */
+export const DATA_FACE_GLYPHS = '\u00a0¢£¤¥€₪₱₴₹₽'
+/** The glyphs a currency's en-US sign holds that Geist Mono lacks: KRW's ₩, VND's ₫ and the narrow no-break space in
+ *  XOF's "F CFA". The e2e's control: none of them measures at the face's advance. */
+export const DATA_FACE_MISSING = '\u202f₩₫'
+/** Whether the data face draws a glyph: printable ASCII or one of DATA_FACE_GLYPHS. */
+export const dataFaceDraws = (glyph: string): boolean => (glyph >= ' ' && glyph <= '~') || DATA_FACE_GLYPHS.includes(glyph)
 
 export const fmtCurrency = (
   value: NumericInput,
@@ -169,10 +176,14 @@ export const fmtCurrency = (
   const currency = options?.currency ?? 'USD'
   const digits = options?.digits ?? (Math.abs(num) < 1 ? 2 : 1)
   const compact = options?.compact ?? Math.abs(num) >= 1000
+  // A sign the data face lacks would paint in the fallback face, so its currency prints by code, as the trend
+  // charts' moneyPrefix does (E203): "KRW 300.9T", not "₩300.9T".
+  const symbol = currencySymbol(currency)
 
   const formatter = getFormatter({
     style: 'currency',
     currency,
+    currencyDisplay: symbol && ![...symbol].every(dataFaceDraws) ? 'code' : 'symbol',
     notation: compact ? 'compact' : 'standard',
     maximumFractionDigits: digits,
     minimumFractionDigits: digits > 0 ? Math.min(digits, 2) : 0,

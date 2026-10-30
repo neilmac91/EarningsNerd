@@ -9,7 +9,7 @@ import {
   type WordingReviewState,
 } from '@/features/summaries/api/summaries-api'
 import { useRetainedFailure } from '@/hooks/useRetainedFailure'
-import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
+import { assertSessionGeneration, getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 
 export const WORDING_REVIEW_STALE_MS = 60 * 1000
@@ -68,6 +68,9 @@ export function useWordingReview(filingId: number, { enabled, onLabeled, onCompl
       // another account's problem no longer, and is not written into its cache.
       const generation = getSessionGeneration()
       await queryClient.cancelQueries({ queryKey: key })
+      // That wait settles within the press today; should it ever span a transition, the press ends
+      // here, before it is applied or sent as the next account's (E29).
+      assertSessionGeneration(generation)
       const previous = queryClient.getQueryData<WordingReviewState>(key)
       if (previous && previous.status === 'ok') {
         const labels = { ...previous.labels }

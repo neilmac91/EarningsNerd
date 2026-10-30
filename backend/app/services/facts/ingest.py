@@ -61,13 +61,13 @@ def _persist_companyfacts_payload(
     facts, meta = normalize_companyfacts(
         company_id, payload, financial_sic=_is_financial_sic(company.sic)
     )
-    result = upsert_facts_bulk(db, facts, commit=False)  # all-zero counters for an empty batch
+    result = upsert_facts_bulk(db, facts, history=meta["history"], commit=False)  # all-zero for an empty batch
     result["demoted"] += demote_convenience_rows(db, facts)
     company.facts_synced_at = utcnow()
     db.commit()
     logger.info(
-        "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s ifrs=%s",
-        company_id, result["inserted"], result["skipped"], result["demoted"],
+        "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s history=%s ifrs=%s",
+        company_id, result["inserted"], result["skipped"], result["demoted"], result["history"],
         meta["unsupported_ifrs"],
     )
     return {

@@ -4,8 +4,8 @@ Characterization of the auth flows no other test drives end to end.
 Written against the router before its ORM work moved into app/services/ (the router-ORM ratchet,
 tests/unit/test_router_orm_ceilings_allowlist.py), and every test here passed on that pre-move
 router as well as after the move, so it proved the refactor preserved behaviour. The password
-login's one commit and the refusals of a login or change whose account changed while it hashed
-(E121), the logout rows that name the user whose refresh token a logout revoked (E137), and the
+login's one commit, the refusals of a login or change whose account changed while it hashed and of a
+reset whose account was deleted while it hashed (E121), the logout rows that name the user whose refresh token a logout revoked (E137), and the
 register row a Google or Apple sign-in writes when it creates the account (D-054) pin deliberate
 changes made since, and fail on the code before them; the rows of signed-in logouts that revoke
 nothing, which E137 kept, the audit rows of the other sign-ins and of a password sign-up, and a
@@ -14,11 +14,15 @@ first sign-in whose session mint fails are pinned beside them:
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
   - password reset: forgot-password is opaque and mails only password accounts; reset sets the
-    password, confirms the email and evicts every session; unknown and expired links
+    password, confirms the email and evicts every session; unknown and expired links, and an account
+    deleted while the reset hashed
   - the reverse trial granted on verification: the grant and its event, a failed grant that still
-    verifies, and a user who is already Pro
+    verifies, a user who is already Pro, and three failures after the verification's commit that still
+    verify: the eligibility read, a failed grant's rollback, and the trial-started event (E121)
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
-    (cookie values and expiry stamps redacted)
+    (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
+    login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews,
+    after a replay of the same account's token too: the sweep ends only the replayed token's chain (E121, E96)
   - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
     the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
     new-account insert loses a concurrent create for the same email, with the router's warning
@@ -69,6 +73,7 @@ from tests.support.account_agreement import ACCOUNT_AGREEMENT
 
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
 
@@ -86,7 +91,9 @@ pytestmark = pytest.mark.usefixtures("collection_ready")
 PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 NEW_PASSWORD = PASSWORD + "9z"  # gitleaks:allow
 
-VERIFIED_BODY = {"message": "Email verified. You can now use all features."}
+# The verification's answer confirms the verification and claims nothing past it (F56): what waits on a verified
+# email is checkout (closed), linking a Google or Apple sign-in to the account, and the reverse trial while it is on.
+VERIFIED_BODY = {"message": "Email verified."}
 RESEND_OPAQUE = {"message": "If that email has an unverified account, a new verification link is on its way."}
 FORGOT_OPAQUE = {"message": "If an account exists for that email, a password reset link is on its way."}
 RESET_BODY = {"message": "Password updated. You can now log in with your new password."}
@@ -393,6 +400,36 @@ def test_reset_password_rejects_unknown_and_expired_links(client, mail):
     assert _login(client, email).status_code == 200  # the old password still works
 
 
+@pytest.mark.requires_db
+def test_a_reset_whose_account_was_deleted_while_it_hashed_is_refused(client, mail, monkeypatch):
+    """The reset reads its link's account, releases its session, hashes, then reads the account again by its
+    id under its lock (E121): an account deleted meanwhile answers the link's 400, as a read after the deletion
+    would, with no cookie, and the account stays deleted with its session. When the route kept the account it
+    read, its commit matched no row and raised."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    assert _login(client, email).status_code == 200  # a live session, which the deletion takes with it
+    client.cookies.clear()
+    client.post("/api/auth/forgot-password", json={"email": email})
+    token = _token(mail.reset, "reset_link")
+    real_hash = auth_module.get_password_hash
+
+    def hash_then_delete(password: str) -> str:
+        hashed = real_hash(password)
+        with SessionLocal() as db:  # the account's deletion commits while the reset hashes
+            db.delete(db.get(User, user_id))
+            db.commit()
+        return hashed
+
+    monkeypatch.setattr(auth_module, "get_password_hash", hash_then_delete)
+    resp = client.post("/api/auth/reset-password", json={"token": token, "new_password": NEW_PASSWORD})
+    assert resp.status_code == 400 and resp.json() == {"detail": "Invalid or expired reset link."}
+    assert _cookies(resp) == []
+    with SessionLocal() as db:
+        assert db.query(User).filter(User.email == email).count() == 0
+        assert db.query(RefreshToken).filter(RefreshToken.user_id == user_id).count() == 0
+
+
 # ── reverse trial on verification ─────────────────────────────────────────────
 
 def _subscriptions(user_id: int) -> list[tuple[str, str]]:
@@ -463,6 +500,84 @@ def test_reverse_trial_skips_a_user_who_is_already_pro(client, mail, events, mon
     assert granted == [] and events == []
 
 
+@pytest.mark.requires_db
+def test_a_trial_whose_eligibility_read_fails_still_verifies(client, mail, events, monkeypatch, caplog):
+    """The trial's eligibility read follows the verification's commit, so it is best-effort with the grant: a
+    failure there is logged and the committed verification still answers verified (E121). On the loop it raised
+    out of the route as a 500 over a verified account, whose link was then used up."""
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
+
+    def unreadable(_user):
+        raise RuntimeError("the account's plan could not be read")
+
+    monkeypatch.setattr("app.services.entitlements.is_pro_user", unreadable)
+    email, token = _register(client, mail)
+    user_id = _user(email).id
+    events.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = client.post("/api/auth/verify-email", json={"token": token})
+    assert resp.status_code == 200 and resp.json() == VERIFIED_BODY
+    assert _user(email).email_verified is True and _subscriptions(user_id) == []
+    assert events == []
+    failed = f"Failed to start reverse trial for user {user_id} on verify"
+    (warning,) = [r for r in caplog.records if r.getMessage() == failed]
+    assert warning.exc_info[0] is RuntimeError
+
+
+@pytest.mark.requires_db
+def test_a_failed_trial_whose_rollback_fails_still_verifies(client, mail, events, monkeypatch, caplog):
+    """A failed grant's rollback that fails too is logged by its class, and the verification, committed before the
+    grant, still answers verified; the warning for the grant still carries the grant's own failure (E121)."""
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
+
+    def boom(db, user, days):
+        raise RuntimeError("billing store down")
+
+    def rollback_fails(db):
+        raise ConnectionError("the connection dropped")
+
+    monkeypatch.setattr("app.services.subscription_sync.start_reverse_trial", boom)
+    monkeypatch.setattr(auth_module.auth_account_service, "discard_reverse_trial", rollback_fails)
+    email, token = _register(client, mail)
+    user_id = _user(email).id
+    events.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = client.post("/api/auth/verify-email", json={"token": token})
+    assert resp.status_code == 200 and resp.json() == VERIFIED_BODY
+    assert _user(email).email_verified is True and _subscriptions(user_id) == []
+    assert events == []
+    messages = [r.getMessage() for r in caplog.records if r.name == "app.routers.auth" and r.levelno == logging.WARNING]
+    assert messages == [
+        f"Discarding a failed reverse trial for user {user_id} failed: ConnectionError",
+        f"Failed to start reverse trial for user {user_id} on verify",
+    ]
+    (warning,) = [r for r in caplog.records if r.getMessage() == messages[1]]
+    assert warning.exc_info[0] is RuntimeError and str(warning.exc_info[1]) == "billing store down"
+
+
+@pytest.mark.requires_db
+def test_a_trial_started_event_that_fails_still_verifies(client, mail, monkeypatch, caplog):
+    """The trial-started event is sent after the unit's release, best-effort like the grant: a telemetry failure is
+    logged and the verification and the trial, both committed, stand, and the route still answers verified (E121)."""
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
+    email, token = _register(client, mail)
+    user_id = _user(email).id
+
+    def posthog_down(*_args):
+        raise RuntimeError("posthog down")
+
+    monkeypatch.setattr(auth_module, "capture_event", posthog_down)
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = client.post("/api/auth/verify-email", json={"token": token})
+    assert resp.status_code == 200 and resp.json() == VERIFIED_BODY
+    assert _user(email).email_verified is True and _subscriptions(user_id) == [("pro", "trialing")]
+    failed = f"Trial-started telemetry failed for user {user_id}"
+    (warning,) = [r for r in caplog.records if r.getMessage() == failed]
+    assert warning.exc_info[0] is RuntimeError
+
+
 # ── Set-Cookie headers, in order ──────────────────────────────────────────────
 
 @pytest.mark.requires_db
@@ -496,8 +611,7 @@ def test_session_cookie_headers_and_their_order(client, mail):
     assert unknown.status_code == 401
     assert unknown.json() == {"detail": "Your session has ended. Log in again."}
     assert unknown.headers["www-authenticate"] == "Bearer"
-    # The handler clears both cookies on the injected Response, but FastAPI renders an HTTPException
-    # as a fresh response, so a refused refresh carries no Set-Cookie at all.
+    # A refused refresh sets no cookie, on purpose (the refusal tests below).
     assert _cookies(unknown) == []
 
     replay = client.post("/api/auth/refresh", json={"refresh_token": first_refresh})
@@ -508,8 +622,8 @@ def test_session_cookie_headers_and_their_order(client, mail):
 
 @pytest.mark.requires_db
 def test_refresh_replay_revokes_the_live_chain(client, mail):
-    """Replaying a rotated token is a theft signal: the revocation of the user's live tokens is
-    committed even though the request is refused."""
+    """Replaying a rotated token is a theft signal: the revocation of the replayed token's chain (here the
+    user's only one) is committed even though the request is refused."""
     email, _ = _register(client, mail)
     _login(client, email)
     replayed = client.cookies.get("earningsnerd_refresh_token")
@@ -524,6 +638,116 @@ def test_refresh_replay_revokes_the_live_chain(client, mail):
         assert db.query(RefreshToken).filter(
             RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
         ).count() == 0
+
+
+# ── a refused refresh sets no cookie, so a newer login keeps its cookies ────────
+
+REFRESH_COOKIE = "earningsnerd_refresh_token"
+_NEVER_VALID = datetime(2000, 1, 1)  # naive, as the refresh token's own expiry is
+
+
+def _header_names(resp) -> set[str]:
+    return {name.decode().lower() for name, _value in resp.headers.raw}
+
+
+def _jar(client: TestClient) -> list[tuple[str, str, str]]:
+    """The browser's cookies: every cookie the client holds, with its path and value."""
+    return sorted((cookie.name, cookie.path, cookie.value) for cookie in client.cookies.jar)
+
+
+def _sent_with(client: TestClient, refresh: Optional[str]) -> str:
+    """A Cookie header carrying the client's cookies of this moment, its refresh cookie replaced by ``refresh``
+    (left out when None). Sent explicitly, it overrides the jar: the request carries what it was sent with."""
+    held = {name: value for name, _path, value in _jar(client) if name != REFRESH_COOKIE}
+    if refresh is not None:
+        held[REFRESH_COOKIE] = refresh
+    return "; ".join(f"{name}={value}" for name, value in held.items())
+
+
+def _make_refusable(client: TestClient, email: str, kind: str) -> tuple[str, str]:
+    """Sign ``email`` in on ``client`` and make the refresh cookie it holds one /refresh refuses for ``kind``.
+
+    Returns the Cookie header a refresh sent at this moment would carry, and the reason the service gives.
+    ``revoked`` is a logout of every device (no rotation, so no sweep); ``replayed`` a token rotated away, which
+    the replay sweep answers by revoking its chain, the live tokens its rotations lead to (E96)."""
+    assert _login(client, email).status_code == 200
+    held = client.cookies.get(REFRESH_COOKIE)
+    if kind == "missing":
+        return _sent_with(client, None), "Missing refresh token"
+    if kind == "unknown":
+        return _sent_with(client, "not-a-real-token"), "Unknown refresh token"
+    sent_with = _sent_with(client, held)
+    if kind == "revoked":
+        assert client.post("/api/auth/logout-all").status_code == 200
+        return sent_with, "Refresh token has been revoked"
+    if kind == "replayed":
+        assert client.post("/api/auth/refresh").status_code == 200
+        return sent_with, "Refresh token has already been used"
+    if kind == "expired":
+        with SessionLocal() as db:
+            user_id = db.query(User.id).filter(User.email == email).scalar()
+            db.query(RefreshToken).filter(
+                RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
+            ).update({RefreshToken.expires_at: _NEVER_VALID})
+            db.commit()
+        return sent_with, "Refresh token has expired"
+    assert kind == "inactive"
+    _update_user(email, is_active=False)
+    return sent_with, "User is no longer active"
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(
+    ("kind", "newer"),
+    [
+        ("missing", "another account"),
+        ("unknown", "another account"),
+        ("revoked", "another account"),
+        ("revoked", "the same account"),
+        ("replayed", "another account"),
+        ("replayed", "the same account"),
+        ("expired", "another account"),
+        ("expired", "the same account"),
+        ("inactive", "another account"),
+    ],
+)
+def test_a_refused_refresh_sets_no_cookie_so_a_newer_login_keeps_its_cookies(client, mail, caplog, kind, newer):
+    """A refused refresh answers 401 with no Set-Cookie header at all, whatever it refused (E121).
+
+    The refusal cannot prove the cookies it refused are still the browser's: the request carries the cookies of
+    the moment it was sent, and a login can replace them before its answer lands. Here the Cookie header is taken
+    from the first account's session, a login then sets the newer session's cookies, and the refresh goes out
+    with the header taken before, so it is refused after the login and its answer lands on the login's cookies.
+    They stay as the login set them, and /me answers the newer account. The refusal's headers are an ordinary
+    401's, so no deletion of any kind (Set-Cookie, Clear-Site-Data) rides it. The newer login's refresh token
+    still renews, after a replay of the same account's token too: the replay sweep ends the replayed token's
+    chain, and the newer login's token is on a chain of its own (E96).
+    """
+    first, _ = _register(client, mail)
+    sent_with, reason = _make_refusable(client, first, kind)
+    newer_email = first if newer == "the same account" else _register(client, mail)[0]
+
+    client.cookies.clear()
+    assert _login(client, newer_email).status_code == 200
+    held = _jar(client)
+
+    with caplog.at_level(logging.INFO, logger=auth_module.logger.name):
+        refused = client.post("/api/auth/refresh", headers={"Cookie": sent_with})
+    assert refused.status_code == 401
+    assert refused.json() == {"detail": "Your session has ended. Log in again."}
+    assert refused.headers["www-authenticate"] == "Bearer"
+    assert [k for k, _v in refused.headers.raw if k.lower() == b"set-cookie"] == []
+    assert "clear-site-data" not in refused.headers
+    # An ordinary 401 from the same app (a request with no session) carries the same header names.
+    ordinary = client.get("/api/auth/me", headers={"Cookie": ""})
+    assert ordinary.status_code == 401 and _header_names(refused) == _header_names(ordinary)
+    assert reason in caplog.text  # refused for the reason the case set up, not another
+
+    assert _jar(client) == held
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200 and me.json()["email"] == newer_email
+    renewed = client.post("/api/auth/refresh")
+    assert renewed.status_code == 200 and _cookies(renewed) == SESSION_ISSUED
 
 
 # ── password login and change: what commits, and when ─────────────────────────
@@ -852,6 +1076,264 @@ def test_logout_all_commits_its_revocation_without_the_audit_row(client, mail, n
 
     client.cookies.clear()
     assert client.post("/api/auth/refresh", json={"refresh_token": other_device}).status_code == 401
+
+
+# ── logout of every session: past the access token, and only the tab's account (E157 (2)) ──────
+
+LOGOUT_ALL_ANOTHER_ACCOUNT = {
+    "detail": (
+        "This browser is logged in to a different account from the one this page shows, "
+        "so no devices were logged out."
+    )
+}
+
+
+def _without_access(cookie_header: str) -> str:
+    """``cookie_header`` without the access cookie, as the browser sends it once that cookie has lapsed."""
+    return "; ".join(part for part in cookie_header.split("; ") if not part.startswith(f"{settings.COOKIE_NAME}="))
+
+
+def _two_sessions(client: TestClient, mail) -> tuple[str, int, str]:
+    """A fresh account logged in on another device, then on ``client``; its email, its id and the other device's
+    refresh token."""
+    email, _ = _register(client, mail)
+    assert _login(client, email).status_code == 200
+    other_device = client.cookies.get(REFRESH_COOKIE)
+    client.cookies.clear()
+    assert _login(client, email).status_code == 200
+    return email, _user(email).id, other_device
+
+
+def _naming(account_id: Optional[int]) -> dict:
+    """The keyword arguments of a post that names ``account_id``, or of one with no body when None."""
+    return {} if account_id is None else {"json": {"account_id": account_id}}
+
+
+@pytest.mark.requires_db
+def test_logout_all_past_the_access_token_ends_every_session_of_the_account_it_names(client, mail):
+    """Once the access cookie has lapsed (its 30 minutes), a logout of every session that names the account its tab
+    shows finds its user from the live refresh token the cookie carries (E157 (2)); it needed the access token and
+    answered 401. It ends every session of that user, clears this browser's cookies and logs its row under that
+    user."""
+    email, user_id, other_device = _two_sessions(client, mail)
+    client.cookies.delete(settings.COOKIE_NAME)
+
+    resp = client.post("/api/auth/logout-all", **_naming(user_id))
+
+    assert resp.status_code == 200 and resp.json() == {"status": "success", "sessions_revoked": 2}
+    assert _cookies(resp) == ACCESS_CLEARED + REFRESH_CLEARED
+    assert _live_refresh_tokens(user_id) == 0
+    assert _logout_rows(user_id) == [("user", email, True)]
+    client.cookies.clear()
+    assert client.post("/api/auth/refresh", json={"refresh_token": other_device}).status_code == 401
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("body", [None, {}, {"account_id": None}], ids=["no_body", "empty", "null_account"])
+def test_logout_all_that_names_no_account_still_needs_the_access_token(client, mail, body):
+    """A request that names no account, as from a page loaded before the field, is answered as before it: past the
+    access token, 401 though the refresh cookie is live, nothing revoked and no row written. The refresh cookie
+    serves only a request that names its account, so a stale tab that names none cannot end the sessions of the
+    account the browser holds now for the refresh cookie's 30 days (E157 (2))."""
+    _email, user_id, _other_device = _two_sessions(client, mail)
+    client.cookies.delete(settings.COOKIE_NAME)
+
+    resp = client.post("/api/auth/logout-all", **({} if body is None else {"json": body}))
+
+    assert resp.status_code == 401 and resp.json() == {"detail": "You are not logged in."}
+    assert resp.headers["www-authenticate"] == "Bearer"
+    assert _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("kind", ["missing", "unknown", "revoked", "replayed", "expired", "inactive"])
+def test_logout_all_without_an_access_token_needs_a_live_refresh_token(client, mail, kind):
+    """Past the access token, a refresh cookie that a refresh would refuse names no one: the logout of every session
+    answers 401, sets no cookie and ends nothing (E157 (2)). It only reads the token, so a replayed one's chain is
+    not swept here; a refresh does that."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    sent_with, _reason = _make_refusable(client, email, kind)
+    live, rows = _live_refresh_tokens(user_id), _logout_rows(user_id)
+
+    resp = client.post(
+        "/api/auth/logout-all", headers={"Cookie": _without_access(sent_with)}, json={"account_id": user_id}
+    )
+
+    assert resp.status_code == 401 and resp.json() == {"detail": "You are not logged in."}
+    assert resp.headers["www-authenticate"] == "Bearer"
+    assert _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (live, rows)
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("refresh_cookie", ["missing", "revoked"])
+@pytest.mark.parametrize("names", ["no account", "its account", "another account"])
+def test_logout_all_with_a_live_access_token_reads_no_refresh_cookie(client, mail, refresh_cookie, names):
+    """While the access token lives it names the user, and the refresh cookie is not read (E157 (2)). With none, or
+    with one another device's logout of every session revoked in the access token's last 30 minutes, the request
+    still ends every session of the access token's user, a later login's included, clears this browser's cookies and
+    logs its row under that user, as before the field. Naming another account than that user's is refused with 409,
+    nothing changed."""
+    other_email, _ = _register(client, mail)
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    sent_with, _reason = _make_refusable(client, email, refresh_cookie)
+    client.cookies.clear()
+    assert _login(client, email).status_code == 200  # another device, logged in since
+    client.cookies.clear()
+    named = {"no account": None, "its account": user_id, "another account": _user(other_email).id}[names]
+    live, rows = _live_refresh_tokens(user_id), _logout_rows(user_id)
+
+    resp = client.post("/api/auth/logout-all", headers={"Cookie": sent_with}, **_naming(named))
+
+    if names == "another account":
+        assert resp.status_code == 409 and resp.json() == LOGOUT_ALL_ANOTHER_ACCOUNT
+        assert _cookies(resp) == []
+        assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (live, rows)
+    else:
+        assert resp.status_code == 200 and resp.json() == {"status": "success", "sessions_revoked": live}
+        assert _cookies(resp) == ACCESS_CLEARED + REFRESH_CLEARED
+        assert _live_refresh_tokens(user_id) == 0
+        assert _logout_rows(user_id) == [*rows, ("user", email, True)]
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("names_account", [False, True])
+def test_logout_all_refuses_an_inactive_account_403_as_every_route_does(client, mail, names_account):
+    """The access token's user is read as get_current_user reads it on every route, so an inactive account with a
+    live access cookie is refused with its 403 whether or not the request names it, and nothing is revoked (E157 (2));
+    it never reads as "not logged in"."""
+    email, user_id, _other_device = _two_sessions(client, mail)
+    _update_user(email, is_active=False)
+
+    resp = client.post("/api/auth/logout-all", **_naming(user_id if names_account else None))
+
+    assert resp.status_code == 403
+    assert resp.json() == {"detail": "This account is inactive. Contact support with any questions."}
+    assert _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
+
+
+@pytest.mark.requires_db
+def test_logout_all_raises_a_failed_lookup_of_the_access_tokens_user(client, mail, monkeypatch):
+    """A lookup of the access token's user that fails raises, as get_current_user's does on every route: it neither
+    reads as "not logged in" while every session lives nor falls through to the refresh cookie (E157 (2))."""
+    from app.services import auth_account_service
+
+    _email, user_id, _other_device = _two_sessions(client, mail)
+
+    def unavailable(db, email):
+        raise OperationalError("SELECT users", {}, Exception("the pool timed out"))
+
+    with monkeypatch.context() as patch:
+        patch.setattr(auth_account_service, "find_user_by_email", unavailable)
+        with pytest.raises(OperationalError):
+            client.post("/api/auth/logout-all", json={"account_id": user_id})
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
+
+
+@pytest.mark.requires_db
+def test_logout_all_raises_a_failed_revoke_and_clears_no_cookie(client, mail, server_errors, monkeypatch):
+    """A revoke that fails raises, and the answer is the app's 500, which clears no cookie: every session lives, this
+    one included. logoutAllInTurn (frontend/features/auth/lib/accountQueryState.ts) puts the session flag back after any
+    failure on that ground (E157): a writer who answers a failed revoke with logout's cookie-clearing 503 changes it in
+    the same pull request, so that after that answer the flag stays down, as after logout's."""
+    _email, user_id, _other_device = _two_sessions(client, mail)
+    server_errors.cookies.update(client.cookies)
+
+    def unavailable(db, user_id):
+        raise OperationalError("UPDATE refresh_tokens", {}, Exception("the pool timed out"))
+
+    with monkeypatch.context() as patch:
+        patch.setattr(refresh_token_service, "revoke_all_and_commit", unavailable)
+        resp = server_errors.post("/api/auth/logout-all", json={"account_id": user_id})
+    assert resp.status_code == 500 and _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("content_type", ["text/plain", "application/x-www-form-urlencoded", None])
+def test_logout_all_reads_the_named_account_only_from_a_json_body(client, mail, content_type):
+    """A page on another site can post text/plain or a form without a CORS preflight, but not JSON. The account is
+    read only from a JSON body (FastAPI refuses any other with 422), so the refresh cookie's way past the access
+    token stays out of a simple cross-site request's reach, as SameSite=lax keeps the cookies out of it too
+    (E157 (2))."""
+    _email, user_id, _other_device = _two_sessions(client, mail)
+    client.cookies.delete(settings.COOKIE_NAME)
+    headers = {} if content_type is None else {"Content-Type": content_type}
+
+    resp = client.post("/api/auth/logout-all", content=json.dumps({"account_id": user_id}), headers=headers)
+
+    assert resp.status_code == 422
+    assert _cookies(resp) == []
+    assert (_live_refresh_tokens(user_id), _logout_rows(user_id)) == (2, [])
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("names", ["no account", "the bearer's account", "the cookie's account"])
+def test_logout_all_ends_the_bearer_tokens_account_not_the_refresh_cookies(client, mail, names):
+    """One account's bearer token beside another's refresh cookie (an API client, or the API's docs page in a
+    browser logged in to the site; the site never sends a bearer token): the access token names the user, a bearer
+    before the access cookie, as on every route, and the refresh cookie is read only when none does (E157 (2)). So
+    the bearer's account's sessions end, under its row, and the cookie's stay; naming the cookie's account is
+    refused with 409."""
+    bearer_email, _ = _register(client, mail)
+    cookie_email, _ = _register(client, mail)
+    bearer_id, cookie_id = _user(bearer_email).id, _user(cookie_email).id
+    client.cookies.clear()
+    bearer = _login(client, bearer_email).json()["access_token"]
+    client.cookies.clear()
+    assert _login(client, cookie_email).status_code == 200
+    refresh = client.cookies.get(REFRESH_COOKIE)
+    client.cookies.clear()
+    client.cookies.set(REFRESH_COOKIE, refresh)
+    named = {"no account": None, "the bearer's account": bearer_id, "the cookie's account": cookie_id}[names]
+    bearer_live, cookie_live = _live_refresh_tokens(bearer_id), _live_refresh_tokens(cookie_id)
+
+    resp = client.post("/api/auth/logout-all", headers={"Authorization": f"Bearer {bearer}"}, **_naming(named))
+
+    if names == "the cookie's account":
+        assert resp.status_code == 409 and resp.json() == LOGOUT_ALL_ANOTHER_ACCOUNT
+        assert (_live_refresh_tokens(bearer_id), _logout_rows(bearer_id)) == (bearer_live, [])
+    else:
+        assert resp.status_code == 200 and resp.json() == {"status": "success", "sessions_revoked": bearer_live}
+        assert (_live_refresh_tokens(bearer_id), _logout_rows(bearer_id)) == (0, [("user", bearer_email, True)])
+    assert (_live_refresh_tokens(cookie_id), _logout_rows(cookie_id)) == (cookie_live, [])
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("access_cookie", ["live", "lapsed"])
+def test_logout_all_refuses_when_the_tab_shows_another_account(client, mail, access_cookie):
+    """A tab learns of another tab's login only through /me (E29 (3)), so one still showing the account it loaded
+    with posts with the cookies of the account the browser holds now. It names the account it shows, and the route
+    refuses to end another's sessions: 409, nothing revoked, no row written, the cookies kept (E157 (2))."""
+    shown_email, _ = _register(client, mail)
+    shown_id = _user(shown_email).id
+    _held_email, held_id, _other_device = _two_sessions(client, mail)
+    if access_cookie == "lapsed":
+        client.cookies.delete(settings.COOKIE_NAME)
+
+    resp = client.post("/api/auth/logout-all", **_naming(shown_id))
+
+    assert resp.status_code == 409 and resp.json() == LOGOUT_ALL_ANOTHER_ACCOUNT
+    assert _cookies(resp) == []
+    assert _live_refresh_tokens(held_id) == 2
+    assert _logout_rows(held_id) == [] and _logout_rows(shown_id) == []
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("account_id", ["7", 7.0, True])  # each would pass as 7 or 1 in pydantic's lax mode
+def test_logout_all_refuses_an_account_named_other_than_as_a_whole_number(client, mail, account_id):
+    """The account a tab names is validated where it enters (rule 9): anything but a JSON integer is refused with
+    422 before the route reads a token, and nothing is revoked."""
+    _email_, user_id, _other_device = _two_sessions(client, mail)
+
+    resp = client.post("/api/auth/logout-all", json={"account_id": account_id})
+
+    assert resp.status_code == 422
+    assert _live_refresh_tokens(user_id) == 2
 
 
 # ── connections: unlinking a linked provider ──────────────────────────────────
