@@ -21,6 +21,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
+import { plural } from '@/features/filings/lib/sectionChanges'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
 import { CheckIcon } from '@/lib/icons'
@@ -384,7 +385,13 @@ export default function StreamingSummaryDisplay({
           <>
             Showing the previously loaded summary.
             <span className="mt-2 block">{failureReason}</span>
-            {retryAfterSeconds > 0 && <span className="mt-2 block">Available in {retryAfterSeconds} seconds.</span>}
+            {retryAfterSeconds > 0 && (
+              <span className="mt-2 block">
+                You can try again in {retryAfterSeconds < 60
+                  ? plural(retryAfterSeconds, 'second')
+                  : plural(Math.ceil(retryAfterSeconds / 60), 'minute')}.
+              </span>
+            )}
           </>
         }
         action={retryAction}
@@ -500,7 +507,11 @@ export default function StreamingSummaryDisplay({
             <>
               {failureReason}
               {retryAfterSeconds > 0 && (
-                <span className="mt-2 block">Available in {retryAfterSeconds} seconds.</span>
+                <span className="mt-2 block">
+                  You can try again in {retryAfterSeconds < 60
+                    ? plural(retryAfterSeconds, 'second')
+                    : plural(Math.ceil(retryAfterSeconds / 60), 'minute')}.
+                </span>
               )}
             </>
           }

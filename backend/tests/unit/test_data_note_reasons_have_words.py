@@ -1,4 +1,4 @@
-"""Every reason the backend writes has words (CLAUDE.md rule 12; data notes version 2).
+"""Every reason the backend writes has words (CLAUDE.md rule 12; data notes version 3).
 
 A data note's message is its reasons' sentences from `data_notes.REASONS`. A reason with no entry falls back to one
 generic sentence ("The source or calculation basis needs review. Check the original filing."), so a new reason would
@@ -892,8 +892,8 @@ def _drive(monkeypatch) -> set[str]:
     dropped, for two): facts/reconcile's soft checks and companyfacts cross-check and facts/lineage's calculation
     checks over one filing's batch (with and without initialize_reported), fact_provenance's legacy projections,
     data_notes' fallbacks, summary words and a citation supplement, quarterly_fact_repair's calendar relabels (pure)
-    and its repair, reported EPS and rollback, and filing_lineage_repair's backfill of each outcome, all on in-memory
-    SQLite databases."""
+    and its repair, reported EPS and rollback, the proxy step's retirement, restoration and held re-annotation, and
+    filing_lineage_repair's backfill of each outcome, all on in-memory SQLite databases."""
     from collections.abc import Iterator
     from contextlib import contextmanager
     from decimal import Decimal
@@ -911,6 +911,9 @@ def _drive(monkeypatch) -> set[str]:
     from app.services.trend_analysis.data_notes import citation_data_notes, data_notes, note_summary
     from tests.unit.test_filing_lineage_repair import HOLDS, _company, _margin, _seed_hold
     from tests.unit.test_quarterly_fact_repair import candidate, fact as repair_fact, normalizer, payload
+    from tests.unit.test_quarterly_proxy_repair import (
+        _demoted, _only_a_proxy_tags_2021, _reconfirmed_with_its_margin, _replaced, _with_revenue_withheld,
+    )
 
     def reasons(provenance: dict | None) -> set[str]:
         return set((provenance or {}).get("reasons", []))
@@ -991,6 +994,19 @@ def _drive(monkeypatch) -> set[str]:
                 yield session
         finally:
             engine.dispose()
+
+    # Run the proxy step before the following repair cases stub normalization. These are the real pre-fix writers:
+    # a stored winner to promote, a proxy-only period and its margin to retire, a replaced filing figure to restore,
+    # and a reconfirm whose margin must keep its shown record. Read both stored provenance and held report reasons.
+    for shape in (_demoted, _only_a_proxy_tags_2021, _replaced, _reconfirmed_with_its_margin):
+        with database() as db:
+            company, proxy_payload, *filings = shape(db, monkeypatch)
+            if shape is _reconfirmed_with_its_margin:
+                _with_revenue_withheld(db, filings[0])
+            result = repair.repair_company(db, company.id, proxy_payload, dry_run=False, run_id="proxy-reasons")
+            db.commit()
+            codes |= set().union(*(reasons(row.provenance) for row in db.query(FinancialFact)))
+            codes |= {code for row in result["proxy"]["rows"] for code in row.get("reasons", [])}
 
     with database() as db:
         db.add(FinancialFact(**repair_fact(concept="operating_margin", unit="pure"), is_latest=True))
