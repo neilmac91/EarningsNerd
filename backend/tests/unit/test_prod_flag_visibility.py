@@ -152,10 +152,12 @@ def test_pin_parser_rejects_unusable_service_evidence(monkeypatch, tmp_path, def
         pin_baseline.production_env()
 
 
-# The five gcloud reads of describe-service after the API service describe, in order, keyed by (kind, verb, name).
-FIVE = [("revisions", "describe", "serving"), ("jobs", "describe", "earningsnerd-pregenerate"),
+# The eight gcloud reads after the API service describe, keyed by (kind, verb, name).
+READS = [("revisions", "describe", "serving"), ("jobs", "describe", "earningsnerd-pregenerate"),
         ("services", "describe", "earningsnerd-task-worker"), ("revisions", "describe", "worker-serving"),
-        ("services", "get-iam-policy", "earningsnerd-task-worker")]
+        ("services", "get-iam-policy", "earningsnerd-task-worker"),
+        ("jobs", "describe", "filing-scan-hourly"), ("jobs", "describe", "summary-recovery-minute"),
+        ("queues", "describe", "earningsnerd-background")]
 # The API service describe comes first (it was the step's shell read, outside the classified seam).
 SERVICE = "earningsnerd-backend"
 SERVICE_READ = ("services", "describe", SERVICE)
@@ -169,7 +171,8 @@ MISMATCH = "Worker command/args: DOES NOT MATCH the committed worker entrypoint 
 
 
 def _readbacks(revision, job, worker, worker_revision, policy):
-    return dict(zip(FIVE, (revision, job, worker, worker_revision, policy)))
+    return dict(zip(READS, (revision, job, worker, worker_revision, policy,
+                           {"state": "ENABLED"}, {"state": "ENABLED"}, {"state": "RUNNING"})))
 
 
 def _execute(service, readbacks, *, denied=None, raw=None):
@@ -184,10 +187,16 @@ def _execute(service, readbacks, *, denied=None, raw=None):
     calls = []
 
     def fake(argv, *, text, stderr, timeout):
-        assert argv[:2] == ["gcloud", "run"] and argv[3] in ("describe", "get-iam-policy")
-        assert argv[5:] == ["--region=fixture-region", "--format=json"] and text is True
-        assert stderr is subprocess.PIPE and timeout == 100
         key = (argv[2], argv[3], argv[4])
+        if key in READS[5:]:
+            family = "tasks" if key[0] == "queues" else "scheduler"
+            assert argv == ["gcloud", family, *key, "--location=fixture-region",
+                            "--project=earnings-nerd", "--format=json"]
+            assert timeout == 20
+        else:
+            assert argv[:2] == ["gcloud", "run"] and argv[3] in ("describe", "get-iam-policy")
+            assert argv[5:] == ["--region=fixture-region", "--format=json"] and timeout == 80
+        assert text is True and stderr is subprocess.PIPE
         calls.append(key)
         if key in denied:
             if denied[key] == "timeout":
@@ -216,7 +225,7 @@ def _service_then(service, later):
     """A gcloud fake serving the API service describe (exact argv) and handing every later read to `later`."""
     def fake(argv, *, text, stderr, timeout):
         if argv == SERVICE_ARGV:
-            assert text is True and stderr is subprocess.PIPE and timeout == 100
+            assert text is True and stderr is subprocess.PIPE and timeout == 80
             return json.dumps(service)
         return later(argv, text=text, stderr=stderr, timeout=timeout)
     return fake
@@ -226,7 +235,7 @@ def _render(service, revision, job, worker, worker_revision, policy):
     output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
     if exit_ is not None:
         raise exit_
-    assert calls == FIVE
+    assert calls == READS
     return output
 
 
@@ -363,7 +372,7 @@ def test_ops_renderer_collects_sec_pin_defects_and_prints_every_block(resources,
     _plant_pin((revision if target == "service" else worker_revision)["spec"]["containers"][0], pin, defect)
     output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
     label = "Serving revision serving" if target == "service" else "Worker revision worker-serving"
-    assert exit_ is not None and calls == FIVE
+    assert exit_ is not None and calls == READS
     assert f"{label} must pin {pin}=1 as a plain value, got {PIN_DEFECTS[defect]}" in str(exit_)
     errors = [line for line in output.splitlines() if line.startswith("::error::")]
     assert len(errors) == 1 and f"must pin {pin}=1" in errors[0]
@@ -378,7 +387,7 @@ def test_ops_renderer_lists_every_pin_defect_once(resources):
     _plant_pin(revision["spec"]["containers"][0], "EDGAR_RATE_LIMIT_PER_SEC", "10")
     _plant_pin(worker_revision["spec"]["containers"][0], "SEC_RATE_LIMIT_PER_SECOND", "PRIVATE_PIN_VALUE_SENTINEL")
     output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
-    assert exit_ is not None and calls == FIVE
+    assert exit_ is not None and calls == READS
     assert "Serving revision serving must pin EDGAR_RATE_LIMIT_PER_SEC=1 as a plain value, got '10'" in str(exit_)
     assert ("Worker revision worker-serving must pin SEC_RATE_LIMIT_PER_SECOND=1 as a plain value, "
             "got <value withheld: not a plain numeric string>") in str(exit_)
@@ -394,7 +403,7 @@ def test_ops_renderer_collects_duplicate_env_names(resources):
     service, revision, job, worker, worker_revision, policy = resources
     revision["spec"]["containers"][0]["env"].append({"name": "SEC_RATE_LIMIT_PER_SECOND", "value": "1"})
     output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
-    assert exit_ is not None and calls == FIVE
+    assert exit_ is not None and calls == READS
     assert "Serving revision serving has a duplicate or nameless env entry" in str(exit_)
     errors = [line for line in output.splitlines() if line.startswith("::error::")]
     assert len(errors) == 1 and "duplicate or nameless env entry" in errors[0]
@@ -406,8 +415,8 @@ def test_ops_renderer_immediate_exit_names_collected_defects(resources):
     service, revision, job, worker, worker_revision, policy = resources
     _plant_pin(revision["spec"]["containers"][0], "EDGAR_RATE_LIMIT_PER_SEC", "10")
     readbacks = _readbacks(revision, job, worker, worker_revision, policy)
-    output, exit_, calls = _execute(service, readbacks, denied={FIVE[2]: "ERROR: NOT_FOUND " + STDERR})
-    assert exit_ is not None and calls == FIVE[:3]
+    output, exit_, calls = _execute(service, readbacks, denied={READS[2]: "ERROR: NOT_FOUND " + STDERR})
+    assert exit_ is not None and calls == READS[:3]
     assert "Serving revision serving must pin EDGAR_RATE_LIMIT_PER_SEC=1 as a plain value, got '10'" in str(exit_)
     assert "cannot describe services earningsnerd-task-worker (not_found)" in str(exit_)
     assert "describe-service:" not in output and "PRIVATE_" not in output + str(exit_)
@@ -428,7 +437,7 @@ def test_ops_renderer_rejects_worker_traffic_defects(resources, defect):
     else:
         status["traffic"].append({"revisionName": "retired", "percent": 0, "tag": "old", "url": "hidden-host"})
     output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
-    assert exit_ is not None and calls == FIVE[:3]
+    assert exit_ is not None and calls == READS[:3]
     expected = "tagged traffic targets" if defect == "tagged" else "100% traffic on the latest ready revision of the Worker"
     assert expected in str(exit_)
     assert "Capacity configuration: " in output
@@ -442,7 +451,7 @@ def test_ops_renderer_fails_closed_on_public_invoker(resources, role, principal)
     service, revision, job, worker, worker_revision, policy = resources
     policy["bindings"].append({"role": role, "members": [principal]})
     output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
-    assert exit_ is not None and calls == FIVE
+    assert exit_ is not None and calls == READS
     assert f"admits a public principal: {principal} on {role}" in str(exit_)
     assert f"Worker invoker policy: PUBLIC ({principal} on {role})" in output
     assert "Worker invoker policy: PRIVATE" not in output and "hidden-invoker" not in output
@@ -453,7 +462,7 @@ def test_ops_renderer_fails_closed_on_disabled_invoker_iam_check(resources, valu
     service, revision, job, worker, worker_revision, policy = resources
     worker["metadata"]["annotations"]["run.googleapis.com/invoker-iam-disabled"] = value
     output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
-    assert exit_ is not None and calls == FIVE  # the policy is still read and reported
+    assert exit_ is not None and calls == READS  # the policy is still read and reported
     assert "invoker IAM check is disabled" in str(exit_)
     assert "Worker invoker IAM check: DISABLED" in output
 
@@ -471,8 +480,8 @@ def test_ops_renderer_reports_denied_invoker_policy_as_unverified(resources, fai
     never gcloud's stderr; the step passes with a qualified verdict when nothing else failed."""
     service, revision, job, worker, worker_revision, policy = resources
     readbacks = _readbacks(revision, job, worker, worker_revision, policy)
-    output, exit_, calls = _execute(service, readbacks, denied={FIVE[4]: failure})
-    assert exit_ is None and calls == FIVE
+    output, exit_, calls = _execute(service, readbacks, denied={READS[4]: failure})
+    assert exit_ is None and calls == READS
     assert f"Worker invoker policy: UNVERIFIED ({klass})" in output
     assert "Worker invoker policy: PRIVATE" not in output
     warnings = [line for line in output.splitlines() if line.startswith("::warning::")]
@@ -492,8 +501,8 @@ def test_ops_renderer_reports_denied_invoker_policy_as_unverified(resources, fai
 def test_ops_renderer_treats_malformed_policy_as_unverified(resources, policy, raw):
     service, revision, job, worker, worker_revision, _ = resources
     readbacks = _readbacks(revision, job, worker, worker_revision, policy)
-    output, exit_, calls = _execute(service, readbacks, raw={FIVE[4]: policy} if raw else None)
-    assert exit_ is None and calls == FIVE
+    output, exit_, calls = _execute(service, readbacks, raw={READS[4]: policy} if raw else None)
+    assert exit_ is None and calls == READS
     assert "Worker invoker policy: UNVERIFIED (unreadable_response)" in output
     assert "Worker invoker policy: PRIVATE" not in output and "PUBLIC" not in output
 
@@ -508,8 +517,8 @@ def test_ops_renderer_unverified_never_masks_a_fail(resources, defect):
         worker["metadata"]["annotations"]["run.googleapis.com/invoker-iam-disabled"] = "true"
         expected = "invoker IAM check is disabled"
     readbacks = _readbacks(revision, job, worker, worker_revision, policy)
-    output, exit_, calls = _execute(service, readbacks, denied={FIVE[4]: "ERROR: PERMISSION_DENIED: " + STDERR})
-    assert exit_ is not None and calls == FIVE and expected in str(exit_)
+    output, exit_, calls = _execute(service, readbacks, denied={READS[4]: "ERROR: PERMISSION_DENIED: " + STDERR})
+    assert exit_ is not None and calls == READS and expected in str(exit_)
     assert "Worker invoker policy: UNVERIFIED (permission_denied)" in output
     assert "describe-service: FAIL (1 invariant failure(s))" in output
 
@@ -521,13 +530,13 @@ def test_ops_renderer_unverified_never_masks_a_fail(resources, defect):
 def test_ops_renderer_fails_closed_on_failed_describe(resources, index, failure, klass):
     """Every describe read the readback depends on fails closed with its class; stderr never reaches the log."""
     service, revision, job, worker, worker_revision, policy = resources
-    kind, _, name = key = FIVE[index]
+    kind, _, name = key = READS[index]
     readbacks = _readbacks(revision, job, worker, worker_revision, policy)
     if klass == "unreadable_response":
         output, exit_, calls = _execute(service, readbacks, raw={key: failure})
     else:
         output, exit_, calls = _execute(service, readbacks, denied={key: failure})
-    assert exit_ is not None and calls == FIVE[:index + 1]
+    assert exit_ is not None and calls == READS[:index + 1]
     assert f"cannot describe {kind} {name} ({klass})" in str(exit_)
     assert "PRIVATE_STDERR_SENTINEL" not in output + str(exit_)
 
