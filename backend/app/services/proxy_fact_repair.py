@@ -9,8 +9,10 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
 1. Set 4. A filing row the old cross-check replaced with a proxy's figure is restored to its recorded
    ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row
    that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
-   10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
-   left so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
+   10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed,
+   unless the 10-K's figure confirms its recorded original while its value is more than 1% off, as where the
+   backer is the year's own report as first reported: that row is restored to its original as above. Left
+   so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
    company (sets 4 and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own
    unit fix and left first only where today's 10-K figure is of the value's sign and on its scale step
    (strictly within half a step, about 31.6 times, of it) or there is none; a row so left is listed in
@@ -485,24 +487,30 @@ class _Planner:
             "gap": None if gap is None else round(gap, 6), **extra,
         }
 
-    def _left(self, row_id: int, state: State, value: Any, number: int) -> bool:
+    def _left(self, row_id: int, state: State, value: Any, number: int, original: float | None = None) -> bool:
         """Set 5's first two cases, and set 4's once its scale-up check has passed, with the verdict: no proxy
         figure holds ``value``, or a report does.
-        A row left report-backed is listed in ``left_report_backed`` (its ``figure`` a decimal string, as rows
-        carry values). One that is the company's current figure at its key and more than 1% off today's 10-K
+        A set-4 row a report row backs whose recorded ``original`` today's 10-K figure confirms, within 1%, while
+        its value is more than 1% off it, is not left: the backer (a year's own report as first reported, which a
+        later report restated) says nothing of this filing's parse, and set 4's ordinary path restores the row to
+        its own original through today's cross-check, as it restores an unbacked one. Set 5 records no original.
+        Any other row left report-backed is listed in ``left_report_backed`` (its ``figure`` a decimal string, as
+        rows carry values). One that is the company's current figure at its key and more than 1% off today's 10-K
         figure (``_authority``, which the rest of sets 4 and 5 read) refuses the company: left, the company's figure
-        would stay the proxy's where the 10-K contradicts it (a report row elsewhere, a year's own report as first
-        reported, may hold the proxy's figure while the 10-K restated it). Only the value is read: the old
-        cross-check changed a row's value and source, never its start or fiscal year. With no 10-K figure, the row
-        is left and listed."""
+        would stay the proxy's where the 10-K contradicts it and its original too, or where it records none. Only the
+        value is read: the old cross-check changed a row's value and source, never its start or fiscal year. With
+        no 10-K figure, the row is left and listed."""
         if not self._witnessed(state, value):
             self.verdicts[row_id] = "no_proxy_figure"
             return True
         backers = self._backers(row_id, state, value)
         if not backers:
             return False
-        self.verdicts[row_id] = "report_backed"
         authority = self._authority(state)
+        if (number == 4 and original is not None and authority is not None and _agrees(original, authority)
+                and not _agrees(float(state["value"]), authority)):
+            return False
+        self.verdicts[row_id] = "report_backed"
         figure = value if isinstance(value, str) else qfr._json_value(Decimal(str(value)))
         self.left.append(self._row(row_id, "left_report_backed", state, None, set=number, figure=figure,
                                    authority=authority, backed_by=[{
@@ -556,7 +564,7 @@ class _Planner:
             if _scale_up(value, original) and _scale_up_stands(value, authority):
                 self._retained(row_id, state, value, original, authority)
                 continue
-            if self._left(row_id, state, value, 4):
+            if self._left(row_id, state, value, 4, original):
                 continue
             if authority is not None and _same(value, authority):
                 self.verdicts[row_id] = "kept_agrees_with_authority"
