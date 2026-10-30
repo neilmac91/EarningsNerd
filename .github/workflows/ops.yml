@@ -82,6 +82,7 @@ on:
           - repair-ticker-apply
           - relabel-fy-dry-run
           - relabel-fy-apply
+          - repair-quarterly-baseline-80fa90d-dry-run
           - repair-quarterly-dry-run
           - repair-quarterly-apply
           - repair-lineage-dry-run
@@ -101,7 +102,7 @@ on:
         required: false
         default: ""
       tickers:
-        description: 'Comma-separated tickers: sync-companyfacts; backfill-filing-history (empty = the watchlist cohort); relabel-fy-* (empty = every company); repair-quarterly-* (required, at most 50); repair-lineage-* (empty = every company). A SINGLE ticker for reset-filing-summary'
+        description: 'Comma-separated tickers: sync-companyfacts; backfill-filing-history (empty = the watchlist cohort); relabel-fy-* (empty = every company); repair-quarterly-dry-run/apply (required, at most 50); repair-quarterly-baseline-80fa90d-dry-run (leave empty; fixed cohort); repair-lineage-* (empty = every company). A SINGLE ticker for reset-filing-summary'
         required: false
         default: ''
       revision:
@@ -175,7 +176,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|capacity-readout|figure-check-count|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|capacity-readout|figure-check-count|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-baseline-80fa90d-dry-run|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -257,6 +258,34 @@ jobs:
             exit 1
           fi
           echo "No main push in flight."
+
+      # Fixed historical source for E211's recovered pre-step baseline. The workflow remains
+      # reviewed main; no dispatch input can choose code, tickers or an apply mode.
+      - name: Validate fixed quarterly baseline request
+        if: steps.request.outputs.operation == 'repair-quarterly-baseline-80fa90d-dry-run'
+        env:
+          TICKERS: ${{ steps.request.outputs.tickers }}
+          REVISION: ${{ steps.request.outputs.revision }}
+        run: |
+          set -euo pipefail
+          [ -z "$TICKERS" ] && [ -z "$REVISION" ] || { echo "::error::baseline uses its fixed nine-company cohort; leave tickers and revision empty"; exit 1; }
+
+      - name: Check out fixed quarterly baseline source
+        if: steps.request.outputs.operation == 'repair-quarterly-baseline-80fa90d-dry-run'
+        uses: actions/checkout@v7
+        with:
+          repository: neilmac91/EarningsNerd
+          ref: 80fa90d48ed1546e7770d88fd3b1b0aa05b1f89d
+          path: .ops-quarterly-baseline
+          persist-credentials: false
+
+      - name: Verify fixed quarterly baseline source
+        if: steps.request.outputs.operation == 'repair-quarterly-baseline-80fa90d-dry-run'
+        run: python3 ops/quarterly_baseline/run.py --verify-source
+
+      - name: Install quarterly baseline dependencies
+        if: steps.request.outputs.operation == 'repair-quarterly-baseline-80fa90d-dry-run'
+        run: pip install -q -r .ops-quarterly-baseline/backend/requirements.txt
 
       - name: Validate bounded capacity window
         if: steps.request.outputs.operation == 'capacity-readout'
@@ -436,7 +465,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout figure-check-count', steps.request.outputs.operation)
+        if: contains('repair-quarterly-baseline-80fa90d-dry-run detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout figure-check-count', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -584,6 +613,37 @@ jobs:
           EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
           [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
           python scripts/relabel_filing_fy_facts.py "${ARGS[@]}"
+
+      - name: Run fixed quarterly baseline (read-only)
+        id: quarterly_baseline
+        if: steps.request.outputs.operation == 'repair-quarterly-baseline-80fa90d-dry-run'
+        timeout-minutes: 60
+        env:
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s -c default_transaction_read_only=on
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
+          STRIPE_SECRET_KEY: sk_test_ops
+          STRIPE_WEBHOOK_SECRET: whsec_ops
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+        run: |
+          set -euo pipefail
+          READ_ONLY=on
+          SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')")
+          echo "$SESSION"
+          EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
+          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
+          python3 ops/quarterly_baseline/run.py --output "$RUNNER_TEMP/quarterly-baseline"
+
+      - name: Retain quarterly baseline report
+        if: always() && steps.quarterly_baseline.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: quarterly-baseline-${{ github.run_id }}
+          path: ${{ runner.temp }}/quarterly-baseline/
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Run quarterly fact repair script
         id: quarterly
