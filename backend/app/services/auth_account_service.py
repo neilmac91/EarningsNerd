@@ -158,8 +158,10 @@ def record_password_login(
     return user, refresh_token, stored_email
 
 
-def verify_email_token(db: Session, raw_token: str) -> User:
-    """Mark the account holding ``raw_token`` verified, burn the token and commit.
+def verify_email_token(db: Session, raw_token: str) -> Tuple[User, int]:
+    """Mark the account holding ``raw_token`` verified, burn the token and commit. Returns the account and its
+    id, read before the commit expires the account, so a caller that needs only the id reads nothing after the
+    commit (E121).
 
     Raises :class:`AccountTokenInvalidError` for an unknown or used token and
     :class:`AccountTokenExpiredError` for an expired one; neither writes anything.
@@ -176,8 +178,9 @@ def verify_email_token(db: Session, raw_token: str) -> User:
     user.email_verified = True
     user.email_verification_token = None
     user.email_verification_expires = None
+    user_id = user.id
     db.commit()
-    return user
+    return user, user_id
 
 
 def grant_reverse_trial(db: Session, user: User, days: int) -> None:

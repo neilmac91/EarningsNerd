@@ -19,7 +19,9 @@ One rule, three parts in this one module:
   OAuth starts, which save their state in the thread pool; the two OAuth callbacks, a sign-in, a sign-up,
   a link to an existing account, a refusal and a lost race each, which hold no connection while they wait
   for the provider or send the linked-account notice; and the password login, the refresh and each OAuth
-  callback still answer with their committed session when every statement after its commit fails), each
+  callback still answer with their committed session when every statement after its commit fails; and the email
+  verification, its refusal and a failing write included, and behind its flag the reverse trial's grant and a
+  failed one, which still verifies), each
   watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
@@ -1183,6 +1185,140 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
             assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
             assert stored == [("the stored hash", False, False)] * 9
             assert (revoked, minted) == ([False] * 9, [])
+    finally:
+        engine.dispose()
+
+
+# The email verification's closes, as above: its one unit ends on a commit (the verification's, or the trial's) or on a
+# failed trial's rollback, so its release finds nothing open; an unknown link's read, or a write that fails after its
+# first query, leaves a transaction for the release. The dependency's finalizer finds nothing either way.
+_VERIFY_CLOSES = {
+    "verify": [False, False],
+    "verify_unknown": [True, False],
+    "verify_fails": [True, False],
+    "verify_trial": [False, False],
+    "verify_trial_fails": [False, False],
+}
+_VERIFY_ANSWERS = {
+    "verify": (200, {"message": "Email verified."}),
+    "verify_unknown": (400, {"detail": "Invalid or expired verification link."}),
+    "verify_trial": (200, {"message": "Email verified."}),
+    "verify_trial_fails": (200, {"message": "Email verified."}),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_VERIFY_CLOSES))
+async def test_email_verification_releases_its_connection_off_the_loop(monkeypatch, tmp_path, case):
+    """The email verification runs in one thread-pool unit, released before the route answers: the link's account
+    read, the verification's commit and, behind ``REVERSE_TRIAL_ENABLED``, the trial's eligibility read, grant and
+    commit, or a failed grant's rollback. Nine requests on four slots make no checkout, statement or release on the
+    loop and leave nothing for the finalizer, a refused link and a failing write included. On the loop the route read
+    and committed there, and with the trial on read the account its commit had expired. A verification marks each
+    account verified and burns its link; a granted trial gives each a trialing Pro subscription and sends its
+    trial-started event, after the release; a failed grant leaves no subscription and still verifies; a refusal or a
+    failed write leaves every account as it was. The links carry no expiry, which SQLite would hand back without its
+    zone."""
+    from app.config import settings
+    from app.models import Subscription, User
+    from app.routers import auth
+    from app.services import auth_account_service, subscription_sync
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'verify.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, Subscription):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"verify-{i}@example.com" for i in range(9)]
+    with sessions() as db:
+        db.add_all([
+            User(email=email, is_active=True, hashed_password="the stored hash", email_verified=False,
+                 email_verification_token=auth_account_service._hash_token(f"verify-link-{i}"))
+            for i, email in enumerate(emails)
+        ])
+        db.commit()
+        account_ids = [account.id for account in db.query(User).order_by(User.id)]
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    events: list[tuple[str, str, dict, int]] = []
+
+    def capture(distinct_id: str, name: str, properties: dict) -> None:
+        events.append((distinct_id, name, properties, engine.pool.checkedout()))
+
+    def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+        db.query(User.id).first()
+        raise RuntimeError("the unit failed after its first query")
+
+    if case == "verify_fails":
+        monkeypatch.setattr(auth_account_service, "verify_email_token", fails_after_its_first_query)
+    if case == "verify_trial_fails":
+        monkeypatch.setattr(subscription_sync, "start_reverse_trial", fails_after_its_first_query)
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", case.startswith("verify_trial"))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "capture_event", capture)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = "never-issued" if case == "verify_unknown" else f"verify-link-{i}"
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post("/api/auth/verify-email", json={"token": token})
+
+    try:
+        # One request alone first: its trial-started event, if any, is sent with no connection out.
+        responses = [await send(0)]
+        assert [out for *_, out in events] == ([0] if case == "verify_trial" else [])
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        # Every checkout waited in the thread pool, and every statement and release ran there: none on the loop
+        # (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once; the dependency's finalizer found nothing open.
+        assert [request.open_at_close for request in request_sessions] == [_VERIFY_CLOSES[case]] * 9
+        status, payload = _VERIFY_ANSWERS.get(case, (500, None))
+        assert [response.status_code for response in responses] == [status] * 9
+        if payload is not None:
+            assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            stored = [(user.email_verified, user.email_verification_token is None, bool(user.is_pro))
+                      for user in db.query(User).order_by(User.id)]
+            trials = sorted((sub.user_id, sub.plan, sub.status) for sub in db.query(Subscription))
+        verified = case in ("verify", "verify_trial", "verify_trial_fails")
+        granted = case == "verify_trial"
+        assert stored == [(verified, verified, granted)] * 9
+        assert trials == ([(user_id, "pro", "trialing") for user_id in account_ids] if granted else [])
+        # Each granted trial's event names its own account, once.
+        assert sorted(event[:3] for event in events) == ([
+            (str(user_id), auth.EVENT_TRIAL_STARTED, {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS})
+            for user_id in sorted(account_ids, key=str)
+        ] if granted else [])
     finally:
         engine.dispose()
 
@@ -4993,8 +5129,6 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "register"): 5,
-
-    ("app/routers/auth.py", "verify_email"): 3,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.

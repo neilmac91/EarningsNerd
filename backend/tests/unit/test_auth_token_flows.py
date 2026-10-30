@@ -498,6 +498,63 @@ def test_reverse_trial_skips_a_user_who_is_already_pro(client, mail, events, mon
     assert granted == [] and events == []
 
 
+@pytest.mark.requires_db
+def test_a_trial_whose_eligibility_read_fails_still_verifies(client, mail, events, monkeypatch, caplog):
+    """The trial's eligibility read follows the verification's commit, so it is best-effort with the grant: a
+    failure there is logged and the committed verification still answers verified (E121). On the loop it raised
+    out of the route as a 500 over a verified account, whose link was then used up."""
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
+
+    def unreadable(_user):
+        raise RuntimeError("the account's plan could not be read")
+
+    monkeypatch.setattr("app.services.entitlements.is_pro_user", unreadable)
+    email, token = _register(client, mail)
+    user_id = _user(email).id
+    events.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = client.post("/api/auth/verify-email", json={"token": token})
+    assert resp.status_code == 200 and resp.json() == VERIFIED_BODY
+    assert _user(email).email_verified is True and _subscriptions(user_id) == []
+    assert events == []
+    failed = f"Failed to start reverse trial for user {user_id} on verify"
+    (warning,) = [r for r in caplog.records if r.getMessage() == failed]
+    assert warning.exc_info[0] is RuntimeError
+
+
+@pytest.mark.requires_db
+def test_a_failed_trial_whose_rollback_fails_still_verifies(client, mail, events, monkeypatch, caplog):
+    """A failed grant's rollback that fails too is logged by its class, and the verification, committed before the
+    grant, still answers verified; the warning for the grant still carries the grant's own failure (E121)."""
+    monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
+
+    def boom(db, user, days):
+        raise RuntimeError("billing store down")
+
+    def rollback_fails(db):
+        raise ConnectionError("the connection dropped")
+
+    monkeypatch.setattr("app.services.subscription_sync.start_reverse_trial", boom)
+    monkeypatch.setattr(auth_module.auth_account_service, "discard_reverse_trial", rollback_fails)
+    email, token = _register(client, mail)
+    user_id = _user(email).id
+    events.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = client.post("/api/auth/verify-email", json={"token": token})
+    assert resp.status_code == 200 and resp.json() == VERIFIED_BODY
+    assert _user(email).email_verified is True and _subscriptions(user_id) == []
+    assert events == []
+    messages = [r.getMessage() for r in caplog.records if r.name == "app.routers.auth" and r.levelno == logging.WARNING]
+    assert messages == [
+        f"Discarding a failed reverse trial for user {user_id} failed: ConnectionError",
+        f"Failed to start reverse trial for user {user_id} on verify",
+    ]
+    (warning,) = [r for r in caplog.records if r.getMessage() == messages[1]]
+    assert warning.exc_info[0] is RuntimeError and str(warning.exc_info[1]) == "billing store down"
+
+
 # ── Set-Cookie headers, in order ──────────────────────────────────────────────
 
 @pytest.mark.requires_db
