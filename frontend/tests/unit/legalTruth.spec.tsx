@@ -426,8 +426,9 @@ import {
  *    the lexicon lacks and that does not end in -ed ("Sessions not begun here end when you log out.") and a subject of
  *    two phrases, each with a negated participle ("Sessions not opened here and tokens not issued here end when you
  *    log out."); and, given up since stage 4f, a logout or a password action inside a subject's negated participle in
- *    the longer forms main refused ("Sessions not ended by logging out of a device end within 30 minutes.", and six
- *    more).
+ *    the forms main refused where its denial window did not reach the clause's verb, an object, a modifier, an adverb,
+ *    a list, a bracket or a dash with the logout ("Sessions not ended by logging out of a device end within 30
+ *    minutes.").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -2516,8 +2517,10 @@ const PASSWORD_ACTED_ON = new RegExp(
     clause is no context: in "Passwords are hashed. Idle sessions end after 30 minutes." the idle timeout is no logout's
     end. */
 /** A word of time inside a negated participle, which dates what its "not" denies, so a logout after it is affirmed
-    ("Sessions not renewed after logging out end within 30 minutes.": the fourth lens on 4030bccd). */
-const DATES_ITS_DENIAL = /^(?:after|before|since|once|until|upon|following)$/i
+    ("Sessions not renewed after logging out end within 30 minutes.": the fourth lens on 4030bccd). "upon" and
+    "following" are no such word: like "by", they name how what the "not" denies would happen ("Sessions not ended
+    upon logging out expire within 30 minutes." passes, as on main: the fifth lens on 74fa9925). */
+const DATES_ITS_DENIAL = /^(?:after|before|since|once|until)$/i
 /** A mark that ends what a negated participle's "not" denies: a comma-set aside past it is said of its clause. */
 const isMarkToken = (t: Token) => /^[,;:()\u2013\u2014-]$/.test(t.text)
 /** A sentence's text without the participles a bare "not" opens in a clause's subject (negatedParticiples), the ones a
@@ -2634,7 +2637,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (573 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (582 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (633 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4722,13 +4725,27 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions not ended by an admin, as with logging out, end within 30 minutes.</li>', true],
       ['<li>Sessions not opened here, after logging out, end within 30 minutes.</li>', true],
       ['<li>Sessions not renewed after logging out stay open.</li>', false],
+      // "upon" and "following" name how the session would end, as "by" does, so they keep no participle, and "following"
+      // is a preposition inside it, though the lexicon lists it as a verb, as main read these, while a logout the
+      // clause's own words name is its context (the fifth lens on 74fa9925).
+      ['<li>Sessions not ended upon logging out expire within 30 minutes.</li>', false],
+      ['<li>Tokens not revoked following a sign-out expire within 30 minutes.</li>', false],
+      ['<li>Sessions not ended following a logout expire within 30 minutes.</li>', false],
+      ['<li>Sessions not ended following a logout end within 30 minutes of logging out.</li>', true],
       // A false flag, named: a noun spelled as a verb after a preposition ends the participle, since "before" or "after"
       // may stand as an adverb before the clause's verb, so "log out" is the context, where main passed it (the fourth
       // lens on 4030bccd).
       ['<li>Sessions not ended by log out expire within 30 minutes.</li>', true],
       // Main's catches given up, named: main read each sentence whole and refused these, and passed the shorter forms
       // above only because its denial window reached from "not" to the clause's verb; here a logout or a password action
-      // inside the subject's negated participle gives no context, longer or not (the third lens on 84003ff5).
+      // inside the subject's negated participle gives no context, whatever stands with it, an object, a modifier, an
+      // adverb before the clause's verb, or a list, a bracket or a dash after it (the third lens on 84003ff5 and the
+      // fifth on 74fa9925).
+      ['<li>Sessions not ended by logging out still expire within 30 minutes.</li>', 'gap'],
+      ['<li>Sessions not ended by an explicit logout expire within 30 minutes.</li>', 'gap'],
+      ['<li>Sessions not ended by logging out (or by an admin) expire within 30 minutes.</li>', 'gap'],
+      ['<li>Sessions not ended by a logout, a reset or an admin expire within 30 minutes.</li>', 'gap'],
+      ['<li>Sessions not ended by logging out - or by an admin - expire within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by logging out of a device end within 30 minutes.</li>', 'gap'],
       ['<li>Sessions not ended by logging out or by an admin expire within 30 minutes.</li>', 'gap'],
       ['<li>Tokens not affected by logging out of a device end every session within 30 minutes.</li>', 'gap'],

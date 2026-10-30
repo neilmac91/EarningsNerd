@@ -382,14 +382,17 @@ function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
     a relative clause follows ("not sent without obtaining your permission | are collected": Codex on 4030bccd). Any
     other word the lexicon lists as a verb there still ends it, since "before" or "after" may stand as an adverb before
     the clause's verb ("not presented before | signs everyone out"), so a noun spelled as a verb ends it too, a false
-    flag recorded in E162's row ("not ended by | log out expire": the fourth lens on 4030bccd). After
+    flag recorded in E162's row ("not ended by | log out expire": the fourth lens on 4030bccd). Inside it "following"
+    is a preposition, though the lexicon lists it as a verb ("not revoked following a sign-out | expire": the fifth lens
+    on 74fa9925). After
     "before" or "after" in a phrase past its clause's verb, the gerund may open a clause of time instead ("sessions not
     opened here before logging out | ends every session"), which this runs over; the session-end family leaves out of
     its context only a participle in a clause's subject, so that clause keeps its logout (the third lens on 84003ff5). */
 function negatedParticipleEnd(tokens: Token[], from: number): number {
+  const preposition = (token: Token | undefined) => PREPOSITIONS.has(lower(token)) || lower(token) === 'following'
   let i = from
   while (i < tokens.length && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) {
-    if (PREPOSITIONS.has(lower(tokens[i - 1])) && /^[a-z]+ing$/.test(tokens[i].lower)) i++
+    if (tokens[i].lower === 'following' || (preposition(tokens[i - 1]) && /^[a-z]+ing$/.test(tokens[i].lower))) i++
     else if (startsPredicate(tokens, i)) break
     else i = nounPhraseAt(tokens, i)?.end ?? i + 1
   }
