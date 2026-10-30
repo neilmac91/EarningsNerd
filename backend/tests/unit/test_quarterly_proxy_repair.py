@@ -12,6 +12,7 @@ planted as a row, and says so.
 """
 import copy
 import json
+import math
 import re
 import sys
 from collections import Counter
@@ -2590,12 +2591,28 @@ def test_a_mirrored_scale_error_takes_set_4s_ordinary_path(monkeypatch, scale, g
     (-4_092e9, -4_092e6, -4_153_380_000.0, "refused"),
     (-4_092e12, -4_092e6, -4_092e6, "restored"),
     (19_000e6, 19_000e3, 19_500e6, "exempt"),
-], ids=["negative-x1000-0.5pct", "negative-x1000-1.5pct", "negative-x1000000", "k28-restated-true-scale-up"])
+    (4_092e6, 4_092.0, 4_092e6 * 1.3, "exempt"),
+    (4_092e9, 4_092e3, 4_092e6, "refused"),
+    (4_092e6, 4_092e3, 4_092e9, "refused"),
+    (4_092e9, 4_092e6, -4_092e6, "refused"),
+    (4_092e9, 4_092e6, -4_092e9, "exempt"),
+    (4_092e9, 4_092e6, 0.0, "exempt"),
+    (1e9, 1e6, 1e9 / math.sqrt(1_000), "refused"),
+    (4_092e9, 4_092e6, 4_092e9 / 40, "refused"),
+    (4_092e9, 4_092e6, 4_092e9 / 10, "exempt"),
+], ids=["negative-x1000-0.5pct", "negative-x1000-1.5pct", "negative-x1000000", "k28-restated-true-scale-up",
+        "true-scale-up-restated-30pct", "x1000000-10k-a-step-between", "x1000-10k-a-step-above-the-value",
+        "opposite-sign-on-the-originals-scale", "opposite-sign-on-the-values-scale", "zero-10k-figure",
+        "exactly-half-a-step-from-the-value", "40x-under-the-value-past-half-a-step", "10x-under-the-value"])
 def test_the_scale_up_exemption_reads_the_10k_figures_scale_by_magnitude(value, original, authority, outcome):
-    # A pure test of the planner. A loss: the value, the original and today's 10-K figure are negative, and the guard
-    # compares magnitudes, so a mirrored scale error takes set 4's ordinary path as a profit's does. K28's restatement
-    # (a parse in thousands scaled up to 19,000 million, the 10-K now 19,500 million) sits on the value's scale and
-    # stays the old check's own unit fix.
+    # A pure test of the planner. A scale-up stays the old check's own unit fix only where today's 10-K figure is on the
+    # value's scale step, within half a step (about 31.6 times) of it by magnitude on a log scale, or where there is none
+    # (a zero figure included, which must not raise). Otherwise set 4's ordinary path decides, the original against the
+    # 10-K's figure. So a loss's mirrored scale error is restored or refused as a profit's; K28's restatement and a true
+    # scale-up restated 30% stay exempt; a figure a step between the value and the original (a parse and a proxy each
+    # 1,000 times off) or a step beyond the value is refused, never exempt; a figure of the other sign is read for its
+    # magnitude; one 40 times under the value is past half a step (a plain difference would call it near) and one 10
+    # times under is within it; and one exactly half a step from the value takes the ordinary path, which refuses it.
     row = {**_state(period_start=date(2025, 1, 1), period_end=date(2025, 12, 31), fiscal_year=2025, value=value,
                     accession="K25", filing_id=3)[1],
            "provenance": {"version": 1, "checks": {"authoritative": {"outcome": "replaced", "original_value": original,
@@ -2616,3 +2633,23 @@ def test_the_scale_up_exemption_reads_the_10k_figures_scale_by_magnitude(value, 
     assert plan.counts["filing_rows_restored"] == (1 if outcome == "restored" else 0)
     assert (updates[1]["value"], updates[1]["source"]) == (repair._json_value(Decimal(str(original))), "edgar_xbrl") \
         if outcome == "restored" else 1 not in updates
+
+
+
+@pytest.mark.parametrize(("noise", "current"), [(1.0, False), (1.0, True), (1.002, False), (0.997, True)],
+                         ids=["exact", "exact-current", "plus-0.2pct", "minus-0.3pct-current"])
+def test_a_parse_and_a_proxy_each_a_step_off_are_refused(monkeypatch, noise, current):
+    # The parse read thousands as units (4,092 thousand) and P26 tagged FY2025 a step too large the other way (about
+    # 4,092 billion), so the value is a x1,000,000 scale-up of the original while today's 10-K figure, 4,092 million,
+    # sits on the step between them. It is on neither the value's scale nor the original's: set 4's ordinary path
+    # refuses the row, the original 1,000 times off the 10-K's figure, whatever the proxy's sub-1% noise, whether or not
+    # the row is current, before and since #1682.
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _mirrored(
+            db, monkeypatch, "MID", parsed=4_092e3, scale=1e6 * noise, current=current)) as states:
+        for db, company, payload, filing in states.values():
+            row = _filing_row(db, filing)
+            assert (row.is_latest, row.source, float(row.value), _check(row)["original_value"]) == (
+                current, "companyfacts", 4_092e3 * 1e6 * noise, 4_092e3)
+            _refuses(db, company, payload, _refusal(db, (row.id, "the 10-K's figure disagrees with the recorded "
+                                                                 "original value by more than 1%, and the filing row "
+                                                                 "holds neither")))

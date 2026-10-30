@@ -12,10 +12,10 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
    10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
    left so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
    company (sets 4 and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own
-   unit fix and left first, unless today's 10-K figure sits on the original's scale, not the value's: then
-   the proxy was tagged at the wrong scale over a right parse, and the row takes set 4's ordinary path
-   (restored where the original is within 1% of the 10-K's figure, refused beyond; left and listed, or
-   refused when current, where a report row holds its value).
+   unit fix and left first only where today's 10-K figure is on the value's scale step (within half a step,
+   about 31.6 times, of it) or there is none. Otherwise, as where the proxy was tagged at the wrong scale over
+   a right parse, the row takes set 4's ordinary path (restored where the original is within 1% of the 10-K's
+   figure, refused beyond; left and listed, or refused when current, where a report row holds its value).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -61,6 +61,7 @@ DEPENDENT = "proxy_statement_operand"  # a calculation built on one, with no fre
 SAME = Fraction(1, 1_000_000)  # proxy_form_winners.sql's equality between a value and a witness (relative)
 BAND = Fraction(1, 100)  # its scale band: within 1% of 1,000 or 1,000,000 times a figure
 SCALES = (1_000, 1_000_000)
+HALF_STEP = math.log(1_000) / 2  # half a scale step on a log scale: a factor of about 31.6
 FALLBACK_ACCESSION = "companyfacts"  # facts/quarterly.reported_fact names an item without one so
 COUNTERS = (
     "retired", "inserted", "promoted", "corrected", "retired_without_winner",
@@ -143,14 +144,17 @@ def _scale_up(value: Any, original: Any) -> bool:
     return pair is not None and any(abs(pair[0] - k * pair[1]) <= BAND * abs(k * pair[1]) for k in SCALES)
 
 
-def _on_the_originals_scale(value: Any, original: Any, authority: float | None) -> bool:
-    """Today's 10-K figure ``authority`` is nearer the recorded ``original`` than the stored ``value``, by magnitude on
-    a log scale: ``|log(|authority / original|)| < |log(|authority / value|)|``. Magnitudes, because ``_scale_up``
-    already holds the value and the original to one sign, and a 10-K figure of the other sign is still read for its
-    scale. With no 10-K figure, or one of zero, it sits on neither scale."""
+def _scale_up_stands(value: Any, authority: float | None) -> bool:
+    """Whether a scale-up of the stored ``value`` stays the old check's own unit fix: where there is no 10-K figure, or
+    one of zero (no scale to read), or where today's 10-K figure ``authority`` is on the value's scale step, within
+    half a step of it by magnitude on a log scale: ``|log(|authority / value|)| < log(1,000) / 2``, a factor of
+    about 31.6 either way. A figure of the other sign is read for its magnitude. The boundary is deliberate: a figure
+    exactly half a step from the value is not on its scale, and its row takes set 4's ordinary path, which then
+    refuses it (its original is as far off the 10-K's figure). A figure on any other step, the original's or one
+    between (a parse and a proxy each 1,000 times off, in opposite directions), is not on the value's either."""
     if not authority:
-        return False
-    return abs(math.log(abs(authority / original))) < abs(math.log(abs(authority / float(value))))
+        return True
+    return abs(math.log(abs(authority / float(value)))) < HALF_STEP
 
 
 def _scale_down(value: Any, original: Any) -> bool:
@@ -513,12 +517,12 @@ class _Planner:
             original = _number(check.get("original_value"))
             authority = self._authority(state)
             # The authority scaled up a parse in units: the check's job, backed or not, and no verdict, since
-            # detection never lists it (scaled up is never scaled down). Unless today's 10-K figure sits on the
-            # original's scale: then the proxy was tagged at the wrong scale over a right parse (FedEx's error
-            # mirrored), which detection's set 4 cannot see without the payload, and the row takes the ordinary
-            # path below, where the original against today's 10-K figure decides, restored or refused, the 10-K
-            # having restated the year or not.
-            if _scale_up(value, original) and not _on_the_originals_scale(value, original, authority):
+            # detection never lists it (scaled up is never scaled down). Only where today's 10-K figure is on the
+            # value's scale step, or there is none: otherwise (a proxy tagged at the wrong scale over a right parse,
+            # FedEx's error mirrored, or a parse and a proxy each off by a step), which detection's set 4 cannot see
+            # without the payload, the row takes the ordinary path below, where the original against today's 10-K
+            # figure decides, restored or refused, the 10-K having restated the year or not.
+            if _scale_up(value, original) and _scale_up_stands(value, authority):
                 continue
             if self._left(row_id, state, value, 4):
                 continue
