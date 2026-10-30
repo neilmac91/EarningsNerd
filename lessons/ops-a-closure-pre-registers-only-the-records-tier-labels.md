@@ -15,16 +15,19 @@ check for record 36 (closures 157 to 196). The founder approved a machine gate f
 
 **Rule.** For a records pull request's own review, pre-register only `record-N-survey-01`, `record-N-factcheck-01` and
 `record-N-reviewer-01`, each in one closure and by one context, and file every records-review context under a label
-that names its record. Any other pre-registered label that names a record (one starting `record-N`, `records-N`,
-`decision-N` or `decisions-N`, alone or before a hyphen) fails the records gate, which names the closure and the label:
-a refuter, a review lens, a delta or second reviewer, or one of the three again, in a later closure or on a second
-context. Every pre-registered label, an engineering one too, is ASCII lower-case letters and digits joined by single
-hyphens, and its id carries `:launched-after-this-record:` exactly once; a `new_provisional_contexts` entry without
-the marker, or an id carrying it twice, fails as well, since its label cannot be read. Closures are never edited, so
-the labels from before the gate stay, pinned as exact (closure, label) pairs from closures up to 196: a new violation
-fails, an exempt label used in any other closure fails, and an exemption that no longer matches its closure fails.
-Engineering labels name code pull requests' contexts, which have tiers of their own, and a label that begins with any
-other word stays outside the gate. Partly gated by
+that names its record. Any other pre-registered label that names a record, one whose first hyphen-separated word is
+`record`, `records`, `decision` or `decisions`, fails the records gate, which names the closure and the label: a
+refuter, a review lens, a delta or second reviewer, one of the three again (in a later closure or on a second
+context), or a record word without the record's number or with a mistyped one. Every pre-registered label, an
+engineering one too, is ASCII lower-case letters and digits joined by single hyphens, and its id carries
+`:launched-after-this-record:` exactly once; a `new_provisional_contexts` entry without the marker, an id carrying it
+more than once, and a `new_context_roles` key carrying a look-alike of it (another case, a hidden character, a missing
+colon) fail as well, since their label cannot be read. Closures are never edited, so the labels from before the gate
+stay, pinned as exact (closure, label) pairs from closures up to 196: a new violation fails, an exempt label used in
+any other closure fails, and an exemption that no longer matches its closure fails. Engineering labels name code pull
+requests' contexts, which have tiers of their own; a label whose first hyphen-separated word is not `record`,
+`records`, `decision` or `decisions` (for example `record71-…`, `recordings-…`, `foo-record-71-…`) stays outside the
+check, so a records-review context filed under one is review-checked. Partly gated by
 `backend/tests/unit/test_code_red_runtime_records.py::test_closures_pre_register_only_the_records_tier_labels`, run as
 "records gate" by `tasks/code-red-20261004/runtime/tools/records-gate.sh`; a records-review context under a label that
 names no record is review-checked.
