@@ -39,10 +39,11 @@ test.describe('the analysis route draws the spec renderer (E195)', () => {
   // The route's built scripts, as the browser loads them, hold no Recharts component (E195 G): the build's truth beside
   // the source gate's, which reaches no bundler alias and no computed specifier. Every Recharts chart draws through its
   // surface and wrapper, and the parts that draw outside a chart carry classes of their own, all named `recharts-…`; a
-  // minifier keeps strings, so a script that holds any of them holds the prefix. Out of reach: Recharts' helpers that
-  // draw nothing (its scales and ticks) and name no class; code behind NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS, which CI's
-  // e2e build leaves unset; and a chunk the route loads only after its charts draw, on a later action, or in another
-  // state (the free teaser, an annual run, an empty or failed one). The source gate reads the last two.
+  // minifier keeps strings, so a script that holds any of them holds the prefix. CI's e2e build turns
+  // NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS on, as production's does, so a script the flag adds to the route is read here
+  // too. Out of reach: Recharts' helpers that draw nothing (its scales and ticks) and name no class; and a chunk the
+  // route loads only after its charts draw, on a later action, or in another state (the free teaser, an annual run, an
+  // empty or failed one), which the source gate reads.
   test('it loads no Recharts component: no script it loads to draw its charts holds a Recharts class name', async ({ page, baseURL }) => {
     const scripts: { url: string; body: Promise<string> }[] = []
     const unread: string[] = []
