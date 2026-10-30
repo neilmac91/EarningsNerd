@@ -114,12 +114,11 @@ const RING_RESIDUE: Record<string, number> = {
   // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
   'features/analysis/components/NarrativePane.tsx': 1, // Markdown renderer props spread on p, li, strong, em and td, which the scan cannot read (no Tab stop)
   'features/filings/components/copilot/CopilotMessage.tsx': 11, // Markdown renderer props spreads the scan cannot read; their one Tab stop, the answer's link, takes the ring from globals.css's prose-link rule (D-030, prose-links.spec.ts)
-  'features/filings/components/copilot/ReaderTable.tsx': 2, // two spreads the scan cannot read: the scroll box's own region attributes and the Markdown renderer's props on its table; the box carries the ring when it is a region
+  'features/filings/components/copilot/ReaderTable.tsx': 1, // the Markdown renderer's props spread on its table, which the scan cannot read; the scroll box writes its region attributes out, so the scan holds its ring
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
-  'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 6, stops: 20 }
+const RING_RESIDUE_MAX = { files: 5, stops: 18 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
