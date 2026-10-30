@@ -3,7 +3,8 @@ and how the snapshot and a re-served analysis read those links."""
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from datetime import date, datetime
+from typing import Any, NamedTuple
 from urllib.parse import urlsplit
 
 from sqlalchemy import func
@@ -11,27 +12,55 @@ from sqlalchemy.orm import Session
 
 from app.models import Filing
 from app.services.fact_provenance import source_accessions
+from app.utils.datetimes import ensure_utc
 from app.utils.sec_urls import build_sec_archive_url, is_sec_archive_url, normalize_accession
 
 
-def filing_documents(db: Session, company_id: int, facts: Iterable[Any]) -> dict[str, str]:
-    """Map each accession these facts and their operands cite, dashless, to its filing's document.
+class FilingDates(NamedTuple):
+    """What a filing row says of its filing beside the document: its form, the calendar day it was filed
+    (``Filing.filing_date`` is a day stored as UTC midnight) and its period of report, each None where the
+    row has none."""
+
+    form: str | None
+    filed: str | None
+    period_end: date | None
+
+
+def _day(value: datetime | None) -> date | None:
+    return ensure_utc(value).date() if value is not None else None
+
+
+def filing_documents(
+    db: Session, company_id: int, facts: Iterable[Any],
+) -> tuple[dict[str, str], dict[str, FilingDates]]:
+    """Map each accession these facts and their operands cite, dashless, to its filing's document, and to
+    its form, filed day and period of report (``FilingDates``).
 
     One ORM read of the company's filings, with the accession compared dashless on both sides, so
     a dashed and a dashless spelling of one filing meet. An accession with no row here is left
-    out, and ``fact_provenance`` keeps its accession folder. ``document_url`` is used as stored: the
-    filings table's listeners checked it where it entered. Database rows only, no SEC request.
+    out of both maps, and ``fact_provenance`` keeps its accession folder. ``document_url`` is used as
+    stored: the filings table's listeners checked it where it entered. The dates are what the later-filing
+    evidence names and how it tells a filing's own year (``trend_analysis/first_reports.py``), read in the
+    same statement, so a dataset reads the filings table once. Database rows only, no SEC request.
     """
     keys = source_accessions(facts)
     if not keys:
-        return {}
+        return {}, {}
     rows = (
-        db.query(Filing.accession_number, Filing.document_url)
+        db.query(Filing.accession_number, Filing.document_url, Filing.filing_type, Filing.filing_date,
+                 Filing.period_end_date)
         .filter(Filing.company_id == company_id, func.replace(Filing.accession_number, "-", "").in_(sorted(keys)))
         .order_by(Filing.id)  # Two spellings of one accession then resolve alike on every read.
         .all()
     )
-    return {normalize_accession(accession): document_url for accession, document_url in rows}
+    documents: dict[str, str] = {}
+    dates: dict[str, FilingDates] = {}
+    for accession, document_url, form, filed, period_end in rows:
+        key = normalize_accession(accession)
+        filed_day = _day(filed)
+        documents[key] = document_url
+        dates[key] = FilingDates(form, filed_day.isoformat() if filed_day else None, _day(period_end))
+    return documents, dates
 
 
 def folder_links(value: Any) -> Any:

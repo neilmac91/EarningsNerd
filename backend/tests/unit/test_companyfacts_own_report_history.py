@@ -411,10 +411,12 @@ class TestHistoryRowsInTheBulkWriter:
 
 @pytest.mark.requires_db
 class TestHistoryRowsThroughTheSync:
-    def test_a_sync_stores_the_own_values_and_the_analysis_dataset_reads_none_of_them(self, monkeypatch):
+    def test_a_sync_stores_the_own_values_and_the_analysis_dataset_reads_them_only_as_evidence(self, monkeypatch):
         # Before this change a sync stored winners only. The next sync stores each own report's value
-        # beside its winner and inserts nothing else; the analysis dataset, its fingerprint and the
-        # fiscal years companyfacts names for the per-filing writer are what they were.
+        # beside its winner and inserts nothing else; the fiscal years companyfacts names for the per-filing
+        # writer are what they were, and the analysis dataset reads the own values as evidence alone (MPA
+        # WP5a-B, trend_analysis/first_reports.py): its values, markers, checks and notes are what they were,
+        # and its fingerprint moves with the evidence.
         from app.database import SessionLocal
         from app.models import FinancialFact
         from app.services import trend_analysis_service
@@ -443,6 +445,25 @@ class TestHistoryRowsThroughTheSync:
                                                    period_end=date(2018, 12, 31)).all()
         assert {(r.accession, float(r.value), r.is_latest, r.source, r.filing_id) for r in fy2018} == {
             (K20, 5_145.6e6, True, "companyfacts", None), (K18, 6_710.8e6, False, "companyfacts", None)}
-        assert dataset() == before  # every key but the sync time, the fingerprint (snapshot_id) included
+        after = dataset()
+        assert _evidence_places(before) == set()
+        assert _evidence_places(after) == {("revenue", "FY2018"), ("revenue", "FY2019"), ("total_assets", "FY2018")}
+        assert after["snapshot_id"] != before["snapshot_id"]
+        # Every other key, the data notes included, is what it was.
+        assert _without_evidence(after) == _without_evidence(before)
         assert trusted_fiscal_years(db, company.id, ends) == years_before
         db.close()
+
+
+def _evidence_places(dataset):
+    return {(series["concept"], point["period"]) for series in dataset["series"] for point in series["points"]
+            if "first_reported" in point}
+
+
+def _without_evidence(value):
+    """The dataset with every later-filing field dropped, at any depth, and its fingerprint."""
+    if isinstance(value, list):
+        return [_without_evidence(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    return {key: _without_evidence(item) for key, item in value.items() if key not in {"first_reported", "snapshot_id"}}

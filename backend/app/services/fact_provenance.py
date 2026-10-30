@@ -132,6 +132,17 @@ def _source_url(cik: str, accession: str | None, documents: Mapping[str, str]) -
     return document if is_sec_archive_url(document) and document.startswith(folder) else folder
 
 
+def source_link(cik: str | None, accession: str | None, documents: Mapping[str, str]) -> str | None:
+    """The link ``_attach_sources`` gives a reported value at this accession (``_source_url``), or None
+    without a CIK or for an identity the folder builder refuses: never an invented link."""
+    if not cik:
+        return None
+    try:
+        return _source_url(cik, accession, documents)
+    except ValueError:
+        return None
+
+
 def source_accessions(facts: Iterable[Any]) -> set[str]:
     """The dashless accessions ``_attach_sources`` can link for these facts: each fact's own and
     each stored operand's, nested ones included. A malformed identity is skipped, as it is there."""
