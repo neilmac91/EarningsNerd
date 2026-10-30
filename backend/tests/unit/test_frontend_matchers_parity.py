@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
+from app.error_codes import REGISTERED_STATUS, ErrorCode
+
 REPO = Path(__file__).resolve().parents[3]
 FRONTEND = REPO / "frontend"
 SPEC = FRONTEND / "tests" / "unit" / "backendMessageMatches.spec.ts"
@@ -92,7 +94,8 @@ UNSOURCED_MAX = 4
 @dataclass(frozen=True)
 class Routed:
     """A backend site whose message a matcher must recognise: the details of ``HTTPException`` calls with
-    ``status`` inside ``function`` (nested functions included), or its ``return`` values."""
+    ``status`` inside ``function`` (nested functions included), and of ``CodedHTTPException`` calls whose code is
+    registered at ``status`` (E31), or its ``return`` values."""
 
     module: str
     function: str
@@ -404,7 +407,22 @@ def _renderings(expr: Optional[ast.AST], names: dict[str, ast.expr], seen: froze
     return ["{}"]
 
 
+def _code_status(node: Optional[ast.expr]) -> Optional[int]:
+    """The status registered for an ``ErrorCode.X`` (E31, ``app.error_codes.REGISTERED_STATUS``), or for a conditional
+    whose arms register one status between them; None for anything else."""
+    if isinstance(node, ast.IfExp):
+        statuses = {_code_status(node.body), _code_status(node.orelse)}
+        return statuses.pop() if len(statuses) == 1 else None
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "ErrorCode":
+        member = ErrorCode.__members__.get(node.attr)
+        return REGISTERED_STATUS[member] if member is not None else None
+    return None
+
+
 def _status(call: ast.Call) -> Optional[int]:
+    if getattr(call.func, "id", getattr(call.func, "attr", "")) == "CodedHTTPException":
+        # A coded raise answers at its code's registered status (app.api_errors), never one written beside it.
+        return _code_status(next((k.value for k in call.keywords if k.arg == "code"), call.args[0] if call.args else None))
     value = next((k.value for k in call.keywords if k.arg == "status_code"), call.args[0] if call.args else None)
     if isinstance(value, ast.Constant) and isinstance(value.value, int):
         return value.value
@@ -432,7 +450,8 @@ def routed_messages(site: Routed, read: Reader = _read_repo) -> list[tuple[int, 
     for node in ast.walk(function):
         if site.status == "return" and isinstance(node, ast.Return) and node.value is not None:
             messages += [(node.lineno, text) for text in _renderings(node.value, names)]
-        elif isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", "")) == "HTTPException":
+        elif isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", "")) in (
+                "HTTPException", "CodedHTTPException"):
             if _status(node) == site.status:
                 detail = next((k.value for k in node.keywords if k.arg == "detail"), node.args[1] if len(node.args) > 1 else None)
                 messages += [(node.lineno, text) for text in _renderings(detail, names)]
@@ -481,6 +500,35 @@ def unrouted(read: Reader = _read_repo) -> list[str]:
                     f"{[phrase.text for phrase in words]}"
                 )
     return failures
+
+
+def test_a_coded_raise_is_read_at_its_codes_status():
+    # E31: a router raises CodedHTTPException(ErrorCode.X, detail=...), answered at the code's registered status, with
+    # its detail by keyword or in second place, as an HTTPException's; a conditional code counts where its arms agree.
+    probe = (
+        "def ask_filing_stream(allowance, n):\n"
+        "    if n == 1:\n"
+        "        raise CodedHTTPException(ErrorCode.FREE_ALLOWANCE_EXHAUSTED if allowance else ErrorCode.PLAN_REQUIRED,\n"
+        "                                 detail='Spent.')\n"
+        "    if n == 2:\n"
+        "        raise CodedHTTPException(ErrorCode.PRO_FAIR_USE_LIMIT, detail='The fair-use limit, by keyword.')\n"
+        "    if n == 3:\n"
+        "        raise CodedHTTPException(code=ErrorCode.PRO_FAIR_USE_LIMIT, detail='The fair-use limit, all keywords.')\n"
+        "    if n == 4:\n"
+        "        raise CodedHTTPException(ErrorCode.PRO_FAIR_USE_LIMIT, 'The fair-use limit, in second place.')\n"
+        "    raise CodedHTTPException(ErrorCode.GENERATION_PAUSED if allowance else ErrorCode.PRO_FAIR_USE_LIMIT, detail='Mixed.')\n"
+    )
+
+    def read(path: str) -> str:
+        return probe if path == "probe.py" else _read_repo(path)
+
+    def texts(status: int) -> list[str]:
+        return sorted(text for _, text in routed_messages(Routed("probe.py", "ask_filing_stream", status, "x"), read))
+
+    assert texts(429) == sorted(["The fair-use limit, by keyword.", "The fair-use limit, all keywords.",
+                                 "The fair-use limit, in second place."])
+    assert texts(403) == ["Spent."]
+    assert texts(503) == []  # arms that disagree name no one status
 
 
 def test_the_readers_see_what_the_spec_sees():

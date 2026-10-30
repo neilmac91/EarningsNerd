@@ -472,6 +472,29 @@ describe('AskCopilotRail', () => {
     expect(screen.getByRole('button', { name: /see plans/i })).toBeInTheDocument()
   })
 
+  // E31: the card follows a known code whatever the words say, so their next edit cannot move a button.
+  it.each([
+    ['a plan gate in other words', 'Words that name neither.', 'plan_required' as const, { upgrade: true, retry: false }],
+    ['the cap in words that name Pro', 'Upgrade to Pro will not lift this.', 'pro_fair_use_limit' as const, { upgrade: false, retry: false }],
+    ['a pause in words that read like a limit', 'Monthly limit reached for now.', 'generation_paused' as const, { upgrade: false, retry: true }],
+  ])('answers %s by its code', async (_, words, code, shows) => {
+    let captured: CopilotHandlers | null = null
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
+      captured = handlers
+    })
+    const user = userEvent.setup()
+    renderRail({ open: true })
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'anything')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+    await act(async () => {
+      captured!.onError(words, code)
+    })
+
+    const bubble = (await screen.findByText(words)).closest('div')!
+    expect(within(bubble).queryAllByRole('button', { name: /upgrade to pro/i })).toHaveLength(shows.upgrade ? 1 : 0)
+    expect(within(bubble).queryAllByRole('button', { name: /try again/i })).toHaveLength(shows.retry ? 1 : 0)
+  })
+
   it('clears a cancelled pending turn, preserves completed history, and ignores obsolete callbacks after reopening', async () => {
     const requests: { handlers: CopilotHandlers; signal?: AbortSignal }[] = []
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers, signal) => {

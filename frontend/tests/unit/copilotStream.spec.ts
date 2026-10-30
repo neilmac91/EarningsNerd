@@ -3,7 +3,11 @@ import { askFilingStream, type CopilotHandlers, type CopilotCompletion } from '@
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 
 const auth = vi.hoisted(() => ({ active: false, refresh: async () => {} }))
-vi.mock('@/lib/api/client', () => ({ getApiUrl: () => 'https://api.example.test', ensureRefreshed: () => auth.refresh() }))
+vi.mock('@/lib/api/client', async () => {
+  // The real E31 code reader (a pure function of its table), beside the stubs this file needs.
+  const { parseErrorCode } = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client')
+  return { getApiUrl: () => 'https://api.example.test', ensureRefreshed: () => auth.refresh(), parseErrorCode }
+})
 vi.mock('@/lib/api/session', () => ({
   hasActiveSession: () => auth.active, getSessionGeneration: () => 1,
   isSessionGenerationCurrent: () => true, notifySessionLost: () => {},
@@ -296,5 +300,38 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     const h = handlers()
     await askFilingStream(1, 'q', [], h)
     expect(h.onError).toHaveBeenCalledExactlyOnceWith(status === 401 ? 'Log in to ask this filing a question.' : 'Monthly cap reached. Upgrade to Pro.')
+  })
+
+  // E31 (docs/audit/contracts/error-codes.md §6): a known code on its registered channel rides beside the words; an
+  // absent code (a server before E31), an unknown one, or a known one off its channel reads as none.
+  it.each([
+    ['a 403 with free_allowance_exhausted', 403, 'free_allowance_exhausted', ['No more questions.', 'free_allowance_exhausted']],
+    ['a 403 with plan_required', 403, 'plan_required', ['No more questions.', 'plan_required']],
+    ['a 429 with pro_fair_use_limit', 429, 'pro_fair_use_limit', ['No more questions.', 'pro_fair_use_limit']],
+    ['a 403 with no code (a server before E31)', 403, undefined, ['No more questions.']],
+    ['a 429 with no code (the burst limiter)', 429, undefined, ['No more questions.']],
+    ['a 403 with a code this client does not know', 403, 'quota_v9', ['No more questions.']],
+    ['a 403 with the fair-use code, registered on 429', 403, 'pro_fair_use_limit', ['No more questions.']],
+    ['a 429 with plan_required, registered on 403', 429, 'plan_required', ['No more questions.']],
+  ])('hands onError the code of %s only when it is known on that status', async (_, status, code, call) => {
+    global.fetch = async () => new Response(JSON.stringify({ detail: 'No more questions.', ...(code ? { code } : {}) }), { status })
+    const h = handlers()
+    await askFilingStream(1, 'q', [], h)
+    expect(vi.mocked(h.onError).mock.calls).toEqual([call])
+  })
+
+  it.each([
+    ['a stream code', { code: 'pro_fair_use_limit' }, ['The answer could not be completed. Please try again.', 'pro_fair_use_limit']],
+    ['no code', {}, ['The answer could not be completed. Please try again.']],
+    ['an unknown code', { code: 'quota_v9' }, ['The answer could not be completed. Please try again.']],
+    ['an HTTP-only code on the stream', { code: 'plan_required' }, ['The answer could not be completed. Please try again.']],
+  ])("hands onError an error event's code only when it is a stream code: %s", async (_, extra, call) => {
+    const wire = stream()
+    global.fetch = async () => wire.response
+    const h = handlers()
+    const task = askFilingStream(1, 'q', [], h)
+    wire.send(sse({ type: 'error', message: 'RAW', ...extra }))
+    await task
+    expect(vi.mocked(h.onError).mock.calls).toEqual([call])
   })
 })

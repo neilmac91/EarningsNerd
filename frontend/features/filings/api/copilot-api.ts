@@ -1,4 +1,4 @@
-import { getApiUrl } from '@/lib/api/client'
+import { getApiUrl, parseErrorCode, type KnownErrorCode } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 
 // Idle bound covers the initial POST, shared refresh, headers and stream reads.
@@ -63,17 +63,30 @@ export interface CopilotHandlers {
   onToken: (text: string) => void
   onNotDisclosed: (answer: string) => void
   onComplete: (completion: CopilotCompletion) => void
-  onError: (message: string) => void
+  /** `code` comes only when the server sent a code this client knows on its registered channel (E31,
+   *  docs/audit/contracts/error-codes.md): the classifiers below decide on it first, and on the words without it. */
+  onError: (message: string, code?: KnownErrorCode) => void
 }
 
 // A Pro account reached this month's question cap: the 429 the Copilot route raises says "fair-use
-// limit" (backend/app/routers/summaries.py). Upgrading cannot help, so the plan card shows no button.
-export const isCopilotFairUseLimit = (message: string): boolean =>
-  (message || '').toLowerCase().includes('fair-use limit')
+// limit" (backend/app/routers/summaries.py). Upgrading cannot help, so the plan card shows no button. A known
+// code decides first (E31): `pro_fair_use_limit` is the cap, and any other code is not.
+export const isCopilotFairUseLimit = (message: string, code?: KnownErrorCode): boolean => {
+  if (code) return code === 'pro_fair_use_limit'
+  return (message || '').toLowerCase().includes('fair-use limit')
+}
+
+/** The codes the plan card answers (the contract's §3): a plan the reader lacks, Free's allowance used up, or
+ *  Pro's monthly cap (whose card has no upgrade button). */
+const PLAN_CARD_CODES: ReadonlySet<KnownErrorCode> = new Set<KnownErrorCode>(
+  ['plan_required', 'free_allowance_exhausted', 'pro_fair_use_limit'],
+)
 
 // The question hit a plan gate (403 Pro-only or a spent free allowance, or the Pro fair-use 429). Used
-// by the UI to show the quiet plan card instead of the Retry button, since retrying can't help.
-export const isCopilotPaywallError = (message: string): boolean => {
+// by the UI to show the quiet plan card instead of the Retry button, since retrying can't help. A known code
+// decides first (E31): PLAN_CARD_CODES are the gate, and every other code, a pause or a rate limit, keeps Retry.
+export const isCopilotPaywallError = (message: string, code?: KnownErrorCode): boolean => {
+  if (code) return PLAN_CARD_CODES.has(code)
   const m = (message || '').toLowerCase()
   return (
     isCopilotFairUseLimit(m) ||
@@ -84,15 +97,21 @@ export const isCopilotPaywallError = (message: string): boolean => {
   )
 }
 
-const parseErrorDetail = async (response: Response, fallback: string): Promise<string> => {
+/** A refused request's words, and its E31 code when the body carries one this client knows on this status. */
+const parseErrorDetail = async (
+  response: Response,
+  fallback: string,
+): Promise<{ message: string; code?: KnownErrorCode }> => {
   try {
     const data = await response.json()
-    if (data?.detail) return typeof data.detail === 'string' ? data.detail : fallback
-    if (data?.message) return typeof data.message === 'string' ? data.message : fallback
+    const code = parseErrorCode(data?.code, response.status)
+    if (data?.detail) return { message: typeof data.detail === 'string' ? data.detail : fallback, code }
+    if (data?.message) return { message: typeof data.message === 'string' ? data.message : fallback, code }
+    return { message: fallback, code }
   } catch {
     // Non-JSON body: fall through to the status-based fallback.
   }
-  return fallback
+  return { message: fallback }
 }
 
 const PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
@@ -177,8 +196,12 @@ export const askFilingStream = async (
     controller.abort()
     return true
   }
-  const fail = (message: string) => {
-    if (finish()) handlers.onError(message)
+  const fail = (message: string, code?: KnownErrorCode) => {
+    // The code rides only when there is one, so a reader of one argument sees what it saw before E31.
+    if (finish()) {
+      if (code) handlers.onError(message, code)
+      else handlers.onError(message)
+    }
   }
   const onAbort = () => { finish() } // Explicit caller cancellation is quiet.
   const resetTimeout = () => {
@@ -212,17 +235,17 @@ export const askFilingStream = async (
     if (!response || terminal) return
 
     if (!response.ok) {
-      let message: string | null
-      if (response.status === 401) message = 'Log in to ask this filing a question.'
+      let refused: { message: string; code?: KnownErrorCode } | null
+      if (response.status === 401) refused = { message: 'Log in to ask this filing a question.' }
       else if (response.status === 403 || response.status === 429) {
         // Preserve application-owned entitlement/rate-limit details and their existing upgrade UI.
-        message = await Promise.race([
+        refused = await Promise.race([
           parseErrorDetail(response, response.status === 403
             ? 'This is a Pro feature.' : 'Monthly limit reached. Please try again later.'),
           cancelled,
         ])
-      } else message = STREAM_ERROR
-      if (message !== null) fail(message)
+      } else refused = { message: STREAM_ERROR }
+      if (refused !== null) fail(refused.message, refused.code)
       cancelBody(response.body)
       return
     }
@@ -264,7 +287,8 @@ export const askFilingStream = async (
             break
           }
           case 'error':
-            fail(STREAM_ERROR)
+            // The words stay the reader's own; a stream code, where one is registered, rides beside them (E31).
+            fail(STREAM_ERROR, parseErrorCode(data.code, 'stream'))
             break
           default:
             break

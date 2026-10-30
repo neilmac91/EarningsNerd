@@ -386,12 +386,12 @@ export default function AskCopilotRail({
           // A question was metered server-side on completion: refresh the "N of M left" pill.
           queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
-        onError: (msg) => {
+        onError: (msg, code) => {
           if (abortRef.current !== controller) return
           abortRef.current = null
           updateAssistant(assistantId, {
             content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
-            status: 'error', error: msg,
+            status: 'error', error: msg, errorCode: code,
           })
           // The card says it where it shows. While the Filing tab shows, the card is in the hidden Ask panel, so the
           // pane's line says its sentence, politely like the rest of the line; otherwise the line empties.
@@ -401,7 +401,7 @@ export default function AskCopilotRail({
           abortRef.current = null
           // A plan gate (the spent allowance's 403, a Pro-only 403, the fair-use 429) says the counts the
           // usage line shows are stale: refetch them, so the line agrees with the plan card above it.
-          if (isCopilotPaywallError(msg)) queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
+          if (isCopilotPaywallError(msg, code)) queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
       },
       controller.signal
@@ -503,7 +503,7 @@ export default function AskCopilotRail({
               key={m.id}
               message={m}
               onRetry={handleRetry}
-              isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '')}
+              isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '', m.errorCode)}
               onUpgrade={() => handleUpgrade('copilot_limit')}
               ticker={ticker}
               filingType={filingType}
