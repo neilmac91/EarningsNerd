@@ -2657,7 +2657,8 @@ def test_a_parse_and_a_proxy_each_a_step_off_are_refused(monkeypatch, noise, cur
 
 # --- Principal review 5718798403 (#1667): its reproductions, through the real writers, before and since #1682 ----------
 #
-# The review reproduced three defects against 50fa41894 and asked for regression coverage through the actual writers:
+# The review reproduced three defects against 50fa41894, which merged to main as 1f56928db, and asked for regression
+# coverage through the actual writers (each test below fails on 1f56928db's proxy_fact_repair.py and passes after):
 # the legacy per-filing writer (``process_filing_facts`` under ``_before_the_fix``) and today's companyfacts persistence,
 # each shape synced as before #1682 and since. Items 1 and 2: a report row (since #1682, the year's own report as first
 # reported) backs the proxy figure on the company's current row while today's 10-K figure contradicts it. Item 3: a proxy

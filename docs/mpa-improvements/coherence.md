@@ -935,10 +935,10 @@ shared notes fixture):
 Version 2's words were released with #1659, so new words take a new version (`NOTES_DIGESTS` in
 `backend/tests/unit/test_analysis_data_notes.py`):
 
-| Reason | On main | Shipped |
+| Reason | Before #1667 | Shipped |
 |---|---|---|
-| `proxy_statement_value` | not written | "Saved from a proxy or information statement, not an annual or quarterly report, so unavailable." |
-| `proxy_statement_operand` | not written | "Withdrawn and unavailable: an input was saved from a proxy or information statement." |
+| `proxy_statement_value` | not written | "Taken from a proxy or information statement, so unavailable." |
+| `proxy_statement_operand` | not written | "Calculated from a proxy or information statement’s figure, so unavailable." |
 
 ### 3.4 Comprehension test
 
