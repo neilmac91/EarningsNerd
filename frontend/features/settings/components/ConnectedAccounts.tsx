@@ -91,6 +91,8 @@ export default function ConnectedAccounts() {
       // (2)). A read of /me moves this tab to that account, whose snapshots replace this section's, so a toast says it,
       // an error as LoggedOutFirst's is: in both, no device was logged out.
       if (err instanceof ApiError && err.status === 409) {
+        // A line an earlier failure left says nothing true of this press.
+        setError('')
         toast.error(LOGGED_IN_AS_ANOTHER_MESSAGE)
         void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
         return

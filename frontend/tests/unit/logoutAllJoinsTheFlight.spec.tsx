@@ -492,6 +492,33 @@ describe('"Log out of all devices" names the account the tab shows (E157 (2))', 
     expect(card().textContent).toBe(before)
   })
 
+  it.each([
+    [401, 'You are not logged in.'],
+    [500, 'Something went wrong on our side.'],
+  ])('says another refusal, a %i, in the section, with no toast and no read of /me', async (code, detail) => {
+    await renderSettings()
+    const reads = meReads()
+    bodiesOf(status(code, detail))
+    fireEvent.click(everywhere())
+    expect(await screen.findByText(detail)).toBeInTheDocument()
+    await settle()
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(meReads()).toBe(reads)
+  })
+
+  it("clears the line an earlier failure left when a later press is refused for another account", async () => {
+    const { client } = await renderSettings()
+    server.logoutAll = unreachable
+    fireEvent.click(everywhere())
+    expect(await screen.findByText('Could not reach the server. Try again in a moment.')).toBeInTheDocument()
+    server.me = ok(other)
+    bodiesOf(status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE))
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    expect(screen.queryByText('Could not reach the server. Try again in a moment.')).not.toBeInTheDocument()
+  })
+
   it('and when the access cookie has lapsed too, puts the session flag back, so /me renews from the refresh cookie and shows that account', async () => {
     const { client, clear } = await renderSettings()
     // Another tab logged this browser in to `other`, and this tab's access cookie has lapsed since: /me answers 401

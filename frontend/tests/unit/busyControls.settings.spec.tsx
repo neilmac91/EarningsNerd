@@ -330,6 +330,8 @@ describe('ConnectedAccounts', () => {
     fireEvent.click(signOut)
     await settle()
     expect(api.logoutAllSessions).toHaveBeenCalledTimes(1)
+    // No /me is cached here, so the press names no account and posts no body (E157 (2)).
+    expect(api.logoutAllSessions).toHaveBeenCalledWith(undefined)
 
     await act(async () => post.reject(new Error('Sign-out failed')))
     expect(await screen.findByText('Sign-out failed')).toBeInTheDocument()
