@@ -35,7 +35,9 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - two first sign-ins of one OAuth identity, two links of one identity to an account, and two invited sign-ups
   with one invite: no lock serializes them, so the unique email, the unique provider link and the invite's
   guarded redemption decide, and the second is refused or loses at its mint with nothing of its own
-  committed (E121).
+  committed (E121);
+- one verification link posted twice at once: the second waits at the account's row, which the first's token
+  read locked, finds the link burnt and is refused as an unknown link (E121).
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
 change leaves the refresh's successor live.
@@ -732,10 +734,15 @@ def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
     role = threading.local()
     first_locked = threading.Event()
     second_pid: list[int] = []
+    second_statements: list[str] = []
     waited: list[str] = []
 
+    def before_statement(conn, cursor, statement, parameters, context, executemany):
+        if getattr(role, "name", None) == "second":
+            second_statements.append(statement)
+
     def after_statement(conn, cursor, statement, parameters, context, executemany):
-        if getattr(role, "name", None) == "first" and " FOR UPDATE" in statement:
+        if getattr(role, "name", None) == "first" and " FOR NO KEY UPDATE" in statement:
             first_locked.set()
 
     def before_commit(conn):
@@ -750,7 +757,7 @@ def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
                     {"pid": second_pid[0]},
                 ).first() if second_pid else None
             if row is not None and row.wait_event_type == "Lock":
-                waited.append(row.query.strip())
+                waited.append(second_statements[-1])  # the statement it waits at, whole, as it started
             else:
                 time.sleep(0.01)
 
@@ -765,6 +772,7 @@ def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
             except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
                 return exc
 
+    event.listen(postgres_engine, "before_cursor_execute", before_statement)
     event.listen(postgres_engine, "after_cursor_execute", after_statement)
     event.listen(postgres_engine, "commit", before_commit)
     try:
@@ -772,14 +780,16 @@ def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
             futures = [pool.submit(run, "first"), pool.submit(run, "second")]
             first, second = (future.result(timeout=3 * HANG_GUARD_S) for future in futures)
     finally:
+        event.remove(postgres_engine, "before_cursor_execute", before_statement)
         event.remove(postgres_engine, "after_cursor_execute", after_statement)
         event.remove(postgres_engine, "commit", before_commit)
     assert isinstance(first, tuple) and first[1] == user_id
     assert isinstance(second, auth_account_service.AccountTokenInvalidError), second
-    # A plain read never waits on a row lock under PostgreSQL's MVCC, so a wait at the token read is the lock's
-    # (pg_stat_activity cuts the statement at 1024 characters, before its FOR UPDATE).
+    # The second waited at its own locking token read (recorded whole as it started; pg_stat_activity, which cuts a
+    # statement at track_activity_query_size, only shows the wait).
     assert waited and waited[0].startswith("SELECT users."), waited
     assert "WHERE users.email_verification_token" in waited[0], waited
+    assert waited[0].rstrip().endswith("FOR NO KEY UPDATE"), waited
     with _session(postgres_engine) as db:
         verified = db.get(User, user_id)
         assert (verified.email_verified, verified.email_verification_token) == (True, None)

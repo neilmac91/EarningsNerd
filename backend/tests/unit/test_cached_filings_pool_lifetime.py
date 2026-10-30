@@ -1248,7 +1248,6 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
     with sessions() as db:
         db.add_all([
             User(email=email, is_active=True, hashed_password="the stored hash", email_verified=False,
-                 is_pro=case == "verify_trial_pro",
                  email_verification_token=auth_account_service._hash_token(f"verify-link-{i}"),
                  email_verification_expires=(datetime(2020, 1, 1, tzinfo=timezone.utc)
                                              if case == "verify_expired" else None))
@@ -1256,6 +1255,9 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
         ])
         db.commit()
         account_ids = [account.id for account in db.query(User).order_by(User.id)]
+        if case == "verify_trial_pro":  # Pro by an active subscription, with the is_pro mirror left off
+            db.add_all([Subscription(user_id=user_id, plan="pro", status="active") for user_id in account_ids])
+            db.commit()
 
     request_sessions: list[Session] = []
 
@@ -1334,8 +1336,9 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
             trials = sorted((sub.user_id, sub.plan, sub.status) for sub in db.query(Subscription))
         verified = case in ("verify", "verify_trial", "verify_trial_pro", "verify_trial_fails")
         granted = case == "verify_trial"
-        assert stored == [(verified, verified, granted or case == "verify_trial_pro")] * 9
-        assert trials == ([(user_id, "pro", "trialing") for user_id in account_ids] if granted else [])
+        assert stored == [(verified, verified, granted)] * 9
+        status_seeded = {"verify_trial": "trialing", "verify_trial_pro": "active"}.get(case)
+        assert trials == ([(user_id, "pro", status_seeded) for user_id in account_ids] if status_seeded else [])
         # Each granted trial's event names its own account, once.
         assert sorted(event[:3] for event in events) == ([
             (str(user_id), auth.EVENT_TRIAL_STARTED, {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS})

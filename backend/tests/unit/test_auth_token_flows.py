@@ -17,7 +17,8 @@ first sign-in whose session mint fails are pinned beside them:
     password, confirms the email and evicts every session; unknown and expired links, and an account
     deleted while the reset hashed
   - the reverse trial granted on verification: the grant and its event, a failed grant that still
-    verifies, and a user who is already Pro
+    verifies, a user who is already Pro, and three failures after the verification's commit that still
+    verify: the eligibility read, a failed grant's rollback, and the trial-started event (E121)
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
     (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
     login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews,

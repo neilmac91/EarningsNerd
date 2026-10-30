@@ -163,10 +163,12 @@ def verify_email_token(db: Session, raw_token: str) -> Tuple[User, int]:
     id, read before the commit expires the account, so a caller can name it after the commit without reading the
     account again (E121).
 
-    The token's lookup takes the account's users row lock, so two verifications of one link run one at a time on
-    PostgreSQL: the second waits for the first's commit, then finds the link burnt and raises
-    :class:`AccountTokenInvalidError`, on one instance and across instances alike. (Since E121 the route runs this in
-    the thread pool, where two posts of one link could otherwise both read it and both verify.)
+    The token's lookup takes the account's users row lock (``FOR NO KEY UPDATE``, as
+    ``refresh_token_service.lock_user_tokens`` takes it, so inserts naming the account do not wait), so two
+    verifications of one link run one at a time on PostgreSQL: the second waits for the first's commit, then finds
+    the link burnt and raises :class:`AccountTokenInvalidError`, on one instance and across instances alike. (Since
+    E121 the route runs this in the thread pool, where two posts of one link could otherwise both read it and both
+    verify.)
 
     Raises :class:`AccountTokenInvalidError` for an unknown or used token and
     :class:`AccountTokenExpiredError` for an expired one; neither writes anything.
@@ -174,7 +176,7 @@ def verify_email_token(db: Session, raw_token: str) -> Tuple[User, int]:
     hashed = _hash_token(raw_token)
     now = datetime.now(timezone.utc)
 
-    user = db.query(User).filter(User.email_verification_token == hashed).with_for_update().first()
+    user = db.query(User).filter(User.email_verification_token == hashed).with_for_update(key_share=True).first()
     if not user:
         raise AccountTokenInvalidError()
     if user.email_verification_expires and user.email_verification_expires < now:

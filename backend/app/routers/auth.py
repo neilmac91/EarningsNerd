@@ -867,11 +867,11 @@ def _grant_reverse_trial_on_verify(db: Session, user: User, user_id: int) -> boo
 
     Only now, on verification, so no-card Pro needs a real, verified inbox rather than any freshly registered
     (unverified) address. Committed on its own, after the verification's commit, and best-effort: its eligibility
-    read, the grant, its commit and the discard of a failed grant are each caught and logged, so nothing here
-    undoes the verification or turns its answer into an error (E121). An account that already has active or
-    trialing Pro, resolved through the entitlements SSoT and not the ``is_pro`` mirror, is skipped, and a link's
-    second post waits at the verification's row lock and is refused (``verify_email_token``), so neither a duplicate
-    grant nor a spurious "trial started" event happens (``start_reverse_trial`` is idempotent too)."""
+    read, the grant, its commit and the discard of a failed grant are each caught and logged, so nothing here undoes
+    the verification or turns its answer into an error (E121). An account that already has active or trialing Pro,
+    resolved through ``entitlements.is_pro_user`` (the plan's one source, rule 4), is skipped, and a link's second
+    post waits at the verification's row lock and is refused (``verify_email_token``), so neither a duplicate grant
+    nor a spurious "trial started" event happens (``start_reverse_trial`` is idempotent too)."""
     from app.services.entitlements import is_pro_user
 
     try:
