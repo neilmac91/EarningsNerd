@@ -7157,6 +7157,7 @@ Full local and hosted verification plus independent exact-head review precede re
   later than their notes found by a new check that now writes the notes; no hook refusal and no
   permission-classifier refusal of the chief's commands in the window; five corrections to record 71.
   Gate (a) merged; gate (d) and F57 built and reviewed locally, their review findings being taken.
+  The fact-check's 47 findings were verified, 26 taken and 21 kept.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
