@@ -455,6 +455,7 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
     { date: 'October 21, 2026', sha256: 'f01e686b3c5afee8', sameDay: '#1449 changed the page that day too' },
     { date: 'October 24, 2026', sha256: '1fdda29a88473317' },
     { date: 'October 24, 2026', sha256: '6b266b1d62f0e9b7', sameDay: '#1547 changes the page after #1121 on the same day' },
+    { date: 'October 30, 2026', sha256: 'a0afed2e53ea1b0d' },
   ],
 }
 
