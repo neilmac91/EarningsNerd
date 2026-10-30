@@ -14,7 +14,10 @@
  * other family's verdict moves with it. Since stage 4f a participle a bare "not" negates after a head is the head's, as
  * it is without the negation, since "not" denies no verb without an auxiliary ("Sessions not opened here end ...", "a
  * refresh token not presented before"), and a past form the lexicon knows, the phrase's first word, reads as an
- * adjective ("a used refresh token you do not own", "used refresh tokens"); no other family's verdict moves with either.
+ * adjective ("a used refresh token you do not own", "used refresh tokens"), as "old" and "stale" do, the reuse family's
+ * own words for such a token. Two other families read the participle too: to the endpoint family it narrows the
+ * endpoints, as it does without "not" ("Every endpoint not listed below rejects anonymous requests." passes, though main
+ * refused it), and the consent family reads a wait inside it as that "not" denies it, as main read it.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -218,7 +221,7 @@ const CATENATIVES = words('designed built configured meant made going guaranteed
 const EXCEPTIONS = words('except excluding but save besides')
 /** Words the reading knows as adjectives: the word after one stands in its noun phrase even where the lexicon knows it
     as a verb ("anonymous requests", "unauthenticated calls"). */
-const ADJECTIVES = words('anonymous unauthenticated authenticated unauthorized unauthorised authorized authorised signed-in logged-in signed-out logged-out valid invalid expired optional public private incoming')
+const ADJECTIVES = words('anonymous unauthenticated authenticated unauthorized unauthorised authorized authorised signed-in logged-in signed-out logged-out valid invalid expired old stale optional public private incoming')
 /** "once" before these is an adverb ("once a day", "works once and"), not a subordinating word. */
 const ONCE_AS_ADVERB = words('a an per every each more again and or nor but only daily')
 const CONDITION_ADVERBS = words('only even except')

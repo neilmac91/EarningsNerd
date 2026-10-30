@@ -60,8 +60,9 @@ import {
  *    "all", "every", "each" or "any" not taken back ("Not every endpoint requires a login." passes), with only words
  *    before "endpoints" that leave the set whole (WHOLE_WORDS: "all of the API's endpoints", "all 40 endpoints", "every
  *    HTTP endpoint"; "every administrative endpoint" and a set named before, "each of these endpoints", claim nothing
- *    of every one) and nothing after it that picks some out (a prepositional phrase, a relative clause or a participle:
- *    "each endpoint in the admin namespace", "any endpoint returning account data"; "in our API" and "of the API" name
+ *    of every one) and nothing after it that picks some out (a prepositional phrase, a relative clause or a participle,
+ *    since E162 stage 4f one a bare "not" negates too: "each endpoint in the admin namespace", "any endpoint returning
+ *    account data", "every endpoint not listed below"; "in our API" and "of the API" name
  *    the whole, and "for each request" restates every request), whose own predicate says they need a login, read at its
  *    verb group ("each endpoint requires a login", "requires an API key", "requires an authenticated session",
  *    "requires that you sign in", "requires a user to be logged in", "sits behind a login", "can only be called with a
@@ -226,7 +227,9 @@ import {
  *    caller holds a token"). Since E162's stage 2 the consent reading catches the two promises planted as gaps before
  *    it, said by an ellipsis of the server events after a clause the browser scopes, and its own reach ends where the
  *    clause reader's does: an aside in commas inside the subject that names the browser scopes it ("Server events,
- *    like PostHog in your browser, wait for your consent." passes, as on main).
+ *    like PostHog in your browser, wait for your consent." passes, as on main). Since stage 4f a wait inside a
+ *    participle a bare "not" opens reads as that "not" denies it, as main read it when the reader took "not gated" for
+ *    the clause's verb group ("Server events not gated by consent are recorded by the API." passes).
  *    Ambiguous, so left unplanted: "Every endpoint validates your token.", "Every endpoint checks your token.",
  *    "Every endpoint needs a valid session.", "Only signed-in users can reach every endpoint." and "Our gateway fronts
  *    every endpoint and requires a login." (all refused since #1594's fourth round, as main's blanket refused them).
@@ -386,7 +389,8 @@ import {
  *    the clause's verb stands right past that clause ("Logging out after it is not needed ends every session." fails).
  *    Since stage 4f the reader reads a participle a bare "not" negates after a head as the head's ("Sessions not opened
  *    here end within 30 minutes of logging out." fails), and a past form it knows, a phrase's first word, as an
- *    adjective ("Presenting a used refresh token you do not own signs everyone out." fails).
+ *    adjective, as it reads "old" and "stale", the reuse family's own words ("Presenting a used refresh token you do
+ *    not own signs everyone out." and "Presenting an old refresh token you do not own signs everyone out." fail).
  *    The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
@@ -902,7 +906,17 @@ const deniesItsClause = (subject: NounPhrase | null) =>
     "rather", "instead" or "and" between at most, said in contrast with no "but" ("Analytics are not collected
     automatically, only after you consent.": Codex on #1618; "- only", "(only", ", rather only"), while a mark before
     anything else sets no contrast ("We do not collect analytics, usage data or events only with your consent."). */
+/** The spans of the participles a bare "not" opens after a head, in any noun phrase of a sentence (E162 stage 4f): the
+    reader reads "not gated by consent" after a head as the head's participle, so its "not" denies the wait inside it,
+    as main read it when the reader took "not gated" for the clause's verb group ("Server events not gated by consent
+    are recorded by the API.", "We record server events not gated by your consent."). */
+const negatedParticiples = (tokens: Token[]): Array<[number, number]> =>
+  tokens.flatMap((_, j) => (nounPhraseAt(tokens, j)?.postmodifiers ?? [])
+    .filter((m) => m.kind === 'participle' && tokens[m.start]?.lower === 'not')
+    .map((m): [number, number] => [m.start, m.end]))
 function denied(reading: Reading, p: Said, wait: Wait): boolean {
+  // A wait inside a participle a bare "not" opens is that "not"'s to deny (negatedParticiples).
+  if (negatedParticiples(reading.tokens).some(([start, end]) => wait.at >= start && wait.at < end)) return true
   const governing = governs(reading, p, wait.at)
   const between = reading.tokens.slice(governing?.group.verb ?? 0, wait.at)
   const only = between.map((t) => t.lower).lastIndexOf('only')
@@ -2541,8 +2555,8 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (526 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
-    run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
+    self-check (534 rows since E162 stage 4f) takes 3.5s alone, and the default 5s timed out in a full local
+    run on a loaded machine. The removed claims' self-check (588 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
 
@@ -3337,6 +3351,21 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Codex on #1618: a negation from outside does not reach past a second "that" before the wait, and main's floor
       // decides.
       ['<p>It is not true that it is not true that analytics are collected only with your consent.</p>', true],
+      // E162 stage 4f: a wait inside a participle a bare "not" opens is that "not"'s to deny, as main read it when the
+      // reader took "not gated" for the clause's verb group (the routine lens on #1818), so these pass; a wait the
+      // clause's own verb says, past that participle, is the clause's promise and fails, though main passed it, and a
+      // denial of that verb passes, though main refused it.
+      ['<p>Analytics not gated by your consent.</p>', false],
+      ['<p>Server events not collected only with your consent.</p>', false],
+      ['<p>Server events not gated by consent are recorded by the API.</p>', false],
+      ['<p>Usage data not gated by your consent is recorded.</p>', false],
+      ['<p>Analytics not gated on your consent are recorded by the server.</p>', false],
+      ['<p>Server events not collected only with your consent are recorded.</p>', false],
+      ['<p>Account events not recorded only after you allow analytics are kept.</p>', false],
+      ['<p>We record server events not gated by your consent.</p>', false],
+      ['<p>Server events not sent from your browser require your consent.</p>', true],
+      ['<p>Server events not using cookies require your consent.</p>', true],
+      ['<p>Server events not sent from your browser do not require your consent.</p>', false],
       ['<p>It is not true that we doubt that analytics wait for your consent.</p>', true],
       // An exception before "only" sets the promise apart from the denial, as "but" does.
       ['<p>Analytics are not collected unless only with your consent.</p>', true],
@@ -3461,6 +3490,13 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Each endpoint in the admin namespace requires authentication.</p>', false],
       ['<p>Each endpoint in our API requires authentication.</p>', true],
       ['<p>Each endpoint of the API requires a login.</p>', true],
+      // Since E162 stage 4f a participle a bare "not" negates narrows them too, as the participle without it does ("Every
+      // endpoint listed below rejects anonymous requests." passes on main); main read "not listed" as the clause's verb
+      // group and refused these (the routine lens on #1818).
+      ['<p>Every endpoint not listed below rejects anonymous requests.</p>', false],
+      ['<p>Every endpoint not requiring authentication returns 401 to anonymous callers.</p>', false],
+      ['<p>Logins are required for every endpoint not listed below.</p>', false],
+      ['<p>We require a login for every endpoint not listed below.</p>', false],
       // A set named before, a denial on the quantifier and a word between "no" and the login pass, while whole-set
       // words the closed set left out fail (#1456's Not in this PR, E162).
       ['<p>Each of these endpoints requires a login.</p>', false],
@@ -4651,11 +4687,21 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>All used refresh tokens you do not own sign everyone out.</li>', true],
       ['<li>Used refresh tokens you do not own sign everyone out.</li>', true],
       ['<li>Passwords are hashed, and used refresh tokens you do not own sign everyone out.</li>', true],
+      // So do the other words of REUSED before the token: "spent" and "rotated", past forms the lexicon knows, and "old"
+      // and "stale", which the reader knows as adjectives (the routine lens on #1818).
+      ['<li>Presenting a spent refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Presenting a rotated refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Presenting an old refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Presenting a stale refresh token you do not own signs everyone out.</li>', true],
+      ['<li>An old refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Stale refresh tokens you do not own sign everyone out.</li>', true],
       ['<li>Reusing a refresh token not issued to you signs everyone out.</li>', true],
       ['<li>A client reusing a refresh token not issued to it signs everyone out.</li>', true],
       ['<li>Reusing a refresh token not presented before signs everyone out.</li>', true],
       ['<li>Presenting a used refresh token you do not own does not sign everyone out.</li>', false],
       ['<li>No used refresh token you do not own signs everyone out.</li>', false],
+      ['<li>Presenting an old refresh token you do not own does not sign everyone out.</li>', false],
+      ['<li>No stale refresh token you do not own signs everyone out.</li>', false],
       // Out of reach, as on main: a gerund's object with no determiner, which the reader reads as a participle on the
       // gerund ("Presenting used ...").
       ['<li>Presenting used refresh tokens you do not own signs everyone out.</li>', 'gap'],
