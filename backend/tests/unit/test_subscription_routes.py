@@ -24,6 +24,7 @@ before any Stripe call, as in production.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import threading
 import uuid
@@ -34,6 +35,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+import requests
 import stripe
 from fastapi import Depends
 from fastapi.testclient import TestClient
@@ -43,7 +45,8 @@ from app.config import settings
 from app.database import Base, SessionLocal, engine, get_db
 from app.models import Subscription, User
 from app.routers.auth import get_current_user
-from app.services import legal_readiness_service
+from app.services import legal_readiness_service, logging_service
+from tests.support.worker_logging import preserved_logging
 from main import app
 
 PERIOD_END = datetime(2030, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
@@ -212,50 +215,82 @@ _PROVIDER_TEXT = f"Invalid API Key provided: {'sk_' + 'live_'}{'*' * 20}{_KEY_TA
 _LEAKS = (_KEY_TAIL, "sk_live", "cus_planted", "Invalid API Key", "No such customer")
 
 _STRIPE_FAILURES = [
-    pytest.param(lambda: stripe.error.AuthenticationError(_PROVIDER_TEXT, http_status=401,
-                                                          headers={"request-id": "req_E18auth"}),
-                 "AuthenticationError", "req_E18auth", id="invalid-key"),
-    pytest.param(lambda: stripe.error.InvalidRequestError(_PROVIDER_TEXT, "customer", code="resource_missing",
-                                                          http_status=404, headers={"request-id": "req_E18miss"}),
-                 "InvalidRequestError", "req_E18miss", id="no-such-customer"),
-    pytest.param(lambda: stripe.error.APIConnectionError(_PROVIDER_TEXT), "APIConnectionError", "unknown",
-                 id="no-answer"),
+    pytest.param(401, "invalid_request_error", "req_E18auth", "AuthenticationError", "req_E18auth",
+                 id="invalid-key"),
+    pytest.param(404, "invalid_request_error", "req_E18miss", "InvalidRequestError", "req_E18miss",
+                 id="no-such-customer"),
+    pytest.param(None, None, None, "APIConnectionError", "unknown", id="no-answer"),
     # A request id is provider text too: one of another shape is left out.
-    pytest.param(lambda: stripe.error.RateLimitError(_PROVIDER_TEXT, http_status=429,
-                                                     headers={"request-id": f"req_{_KEY_TAIL} {_PROVIDER_TEXT}"}),
-                 "RateLimitError", "unknown", id="request-id-of-another-shape"),
+    pytest.param(429, "rate_limit_error", f"req_{_KEY_TAIL} {_PROVIDER_TEXT}", "RateLimitError", "unknown",
+                 id="request-id-of-another-shape"),
 ]
 
 
 @pytest.mark.parametrize("route", ["checkout", "portal"])
-@pytest.mark.parametrize("error,error_class,request_id", _STRIPE_FAILURES)
+@pytest.mark.parametrize("level", ["INFO", "DEBUG"])
+@pytest.mark.parametrize("json_format", [False, True], ids=["simple", "structured"])
+@pytest.mark.parametrize("status,error_type,header_id,error_class,request_id", _STRIPE_FAILURES)
 def test_a_stripe_failure_answers_a_fixed_detail_and_logs_its_class_and_request_id_alone(
-        client, monkeypatch, caplog, route, error, error_class, request_id):
-    """Stripe's message can quote the key's last four characters or name a customer: the route answers its
-    fixed 400 detail, and its one log line names the call, the error's class and Stripe's request id, no
-    account, customer or provider text (E18). Each record is read whole (its message, arguments, extra
-    fields and exception), as the production formatters and Sentry's logging integration read it, since
-    ``caplog.text`` renders the message alone."""
+        client, monkeypatch, caplog, capsys, route, level, json_format,
+        status, error_type, header_id, error_class, request_id):
+    """Run the real SDK through an in-memory HTTP transport: its parser logs before the route catch.
+
+    At both application levels and with either formatter, neither SDK records (including INFO's error
+    message and DEBUG's entire body) nor the answer carry provider text. The route's diagnostic retains
+    the class and validated request id. Read records whole, as formatters and Sentry do, and the actual
+    configured stream. Stripe's separate opt-in console logging is off, as in the application.
+    """
     email = _new_user(stripe_customer_id="cus_existing")
     _sign_in(email)
-    caplog.set_level(logging.DEBUG)
+    monkeypatch.setattr(settings, "STRIPE_PRICE_MONTHLY_ID", "price_monthly_test")
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 0)
+    monkeypatch.setattr(stripe, "max_network_retries", 0)
+    calls = []
+    body_only_marker = "provider-body-only-E18"
 
-    if route == "checkout":
-        resp, _, _ = _checkout(client, monkeypatch, session_error=error())
-        call, detail = "Checkout", CHECKOUT_FAILED
-    else:
-        with patch.object(stripe.billing_portal.Session, "create", side_effect=error()):
-            resp = client.post("/api/subscriptions/create-portal-session")
-        call, detail = "Billing portal", PORTAL_FAILED
+    def request(method, url, **kwargs):
+        calls.append((method, url))
+        if method == "get" and url == "https://api.stripe.com/v1/customers/cus_existing":
+            return SimpleNamespace(
+                content=json.dumps({"id": "cus_existing", "object": "customer"}).encode(),
+                status_code=200, headers={},
+            )
+        target = "checkout/sessions" if route == "checkout" else "billing_portal/sessions"
+        assert (method, url) == ("post", f"https://api.stripe.com/v1/{target}")
+        if status is None:
+            raise requests.ConnectionError(_PROVIDER_TEXT)
+        return SimpleNamespace(
+            content=json.dumps({"error": {"type": error_type, "message": _PROVIDER_TEXT,
+                                          "param": "customer", "code": "resource_missing"},
+                                "provider_metadata": body_only_marker}).encode(),
+            status_code=status, headers={"request-id": header_id},
+        )
 
+    transport = stripe.RequestsClient(session=SimpleNamespace(request=request, close=lambda: None))
+    monkeypatch.setattr(stripe, "default_http_client", transport)
+    with preserved_logging():
+        # A prior configure_logging (main's import, or another test) must not hide a missing policy.
+        logging.getLogger("stripe").setLevel(logging.NOTSET)
+        logging_service.configure_logging(level=level, json_format=json_format)
+        logging.getLogger().addHandler(caplog.handler)
+        caplog.clear()
+        capsys.readouterr()
+        endpoint = "create-checkout-session" if route == "checkout" else "create-portal-session"
+        resp = client.post(f"/api/subscriptions/{endpoint}", params={"price_id": "monthly"})
+        output = capsys.readouterr()
+
+    call, detail = ("Checkout", CHECKOUT_FAILED) if route == "checkout" else ("Billing portal", PORTAL_FAILED)
     assert resp.status_code == 400
     assert resp.json() == {"detail": detail}
+    assert len(calls) == (2 if route == "checkout" else 1)  # the SDK, including checkout's customer read, ran
     records = [repr(vars(record)) for record in caplog.records]
-    for leak in _LEAKS:
+    for leak in (*_LEAKS, body_only_marker):
         assert leak not in resp.text
+        assert leak not in output.out + output.err
         assert not [record for record in records if leak in record]
     [line] = [r.getMessage() for r in caplog.records if r.name == "app.routers.subscriptions"]
     assert line == f"{call} failed at Stripe ({error_class}, request {request_id})"
+    assert line in output.out
 
 
 def test_an_existing_customer_is_retrieved_not_recreated(client, monkeypatch):
