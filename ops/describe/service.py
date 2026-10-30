@@ -14,8 +14,21 @@ import json
 import os
 import re
 import subprocess
+import sys
+from pathlib import Path
+
+# The same committed pure projection supports direct script and import-by-path execution.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from ops.describe.summary_configuration import CONFIG_FIELDS, queue_configuration, runtime_configuration, scheduler_configuration
+
 WORKER = "earningsnerd-task-worker"
-GCLOUD_TIMEOUT = 100
+GCLOUD_TIMEOUT = 80
+METADATA_TIMEOUT = 20
+METADATA_READS = {
+    ("scheduler", "jobs", "describe", "filing-scan-hourly"),
+    ("scheduler", "jobs", "describe", "summary-recovery-minute"),
+    ("tasks", "queues", "describe", "earningsnerd-background"),
+}
 PUBLIC_PRINCIPALS = ("allUsers", "allAuthenticatedUsers")
 failures = []
 def fail(message):
@@ -50,13 +63,21 @@ def resolve_traffic(who, label, status):
     else:
         return latest
     stop(f"require 100% traffic on the latest ready revision of the {who}; {cause}.")
-def gcloud_json(argv):
+def gcloud_json(argv, *, family="run"):
     # The one seam for every gcloud read this readback makes. stderr is captured and reduced to a closed class, never
     # echoed: gcloud's error text can name the acting principal or a private URL.
+    if family == "run":
+        location = ["--region=" + os.environ["REGION"]]
+        timeout = GCLOUD_TIMEOUT
+    elif (family, *argv) in METADATA_READS:
+        location = ["--location=" + os.environ["REGION"], "--project=earnings-nerd"]
+        timeout = METADATA_TIMEOUT
+    else:
+        return None, "unsupported_read"
     try:
         return json.loads(subprocess.check_output(
-            ["gcloud", "run", *argv, "--region=" + os.environ["REGION"], "--format=json"],
-            text=True, stderr=subprocess.PIPE, timeout=GCLOUD_TIMEOUT)), None
+            ["gcloud", family, *argv, *location, "--format=json"],
+            text=True, stderr=subprocess.PIPE, timeout=timeout)), None
     except subprocess.TimeoutExpired:
         return None, "timeout"
     except subprocess.CalledProcessError as exc:
@@ -135,6 +156,7 @@ def show(label, containers):
     print(label)
     print("image:", containers[0]["image"])
     print("Absent values below use checkout Settings defaults; verify these against the reported image before pinning.")
+    summary_config = runtime_configuration(containers[0].get("env", []))
     seen = set()
     for e in containers[0].get("env", []):
         name = e.get("name", "?")
@@ -143,17 +165,28 @@ def show(label, containers):
             print(f"{name} = <secret-ref>")
         elif name in SEC_PINS:
             print(f"{name} = {bounded_pin(e.get('value'))}")
+        elif name in CONFIG_FIELDS:
+            projected = summary_config["fields"][name]
+            if projected["state"] == "literal":
+                value = projected["value"]
+                print(f"{name} = {(str(value).lower() if type(value) is bool else value)!r}")
+            else:
+                print(f"{name} = <{projected['state']}>")
         elif name in allow:
             print(f"{name} = {e.get('value')!r}")
         else:
             print(f"{name} = <set; value withheld>")
     for flag, default in flag_defaults.items():
         if flag not in seen:
+            if flag in CONFIG_FIELDS:
+                print(f"{flag} = <NOT SET -> image default unverified>")
+                continue
             message = "Settings default applies (True)" if default is True else f"Settings default applies ({default!r})"
             print(f"{flag} = <NOT SET -> {message}>")
     # Not a Settings field: edgartools reads it at import, so its default is the library's.
     if "EDGAR_RATE_LIMIT_PER_SEC" not in seen:
         print("EDGAR_RATE_LIMIT_PER_SEC = <NOT SET -> edgartools default 9>")
+    print("Summary/SEC runtime configuration:", json.dumps(summary_config, sort_keys=True))
 def plain_value(containers, name):
     for entry in containers[0].get("env", []):
         if entry.get("name") == name and "valueFrom" not in entry and "valueSource" not in entry:
@@ -304,7 +337,28 @@ elif policy_state == "UNVERIFIED":
     }.get(policy_detail, "transient or failed read; re-dispatch describe-service before concluding")
     print(f"::warning::Worker invoker policy UNVERIFIED ({policy_detail}): not evidence of private access; {remedy}. "
           "The durable-tasks checklist item stays open until a run prints PRIVATE.")
+metadata_unverified = []
+for family, kind, name in (
+    ("scheduler", "jobs", "filing-scan-hourly"),
+    ("scheduler", "jobs", "summary-recovery-minute"),
+    ("tasks", "queues", "earningsnerd-background"),
+):
+    data, error = gcloud_json([kind, "describe", name], family=family)
+    if error:
+        projected = {"state": "UNVERIFIED", "reason": error}
+    elif family == "scheduler":
+        projected = scheduler_configuration(data, name, svc.get("status", {}).get("url"), os.environ["REGION"])
+    else:
+        projected = queue_configuration(data)
+    if error or projected.get("state") == "unreadable_response":
+        metadata_unverified.append(name)
+        print(f"::warning::Activation configuration {name}: UNVERIFIED ({error or 'unreadable_response'}). "
+              "This named resource is not verified; no absence, authentication or readiness conclusion follows.")
+    print(f"Activation configuration {name}:", json.dumps(projected, sort_keys=True))
+print("Activation evidence limits: summary-recovery-minute is a proposed fixed name; other callers are not inspected. "
+      "Use capacity-readout for observed queue/worker/SQL aggregates. No receipts, database rows, live requests or providers are read here.")
 if failures:
     print(f"describe-service: FAIL ({len(failures)} invariant failure(s))")
     raise SystemExit("Unresolved production configuration: " + "; ".join(failures))
-print("describe-service: PASS" + (f"; UNVERIFIED: worker invoker policy ({policy_detail})" if policy_state == "UNVERIFIED" else ""))
+print("describe-service: PASS" + (f"; UNVERIFIED: worker invoker policy ({policy_detail})" if policy_state == "UNVERIFIED" else "")
+      + ("; UNVERIFIED: activation configuration" if metadata_unverified else ""))

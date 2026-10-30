@@ -322,8 +322,9 @@ describe('StreamingSummaryDisplay headings', () => {
   })
 
   // The capture review at 200% text on a 390px phone: the percent printed over "Generating the summary",
-  // "Usually 30–60s" collided with it, and the meta line broke "10-|K". The header row wraps, the percent
-  // keeps to the right edge on a line of its own, and the form code is one unbreakable run.
+  // the former "Usually 30–60s" line collided with it, and the meta line broke "10-|K". The current
+  // "Estimated progress" line shares that wrapping header: the percent keeps to the right edge on a line of
+  // its own, and the form code is one unbreakable run.
   it('lets the percent move beneath the heading, and keeps the form code whole', async () => {
     renderAt('fetching')
     await act(async () => {})

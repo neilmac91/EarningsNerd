@@ -156,6 +156,38 @@ describe('the fresh-filing recovery flow', () => {
     expect(String(fetch.mock.calls[0]?.[0])).toContain('force=true')
   })
 
+  it.each([
+    [1, '1 second'], [59, '59 seconds'], [60, '1 minute'], [61, '2 minutes'], [600, '10 minutes'],
+  ])('names when Retry is available after %s seconds', (seconds, duration) => {
+    render(<StreamingSummaryDisplay filing={filing} streamingText="" stage="error"
+      message={LIMITED} error={LIMITED} onRetry={vi.fn()} retryAfterSeconds={Number(seconds)} />)
+    expect(screen.getByText(`You can try again in ${duration}.`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it.each([
+    [1, '1 second'], [60, '1 minute'], [600, '10 minutes'],
+  ])('names and honors the retained-result Retry cooldown at %s seconds', (seconds, duration) => {
+    const retry = vi.fn()
+    const view = render(<StreamingSummaryDisplay filing={filing} streamingText="" stage="error"
+      message={LIMITED} error={LIMITED} onRetry={retry} retryAfterSeconds={Number(seconds)} retainedResult />)
+    expect(screen.getByText('Could not confirm the refreshed summary.')).toBeInTheDocument()
+    expect(screen.getByText('Showing the previously loaded summary.')).toBeInTheDocument()
+    expect(screen.getByText(`You can try again in ${duration}.`)).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: 'Try again' })
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    expect(button).not.toBeDisabled()
+    button.focus()
+    fireEvent.click(button)
+    expect(retry).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(button)
+    view.rerender(<StreamingSummaryDisplay filing={filing} streamingText="" stage="error"
+      message={LIMITED} error={LIMITED} onRetry={retry} retryAfterSeconds={0} retainedResult />)
+    expect(screen.queryByText(`You can try again in ${duration}.`)).not.toBeInTheDocument()
+    fireEvent.click(button)
+    expect(retry).toHaveBeenCalledOnce()
+  })
+
   it('keeps the cooldown control focusable and refuses its activation', () => {
     const retry = vi.fn()
     const view = render(<StreamingSummaryDisplay filing={filing} streamingText="" stage="error"

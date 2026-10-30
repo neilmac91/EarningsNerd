@@ -11,7 +11,10 @@ import yaml
 MODEL = "allowed-model-value"  # an allow-listed name's value is echoed by design
 MODULE = Path(__file__).parents[3] / "ops/describe/service.py"  # the readback the describe-service step runs
 SERVICE = "earningsnerd-backend"
-SERVICE_READ = ("services", "describe", SERVICE)  # the API service describe, the first of six reads
+SERVICE_READ = ("services", "describe", SERVICE)  # the API service describe, the first of nine reads
+METADATA_READS = (("jobs", "describe", "filing-scan-hourly"),
+                  ("jobs", "describe", "summary-recovery-minute"),
+                  ("queues", "describe", "earningsnerd-background"))
 # The task worker entrypoint ci.yml pins; the readback prints a match/mismatch verdict, never these tokens.
 WORKER_COMMAND = ["uvicorn"]
 WORKER_ARGS = ["task_worker_main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers",
@@ -43,7 +46,7 @@ def test_capacity_projection_withholds_commands_and_private_values(capfd, monkey
     workflow = yaml.safe_load((Path(__file__).parents[3] / ".github/workflows/ops.yml").read_text())
     step = next(s for s in workflow["jobs"]["ops"]["steps"]
                 if s.get("name") == "Describe service env (values only for known feature flags)")
-    assert step["timeout-minutes"] == 10  # six reads of at most 100 s each (the shell describe had no bound)
+    assert step["timeout-minutes"] == 10  # six 80 s reads plus three 20 s metadata reads leave 60 s headroom
     capacity = next(s for s in workflow["jobs"]["ops"]["steps"] if s.get("name") == "Read historical capacity evidence")
     assert capacity["timeout-minutes"] >= 15  # the readout bounds itself to 17 channels x 5 pages x 10 s = 850 s
     # Execute the entire committed readback, including show(), not a comment-delimited suffix.
@@ -58,9 +61,8 @@ def test_capacity_projection_withholds_commands_and_private_values(capfd, monkey
     output = captured.out + captured.err
     opened.assert_not_called()  # every read, the service describe included, goes through the gcloud seam
     assert calls == [SERVICE_READ, *readbacks]
-    # Every read is bounded at 100 s (the fake asserts it), so all of them fit the step timeout: a seventh read or a
-    # shorter step fails here. At the bound a run that spends it all is cut by the step timeout, still a failure.
-    assert 100 * len(calls) <= step["timeout-minutes"] * 60
+    # The fake verifies each family's timeout; all reads leave a minute for setup/projection.
+    assert sum(20 if key in METADATA_READS else 80 for key in calls) + 60 <= step["timeout-minutes"] * 60
     assert "PRIVATE_" not in output
     assert "example.invalid" not in output  # no fixture host: service, worker, traffic or policy
     # Every fixture token is distinct from allowed output (worker env stays 4, args use 17/29).
@@ -217,12 +219,15 @@ def _worker_fixtures(command=None, args=None):
 
 
 def _readbacks(revision, pregenerate, worker, worker_revision, policy):
-    """The five gcloud reads that follow the API service describe, in order, keyed by (kind, verb, name)."""
+    """The eight reads after the API service describe, keyed by (kind, verb, name)."""
     return {("revisions", "describe", "revision-1"): revision,
             ("jobs", "describe", "earningsnerd-pregenerate"): pregenerate,
             ("services", "describe", "earningsnerd-task-worker"): worker,
             ("revisions", "describe", "worker-revision-1"): worker_revision,
-            ("services", "get-iam-policy", "earningsnerd-task-worker"): policy}
+            ("services", "get-iam-policy", "earningsnerd-task-worker"): policy,
+            ("jobs", "describe", "filing-scan-hourly"): {"state": "ENABLED"},
+            ("jobs", "describe", "summary-recovery-minute"): {"state": "ENABLED"},
+            ("queues", "describe", "earningsnerd-background"): {"state": "RUNNING"}}
 
 
 def _run(svc, readbacks, monkeypatch):
@@ -232,10 +237,16 @@ def _run(svc, readbacks, monkeypatch):
     reads = {SERVICE_READ: svc, **readbacks}
 
     def describe(argv: list[str], *, text: bool, stderr, timeout) -> str:
-        assert argv[:2] == ["gcloud", "run"] and argv[3] in ("describe", "get-iam-policy")
-        assert argv[5:] == ["--region=offline-region", "--format=json"] and text is True
-        assert stderr is subprocess.PIPE and timeout == 100  # stderr is classified, never inherited by the log
         key = (argv[2], argv[3], argv[4])
+        if key in METADATA_READS:
+            family = "tasks" if key[0] == "queues" else "scheduler"
+            assert argv == ["gcloud", family, *key, "--location=offline-region",
+                            "--project=earnings-nerd", "--format=json"]
+            assert timeout == 20
+        else:
+            assert argv[:2] == ["gcloud", "run"] and argv[3] in ("describe", "get-iam-policy")
+            assert argv[5:] == ["--region=offline-region", "--format=json"] and timeout == 80
+        assert text is True and stderr is subprocess.PIPE  # no inherited child stderr
         calls.append(key)
         return json.dumps(reads[key])
 
