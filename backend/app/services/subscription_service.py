@@ -26,7 +26,9 @@ def get_user_usage_count(user_id: int, month: str, db: Session) -> int:
     
     return usage.summary_count if usage else 0
 
-def _increment_monthly_counter(user_id: int, month: str, db: Session, column: InstrumentedAttribute) -> None:
+def _increment_monthly_counter(
+    user_id: int, month: str, db: Session, column: InstrumentedAttribute, *, commit: bool = True,
+) -> None:
     """Increment one selected historical bucket; serialize only first-row creation.
 
     All current writers use this protocol. It neither repairs old duplicates nor protects
@@ -63,12 +65,13 @@ def _increment_monthly_counter(user_id: int, month: str, db: Session, column: In
         {column: func.coalesce(column, 0) + 1, UserUsage.updated_at: datetime.now(timezone.utc)},
         synchronize_session=False,
     )
-    db.commit()
+    if commit:
+        db.commit()
 
 
-def increment_user_usage(user_id: int, month: str, db: Session):
+def increment_user_usage(user_id: int, month: str, db: Session, *, commit: bool = True):
     """Increment the monthly summary counter at the existing completion call sites."""
-    _increment_monthly_counter(user_id, month, db, UserUsage.summary_count)
+    _increment_monthly_counter(user_id, month, db, UserUsage.summary_count, commit=commit)
 
 def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]]:
     """Check if user can generate more summaries. Returns (can_generate, current_count, limit).
@@ -114,6 +117,7 @@ def _set_transaction_lock_timeout(db: Session) -> None:
 
 def _reserve_use(
     user: User, db: Session, *, kind: str, month: str, limit: int, completed_count: Callable[[Session], int],
+    commit: bool = True,
 ) -> tuple[bool, int, Optional[str]]:
     """The one serialized admission decision every metered feature shares (E07b).
 
@@ -142,18 +146,24 @@ def _reserve_use(
     ).scalar() or 0
     completed = completed_count(db)
     if completed + active >= limit:
-        db.rollback()
+        if commit:
+            db.rollback()
         return False, completed, None
     token = uuid4().hex
     db.add(UsageReservation(
         user_id=user.id, month=month, kind=kind, token=token,
         expires_at=now + timedelta(seconds=settings.USAGE_RESERVATION_TTL_SECONDS), created_at=now,
     ))
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return True, completed, token
 
 
-def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[int], Optional[str]]:
+def reserve_summary_use(
+    user: User, db: Session, *, commit: bool = True,
+) -> tuple[bool, int, Optional[int], Optional[str]]:
     """Admit one summary generation and hold its quota unit under a short lease (E07b).
 
     ``check_usage_limit`` is a plain read, so concurrent requests could all pass the cap and
@@ -170,6 +180,7 @@ def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[in
     admitted, completed, token = _reserve_use(
         user, db, kind=SUMMARY_RESERVATION_KIND, month=month, limit=limit,
         completed_count=lambda session: get_user_usage_count(user.id, month, session),
+        **({"commit": False} if not commit else {}),
     )
     if not admitted:
         return False, completed, limit, None
@@ -244,7 +255,9 @@ def release_reservation(token: Optional[str], db: Session) -> None:
     db.commit()
 
 
-def _refund_monthly_counter(user_id: int, month: str, db: Session, column: InstrumentedAttribute) -> None:
+def _refund_monthly_counter(
+    user_id: int, month: str, db: Session, column: InstrumentedAttribute, *, commit: bool = True,
+) -> None:
     """Give one counted unit back on the bucket ``_increment_monthly_counter`` selected (floor 0).
 
     A generation is counted when its provider call starts; this is the inverse for the cases that
@@ -260,12 +273,13 @@ def _refund_monthly_counter(user_id: int, month: str, db: Session, column: Instr
         {column: column - 1, UserUsage.updated_at: datetime.now(timezone.utc)},
         synchronize_session=False,
     )
-    db.commit()
+    if commit:
+        db.commit()
 
 
-def refund_summary_use(user_id: int, month: str, db: Session) -> None:
+def refund_summary_use(user_id: int, month: str, db: Session, *, commit: bool = True) -> None:
     """Give back one summary unit counted in ``month`` when the provider call started."""
-    _refund_monthly_counter(user_id, month, db, UserUsage.summary_count)
+    _refund_monthly_counter(user_id, month, db, UserUsage.summary_count, commit=commit)
 
 
 def refund_qa_use(user_id: int, month: str, db: Session) -> None:

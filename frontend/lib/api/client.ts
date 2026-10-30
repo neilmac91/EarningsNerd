@@ -62,6 +62,9 @@ export const ERROR_CODES = {
   pro_fair_use_limit: { status: 429, stream: true },
   generation_paused: { status: 503, stream: true },
   earnings_alert_limit: { status: 403, stream: false },
+  summary_rate_limited: { status: 429, stream: true },
+  sec_rate_limited: { status: 429, stream: true },
+  filing_source_unavailable: { status: 503, stream: true },
 } as const satisfies Record<string, { status: number; stream: boolean }>
 
 export type KnownErrorCode = keyof typeof ERROR_CODES

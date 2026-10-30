@@ -4,7 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.ai.financing_comparison import CAPITAL_CONTEXT_KEY, OWNED_FIELD
+from app.services.ai.financing_comparison import (
+    CAPITAL_CONTEXT_KEY, OWNED_FIELD, bind_capital_allocation,
+)
 from app.services.copilot_service import _compact_xbrl_block
 from app.services.edgar.xbrl_service import EdgarXBRLService
 from app.services.export_service import ExportService
@@ -159,6 +161,80 @@ async def test_actual_apple_program_preserves_per_share_denominations_and_dates(
     assert "$100 billion" in result["business_overview"]
     assert "$0.25 to $0.26 per share" in result["business_overview"]
     assert "$6,500" not in result["business_overview"]
+
+
+@pytest.mark.asyncio
+async def test_earnings_release_preserves_source_spaces_and_dividend_before_page_number(monkeypatch):
+    # Synthetic release shape: typography in dates, then a complete declaration at
+    # the page edge. Keep invisible source characters explicit and assert raw bytes.
+    buyback = ("During the six months ended June\u00a030, 2026, the Company repurchased "
+               "$1.2 billion of its common stock. As of June\u00a030, 2026, $3.4 billion "
+               "remained available under its share repurchase program.")
+    dividend = ("In July 2026, the Company declared a cash dividend of $1.25 per share on "
+                "the Company's common stock and Class B stock, payable on September 3, 2026 "
+                "to shareholders of record as of August 20, 2026.")
+    source = "Capital Allocation\n" + buyback + "\n" + dividend + "\n6\nFinancial Guidance\n"
+    supplied = structured()
+    supplied["sections"]["value_drivers"] = {
+        "capital_allocation": {"filing_statements": [buyback.replace("\u00a0", " "), dividend]},
+    }
+    service = OpenAIService()
+
+    async def request(*args, **kwargs):
+        return json.dumps(supplied)
+
+    monkeypatch.setattr(service, "_request_content", request)
+    result = await service.summarize_filing(source, "Issuer", "8-K", filing_excerpt=source)
+    raw = result["raw_summary"]
+    assert raw["sections"]["value_drivers"][OWNED_FIELD]["filing_statements"] == [buyback, dividend]
+    raw["schema_version"] = SUMMARY_SCHEMA_VERSION
+    rendered = sections_to_markdown(render_sections(raw))
+    assert buyback.replace("\u00a0", " ") in rendered
+    assert dividend in rendered
+
+
+@pytest.mark.parametrize("variant", ["duplicate", "word_change", "line_join", "unscaled"])
+def test_capital_typography_match_never_repairs_words_lines_scales_or_ambiguous_sources(variant):
+    source_quote = "As of June\u00a030, 2026, the Company repurchased $1.2 billion of its common stock."
+    offered = source_quote.replace("\u00a0", " ")
+    source = source_quote + "\n"
+    if variant == "duplicate":
+        source += offered + "\n"  # One literal match, but two typography-equivalent occurrences.
+    elif variant == "word_change":
+        offered = offered.replace("repurchased", "issued")
+    elif variant == "line_join":
+        source = source.replace("the Company", "the\nCompany")
+    else:
+        source = source.replace(" billion", "")
+        offered = offered.replace(" billion", "")
+    sections = {"value_drivers": {"capital_allocation": {"filing_statements": [offered]}}}
+    bind_capital_allocation(sections, None, source)
+    assert sections["value_drivers"][OWNED_FIELD]["filing_statements"] == []
+
+
+@pytest.mark.parametrize("label", [
+    "Payments on loans payable and other financing liabilities",
+    "Payments on loans payable and other financing liabilities.",
+    "Quarterly cash dividend of $1.25 per share on the Company's common stock, payable on September 3, 2026.",
+    "In July 2026, the Company proposed a cash dividend of $1.25 per share on the Company's common stock, payable on September 3, 2026 to shareholders of record as of August 20, 2026.",
+])
+@pytest.mark.parametrize("numeric_cell", ["6", "(\n41,088\n)", "$1,250", "6%"])
+def test_page_footer_exception_keeps_punctuated_long_and_unknown_table_labels_excluded(label, numeric_cell):
+    source = label + "\n" + numeric_cell + "\n"
+    sections = {"value_drivers": {"capital_allocation": {"filing_statements": [label]}}}
+    bind_capital_allocation(sections, None, source)
+    assert sections["value_drivers"][OWNED_FIELD]["filing_statements"] == []
+
+
+@pytest.mark.parametrize("numeric_cell", ["$1,250", "6%", "6.0", "\u0666"])
+def test_complete_dividend_declaration_does_not_exempt_other_numeric_cells(numeric_cell):
+    dividend = ("In July 2026, the Company declared a cash dividend of $1.25 per share on "
+                "the Company's common stock, payable on September 3, 2026 "
+                "to shareholders of record as of August 20, 2026.")
+    source = dividend + "\n" + numeric_cell + "\n"
+    sections = {"value_drivers": {"capital_allocation": {"filing_statements": [dividend]}}}
+    bind_capital_allocation(sections, None, source)
+    assert sections["value_drivers"][OWNED_FIELD]["filing_statements"] == []
 
 
 @pytest.mark.asyncio

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
+import logging
 import time
 from typing import Any
 from uuid import UUID, uuid4
@@ -15,6 +16,8 @@ from uuid import UUID, uuid4
 import anyio
 
 from app.services.posthog_client import capture_funnel_event
+
+logger = logging.getLogger(__name__)
 
 
 class SummaryRequestEvidence:
@@ -52,12 +55,21 @@ class SummaryRequestEvidence:
             return
         self.start()
         self.finished = True
+        duration_ms = max(0, int((time.monotonic() - self.started_at) * 1000))
+        # Operational outcomes are separate from consent-gated product analytics. No account,
+        # client action label, IP, entry-point string, document body or exception message is logged.
+        logger.info(
+            "summary_request_finished request_id=%s filing_id=%s outcome=%s reason=%s "
+            "delivery_path=%s summary_service_invoked=%s duration_ms=%s",
+            self.properties["request_id"], self.properties["filing_id"], outcome, self.reason,
+            self.delivery_path, self.summary_service_invoked, duration_ms,
+        )
         if self.enabled:
             capture_funnel_event(
                 self.account_id, "summary_request_finished", **self.properties,
                 outcome=outcome, reason=self.reason, summary_id=summary_id,
                 delivery_path=self.delivery_path, summary_service_invoked=self.summary_service_invoked,
-                duration_ms=max(0, int((time.monotonic() - self.started_at) * 1000)),
+                duration_ms=duration_ms,
             )
 
     def observe_terminal(self, event: dict) -> None:
