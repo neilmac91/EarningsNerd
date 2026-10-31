@@ -118,8 +118,10 @@ export default function SectorPeersCard({ ticker, answer, className }: {
   // every company ranked.
   const cropped = chart ? croppedOf(chart.answer) : null
   const needsCheck = !!chart?.entries.some(needsSourceCheck)
-  // Sources & checks: every company drawn, and every company whose value is withheld, which draws no bar.
-  const checked = chart ? [...chart.entries, ...chart.answer.peers.filter((entry) => entry.provenance?.validation === 'unavailable')] : []
+  // Sources & checks: every company drawn, and every company whose value is withheld, which draws no bar, in every state:
+  // with no chart, the withheld ones alone, a withheld subject the plot's place names among them.
+  const withheld = (data: PeerComparisonResponse) => data.peers.filter((entry) => entry.provenance?.validation === 'unavailable')
+  const checked = chart ? [...chart.entries, ...withheld(chart.answer)] : picked.data ? withheld(picked.data) : []
 
   return (
     <Card as="section" aria-labelledby={headingId} className={cx(className, 'p-cap-6')}>

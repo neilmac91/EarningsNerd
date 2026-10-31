@@ -3202,7 +3202,8 @@ same SEC industry code, each with its most recent annual {metric} from SEC filin
 can differ by company.", the currency only where it is not the dollar), which adds what the chart shows where a cohort
 is larger than its slots, and "Some figures here need a source check. Sources & checks lists them." where a drawn value
 needs one (no badge: the badge's gate keeps it to Financial
-trends); and Sources & checks, listing every company drawn and every one whose value is withheld, which draws no bar. It
+trends); and Sources & checks, listing every company drawn and every one whose value is withheld, which draws no bar,
+in every state (with no chart, the withheld ones alone, a withheld subject the plot's place names among them). It
 shows itself only once the default metric's answer is a cohort: a metric the panel names and formats, the subject's own
 figure and at least one other company's (`features/peers/lib/cohort.ts` `noCohort`, engine-free); until then the gate
 renders nothing and the card's chunk, the engine with it, is never asked for, so the company page's first load keeps the
@@ -3215,8 +3216,10 @@ finds: "{ticker}’s {metric} is unavailable, so it can’t be ranked." (the com
 be shown here." (a metric the panel cannot name); and "Couldn’t load sector peers for {metric}. Try another metric."
 where its read fails. It is the last section of the page's `<main>`, after
 the filings, so its arrival never moves them, inside a `ChartErrorBoundary` keyed by the ticker (the boundary never
-resets on its own), whose card stands where the panel would, with its spacing. Gates: `tests/unit/sector-peers.spec.tsx`,
-`tests/unit/company-sector-peers-mount.spec.tsx`, `tests/e2e/company-sector-peers.spec.ts` (the mount on a production
+resets on its own), whose card stands where the panel would, with its spacing; the gate makes its lazy card as it
+mounts, so a card chunk that failed to load is asked for again on the next company (React.lazy keeps a rejected import
+for good). Gates: `tests/unit/sector-peers.spec.tsx`, `tests/unit/company-sector-peers-mount.spec.tsx`,
+`tests/unit/sector-peers-chunk.spec.tsx`, `tests/e2e/company-sector-peers.spec.ts` (the mount on a production
 build, the computed inks by role, every printed value the fixture's and the DOM checks for one card, the context ink among
 D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; the heading row's height while a
 metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer; and the

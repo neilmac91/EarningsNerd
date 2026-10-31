@@ -56,18 +56,20 @@ const answerOf = (name: string): PeerComparisonResponse => structuredClone(FIXTU
  *  peerBarCases, whose check of `shows` would stop this file's collection: here a case `shows` gets wrong fails as that
  *  case, below. */
 const SHOWING = PEER_SHOWING
-/** Every case it does not show, with the first reason it does not (cohort.ts noCohort), each reason alone deciding
- *  one at least: production's single and a withheld peer only that fewer than two companies have a figure; a subject
- *  with no fact or a withheld one beside companies with a value only the subject's own figure; capital expenditures
- *  only the metric the panel cannot name. */
 /** The CNY cohort as the engine prints it: CN¥ before every amount, never "$" (features/analysis/lib/charts/scale.ts
  *  moneyPrefix). */
 const CNY_TICKS = ['CN¥0', 'CN¥200B', 'CN¥400B', 'CN¥600B', 'CN¥800B']
 const CNY_LABELS = ['CN¥612B', 'CN¥480B', 'CN¥96B', 'CN¥41B']
 const CNY_READOUT = /, CNYB, this company, rank 2 of 4, FY2025, year ended December 31, 2025\. Revenue: CN¥480\.1 billion\.$/
+/** Every case it does not show, with the first reason it does not (cohort.ts noCohort), each reason alone deciding
+ *  one at least: production's single and a withheld peer only that fewer than two companies have a figure; a subject
+ *  with no fact or a withheld one beside companies with a value only the subject's own figure; capital expenditures
+ *  only the metric the panel cannot name. Capital expenditures with no subject fact fails two, and its reason is the
+ *  first in noCohort's order, the metric. */
 const NOT_SHOWING = {
   'production single': 'few', 'no facts': 'subject', 'no fact, with peers': 'subject', 'no gross profit, with peers': 'subject',
   'withheld peer': 'few', 'withheld subject': 'subject', 'withheld subject, with peers': 'subject', 'capital expenditures': 'concept',
+  'capital expenditures, no subject fact': 'concept',
 } as const
 
 // The card's module, the engine with it, loads once before the cases, as its chunk loads once a page: the first
@@ -377,6 +379,9 @@ describe('the Sector peers panel (E251)', () => {
     expect(within(section).queryByRole('img')).toBeNull()
     expect(rankLine(section)).toHaveAttribute('data-held-rank')
     if (NOT_SHOWING[name as keyof typeof NOT_SHOWING] === 'subject') expect(place.querySelector('.font-data'), 'the ticker in the data face').toHaveTextContent(answerOf(name).subject.ticker)
+    // Sources & checks lists every company whose value is withheld, with no chart as with one.
+    const withheld = answerOf(name).peers.filter((entry) => entry.provenance?.validation === 'unavailable')
+    expect(withheld.map((entry) => within(section).getByText(new RegExp(`^${entry.ticker}, 2025: unavailable\\.`)).textContent)).toHaveLength(withheld.length)
   })
 
   it('says in the plot’s place that an answer ranked on a metric it cannot name cannot be shown', async () => {

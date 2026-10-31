@@ -4862,6 +4862,74 @@
         ]
       }
     },
+    "capital expenditures, no subject fact": {
+      "case": "synthetic: a cohort ranked on capital expenditures, which FEATURED does not name, whose subject holds no capital expenditures fact (a synthesised subject beside two companies with a value): two of the gate’s reasons at once, of which the metric is the first; every company and figure invented",
+      "metric": "capital_expenditures",
+      "response": {
+        "ticker": "CPNX",
+        "company_name": "Synthetic Capex No Fact Corp",
+        "sic": "9999",
+        "concept": "capital_expenditures",
+        "unit": "USD",
+        "peer_count": 2,
+        "subject": {
+          "ticker": "CPNX",
+          "company_name": "Synthetic Capex No Fact Corp",
+          "value": null,
+          "period_end": null,
+          "fiscal_year": null,
+          "is_subject": true,
+          "rank": null,
+          "percentile": null,
+          "reconciled": true,
+          "provenance": null
+        },
+        "peers": [
+          {
+            "ticker": "CPNA",
+            "company_name": "Synthetic Capex No Fact A Inc",
+            "value": 7300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CPNB",
+            "company_name": "Synthetic Capex No Fact B Corp",
+            "value": 3900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
     "bank": {
       "case": "synthetic: a bank that reports net interest income and no revenue, asked for revenue, so the service ranks its sector on net interest income instead (peers_service.py:58-83), as GS answered on 2026-10-31; every company and figure invented",
       "metric": "revenue",

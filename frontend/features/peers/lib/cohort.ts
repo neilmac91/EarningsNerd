@@ -19,7 +19,9 @@ export const METRICS: Metric[] = [
   'eps_diluted', 'total_assets',
 ].map((key) => FEATURED.find((metric) => metric.key === key)!)
 
-/** The most companies the chart draws: the eleven slots the 502 px desktop card holds (E251's plan, §2 item 5). */
+/** The most companies the chart draws: eleven, the retired panel's top ten and the subject (PeerComparisonPanel.tsx,
+ *  removed by D-066), which a 502 px card plot, the analysis charts' desktop width, holds without scrolling (the spread's
+ *  eleven five-glyph tickers take 456 px); a phone scrolls. DS §10 (Sector peers) says what the chart draws past them. */
 export const SLOTS = 11
 
 /** The metric an answer ranks on, from its `concept`, not the metric asked: a bank asked for revenue answers net

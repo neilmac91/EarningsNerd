@@ -10,10 +10,10 @@ import path from 'node:path'
 export const BUILD = path.resolve(__dirname, '../../../.next')
 
 /** For each module of the trend charts' engine the Sector peers card pulls in, and for the card, what only that module's
- *  code holds and the minifier keeps whole (a string, a call or a prop as the minifier writes it), each checked against
- *  every other source file under app, components, features, lib and hooks: the company page's first load must carry
- *  none of them. A module of the engine imported into the page by any path (a constant from layout.ts, say) brings its
- *  string with it. */
+ *  code holds and the minifier keeps whole (a string, a call or a prop as the minifier writes it), each chosen on
+ *  2026-10-31 as held by no other source file under app, components, features, lib or hooks: the company page's first
+ *  load must carry none of them. A module of the engine imported into the page by any path (a constant from layout.ts,
+ *  say) brings its marker with it. */
 export const MARKERS = {
   // features/analysis/lib/charts/
   barChart: 'Bars beyond the axis are broken', // BROKEN_BARS

@@ -491,8 +491,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
         {/* The company ranked against its sector on one metric (E251): self-fetching, it shows itself only once the
             endpoint answers a cohort, which production cannot until the SIC backfill runs. Last in <main>, so its arrival
             after a client fetch never moves the filings or Compare periods. The boundary is keyed on the ticker, as the
-            filings index is, so a soft navigation to another company starts the panel afresh: its picked metric, and a
-            chart that failed to draw (the boundary never resets on its own). */}
+            filings index is, so a soft navigation to another company starts the panel afresh: its picked metric, a
+            chart that failed to draw (the boundary never resets on its own) and a card chunk that failed to load (the
+            gate makes its lazy card as it mounts, so the next company asks for the chunk again). */}
         {ENABLE_FINANCIAL_CHARTS && (
           <ChartErrorBoundary key={normalizedTicker} className={SECTOR_PEERS_SPACING}>
             <SectorPeers ticker={normalizedTicker} className={SECTOR_PEERS_SPACING} />
