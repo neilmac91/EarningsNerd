@@ -3096,17 +3096,19 @@ and where no label tier fits even at the widest slot (amounts in thousands of tr
 says only "Values don’t fit at this width.", since no metrics table on the filing page lists the series' years.
 The card keeps its own chrome: the heading and its source-check badge, the subtitle, the compact metric picker, the
 footnote and Sources & checks (the source-check presentation above), and it has no PNG export. While its fetch runs it
-holds bones in the shapes of what replaces them, `aria-hidden` under its one status ("Loading financial trends"), so a
-default series that needs no source check lands where they stood (§11, Loading): the picker's (its label's word and the
+holds bones in the shapes of what replaces them, each `aria-hidden`, with one status ("Loading financial trends") on
+the plot's, so a default series that needs no source check lands where they stood (§11, Loading): the picker's (its label's word and the
 compact field's heights, 44 px on a phone, where the picker takes a row of its own, and 36 px from sm), the plot's
 320 px, then the footnote's and Sources & checks' lines, each holding its room with its own text laid out invisible in
 its own type and spacing, so it wraps as its line will at any width and text size (the footnote as it reads for revenue,
 the picker's first metric). Before, the bones held the plot alone, and the card grew 56 px as it landed at 1280 px and
-128 px at 390 and 320 px. Only the picker's width comes with the data (a select is as wide as its widest option, and
-its bone is 10rem), so where the options run wider its row can wrap as the data lands where its bones' did not: on the
-narrowest phones (320 px for a filing whose options include "Shareholders' equity"), and under 200% text at some wider
-widths. A badged default still moves the card down by the badge's row on a phone, where the badge goes beneath the
-heading once the data says so. Its heading row wraps, so under 200%
+128 px at 390 and 320 px. What comes only with the data can still move it (E253). The picker's width: a select is as
+wide as its widest option and its bone is 10rem, so where the options run wider its row can wrap as the data lands
+where its bones' did not, on the narrowest phones (320 px for a filing whose options include "Shareholders' equity"),
+and under 200% text at some wider widths. The footnote's metric and currency: its bone reads as revenue in dollars, so
+a bank's first metric or a currency named in the line can take another line. The lines with no bone: the engine's
+footnotes under the plot and the values-don't-fit line. And a badged default moves the card down by the badge's row on
+a phone, where the badge goes beneath the heading once the data says so. Its heading row wraps, so under 200%
 text the badge goes beneath the heading, and below a 24rem viewport the badge's label may wrap too (Badge's `wrap`), in
 the 16px step, as the hero example's badge does (E156): on a line of its own the one-line badge is wider than a phone's
 card under 200% text. Gates: `tests/unit/fundamentals-trend-chart.spec.tsx` and `tests/e2e/filing-fundamentals-chart.spec.ts`
