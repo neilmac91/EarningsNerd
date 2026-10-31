@@ -1246,7 +1246,9 @@ def test_the_delete_orphan_names_are_the_models_only_relationships():
 
     from app.database import Base
     from app.models import RefreshToken
+    from tests.support.models import import_every_model
 
+    import_every_model()  # every mapper, whatever an earlier test imported
     configure_mappers()
     into = {(mapper.class_.__name__, rel.key, rel.cascade.delete_orphan)
             for mapper in Base.registry.mappers for rel in mapper.relationships if rel.mapper.class_ is RefreshToken}

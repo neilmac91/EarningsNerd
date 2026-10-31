@@ -557,11 +557,15 @@ def test_mapped_columns_fails_closed_on_a_column_it_cannot_attribute(source, err
 
 def test_the_models_columns_read_from_source_are_the_ones_sqlalchemy_maps():
     """The gate reads the base's models by their source, since it runs before any dependency installs; on this tree
-    that reading finds every column SQLAlchemy maps, and no other. Models it cannot read raise, never read as empty."""
-    import app.models  # noqa: F401 - registers every model on Base.metadata
+    that reading finds every column SQLAlchemy maps, and no other. Models it cannot read raise, never read as empty.
+    Every module the gate reads is imported here (tests/support/models.py), not only those app.models imports: it
+    leaves out app/models/sec_request_gate.py, a table the migrations create and seed, which the mapping would
+    otherwise hold only when an earlier test had imported it."""
     from app.database import Base
+    from tests.support.models import import_every_model
 
     assert review_gate.MODELS == ROOT / "backend" / "app" / "models"
+    import_every_model()
     mapped = {(table.name.lower(), column.name.lower())
               for table in Base.metadata.tables.values() for column in table.columns}
     assert review_gate.read_mapped_columns(review_gate.MODELS) == mapped
