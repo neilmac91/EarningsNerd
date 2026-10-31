@@ -740,6 +740,11 @@ jobs:
           # Production shows the summary page's coverage badge, so the browser gates build it too: reflow-200.spec.ts's
           # coverage cases hold it at 320 to 390px under 200% text, and fail on a build without it (E181).
           NEXT_PUBLIC_ENABLE_QUALITY_BADGE: 'true'
+          # Production draws the filing page's Financial trends card (its build has the flag on: the live filing pages
+          # draw the card, read 2026-10-30), so the browser gates build it too: a spec that opens /filing/3 on its
+          # stored summary from tests/e2e/fixtures/filing3Api.ts meets it drawn, and filing-fundamentals-chart.spec.ts,
+          # which holds its mount, fails on a build without it (E195 D).
+          NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: 'true'
       - name: Start frontend server
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run start &
@@ -752,6 +757,7 @@ jobs:
           NEXT_PUBLIC_CALENDAR_FIXTURES: 'true'
           NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH: 'true'
           NEXT_PUBLIC_ENABLE_QUALITY_BADGE: 'true'
+          NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: 'true'
       - name: Wait for frontend server
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npx wait-on http://localhost:3000 --timeout 60000

@@ -1,0 +1,117 @@
+{
+  "source": "Filing-scoped fundamentals, as GET /api/filings/{id}/fundamentals serves them (FundamentalsResponse), and the bar charts Financial trends would draw from them. AAPL_filing_3 is production’s filing 3 fetched on 2026-10-29, trimmed to the six concepts its cases chart, points as served; the other filings are synthetic, each built for its case.",
+  "filings": {
+    "AAPL_filing_3": {
+      "case": "production: filing 3, AAPL’s 10-K for fiscal 2025, as GET /api/filings/3/fundamentals served it",
+      "response": {"ticker": "AAPL", "company_name": "Apple Inc.", "concepts": [
+        {"concept": "revenue", "unit": "USD", "points": [
+          {"period_end": "2023-09-30", "fiscal_year": 2023, "fiscal_period": "FY", "value": 383285000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}},
+          {"period_end": "2024-09-28", "fiscal_year": 2024, "fiscal_period": "FY", "value": 391035000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}},
+          {"period_end": "2025-09-27", "fiscal_year": 2025, "fiscal_period": "FY", "value": 416161000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}}
+        ]},
+        {"concept": "eps_diluted", "unit": "USD/shares", "points": [
+          {"period_end": "2023-09-30", "fiscal_year": 2023, "fiscal_period": "FY", "value": 6.13, "unit": "USD/shares", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}},
+          {"period_end": "2024-09-28", "fiscal_year": 2024, "fiscal_period": "FY", "value": 6.08, "unit": "USD/shares", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}},
+          {"period_end": "2025-09-27", "fiscal_year": 2025, "fiscal_period": "FY", "value": 7.46, "unit": "USD/shares", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}}
+        ]},
+        {"concept": "net_margin", "unit": "pure", "points": [
+          {"period_end": "2023-09-30", "fiscal_year": 2023, "fiscal_period": "FY", "value": 25.30623426432028, "unit": "pure", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2024-09-28", "fiscal_year": 2024, "fiscal_period": "FY", "value": 23.971255769943866, "unit": "pure", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-09-27", "fiscal_year": 2025, "fiscal_period": "FY", "value": 26.91506412181824, "unit": "pure", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]},
+        {"concept": "current_ratio", "unit": "pure", "points": [
+          {"period_end": "2024-09-28", "fiscal_year": 2024, "fiscal_period": "FY", "value": 0.8673125765340832, "unit": "pure", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-09-27", "fiscal_year": 2025, "fiscal_period": "FY", "value": 0.8932929222186667, "unit": "pure", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]},
+        {"concept": "working_capital", "unit": "USD", "points": [
+          {"period_end": "2024-09-28", "fiscal_year": 2024, "fiscal_period": "FY", "value": -23405000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-09-27", "fiscal_year": 2025, "fiscal_period": "FY", "value": -17674000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]},
+        {"concept": "shareholders_equity", "unit": "USD", "points": [
+          {"period_end": "2022-09-24", "fiscal_year": 2022, "fiscal_period": "FY", "value": 50672000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}},
+          {"period_end": "2023-09-30", "fiscal_year": 2023, "fiscal_period": "FY", "value": 62146000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}},
+          {"period_end": "2024-09-28", "fiscal_year": 2024, "fiscal_period": "FY", "value": 56950000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}},
+          {"period_end": "2025-09-27", "fiscal_year": 2025, "fiscal_period": "FY", "value": 73733000000.0, "unit": "USD", "form": "10-K", "accession": "0000320193-25-000079", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null, "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"}}
+        ]}
+      ]}
+    },
+    "CNY_synthetic": {
+      "case": "a filer reporting in CNY (synthetic): amounts in CN¥, EPS in CNY/shares",
+      "response": {"ticker": "CNYX", "company_name": "Synthetic Renminbi Filer Ltd", "concepts": [
+        {"concept": "revenue", "unit": "CNY", "points": [
+          {"period_end": "2023-12-31", "fiscal_year": 2023, "fiscal_period": "FY", "value": 612300000000.0, "unit": "CNY", "form": "10-K", "accession": "0009999999-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY", "value": 704800000000.0, "unit": "CNY", "form": "10-K", "accession": "0009999999-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-12-31", "fiscal_year": 2025, "fiscal_period": "FY", "value": 781500000000.0, "unit": "CNY", "form": "10-K", "accession": "0009999999-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]},
+        {"concept": "eps_diluted", "unit": "CNY/shares", "points": [
+          {"period_end": "2023-12-31", "fiscal_year": 2023, "fiscal_period": "FY", "value": 2.31, "unit": "CNY/shares", "form": "10-K", "accession": "0009999999-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY", "value": 2.67, "unit": "CNY/shares", "form": "10-K", "accession": "0009999999-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-12-31", "fiscal_year": 2025, "fiscal_period": "FY", "value": 3.05, "unit": "CNY/shares", "form": "10-K", "accession": "0009999999-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]}
+      ]}
+    },
+    "BANK_synthetic": {
+      "case": "a bank (synthetic): net interest income, its top line, and no revenue",
+      "response": {"ticker": "BNKX", "company_name": "Synthetic Bancorp", "concepts": [
+        {"concept": "net_interest_income", "unit": "USD", "points": [
+          {"period_end": "2023-12-31", "fiscal_year": 2023, "fiscal_period": "FY", "value": 89267000000.0, "unit": "USD", "form": "10-K", "accession": "0009999998-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY", "value": 92583000000.0, "unit": "USD", "form": "10-K", "accession": "0009999998-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-12-31", "fiscal_year": 2025, "fiscal_period": "FY", "value": 95412000000.0, "unit": "USD", "form": "10-K", "accession": "0009999998-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]}
+      ]}
+    },
+    "ONE_YEAR_synthetic": {
+      "case": "a filing with one fiscal year of revenue (synthetic)",
+      "response": {"ticker": "ONEX", "company_name": "Synthetic One Year Inc", "concepts": [
+        {"concept": "revenue", "unit": "USD", "points": [
+          {"period_end": "2025-06-30", "fiscal_year": 2025, "fiscal_period": "FY", "value": 1234500000.0, "unit": "USD", "form": "10-K", "accession": "0009999997-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]}
+      ]}
+    },
+    "WITHHELD_synthetic": {
+      "case": "every year withheld (synthetic): derived EPS the backend publishes as unavailable, so each value is null",
+      "response": {"ticker": "WHLD", "company_name": "Synthetic Withheld Corp", "concepts": [
+        {"concept": "eps_diluted", "unit": "USD/shares", "points": [
+          {"period_end": "2023-12-31", "fiscal_year": 2023, "fiscal_period": "FY", "value": null, "unit": "USD/shares", "form": "10-K", "accession": "0009999996-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "unavailable", "reasons": ["unsupported_eps_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY", "value": null, "unit": "USD/shares", "form": "10-K", "accession": "0009999996-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "unavailable", "reasons": ["unsupported_eps_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-12-31", "fiscal_year": 2025, "fiscal_period": "FY", "value": null, "unit": "USD/shares", "form": "10-K", "accession": "0009999996-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "unavailable", "reasons": ["unsupported_eps_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]}
+      ]}
+    },
+    "PENNY_synthetic": {
+      "case": "EPS under a dollar (synthetic): a profit, a withheld year and a loss",
+      "response": {"ticker": "PNNY", "company_name": "Synthetic Penny Co", "concepts": [
+        {"concept": "eps_diluted", "unit": "USD/shares", "points": [
+          {"period_end": "2023-12-31", "fiscal_year": 2023, "fiscal_period": "FY", "value": 0.31, "unit": "USD/shares", "form": "10-K", "accession": "0009999995-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY", "value": null, "unit": "USD/shares", "form": "10-K", "accession": "0009999995-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "unavailable", "reasons": ["unsupported_eps_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2025-12-31", "fiscal_year": 2025, "fiscal_period": "FY", "value": -0.12, "unit": "USD/shares", "form": "10-K", "accession": "0009999995-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "reported", "validation": "passed", "reasons": [], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]}
+      ]}
+    },
+    "EXTREME_synthetic": {
+      "case": "a net margin far past its other years (synthetic, LCID-like): A3 clips it, and its bar prints the true value",
+      "response": {"ticker": "XTRM", "company_name": "Synthetic Extreme Motors", "concepts": [
+        {"concept": "net_margin", "unit": "pure", "points": [
+          {"period_end": "2020-12-31", "fiscal_year": 2020, "fiscal_period": "FY", "value": -18093.4, "unit": "pure", "form": "10-K", "accession": "0009999994-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2021-12-31", "fiscal_year": 2021, "fiscal_period": "FY", "value": -1125.9, "unit": "pure", "form": "10-K", "accession": "0009999994-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}},
+          {"period_end": "2022-12-31", "fiscal_year": 2022, "fiscal_period": "FY", "value": -679.2, "unit": "pure", "form": "10-K", "accession": "0009999994-26-000001", "reconciled": true, "provenance": {"version": 1, "method": "calculated", "validation": "needs_review", "reasons": ["legacy_calculation"], "formula": null, "inputs": [], "calculation_version": null, "filed_at": null}}
+        ]}
+      ]}
+    }
+  },
+  "charts": {
+    "AAPL revenue": {"case": "the default metric", "filing": "AAPL_filing_3", "concept": "revenue", "label": "Revenue", "axis": "money"},
+    "AAPL diluted EPS": {"case": "a per-share amount, USD/shares", "filing": "AAPL_filing_3", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
+    "AAPL net margin": {"case": "a margin, calculated, in percentage points", "filing": "AAPL_filing_3", "concept": "net_margin", "label": "Net margin", "axis": "percent"},
+    "AAPL current ratio": {"case": "a ratio, calculated, two years", "filing": "AAPL_filing_3", "concept": "current_ratio", "label": "Current ratio", "axis": "ratio"},
+    "AAPL working capital": {"case": "negative amounts, calculated", "filing": "AAPL_filing_3", "concept": "working_capital", "label": "Working capital", "axis": "money"},
+    "AAPL equity": {"case": "four fiscal years", "filing": "AAPL_filing_3", "concept": "shareholders_equity", "label": "Shareholders’ equity", "axis": "money"},
+    "CNY revenue": {"case": "amounts in CN¥", "filing": "CNY_synthetic", "concept": "revenue", "label": "Revenue", "axis": "money"},
+    "CNY diluted EPS": {"case": "a per-share amount in CNY", "filing": "CNY_synthetic", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
+    "Bank net interest income": {"case": "a bank’s top line", "filing": "BANK_synthetic", "concept": "net_interest_income", "label": "Net interest income", "axis": "money"},
+    "One-year revenue": {"case": "one bar", "filing": "ONE_YEAR_synthetic", "concept": "revenue", "label": "Revenue", "axis": "money"},
+    "Withheld diluted EPS": {"case": "no value: every slot prints —", "filing": "WITHHELD_synthetic", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
+    "Penny diluted EPS": {"case": "cents, a loss and a withheld year", "filing": "PENNY_synthetic", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
+    "Extreme net margin": {"case": "A3 clips a bar", "filing": "EXTREME_synthetic", "concept": "net_margin", "label": "Net margin", "axis": "percent"}
+  }
+}

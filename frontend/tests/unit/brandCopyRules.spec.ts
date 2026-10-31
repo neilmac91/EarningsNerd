@@ -1631,14 +1631,15 @@ function accessStep(key: ts.Expression): Step {
 const FIGURE_FIELDS = new Set([
   // Formatted figures, growths (a number, or "nm") and numbers.
   'display', 'change_display', 'current_period', 'prior_period', 'currentPeriod', 'priorPeriod', 'value', 'arithmetic',
-  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'n', 'marker', 'markers',
+  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'yoy_first_reported', 'n', 'marker', 'markers',
   // Numbers a reader reads as one.
-  'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'sic', 'dataset_version',
+  'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'dataset_version',
   'app_version',
   // Dates, periods and the keys that name them.
   'as_of', 'completed_at', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
-  'expires_at', 'extracted_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date', 'linked_at',
-  'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods', 'report_date', 'start_period',
+  'expires_at', 'extracted_at', 'filed_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date',
+  'later_filed_at', 'linked_at', 'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods',
+  'report_date', 'start_period',
   'startdt', 'summary_created_at', 'summary_updated_at', 'synced_at', 'timestamp', 'transaction_date', 'trial_end',
   'used_at', 'week_end', 'week_start',
   // The text written about the filing, which quotes its figures, a table's or a list's included.
@@ -3718,9 +3719,9 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
       'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
       'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx', 'app/delete-account/page.tsx',
-      // Reached only through their routes: the company page's peers panel, the filing page's summary, the
+      // Reached only through their routes: the company page's insider panel, the filing page's summary, the
       // flag-gated calendar and analysis, and the labs prototypes, public wherever their flags are on.
-      'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx',
+      'features/insiders/components/InsiderActivityPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx',
       'features/calendar/components/MonthView.tsx', 'app/analysis/page.tsx',
       'features/filing-redlines/components/FilingRedlines.tsx', 'features/research-evidence-packs/components/ResearchEvidencePacks.tsx',
       'features/financial-refresh-review/components/FinancialRefreshReview.tsx']) {

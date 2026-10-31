@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 
 /**
- * features/analysis/lib/charts/theme.ts is a colour mirror the raw-colour lint rule exempts, like components/ui/Chart.tsx.
+ * features/analysis/lib/charts/theme.ts is a colour mirror the raw-colour lint rule exempts, like chartExport.ts.
  * Its tokens are the spec's (§3.8, owner decision 3), and since E195's token fold they are the app's own chart and text
- * tokens, the ones the Recharts charts take through Chart.tsx too: chart-1…6 and chart-1-dark…6-dark, chart.grid,
- * chart.ref and chart.label.dark. designTokenParity holds every hex the file holds to a token; this spec holds each field
- * to the spec's table and to its own named token in both themes, which a hex found anywhere in the config cannot.
- * tests/unit/chart-apca.spec.ts holds each to its contrast floor.
+ * tokens: chart-1…6 and chart-1-dark…6-dark, chart.grid, chart.ref and chart.label.dark, and the text inks.
+ * designTokenParity holds every hex the file holds to a token; this spec holds each field to the spec's table and to
+ * its own named token in both themes, which a hex found anywhere in the config cannot. tests/unit/chart-apca.spec.ts
+ * holds each to its contrast floor.
  */
 const SPEC = readFileSync('../docs/design/analysis-trend-charts-spec-2026-10.md', 'utf8')
 const section = SPEC.slice(SPEC.indexOf('### 3.8 Theme tokens'), SPEC.indexOf('### 3.9'))
@@ -88,7 +88,7 @@ describe('every token is a named Tailwind token, both themes (E194, E195’s tok
     expect(both((tokens) => tokens.figure)).toEqual(pair(colors.text.primary))
   })
 
-  it('the column wash is chart-1’s teal at 8% and 16%, as Chart.tsx’s bar cursor', () => {
+  it('the column wash is chart-1’s teal at 8% and 16%', () => {
     const teal = [1, 3, 5].map((at) => parseInt(colors.chart[1].slice(at, at + 2), 16)).join(',')
     expect(both((tokens) => tokens.cursor)).toEqual([`rgba(${teal},.08)`, `rgba(${teal},.16)`])
   })

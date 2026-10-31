@@ -14,7 +14,9 @@ name: Ops
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
 #   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries);
-#     detection SQL never touches user/auth/billing tables.
+#     detection SQL never touches user/auth/billing tables. The summary-recovery readout adds a
+#     fixed bounded job/SEC snapshot and only referenced usage reservations; it emits no account
+#     identity and reads no users, auth, monthly usage counters or billing-provider records.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
 #     mirroring the deploy-backend migrations step.
 #   - Every -apply operation (relabel-fy-apply, repair-ticker-apply, reset-filing-summary-apply,
@@ -75,6 +77,7 @@ on:
           - detection-sql
           - logs-probe
           - regn-summary-incident-readout
+          - summary-recovery-readout
           - capacity-readout
           - figure-check-count
           - jobs-channel-noop-probe
@@ -175,7 +178,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|capacity-readout|figure-check-count|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|capacity-readout|figure-check-count|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -336,28 +339,7 @@ jobs:
       - name: Describe expected job release configuration
         if: steps.request.outputs.operation == 'describe-jobs'
         timeout-minutes: 10
-        run: |
-          set -euo pipefail
-          JOB_DIR="$(mktemp -d /tmp/earningsnerd-expected-jobs.XXXXXX)"
-          jobs=(
-            earningsnerd-pregenerate
-            earningsnerd-filing-scan
-            earningsnerd-filing-digest
-            earningsnerd-backfill-facts
-            earningsnerd-earnings-calendar-refresh
-            earningsnerd-earnings-day-alerts
-            earningsnerd-notable-filings
-            earningsnerd-retention-purge
-            earningsnerd-feedback-media-cleanup
-          )
-          for job in "${jobs[@]}"; do
-            if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then
-              echo "::error::expected Cloud Run job '$job' is missing or unreadable"
-              exit 1
-            fi
-          done
-          export JOB_DIR
-          python3 ops/describe/jobs.py
+        run: python3 ops/describe/jobs.py
 
       - name: Logs read probe (safeguard-2 alert feasibility)
         if: steps.request.outputs.operation == 'logs-probe'
@@ -436,7 +418,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout figure-check-count', steps.request.outputs.operation)
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout summary-recovery-readout figure-check-count', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -489,6 +471,22 @@ jobs:
           psql -X -q -t -A -v ON_ERROR_STOP=1 \
             -v readout_start="$CAPACITY_START" -v readout_end="$CAPACITY_END" \
             -f ops/capacity/snapshot.sql > capacity-receipt/database.jsonl
+
+      - name: Read bounded summary recovery receipts
+        if: steps.request.outputs.operation == 'summary-recovery-readout'
+        timeout-minutes: 2
+        env:
+          PGOPTIONS: -c lock_timeout=2s -c statement_timeout=15s -c default_transaction_read_only=on
+        run: python3 ops/summary_readout/readout.py
+
+      - name: Retain summary recovery readout
+        if: always() && steps.request.outputs.operation == 'summary-recovery-readout'
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary-recovery-readout-${{ github.run_id }}
+          path: summary-recovery-receipt.json
+          retention-days: 14
+          if-no-files-found: error
 
       - name: Retain capacity readout
         if: always() && steps.request.outputs.operation == 'capacity-readout'
