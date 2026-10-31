@@ -1438,6 +1438,7 @@ _REGISTER_CLOSES = {
     "register_redeemed": [True, False, False],
     "register_fails": [True, False],
     "register_unavailable": [True, False],
+    "register_token_fails": [True, False],
 }
 _REGISTER_ANSWERS = {
     "register_invite_invalid": (403, {"detail": "A valid invite is required to register."}),
@@ -1446,6 +1447,7 @@ _REGISTER_ANSWERS = {
     ),
     "register_fails": (500, None),
     "register_unavailable": (503, {"detail": "New accounts are paused."}),
+    "register_token_fails": (500, None),
 }
 _REGISTER_INVITE_ONLY = {"register_invite", "register_invite_invalid", "register_breached", "register_redeemed"}
 _REGISTER_CREATED = {"register", "register_invite"}
@@ -1536,7 +1538,10 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         issued[to_email] = raw_token
         sent.append(("verification", to_email, engine.pool.checkedout()))
 
-    async def account_exists(*, to_email: str, **_kwargs: Any) -> None:
+    greeted: dict[str, Any] = {}  # each account-exists notice's name, by address
+
+    async def account_exists(*, to_email: str, name: Any, **_kwargs: Any) -> None:
+        greeted[to_email] = name
         sent.append(("account_exists", to_email, engine.pool.checkedout()))
 
     def capture(distinct_id: str, name: str, properties: dict) -> None:
@@ -1554,6 +1559,8 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         monkeypatch.setattr(auth_account_service, "create_password_account", fails_after_its_first_query)
     if case == "register_unavailable":
         monkeypatch.setattr(auth_account_service, "create_password_account", collection_closes)
+    if case == "register_token_fails":
+        monkeypatch.setattr(auth_account_service, "issue_email_verification_token", fails_after_its_first_query)
     if case == "register_redeemed":
         monkeypatch.setattr(invite_service, "redeem_invite", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only" if case in _REGISTER_INVITE_ONLY else "public")
@@ -1609,7 +1616,7 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
             invites_used = [invite.used_at is not None for invite in db.query(InviteCode)]
             audits = db.query(AuditLog).filter(AuditLog.action == "register").count()
         invited = case == "register_invite"
-        if created:
+        if created or case == "register_token_fails":  # a failed token leaves the account its commit made
             assert accounts == sorted((email, "the new hash", False, invited) for email in emails)
         elif case == "register_existing":
             assert accounts == sorted((email, "the stored hash", False, False) for email in emails)
@@ -1620,6 +1627,10 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         # after the release needed no session.
         assert {email: auth_account_service._hash_token(raw) for email, raw in issued.items()} == (
             stored_tokens if created else {})
+        if case == "register_token_fails":
+            assert set(stored_tokens.values()) == {None}
+        # The account-exists notice greets the stored owner, never the name the request typed.
+        assert greeted == ({email: f"Owner {i}" for i, email in enumerate(emails)} if case == "register_existing" else {})
         assert audits == (9 if created else 0)
         # Each new account's funnel events name it: the redemption's (whether the invite named an address) and the
         # signup's.

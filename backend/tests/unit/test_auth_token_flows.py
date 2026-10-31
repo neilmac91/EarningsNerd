@@ -578,6 +578,7 @@ def test_registrations_refused_send_is_logged_as_before_with_its_link_in_develop
     note = f"; link: {link}" if link_logged else ""
     assert record.getMessage() == f"Verification email NOT sent to user id={_user(email).id}: ResendRetryableError{note}"
     assert "(nothing sent)" not in caplog.text
+    assert mail.verification.await_count == 1  # tried once, not again
 
 
 @pytest.mark.requires_db
