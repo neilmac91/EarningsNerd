@@ -168,7 +168,7 @@ failure classes, retains every readable job's projection and finishes nonzero if
 unverified or any readable invariant fails.
 
 The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `excerpt-cohort`,
-`detection-sql`, `figure-check-count`, the repair-ticker,
+`detection-sql`, the repair-ticker,
 the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
 lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.

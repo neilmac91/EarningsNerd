@@ -931,8 +931,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
     # the last setting wins, a name's `-` reads as `_` and its case does not count). Every step that can
     # reach Cloud SQL, found by position and selection rather than by its command text, bounds its locks
     # (at most 10 s) and its statements (at most 600 s), and its run: script may only append to PGOPTIONS,
-    # never a timeout. The read-only detection snapshots full-scan financial_fact, and the figure-check count reads
-    # every summary's raw JSON a page at a time; both get the larger
+    # never a timeout. The read-only detection snapshots full-scan financial_fact, so they get the larger
     # statement budget; the write paths match the deploy migration step exactly.
     proxy_run = _executable(_step(job, "Start Cloud SQL proxy and export connection env")["run"])
     assert "PGOPTIONS" not in proxy_run, "do not export PGOPTIONS globally — scope it per Cloud SQL step"
@@ -959,7 +958,6 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         ("Run fiscal-year relabel script", 120_000),
         ("Run quarterly fact repair script", 120_000),
         ("Run filing lineage backfill script", 120_000),
-        ("Run the figure-check count (read-only)", 600_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
         assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (
