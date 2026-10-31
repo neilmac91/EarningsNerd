@@ -536,7 +536,7 @@ describe('account query ownership structural gate', () => {
     // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
     const identity = ['currentUser'] // the reset publishes null for it
     const shared = [
-      'registrationConfig', 'turnstileScript', 'insiders', 'calendar', 'fullTextSearch', 'filingFundamentals',
+      'registrationConfig', 'turnstileScript', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
       'analysisCoverage', 'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary',
       'summaryProgress', 'company', 'companyFilings', 'companies',
     ]
