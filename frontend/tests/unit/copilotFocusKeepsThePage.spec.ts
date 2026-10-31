@@ -25,12 +25,21 @@
    modal, whose focus stays inside it (fixed, so no page scroll moves it) until
    its close returns focus to the control that opened it.
    And no code in the folder names scrollIntoView or scrollIntoViewIfNeeded,
-   which scroll every ancestor; a comment may.
+   which scroll every ancestor; a comment may. The page moves from one site:
+   CopilotComposer's revealOnPage, the move a press makes once its pane has
+   settled and the composer is still out of view (E252; chief design on #1845:
+   "Move it once per press or ⌘K. Never move it from a resize or the follow").
+   A page move is a call of scroll, scrollTo or scrollBy on the window
+   (`window`, `globalThis`, `self`, or bare) or on the document's scrolling
+   element (`document.documentElement`, `document.scrollingElement`,
+   `document.body`), or a write to that element's scrollTop or scrollLeft; a
+   box's own scroll (highlightInDom's reader) is not one.
    Read strictly, and planted: options held in a variable or spread in (a spread
    after `preventScroll: true` can undo it), a shorthand `preventScroll`, and
    `preventScroll: false` do not count as passing.
    Missed, stated: a focus passed as a value (`requestAnimationFrame(el.focus)`),
-   and a focus moved from outside the folder (ui/Modal's, the reader's).
+   a focus moved from outside the folder (ui/Modal's, the reader's), and a page
+   move through an alias (`const page = document.scrollingElement`).
 ============================================================================= */
 
 import fs from 'node:fs'
@@ -44,6 +53,12 @@ const PANE = 'features/filings/components/copilot'
 const HANDOFF = 'hooks/useFocusHandoff.ts'
 const HANDLE = 'composerRef.current'
 const ANCESTOR_SCROLLS = new Set(['scrollIntoView', 'scrollIntoViewIfNeeded'])
+const PAGE_SCROLLS = new Set(['scroll', 'scrollTo', 'scrollBy'])
+const PAGE_OFFSETS = new Set(['scrollTop', 'scrollLeft'])
+const WINDOW = new Set(['window', 'globalThis', 'self'])
+const PAGE_ELEMENT = new Set(['document.documentElement', 'document.scrollingElement', 'document.body'])
+/** The one page move, the composer's reveal after a press (E252). */
+const PAGE_MOVES = { [`${PANE}/CopilotComposer.tsx`]: ['window.scrollBy'] }
 const USER = 'a focus the user moves, which the browser brings into view as a native Tab would:'
 // Equal to the sites found (lessons/test-allowlist-caps-are-equalities.md): a new site raises its count in the same
 // change, its reason naming why that focus keeps the browser's scroll.
@@ -70,6 +85,8 @@ interface Sites {
   handle: number
   /** Each name in the code that scrolls every ancestor. */
   ancestorScrolls: string[]
+  /** Each call or write that moves the page, as `receiver.member`. */
+  pageMoves: string[]
 }
 
 const propertyName = (name: ts.PropertyName) =>
@@ -77,13 +94,28 @@ const propertyName = (name: ts.PropertyName) =>
 
 function sitesIn(source: string, fileName: string): Sites {
   const sourceFile = parse(source, fileName)
-  const sites: Sites = { prevented: 0, unprevented: 0, handle: 0, ancestorScrolls: [] }
+  const sites: Sites = { prevented: 0, unprevented: 0, handle: 0, ancestorScrolls: [], pageMoves: [] }
   const member = (callee: ts.Expression): { name: string; receiver: ts.Expression } | null => {
     if (ts.isPropertyAccessExpression(callee)) return { name: callee.name.text, receiver: callee.expression }
     if (ts.isElementAccessExpression(callee) && ts.isStringLiteralLike(callee.argumentExpression)) {
       return { name: callee.argumentExpression.text, receiver: callee.expression }
     }
     return null
+  }
+  // The receiver as written, past parentheses, `as`, `satisfies` and `!`, and with `?.` read as `.`.
+  const receiverText = (receiver: ts.Expression): string =>
+    ts.isParenthesizedExpression(receiver) ||
+    ts.isAsExpression(receiver) ||
+    ts.isSatisfiesExpression(receiver) ||
+    ts.isNonNullExpression(receiver) ||
+    ts.isTypeAssertionExpression(receiver)
+      ? receiverText(receiver.expression)
+      : receiver.getText(sourceFile).replace(/\?\./g, '.')
+  const pageOffset = (target: ts.Expression) => {
+    const access = member(target)
+    return access && PAGE_OFFSETS.has(access.name) && PAGE_ELEMENT.has(receiverText(access.receiver))
+      ? `${receiverText(access.receiver)}.${access.name}`
+      : null
   }
   const preventsScroll = (call: ts.CallExpression) => {
     const [options] = call.arguments
@@ -107,6 +139,24 @@ function sitesIn(source: string, fileName: string): Sites {
         else if (preventsScroll(node)) sites.prevented += 1
         else sites.unprevented += 1
       }
+      if (callee && PAGE_SCROLLS.has(callee.name)) {
+        const receiver = receiverText(callee.receiver)
+        if (WINDOW.has(receiver) || PAGE_ELEMENT.has(receiver)) sites.pageMoves.push(`${receiver}.${callee.name}`)
+      }
+      if (ts.isIdentifier(node.expression) && PAGE_SCROLLS.has(node.expression.text)) {
+        sites.pageMoves.push(node.expression.text)
+      }
+    }
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+      const offset = pageOffset(node.left)
+      if (offset) sites.pageMoves.push(offset)
+    }
+    if (
+      (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+      (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken)
+    ) {
+      const offset = pageOffset(node.operand)
+      if (offset) sites.pageMoves.push(offset)
     }
     if (ts.isJsxAttribute(node) && node.name.getText(sourceFile) === 'autoFocus') sites.unprevented += 1
     if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && ANCESTOR_SCROLLS.has(node.text)) {
@@ -154,6 +204,13 @@ describe('a focus the pane moves keeps the page (E248)', () => {
     expect(found).toEqual([])
   })
 
+  it("the page moves from one site: the composer's reveal a press makes once its pane settles (E252)", () => {
+    const found = Object.fromEntries(
+      Object.entries(scanned).flatMap(([file, { sites }]) => (sites.pageMoves.length ? [[file, sites.pageMoves]] : [])),
+    )
+    expect(found).toEqual(PAGE_MOVES)
+  })
+
   it('reads what it states, planted', () => {
     const planted = (code: string) => sitesIn(code, 'planted.tsx')
     expect(planted('el.focus({ preventScroll: true })')).toMatchObject({ prevented: 1, unprevented: 0 })
@@ -178,11 +235,41 @@ describe('a focus the pane moves keeps the page (E248)', () => {
     for (const scroll of ['el.scrollIntoView()', "el.scrollIntoViewIfNeeded?.()", "el['scrollIntoView']({ block: 'nearest' })"]) {
       expect(planted(scroll).ancestorScrolls, scroll).toHaveLength(1)
     }
+    for (const move of [
+      'window.scrollBy({ top: 1 })',
+      'window.scrollTo(0, 0)',
+      'window.scroll(0, 0)',
+      'scrollBy(0, 1)',
+      'globalThis.scrollTo({ top: 0 })',
+      'self.scrollBy(0, 1)',
+      "window['scrollBy'](0, 1)",
+      'window.scrollBy?.(0, 1)',
+      'document.scrollingElement?.scrollTo(0, 0)',
+      'document.documentElement.scrollTop = 0',
+      'document.scrollingElement!.scrollTop += 10',
+      '(document.scrollingElement as HTMLElement).scrollTop = 0',
+      'document.body.scrollTop -= 1',
+      'document.documentElement.scrollLeft = 0',
+      'document.documentElement.scrollTop++',
+    ]) {
+      expect(planted(move).pageMoves, move).toHaveLength(1)
+    }
+    for (const box of [
+      'box.scrollTo({ top: 0 })',
+      'box.scrollBy(0, 1)',
+      'box.scrollTop = 0',
+      'el.scrollTop += by',
+      'const y = window.scrollY',
+      'const t = document.documentElement.scrollTop',
+    ]) {
+      expect(planted(box).pageMoves, box).toEqual([])
+    }
     expect(planted('// el.scrollIntoView() moved the page\n/* el.focus() */ const a = 1')).toEqual({
       prevented: 0,
       unprevented: 0,
       handle: 0,
       ancestorScrolls: [],
+      pageMoves: [],
     })
   })
 })

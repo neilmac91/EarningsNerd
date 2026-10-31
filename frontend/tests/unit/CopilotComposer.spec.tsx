@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRef, useRef } from 'react'
-import { act, render, screen, fireEvent } from '@testing-library/react'
+import { act, cleanup, render, screen, fireEvent } from '@testing-library/react'
 import CopilotComposer, {
   type CopilotComposerHandle,
 } from '@/features/filings/components/copilot/CopilotComposer'
@@ -393,6 +393,356 @@ describe('CopilotComposer revealFocus handle', () => {
       }
       expect(outer.writes).toEqual([])
       expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+    }
+  })
+})
+
+/**
+ * The window a reveal lands in: its height, and the page's scroll padding, which holds the site header's height at the
+ * top and the consent bar's at the foot (globals.css). jsdom's window is 768px tall with no padding.
+ */
+function withWindow({ height, paddingTop, paddingBottom }: { height?: number; paddingTop?: number; paddingBottom?: number }) {
+  const win = window as { innerHeight: number }
+  const was = win.innerHeight
+  if (height !== undefined) win.innerHeight = height
+  const html = document.documentElement.style
+  if (paddingTop !== undefined) html.setProperty('scroll-padding-top', `${paddingTop}px`)
+  if (paddingBottom !== undefined) html.setProperty('scroll-padding-bottom', `${paddingBottom}px`)
+  return () => {
+    win.innerHeight = was
+    html.removeProperty('scroll-padding-top')
+    html.removeProperty('scroll-padding-bottom')
+  }
+}
+
+describe("CopilotComposer's column reveal aims at the column's part on screen (E252)", () => {
+  // Chief design on #1845: "The column's reveal aims at its visible part: its box clipped to the window, below the site
+  // header, not its whole box." The column is on screen from 100 to 400px, the shell 420 to 470px into its content.
+  it("a column that runs past the window's foot brings the shell to the window's foot, not the column's", () => {
+    const restore = withWindow({ height: 350 })
+    const page = watchThePage()
+    try {
+      const { ref, column } = renderInColumn()
+      ref.current?.focus()
+      // The shell's foot (470px) to the window's (350px), not the column's (400px).
+      expect(column.writes).toEqual([120])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
+  it('above the consent bar the page reserves at its foot', () => {
+    const restore = withWindow({ paddingBottom: 500 })
+    const page = watchThePage()
+    try {
+      const { ref, column } = renderInColumn()
+      ref.current?.focus()
+      // The band ends at 768 - 500 = 268px.
+      expect(column.writes).toEqual([202])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
+  it('below the site header the page reserves at its top', () => {
+    const restore = withWindow({ paddingTop: 150 })
+    const page = watchThePage()
+    try {
+      const { ref, column } = renderInColumn()
+      // Scrolled 400px: the shell at 20 to 70px, above the column's top (100px) and under the header (150px).
+      column.set(400)
+      ref.current?.focus()
+      // To the header's foot: 400 - 130, where the column's own top would have stopped at 400 - 80.
+      expect(column.writes).toEqual([270])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
+  it("in a fixed layer the whole window, which the layer covers the page's bars in", () => {
+    const restore = withWindow({ paddingTop: 150 })
+    const page = watchThePage()
+    try {
+      const { ref, column } = renderInColumn()
+      // The phone's sheet: fixed, over the site header.
+      screen.getByTestId('outer').style.position = 'fixed'
+      column.set(400)
+      ref.current?.focus()
+      expect(column.writes).toEqual([320])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
+  it('a column with none of it on screen, or too little for the shell, aims at its own box', () => {
+    for (const height of [80, 130]) {
+      const restore = withWindow({ height })
+      const page = watchThePage()
+      try {
+        // At 80px the column starts below the window; at 130px 30px of it shows, the shell 50px tall.
+        const { ref, column } = renderInColumn()
+        ref.current?.focus()
+        expect(column.writes, `a ${height}px window`).toEqual([70])
+        expect(page.moves).toEqual([])
+      } finally {
+        cleanup()
+        page.restore()
+        restore()
+      }
+    }
+  })
+})
+
+describe('CopilotComposer: a press moves the page once the pane settles, when the composer is still out of view (E252)', () => {
+  // Chief design on #1845: "Once the pane has settled after the press, ... the shell may still not be wholly in view
+  // below the site header, ring and scroll margins included. Then move the page by the least distance that brings it
+  // there. Move it once per press or ⌘K. Never move it from a resize or the follow." Animation frames are faked: the
+  // composer waits for its shell and column to hold still for two frames before it reads them.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+  const frames = (count: number) => {
+    for (let i = 0; i < count; i++) vi.advanceTimersToNextFrame()
+  }
+
+  // A 130px window: 30px of the column shows, too little for the 50px shell, so the column brings the shell to its own
+  // foot (350 to 400px), below the window's. The page then moves it there: 400 - 130 = 270px, less than its top's 350.
+  it('moves the page by the least distance, once, after the shell and its column hold still for two frames', () => {
+    const restore = withWindow({ height: 130 })
+    const page = watchThePage()
+    try {
+      const { ref, field, column } = renderInColumn()
+      ref.current?.focus({ revealOnPage: true })
+      expect(page.focusOptions(field)).toEqual([{ preventScroll: true }])
+      expect(column.writes).toEqual([70])
+      frames(2)
+      expect(page.scrollBys, 'still waiting').toEqual([])
+      frames(1)
+      expect(page.scrollBys).toEqual([{ top: 270, behavior: 'smooth' }])
+      expect(page.moves).toEqual(['scrollBy'])
+      frames(30)
+      expect(page.moves, 'once').toEqual(['scrollBy'])
+      expect(column.writes).toEqual([70])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
+  it('reads the layout the pane settles in, however it moved before', () => {
+    const page = watchThePage()
+    try {
+      const { ref, box, shell, column } = renderInColumn()
+      // The column moves as the pane settles, the shell 320px into its content: from 100px, where the shell shows once
+      // the column brings it up, to 740px, below the 768px window but for 28px, too few for the shell.
+      let top = 100
+      box.getBoundingClientRect = () => rect(top, 300)
+      shell.getBoundingClientRect = () => rect(top + 320 - column.scrollTop, 50)
+      ref.current?.focus({ revealOnPage: true })
+      expect(column.writes).toEqual([70])
+      frames(1)
+      top = 400
+      frames(1)
+      top = 740
+      frames(2)
+      expect(page.scrollBys).toEqual([])
+      frames(1)
+      // Settled at 740px: the shell at the column's foot, 990 to 1040px, to the window's foot.
+      expect(page.scrollBys).toEqual([{ top: 272, behavior: 'smooth' }])
+    } finally {
+      page.restore()
+    }
+  })
+
+  it("a shell above the screen comes down below the site header, its scroll margin's room for the ring included", () => {
+    const restore = withWindow({ paddingTop: 64 })
+    const page = watchThePage()
+    try {
+      const { ref, box, shell, column } = renderInColumn()
+      // The pane's sticky cell scrolled up with the workspace's end: the column at -500 to -200px.
+      box.getBoundingClientRect = () => rect(-500, 300)
+      shell.getBoundingClientRect = () => rect(-500 + 320 - column.scrollTop, 50)
+      shell.style.setProperty('scroll-margin-top', '4px')
+      ref.current?.focus({ revealOnPage: true })
+      // None of the column on screen: its own foot, the shell at -250 to -200px.
+      expect(column.writes).toEqual([70])
+      frames(3)
+      // Its top, less 4px, to the header's foot at 64px.
+      expect(page.scrollBys).toEqual([{ top: -318, behavior: 'smooth' }])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
+  it('a pre-fill asks the same; one jump under prefers-reduced-motion', () => {
+    const restore = withWindow({ height: 130 })
+    const page = watchThePage()
+    const reduce = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)', media: query }) as MediaQueryList,
+    )
+    try {
+      const { ref } = renderInColumn()
+      act(() => ref.current?.prefill('Explain this excerpt', { revealOnPage: true }))
+      frames(3)
+      expect(page.scrollBys).toEqual([{ top: 270, behavior: 'auto' }])
+    } finally {
+      reduce.mockRestore()
+      page.restore()
+      restore()
+    }
+  })
+
+  it('no move when the shell shows once the pane settles, or in a fixed layer', () => {
+    const page = watchThePage()
+    try {
+      const { ref, column } = renderInColumn()
+      ref.current?.focus({ revealOnPage: true })
+      frames(30)
+      expect(column.writes).toEqual([70])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+    }
+    cleanup()
+    const restore = withWindow({ height: 130 })
+    const sheet = watchThePage()
+    try {
+      const { ref, column } = renderInColumn()
+      // The phone's sheet: no page scroll moves it.
+      screen.getByTestId('outer').style.position = 'fixed'
+      ref.current?.focus({ revealOnPage: true })
+      frames(30)
+      expect(column.writes).toEqual([70])
+      expect(sheet.moves).toEqual([])
+    } finally {
+      sheet.restore()
+      restore()
+    }
+  })
+
+  it('never from a focus no press asked it for, a resize, the follow or revealFocus', () => {
+    const restore = withWindow({ height: 130 })
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, box, column } = renderInColumn()
+      ref.current?.focus()
+      frames(30)
+      expect(page.moves).toEqual([])
+      // The pane settles shorter: the follow brings the shell to the column's foot, the page still.
+      column.resize(200)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70, 170])
+      ref.current?.revealFocus()
+      frames(30)
+      expect(page.moves).toEqual([])
+      // A press then moves it, once; the follow after it does not again.
+      ref.current?.focus({ revealOnPage: true })
+      frames(3)
+      expect(page.moves).toEqual(['scrollBy'])
+      column.resize(150)
+      resizes.resize(box)
+      frames(30)
+      expect(page.moves).toEqual(['scrollBy'])
+    } finally {
+      page.restore()
+      resizes.restore()
+      restore()
+    }
+  })
+
+  it("the reader's wheel, touch or press while it waits, or focus leaving the composer, drops it", () => {
+    const leave = [
+      () => fireEvent.wheel(document.body),
+      () => fireEvent.touchStart(document.body),
+      () => fireEvent.pointerDown(document.body),
+      () => screen.getByRole('button', { name: 'elsewhere' }).focus(),
+    ]
+    for (const [i, act] of leave.entries()) {
+      const restore = withWindow({ height: 130 })
+      const page = watchThePage()
+      try {
+        const { ref } = renderInColumn()
+        ref.current?.focus({ revealOnPage: true })
+        frames(1)
+        act()
+        frames(30)
+        expect(page.moves, `leave ${i}`).toEqual([])
+      } finally {
+        cleanup()
+        page.restore()
+        restore()
+      }
+    }
+  })
+
+  it('a newer press waits afresh and moves the page once; the composer leaving drops the wait', () => {
+    const restore = withWindow({ height: 130 })
+    const page = watchThePage()
+    try {
+      const { ref } = renderInColumn()
+      ref.current?.focus({ revealOnPage: true })
+      frames(2)
+      ref.current?.focus({ revealOnPage: true })
+      frames(2)
+      expect(page.moves).toEqual([])
+      frames(1)
+      expect(page.moves).toEqual(['scrollBy'])
+      frames(30)
+      expect(page.moves).toEqual(['scrollBy'])
+    } finally {
+      page.restore()
+      restore()
+    }
+    const again = withWindow({ height: 130 })
+    const gone = watchThePage()
+    try {
+      const ref = createRef<CopilotComposerHandle>()
+      const view = render(
+        <div style={{ overflowY: 'auto' }}>
+          <CopilotComposer ref={ref} onSubmit={() => {}} locked={false} />
+        </div>,
+      )
+      ref.current?.focus({ revealOnPage: true })
+      view.unmount()
+      frames(30)
+      expect(gone.moves).toEqual([])
+    } finally {
+      gone.restore()
+      again()
+    }
+  })
+
+  it('a pane that never holds still is read at its twelfth frame', () => {
+    const page = watchThePage()
+    try {
+      const { ref, box, shell, column } = renderInColumn()
+      let top = 740
+      box.getBoundingClientRect = () => rect(top, 300)
+      shell.getBoundingClientRect = () => rect(top + 320 - column.scrollTop, 50)
+      ref.current?.focus({ revealOnPage: true })
+      for (let frame = 1; frame < 12; frame++) {
+        top += 1
+        frames(1)
+      }
+      expect(page.moves).toEqual([])
+      frames(1)
+      // Read at 751px: the shell at the column's foot, 1001 to 1051px, to the window's foot.
+      expect(page.scrollBys).toEqual([{ top: 283, behavior: 'smooth' }])
     } finally {
       page.restore()
     }

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => ({ id: 1 }) }))
@@ -394,6 +394,116 @@ describe('AskCopilotRail', () => {
     })
   })
 
+  describe('a press that opens or pre-fills it moves the page once the pane settles, when the composer is still out of view (E252)', () => {
+    // Chief design on #1845: "Move it once per press or ⌘K. Never move it from a resize or the follow." In a 130px window
+    // 30px of the column shows, too little for the composer's 50px shell, so the composer's page move is due whenever a
+    // press asks for it (CopilotComposer.spec.tsx holds its distance). Animation frames are faked, so each test says when
+    // they come.
+    let restoreWindow = () => {}
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+      const win = window as { innerHeight: number }
+      const was = win.innerHeight
+      win.innerHeight = 130
+      restoreWindow = () => {
+        win.innerHeight = was
+      }
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+      restoreWindow()
+    })
+    const frames = (count: number) =>
+      act(() => {
+        for (let i = 0; i < count; i++) vi.advanceTimersToNextFrame()
+      })
+
+    it('the press that opens the rail, once, with or without a pre-fill', () => {
+      for (const prefill of [undefined, { text: 'Explain this excerpt', nonce: 1 }]) {
+        const page = watchThePage()
+        try {
+          const view = renderRail({ open: false })
+          view.rerenderRail({ open: true, prefill })
+          const field = screen.getByLabelText(/ask about this filing/i) as HTMLTextAreaElement
+          composerColumn(field)
+          frames(1)
+          expect(field).toHaveFocus()
+          expect(field.value).toBe(prefill?.text ?? '')
+          expect(page.moves, 'not before the pane settles').toEqual([])
+          frames(30)
+          expect(page.moves).toEqual(['scrollBy'])
+        } finally {
+          page.restore()
+          cleanup()
+        }
+      }
+    })
+
+    it('⌘K and "/" while open, and a pre-fill into the open rail, once each; a starter pressed from the keyboard, never', async () => {
+      vi.mocked(askFilingStream).mockImplementation(async () => {})
+      const page = watchThePage()
+      try {
+        const user = userEvent.setup()
+        const view = renderRail({ open: true })
+        const field = screen.getByLabelText(/ask about this filing/i) as HTMLTextAreaElement
+        composerColumn(field)
+        frames(30)
+        expect(page.moves, 'the open').toEqual(['scrollBy'])
+        for (const keys of [{ key: 'k', metaKey: true }, { key: '/' }]) {
+          act(() => field.blur())
+          fireEvent.keyDown(document.body, keys)
+          expect(document.activeElement).toBe(field)
+          frames(30)
+        }
+        expect(page.moves, '⌘K and "/"').toEqual(['scrollBy', 'scrollBy', 'scrollBy'])
+        view.rerenderRail({ prefill: { text: 'Explain this excerpt', nonce: 1 } })
+        frames(30)
+        expect(field.value).toBe('Explain this excerpt')
+        expect(page.moves, 'the pre-fill').toHaveLength(4)
+
+        await user.tab({ shift: true })
+        expect(document.activeElement).not.toBe(field)
+        await user.keyboard('{Enter}')
+        expect(askFilingStream).toHaveBeenCalledTimes(1)
+        expect(document.activeElement).toBe(field)
+        frames(30)
+        expect(page.moves, "a starter's hand-off").toHaveLength(4)
+      } finally {
+        page.restore()
+      }
+    })
+
+    it('a reader who wheels, touches, clicks or types while usage loads has moved on, and the page stays', async () => {
+      const FREE = { ...PRO_USAGE, is_pro: false, qa_used: 0, copilot_free_taste_used: 0, copilot_free_taste_total: 3 }
+      const readerActs: [string, (() => void) | null][] = [
+        ['nothing: the press still moves the page once the composer can take focus', null],
+        ['a wheel', () => fireEvent.wheel(window)],
+        ['a touch', () => fireEvent.touchStart(window)],
+        ['a click', () => fireEvent.pointerDown(document.body)],
+        ['a key', () => fireEvent.keyDown(document.body, { key: 'ArrowDown' })],
+      ]
+      for (const [what, readerAct] of readerActs) {
+        let loaded: (usage: typeof FREE) => void = () => {}
+        mockGetUsage.mockReturnValue(new Promise((resolve) => (loaded = resolve)))
+        const page = watchThePage()
+        try {
+          renderRail({ open: true, isPro: false })
+          readerAct?.()
+          await act(async () => loaded(FREE))
+          const field = await screen.findByLabelText(/ask about this filing/i)
+          composerColumn(field)
+          frames(1)
+          expect(field, what).toHaveFocus()
+          frames(30)
+          expect(page.moves, what).toEqual(readerAct ? [] : ['scrollBy'])
+        } finally {
+          page.restore()
+          cleanup()
+        }
+      }
+    })
+  })
+
   it('holds intermediate prose and renders the source-check footer + a source row on complete', async () => {
     let captured: CopilotHandlers | null = null
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
@@ -752,6 +862,37 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     const utils = render(page(baseProps.filingId))
     return { ...utils, showFiling: (filingId: number) => utils.rerender(page(filingId)) }
   }
+
+  it('a tab pressed back to Ask never moves the page: only the press that opened the pane may (E252)', async () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    const win = window as { innerHeight: number }
+    const was = win.innerHeight
+    // 30px of the column shows, too little for the composer's shell: a page move is due whenever a press asks for it.
+    win.innerHeight = 130
+    const page = watchThePage()
+    const frames = (count: number) =>
+      act(() => {
+        for (let i = 0; i < count; i++) vi.advanceTimersToNextFrame()
+      })
+    try {
+      const user = userEvent.setup()
+      renderInPane()
+      const field = screen.getByLabelText(/ask about this filing/i)
+      composerColumn(field)
+      frames(30)
+      expect(field).toHaveFocus()
+      expect(page.moves, 'the press that opened the pane').toEqual(['scrollBy'])
+      await user.click(screen.getByRole('tab', { name: /filing/i }))
+      await user.click(screen.getByRole('tab', { name: 'Ask' }))
+      frames(30)
+      expect(field).toHaveFocus()
+      expect(page.moves, 'the tab').toEqual(['scrollBy'])
+    } finally {
+      page.restore()
+      win.innerHeight = was
+      vi.useRealTimers()
+    }
+  })
 
   it("says what it is doing in the pane's line, between the tabs and the panels, heard while the Filing tab shows", async () => {
     const requests: CopilotHandlers[] = []

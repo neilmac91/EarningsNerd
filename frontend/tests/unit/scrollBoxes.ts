@@ -45,11 +45,13 @@ export function scrollBox(box: HTMLElement, top: number, height: number) {
   }
 }
 
-/** The calls that move the page (scrollIntoView, and the window's scrollTo and scrollBy), and the options each focus was
- *  given: a focus without preventScroll is the browser's own reveal, which jsdom lacks. A write to the document's own
- *  scrollTop goes unwatched; the e2e reads the page's scroll. `restore` undoes the watch. */
+/** The calls that move the page (scrollIntoView, and the window's scrollTo and scrollBy), the options each scrollBy was
+ *  given (the composer's one page move, E252), and the options each focus was given: a focus without preventScroll is
+ *  the browser's own reveal, which jsdom lacks. A write to the document's own scrollTop goes unwatched; the e2e reads the
+ *  page's scroll. `restore` undoes the watch. */
 export function watchThePage() {
   const moves: string[] = []
+  const scrollBys: unknown[] = []
   const jsdomScrollIntoView = Element.prototype.scrollIntoView
   Element.prototype.scrollIntoView = vi.fn(() => {
     moves.push('scrollIntoView')
@@ -57,12 +59,14 @@ export function watchThePage() {
   const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {
     moves.push('scrollTo')
   })
-  const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {
+  const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation((...args: unknown[]) => {
     moves.push('scrollBy')
+    scrollBys.push(args[0])
   })
   const focus = vi.spyOn(HTMLElement.prototype, 'focus')
   return {
     moves,
+    scrollBys,
     focusOptions: (el: Element) => focus.mock.contexts.flatMap((ctx, i) => (ctx === el ? [focus.mock.calls[i][0]] : [])),
     restore: () => {
       Element.prototype.scrollIntoView = jsdomScrollIntoView
