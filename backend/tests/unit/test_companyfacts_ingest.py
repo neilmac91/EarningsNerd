@@ -1282,6 +1282,36 @@ class TestNativeReportingCurrencySync:
         assert after == before
         db.close()
 
+    def test_a_cny_filers_quarterly_dataset_reads_every_quarter_in_cny(self):
+        # F61's quarterly leg, end to end: a sync of a CNY filer's 10-Qs and 10-K stores each quarter in CNY,
+        # the derived Q4 among them (FY - YTD9), and the quarterly dataset reads the series in CNY alone, its
+        # QoQ between CNY figures. The 10-K presents its prior year in CNY beside the year's USD convenience
+        # figure, so it decides the series. A later 10-Q whose one item is in USD, dated after every CNY period,
+        # made main's series_unit read the whole series in USD; under the per-filing pick it is a filing of its
+        # own currency, never read, and neither is the 10-K's USD convenience item.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+        from app.services import trend_analysis_service
+
+        db = SessionLocal()
+        company = _new_company(db)
+        payload = _cny_quarterly_payload()
+        for tag, prior in ((REV_TAG, 1100.0), ("NetIncomeLoss", 110.0)):
+            payload["facts"]["us-gaap"][tag]["units"]["CNY"].append(
+                _item(prior, "2023-12-31", start="2023-01-01", accn="K24", filed="2025-03-15"))
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(
+            _item(42.0, "2025-03-31", start="2025-01-01", accn="Q1-25", fp="Q1", form="10-Q", filed="2025-05-05"))
+        _checked_sync(db, company, payload)
+        dataset = trend_analysis_service.build_dataset(db, company, "quarterly", "2024Q1", "2024Q4")
+        series = next(s for s in dataset["series"] if s["concept"] == "revenue")
+        assert series["unit"] == "CNY"
+        points = [(p["period"], p["value"]) for p in series["points"]]
+        assert points == [("2024Q1", 280.0), ("2024Q2", 300.0), ("2024Q3", 310.0), ("2024Q4", pytest.approx(305.0))]
+        assert series["points"][-1]["qoq"] == pytest.approx(305.0 / 310.0 - 1)
+        stored = db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue").all()
+        assert {r.unit for r in stored} == {"CNY"}
+        db.close()
+
     @pytest.mark.parametrize("recorded", [True, False], ids=["recorded-operands", "before-provenance"])
     def test_sync_promotes_native_ratios_over_usd_ones_a_known_older_filing_kept_current(self, recorded):
         # A pre-fix sync read only the USD lists, so it stored each year's net margin from that
