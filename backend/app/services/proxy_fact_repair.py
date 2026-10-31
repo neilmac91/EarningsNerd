@@ -18,10 +18,11 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
    step, about 31.6 times, of it, read exactly) or there is none; a row so left that a proxy figure holds is
    listed in ``scale_up_retained`` where there is none, or where the 10-K's figure is more than 1% off its
    value. Set 4 writes no such row, but set 2 still reaches one at the 10-K winner's identity behind a current
-   proxy row, and its agreement test refuses the company there. Otherwise, as where the proxy was tagged at
-   the wrong scale over a right parse, or the 10-K's figure is of the other sign or zero, the row takes set
-   4's ordinary path (restored where the original is within 1% of the 10-K's figure, refused beyond; left and
-   listed, or refused when current, where a report row holds its value).
+   proxy row: it promotes the row where it agrees with the 10-K winner, and refuses the company where it does
+   not. Otherwise, as where the proxy was tagged at the wrong scale over a right parse, or the 10-K's figure
+   is of the other sign or zero, the row takes set 4's ordinary path (restored where the original is within 1%
+   of the 10-K's figure, refused beyond; left and listed, or refused when current, where a report row holds
+   its value).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -390,8 +391,8 @@ class ProxyPlan:
     def summary(self, before: dict[int, State], updates: dict[int, State], inserts: list[dict]) -> dict[str, Any]:
         """The company's ``proxy`` block; ``other_*`` describe the corrections one approval also applies,
         ``left_report_backed`` the rows sets 4 and 5 leave because a report row holds their figure, and
-        ``scale_up_retained`` the scale-ups set 4 leaves where the payload gives no 10-K figure or one more than
-        1% off the value: both inform the reading of the preview, and nothing writes, journals or checks them."""
+        ``scale_up_retained`` the scale-ups set 4 leaves where today's authority gives no 10-K figure, or one more
+        than 1% off the value: both inform the reading of the preview, and nothing writes, journals or checks them."""
         others = [fact for fact in inserts if qfr._identity(qfr._candidate_state(fact)) not in self.own]
         return {
             "version": PROXY_REPAIR_VERSION, **self.counts,
@@ -533,9 +534,10 @@ class _Planner:
     def _retained(self, row_id: int, state: State, value: Any, original: float | None,
                   authority: float | None) -> None:
         """List a scale-up set 4 leaves (a proxy figure holds its value) in ``scale_up_retained`` unless today's 10-K
-        figure confirms it, within 1% (``_agrees``, set 4's own test): reason ``no_10k_figure`` where the payload gives
-        none, and ``off_10k_figure`` where it is more than 1% off the value, with ``gap`` the ratio value / 10-K
-        figure. The listing writes, journals and checks nothing, and no counter of the block counts it."""
+        figure confirms it, within 1% (``_agrees``, set 4's own test): reason ``no_10k_figure`` where today's
+        authority (``_authority``: the payload's non-proxy items under the concept's headline tags) gives none, and
+        ``off_10k_figure`` where it is more than 1% off the value, with ``gap`` the ratio value / 10-K figure. The
+        listing writes, journals and checks nothing, and no counter of the block counts it."""
         if not self._witnessed(state, value) or (authority is not None and _agrees(float(value), authority)):
             return
         self.retained.append(self._row(
@@ -569,7 +571,8 @@ class _Planner:
             # with one on the value's step but more than 1% off it, a unit fix and a later restatement may justify the
             # value as filed, or may not. Set 4 writes neither, and lists each to be read against its filing. Neither is
             # out of the step's reach, though: one at the 10-K winner's identity behind a current proxy row is what set
-            # 2 would promote, and its agreement test refuses the company there, naming the row.
+            # 2 would promote, and it does where the row agrees with the 10-K winner (the normalizer's, under any tag it
+            # reads), and refuses the company, naming the row, where it does not.
             if _scale_up(value, original) and _scale_up_stands(value, authority):
                 self._retained(row_id, state, value, original, authority)
                 continue

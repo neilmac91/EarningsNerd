@@ -98,38 +98,39 @@ It runs these passes, in this order; the sets are those of `ops/detection/proxy_
    and on its scale step, strictly within half a step of the value on a log scale (a factor of
    sqrt(1,000), about 31.6, either way, read exactly: the squared ratio of the 10-K's figure to the value
    lies strictly between 1/1,000 and 1,000, and no ratio of two stored figures squares to either bound),
-   or where the payload gives no 10-K figure at all. Set 4 never writes such a row, but where today's
-   10-K figure does not confirm it within 1% it lists it in `scale_up_retained` (below), to be read
-   against its filing: with no 10-K figure the step cannot tell a parse read in units from a right parse
-   a proxy tagged at the wrong scale replaced, and a unit fix that a later restatement moved may stand as
-   filed, or may not. Set 2 can still refuse the company over such a row (below). A 10-K figure of the
-   other sign, or of zero, is on no scale step of the value's: the step reads a zero figure as a figure
-   everywhere, as the cross-check does. Anywhere else (a proxy tagged at the wrong scale over a right
-   parse, FedEx's error mirrored, a parse and a proxy each 1,000 times off in opposite directions, or a
-   10-K figure of the other sign or zero) the row takes the ordinary path below: restored where the
-   original is within 1% of the 10-K's figure, refused beyond (the 10-K having restated the year, or the
-   original itself a step off), or left and listed, or refused when current, where a report row holds its
-   value. Detection's set 4 keeps its scale-up exclusion, since it cannot read the payload's 10-K figure,
-   and lists nothing for such a row before or after, so the step settles a scale error detection cannot
-   see. Then left alone when a stored report row holds the value (listed in `left_report_backed`, below),
-   unless today's 10-K figure confirms the recorded original within 1% while the value is more than 1%
-   off it: the backer (a year's own report as first reported, such as a history row, below) says nothing
-   of this filing's parse, so such a row takes the restore below, as an unbacked row does. Kept, and
-   counted `filing_rows_kept`, when it already holds today's authority's figure, the 10-K's. Otherwise
-   restored (`filing_rows_restored`) to its recorded `original_value` and passed through today's
-   cross-check, as the backfill stores it now (source `edgar_xbrl`, its check recorded against the 10-K's
-   figure), when that original is within 1% of the 10-K's figure; where the payload gives no figure (a
-   year only a proxy tags), restored to the original with the local gate's verdict and no authoritative
-   check, as the backfill stores it with no authority. Refused when no original was recorded (a
-   replacement before #1191), or when the original is more than 1% off the 10-K's figure. The restore
-   writes the original, never the 10-K's figure: within 1% of it, the cross-check confirms the original
-   and keeps it. A row left because a report row holds its figure (its original absent or contradicted
-   too, or its value within 1% of the 10-K's figure) refuses the company where it is the company's
-   current figure at its key (`is_latest`) and its value is more than 1% off today's 10-K figure, the
-   authority every other verdict of sets 4 and 5 reads: left, the company's figure would stay the proxy's
-   where the 10-K contradicts it. Only the value is read, since the old cross-check changed a row's value
-   and source, never its start or fiscal year. A left row that is not current, is within 1% of the 10-K's
-   figure, or has no 10-K figure (a year only a proxy tags) stays left and listed.
+   or where today's authority gives no 10-K figure at all (`no_10k_figure`, below). Set 4 never writes
+   such a row, but where today's 10-K figure does not confirm it within 1% it lists it in
+   `scale_up_retained` (below), to be read against its filing: with no 10-K figure the step cannot tell a
+   parse read in units from a right parse a proxy tagged at the wrong scale replaced, and a unit fix that
+   a later restatement moved may stand as filed, or may not. Set 2 can still promote such a row, or
+   refuse the company over it (below). A 10-K figure of the other sign, or of zero, is on no scale step
+   of the value's: the step reads a zero figure as a figure everywhere, as the cross-check does. Anywhere
+   else (a proxy tagged at the wrong scale over a right parse, FedEx's error mirrored, a parse and a
+   proxy each 1,000 times off in opposite directions, or a 10-K figure of the other sign or zero) the row
+   takes the ordinary path below: restored where the original is within 1% of the 10-K's figure, refused
+   beyond (the 10-K having restated the year, or the original itself a step off), or left and listed, or
+   refused when current, where a report row holds its value. Detection's set 4 keeps its scale-up
+   exclusion, since it cannot read the payload's 10-K figure, and lists nothing for such a row before or
+   after, so the step settles a scale error detection cannot see. Then left alone when a stored report
+   row holds the value (listed in `left_report_backed`, below), unless today's 10-K figure confirms the
+   recorded original within 1% while the value is more than 1% off it: the backer (a year's own report as
+   first reported, such as a history row, below) says nothing of this filing's parse, so such a row takes
+   the restore below, as an unbacked row does. Kept, and counted `filing_rows_kept`, when it already
+   holds today's authority's figure, the 10-K's. Otherwise restored (`filing_rows_restored`) to its
+   recorded `original_value` and passed through today's cross-check, as the backfill stores it now
+   (source `edgar_xbrl`, its check recorded against the 10-K's figure), when that original is within 1%
+   of the 10-K's figure; where the payload gives no figure (a year only a proxy tags), restored to the
+   original with the local gate's verdict and no authoritative check, as the backfill stores it with no
+   authority. Refused when no original was recorded (a replacement before #1191), or when the original is
+   more than 1% off the 10-K's figure. The restore writes the original, never the 10-K's figure: within
+   1% of it, the cross-check confirms the original and keeps it. A row left because a report row holds
+   its figure (its original absent or contradicted too, or its value within 1% of the 10-K's figure)
+   refuses the company where it is the company's current figure at its key (`is_latest`) and its value is
+   more than 1% off today's 10-K figure, the authority every other verdict of sets 4 and 5 reads: left,
+   the company's figure would stay the proxy's where the 10-K contradicts it. Only the value is read,
+   since the old cross-check changed a row's value and source, never its start or fiscal year. A left row
+   that is not current, is within 1% of the 10-K's figure, or has no 10-K figure (a year only a proxy
+   tags) stays left and listed.
 2. **Set 5: filing rows the old cross-check confirmed against a proxy's figure** (a filing row of another
    source whose recorded check confirmed it against an `authoritative_value` a proxy figure holds). Left
    alone when a stored report row holds that figure (the confirmation may have come from it), listed and
@@ -258,20 +259,27 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
 - `scale_up_retained`: each row set 4 leaves as a scale-up (its value 1,000 or 1,000,000 times its
   recorded original, a proxy figure holding it) that today's 10-K figure does not confirm, in the shape
   of a `rows` entry (action `scale_up_retained`) with its `set`, `is_latest`, the recorded `original`,
-  today's 10-K figure (`authority`) and a `reason`. `no_10k_figure`: the payload gives none for the
-  period, so the step cannot tell a parse read in units that the cross-check scaled up (the replacement
-  the check exists for) from a right parse a proxy tagged 1,000 times too large replaced; `gap` is null.
-  `off_10k_figure`: the 10-K's figure is on the value's scale step, so the exemption stands, but more
-  than 1% off the value (set 4's own test), as where a later report restated the year; `gap` is the ratio
-  value / 10-K figure, not the `rows` measure. A scale-up the 10-K confirms within 1% is not listed. Read
-  each against its filing, and give a wrong one its own `tasks/todo.md` line, as a refused company gets.
-  Like `left_report_backed` it writes, journals and checks nothing, no counter of the proxy block counts
-  its entries, and detection never lists such a row (a scale-up is never scaled down). The rows it names
-  are not out of the step's reach, though. Where one holds the 10-K winner's identity behind a current
-  proxy row, set 2, retiring that row, would promote it, and its agreement test refuses the company, as
-  for any filing row the 10-K contradicts there: `the filing row holding the 10-K's identity (fact N)
-  disagrees with the 10-K on: value`, naming the row. A refused company's report carries no `proxy`
-  block, so that listing never reaches a preview.
+  today's 10-K figure (`authority`) and a `reason`. `no_10k_figure`: today's authority gives no figure
+  for the period. The authority, `extract_authoritative_values`, which every set-4 and set-5 verdict
+  reads, takes only the payload's non-proxy items under the concept's headline tags (net income:
+  `NetIncomeLoss`, then `ProfitLoss`), in USD (a duration's over a span within 30 days of a year), so the
+  payload can still carry the year's 10-K figure under a tag only the normalizer reads (net income's
+  `NetIncomeLossAvailableToCommonStockholdersBasic`), and set 2 then judges the row against that winner
+  (below). With no figure to read a scale from, the step cannot tell a parse read in units that the
+  cross-check scaled up (the replacement the check exists for) from a right parse a proxy tagged 1,000
+  times too large replaced; `gap` is null. `off_10k_figure`: the 10-K's figure is on the value's scale
+  step, so the exemption stands, but more than 1% off the value (set 4's own test), as where a later
+  report restated the year; `gap` is the ratio value / 10-K figure, not the `rows` measure. A scale-up
+  the 10-K confirms within 1% is not listed. Read each against its filing, and give a wrong one its own
+  `tasks/todo.md` line, as a refused company gets. Like `left_report_backed` it writes, journals and
+  checks nothing, no counter of the proxy block counts its entries, and detection never lists such a row
+  (a scale-up is never scaled down). The rows it names are not out of the step's reach, though. Where one
+  holds the 10-K winner's identity behind a current proxy row, set 2, retiring that row, promotes it in
+  place where it agrees with the 10-K winner (the normalizer's, under any tag it reads): the row is then
+  written (`is_latest` only), journaled under `proxy-repair-v1` and counted in `promoted`, and stays
+  listed. Where it does not agree, set 2's agreement test refuses the company, as for any filing row the
+  10-K contradicts there: `the filing row holding the 10-K's identity (fact N) disagrees with the 10-K
+  on: value`, naming the row.
 
 The CLI's report adds `proxy_totals`, each counter and each `other_*` entry summed over the companies
 that succeeded, and `left_report_backed` and `scale_up_retained`, how many rows their blocks list in
