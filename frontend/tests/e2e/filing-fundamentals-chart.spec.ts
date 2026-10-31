@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { CHART_TOKENS } from '../../features/analysis/lib/charts/theme'
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
-import { answerApi, FUNDAMENTALS, type Theme } from './fixtures/filing3Api'
+import { answerApi, API_ORIGIN, FUNDAMENTALS, type Theme } from './fixtures/filing3Api'
 
 /**
  * Financial trends mounts on the filing page and draws through the trend charts' engine (E195 D, D-067). Production
@@ -28,8 +28,13 @@ import { answerApi, FUNDAMENTALS, type Theme } from './fixtures/filing3Api'
  * series, the page does not scroll sideways and the heading row keeps its badge inside the card: beside the heading, or
  * wholly beneath it, its label breaking only where the badge does not fit on a line of its own. Before, the row did not
  * wrap and the one-line badge took the page to 511 to 516px on a calculated series. Those cases read no renderer's DOM,
- * so they hold the card's chrome whichever draws the plot. CI runs e2e with no backend
- * (lessons/test-e2e-runs-without-backend.md).
+ * so they hold the card's chrome whichever draws the plot.
+ *
+ * The card lands where its bones stood (DESIGN_SYSTEM.md §11), at 1280, 390 and 320px in both themes: the fixture's
+ * answer to the card's fetch is held until the loading card, its status shown, is measured, and the card that lands on
+ * revenue, the default series, which needs no source check, is that height within 0.5px. Before, its bones held the
+ * plot alone, and the card grew 56px at 1280px and 128px at 390 and 320px, where the picker takes a row of its own and
+ * the footnote two lines. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
  */
 
 const VIEWPORTS = [
@@ -75,9 +80,17 @@ const widths = (page: Page) =>
     return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, past }
   })
 
-/** Consent answered and the first-run coachmark seen (neither belongs to this card), the theme chosen, then the page. */
-async function openFiling(page: Page, baseURL: string, theme: Theme) {
+/** Consent answered and the first-run coachmark seen (neither belongs to this card), the theme chosen, then the page.
+ *  Given `held`, the card's fetch waits for it before the fixture answers. */
+async function openFiling(page: Page, baseURL: string, theme: Theme, held?: Promise<void>) {
   await answerApi(page, baseURL, 'anon')
+  // Registered after answerApi, so it runs first, then hands the request on to the fixture's answer.
+  if (held) {
+    await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/filings/3/fundamentals', async (route) => {
+      await held
+      await route.fallback()
+    })
+  }
   await page.addInitScript((chosen: Theme) => {
     try {
       localStorage.setItem('theme', chosen)
@@ -192,6 +205,13 @@ const headingRow = (card: Locator) =>
     return { heading: box(heading), content, badge: { ...box(badge), text: badge.textContent, oneLineWidth: oneLine.width, oneLineHeight: oneLine.height, room: row.clientWidth } }
   })
 
+/** The card's height, unrounded, once the fonts are in and two frames have painted. */
+async function settledHeight(page: Page, card: Locator) {
+  await page.evaluate(() => document.fonts.ready)
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  return card.evaluate((section) => section.getBoundingClientRect().height)
+}
+
 test.describe.configure({ mode: 'parallel' })
 // Full font hinting, headless Chrome's default (CI's): D1 and D8 run in the case that can break them.
 test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
@@ -216,6 +236,32 @@ for (const { width, height, isMobile, hasTouch } of VIEWPORTS) {
           const { scrollWidth, clientWidth, past } = await widths(page)
           expect(scrollWidth, `${concept}: scrollWidth ${scrollWidth}px against clientWidth ${clientWidth}px; past the edge: ${past.join('; ') || 'nothing'}`).toBeLessThanOrEqual(clientWidth)
         }
+      })
+    }
+  })
+}
+
+for (const { width, height, isMobile, hasTouch } of [...VIEWPORTS, { width: 320, height: 844, isMobile: true, hasTouch: true }]) {
+  test.describe(`Financial trends on /filing/3 at ${width}px, its fetch held`, () => {
+    test.use({ viewport: { width, height }, isMobile, hasTouch, reducedMotion: 'reduce' })
+
+    for (const theme of THEMES) {
+      test(`${theme}: the card lands where its bones stood`, async ({ page, baseURL }) => {
+        let release!: () => void
+        const held = new Promise<void>((resolve) => { release = resolve })
+        const card = await openFiling(page, baseURL!, theme, held)
+        await expect(card.getByRole('status', { name: 'Loading financial trends', exact: true })).toBeVisible()
+        const loading = await settledHeight(page, card)
+
+        release()
+        await expect(card.getByRole('combobox', { name: /^Metric\b/ })).toHaveValue('revenue')
+        const plot = card.getByTestId('fundamentals-chart')
+        await expect(plot.getByRole('img', { name: 'Revenue chart', exact: true })).toBeVisible()
+        await expect(plot).not.toHaveAttribute('aria-busy')
+        await expect(card.getByText('Source check needed', { exact: true }), 'revenue needs no source check').toHaveCount(0)
+        await expect(card.getByText('Sources & checks', { exact: true })).toBeVisible()
+        const loaded = await settledHeight(page, card)
+        expect(Math.abs(loaded - loading), `the card is ${loading}px loading and ${loaded}px loaded`).toBeLessThanOrEqual(0.5)
       })
     }
   })

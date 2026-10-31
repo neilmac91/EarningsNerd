@@ -270,14 +270,21 @@ describe('FundamentalsTrendChart', () => {
     expect(new Set([...svg.querySelectorAll('rect[data-series]')].map((bar) => bar.getAttribute('data-period'))).size).toBe(3)
   })
 
-  it('while loading shows its bones at the plot’s height, and no footnote or Sources & checks yet', async () => {
+  it('while loading holds the room of what replaces it, the plot’s height first, and shows no footnote or Sources & checks yet', async () => {
     getFilingFundamentals.mockReturnValue(new Promise(() => {}))
     renderChart()
 
     const loading = await screen.findByRole('status', { name: 'Loading financial trends' })
     expect((loading.firstElementChild as HTMLElement).style.height).toBe(`${CARD_HEIGHT}px`)
-    expect(screen.queryByText(/Annual figures from SEC filings/)).toBeNull()
-    expect(screen.queryByText('Sources & checks')).toBeNull()
+    // The footnote's bone holds its room with the footnote as it reads for revenue, the picker's first metric:
+    // invisible, inside an aria-hidden bone, so no line names a metric before there is one.
+    const held = screen.getByText('Annual figures from SEC filings (XBRL). Revenue by fiscal year.')
+    expect(held).toHaveClass('invisible')
+    expect(held.closest('[aria-hidden="true"]')).not.toBeNull()
+    const shown = { ignore: '[aria-hidden="true"] *' }
+    expect(screen.queryByText(/Annual figures from SEC filings/, shown)).toBeNull()
+    expect(screen.queryByText('Sources & checks', shown)).toBeNull()
+    expect(screen.queryByRole('combobox')).toBeNull()
   })
 
   it('renders nothing once loaded for a filing with no facts', async () => {

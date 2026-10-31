@@ -6,15 +6,17 @@
  * metric is chart-1, every value is printed on its bar (A4), a withheld year prints "—" in its slot, and one values stop
  * reads a year at a time beside the column-wash tooltip, which marks a derived figure "· Calculated"
  * (docs/design/analysis-trend-charts-spec-2026-10.md §0.5; DESIGN_SYSTEM.md §10). The card's own chrome stays: the
- * heading and its source-check badge, the subtitle, the metric picker, the footnote and Sources & checks.
+ * heading and its source-check badge, the subtitle, the metric picker, the footnote and Sources & checks. While the
+ * query loads, bones in the shapes of the picker, the plot and the two lines under it hold the card's room, so it lands
+ * where its bones stood (DESIGN_SYSTEM.md §11).
  */
-import { useContext, useMemo, useState } from 'react'
+import { useContext, useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import { getFilingFundamentals, type FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, Skeleton, inputClasses } from '@/components/ui'
+import { Card, Skeleton, cx, inputClasses } from '@/components/ui'
 import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
 import { useChartFont } from '@/features/analysis/components/useChartFont'
@@ -71,6 +73,23 @@ const VALUES_DONT_FIT_HERE = 'Values don’t fit at this width.'
  *  "USD/shares" is a per-share amount, in cents), a margin in percentage points, or a multiple. */
 const axisOf = (fmt: FmtKind, unit: string): BarAxis =>
   fmt === 'pct' ? { kind: 'percent' } : fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit }
+
+/** The line under the plot: where the figures come from, an amount's reporting currency where it is not the dollar, and
+ *  the metric. */
+const footnoteOf = (label: string, currency: string | null) =>
+  `Annual figures from SEC filings (XBRL)${currency && currency !== 'USD' ? `, reported in ${currency}` : ''}. ${label} by fiscal year.`
+
+/** A bone that holds the room of a line the loaded card prints: the line's own text lays out invisible in the line's
+ *  type and spacing (the className), so the bone wraps as the line will at any width and text size, and covers it.
+ *  aria-hidden, as every raw bone is: the card's one status names the wait. */
+function TextBone({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <div aria-hidden="true" className={cx('grid w-fit max-w-full', className)}>
+      <span className="invisible col-start-1 row-start-1">{children}</span>
+      <Skeleton className="col-start-1 row-start-1" />
+    </div>
+  )
+}
 
 export default function FundamentalsTrendChart({
   filingId,
@@ -135,7 +154,7 @@ export default function FundamentalsTrendChart({
 
   // Supplementary section: stay quiet on error, and disappear when there are no facts
   // (e.g. before the backfill runs) rather than showing an empty card. Keep the card (with
-  // bones the plot's height) mounted *while loading* so the common "has data" case doesn't
+  // bones in the shapes of its rows) mounted *while loading* so the common "has data" case doesn't
   // shift content when the query resolves — only collapse once we know there are no facts.
   if (isError || (!isLoading && available.length === 0)) return null
 
@@ -157,7 +176,7 @@ export default function FundamentalsTrendChart({
             <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{subtitle}</p>
           )}
         </div>
-        {available.length > 0 && (
+        {available.length > 0 ? (
           // Up to 23 metrics: a compact select sized to its content beside its label, never a segmented row.
           <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
             Metric
@@ -171,13 +190,25 @@ export default function FundamentalsTrendChart({
               ))}
             </select>
           </label>
+        ) : (
+          // Loading (with no metric the card renders nothing, above): the picker's bones in its row, its label's word
+          // and the compact field's heights (44px on a phone, where the picker takes a row of its own, and 36px from sm).
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+            <TextBone>Metric</TextBone>
+            <Skeleton className="h-11 w-40 rounded-lg sm:h-9" />
+          </div>
         )}
       </div>
 
       {!chart || !active ? (
-        // Loading: the bones hold the plot's height, and nothing below the plot shows until there is a metric to name.
+        // Loading: the plot's bones at its height, then the footnote's and Sources & checks' lines, each holding its
+        // text's room. No line reads until there is a metric to name: the footnote's bone holds it as it reads for
+        // revenue, the picker's first metric and so its default wherever the filing reports one, and Sources & checks'
+        // its closed summary, disclosure triangle included.
         <div role="status" aria-label="Loading financial trends">
           <Skeleton className="w-full rounded-lg" style={{ height: CARD_HEIGHT }} />
+          <TextBone className="mt-3 text-xs">{footnoteOf(FEATURED[0].label, null)}</TextBone>
+          <TextBone className="mt-3 text-xs"><span className="list-item list-inside list-[disclosure-closed]">Sources &amp; checks</span></TextBone>
           <span className="sr-only">Loading…</span>
         </div>
       ) : (
@@ -205,10 +236,7 @@ export default function FundamentalsTrendChart({
               ))}
             </ul>
           )}
-          <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-            Annual figures from SEC filings (XBRL){currency && currency !== 'USD' ? `, reported in ${currency}` : ''}.{' '}
-            {active.label} by fiscal year.
-          </p>
+          <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{footnoteOf(active.label, currency)}</p>
           <SourceChecks values={(series?.points ?? []).map((point) => ({ ...point, label: `${active.label}, ${point.fiscal_year ?? point.period_end ?? 'period unavailable'}` }))} />
         </>
       )}
