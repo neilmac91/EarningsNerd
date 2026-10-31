@@ -1125,6 +1125,34 @@ The PDF's key-on-another-page miss becomes fine print under the table, on the sa
   `DataNotes.tsx` (the summary's count clauses, places and detail forms), `metrics-table.spec.tsx` (the calculated
   sentence) and `MetricsTable.tsx` (the Q4 legend), and fails when the exports' differ.
 
+**As shipped (WP5a-X, 2026-10-31).** The second of WP5a's three PRs (§1.6; F1 → X → B, the WP5a brief's D13): both
+exports read the later-filing evidence the page reads since F1 (#1776), and print nothing new until the producer (B)
+sends it, since a dataset without the fields exports byte for byte as before. One port serves both files
+(`analysis_export_metadata.later_filing_entry` and `evidence_lines`), on the places of
+`trend_analysis/later_filings.later_filing_places`, the twin of the page's `laterFilingPlaces` that the shared fixture
+`backend/tests/fixtures/analysis_later_filings.json` holds equal. On REGN's case:
+- **The line (D9, option A).** After the notes, in the PDF's detail and the workbook's Overview, an entry with no letter:
+  "A later filing reports a different value. Revenue (FY2018, FY2019); Total assets (FY2018). 3 figures; growth across
+  the change reads n/m. Comparisons: Revenue YoY (FY2018, FY2019, FY2020); Net margin YoY (FY2018, FY2019, FY2020)." It
+  is the page's line without "select one to see both filings", since nothing in a file can be selected.
+- **The evidence (D10, full).** Each figure, and each calculation's input, that carries its own annual report's value
+  gives the dialog's sentence, at the exports' full precision and with dates as stored: "First reported as
+  6,710,800,000 USD in its own annual report (10-K, filed 2019-02-07). A later filing (filed 2021-02-08) reports
+  5,145,600,000 USD, shown here.", then any finding ("A later filing reports the opposite sign.", "A later filing
+  reports a value 1,000 times larger than the year’s own annual report."). The workbook puts it in the figure's comment
+  and in a "First reported" row of Sources & methods, with that report's value as filed, accession, filed day and link;
+  the PDF puts it under the figure's row in Sources & methods, with the accession and link. A growth that reads n/m
+  across the change gives the dialog's cause, then "As first reported: +14.3%" ("n/m" across a sign or scale finding,
+  nothing where the own reports give no growth), in Sources & methods and in the top line's growth comment.
+- **The sentences.** Where the line prints, each closing line adds after `EVIDENCE` "Where a later filing reports a
+  different value, Sources & methods also gives what the year’s own annual report first reported.", and the
+  workbook's names "a first-reported value" among the figures that carry a comment. The line keeps no ending of its own
+  (D9's draft "Sources & methods gives both filings." would repeat it). Where some growth reads n/m across the change,
+  Sources & methods adds "Growth reads n/m where it changes sign, or where a later filing reports a different value for
+  one or both of its years.", without D12's draft "or starts from zero": a zero prior year gives no growth, never n/m.
+- `backend/tests/unit/test_export_later_filings.py` holds both files to every case of the shared fixture, and
+  `test_export_note_marks.py` reads the line's words from `DataNotes.tsx`.
+
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").
 

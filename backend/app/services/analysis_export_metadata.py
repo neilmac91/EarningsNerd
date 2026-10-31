@@ -5,12 +5,16 @@ provenance; they never recalculate or promote a legacy record to validated statu
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import datetime, timezone
+from decimal import Decimal
+import math
 import re
 from typing import Any, NamedTuple
 
 from app.services.trend_analysis.data_notes import marks_figure, note_summary
+from app.services.trend_analysis.formatting import NOT_MEANINGFUL, _fmt_growth
+from app.services.trend_analysis.later_filings import later_filing_places
 from app.utils.datetimes import ensure_utc, utc_from_iso
 
 ANALYSIS_DISCLAIMER = (
@@ -46,6 +50,23 @@ PDF_CLOSING = f"{EVIDENCE} {AUTOMATED_CHECKS}"
 SHEETS_WITH_CELLS = "In Metrics and the sheets with charts"
 WORKBOOK_CLOSING = (f"{EVIDENCE} {SHEETS_WITH_CELLS}, a figure with a data note or a calculation carries a comment. "
                     f"{AUTOMATED_CHECKS}")
+# A later filing's different value (MPA WP5a; coherence.md §1.6, D-061) is evidence, never a note: it adds no letter, no
+# summary clause and no total (D7). Each file carries what the page's evidence dialog gives (D10, full), and where the
+# data notes print the later-filing line, the closing line says where, after EVIDENCE. The line itself ends at its
+# counts, so the files point once where the page's "select one to see both filings" pointed (D9).
+LATER_FILING_EVIDENCE = ("Where a later filing reports a different value, Sources & methods also gives what the year’s "
+                         "own annual report first reported.")
+# Sources & methods' n/m sentence, where some growth reads n/m across a change of basis (D12). A zero prior year gives no
+# growth here, never n/m (trend_analysis/dataset.py _growth), so a zero is not among its causes.
+NOT_MEANINGFUL_CAUSES = ("Growth reads n/m where it changes sign, or where a later filing reports a different value for "
+                         "one or both of its years.")
+# A basis n/m's cause in the page dialog's words (SourceValue.tsx), before the growth the two years' own reports give.
+BASIS_CHANGE_CAUSE = "Not meaningful: a later filing reports a different value for one or both of the two years."
+# The later-filing line (D9, option A): the page's line after the notes (DataNotes.tsx), set as one more detail entry,
+# without the page's "select one to see both filings", since nothing in a file can be selected (chief design on #1776,
+# as #1659 ruled for the exports). Its n/m clause follows its count, and those growths' places follow as a note's do.
+LATER_FILING_MESSAGE = "A later filing reports a different value."
+LATER_FILING_GROWTH = "growth across the change reads n/m"
 # The quarterly grid's legend for its Q4 header † (MetricsTable.tsx, whose "; it does not" reads ". It does not" here):
 # the dagger marks a period, never a figure.
 QUARTER_LEGEND = "Fiscal quarters follow the company’s reporting calendar."
@@ -80,9 +101,11 @@ def point_method(point: dict[str, Any]) -> str:
 
 def point_notes(point: dict[str, Any], note: dict[str, Any] | None = None) -> list[str]:
     """A workbook comment references the canonical note before neutral method details. Every note stays as a comment,
-    the workbook's evidence dialog; it names its letter only when the note marks the figure (D-061), as the page does."""
+    the workbook's evidence dialog; it names its letter only when the note marks the figure (D-061), as the page does.
+    A later filing's evidence on the figure follows the note (evidence_lines)."""
     provenance = point.get("provenance") or {}
     notes = [f"Data note {note['letter']}: {note['message']}" if marks_figure(note) else f"Data note: {note['message']}"] if note else []
+    notes += evidence_lines(point)
     if point_method(point) == "calculated":
         notes.append(
             "Calculated figure. Sources & methods gives any recorded formula and inputs."
@@ -193,13 +216,15 @@ def fine_print_summary(envelope: dict[str, Any]) -> list[SummaryClause]:
     return clauses
 
 
+def _listed_places(places: list[tuple[str, list[str]]]) -> str:
+    """A detail entry's places, as DataNotesList lists them: "Revenue (FY2018, FY2019); Total assets (FY2018)"."""
+    return "; ".join(f"{label} ({', '.join(periods)})" for label, periods in places)
+
+
 def detail_entries(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The data notes' open detail, as the page's DataNotesList reads: every note, those that mark a figure first,
     each with its id, its letter only when it marks (None otherwise), its message, its places, its counts (its
     figures, and apart from them the growth figures built on them) and its comparisons, each "" when it has none."""
-    def listed(places: list[tuple[str, list[str]]]) -> str:
-        return "; ".join(f"{label} ({', '.join(periods)})" for label, periods in places)
-
     entries = []
     for note in [*filter(marks_figure, notes), *(note for note in notes if not marks_figure(note))]:
         figures, growth = len(note["values"]), len(note["comparisons"])
@@ -209,11 +234,104 @@ def detail_entries(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         comparisons = _comparison_places(note)
         entries.append({
             "id": note["id"], "letter": note["letter"] if marks_figure(note) else None, "message": note["message"],
-            "places": f"{listed(_places(note['values']))}." if note["values"] else "",
+            "places": f"{_listed_places(_places(note['values']))}." if note["values"] else "",
             "counts": f"{'; '.join(counts)}." if counts else "",
-            "comparisons": f"Comparisons: {listed(comparisons)}." if comparisons else "",
+            "comparisons": f"Comparisons: {_listed_places(comparisons)}." if comparisons else "",
         })
     return entries
+
+
+def later_filing_entry(dataset: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The later-filing line as one more unlettered entry of the open detail, after the notes (D9, option A): its
+    message, its figures' places, their count with the n/m clause where some growth reads n/m across the change, and
+    those growths' places; None where no figure of the run carries its own annual report's value, as the page then
+    prints no line. Its places are later_filing_places', the twin of the page's laterFilingPlaces (DataNotes.tsx)."""
+    places = later_filing_places(dataset)
+    if not places["values"]:
+        return None
+    growth = _places([{**ref, "label": _comparison_label({**ref, "basis": "yoy"})} for ref in places["comparisons"]])
+    counts = count_label(len(places["values"]), "figure") + (f"; {LATER_FILING_GROWTH}" if growth else "")
+    return {"id": None, "letter": None, "message": LATER_FILING_MESSAGE,
+            "places": f"{_listed_places(_places(places['values']))}.", "counts": f"{counts}.",
+            "comparisons": f"Comparisons: {_listed_places(growth)}." if growth else ""}
+
+
+def basis_not_meaningful(dataset: Mapping[str, Any]) -> bool:
+    """Whether some growth of the run reads n/m across a change of basis, so Sources & methods names its causes."""
+    return bool(later_filing_places(dataset)["comparisons"])
+
+
+def pdf_closing(later_filing: bool) -> str:
+    """The PDF's closing line: where Sources & methods keeps a figure's evidence, and, where the line prints, that it
+    keeps what each year's own annual report first reported."""
+    return f"{EVIDENCE} {LATER_FILING_EVIDENCE} {AUTOMATED_CHECKS}" if later_filing else PDF_CLOSING
+
+
+def workbook_closing(later_filing: bool) -> str:
+    """The workbook's closing line, which also says which cells carry a comment: where the line prints, a figure with
+    its own annual report's value carries one too."""
+    if not later_filing:
+        return WORKBOOK_CLOSING
+    return (f"{EVIDENCE} {LATER_FILING_EVIDENCE} {SHEETS_WITH_CELLS}, a figure with a data note, a calculation or a "
+            f"first-reported value carries a comment. {AUTOMATED_CHECKS}")
+
+
+def exact_figure(value: Any, unit: Any) -> str:
+    """A value as stored, its digits grouped, with its unit: the page's "As filed" form (figureDisplay.ts exactFigure),
+    "6,710,800,000 USD", "2.05 USD per share". The exports keep a figure's full precision (the workbook's cells, the
+    PDF's Sources & methods), so a later filing's value and the first-reported one never print alike."""
+    amount = f"{Decimal(str(value)).normalize():,f}"
+    unit = str(unit or "")
+    if unit.endswith("/shares"):
+        return f"{amount} {unit.removesuffix('/shares')} per share"
+    return " ".join(filter(None, (amount, unit)))
+
+
+def first_reported_sentence(first: Mapping[str, Any], shown: Any) -> str:
+    """The evidence sentence (D11; laterFilings.ts firstReportedSentence): the year's own annual report's value, then
+    the later filing's, the one shown, each filing named by its form and filed day as stored, a part it lacks left out."""
+    unit = first.get("unit")
+    own = ", ".join(filter(None, (first.get("form"), first.get("filed_at") and f"filed {first['filed_at']}")))
+    later = f" (filed {first['later_filed_at']})" if first.get("later_filed_at") else ""
+    return (f"First reported as {exact_figure(first['value'], unit)} in its own annual report{f' ({own})' if own else ''}. "
+            f"A later filing{later} reports {exact_figure(shown, unit)}, shown here.")
+
+
+def disagreement_sentence(first: Mapping[str, Any], shown: Any) -> str | None:
+    """What the producer's exact comparison found, in words built from the two values (D2; laterFilings.ts
+    disagreementSentence): the opposite sign, or the factor of 1,000ⁿ and which way it runs; None for any other gap."""
+    if first.get("disagreement") == "opposite_sign":
+        return "A later filing reports the opposite sign."
+    if first.get("disagreement") != "scale":
+        return None
+    steps = math.floor(math.log10(abs(shown / first["value"])) / 3 + 0.5)  # JavaScript's Math.round, as scaleSteps
+    return (f"A later filing reports a value {1000 ** abs(steps):,} times {'larger' if steps > 0 else 'smaller'} than "
+            "the year’s own annual report.")
+
+
+def evidence_lines(figure: Mapping[str, Any]) -> list[str]:
+    """What the page's evidence dialog says of a figure (D10, full): where a reported figure or a calculation's input
+    carries its year's own annual report's value, the two values and filings, then any finding; where a growth reads
+    n/m across a change of basis (growth_point), its cause, then the growth as first reported unless the own reports
+    give none (the page prints "n/m" across a sign or scale finding). Nothing for any other figure."""
+    first, shown = figure.get("first_reported"), figure.get("value")
+    if first and shown is not None:
+        return [first_reported_sentence(first, shown), *filter(None, [disagreement_sentence(first, shown)])]
+    if "first_reported_growth" not in figure:
+        return []
+    growth = figure["first_reported_growth"]
+    return [BASIS_CHANGE_CAUSE, *([] if growth is None else [f"As first reported: {_fmt_growth(growth, figure['percent'])}"])]
+
+
+def growth_point(point: Mapping[str, Any], growth: str, percent: bool) -> dict[str, Any]:
+    """A point's YoY or QoQ as a figure of its own, for Sources & methods and its comment: its value, provenance and
+    reconciled flag and, where it reads n/m across a change of basis (laterFilings.ts basisChanged: n/m, with the
+    first-reported key present, null included), the growth as first reported and its series' percent flag."""
+    figure = {"period": point.get("period"), "value": point.get(growth),
+              "provenance": point.get(f"{growth}_provenance"), "reconciled": point.get(f"{growth}_reconciled")}
+    if point.get(growth) == NOT_MEANINGFUL and f"{growth}_first_reported" in point:
+        figure.update(first_reported_growth=point[f"{growth}_first_reported"], percent=percent)
+    return figure
 
 
 def _is_calculated(point: dict[str, Any]) -> bool:
@@ -318,12 +436,9 @@ def export_points(
         point = by_period.get(period) or {"period": period, "value": None}
         yield "Value", point, "percent" if series.get("percent") else series.get("unit", "")
         for growth in ("yoy", "qoq"):
-            provenance = point.get(f"{growth}_provenance")
-            if point.get(growth) is not None or provenance:
-                yield growth.upper(), {
-                    "period": point.get("period"), "value": point.get(growth),
-                    "provenance": provenance, "reconciled": point.get(f"{growth}_reconciled"),
-                }, "percentage points" if series.get("percent") else "fraction"
+            if point.get(growth) is not None or point.get(f"{growth}_provenance"):
+                yield (growth.upper(), growth_point(point, growth, bool(series.get("percent"))),
+                       "percentage points" if series.get("percent") else "fraction")
     for growth, label, unit in (("cagr", "CAGR", "fraction"), ("window_pp", "Window change", "percentage points")):
         provenance = series.get(f"{growth}_provenance")
         if series.get(growth) is not None or provenance:
