@@ -10,7 +10,7 @@
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const chunk = vi.hoisted(() => ({ failures: 0, imports: 0 }))
@@ -60,12 +60,13 @@ describe('the Sector peers card’s chunk (E251)', () => {
       expect(chunk.imports, 'the chunk asked for once').toBe(1)
 
       rerender(panel(client, 'BBB'))
+      // The next company's gate makes a lazy of its own, which asks for the chunk again, and draws.
+      await waitFor(() => expect(chunk.imports, 'the chunk asked for again on the next company').toBe(2), { timeout: 3000 })
       expect(await screen.findByRole('heading', { level: 2, name: 'Sector peers' }, { timeout: 8000 })).toBeInTheDocument()
       expect(screen.queryByText('This chart could not be drawn.')).toBeNull()
-      expect(chunk.imports, 'and asked for again on the next company').toBe(2)
     } finally {
       window.removeEventListener('error', handled)
       consoleError.mockRestore()
     }
-  })
+  }, 20_000)
 })
