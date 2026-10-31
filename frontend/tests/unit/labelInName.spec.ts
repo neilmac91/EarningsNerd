@@ -351,7 +351,8 @@ const SOURCES = execFileSync('git', ['ls-files', '*.tsx', '*.jsx'], { cwd: FRONT
   .split('\n')
   .filter((rel) => rel && !rel.startsWith('tests/'))
 
-/** The controls that fail today, per file, each with what waits on its fix (E68 (3)). Each fix's words are chief design's. */
+/** The controls that fail today, per file, each with what waits on its fix (E68 (3)). Chief design ruled each fix's words on
+    #1884 (comments 6550067628 and 6550409876); each lands in its own pull request, which lowers its line and the cap. */
 const RESIDUE: Record<string, number> = {
   'features/analysis/components/DataNotesLink.tsx': 1, // the Notes chip shows "Notes a, b" and is named "Review data notes a, b" (D-061's chip)
   'features/analysis/components/NarrativePane.tsx': 1, // the citation chip shows "[1]" and is named "Citation 1: …", which says what the number is before it
