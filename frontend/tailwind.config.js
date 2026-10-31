@@ -174,10 +174,9 @@ module.exports = {
           // the card charts sit on; on bare cream use secondary). Dark = #B8BEC7, a step above text.TERTIARY:
           // gray-400 #9CA3AF measures Lc −48.6 on the dark card, under the 60 that 11–12 px text needs; #B8BEC7 is −63.6.
           label: { light: '#6B7280', dark: '#B8BEC7' },
-          // crosshair and tip: no reader since Recharts left the app (E195 (D)); E255 retires them app-wide.
-          crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
-          tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark
+          // The chart tooltip takes the Card recipe's surface and the column wash the engine's own cursor, so no
+          // crosshair or tooltip token remains (E255).
           // The trend charts' spec renderer (features/analysis/lib/charts/theme.ts, docs/design/analysis-trend-charts-spec-2026-10.md
           // §3.8) reads these same tokens and the text inks: its series chart-N and chart-N-dark, its grid chart.grid,
           // its zero rule chart.ref, its ticks and notes text.tertiary.light and chart.label.dark, its printed values
