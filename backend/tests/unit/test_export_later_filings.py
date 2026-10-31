@@ -154,8 +154,42 @@ def _figure_cells(book, dataset: dict) -> list[tuple]:
     return cells
 
 
+def _deeper_evidence() -> dict:
+    """REGN's case with evidence where the producer also sends it (WP5a-B's produced datasets, 781b356fa): two levels
+    down, under net margin's FY2019 YoY and under its window change (FY2018..FY2021), each through a margin to the
+    revenue it divides by. Its places are REGN's."""
+    case = _case("regn_own_reports_beside_later_comparatives")
+    margin = next(series for series in case["dataset"]["series"] if series["concept"] == "net_margin")
+    points = {point["period"]: point for point in margin["points"]}
+
+    def margin_input(period: str) -> dict:
+        point = points[period]
+        return {**{key: point[key] for key in ("concept", "value", "unit", "period_start", "period_end", "accession")},
+                "provenance": deepcopy(point["provenance"])}
+
+    change = {"version": 1, "method": "calculated", "validation": "passed", "reasons": [], "formula": "percentage_point_change"}
+    points["FY2019"]["yoy_provenance"] = {**change, "inputs": [margin_input("FY2019"), margin_input("FY2018")]}
+    margin.update(window_pp_range="FY2018..FY2021",
+                  window_pp_provenance={**change, "inputs": [margin_input("FY2018"), margin_input("FY2021")]})
+    return {**case, "name": "evidence_under_a_growth_and_a_window_change"}
+
+
+def _evidence_on_inputs_alone() -> dict:
+    """The case of a margin whose input carries a scale finding, less revenue's own evidence: growth still reads n/m
+    across the change, and the evidence sits on net margin's inputs alone, so no figure of the line carries it."""
+    case = _case("a_margin_whose_input_carries_a_scale_finding")
+    _point(case["dataset"], "revenue", "FY2019").pop("first_reported")
+    case["expected"] = {**case["expected"], "values": []}
+    return {**case, "name": "evidence_on_inputs_alone"}
+
+
+LOCAL_CASES = [_deeper_evidence(), _evidence_on_inputs_alone()]
+WIDER = [*CASES, *LOCAL_CASES]
+WIDER_IDS = [case["name"] for case in WIDER]
+
+
 # ---- 1. The line ----------------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("case", CASES, ids=IDS)
+@pytest.mark.parametrize("case", WIDER, ids=WIDER_IDS)
 def test_both_files_print_the_line_with_the_shared_fixtures_places(case):
     line = _expected_line(case["expected"])
     html = _pdf(case["dataset"])
@@ -197,7 +231,7 @@ REGN_REVENUE_2018 = ("First reported as 6,710,800,000 USD in its own annual repo
                      "filing (filed 2021-02-08) reports 5,145,600,000 USD, shown here.")
 
 
-@pytest.mark.parametrize("case", CASES, ids=IDS)
+@pytest.mark.parametrize("case", WIDER, ids=WIDER_IDS)
 def test_every_figure_and_input_with_evidence_gives_the_dialogs_sentence_in_both_files(case):
     dataset = case["dataset"]
     carriers = _carriers(dataset)
@@ -220,6 +254,26 @@ def test_every_figure_and_input_with_evidence_gives_the_dialogs_sentence_in_both
         own = (point.get("first_reported") or {}).get("value")
         words = f"First reported as {own:,.0f} {series['unit']}" if own is not None else "First reported as "
         assert (cell.comment is not None and words in cell.comment.text) is (own is not None), (sheet, cell.coordinate)
+
+
+def test_evidence_two_levels_down_under_a_growth_and_a_window_change():
+    """Each input that carries evidence at any depth, under a YoY's calculation or a window change's, gets its own
+    First reported row in the workbook and its sentence under its own line in the PDF."""
+    dataset = _deeper_evidence()["dataset"]
+    rows = [(row["Period"], row["Entry"], row["Value (raw)"]) for row in _sources(_workbook(dataset))
+            if row["Metric"] == "Net margin" and str(row["Entry"]).endswith("first reported")]
+    assert rows == [("FY2018", "Input 2 first reported", 6_710_800_000), ("FY2019", "Input 2 first reported", 7_863_400_000),
+                    ("FY2019", "Input 1.2 first reported", 7_863_400_000), ("FY2019", "Input 2.2 first reported", 6_710_800_000),
+                    ("FY2018–FY2021", "Input 1.2 first reported", 6_710_800_000)]
+    methods = _methods(_pdf(dataset))
+    margin = methods[methods.index("<h3>Net margin</h3>"):methods.index("<h3>Total assets</h3>")]
+    rows = dict(re.findall(r"<li><strong>([^<]*)</strong>(.*?)(?=<li><strong>|$)", margin, re.S))
+    revenue = r"<li>Input {}: revenue = {} USD \([^)]*\)[^<]*<a [^>]*>Source filing 1</a><ul class=\"operands\"><li>First reported as {} USD "
+    for row, label, shown, own in (("FY2019 · YOY", "1.2", "6557600000.0", "7,863,400,000"),
+                                   ("FY2019 · YOY", "2.2", "5145600000.0", "6,710,800,000"),
+                                   ("FY2018–FY2021 · Window change", "1.2", "5145600000.0", "6,710,800,000")):
+        assert re.search(revenue.format(re.escape(label), re.escape(shown), re.escape(own)), rows[row]), (row, label)
+    assert [rows[row].count("First reported as") for row in ("FY2019 · YOY", "FY2018–FY2021 · Window change")] == [2, 1]
 
 
 def test_the_sentence_names_both_filings_and_the_value_shown():
@@ -389,7 +443,7 @@ def test_a_figure_with_no_value_gives_no_evidence():
 
 
 # ---- 3. The sentences -----------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("case", CASES, ids=IDS)
+@pytest.mark.parametrize("case", WIDER, ids=WIDER_IDS)
 def test_the_closing_and_n_m_sentences_print_where_the_line_and_the_n_m_do(case):
     later, growth = bool(case["expected"]["values"]), bool(case["expected"]["comparisons"])
     html = _pdf(case["dataset"])
