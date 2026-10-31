@@ -3,12 +3,13 @@
  * (E195 (D): the filing page's Financial trends, drawn as /analysis draws its charts). One bar mark in chart-1 over the
  * categories its caller names, every value printed on its bar (A4), on one value axis: an amount in its filer's own
  * currency (a per-share amount too, its tooltip in cents), a percent or a ratio. A category without a value keeps its
- * slot and prints "—", as the analysis charts' bars do. The model is theirs, so layout.ts, readout.ts and the renderer
- * take it as it is, and tests/unit/chart-engine.spec.ts holds it to the same model checks
+ * slot and prints "—", as the analysis charts' bars do. A category can be a context bar (E251): one the chart sets beside
+ * the bars it is about, such as a sector's other companies, in the context ink. The model is theirs, so layout.ts,
+ * readout.ts and the renderer take it as it is, and tests/unit/chart-engine.spec.ts holds it to the same model checks
  * (docs/design/analysis-trend-charts-spec-2026-10.md §0.5). Pure and SSR-safe.
  */
 import { currencySymbol } from '@/lib/format'
-import { AXIS_CAPS, percentPanel, type ChartModel, type ChartPeriod, type Footnote, type ModelMark, type ModelPanel } from './model'
+import { AXIS_CAPS, percentPanel, type ChartModel, type ChartPeriod, type ChartReading, type Footnote, type ModelMark, type ModelPanel } from './model'
 import { valueAxis } from './scale'
 
 /** One bar's slot. */
@@ -19,6 +20,10 @@ export interface BarCategory {
   tick: string
   /** The category's whole name ("FY2025"), the readout's header where its describer names none. */
   long: string
+  /** A context bar (E251): one the chart sets beside the bars it is about, such as a sector's other companies. It paints
+   *  the context ink, never a series colour, at the growth bars' narrower width, the cue colour alone cannot give a
+   *  colour-blind reader (layout.ts). Its mark stays chart-1, so M9's order is the series' own. */
+  context?: true
 }
 
 /** The value axis. A money axis takes its series' XBRL unit, whose currency the amounts carry: "USD", "CNY", or a currency
@@ -38,6 +43,12 @@ export interface BarChartDef {
   footnotes?: Footnote[]
   /** Set when the chart does not apply: one sentence, said at the card's height in place of a plot. */
   unavailable?: string | null
+  /** The category the chart starts at, by key (E251; a ranked company chart's subject): its values stop starts there, and
+   *  a plot that overflows opens with its column in view. Unset, the last category. */
+  start?: string
+  /** What the plot calls its categories (E251; a ranked company chart's companies): its scroll region's name and the
+   *  status a step past either end says. Unset, its periods. */
+  reading?: ChartReading
 }
 
 /** A1's interval cap: the top line's, the one panel of labelled bars on /analysis. */
@@ -73,15 +84,21 @@ export function buildBarChart(def: BarChartDef): ChartModel {
   if (def.series.values.length !== def.categories.length) {
     throw new Error(`buildBarChart ${def.id}: ${def.series.values.length} values for ${def.categories.length} categories`)
   }
+  // A start that names no category would leave the chart opening where its caller did not ask.
+  if (def.start != null && !seen.has(def.start)) throw new Error(`buildBarChart ${def.id}: the start "${def.start}" names no category`)
   // One-line ticks, so the layout's one-line x axis: 'annual' is all layout.ts reads `mode` for. No legend (the card names
   // its one series), no notes band, and no value strip, since every value prints on its bar.
   const periods = def.categories.map(({ key, tick, long }): ChartPeriod => ({ key, tick: [tick], long }))
-  const frame = { id: def.id, title: def.title, subtitle: def.subtitle ?? '', mode: 'annual' as const, periods, legend: [], notesBand: null, strip: [] }
+  const frame = {
+    id: def.id, title: def.title, subtitle: def.subtitle ?? '', mode: 'annual' as const, periods, legend: [], notesBand: null, strip: [],
+    ...(def.start != null ? { start: def.start } : {}),
+    ...(def.reading ? { reading: def.reading } : {}),
+  }
   if (def.unavailable) return { ...frame, panels: [], footnotes: [], unavailable: def.unavailable }
   // chart-1 whatever the metric: one series, so the first slot of A8's order.
   const mark: ModelMark = {
     kind: 'bar', seriesKey: def.series.key, label: def.series.label, color: 0, labelled: true,
-    points: def.categories.map(({ key }, i) => ({ period: key, value: def.series.values[i] })),
+    points: def.categories.map(({ key, context }, i) => ({ period: key, value: def.series.values[i], ...(context ? { context } : {}) })),
   }
   const panel = panelOf(def.axis, mark)
   return {
