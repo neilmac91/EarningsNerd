@@ -28,8 +28,10 @@ error, or the script's start line, which names the run. Those guards and the rea
 reach the database only through libpq's `PGOPTIONS`. An `options` setting in the app engine's
 `connect_args`, a query on the URL the proxy step exports or on the URL the app builds from it, a
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any committed
-script a Cloud SQL step runs (each read from its step's command, not named by hand) or in the modules
-that run the quarterly repair's or the lineage backfill's SQL would replace them, so none may exist.
+file a Cloud SQL step runs through python, bash or sh (each read from its step's command, not named by
+hand; a module, inline code, a file run with no interpreter and a path held in a variable are out of
+reach, each planted in `STEP_SCRIPT_CASES`) or in the modules that run the quarterly repair's or the lineage backfill's SQL
+would replace them, so none may exist.
 The one connection-level event allowed is database.py's `connect` listener that runs each session
 at UTC (E151), held by running it on a recording connection: it sets the time zone and touches
 nothing else, no other statement, attribute or method.
@@ -75,6 +77,9 @@ DB_COMMAND = re.compile(
     r"|\bpython3?\s+ops/summary_readout/readout\.py\b"
 )
 RUNNER_SCRIPT = re.compile(r"(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*(\S*\bscripts/[\w./-]+\.(?:py|sh))")
+# Any file a step runs through an interpreter, wherever it lives: what the listener scan reads. RUNNER_SCRIPT
+# reads only the scripts that also need the dependency install and the SEC budgets.
+STEP_SCRIPT = re.compile(r"(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*(\S+\.(?:py|sh))\b")
 CONNECTION_EVENTS = {"do_connect", "connect", "first_connect", "checkout", "engine_connect", "begin", "after_begin"}
 # The one connection-level listener allowed: database.py's UTC pin (E151), on `connect`, by this name.
 UTC_PIN = ("backend/app/database.py", "connect", "_set_session_time_zone_utc")
@@ -320,18 +325,39 @@ def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
 
 
 def _cloud_sql_scripts() -> list[Path]:
-    """Each committed script a step that can reach Cloud SQL runs (`cloud_sql_reach()`), as RUNNER_SCRIPT
-    reads the step's command, at the path its working directory gives it (E257: a hand-kept list of
-    them missed the ticker repair's)."""
+    """Each committed file a step that can reach Cloud SQL runs (`cloud_sql_reach()`) through python, bash
+    or sh, wherever it lives, as STEP_SCRIPT reads the step's command, at the path its working directory
+    gives it (E257: a hand-kept list of them missed the ticker repair's). A path it cannot find there,
+    a quoted one included, fails the scan."""
     scripts = []
     for _, step in cloud_sql_reach():
-        for script in RUNNER_SCRIPT.findall(step["run"]):
+        for script in STEP_SCRIPT.findall(step["run"]):
             path = next((ROOT / base / script for base in (step.get("working-directory", "."), ".")
                          if (ROOT / base / script).is_file()), None)
             assert path is not None, f"{step['name']!r}: {script} is not committed there"
             if path not in scripts:
                 scripts.append(path)
     return scripts
+
+
+STEP_SCRIPT_CASES = {  # a step's command, and the files STEP_SCRIPT reads from it
+    "a backend script": ("python scripts/repair_ticker_by_cik.py --apply", ["scripts/repair_ticker_by_cik.py"]),
+    "a file outside scripts/": ("python3 ops/summary_readout/readout.py", ["ops/summary_readout/readout.py"]),
+    "a flag before the file": ("python3 -I ops/quarterly_baseline/run.py", ["ops/quarterly_baseline/run.py"]),
+    "a shell script": ("bash scripts/apply_migrations.sh", ["scripts/apply_migrations.sh"]),
+    "a quoted path, read as written, so the scan fails on it": ('python "$DIR/run.py"', ['"$DIR/run.py']),
+    # Gaps: out of reach, as the docstring says.
+    "gap: a module": ("python -m scripts.repair_ticker_by_cik", []),
+    "gap: inline code": ("python3 -c 'import app.database'", []),
+    "gap: a file run with no interpreter": ("./scripts/run.sh", []),
+    "gap: a path held in a variable": ('python3 "$SCRIPT"', []),
+}
+
+
+@pytest.mark.parametrize("case", STEP_SCRIPT_CASES)
+def test_the_script_reading_scores_its_planted_commands(case):
+    command, read = STEP_SCRIPT_CASES[case]
+    assert STEP_SCRIPT.findall(command) == read
 
 
 def _what_it_does(listener) -> list[str]:
@@ -474,8 +500,8 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
 
     scripts = _cloud_sql_scripts()
     assert scripts, "no Cloud SQL step runs a committed script: re-point this scan"
-    listeners = [
-        listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *scripts]
+    listeners = [  # a shell script registers no SQLAlchemy listener, and only Python parses as Python
+        listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *(path for path in scripts if path.suffix == ".py")]
         for listener in _connection_listeners(path)
     ]
     others = [f"{path}:{line} ({event_name}: {handler})" for path, line, event_name, handler in listeners
