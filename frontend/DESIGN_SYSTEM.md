@@ -2435,9 +2435,33 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
                  where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
                  Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
-                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). The launcher and
-                 the coachmark's Try leave with the open, so a keyboard press on either hands focus to the
-                 selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in the pane.
+                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). That move, ⌘K's, a
+                 starter's hand-off and a pre-fill never move the page while the pane settles: the composer takes
+                 focus with preventScroll and is brought into view inside the rail's column only, at the column's
+                 part on screen (below the site header, above the fold and the consent bar), as a citation jump
+                 scrolls only its own boxes (CopilotComposer's revealInScrollBox; chief design on #1813: "A press on
+                 Source should never move the page under the reader"). The desktop pane's height follows its top a
+                 frame late, so its lower part can sit below the fold, and a focus's own scroll moved the page there.
+                 As the column settles or a pre-fill grows the field, the focused composer follows to the column's
+                 foot from each reveal; a reader who scrolls it out of view stops the follow, and no resize restarts
+                 it. Once the pane has settled, the press that opened it on Ask or pre-filled it (Source, ⌘K or "/",
+                 "Ask about this") moves the page once, by the least distance, when the composer's shell is still not
+                 wholly in view below the site header, its ring included: at the foot of a long page under 200% text
+                 the pane opens above the screen, and at the page's top in a short window below the fold
+                 (revealOnPage; chief design on #1845, E252: "Move it once per press or ⌘K. Never move it from a
+                 resize or the follow"). Never in the sheet, never for a starter's hand-off or a tab pressed or
+                 switched back (an open on Filing arms nothing), and not once the reader has moved on: a wheel, a
+                 touch or a click before the pane settles, or a key before the composer takes focus. Gates:
+                 tests/e2e/source-press-keeps-the-page.spec.ts (Source, ⌘K, a pre-fill and a starter with the
+                 composer below the fold until the pane settles; a column that settles shorter; a pre-fill into a
+                 short column; under 200% text the page's foot, its top in short windows and the sheet; the foot at
+                 100% text); tests/unit/copilotFocusKeepsThePage.spec.ts (every focus the pane's code moves passes
+                 preventScroll, or is pinned with why it keeps the browser's scroll; the page moves from one site);
+                 tests/unit/CopilotComposer.spec.tsx and tests/unit/AskCopilotRail.spec.tsx (each path's focus, what
+                 scrolls, and the one page move).
+                 The launcher and the coachmark's Try leave with the open, so a keyboard press on either hands
+                 focus to the selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands
+                 in the pane.
                  Below lg the sheet's trap (useSheetFocusTrap) focuses its first stop, Close, which precedes the
                  tabs, as the sheet opens, whatever opened it; the launcher's or Try's hand-off then finds focus
                  placed and leaves it. For a visitor who can ask, focus moves twice (the tab, or Close below lg,
