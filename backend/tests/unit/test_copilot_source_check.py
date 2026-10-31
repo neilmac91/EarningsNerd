@@ -7,8 +7,8 @@ database". A refusal then fails that step, the runner step is skipped, and the d
 step that ran, counts nothing: a re-run draws once the source is back. The runner keeps the same call before any
 provider call, so a check skipped or removed refuses there instead, at the cost of the head's draw (fail closed).
 These tests pin both placements, that the check refuses what the runner's preflight refuses, that its failure fails
-the step under Actions' bash, and the order of the runner's main(): it refuses, then binds the prepared database,
-then checks the credential. No provider call is made.
+the step under Actions' bash, and the order of the runner's main(): it runs the preflight, then binds the prepared
+database, then checks the credential. No provider call is made.
 """
 from __future__ import annotations
 
@@ -234,7 +234,9 @@ def test_the_runner_binds_its_settings_to_the_prepared_database(tmp_path):
             f'sys.argv = ["copilot_runner", "--preparation", {str(path)!r}, "--output", {str(output)!r}]\n'
             'try:\n    runpy.run_module("evals.copilot_runner", run_name="__main__")\n'
             'except SystemExit as stop:\n    assert stop.code == 1, stop.code\n'
-            '    print(sys.modules["app.config"].settings.DATABASE_URL)')
+            # Only a SQLite URL is printed: a server URL from a local backend/.env may carry a password.
+            '    url = sys.modules["app.config"].settings.DATABASE_URL\n'
+            '    print(url if url.startswith("sqlite:") else "a DATABASE_URL other than SQLite")')
     result = subprocess.run([sys.executable, "-c", code], cwd=Path(runner.__file__).resolve().parents[1], env=env,
                             capture_output=True, text=True, timeout=60)
     prepared = runner.validate_preparation(path, cases)["database_path"]
