@@ -37,7 +37,7 @@ from app.services.analysis_export_metadata import (
     disagreement_sentence, evidence_lines, first_reported_sentence, growth_text, later_filing_entry, pdf_closing,
     workbook_closing,
 )
-from app.services.excel_export_service import build_analysis_workbook
+from app.services.excel_export_service import _LINE_PANELS, build_analysis_workbook
 from app.services.export_service import ExportService
 from app.services.trend_analysis.data_notes import data_notes, marks_figure
 from tests.unit.test_export_note_marks import pdf_letters, workbook_letters
@@ -136,6 +136,24 @@ def _carriers(dataset: dict) -> list[dict]:
     return found
 
 
+def _figure_cells(book, dataset: dict) -> list[tuple]:
+    """Every workbook cell that shows a figure, as (sheet, cell, series, period): the Metrics grid's, and the sheets with
+    charts', each column read from its header (the top line's by its label, a panel's through _LINE_PANELS)."""
+    periods = [period["key"] for period in dataset["periods"]]
+    by_label = {series["label"]: series for series in dataset["series"]}
+    by_concept = {series["concept"]: series for series in dataset["series"]}
+    panels = {title: {label: concept for concept, label in concepts} for title, concepts in _LINE_PANELS}
+    cells = [("Metrics", book["Metrics"].cell(row, 4 + offset), series, period)
+             for row, series in enumerate(dataset["series"], start=2) for offset, period in enumerate(periods)]
+    for sheet in book.worksheets[3:]:
+        header = [cell.value for cell in sheet[1]]
+        columns = ([by_concept[panels[sheet.title][name]] for name in header[1:]] if sheet.title in panels
+                   else [by_label[header[1]]])  # the top line's sheet: Period, its figure, then its YoY growth
+        cells += [(sheet.title, sheet.cell(row, column), series, period)
+                  for column, series in enumerate(columns, start=2) for row, period in enumerate(periods, start=2)]
+    return cells
+
+
 # ---- 1. The line ----------------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("case", CASES, ids=IDS)
 def test_both_files_print_the_line_with_the_shared_fixtures_places(case):
@@ -193,16 +211,15 @@ def test_every_figure_and_input_with_evidence_gives_the_dialogs_sentence_in_both
         for first in (carrier["first_reported"] for carrier in carriers))
     for row in rows:
         assert (row["Method"], row["Note"].startswith("First reported as ")) == ("reported", True), row
-    # Each figure's cell in Metrics, and in any sheet with a chart that shows it, carries the sentence.
-    metrics = book["Metrics"]
-    periods = [period["key"] for period in dataset["periods"]]
-    for row_index, series in enumerate(dataset["series"], start=2):
-        for offset, period in enumerate(periods):
-            point = next((point for point in series["points"] if point["period"] == period), {})
-            comment = metrics.cell(row_index, 4 + offset).comment
-            own = (point.get("first_reported") or {}).get("value")
-            words = f"First reported as {own:,.0f} {series['unit']}" if own is not None else "First reported as "
-            assert (comment is not None and words in comment.text) is (own is not None), (series["concept"], period)
+    # Each cell that shows a figure carries the sentence exactly where the figure carries the evidence: in Metrics, on
+    # the top line's sheet and on each line panel's.
+    shown = _figure_cells(book, dataset)
+    assert {sheet for sheet, *_ in shown} == {"Metrics", *(sheet.title for sheet in book.worksheets[3:])}
+    for sheet, cell, series, period in shown:
+        point = next((point for point in series["points"] if point["period"] == period), {})
+        own = (point.get("first_reported") or {}).get("value")
+        words = f"First reported as {own:,.0f} {series['unit']}" if own is not None else "First reported as "
+        assert (cell.comment is not None and words in cell.comment.text) is (own is not None), (sheet, cell.coordinate)
 
 
 def test_the_sentence_names_both_filings_and_the_value_shown():
