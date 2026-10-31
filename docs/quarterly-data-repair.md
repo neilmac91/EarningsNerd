@@ -304,10 +304,10 @@ report behind them. Read `made_unavailable` row by row in `changes`: each such f
 pages. Read the other corrections against a baseline: a read-only preview of the same tickers on the
 commit before the step, `80fa90d4`, run by the CTO's guarded operation from its immutable source (#1838,
 the [recovered pre-step baseline](#recovered-pre-step-baseline-for-e211)), not a plain dry run on main,
-which includes the step since #1667 merged (`1f56928d`). It runs old source against current data, so it
-cannot recreate a pre-merge snapshot. The step's own dry run and its apply follow on the merged head,
-with #1840's fixes. A company only set 5 names is first known after the merge (set 5 is new with the
-step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
+which includes the step since #1667 merged (`1f56928d`). That operation runs old source against current
+data, so it cannot recreate a pre-merge snapshot. The step's own dry run and its apply follow on the
+merged head, with #1840's fixes. A company only set 5 names is first known after the merge (set 5 is new
+with the step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
 
 **A company synced since #1682.** A sync since #1682 was deployed (2026-10-28 23:13Z) also stores, for
 each year a later report restated, the year's own report's figure as a non-current history row at that
@@ -575,9 +575,10 @@ This measures old source against the data and SEC payloads available when it run
 recreate a pre-merge database snapshot, and installing pinned requirements on a runner is
 not a byte-for-byte reproduction of the old container. Keep the source receipt, execution
 time and each company's payload hash with the comparison; avoid intervening fact writes
-between paired previews. After the corrected proxy step lands, run detection set 5, preview
-the union cohort and compare its ordinary corrections with this baseline before proposing
-the whole-company apply. The apply retains its separate founder approval on the run page.
+between paired previews. With the corrected proxy step now on main (#1840), run detection
+set 5, preview the union cohort and compare its ordinary corrections with this baseline
+before proposing the whole-company apply. The apply retains its separate founder approval
+on the run page.
 
 ## Audited rollback
 
