@@ -14,7 +14,8 @@ import { API_ORIGIN, PANE, SUMMARY, answerApi } from './fixtures/filing3Api'
  * keeps it where it was too, and so do the two other ways the rail hands focus to its composer: an "Ask about this"
  * pre-fill and a starter pressed from the keyboard. Then the cell is held shorter than the column's content, as the
  * pane settles at a large text size: the focused composer keeps to the column's foot, and once the reader scrolls the
- * column away from it, the column stays where they put it.
+ * column away from it, the column stays where they put it. Last, a pre-fill into a column that ends above the composer:
+ * the field grows after it takes focus, and the column follows the grown shell to its foot.
  */
 
 // A completed answer with no citations, in the wire shape copilot-api.ts admits (copilot-status-line.spec.ts).
@@ -107,7 +108,7 @@ test.describe('a press on Source keeps the page / 1100x800, a Pro reader on /fil
     await openFiling(page, baseURL!, 2400)
     // The summary's lead paragraph selected, as a reader's drag leaves it.
     const passage = page.getByRole('main', { name: 'Filing research' }).getByText(LEAD, { exact: true })
-    expect((await passage.boundingBox())!.y, 'the passage is on screen').toBeLessThan(700)
+    await expect(passage, 'the passage is on screen').toBeInViewport()
     await passage.evaluate((p) => {
       const range = document.createRange()
       range.selectNodeContents(p)
@@ -132,7 +133,7 @@ test.describe('a press on Source keeps the page / 1100x800, a Pro reader on /fil
     await page.keyboard.press('Shift+Tab')
     const starter = page.locator(PANE).locator(':focus')
     await expect(starter).toHaveText(/\?$/)
-    expect((await starter.boundingBox())!.y, 'the starter is on screen').toBeLessThan(700)
+    await expect(starter, 'the starter is on screen').toBeInViewport()
     await page.keyboard.press('Enter')
     await expect(composer, 'the starter hands focus to the composer').toBeFocused()
     await expect(page.locator(PANE).getByText(ANSWER.answer)).toBeVisible()
@@ -176,6 +177,37 @@ test.describe('a press on Source keeps the page / 1100x800, a Pro reader on /fil
     expect(kept.scrollTop, "the reader's place in the column").toBe(0)
     expect(kept.shellFoot, 'the composer is still below the column, where the reader left it').toBeGreaterThan(kept.foot)
     await expect(composerIn(page)).toBeFocused()
+    expect(await scrollY(page), 'the page never moved').toBe(0)
+  })
+
+  test("a pre-fill into a short column keeps the grown field's foot in view", async ({ page, baseURL }) => {
+    // The column ends above the composer from the start. The pre-fill reveals the one-line field, then the field grows
+    // to fit the excerpt a task later, before the column reports the reveal's own scroll: that scroll is not the
+    // reader's, and the column follows the grown shell to its foot.
+    await openFiling(page, baseURL!, 320)
+    const passage = page.getByRole('main', { name: 'Filing research' }).getByText(LEAD, { exact: true })
+    await expect(passage).toBeInViewport()
+    await passage.evaluate((p) => {
+      const range = document.createRange()
+      range.selectNodeContents(p)
+      window.getSelection()!.removeAllRanges()
+      window.getSelection()!.addRange(range)
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+    const ask = page.getByRole('button', { name: 'Ask about this', exact: true })
+    await expect(ask).toBeVisible()
+    const action = (await ask.boundingBox())!
+    await page.mouse.click(action.x + action.width / 2, action.y + action.height / 2)
+    const composer = composerIn(page)
+    await expect(composer).toBeFocused()
+    await expect(composer).toHaveValue(/^Explain this excerpt: "/)
+    await twoFrames(page)
+    await twoFrames(page)
+    const grown = await composer.evaluate((field) => field.getBoundingClientRect().height)
+    expect(grown, 'the field grew past one line').toBeGreaterThan(40)
+    const settled = await column(page)
+    expect(settled.shellFoot, "the grown shell ends inside the column").toBeLessThanOrEqual(settled.foot)
+    expect(settled.shellFoot, '... at its foot').toBeGreaterThan(settled.foot - 8)
     expect(await scrollY(page), 'the page never moved').toBe(0)
   })
 })

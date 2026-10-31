@@ -1,4 +1,4 @@
-# Move focus into a pane with preventScroll, and bring its target into view inside the box that scrolls it, never the page
+# Move focus into a pane with preventScroll, and reveal its target inside the box that scrolls it, never the page
 
 Date: 2026-10-30   Area: frontend
 
@@ -17,14 +17,17 @@ nearest scroll container, the least distance, never the page. Use `revealInScrol
 same shape (`highlightInDom`'s `revealWithin` for the reader, `AlertBell`'s `revealFocusIn` for its panel). Never
 `scrollIntoView` for it: that scrolls every ancestor.
 
-(b) The box can still change size after the reveal, as a pane settles: keep a target that stood in view at the box's
-nearest edge while focus stays in it (a ResizeObserver on the box), and leave one the reader scrolled away where they
-put it.
+(b) The box and the target can still change size after the reveal, as a pane settles or a pre-fill grows the field:
+while focus stays in the target, bring it back to the box's nearest edge on each resize (a ResizeObserver on both), but
+only while it follows. A reveal starts the follow, and so do the reader's scroll and focus moving in once the target is
+in view; the reader's scroll that takes it out of view stops it, and a resize never starts it again. A reveal's own
+scroll reaches the box's listener a frame late, maybe after the target has grown: read a scroll to where the reveal left
+the box as the reveal's, not the reader's.
 
 (c) A focus the user moves (Tab, the arrow keys between tabs, Escape's return) keeps the browser's scroll, which brings
 the next control into view where a keyboard user needs it, and so does a dialog's own focus (ui/Modal, the phone's
-sheet). Whether a press should move the page when the pane itself is off-screen, at the foot of a long page, is chief
-design's call on E248's pull request.
+sheet). Whether a press should move the page when the pane itself is off-screen, at the foot of a long page under 200%
+text, is chief design's call (`tasks/todo.md` E252).
 
 (d) Prove it in a real browser with the target held below the fold, on each path that hands focus over. In jsdom,
 record each focus's options and the scroll box's scrollTop writes, and watch the page's own scroll
@@ -32,7 +35,8 @@ record each focus's options and the scroll box's scrollTop writes, and watch the
 
 **Evidence**: `frontend/features/filings/components/copilot/CopilotComposer.tsx` (`revealInScrollBox`, the handle and
 the resize effect). `frontend/tests/e2e/source-press-keeps-the-page.spec.ts` failed on main: the press moved the page
-from 0 to 2,142px; it also covers ⌘K, an "Ask about this" pre-fill, a starter pressed from the keyboard, and a column
-that settles shorter. `frontend/tests/unit/copilotFocusKeepsThePage.spec.ts` gates (a) for the pane's folder.
+from 0 to 2,142px; it also covers ⌘K, an "Ask about this" pre-fill, a starter pressed from the keyboard, a column that
+settles shorter, and a pre-fill into a short column. `frontend/tests/unit/copilotFocusKeepsThePage.spec.ts` gates (a)'s
+preventScroll half for the pane's folder and its launcher hand-off.
 `frontend/tests/unit/CopilotComposer.spec.tsx` and `AskCopilotRail.spec.tsx` ("focuses its composer without moving the
 page (E248)"). `frontend/DESIGN_SYSTEM.md` §4, Source pane.

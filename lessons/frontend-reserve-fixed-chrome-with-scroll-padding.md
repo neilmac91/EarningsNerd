@@ -33,4 +33,4 @@ scrolled first would not have.
 it to `0px` fails it — the repository's one mutation demonstration is the bar's `z-consent` → `z-50`); `frontend/tests/e2e/consent-bar-yields.spec.ts` `expectComposerClear` (desktop: waits for the
 pane's measurement frame, then the pane's bottom ≤ the bar's top and the composer hits itself);
 harness jobs `A2after-launcher-click-pane-1440-pro`, `-1280x600-pro` in
-`tasks/critique-env-2026-10-04/jobs-en02.json` (scrollY 480 / 330 after the click, composer clear).
+`tasks/critique-env-2026-10-04/jobs-en02.json` (before E248: scrollY 480 / 330 after the click, composer clear).

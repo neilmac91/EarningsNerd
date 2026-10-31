@@ -6,14 +6,17 @@
    own scroll moves every scrolling ancestor, the page included, so the press on
    Source that focused the composer moved the page under the reader (E248; chief
    design on #1813: "A press on Source should never move the page under the
-   reader"). A focus the pane's code moves passes `{ preventScroll: true }` and
-   brings its target into view inside the box that scrolls it, never the page
-   (CopilotComposer's revealInScrollBox;
-   lessons/frontend-programmatic-focus-never-moves-the-page.md).
+   reader"). A focus the pane's code moves passes `{ preventScroll: true }`;
+   the composer then brings its shell into view inside its column, never the
+   page (CopilotComposer's revealInScrollBox;
+   lessons/frontend-programmatic-focus-never-moves-the-page.md). This gate reads
+   the preventScroll half.
 
-   Sites: every call of a member named `focus` in the folder, `?.` included. It
-   passes when its first argument is an object literal holding
-   `preventScroll: true`. The rail's calls on `composerRef.current` are the
+   Sites: every call of a member named `focus` in the folder and in the pane's
+   launcher hand-off (hooks/useFocusHandoff.ts), `?.` included, and every
+   `autoFocus` attribute, which React focuses with the browser's own scroll. A
+   call passes when its first argument is an object literal holding
+   `preventScroll: true` and no spread. The rail's calls on `composerRef.current` are the
    composer's handle, whose field takes focus that way; each file that calls it
    holds composerRef as a `useRef<CopilotComposerHandle>`. Any other site is
    pinned here by file, with why its focus keeps the browser's scroll: a focus
@@ -23,8 +26,9 @@
    its close returns focus to the control that opened it.
    And no code in the folder names scrollIntoView or scrollIntoViewIfNeeded,
    which scroll every ancestor; a comment may.
-   Read strictly, and planted: options held in a variable or spread in, a
-   shorthand `preventScroll`, and `preventScroll: false` do not count as passing.
+   Read strictly, and planted: options held in a variable or spread in (a spread
+   after `preventScroll: true` can undo it), a shorthand `preventScroll`, and
+   `preventScroll: false` do not count as passing.
    Missed, stated: a focus passed as a value (`requestAnimationFrame(el.focus)`),
    and a focus moved from outside the folder (ui/Modal's, the reader's).
 ============================================================================= */
@@ -37,6 +41,7 @@ import { parse, sourceFiles } from './classListScan'
 
 const ROOT = path.join(__dirname, '../..')
 const PANE = 'features/filings/components/copilot'
+const HANDOFF = 'hooks/useFocusHandoff.ts'
 const HANDLE = 'composerRef.current'
 const ANCESTOR_SCROLLS = new Set(['scrollIntoView', 'scrollIntoViewIfNeeded'])
 const USER = 'a focus the user moves, which the browser brings into view as a native Tab would:'
@@ -85,6 +90,7 @@ function sitesIn(source: string, fileName: string): Sites {
     return (
       !!options &&
       ts.isObjectLiteralExpression(options) &&
+      !options.properties.some(ts.isSpreadAssignment) &&
       options.properties.some(
         (p) =>
           ts.isPropertyAssignment(p) &&
@@ -102,6 +108,7 @@ function sitesIn(source: string, fileName: string): Sites {
         else sites.unprevented += 1
       }
     }
+    if (ts.isJsxAttribute(node) && node.name.getText(sourceFile) === 'autoFocus') sites.unprevented += 1
     if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && ANCESTOR_SCROLLS.has(node.text)) {
       sites.ancestorScrolls.push(node.text)
     }
@@ -111,7 +118,7 @@ function sitesIn(source: string, fileName: string): Sites {
   return sites
 }
 
-const files = sourceFiles(ROOT, [PANE])
+const files = [...sourceFiles(ROOT, [PANE]), HANDOFF]
 const scanned = Object.fromEntries(
   files.map((file) => [file, { source: fs.readFileSync(path.join(ROOT, file), 'utf8'), sites: sitesIn(fs.readFileSync(path.join(ROOT, file), 'utf8'), file) }]),
 )
@@ -121,6 +128,7 @@ describe('a focus the pane moves keeps the page (E248)', () => {
     expect(files.length).toBeGreaterThan(10)
     expect(files).toContain(`${PANE}/CopilotComposer.tsx`)
     expect(files).toContain(`${PANE}/AskCopilotRail.tsx`)
+    expect(scanned[HANDOFF].sites).toMatchObject({ unprevented: 0, prevented: 2 })
   })
 
   it("every focus the pane's code moves passes preventScroll, or is pinned with why it keeps the browser's scroll", () => {
@@ -128,7 +136,8 @@ describe('a focus the pane moves keeps the page (E248)', () => {
       Object.entries(scanned).flatMap(([file, { sites }]) => (sites.unprevented ? [[file, sites.unprevented]] : [])),
     )
     expect(unprevented).toEqual(Object.fromEntries(Object.entries(ALLOW).map(([file, { sites }]) => [file, sites])))
-    for (const { reason } of Object.values(ALLOW)) expect(reason.length).toBeGreaterThan(40)
+    // Each reason names its own focus beyond the shared opening.
+    for (const { reason } of Object.values(ALLOW)) expect(reason.replace(USER, '').trim().length).toBeGreaterThan(40)
   })
 
   it("the rail's focus goes through the composer's handle, whose field takes focus with preventScroll", () => {
@@ -157,8 +166,11 @@ describe('a focus the pane moves keeps the page (E248)', () => {
       'el.focus({ preventScroll: false })',
       'el.focus(options)',
       'el.focus({ ...options })',
+      'el.focus({ preventScroll: true, ...options })',
       'el.focus({ preventScroll })',
       'other.current?.focus()',
+      'const field = <textarea autoFocus />',
+      'const field = <input autoFocus={open} />',
     ]) {
       expect(planted(strict), strict).toMatchObject({ prevented: 0, unprevented: 1 })
     }

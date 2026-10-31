@@ -2439,9 +2439,10 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  only its own boxes (CopilotComposer's revealInScrollBox; chief design on #1813: "A press on Source
                  should never move the page under the reader"). The desktop pane's height follows its top a frame
                  late, so its lower part can sit below the fold, and a focus's own scroll moved the page there. As
-                 the column settles, a focused composer that stood in view keeps to its foot; one the reader
-                 scrolled away stays where they put it. Gates: tests/e2e/source-press-keeps-the-page.spec.ts (each
-                 path with the composer below the fold, and a column that settles shorter);
+                 the column settles or a pre-fill grows the field, the focused composer follows to the column's foot
+                 from each reveal; a reader who scrolls it out of view stops the follow, and no resize restarts it.
+                 Gates: tests/e2e/source-press-keeps-the-page.spec.ts (Source, ⌘K, a pre-fill and a starter with
+                 the composer below the fold; a column that settles shorter; a pre-fill into a short column);
                  tests/unit/copilotFocusKeepsThePage.spec.ts (every focus the pane's code moves passes
                  preventScroll, or is pinned with why it keeps the browser's scroll);
                  tests/unit/CopilotComposer.spec.tsx and tests/unit/AskCopilotRail.spec.tsx (each path's focus,

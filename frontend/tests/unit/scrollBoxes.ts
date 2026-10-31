@@ -74,7 +74,8 @@ export function watchThePage() {
 }
 
 /** ResizeObservers that report when a spec says so: `resize(el)` runs each one watching `el`, as the browser does once
- *  `el` changes size. Install before render; `restore` brings back the setup's observer. */
+ *  `el` changes size. Unlike the browser's, they send no first report as they start observing. Install before render;
+ *  `restore` puts back the observer the setup installed. */
 export function watchResizes() {
   let watching: { target: Element; observer: ResizeObserver; callback: ResizeObserverCallback }[] = []
   class Observer {
@@ -89,11 +90,14 @@ export function watchResizes() {
       watching = watching.filter((w) => w.observer !== (this as unknown))
     }
   }
-  vi.stubGlobal('ResizeObserver', Observer)
+  const setup = globalThis.ResizeObserver
+  globalThis.ResizeObserver = Observer as unknown as typeof ResizeObserver
   return {
     resize: (el: Element) => {
       for (const { target, observer, callback } of watching) if (target === el) callback([], observer)
     },
-    restore: () => vi.unstubAllGlobals(),
+    restore: () => {
+      globalThis.ResizeObserver = setup
+    },
   }
 }

@@ -265,6 +265,69 @@ describe('CopilotComposer keeps a focused composer in view as its column settles
     }
   })
 
+  it("a field that grows before the column reports the reveal's own scroll keeps following, in the browser's order", () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, shell, box, column, growShell } = renderInColumn()
+      act(() => ref.current?.prefill('A long excerpt '.repeat(20)))
+      expect(column.writes).toEqual([70])
+      // React grows the field in a task after the frame; the next frame reports the reveal's scroll, then the resize.
+      growShell(126)
+      fireEvent.scroll(box)
+      resizes.resize(shell)
+      expect(column.writes).toEqual([70, 146])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
+  it('a resize that uncovers a composer the reader scrolled away leaves it where they put it', () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { ref, box, column } = renderInColumn()
+      ref.current?.focus()
+      column.set(0)
+      fireEvent.scroll(box)
+      // The page scrolls and the unstuck pane grows to show the shell, then shrinks back: the column stays at the top.
+      column.resize(400)
+      resizes.resize(box)
+      column.resize(300)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70])
+      expect(column.scrollTop).toBe(0)
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
+  it('focus moving into a shell in view starts the follow again', () => {
+    const resizes = watchResizes()
+    const page = watchThePage()
+    try {
+      const { field, box, column } = renderInColumn()
+      screen.getByRole('button', { name: 'elsewhere' }).focus()
+      // Scrolled away, then uncovered by a taller column: the reader clicks into the field and types.
+      column.set(0)
+      fireEvent.scroll(box)
+      column.resize(400)
+      resizes.resize(box)
+      field.focus()
+      column.resize(300)
+      resizes.resize(box)
+      expect(column.writes).toEqual([70])
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      resizes.restore()
+    }
+  })
+
   it('with focus elsewhere, a resize moves nothing', () => {
     const resizes = watchResizes()
     const page = watchThePage()

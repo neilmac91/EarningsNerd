@@ -59,6 +59,7 @@ function distanceToReveal(el: HTMLElement, box: HTMLElement) {
 function revealInScrollBox(el: HTMLElement, box = scrollBoxOf(el)) {
   const by = box ? distanceToReveal(el, box) : 0
   if (box && by) box.scrollTop += by
+  return box
 }
 
 /**
@@ -73,15 +74,17 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const shellRef = useRef<HTMLDivElement>(null)
-  // Whether the shell stood in view in its box the last time either moved: a reveal leaves it there, and the reader's
-  // own scroll of the box can take it away.
-  const shownRef = useRef(true)
+  // Whether the shell follows its box as the box or the shell changes size (the effect below), and the scrollTop the
+  // composer's own reveal last left the box at.
+  const followRef = useRef(true)
+  const placedRef = useRef<number | null>(null)
 
   useImperativeHandle(ref, () => {
     const reveal = () => {
       if (!shellRef.current) return
-      revealInScrollBox(shellRef.current)
-      shownRef.current = true
+      const box = revealInScrollBox(shellRef.current)
+      if (box) placedRef.current = box.scrollTop
+      followRef.current = true
     }
     // preventScroll, then the shell (the ring's box, as revealFocus brings) into view inside its column: the page stays.
     const focusField = (el: HTMLTextAreaElement) => {
@@ -114,25 +117,36 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
 
   // The box and the shell can still change size under a focused composer: the desktop pane's height follows its top a
   // frame late, the text size or the consent bar can shrink it later, and a pre-fill grows the field after it takes
-  // focus. A shell that stood in view comes back to the box's nearest edge each time, while focus is in the composer;
-  // one the reader scrolled away stays where they put it.
+  // focus. While the shell follows, each change brings it back to the box's nearest edge if focus is in the composer.
+  // A reveal starts the follow, and so do the reader's scroll and focus moving in, once the shell is in view; the
+  // reader's scroll that takes it out of view stops it, and a resize never starts it again: the reader's place is theirs.
   useEffect(() => {
     const shell = shellRef.current
     const box = shell && scrollBoxOf(shell)
     if (!shell || !box || typeof ResizeObserver === 'undefined') return
-    const look = () => {
-      shownRef.current = Math.abs(distanceToReveal(shell, box)) < 1
+    const inView = () => Math.abs(distanceToReveal(shell, box)) < 1
+    // A reveal's own scroll is reported a frame late, and a pre-fill can grow the field before it is: a scroll to where
+    // the composer left the box is that reveal's, and keeps the follow.
+    const onScroll = () => {
+      const placed = placedRef.current
+      followRef.current = (placed !== null && Math.abs(box.scrollTop - placed) < 1) || inView()
+    }
+    const onFocusIn = () => {
+      if (inView()) followRef.current = true
     }
     const observer = new ResizeObserver(() => {
-      if (shownRef.current && shell.contains(document.activeElement)) revealInScrollBox(shell, box)
-      look()
+      if (!followRef.current || !shell.contains(document.activeElement)) return
+      revealInScrollBox(shell, box)
+      placedRef.current = box.scrollTop
     })
     observer.observe(box)
     observer.observe(shell)
-    box.addEventListener('scroll', look, { passive: true })
+    box.addEventListener('scroll', onScroll, { passive: true })
+    shell.addEventListener('focusin', onFocusIn)
     return () => {
       observer.disconnect()
-      box.removeEventListener('scroll', look)
+      box.removeEventListener('scroll', onScroll)
+      shell.removeEventListener('focusin', onFocusIn)
     }
   }, [])
 
