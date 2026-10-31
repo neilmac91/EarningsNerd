@@ -84,8 +84,10 @@ file instead.
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`,
   `test_ops_readback_allow_rules.py` and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
-  `test_codex_mention_guard.py`, `test_secret_scan_guard.py` and `test_ops_approval_guard.py` (both
-  hooks reuse the first one's shell reader); a `tasks/todo.md` change also runs
+  `test_codex_mention_guard.py`, `test_secret_scan_guard.py`, `test_ops_approval_guard.py` and
+  `test_codex_review_overlap_guard.py` (the other three hooks reuse the first one's shell reader); a
+  `backend/scripts/review_gate.py` change also runs `test_codex_review_overlap_guard.py`, whose hook
+  reads through the gate's functions; a `tasks/todo.md` change also runs
   `test_review_gate.py`, which reads its open rows' owners; a `tasks/todo.md`, `lessons/` or
   `.claude/workflows/` change also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/`
   change also runs that script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
@@ -167,7 +169,11 @@ Other tools Codex and Astra do not have, and what to do instead:
   before every push, as `lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md`'s Rule
   says, whatever `core.hooksPath` names: a path can name a hook that has gone (a moved clone's, or a
   main checkout's at a commit from before E134), and CI's `secret-scan` reads the commits only after
-  the push.
+  the push. Nor does `.claude/hooks/codex_review_overlap_guard.py` hold your ready marks and review
+  requests: before either, read the pull request's Codex summary, and while it shows a review Running,
+  wait until that review completes or is an hour old; after a ready mark or review request of the last
+  five minutes that its row does not show yet (compare the row's time), wait until it does or the five
+  minutes have passed (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
 - **No background monitors.** After merging a PR touching deployable backend files (`backend/`
   outside `backend/tests/`): find the run (`gh run list --workflow ci.yml --branch main --event push -L 1`,
   or the unauthenticated `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`),
