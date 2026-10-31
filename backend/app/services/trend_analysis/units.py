@@ -17,8 +17,8 @@ class IncompatibleUnitsError(ValueError):
     """The dataset refusal for figures that do not share one unit. The routes send its message as they send every
     dataset refusal (a ValueError: the dataset route's 400, the stream's error event). An export rebuilds a dataset the
     page built, so it answers 409 (the data changed since): the xlsx route when the request names the page's snapshot,
-    the PDF route through its re-run check. ``code`` is the stable domain code for the analysis routes' error adapter
-    once the shared error vocabulary (E31) lands."""
+    the PDF route through its re-run check. ``code`` is a domain label only, not an E31 wire code: the contract's §3
+    (docs/audit/contracts/error-codes.md) registers no code for this refusal, so the routes send it uncoded."""
 
     code = "analysis_incompatible_units"
 
