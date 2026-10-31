@@ -164,8 +164,8 @@ def _scale_up_stands(value: Any, authority: float | None) -> bool:
     off, in opposite directions), is not on the value's. Nor is a figure of the other sign, or one of zero: the rest of
     sets 4 and 5 read a zero 10-K figure as a figure (``_authority`` returns it, ``_agrees`` and ``cross_check_facts``
     compare against it), so its row takes set 4's ordinary path too. There a nonzero original more than 1% off it
-    refuses the company, unless a report row backs the row and it is not the company's current figure: then the row
-    is left and listed."""
+    refuses the company, unless no proxy figure holds its value (left, verdict ``no_proxy_figure``), or a report row
+    backs the row and it is not the company's current figure (left and listed)."""
     if authority is None:
         return True
     a, v = _exact(authority), _exact(value)
