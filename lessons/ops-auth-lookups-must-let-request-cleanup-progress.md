@@ -17,8 +17,9 @@ other until the pool timed out, with the same uncited figure. Login has released
 password verification since 2026-10-20 (E121), and password reset and change since #1727 (E121's
 reset-and-change slice). Since E97 (2026-10-30), all password hashing and verification runs through
 `password_utils.in_password_thread`: one dedicated thread for Argon2id writes and Argon2id or legacy
-bcrypt checks. A registration that validates an invite can still hold its connection during that
-await, but password work no longer waits for the loop's default executor.
+bcrypt checks, and since E121's register family (2026-10-31) a registration that validates an invite
+releases that read before the breached-password check and the hash, so no auth route holds a connection
+across a password wait.
 
 **Rule.** The authentication dependencies await their blocking lookup through
 `run_in_threadpool`. The Copilot's tool calls and claim-repair lookup await theirs through
@@ -37,9 +38,9 @@ progress; it does not establish safe fleet concurrency or guarantee that every b
 satisfy its timeout. The off-the-loop rule and its gates cover only these sites; the default-executor
 listing covers each `asyncio.to_thread` and positional `run_in_executor(None, …)` call under `app/` and
 in the backend's top-level modules, and its docstring names the forms it cannot see. Other async code still
-makes blocking lookups on the loop (the async route body of `register`, E121's last, and the `/internal` trigger
-helpers' flag-off jobs, E150; `verify_email` moved its unit into the thread pool in E121, and the
-`filing_list_service.refresh_company_filings` background task in E123); those are known and review-checked.
+makes blocking lookups on the loop (the `/internal` trigger helpers' flag-off jobs, E150; `verify_email` and
+`register`, E121's last two, moved their units into the thread pool in E121, which leaves `ON_LOOP_CEILINGS` empty, and
+the `filing_list_service.refresh_company_filings` background task in E123); those are known and review-checked.
 
 **Evidence.** `backend/app/services/auth_account_service.py::find_user_by_email` (the lookup,
 moved out of the router as `_lookup_auth_user` in 2026-10), awaited through `run_in_threadpool`
