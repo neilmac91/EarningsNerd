@@ -10,11 +10,12 @@ import { describe, expect, it } from 'vitest'
  *     git-grep.md): every kind (scripts, configs, the manifest, docs, tests), comments included, so prose names the
  *     library Recharts; a tracked path missing from the working tree is skipped, as git grep skips it. A name is the
  *     package's whole lower-case name, alone, quoted, as a path segment or versioned (`recharts@3.10.1`), never a
- *     longer one. Two files are read for control: this gate and tests/e2e/no-recharts-in-build.spec.ts plant its
- *     forms, so the read must find exactly them. The lockfile is left to 3, since it may name the package without
- *     installing it (another package's optional peer).
+ *     longer one. One file is read for control: this gate plants its forms, so the read must find exactly it (the
+ *     build scan's planted script spells the name at run time, so its spec names nothing). The lockfile is left to 3,
+ *     since it may name the package without installing it (another package's optional peer).
  *  2. The parse of every script outside the test homes: each string it holds as the parser cooks it, escapes decoded,
- *     so `'re\x63harts'` is the name 1 cannot see; and each load no string shows, an `import()` or `require()` of a
+ *     so `'re\x63harts'` is the name 1 cannot see, and a JSX attribute's or text's numeric character reference decoded as
+ *     the browser decodes it (`re&#x63;harts`), which the parser leaves as written; and each load no string shows, an `import()` or `require()` of a
  *     computed specifier or a folder loader (`require.context()`, `import.meta.webpackContext()`,
  *     `import.meta.glob()`), cast or bare (lessons/test-gates-must-be-as-wide-as-their-rule.md: the widening keeps the
  *     old reading beside the new). A file either reading finds is reported once.
@@ -27,10 +28,9 @@ import { describe, expect, it } from 'vitest'
  *  that arrives those ways ships, so tests/e2e/no-recharts-in-build.spec.ts reads the production build's scripts for
  *  Recharts' class names. */
 
-/** This gate's own file and the build scan's: the tracked files that plant the package's name, for control. */
+/** This gate's own file: the one tracked file that plants the package's name, for control. */
 const SELF = 'tests/unit/rechartsImporters.spec.ts'
-const BUILD_SCAN = 'tests/e2e/no-recharts-in-build.spec.ts'
-const PLANTED_HOMES = [BUILD_SCAN, SELF]
+const PLANTED_HOMES = [SELF]
 const LOCKFILE = 'package-lock.json'
 const SCRIPT = /\.(?:[cm]?[jt]sx?)$/
 const FOLDER_LOADERS = ['context', 'webpackContext', 'glob']
@@ -53,8 +53,14 @@ function parse(fileName: string, source: string): { names: string[]; opaque: str
     || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node) ? bare(node.expression) : node)
   const isRequire = (node: ts.Expression) => { const callee = bare(node); return ts.isIdentifier(callee) && callee.text === 'require' }
   const cooked = (node: ts.Node) => ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
+  // JSX keeps an HTML character reference as written (`re&#x63;harts` in an attribute or a text); the browser decodes it.
+  const inJsx = (node: ts.Node) => ts.isJsxText(node) || (ts.isStringLiteral(node) && ts.isJsxAttribute(node.parent))
   const visit = (node: ts.Node) => {
-    if (cooked(node) && namesRecharts((node as ts.LiteralLikeNode).text)) names.push((node as ts.LiteralLikeNode).text)
+    if (cooked(node) || ts.isJsxText(node)) {
+      const text = (node as ts.LiteralLikeNode).text
+      const read = inJsx(node) ? decodeReferences(text) : text
+      if (namesRecharts(read)) names.push(read)
+    }
     if (ts.isCallExpression(node)) {
       const callee = bare(node.expression)
       if ((callee.kind === ts.SyntaxKind.ImportKeyword || isRequire(callee)) && !(node.arguments[0] && ts.isStringLiteralLike(node.arguments[0]))) {
@@ -67,6 +73,12 @@ function parse(fileName: string, source: string): { names: string[]; opaque: str
   }
   visit(file)
   return { names, opaque }
+}
+
+/** A numeric character reference decoded (`&#x63;`, `&#99;`), as the browser reads one in JSX. */
+function decodeReferences(text: string): string {
+  return text.replace(/&#(x[0-9a-f]+|\d+);/gi, (_, code: string) =>
+    String.fromCodePoint(code[0] === 'x' || code[0] === 'X' ? parseInt(code.slice(1), 16) : parseInt(code, 10)))
 }
 
 /** Whether either reading finds the package's name in a source: its raw text, or its cooked strings. */
@@ -153,6 +165,9 @@ describe('Recharts stays out of the frontend (E195 (D))', () => {
       'const Chart = import(`rech\\x61rts`)',
       "module.exports = { transpilePackages: ['rech\\x61rts'] }",
       "const peers = 'node_modules/\\x72echarts/es6/index.js'",
+      // A character reference in JSX, as the browser decodes it: an attribute and a text.
+      '<script src="https://cdn.jsdelivr.net/npm/re&#x63;harts@3.10.1/umd/Recharts.min.js"></script>',
+      '<code>import from &#114;echarts</code>',
     ]) {
       expect(namesRecharts(source), `${source}: the raw text`).toBe(false)
       expect(parse('planted.tsx', source).names.length, `${source}: the cooked strings`).toBeGreaterThan(0)
@@ -185,7 +200,7 @@ describe('Recharts stays out of the frontend (E195 (D))', () => {
     expect(scripts.flatMap((file) => parseOf(file).opaque.map((call) => `${file}: ${call}`)),
       'a module named by a computed specifier or a folder').toEqual([])
     // Each reading reads contents, not paths: the cooked one finds this gate's planted strings, and the text one must
-    // find exactly the two planted homes below. A file both readings find is reported once.
+    // find exactly this gate, the one planted home. A file both readings find is reported once.
     expect(cookedRead([SELF]), 'the cooked read reaches a file’s strings').toEqual([SELF])
     const naming = [...new Set([...textRead(present.filter((file) => file !== LOCKFILE)), ...cookedRead(scripts)])].sort()
     const evidence = naming.filter((file) => !PLANTED_HOMES.includes(file)).map((file) => {

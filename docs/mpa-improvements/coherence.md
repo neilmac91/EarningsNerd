@@ -576,7 +576,7 @@ WP1 builds on main, where #1606 landed; they share 21 files (§6).
 - **Step 7** (E195): since the founder's switch (F66, D-064) the spec renderer draws every trend
   chart; its token fold landed with E195 (C), and with E195 (D) Recharts left the app:
   `frontend/tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose text names
-  the package (the lockfile and the two specs that plant its forms aside), a script outside the
+  the package (the lockfile and the gate itself, which plants its forms, aside), a script outside the
   test homes whose decoded strings name it, and a lockfile entry that installs it; and
   `frontend/tests/e2e/no-recharts-in-build.spec.ts`, which took over from E195 (G)'s case, reads
   every script under the production build's `.next/static` and `.next/server` for its class names.

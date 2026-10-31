@@ -3036,7 +3036,7 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
 chart in the app draws with Recharts: the company page's peers chart left with its panel (D-066), and Recharts left
 the app with its chart kit (E195 (D)). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
-text names the package (the lockfile aside, and the gate and the build scan, which plant its forms), a script outside
+text names the package (the lockfile aside, and the gate itself, which plants its forms), a script outside
 the test homes whose strings name it once their escapes are decoded or that loads a module by a computed specifier
 or a folder, and a lockfile entry that installs it; `tests/e2e/no-recharts-in-build.spec.ts` fails a script under the
 production build's `.next/static` or `.next/server` that holds a Recharts class name. It paints the engine's plan in

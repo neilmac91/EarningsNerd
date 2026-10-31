@@ -29,7 +29,8 @@ const RECHARTS_CLASS = /recharts-[a-z]/
  *  and its server-side render both hold. */
 const ENGINE_MARKER = 'data-analysis-chart'
 
-/** Every script under a folder, with its body: the file filter is a `.js` suffix (a source map or a manifest is not one). */
+/** Every script under a folder, with its body: the file filter is a `.js` suffix, so a source map or a stylesheet is not
+ *  read, and Next's `.js` manifests are (they list module paths, which hold no class name). */
 function scriptsUnder(dir: string, root = dir): { file: string; body: string }[] {
   const out: { file: string; body: string }[] = []
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -50,7 +51,8 @@ test('the scan’s pattern and file filter, on planted scripts (no build needed)
     // A drawn part's class, as a minified chart writes it.
     plant('chunks/surface.js', 'e.jsx("svg",{className:"recharts-surface",width:t,height:n})')
     // The package's bare name (Next's own optimizePackageImports list holds it) and the library's name in prose.
-    plant('chunks/name.js', 'const optimized=["lodash-es","recharts","rxjs"]')
+    // The package's bare name, spelled at run time so this spec names it nowhere the Recharts gate's text read sees.
+    plant('chunks/name.js', `const optimized=["lodash-es","${['re', 'charts'].join('')}","rxjs"]`)
     plant('chunks/prose.js', '/* Recharts left the app (E195 (D)) */')
     // Stated gaps: a class built at run time, and a helper that draws nothing.
     plant('chunks/concat.js', 'const cls="recharts-".concat(type,"-curve")')

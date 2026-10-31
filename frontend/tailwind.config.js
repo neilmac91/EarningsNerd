@@ -235,8 +235,9 @@ module.exports = {
         // Type v2 — three FIXED roles (not user-selectable). Must mirror the CSS vars in globals.css.
         // next/font declares each family under its plain name and exposes it as a CSS var
         // (--font-inter / --font-geist-mono / --font-newsreader, declared once in app/fonts.ts), the
-        // contract, so every stack LEADS with its next/font variable; the literals are fallbacks (Option B /
-        // non-Next consumers). EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
+        // contract, so every stack LEADS with its next/font variable; the literals after it name the family it resolves
+        // to and are never reached (an unset var() with no fallback inside it makes the whole declaration invalid at
+        // computed-value time, so the property inherits; DESIGN_SYSTEM.md §12 item 3). EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
         // first and the var precedes generic system-ui; do not "fix" it to lead. PACKAGING GATE:
         // every fontFamily stack and :root font var leads with its next/font variable (body: the
         // var leads the WEBFONT portion) — this wiring was missed in BOTH the v2 and v2.1 exports.
