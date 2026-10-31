@@ -1,0 +1,158 @@
+'use client'
+/**
+ * The company page's Sector peers panel (E251), the card its gate loads once the default metric's answer is a cohort
+ * (SectorPeers.tsx): the company ranked against the other companies of its SEC industry code on one metric, drawn
+ * through the trend charts' engine in the analysis charts' look (features/peers/lib/peerChart.ts): every value printed
+ * on its bar (A4), the company the page is about in chart-1 and every other company a context bar in the context ink at
+ * the narrower width, the plot opening at the subject, and one values stop reading a company at a time beside the
+ * column-wash tooltip. Around it: the heading, the subject's rank over the companies with a value, the metric picker,
+ * the footnote and Sources & checks. A metric picked holds the plot's room with bones while it loads, and says so in
+ * the plot's place when too few companies report it or its read fails. No source-check badge (the badge's gate keeps
+ * it to Financial trends): where a drawn value needs a check, the footnote says so and Sources & checks lists it.
+ */
+import { useContext, useId, useMemo, useState } from 'react'
+import { ThemeContext } from '@/components/ThemeProvider'
+import { Card, Skeleton, cx, inputClasses } from '@/components/ui'
+import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
+import SourceChecks from '@/features/analysis/components/SourceChecks'
+import { useChartFont } from '@/features/analysis/components/useChartFont'
+import { unitCurrency } from '@/features/analysis/lib/charts/barChart'
+import { CARD_HEIGHT, VALUES_DONT_FIT_HERE } from '@/features/analysis/lib/charts/layout'
+import { chartTokens } from '@/features/analysis/lib/charts/theme'
+import { needsSourceCheck } from '@/features/analysis/lib/provenance'
+import type { PeerComparisonResponse, PeerEntry } from '@/features/peers/api/peers-api'
+import { usePeers } from '@/features/peers/hooks/usePeers'
+import { DEFAULT_METRIC, drawn, METRICS, metricOf, rankOf, shows } from '@/features/peers/lib/cohort'
+import { peerChart } from '@/features/peers/lib/peerChart'
+import { inSentence } from '@/lib/format'
+
+// ---- The card's words (E251's defaults, for chief design's ruling) ----
+const HEADING = 'Sector peers'
+/** After the subject's ticker: "AAPL ranks #3 of 9 on revenue", its rank over the companies with a value. */
+const ranksOn = (rank: number, of: number, label: string) => ` ranks #${rank} of ${of} on ${inSentence(label)}`
+/** The line under the plot: what the companies are, where each figure comes from, an amount's reporting currency where
+ *  it is not the dollar. It promises only what the endpoint does: one SIC code's companies (the service's cohort), each
+ *  company's latest annual figure (its latest FY fact), and no promise of coverage. */
+const footnoteOf = (label: string, currency: string | null) =>
+  `Companies with the same SEC industry code, each with its most recent annual ${inSentence(label)} from SEC filings (XBRL)${currency && currency !== 'USD' ? `, reported in ${currency}` : ''}. Fiscal years can differ by company.`
+/** Added to the footnote where a drawn value needs a source check. */
+const NEEDS_A_CHECK = 'Some figures here need a source check. Sources & checks lists them.'
+/** In the plot's place, for a metric picked that too few companies report. */
+const tooFew = (label: string) => `Too few sector peers report ${inSentence(label)} to compare.`
+/** In the plot's place, for a metric picked whose read failed. */
+const failed = (label: string) => `Couldn’t load sector peers for ${inSentence(label)}. Try another metric.`
+
+/** The picker's one width, the smallest step that holds its widest label, as Financial trends' (E253). */
+const PICKER_WIDTH = 'w-56'
+
+/** A company's line in Sources & checks: its ticker and fiscal year, as Financial trends names a year's. */
+const checkLabel = (entry: PeerEntry) => `${entry.ticker}, ${entry.fiscal_year ?? entry.period_end ?? 'period unavailable'}`
+
+export default function SectorPeersCard({ ticker, answer, className }: {
+  ticker: string
+  /** The default metric's answer, a cohort the panel shows (the gate's read). */
+  answer: PeerComparisonResponse
+  /** The card's place on the page. */
+  className?: string
+}) {
+  // The chart's inks are SVG attributes, not classes: the theme comes off the context (not useTheme), with a light
+  // fallback, so a render without a provider (tests) never throws.
+  const dark = useContext(ThemeContext)?.theme === 'dark'
+  const tokens = chartTokens(dark)
+  const fontReady = useChartFont()
+  const headingId = useId()
+
+  const [metric, setMetric] = useState(DEFAULT_METRIC)
+  const picked = usePeers(ticker, metric)
+  // The default metric is the gate's answer; a metric picked is its own read.
+  const current = metric === DEFAULT_METRIC ? answer : picked.data
+  const chart = useMemo(() => (shows(current) ? { ...peerChart(current), entries: drawn(current), answer: current } : null), [current])
+
+  // The metric the view names: the one its answer ranks on (a bank's net interest income), or the one picked while there
+  // is no answer to draw. The first option names the default answer's.
+  const ranked = chart ? metricOf(chart.answer.concept) : null
+  const label = ranked?.label ?? METRICS.find((option) => option.key === metric)!.label
+  const options = METRICS.map((option) => ({ key: option.key, label: option.key === DEFAULT_METRIC ? metricOf(answer.concept)!.label : option.label }))
+  const rank = chart ? rankOf(chart.answer) : null
+  // An amount's reporting currency (CNY), named in the footnote; a margin or a multiple has none.
+  const currency = chart && (ranked?.fmt === 'usd' || ranked?.fmt === 'eps') ? unitCurrency(chart.answer.unit ?? '').currency : null
+  const needsCheck = !!chart?.entries.some(needsSourceCheck)
+  // Sources & checks: every company drawn, and every company whose value is withheld, which draws no bar.
+  const checked = chart ? [...chart.entries, ...chart.answer.peers.filter((entry) => entry.provenance?.validation === 'unavailable')] : []
+
+  return (
+    <Card as="section" aria-labelledby={headingId} className={cx(className, 'p-cap-6')}>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2 id={headingId} className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">{HEADING}</h2>
+          {chart && rank && (
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="font-data">{chart.answer.subject.ticker}</span>{ranksOn(rank.rank, rank.of, label)}
+            </p>
+          )}
+        </div>
+        {/* Nine metrics: a compact select of one width beside its label, never a segmented row. */}
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+          Metric
+          <select
+            className={inputClasses({ select: true, density: 'compact', autoWidth: true, className: PICKER_WIDTH })}
+            value={metric}
+            onChange={(event) => setMetric(event.target.value)}
+          >
+            {options.map((option) => (
+              <option key={option.key} value={option.key}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {chart ? (
+        <>
+          <ChartPlotFrame model={chart.model} readouts={chart.reads} tokens={tokens} fontReady={fontReady} view="card">
+            {({ layout, plot, busy }) => (
+              // Busy while the plot waits for its font (G4): the plot holds bones of its own plan until then.
+              <div data-testid="peers-chart" aria-busy={busy || undefined}>
+                {plot}
+                {/* Where A4 finds no label tier even at the widest slot, the bars print no values and the card says so, in
+                    the line for a card no metrics table sits beside (layout.ts). */}
+                {layout?.valuesDontFit && (
+                  <p className="mt-2 text-xs" style={{ color: tokens.note }} data-chart-text="fit">{VALUES_DONT_FIT_HERE}</p>
+                )}
+              </div>
+            )}
+          </ChartPlotFrame>
+          {/* The engine's own footnotes: a margin bar the axis clips is broken, and this line says its printed value is
+              the true one. */}
+          {chart.model.footnotes.length > 0 && (
+            <ul className="mt-2 space-y-0.5 text-xs" style={{ color: tokens.note }}>
+              {chart.model.footnotes.map((footnote) => (
+                <li key={`${footnote.mark}${footnote.text}`} data-chart-text="footnote">
+                  {footnote.mark && <span className="mr-2 font-data">{footnote.mark}</span>}
+                  {footnote.text}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : picked.isError && !picked.data ? (
+        <p className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }} data-chart-text="unavailable">
+          {failed(label)}
+        </p>
+      ) : picked.data ? (
+        <p className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }} data-chart-text="unavailable">
+          {tooFew(label)}
+        </p>
+      ) : (
+        // A metric picked, loading: the plot's bones at its height.
+        <div role="status" aria-label="Loading sector peers">
+          <Skeleton className="w-full rounded-lg" style={{ height: CARD_HEIGHT }} />
+          <span className="sr-only">Loading…</span>
+        </div>
+      )}
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+        {footnoteOf(label, currency)}{needsCheck ? ` ${NEEDS_A_CHECK}` : ''}
+      </p>
+      <SourceChecks values={checked.map((entry) => ({ ...entry, label: checkLabel(entry) }))} />
+    </Card>
+  )
+}

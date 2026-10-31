@@ -1698,7 +1698,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  inputClasses({ select: true, density: 'compact', autoWidth: true, className: 'w-56' }),
                  one width, 14rem, the smallest step that holds its widest label ("Net investment income"),
                  capped at its row, so its loading card's bone can hold its room (§10, E253),
-                 options in sentence case; the insider window (three codes) keeps the control. At a
+                 options in sentence case; the company page's Sector peers picker (nine options) is the same
+                 select at the same width (§10, E251); the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
                  every name whole and nothing overflows (E34).
@@ -2990,7 +2991,8 @@ operands and the applicable note; a calculated figure carries no dagger, and onl
 questions the number marks its figure (`noteMarksFigure`, D-061). The report-level disclosure
 groups concerns by reason and counts figures separately from inherited comparisons. Chart and
 narrative Notes controls open the same note and name marked letters only; filing fundamentals
-retains its own source-check presentation. No mark takes warning ink. Legacy concerns remain
+retains its own source-check presentation, and the company page's Sector peers carries no badge: its
+footnote says when a drawn value needs a source check, and Sources & checks lists it (E251). No mark takes warning ink. Legacy concerns remain
 until their stored validation changes, unmarked but listed in the data notes and read in the dialog;
 missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
 Unavailable table values use — with an empty gutter and read “Unavailable” in the evidence view,
@@ -3077,9 +3079,10 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
-since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
-chart in the app draws with Recharts: the company page's peers chart left with its panel (D-066), and Recharts left
-the app with its chart kit (E195 (D)). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
+since E195, D-064) draws those four charts, the filing page's Financial trends and the company page's Sector peers
+(below; E195 (D), D-067, E251), so no chart in the app draws with Recharts: the company page's Recharts peers chart left
+with its panel (D-066), Recharts left the app with its chart kit (E195 (D)), and the panel returned on the engine
+(E251). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
 text names the package (the lockfile aside, and the gate itself, which plants its forms), a script outside
 the test homes whose strings name it once their escapes are decoded or that loads a module by a computed specifier
 or a folder, and a lockfile entry that installs it; `tests/e2e/no-recharts-in-build.spec.ts` fails a script under the
@@ -3169,6 +3172,38 @@ themes at 390 and 1280 px; the card landing where its bones stood, its fetch hel
 under 200% text at 600 px; every label the picker offers fitting its one width, with every featured metric at 1280 px at
 both text sizes, each read from a hidden clone of the select holding that label alone, sized to its content; and every
 series at 390, 360 and 320 px under 200% text).
+
+**Sector peers** (the company page's panel, `features/peers/components/SectorPeersCard.tsx`, loaded by the small gate the
+page imports, `SectorPeers.tsx`) draws through the same engine (E251): `features/peers/lib/peerChart.ts` models a cohort
+the peers endpoint answers as a one-metric bar chart of the companies with a value, in the answer's order (value
+descending), the top ten and then the subject where it ranks lower, eleven bars at most. The company the page is about is
+chart-1 at the bar's full width and every other company a context bar, the context ink at the growth bars' narrower width,
+the cue colour alone cannot give; every value prints on its bar (A4); a slot is as wide as its ticker; a plot that scrolls
+opens with the subject's column in view and the values stop starts there; and the scroll region and the end-of-range
+status name companies. The tooltip heads a company with its ticker and its own fiscal year ("AAPL · FY2025 · year ended
+Sep 27, 2025"), since fiscal years differ by company, and the values stop says "Apple Inc., AAPL, this company, rank 3 of 9,
+FY2025, year ended September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
+ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
+option, the plot's name, the rank line, the footnote and the readout. The card: the heading, `h2` at `text-xl`; the rank
+line in the secondary ink ("AAPL ranks #3 of 9 on revenue", over the companies with a value, never `peer_count`, which
+counts withheld entries; no percentile); the picker, the retired panel's nine metrics, their labels and formats from
+FEATURED, the compact select at Financial trends' one width (`w-56`); the footnote in the tertiary ink ("Companies with the
+same SEC industry code, each with its most recent annual {metric} from SEC filings (XBRL), reported in CNY. Fiscal years
+can differ by company.", the currency only where it is not the dollar), which adds "Some figures here need a source
+check. Sources & checks lists them." where a drawn value needs one (no badge: the badge's gate keeps it to Financial
+trends); and Sources & checks, listing every company drawn and every one whose value is withheld, which draws no bar. It
+shows itself only once the default metric's answer is a cohort, the subject and at least one other company with a value
+(`features/peers/lib/cohort.ts`, engine-free); until then the gate renders nothing and the card's chunk, the engine with
+it, never loads, so the company page's first load keeps the engine out. Production stores no SIC codes until the
+founder's backfill, so every company answers itself alone there and the panel shows nothing. A metric picked holds the
+plot's height with bones while it loads, and says in the plot's place "Too few sector peers report {metric} to compare."
+or "Couldn’t load sector peers for {metric}. Try another metric.". It is the last section of the page's `<main>`, after
+the filings, so its arrival never moves them, inside a `ChartErrorBoundary` keyed by the ticker (the boundary never
+resets on its own), whose card stands where the panel would, with its spacing. Gates: `tests/unit/sector-peers.spec.tsx`,
+`tests/unit/company-sector-peers-mount.spec.tsx`, `tests/e2e/company-sector-peers.spec.ts` (the mount on a production
+build, the computed inks by role, every printed value the fixture's and the DOM checks for one card, the context ink among
+D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px) and
+`backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is built on is what the service answers).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

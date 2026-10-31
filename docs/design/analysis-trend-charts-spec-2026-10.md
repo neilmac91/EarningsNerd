@@ -499,6 +499,24 @@ says so; everything else follows the spec.
     and end words, and an analysis chart's periods'.
   - The shared line: Financial trends' "Values don’t fit at this width." moves to `layout.ts` as `VALUES_DONT_FIT_HERE`,
     beside `VALUES_DONT_FIT`, for any card no metrics table sits beside, so the peers panel reads the same constant.
+- **The Sector peers panel (E251).** The company page's ranked company chart, drawn on the seams above.
+  `features/peers/lib/peerChart.ts` turns a peers answer into a `BarChartDef`: the companies with a value in the
+  answer's order, the top ten and then the subject where it ranks lower (eleven at most), each slot keyed by its ticker
+  or by its place where two companies answer one (`Company.ticker` is not unique), ticked and named by the ticker; every
+  company but the subject `context`; `start` at the subject; `COMPANY_READING` ("companies", "First company.", "Last
+  company."); the answered `concept`'s label (a bank asked for revenue answers net interest income) and its axis by the
+  metric's kind in the answer's `unit`. Its describer heads each company with its ticker and its own fiscal year
+  (`AAPL · FY2025 · year ended Sep 27, 2025`), speaks its name, its ticker, "this company" for the subject and its rank
+  over the companies with a value, and reads calculated from `provenance.method`. `features/peers/lib/cohort.ts` decides,
+  engine-free, whether the panel shows at all (the subject and at least one other company with a value, never
+  `peer_count`), so the page loads the card, and the engine with it, only for a cohort. `chartPlan.ts`'s peer cases are
+  the panel's own builder over every cohort it shows, so the model, reading and sticky-gutter sweeps, the renderer's role
+  checks and the readout sweep (through the panel's describer) read the charts the page draws.
+  `backend/tests/unit/test_peers_fixture_contract.py` holds every fixture case to what `peers_service.get_peers` answers,
+  and `tests/e2e/company-sector-peers.spec.ts` holds the panel on a production build: the named SVG, the subject's bar in
+  chart-1 and every other company's in the context ink (computed), each printed value the fixture's, the values stop
+  opening at the subject and the DOM checks of `fixtures/chartChecks.ts` for one card, the context ink among D6's marks,
+  in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
