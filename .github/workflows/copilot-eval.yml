@@ -91,9 +91,14 @@ jobs:
         if: steps.draw.outputs.draw == 'true'
         working-directory: backend
         shell: bash
+        # The source check is this step's last act (E80, the founder's decision of 31 October 2026): a source other
+        # than its golden case declares fails the step here, before the step the draw gate counts, so it spends no
+        # draw; a re-run draws once the source is back. The runner keeps the same check (backend/evals/RUNBOOK.md,
+        # "Source preflight (E80)"; tests/unit/test_copilot_source_check.py).
         run: |
           mkdir -p evals/reports/copilot
           python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot-fidelity.db" --output evals/reports/copilot 2>&1 | tee evals/reports/copilot/preparation.log
+          python -m evals.copilot_source_check --preparation evals/reports/copilot/preparation.json 2>&1 | tee evals/reports/copilot/source-check.log
       - name: Run every verified question three times
         if: steps.draw.outputs.draw == 'true'
         working-directory: backend

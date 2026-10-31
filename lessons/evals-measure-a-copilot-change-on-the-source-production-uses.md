@@ -1,6 +1,6 @@
 # Measure a Copilot change on the source production uses, and record which source it was
 
-Date: 2026-10-16, updated 2026-10-29 (E80)   Area: evals
+Date: 2026-10-16, updated 2026-10-31 (E80)   Area: evals
 
 **Context**: #1111 (2026-10-07) added three quotation-guidance lines to the Copilot's system prompt. Its
 copilot-eval draws passed, but every one prepared its sources from the regex fallback. SEC had begun refusing
@@ -29,6 +29,8 @@ E80's preflight (`backend/evals/copilot_runner.py::validate_preparation`) refuse
 whose excerpt builder record differs from the excerpt source its golden case declares, supplies a declared section
 under the length the native assembler reads as the filing's own, or names other prepared artifacts or another excerpt
 than the Copilot is handed (`backend/tests/unit/test_copilot_gate.py`, and `test_copilot_bootstrap.py` across the real
-builder). Review checks the rest: what a row says, a row overwritten in both the table and the test's list, a golden
+builder). The preparation step runs the same preflight as its last act (`backend/evals/copilot_source_check.py`), so a
+refused source fails before the counted step and spends no draw (the founder's decision of 31 October 2026;
+`backend/tests/unit/test_copilot_source_check.py`). Review checks the rest: what a row says, a row overwritten in both the table and the test's list, a golden
 case's declared excerpt source, and the model-facing bytes that have no row (the context message, tool schemas and
 generation options).

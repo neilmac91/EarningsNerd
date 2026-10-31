@@ -992,13 +992,18 @@ starts, so an outage fails "Prepare actual SEC sources in a new scratch database
 never starts, the draw gate (`backend/scripts/copilot_eval_draw_gate.py`) counts no draw, and a
 re-run draws once SEC answers. A refusal follows a preparation that completed on another source than
 its case declares: a section parse that timed out (30 s, 40 s for a 20-F) or failed, an edgartools,
-parser or assembler change, or a document SEC now serves differently. It fails inside "Run every
-verified question three times", the step the draw gate counts, with no provider call. That is the
-head's draw: a re-run, toggle or reopen draws nothing, the triage rule below does not cover it, and
-the pull request waits for a push that changes code, or for the founder when no code is to change (a
-parse that timed out). Whether a refused source spends the head's draw is the founder's decision
-(`tasks/todo.md`, E80): keep it, or run the preflight as its own step between the preparation and
-the runner, so that a refused source draws nothing and a re-run draws once its source is back.
+parser or assembler change, or a document SEC now serves differently. A refused source spends no draw
+either (the founder's decision of 31 October 2026, E80 option (c)). The preparation step's last act is
+the source check, `python -m evals.copilot_source_check`, the same preflight with no provider call
+and no credential. A refusal fails "Prepare actual SEC sources in a new scratch database" with a
+"Source refused" error that names what differs, and an outage never reaches the check. The runner
+step is then skipped, and the draw gate counts no draw. A re-run draws once the declared source
+prepares again. A refusal the pull request itself causes, a parser change for one, refuses on every
+re-run, at no provider cost, until a push. The bootstrap stays blind to the golden set; the check reads
+the golden cases only once the preparation is written. The runner keeps its own call before any
+provider call, so a check skipped or removed refuses there instead, at the cost of the head's draw:
+the check fails closed. `tests/unit/test_copilot_source_check.py` pins both placements, and that the
+check refuses exactly what the runner refuses.
 
 The runner requires exactly one valid terminal completion per attempt, all planned identities,
 zero execution errors and no trust/accuracy veto. Valid refusal completions preserve the production
