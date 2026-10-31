@@ -1063,7 +1063,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | `s5` slate-blue | Series 5 (not used) | `#6E7E9C` | 65.1 / 3.92 | `#97A6C2` (`chart-5-dark`) | −50.1 / 5.98 | final (on the dark card the light hex is −30.0) |
 | `s6` periwinkle | Series 6 (not used) | `#8B7BC0` | 61.4 / 3.53 | `#AFA2DE` (`chart-6-dark`) | −52.8 / 6.32 | final (on the dark card the light hex is −33.7) |
 | `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | the engine's `cursor` (`charts/theme.ts`) |
-| `tip` | Tooltip surface and border (specified, not yet verified) | DS `chart.tip` | | DS `chart.tip` | | DS |
+| `tip` | Tooltip surface and border (specified, not yet verified) | the Card recipe: `panel-light`, `border-light`, `shadow-e2` | — | `panel-dark`, a `white/10` hairline, no shadow | — | DS Card / panel (`chart.tip` retired, E255) |
 
 **Thresholds.**
 
@@ -1117,6 +1117,8 @@ was the DS's `barCursorProps` and now names the engine's own `cursor`, and the t
 names in `Chart.tsx` is gone, so the renderer's `cursor` and `figure` hold those values alone. The renderer's tooltip
 takes the Card recipe's surface and border, so the `tip` row's `chart.tip`, like `chart.crosshair`, has no reader;
 E255 retires both tokens.)
+(E255, 2026-10-31: `chart.crosshair` and `chart.tip` are retired from `tailwind.config.js`, and the `tip` row names
+the Card recipe the renderer's tooltip takes. The built CSS held no class of either token before or after.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
