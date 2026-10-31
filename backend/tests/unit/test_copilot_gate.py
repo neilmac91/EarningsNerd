@@ -242,6 +242,89 @@ def test_verified_plan_preserves_pending_questions_and_exact_golden_periods():
             runner._plan(bad, 1 if changes == 'onerun' else 3)
 
 
+def test_every_planned_case_declares_the_excerpt_source_its_preparation_must_record():
+    # E80: native with the canonical sections the filing supplies whole, or a fallback the RUNBOOK documents for the
+    # filing; a native declaration that leaves a section out, and every fallback, says why. BABA's 20-Fs supply stub
+    # financials (FY2025 a stub MD&A too), and ASML's 20-F is the cohort's one fallback. A missing or malformed
+    # declaration stops the plan.
+    cases = runner._load_cases(runner.GOLDEN_PATH)
+    whole = ['financials', 'mda', 'risk']
+    assert [(c.ticker, c.excerpt_source['outcome'], c.excerpt_source.get('sections')) for c in cases] == [
+        ('AAPL', 'native', whole), ('TSLA', 'native', whole), ('MSFT', 'native', whole),
+        ('BABA', 'native', ['mda', 'risk']), ('BABA', 'native', ['risk']), ('ASML', 'fallback', None)]
+    assert cases[-1].excerpt_source['fallback_reason'] == 'sections_not_supplied'
+    for declared, valid in [
+        ({'outcome': 'native', 'sections': whole, 'basis': 'every section whole'}, True),
+        ({'outcome': 'native', 'sections': ['financials', 'mda'], 'basis': 'a 10-Q with no Risk Factors item'}, True),
+        ({'outcome': 'fallback', 'fallback_reason': 'native_excerpt_thin', 'basis': 'documented'}, True),
+        ({}, False), ('native', False), ({'outcome': 'cached'}, False),
+        ({'outcome': 'native'}, False),
+        ({'outcome': 'native', 'sections': []}, False),
+        ({'outcome': 'native', 'sections': 'mda', 'basis': 'x'}, False),
+        ({'outcome': 'native', 'sections': [['mda']], 'basis': 'x'}, False),
+        ({'outcome': 'native', 'sections': ['mda', 'mda'], 'basis': 'x'}, False),
+        ({'outcome': 'native', 'sections': ['notes'], 'basis': 'x'}, False),
+        ({'outcome': 'native', 'sections': ['financials', 'mda']}, False),  # a section left out says why
+        ({'outcome': 'native', 'sections': ['mda'], 'basis': ' '}, False),
+        ({'outcome': 'native', 'sections': whole, 'basis': None}, False),
+        ({'outcome': 'native', 'sections': ['mda'], 'basis': 'x', 'fallback_reason': None}, False),
+        ({'outcome': 'fallback', 'fallback_reason': 'sections_not_supplied'}, False),
+        ({'outcome': 'fallback', 'fallback_reason': 'sections_not_supplied', 'basis': ' '}, False),
+        ({'outcome': 'fallback', 'fallback_reason': 'native_sections_disabled', 'basis': 'x'}, False),
+        ({'outcome': 'fallback', 'fallback_reason': 'unrecorded', 'basis': 'x'}, False),
+        ({'outcome': 'fallback', 'fallback_reason': 'sections_not_supplied', 'basis': 'x', 'sections': ['mda']}, False),
+        ({'outcome': 'cached', 'fallback_reason': 'sections_not_supplied', 'basis': 'x'}, False),
+        ({'outcome': 'fallback', 'fallback_reason': 'sections_not_supplied', 'basis': 7}, False),
+    ]:
+        bad = deepcopy(cases)
+        bad[0].excerpt_source = declared
+        if valid:
+            assert len(runner._plan(bad, 3)) == 18
+        else:
+            with pytest.raises(ValueError, match='declares no valid excerpt source'):
+                runner._plan(bad, 3)
+
+
+@pytest.mark.parametrize('form', ['10-K', '10-Q', '20-F'])
+def test_the_native_floors_are_where_the_assembler_reads_a_section_as_the_filing_s_own(form):
+    # Under its floor the assembler backfills financials or MD&A with a dense window of the document, and skips any
+    # section under 200 characters: the model then reads something other than that section, so a declared section
+    # must reach its floor.
+    from app.services.excerpt_provenance import NATIVE_SECTION_KEYS
+    from app.services.openai_service import openai_service
+    floors, letters = runner.NATIVE_SECTION_FLOORS, {'financials': 'f', 'mda': 'm', 'risk': 'r'}
+    assert tuple(floors) == NATIVE_SECTION_KEYS
+
+    def read_as_its_own(lengths):
+        sections = {key: letters[key] * length for key, length in lengths.items()}
+        excerpt = openai_service.assemble_excerpt_from_sections(sections, form, filing_text='<p>The document.</p>')
+        return {'financials': 'FINANCIAL STATEMENTS CONTEXT (recovered from filing)' not in excerpt,
+                'mda': 'MD&A CONTEXT (recovered from filing)' not in excerpt,
+                'risk': letters['risk'] * lengths['risk'] in excerpt}
+
+    assert read_as_its_own(floors) == dict.fromkeys(floors, True)
+    for key, floor in floors.items():
+        assert read_as_its_own({**floors, key: floor - 1}) == {other: other != key for other in floors}, key
+
+
+def test_the_runner_imports_no_settings_before_main_sets_its_database():
+    # main() points DATABASE_URL at the prepared database after the preflight; a module the runner imports, or its
+    # __main__ prelude (ai_metrics.set_trigger), that built Settings first (app.config) would bind the default database
+    # instead, and every row would error. The runner runs as __main__, prelude and all, and main() stops at its
+    # argument parser (no --preparation) before it sets anything; the modules are listed only once main() has stopped
+    # there, so a prelude that never reaches main() prints nothing and fails.
+    import subprocess
+    import sys
+    code = ('import runpy, sys\nsys.argv = ["copilot_runner"]\n'
+            'try:\n    runpy.run_module("evals.copilot_runner", run_name="__main__")\n'
+            'except SystemExit as stop:\n    assert stop.code == 2, stop.code\n'
+            '    print(sorted(m for m in sys.modules if m in ("app.config", "app.database")))')
+    result = subprocess.run([sys.executable, '-c', code], cwd=Path(runner.__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == '[]'
+
+
 @pytest.mark.asyncio
 async def test_runner_keeps_failed_attempt_in_denominator_and_full_inputs(monkeypatch):
     cases = runner._load_cases(runner.GOLDEN_PATH)
@@ -302,21 +385,45 @@ def test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts(t
 
 def preparation(tmp_path):
     import hashlib
+    import sqlite3
+    from contextlib import closing
     cases = runner._load_cases(runner.GOLDEN_PATH)
     db = tmp_path/'prepared-source.db'
-    db.write_bytes(b'offline database bytes')
+    # The prepared database's tables the preflight reads the Copilot's excerpt from, each case's excerpt in them.
+    with closing(sqlite3.connect(db)) as connection, connection:
+        connection.execute('CREATE TABLE filings (id INTEGER PRIMARY KEY, accession_number TEXT)')
+        connection.execute('CREATE TABLE filing_content_cache (filing_id INTEGER PRIMARY KEY, critical_excerpt TEXT)')
+        for number, c in enumerate(cases, 1):
+            connection.execute('INSERT INTO filings VALUES (?, ?)', (number, c.accession_number))
+            connection.execute('INSERT INTO filing_content_cache VALUES (?, ?)',
+                               (number, f'excerpt of {c.accession_number}'))
     sources = []
     for c in cases:
         folder = tmp_path/c.accession_number
         folder.mkdir()
         artifacts = {}
+        native = c.excerpt_source['outcome'] == 'native'
         for kind,filename in {'html':'filing.html','xbrl':'xbrl.json','sections':'sections.json','excerpt':'excerpt.txt'}.items():
             artifact = folder/filename
-            artifact.write_text('actual source bytes')
+            # Distinct bytes per artifact, so a hash bound to the wrong one fails. A filing declared to fall back
+            # (ASML) had no section mapping: the preparation writes JSON null.
+            artifact.write_text('null' if kind == 'sections' and not native else f'{kind} of {c.accession_number}')
             artifacts[kind] = {'path':str(artifact),'relative_path':c.accession_number+'/'+filename,
                                'sha256':hashlib.sha256(artifact.read_bytes()).hexdigest()}
+        # The builder's record of the declared excerpt source over these very artifacts (excerpt_provenance, E80-C1):
+        # each declared section at its native floor, any other a stub just under it (as BABA's financials are).
+        declared = c.excerpt_source.get('sections', [])
+        supplied = [{'key':key,'supplied_chars':floor if key in declared else floor - 1}
+                    for key,floor in runner.NATIVE_SECTION_FLOORS.items()] if native else []
+        record = {'schema_version':2,'accession':c.accession_number,'filing_type':c.filing_type,
+                  'source':'edgartools' if native else 'regex_fallback',
+                  'outcome':c.excerpt_source['outcome'],'fallback_reason':c.excerpt_source.get('fallback_reason'),
+                  'document_sha256':artifacts['html']['sha256'],
+                  'sections_sha256':artifacts['sections']['sha256'] if native else None,
+                  'excerpt_sha256':artifacts['excerpt']['sha256'],
+                  'supplied_sections':supplied,'missing_sections':[] if native else ['financials','mda','risk']}
         sources.append({'status':'complete','accession_number':c.accession_number,
-                        'reporting_currency':c.reporting_currency,'artifacts':artifacts})
+                        'reporting_currency':c.reporting_currency,'artifacts':artifacts,'excerpt_provenance':record})
     data = {'status':'complete','errors':[],
         'source_manifest_sha256':hashlib.sha256(runner.SOURCES_PATH.read_bytes()).hexdigest(),
         'database_path':str(db),'database_artifact_path':'prepared-source.db',
@@ -325,27 +432,181 @@ def preparation(tmp_path):
     return cases,data
 
 
-@pytest.mark.parametrize('damage', ['status','manifest','cohort','database','artifact','currency'])
-def test_preparation_integrity_is_checked_before_any_provider(damage,tmp_path):
+def _fallback_source(data, cases):
+    """The prepared source of the cohort's one filing declared to fall back (ASML's 20-F)."""
+    [case] = [c for c in cases if c.excerpt_source['outcome'] == 'fallback']
+    return next(s for s in data['sources'] if s['accession_number'] == case.accession_number)
+
+
+# Each damage to a prepared source, and what its refusal names: the field, the section and its length, or the recorded
+# and the declared source, outcome and reason, never a hash or text.
+SOURCE_DAMAGES = {
+    'status': 'source preparation incomplete', 'manifest': 'source manifest differs', 'cohort': 'cohort incomplete',
+    'database': 'prepared database changed', 'artifact': 'artifact changed or missing', 'currency': 'currency differs',
+    'database_unreadable': 'prepared scratch database is unreadable',
+    'database_excerpt': 'prepared critical_excerpt: ', 'database_excerpt_null': 'prepared critical_excerpt: ',
+    'undeclared_case': 'golden case declares no valid excerpt source',
+    'no_provenance': 'excerpt provenance unavailable', 'schema_1': 'excerpt provenance unavailable',
+    'another_filing': 'prepared accession: ', 'filing_type': 'prepared filing_type: ',
+    'document_hash': 'prepared document_sha256: ', 'provenance_hash': 'prepared sections_sha256: ',
+    'unset_sections_hash': 'prepared sections_sha256: ', 'fallback_sections_hashed': 'prepared sections_sha256: ',
+    'excerpt_hash': 'prepared excerpt_sha256: ', 'cached': 'prepared document_sha256, sections_sha256: ',
+    'fallback':
+        r'excerpt source edgartools fallback \(sections_not_supplied\) is not the declared native \(None\) from edgartools',
+    'source_disagrees': r'excerpt source regex_fallback native \(None\) is not the declared native \(None\) from edgartools',
+    'declared_fallback_native':
+        r'excerpt source regex_fallback native \(None\) is not the declared fallback \(sections_not_supplied\) from regex_fallback',
+    'other_fallback_reason': r'native_excerpt_thin\) is not the declared fallback \(sections_not_supplied\)',
+    'coverage_absent': 'records no valid section coverage', 'coverage_none': 'records no valid section coverage',
+    'coverage_string': 'records no valid section coverage', 'supplied_absent': 'records no valid section coverage',
+    'supplied_chars_text': 'records no valid section coverage',
+    'supplied_chars_bool': 'records no valid section coverage',
+    'supplied_duplicate': 'records no valid section coverage',
+    'supplied_entry_text': 'records no valid section coverage',
+    'supplied_unknown_key': 'records no valid section coverage', 'missing_unknown_key': 'records no valid section coverage',
+    'fallback_coverage_none': 'records no valid section coverage',
+    'declared_section_missing': r'under the native floor \(risk missing\)',
+    'declared_section_unsupplied': r'under the native floor \(risk missing\)',
+    'declared_section_stub': r'under the native floor \(mda 2999/3000\)',
+    'declared_sections_stub': r'under the native floor \(financials 0/5000, mda 2999/3000\)',
+}
+
+
+# The damages to the preparation as a whole name no source; the declared fallback's name ASML's accession, and the
+# rest the first source's (AAPL's).
+WHOLE_PREPARATION = {'status', 'manifest', 'cohort', 'database', 'database_unreadable', 'artifact', 'currency'}
+FALLBACK_SOURCE = {'declared_fallback_native', 'other_fallback_reason', 'fallback_sections_hashed',
+                   'fallback_coverage_none'}
+
+
+@pytest.mark.parametrize('damage,refusal', SOURCE_DAMAGES.items(), ids=SOURCE_DAMAGES)
+def test_preparation_integrity_is_checked_before_any_provider(damage,refusal,tmp_path):
+    import hashlib
+    import sqlite3
+    from contextlib import closing
     cases,data = preparation(tmp_path)
     path = tmp_path/'preparation.json'
     path.write_text(json.dumps(data))
     assert runner.validate_preparation(path,cases)['status'] == 'complete'
-    if damage == 'status':
+    record = data['sources'][0]['excerpt_provenance']
+    database = Path(data['database_path'])
+    if damage == 'schema_1':
+        record['schema_version'] = 1
+    elif damage == 'another_filing':
+        record['accession'] = data['sources'][1]['accession_number']
+    elif damage == 'filing_type':
+        record['filing_type'] = '10-Q'
+    elif damage == 'document_hash':
+        record['document_sha256'] = '0'*64
+    elif damage == 'excerpt_hash':
+        record['excerpt_sha256'] = '0'*64
+    elif damage == 'unset_sections_hash':
+        record['sections_sha256'] = None  # sections were supplied and hashed, so an unset hash names no input
+    elif damage == 'cached':
+        record.update(outcome='cached', fallback_reason=None, document_sha256=None, sections_sha256=None,
+                      missing_sections=None)
+    elif damage == 'source_disagrees':
+        record['source'] = 'regex_fallback'
+    elif damage == 'coverage_absent':
+        record.pop('missing_sections')
+    elif damage == 'coverage_none':
+        record['missing_sections'] = None  # read as "nothing missing", it would accept any coverage
+    elif damage == 'coverage_string':
+        record['missing_sections'] = 'risk'  # read as a set, its letters name no section
+    elif damage == 'supplied_absent':
+        record.pop('supplied_sections')
+    elif damage == 'supplied_chars_text':
+        record['supplied_sections'][0]['supplied_chars'] = '60874'
+    elif damage == 'supplied_chars_bool':
+        record['supplied_sections'][0]['supplied_chars'] = True
+    elif damage == 'supplied_duplicate':
+        record['supplied_sections'].append(dict(record['supplied_sections'][1]))
+    elif damage == 'supplied_entry_text':
+        record['supplied_sections'][0] = 'financials'  # an entry that is not a mapping
+    elif damage == 'supplied_unknown_key':
+        record['supplied_sections'].append({'key': 'notes', 'supplied_chars': 9999})
+    elif damage == 'missing_unknown_key':
+        record['missing_sections'] = ['notes']
+    elif damage == 'fallback_coverage_none':
+        _fallback_source(data, cases)['excerpt_provenance']['missing_sections'] = None  # a fallback's coverage too
+    elif damage == 'declared_section_missing':
+        record['missing_sections'] = ['risk']
+    elif damage == 'declared_section_unsupplied':
+        record['supplied_sections'] = record['supplied_sections'][:2]  # risk neither supplied nor named missing
+    elif damage == 'declared_section_stub':
+        record['supplied_sections'][1]['supplied_chars'] = 2999  # MD&A one character under the assembler's floor
+    elif damage == 'declared_sections_stub':
+        record['supplied_sections'][0]['supplied_chars'] = 0
+        record['supplied_sections'][1]['supplied_chars'] = 2999
+    elif damage == 'declared_fallback_native':
+        _fallback_source(data, cases)['excerpt_provenance'].update(outcome='native', fallback_reason=None)
+    elif damage == 'other_fallback_reason':
+        _fallback_source(data, cases)['excerpt_provenance']['fallback_reason'] = 'native_excerpt_thin'
+    elif damage == 'fallback_sections_hashed':
+        # The declared fallback's record names no sections, but sections were prepared for it.
+        source = _fallback_source(data, cases)
+        sections = Path(source['artifacts']['sections']['path'])
+        sections.write_text('{"mda": "text"}')
+        source['artifacts']['sections']['sha256'] = hashlib.sha256(sections.read_bytes()).hexdigest()
+    elif damage == 'database_excerpt':
+        # The text the run hands the Copilot is not the excerpt the builder recorded and the preparation kept.
+        with closing(sqlite3.connect(database)) as connection, connection:
+            connection.execute("UPDATE filing_content_cache SET critical_excerpt = 'other bytes' WHERE filing_id = 1")
+        data['database_sha256'] = hashlib.sha256(database.read_bytes()).hexdigest()
+    elif damage == 'database_excerpt_null':
+        # A filing whose prepared excerpt is NULL: the run would hand the Copilot no excerpt at all.
+        with closing(sqlite3.connect(database)) as connection, connection:
+            connection.execute("UPDATE filing_content_cache SET critical_excerpt = NULL WHERE filing_id = 1")
+        data['database_sha256'] = hashlib.sha256(database.read_bytes()).hexdigest()
+    elif damage == 'database_unreadable':
+        database.write_bytes(b'not a database')
+        data['database_sha256'] = hashlib.sha256(database.read_bytes()).hexdigest()
+    elif damage == 'undeclared_case':
+        cases[0].excerpt_source = {}
+    elif damage == 'status':
         data['status'] = 'unavailable'
     elif damage == 'manifest':
         data['source_manifest_sha256'] = '0'*64
     elif damage == 'cohort':
         data['sources'].pop()
     elif damage == 'database':
-        Path(data['database_path']).write_bytes(b'changed')
+        database.write_bytes(b'changed')
     elif damage == 'artifact':
         Path(data['sources'][0]['artifacts']['html']['path']).write_text('changed')
+    elif damage == 'no_provenance':
+        data['sources'][0].pop('excerpt_provenance')
+    elif damage == 'fallback':
+        record.update(outcome='fallback', fallback_reason='sections_not_supplied')
+    elif damage == 'provenance_hash':
+        record['sections_sha256'] = '0'*64
     else:
+        assert damage == 'currency'
         data['sources'][0]['reporting_currency'] = 'EUR'
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=refusal) as refused:
         runner.validate_preparation(path,cases)
+    if damage not in WHOLE_PREPARATION:
+        named = _fallback_source(data, cases) if damage in FALLBACK_SOURCE else data['sources'][0]
+        assert str(refused.value).endswith(': ' + named['accession_number'])
+
+
+def test_a_declared_thin_native_excerpt_is_accepted_on_the_record_that_names_it(tmp_path):
+    # native_excerpt_thin: sections were supplied, but the native assembly was too thin, so the builder fell back with
+    # the sections hashed. A case may declare it as its filing's own, and the record that names it then counts.
+    import hashlib
+    cases,data = preparation(tmp_path)
+    [case] = [c for c in cases if c.excerpt_source['outcome'] == 'fallback']
+    case.excerpt_source = {**case.excerpt_source, 'fallback_reason': 'native_excerpt_thin'}
+    source = _fallback_source(data, cases)
+    sections = Path(source['artifacts']['sections']['path'])
+    sections.write_text('{"mda": "thin"}')
+    source['artifacts']['sections']['sha256'] = hashlib.sha256(sections.read_bytes()).hexdigest()
+    source['excerpt_provenance'].update(fallback_reason='native_excerpt_thin',
+        sections_sha256=source['artifacts']['sections']['sha256'],
+        supplied_sections=[{'key': 'mda', 'supplied_chars': 4}], missing_sections=['financials', 'risk'])
+    path = tmp_path/'preparation.json'
+    path.write_text(json.dumps(data))
+    assert runner.validate_preparation(path, cases)['status'] == 'complete'
 
 
 @pytest.mark.parametrize('failure',['revision','preparation','credential'])
