@@ -384,7 +384,7 @@ WP5a decision brief, each held in one named constant or function a review can ov
 - D4: margins, free cash flow, working capital and the current ratio read n/m where an input changed basis
   (`BASIS_INPUTS`), read from the recorded operand, else from the input's own figure for a calculation stored before
   operands were recorded; item 5's evidence sits on the recorded operands.
-- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E263, E261).
+- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E269, E270).
 - D6: any own row the publication policy shows gives evidence; only one that passed its checks grounds the mark
   (`grounds_a_mark`).
 
