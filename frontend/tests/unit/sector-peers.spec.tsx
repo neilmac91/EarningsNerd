@@ -284,8 +284,8 @@ describe('the Sector peers panel (E251)', () => {
     const section = await panelCard()
     await plotOf(section, 'Revenue')
     expect([tipHeader(section, 0), tipHeader(section, 1)]).toEqual([
-      'DUPX · Synthetic Duplicate One Inc · #1 of 4 · FY2025 · year ended Dec 31, 2025',
-      'DUPX · Synthetic Duplicate Two Corp · #2 of 4 · FY2025 · year ended Dec 31, 2025',
+      'DUPX · Synthetic Duplicate One Inc · #1\u00a0of\u00a04 · FY2025 · year ended Dec 31, 2025',
+      'DUPX · Synthetic Duplicate Two Corp · #2\u00a0of\u00a04 · FY2025 · year ended Dec 31, 2025',
     ])
   })
 
@@ -293,7 +293,7 @@ describe('the Sector peers panel (E251)', () => {
     renderPanel({ revenue: answerOf('cap') })
     const section = await panelCard()
     await plotOf(section, 'Revenue')
-    expect(tipHeader(section, 10)).toBe('CAPM · Synthetic Capped M Inc · #13 of 14 · FY2025 · year ended Dec 31, 2025')
+    expect(tipHeader(section, 10)).toBe('CAPM · Synthetic Capped M Inc · #13\u00a0of\u00a014 · FY2025 · year ended Dec 31, 2025')
   })
 
   it('prints a CNY cohort in the engine’s CNY form, its axis, every value and its readout, and names the currency in its footnote', async () => {

@@ -48,8 +48,8 @@ const yearOf = (entry: PeerEntry) => (entry.fiscal_year != null ? `FY${entry.fis
 /** Each company as the tooltip prints it and the values stop says it, in one order: who it is, where it ranks, which
  *  year. The tooltip, "AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025": the ticker first, since the
  *  reader hovered its bar, then the name, which no tick or label prints (two companies can answer one ticker), the rank
- *  over the companies with a value, and its own fiscal year, which can differ by company; it wraps inside the plot's
- *  visible width (TrendChartPlot's placeTip). The values stop, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year
+ *  over the companies with a value, kept on one line, and its own fiscal year, which can differ by company; it wraps
+ *  inside the plot's visible width (TrendChartPlot's placeTip). The values stop, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year
  *  ended September 27, 2025." (no "·", "#" or unit letter). A figure the backend derived reads as calculated from its
  *  own provenance. `slots` are `slotsOf(entries)`. */
 export function peerDescriber(answer: PeerComparisonResponse, entries: PeerEntry[], slots: BarCategory[]): ReadoutDescriber {
@@ -60,7 +60,8 @@ export function peerDescriber(answer: PeerComparisonResponse, entries: PeerEntry
       const entry = at.get(period.key)
       if (!entry) return { shown: period.long, spoken: period.long }
       const name = formatCompanyName(entry.company_name)
-      const rank = entry.rank != null && of != null ? { shown: `#${entry.rank} of ${of}`, spoken: `rank ${entry.rank} of ${of}` } : null
+      // No-break spaces keep the shown rank on one line where the header wraps on a phone ("#6 of" never ends a line).
+      const rank = entry.rank != null && of != null ? { shown: `#${entry.rank}\u00a0of\u00a0${of}`, spoken: `rank ${entry.rank} of ${of}` } : null
       const year = yearOf(entry)
       const when = year ? periodHeader(year, 'year', entry.period_end) : null
       const shown = [entry.ticker, name, rank?.shown, when?.shown]

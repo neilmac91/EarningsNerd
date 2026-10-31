@@ -3190,7 +3190,8 @@ starts at the subject, and a plot that scrolls opens with the subject's column c
 sticky gutter, and a subject near the end at the scroll's end; and the scroll region and the end-of-range status name
 companies. The tooltip heads a company with its ticker, since the reader hovered its bar, then its name, which no tick or
 label prints (two companies can answer one ticker), its rank, and its own fiscal year, since fiscal years differ by
-company ("AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025"), wrapping inside the plot's visible width;
+company ("AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025"), wrapping inside the plot's visible width
+with the rank kept on one line (no-break spaces);
 the values stop says the same in its own order, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year ended
 September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
 ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
