@@ -35,7 +35,9 @@ UNIT_MS = {"ms": 1, "s": 1_000, "min": 60_000, "h": 3_600_000, "d": 86_400_000}
 
 
 def selected(step) -> set[str]:
-    """The operations whose dispatch runs this step or job, read as GitHub evaluates its `if:`."""
+    """The operations whose dispatch runs this step or job, read as GitHub evaluates its `if:`. A word
+    no dispatch offers selects nothing here, so `test_ops_workflow_wiring.py` holds every name an
+    expression gives the operation to the dispatch options (E257)."""
     condition = step.get("if")
     if condition is None:
         return set(OPTIONS)
