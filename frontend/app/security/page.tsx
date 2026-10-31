@@ -59,8 +59,9 @@ export default function SecurityPage() {
                 stores by default.
               </li>
               <li>
-                <strong>Passwords:</strong> Passwords are stored only as bcrypt hashes, never as the passwords
-                themselves. When you set a password, we ask Have I Been Pwned whether it has appeared in a data breach,
+                <strong>Passwords:</strong> Passwords are stored only as hashes, never as the passwords themselves:
+                a new or changed password as an Argon2id hash, and one set before we adopted Argon2id as its bcrypt
+                hash until it is changed. When you set a password, we ask Have I Been Pwned whether it has appeared in a data breach,
                 sending only the first five characters of its SHA-1 hash, and refuse one that has; when the service
                 cannot be reached, the password is accepted.
               </li>

@@ -14,10 +14,12 @@ to the rule's mail half (CLAUDE.md rule 12):
   header names. This scan cannot follow a value through the code.
 
 This scan reads the Python's strings as the code builds them, docstrings and the paths of the API's route
-decorators aside: an f-string or a ``+`` chain whole, a template ``textwrap.dedent`` or ``inspect.cleandoc``
-re-indents (each known by the module's imports, not by its name alone) or ``.strip()`` strips of whitespace as
-written, and a name bound to a registered path, or to an address built on one, read as what it holds, in its
-module or in one that imports it from that module (an import of the name, or of the module, relative or not).
+decorators aside: an f-string or a ``+`` chain whole, a field an f-string converts with ``!r`` or ``!a`` in the
+quotes the conversion adds, a ``str()`` of a value read as the value, a template ``textwrap.dedent`` or
+``inspect.cleandoc`` re-indents (each known by the module's imports, not by its name alone) or ``.strip()`` strips
+of whitespace as written, and a name bound to a registered path, or to an address built on one, read as what it
+holds, in its module or in one that imports it from that module (an import of the name, or of the module, relative
+or not).
 A module that imports a class or a module exports it under the name it binds, as it does such a name, through
 any number of modules.
 A name a function or a comprehension binds as its own (a parameter, an assignment, a loop's or a
@@ -42,12 +44,9 @@ file's text. In them:
   fills in, ``https://{host}``) spells a whole registered path, and nothing is filled in after it. A
   directory left open for a name to follow (``"/assets/"``, ``f"{base}/icons/{name}"``) fails, so a
   path composed at run time has to be written out whole;
-- no origin of the site's (``earningsnerd.io`` or any host under it, with or without a scheme), no
-  second slash and no ``FRONTEND_URL`` that keeps its trailing slash comes in front of such a path: mail
-  builds it on ``FRONTEND_URL`` with the slash stripped, and a doubled slash answers 308. The scan
-  reads ``FRONTEND_URL`` where the f-string or the concatenation names it, read as it is (``str()``,
-  ``!s``, ``:s``, or a conditional, an ``or`` or an ``and`` that may yield it), and counts it stripped
-  only under ``.rstrip()`` or ``.strip()`` with "/" among its characters, or ``.removesuffix("/")``;
+- no origin of the site's (``earningsnerd.io`` or any host under it, with or without a scheme) and no
+  second slash comes in front of such a path: mail builds it on ``FRONTEND_URL``, which Settings loads
+  without a trailing slash (E111), and a doubled slash answers 308;
 - a registered path is used whole. Its string may sit in the f-string or the concatenation that builds an
   address, in a template a ``.format``, ``%`` or ``string.Template`` fills, or in a name bound to it once,
   which is then read only in those places. A string with nothing in front of the path counts as the path,
@@ -66,8 +65,8 @@ file's text. In them:
   builds it, or through a name that holds it. What is added to it is read with it, as the concatenation, or
   the in-place addition, builds it.
 
-The header's tile follows ``FRONTEND_URL`` whatever it is set to, with a trailing slash stripped, and
-``FRONTEND_URL``'s default is the register's origin.
+The header's tile follows ``FRONTEND_URL`` whatever it is set to, and ``FRONTEND_URL``'s default is the
+register's origin.
 
 ``FORMS`` plants a case for each way the rule can be broken and each look-alike that must pass.
 ``test_the_scan_scores_every_planted_form`` writes each case into a directory and scores it through the
@@ -80,9 +79,6 @@ walk that reads ``backend/app``. Out of the scan's reach, and planted as gaps, o
 - a data file's path, changed by the code that reads it
 - a registered path on another origin's variable: the scan reads the path, not what is filled in before it
 - a registered path after another origin filled in as a host
-- FRONTEND_URL read through a name, a call or a conversion that quotes it: an alias, a parameter's default, a
-  function's return, ``getattr``, ``format()``, ``!r``
-- FRONTEND_URL filled into a template: ``.format(base=settings.FRONTEND_URL)``, ``%``
 - an address a function hands back, changed by its caller: a helper's return, ``substitute()`` on a ``Template`` held in a name
 - an address handed to a function that changes it: a helper, ``re.sub``, ``str.replace(u, ...)``, a join
 - an address held in a container, an attribute, a conditional or a match's capture, then changed: a list, a dict,
@@ -136,10 +132,9 @@ _PLACEHOLDER_BEFORE = re.compile(r"(?:%(?:\(\w+\))?[sr]|\$\w+|%\w+%|@\w+@|__\w+_
 _FILLED_IN_HOST = re.compile(r"[{}%$]")  # https://{host}, https://%s, https://$host
 _DELIMITERS = set(" \t\r\n\"'`<>()[]=:,;}")
 _LEFT_OPEN = set("{%$")  # a placeholder right after a path fills something in after it
-# How the scan reads what an f-string or a concatenation holds besides its literal text: an expression
-# it cannot read, and FRONTEND_URL read whole, trailing slash and all.
+# How the scan reads what an f-string or a concatenation holds besides its literal text, FRONTEND_URL
+# among it: a field, after which a path is read as after any base.
 _FIELD = "{}"
-_UNSTRIPPED = "{FRONTEND_URL}"
 _ROUTE_DECORATORS = {"get", "post", "put", "patch", "delete", "head", "options", "api_route", "route", "websocket"}
 _FILLS = {"format", "format_map"}
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
@@ -173,9 +168,7 @@ def _scan(text: str) -> tuple[list[str], set[str]]:
         if origin or _SITE_HOST_BEFORE.search(before):
             found.append(f"{(origin or _SITE_HOST_BEFORE.search(before)).group(0).lstrip()}{path}: an origin of the site's in front of the path")
             continue
-        if before.endswith(_UNSTRIPPED):  # and the path after it is read, as after any base
-            found.append(f"{_UNSTRIPPED}{path}: FRONTEND_URL in front of the path keeps its trailing slash: strip it")
-        elif before.endswith("/"):
+        if before.endswith("/"):
             found.append(f"/{path}: a doubled slash in front of the path")
             continue
         elif before and before[-1] not in _DELIMITERS and not _PLACEHOLDER_BEFORE.search(before):
@@ -484,20 +477,8 @@ def _scan_python(
             return render(node.left) + render(node.right)
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
             return render(node.left)  # a %-template filled: its text, placeholders and all
-        if getattr(node, "attr", getattr(node, "id", None)) == "FRONTEND_URL":
-            return _UNSTRIPPED
-        if isinstance(node, (ast.IfExp, ast.BoolOp)):  # one of its values, the scan cannot tell which
-            if isinstance(node, ast.IfExp):
-                values = [node.body, node.orelse]
-            else:  # an "and" yields an earlier value only when it is empty, so its last one is read
-                values = node.values if isinstance(node.op, ast.Or) else node.values[-1:]
-            return _UNSTRIPPED if any(render(value).endswith(_UNSTRIPPED) for value in values) else _FIELD
         if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "str" and len(node.args) == 1 and not node.keywords:
             return render(node.args[0])
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and render(node.func.value) == _UNSTRIPPED:
-            arg = _string(node.args[0]) if len(node.args) == 1 and not node.keywords else None
-            strips = (node.func.attr in ("rstrip", "strip") and arg is not None and "/" in arg) or (node.func.attr == "removesuffix" and arg == "/")
-            return _FIELD if strips else _UNSTRIPPED
         if stripped(node):
             return render(node.func.value)  # whitespace off its ends: its text as written
         if dedented(node):
@@ -880,7 +861,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("an address built on a registered path, changed", 'P = f"{base}/assets/earningsnerd-appicon.png".replace("appicon", "x")', "flag"),
     ("a name holding an address on a registered path, sliced", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U[:-4] + "@2x.png"', "flag"),
     # A name bound through global or nonlocal, a class's attributes through its bases, an instance, another module.
-    ("a name a global binds to a registered path's address, changed in another function", '_TILE_URL = None\n\n\ndef _init():\n    global _TILE_URL\n    _TILE_URL = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n\n\ndef retina():\n    return _TILE_URL.replace(".png", "@2x.png")\n', 'flag'),
+    ("a name a global binds to a registered path's address, changed in another function", '_TILE_URL = None\n\n\ndef _init():\n    global _TILE_URL\n    _TILE_URL = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"\n\n\ndef retina():\n    return _TILE_URL.replace(".png", "@2x.png")\n', 'flag'),
     ('a registered path a global binds, sliced in the module', '_T = None\n\n\ndef _init():\n    global _T\n    _T = "/assets/earningsnerd-appicon.png"\n\n\nP = _T[:-4]\n', 'flag'),
     ('a registered path a nonlocal binds, changed in the function around', 'def outer():\n    t = None\n\n    def inner():\n        nonlocal t\n        t = "/assets/earningsnerd-appicon.png"\n\n    inner()\n    return t.replace("appicon", "x")\n', 'flag'),
     ("a registered path a class's body binds through global, bound again there", _T + 'class Mail:\n    global _T\n    _T = variant()\n', 'flag'),
@@ -966,7 +947,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("an address filled by %, then sliced", 'P = ("%s/assets/earningsnerd-appicon.png" % base)[:-4]', "flag"),
     ("an address filled by %, then added to", 'P = "%s/assets/earningsnerd-appicon.png" % base + "@2x.png"', "flag"),
     ("an address stripped of characters", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U.rstrip(".png")', "flag"),
-    # An origin, a second slash or an unstripped FRONTEND_URL in front of the path.
+    # An origin or a second slash in front of the path.
     ("the apex in front of a registered path", 'P = "https://earningsnerd.io/assets/earningsnerd-appicon.png"', "flag"),
     ("www in front of a registered path", 'P = "https://www.earningsnerd.io/assets/earningsnerd-appicon.png"', "flag"),
     ("a protocol-relative origin", 'P = "//www.earningsnerd.io/assets/earningsnerd-appicon.png"', "flag"),
@@ -977,23 +958,9 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a site origin before a registered constant in an f-string", _T + 'P = f"https://earningsnerd.io{_T}"', "flag"),
     ("a site origin concatenated before a registered constant", _T + 'P = "https://www.earningsnerd.io" + _T', "flag"),
     ("a doubled slash after a base", 'P = f"{base}//assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL with its trailing slash kept", 'P = f"{settings.FRONTEND_URL}/assets/earningsnerd-mark-sage.png"', "flag"),
-    ("FRONTEND_URL concatenated with its trailing slash kept", _T + "P = settings.FRONTEND_URL + _T", "flag"),
-    ("FRONTEND_URL stripped of whitespace alone", 'P = f"{settings.FRONTEND_URL.strip()}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL converted to a string", 'P = str(settings.FRONTEND_URL) + "/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL read through !s", 'P = f"{settings.FRONTEND_URL!s}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL read through :s", 'P = f"{settings.FRONTEND_URL:s}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL in a conditional", 'P = f"{settings.FRONTEND_URL if light else DARK}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL in an or", 'P = (settings.FRONTEND_URL or ORIGIN) + "/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL as an or's fallback", 'P = f"{settings.MAIL_ORIGIN or settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL in a conditional's else", 'P = f"{DARK if dark else settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"', "flag"),
     ("an address encoded, then changed", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U.encode()[:-4]', "flag"),
-    ("FRONTEND_URL last in an and", 'P = (ready and settings.FRONTEND_URL) + "/assets/earningsnerd-appicon.png"', "flag"),
     ("an address with a character replaced", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U.replace("-", "_")', "flag"),
-    ("FRONTEND_URL rstripped of whitespace alone", 'P = f"{settings.FRONTEND_URL.rstrip()}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL rstripped of characters that leave its slash", 'P = f"{settings.FRONTEND_URL.rstrip(\' \')}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL with a doubled slash removed", 'P = f"{settings.FRONTEND_URL.removesuffix(\'//\')}/assets/earningsnerd-appicon.png"', "flag"),
-    ("FRONTEND_URL with a suffix removed that is not its slash", 'P = f"{settings.FRONTEND_URL.removesuffix(\'io/\')}/assets/earningsnerd-appicon.png"', "flag"),
+    ("an address converted to a string, then added to", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = str(U) + "@2x.png"', "flag"),
     ("a site origin with a port", 'P = "https://www.earningsnerd.io:443/assets/earningsnerd-appicon.png"', "flag"),
     # What a client reads into the path, and where only a route's own path is exempt.
     ("a query written without its question mark", 'P = "/assets/earningsnerd-appicon.png&v=2"', "flag"),
@@ -1020,13 +987,13 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("an unregistered path past a module's first 4 KB", {"services/long.py": "X = 1\n" * 1000 + 'P = "/assets/earningsnerd-new.png"'}, "flag"),
     ("an unregistered path past a template's first 4 KB", {"templates/mail/long.html": "<p></p>\n" * 1000 + '<img src="/assets/earningsnerd-new.png">'}, "flag"),
     # Look-alikes that must pass.
-    ("a registered path on FRONTEND_URL", 'P = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"', "pass"),
-    ("a registered constant read whole on FRONTEND_URL", _T + 'P = f"{settings.FRONTEND_URL.rstrip(\'/\')}{_T}"', "pass"),
-    ("a registered constant concatenated on FRONTEND_URL", _T + 'P = settings.FRONTEND_URL.rstrip("/") + _T', "pass"),
+    ("a registered path on FRONTEND_URL", 'P = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"', "pass"),
+    ("a registered constant read whole on FRONTEND_URL", _T + 'P = f"{settings.FRONTEND_URL}{_T}"', "pass"),
+    ("a registered constant concatenated on FRONTEND_URL", _T + "P = settings.FRONTEND_URL + _T", "pass"),
     ("a registered constant with a query after it", _T + 'P = f"{base}{_T}?v=2"', "pass"),
     ("a registered constant imported and read whole", {"a.py": _T, "b.py": 'from app.a import _T\nP = f"{base}{_T}"'}, "pass"),
     ("a registered template filled by .format", 'IMG = \'<img src="{base}/assets/earningsnerd-appicon.png">\'\nP = IMG.format(base=b)', "pass"),
-    ("an address built on a registered path, handed on", 'P = _wrap(f\'<img src="{settings.FRONTEND_URL.rstrip("/")}/assets/earningsnerd-appicon.png">\')', "pass"),
+    ("an address built on a registered path, handed on", 'P = _wrap(f\'<img src="{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png">\')', "pass"),
     ("a name holding an address, read whole", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = f"<img src=\\"{U}\\">"', "pass"),
     ("a registered path with a query", 'P = "/assets/earningsnerd-appicon.png?v=2"', "pass"),
     ("a registered path ending a sentence", 'P = "The header shows /assets/earningsnerd-appicon.png."', "pass"),
@@ -1041,24 +1008,21 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a longer name that starts like a directory", 'P = "/assets-manifest.json"', "pass"),
     ("an unrelated name with a method", _T + 'P = f"{base}{_T}"\nQ = name.replace("a", "b")', "pass"),
     ("a registered path between escaped quotes", 'P = "src=&quot;/assets/earningsnerd-appicon.png&quot;"', "pass"),
-    ("FRONTEND_URL stripped by removesuffix", 'P = f"{settings.FRONTEND_URL.removesuffix(\'/\')}/assets/earningsnerd-appicon.png"', "pass"),
     ("an address aliased, read whole", 'U = f"{base}/assets/earningsnerd-appicon.png"\nV = U\nP = f"<img src=\\"{V}\\">"', "pass"),
     ("an address bound again to another address", 'U = f"{base}/assets/earningsnerd-appicon.png"\nif dark:\n    U = f"{base}/assets/earningsnerd-mark-sage.png"', "pass"),
     ("a setting that holds no path", 'class Settings(BaseSettings):\n    FRONTEND_URL: str = "https://www.earningsnerd.io"', "pass"),
     ("a registered path in a class that is no setting", 'class Mail:\n    TILE = "/assets/earningsnerd-appicon.png"', "pass"),
     ("a registered constant read through !s", _T + 'P = f"{base}{_T!s}"', "pass"),
     ("a registered constant read through :s", _T + 'P = f"{base}{_T:s}"', "pass"),
-    ("FRONTEND_URL stripped of its slash and whitespace", 'P = f"{settings.FRONTEND_URL.rstrip(\'/ \')}/assets/earningsnerd-appicon.png"', "pass"),
-    ("FRONTEND_URL stripped of its slash at both ends", 'P = f"{settings.FRONTEND_URL.strip(\'/\')}/assets/earningsnerd-appicon.png"', "pass"),
-    ("FRONTEND_URL stripped after an and", 'P = f"{settings.FRONTEND_URL and settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"', "pass"),
     ("a page with its line breaks replaced", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\nP = page.replace("\\n", "")', "pass"),
-    ("FRONTEND_URL stripped in each value of a conditional", 'P = f"{settings.FRONTEND_URL.rstrip(\'/\') if light else DARK}/assets/earningsnerd-appicon.png"', "pass"),
     ("an address grown in place as a page", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\npage += "<p>Body</p>"', "pass"),
     ("an address logged through !r", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile {U!r}")', "pass"),
+    ("an address logged through !r, text after it", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile={U!r}; size=32")', "pass"),
+    ("an address logged through !a, text after it", 'U = f"{base}/assets/earningsnerd-appicon.png"\nlog(f"tile={U!a}; size=32")', "pass"),
     ("an address read by startswith", 'U = f"{base}/assets/earningsnerd-appicon.png"\nok = U.startswith("https://")', "pass"),
     ("a page stripped of whitespace", 'page = f\'<img src="{base}/assets/earningsnerd-appicon.png">\'\nP = page.strip()', "pass"),
-    ("an attribute that shares an exported name, on an object no module binds", {"a.py": 'class HeaderTile:\n    url = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n', "b.py": "def path(request):\n    return request.url.path"}, "pass"),
-    ("an attribute that shares a module's exported name, on an object no module binds", {"a.py": 'url = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n', "b.py": "def path(request):\n    return request.url.path"}, "pass"),
+    ("an attribute that shares an exported name, on an object no module binds", {"a.py": 'class HeaderTile:\n    url = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"\n', "b.py": "def path(request):\n    return request.url.path"}, "pass"),
+    ("an attribute that shares a module's exported name, on an object no module binds", {"a.py": 'url = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"\n', "b.py": "def path(request):\n    return request.url.path"}, "pass"),
     ("an imported name its module binds to no path, beside a class attribute of that name on one", {"a.py": 'class Mail:\n    TILE = "/assets/earningsnerd-appicon.png"\n\n\nTILE = "dark"\n', "b.py": 'from app.a import TILE\nP = TILE.replace("appicon", "x")'}, "pass"),
     ("a method's bare name, its module's, beside a class attribute of that name on a registered path", '_T = "x"\n\n\nclass Mail:\n    _T = "/assets/earningsnerd-appicon.png"\n\n    def f(self):\n        return _T.upper()', "pass"),
     ("a name imported from another module than the one that exports it", {"a.py": _T, "b.py": "from app.layout import _T\nP = [_T]"}, "pass"),
@@ -1100,8 +1064,8 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ('a registered path in a frozenset a comparison holds', _T + 'ok = p in frozenset({_T, "x"})\n', 'pass'),
     ("a registered path as a dict's key a comparison holds", _T + 'ok = p in {_T: 1}\n', 'pass'),
     ('a registered path a match compares with its cases', _T + 'match _T:\n    case "x":\n        pass\n', 'pass'),
-    ('an address a global binds, handed on whole', '_TILE_URL = None\n\n\ndef _init():\n    global _TILE_URL\n    _TILE_URL = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n\n\ndef url():\n    return _TILE_URL\n', 'pass'),
-    ("a class's attribute read from another module and used whole", {'a.py': 'class Tiles:\n    HEADER = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"\n', 'b.py': 'from app.a import Tiles\nP = f"<img src=\\"{Tiles.HEADER}\\">"\n'}, 'pass'),
+    ('an address a global binds, handed on whole', '_TILE_URL = None\n\n\ndef _init():\n    global _TILE_URL\n    _TILE_URL = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"\n\n\ndef url():\n    return _TILE_URL\n', 'pass'),
+    ("a class's attribute read from another module and used whole", {'a.py': 'class Tiles:\n    HEADER = f"{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png"\n', 'b.py': 'from app.a import Tiles\nP = f"<img src=\\"{Tiles.HEADER}\\">"\n'}, 'pass'),
     ("a comprehension's walrus that binds the function's own name", _T + '\n\ndef f(names):\n    [(_T := n) for n in names]\n    return _T.upper()\n', 'pass'),
     ("an address built with +, handed on", 'P = _img(base + "/assets/earningsnerd-appicon.png")\n', "pass"),
     ("a template rstripped of whitespace, then filled", 'IMG = \'<img src="{base}/assets/earningsnerd-appicon.png">  \'.rstrip()\nP = IMG.format(base=b)\n', "pass"),
@@ -1119,9 +1083,6 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a data file's path, changed by the code that reads it", {"data/mail.json": '{"tile": "/assets/earningsnerd-appicon.png"}', "form.py": 'P = TILES["tile"][:-4] + "@2x.png"'}, "gap"),
     ("a registered path on another origin's variable", 'P = f"{settings.CORS_ORIGINS[0]}/assets/earningsnerd-appicon.png"', "gap"),
     ("a registered path after another origin filled in as a host", 'P = "https://{host}/assets/earningsnerd-appicon.png".format(host=h)', "gap"),
-    ("FRONTEND_URL read through a name, a call or a conversion that quotes it", 'base = settings.FRONTEND_URL\nP = f"{base}/assets/earningsnerd-appicon.png"\n'
-     'Q = f"{format(settings.FRONTEND_URL)}/assets/earningsnerd-appicon.png"\nR = f"{settings.FRONTEND_URL!r}/assets/earningsnerd-appicon.png"', "gap"),
-    ("FRONTEND_URL filled into a template", 'P = \'<img src="{base}/assets/earningsnerd-appicon.png">\'.format(base=settings.FRONTEND_URL)', "gap"),
     ("an address a function hands back, changed by its caller", 'def u():\n    return f"{base}/assets/earningsnerd-appicon.png"\n\nP = u().replace("appicon", "x")', "gap"),
     ("an address handed to a function that changes it", 'def _retina(url):\n    return url.replace(".png", "@2x.png")\n\nU = f"{base}/assets/earningsnerd-appicon.png"\nP = _retina(U)', "gap"),
     ("an address held in a container, an attribute, a conditional or a match's capture, then changed", 'U = f"{base}/assets/earningsnerd-appicon.png"\n'
@@ -1173,7 +1134,7 @@ def test_the_scan_scores_every_planted_form(tmp_path):
     assert gaps == named, "the header names each gap a case marks, and a case marks each gap the header names: keep the two in step"
     outcomes = [outcome for _, _, outcome in FORMS]
     # Equalities, not floors, so a form dropped after one is added still fails (lessons/test-allowlist-caps-are-equalities.md).
-    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (227, 99, 23), (
+    assert (outcomes.count("flag"), outcomes.count("pass"), outcomes.count("gap")) == (213, 96, 21), (
         "a planted form was added or dropped: keep these counts equal to FORMS in the same diff, and say why one goes"
     )
 
@@ -1207,7 +1168,7 @@ def test_mail_addresses_the_site_only_by_registered_paths():
     assert not found, (
         "these strings address a file of the site's other than by a whole registered path on FRONTEND_URL, used "
         "whole. Register a path mail shows in frontend/tests/unit/publishedAssetUrls.json in the same PR. Spell it "
-        "whole where the address is built, on settings.FRONTEND_URL.rstrip('/'), and hand on the address, never the "
+        "whole where the address is built, on settings.FRONTEND_URL, and hand on the address, never the "
         "path: a registered path may sit in the f-string or the concatenation that builds an address, in a template "
         "that is filled, or in a name bound to it once and read only there (LOGO_README.md › Published URLs stay "
         "put). A string here that is no address mail carries narrows this gate by its shape, never by its name, with "
@@ -1224,9 +1185,8 @@ def test_the_tile_follows_frontend_url_whose_default_is_the_registers_origin(mon
         "whole address: keep it the register's origin, the one that answers without a redirect"
     )
     for origin in (ORIGIN, "https://frontend.example.test"):
-        for configured in (origin, f"{origin}/"):
-            monkeypatch.setattr(settings, "FRONTEND_URL", configured)
-            sources = re.findall(r'<img src="([^"]+)"', email_service._wrap_html("<p>Body</p>", preheader="The mail's own line."))
-            assert sources == [f"{origin}{email_service._HEADER_TILE_PATH}"], (
-                f"FRONTEND_URL={configured!r} gave the header's image {sources}"
-            )
+        monkeypatch.setattr(settings, "FRONTEND_URL", origin)
+        sources = re.findall(r'<img src="([^"]+)"', email_service._wrap_html("<p>Body</p>", preheader="The mail's own line."))
+        assert sources == [f"{origin}{email_service._HEADER_TILE_PATH}"], (
+            f"FRONTEND_URL={origin!r} gave the header's image {sources}"
+        )

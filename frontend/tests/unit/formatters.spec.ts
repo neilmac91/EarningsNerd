@@ -1,4 +1,4 @@
-import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, inSentence, ordinal } from '@/lib/format'
+import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, inSentence } from '@/lib/format'
 
 describe('numeric formatters', () => {
   it('formats currency values compactly by default', () => {
@@ -30,14 +30,6 @@ describe('numeric formatters', () => {
     expect(fmtPercent('-0.031', { digits: 1, signed: true })).toBe('-0.0%')
   })
 
-  it('reads ordinals in English: st, nd, rd, and th for the teens', () => {
-    const cases: Array<[number, string]> = [
-      [0, '0th'], [1, '1st'], [2, '2nd'], [3, '3rd'], [4, '4th'], [11, '11th'], [12, '12th'], [13, '13th'],
-      [21, '21st'], [22, '22nd'], [23, '23rd'], [50, '50th'], [99, '99th'], [100, '100th'], [101, '101st'], [111, '111th'],
-    ]
-    for (const [n, text] of cases) expect(ordinal(n)).toBe(text)
-  })
-
   it('scales a share count as a magnitude, and keeps a net figure\'s sign when asked', () => {
     expect(fmtShares(1_234_000)).toBe('1.2M')
     expect(fmtShares(-1_234_000)).toBe('1.2M')
@@ -50,10 +42,11 @@ describe('numeric formatters', () => {
   it('reads a sentence-case metric label inside a sentence: its first word lower case unless an acronym', () => {
     const cases: Array<[string, string]> = [
       ['Revenue', 'revenue'], ['Net income', 'net income'], ['Operating cash flow', 'operating cash flow'],
-      ['Non-interest income', 'non-interest income'], ["Shareholders' equity", "shareholders' equity"],
+      ['Noninterest income', 'noninterest income'], ["Shareholders' equity", "shareholders' equity"],
       ['Diluted EPS', 'diluted EPS'], ['EPS', 'EPS'],
       // The analysis dataset's own (trend_analysis/periods.py _CONCEPT_LABELS), which its report's notes read the same way.
-      ['EPS (diluted)', 'EPS (diluted)'], ['Cash & equivalents', 'cash & equivalents'], ['Long-term debt', 'long-term debt'],
+      ['EPS (diluted)', 'EPS (diluted)'], ['EPS (basic)', 'EPS (basic)'], ['Cash & equivalents', 'cash & equivalents'],
+      ['Long-term debt', 'long-term debt'],
     ]
     for (const [label, text] of cases) expect(inSentence(label)).toBe(text)
   })

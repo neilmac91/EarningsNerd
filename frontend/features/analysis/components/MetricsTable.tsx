@@ -10,6 +10,7 @@ import { formatTableGrowth, tableComparisonText, tableCurrencyLabel, tableFigure
 import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 import { calculatedMetricsSentence, reportIdentity, tableComparisonBasis, tablePresentation } from '@/features/analysis/lib/reportPresentation'
 import { markedNote } from '@/features/analysis/lib/dataNotes'
+import { comparisonLaterFiling } from '@/features/analysis/lib/laterFilings'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import DataNoteMark from './DataNoteMark'
 import { useDataNotes } from './DataNotesContext'
@@ -105,7 +106,7 @@ export default function MetricsTable({
         return (
           <div className={FIGURE_CELL}>
             <span className="block">
-              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, row.series, note)}</span></SourceValue>
+              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote, laterFiling: growthBasis === 'yoy' ? comparisonLaterFiling(point, row.series.percent) : undefined } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, row.series, note)}</span></SourceValue>
             </span>
             {growthText && (
               <span className={`flex flex-col items-end text-xs tracking-normal ${dataDirectionText[tone]}`}>

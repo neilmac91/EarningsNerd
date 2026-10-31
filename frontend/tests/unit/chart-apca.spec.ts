@@ -41,7 +41,7 @@ describe('the APCA formula is apca-w3’s (0.0.98G-4g)', () => {
 describe('every Lc the spec’s §3.8 tables print is the formula’s on the card', () => {
   const token = rows('| `').filter((cells) => HEX.test(cells[3]) && /\d/.test(cells[4]))
   it('reads the token table', () => expect(token.map((cells) => cells[1])).toEqual(
-    ['`grid`', '`zero`', '`tick`', '`value`', '`s1` teal', '`s2` honey', '`s3` cornflower', '`s4` coral', '`s5` slate-blue', '`s6` periwinkle'],
+    ['`grid`', '`zero`', '`tick`', '`value`', '`s1` teal', '`s2` honey', '`s3` cornflower', '`s4` coral', '`s5` slate-blue', '`s6` periwinkle', '`context`'],
   ))
   it.each(token.map((cells) => [cells[1], cells]))('%s', (_, cells) => {
     const [light, dark] = [cells[3], cells[5]].map((cell) => HEX.exec(cell)![0])
@@ -60,7 +60,7 @@ describe('every Lc the spec’s §3.8 tables print is the formula’s on the car
   // `#9CA3AF` is −48.6"), or a series' light hex ("on the dark card the light hex is −32.0").
   const sources = token.flatMap((cells) => [...cells[7].matchAll(/(?:`(#[0-9A-Fa-f]{6})` is|the light hex is) (−?\d+\.\d)/g)]
     .map((match) => [`${cells[1]}: ${match[0]}`, match[1] ?? HEX.exec(cells[3])![0], match[2]] as const))
-  it('reads the Source column’s figures', () => expect(sources).toHaveLength(7))
+  it('reads the Source column’s figures', () => expect(sources).toHaveLength(8))
   it.each(sources)('%s', (_, hex, printed) => {
     expect(round(apcaLc(hex, CHART_TOKENS.dark.surface))).toBe(lc(printed))
   })
@@ -83,6 +83,8 @@ const FLOORS: Record<Exclude<keyof ChartTokens, 'surface' | 'cursor'>, { low: nu
   grid: GRID,
   zero: MARKS,
   series: MARKS,
+  // A bar chart's context bars (E251) are marks too: a fade, by opacity or by a paler hex, may not take them under 45.
+  context: MARKS,
   tick: TEXT,
   note: TEXT,
   name: TEXT,
