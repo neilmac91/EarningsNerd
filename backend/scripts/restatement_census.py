@@ -164,22 +164,23 @@ def _own_across(
 
 
 def _tag_collections(usgaap: dict, financial_sic: bool) -> dict[str, tuple[tuple[str, ...], str, dict, bool]]:
-    """Per concept: its tags, its unit list (``series_unit``), the collector run on each tag alone, and
-    whether it is an instant."""
+    """Per concept: its tags, its unit (the series currency's, ``companyfacts_currencies``), the collector run
+    on each tag alone with the same foreign filings skipped, and whether it is an instant."""
     from app.services.facts.companyfacts import _collect_companyfacts_values
     from app.services.facts.concepts import (
-        COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, _CONCEPT_UNITS, _FI_SKIPPED_CONCEPTS,
+        COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, _FI_SKIPPED_CONCEPTS, _unit_for,
     )
-    from app.services.facts.currency import series_unit
+    from app.services.facts.currency import companyfacts_currencies
 
+    currency, foreign = companyfacts_currencies(usgaap)
     out: dict[str, tuple[tuple[str, ...], str, dict, bool]] = {}
     for instant, registry in ((False, COMPANYFACTS_DURATION_TAGS), (True, COMPANYFACTS_INSTANT_TAGS)):
         for concept, tags in registry.items():
             if not instant and financial_sic and concept in _FI_SKIPPED_CONCEPTS:
                 continue
-            default = "USD" if instant else _CONCEPT_UNITS.get(concept, "USD")
-            unit = series_unit(usgaap, tags, default, instant=instant)
-            per_tag = {tag: _collect_companyfacts_values(usgaap, (tag,), unit, instant=instant) for tag in tags}
+            unit = currency if instant else _unit_for(concept, currency)
+            per_tag = {tag: _collect_companyfacts_values(usgaap, (tag,), unit, instant=instant, foreign=foreign)
+                       for tag in tags}
             out[concept] = (tags, unit, per_tag, instant)
     return out
 

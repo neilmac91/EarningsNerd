@@ -1,6 +1,6 @@
 -- Detection: current financial_fact rows a proxy or information statement supplied. Since 2023 a
 -- proxy's pay-versus-performance table tags NetIncomeLoss (sometimes other lines) for five fiscal
--- years, filed after the 10-Ks it quotes. Until facts/currency.py's is_proxy_form the companyfacts sync
+-- years, filed after the 10-Ks it quotes. Until is_proxy_form (now facts/fiscal_naming.py) the companyfacts sync
 -- took each period's latest-filed item of any form, so the proxy's figure replaced the 10-K's (the
 -- 2026-10 restatement census: 120 cells at 24 of 59 large filers, 12 of them off the 10-K's, FDX's at a
 -- millionth of it), and the backfill's cross-check (facts/reconcile.py's extract_authoritative_values,

@@ -24,7 +24,7 @@ from app.models.financial_fact_revision import FinancialFactRevision
 from app.services import facts_service as svc
 from app.services import proxy_fact_repair as proxy
 from app.services import quarterly_fact_repair as repair
-from app.services.facts import companyfacts, currency
+from app.services.facts import companyfacts, currency, fiscal_naming
 from app.services.facts.concepts import HEADLINE_GAAP_TAGS
 from scripts import repair_quarterly_facts as cli
 from tests.unit.test_companyfacts_ingest import (
@@ -50,11 +50,11 @@ def db():
 @contextmanager
 def _before_the_fix(monkeypatch):
     """No form is a proxy's, as before #1622. ``is_proxy_form`` reads ``_PROXY_FORM`` when it is called
-    (facts/currency.py), so every importer, by module or by name, sees the old rule. The later #1682
+    (facts/fiscal_naming.py), so every importer, by module or by name, sees the old rule. The later #1682
     own-report history did not exist then either: it would occupy a filing's identity before the
     per-filing writer could store the replacement this historical shape is meant to repair."""
     with monkeypatch.context() as patch:
-        patch.setattr(currency, "_PROXY_FORM", NEVER)
+        patch.setattr(fiscal_naming, "_PROXY_FORM", NEVER)
         patch.setattr(companyfacts, "own_report_history", lambda *args: [])
         yield
 
@@ -799,7 +799,7 @@ def _detection(db, payloads):
     """Sets 2 to 5 of ``ops/detection/proxy_form_winners.sql`` as invariants over the stored rows. The
     file needs PostgreSQL, which this suite has not; the PR records the file's own run over these
     shapes. A payload proxy item also witnesses set 4, which the file cannot read."""
-    from app.services.facts.currency import is_proxy_form
+    from app.services.facts.fiscal_naming import is_proxy_form
 
     listed = {2: set(), 3: set(), 4: set(), 5: set()}
     for company in db.query(Company):
@@ -1073,12 +1073,33 @@ def test_a_winner_in_another_currency_refuses_until_a_sync(db, monkeypatch):
         _item(120e9, "2023-03-31", start="2022-04-01", accn="P24", fy=2024, form="DEF 14A", filed="2024-08-01"),
     ])
     payload = _for(company, payload)
-    _old_sync(db, monkeypatch, company, payload)
-    assert {r.unit for r in _rows(db, company, concept="revenue")} == {"USD"}
+    with monkeypatch.context() as patch:
+        # The old sync read each concept's list in one currency (``series_unit``, before #1583): revenue
+        # in USD, every other concept in CNY. Today's pick reads each filing in its own currency and never
+        # a foreign filing's items, so the shape is planted with the old units, on a sync in USD alone
+        # (the pick both the collector and ``payload_view`` read says USD and no foreign filing), which
+        # is main's upsert: main 163ce89c's own run of this test stored these 21 rows, every one current.
+        collect = companyfacts._collect_companyfacts_values
+
+        def old_units(usgaap, tags, unit_key, *, instant, foreign=frozenset()):
+            unit = unit_key.replace("CNY", "USD") if REV_TAG in tags else unit_key.replace("USD", "CNY")
+            return collect(usgaap, tags, unit, instant=instant, foreign=foreign)
+
+        patch.setattr(companyfacts, "_collect_companyfacts_values", old_units)
+        patch.setattr(currency, "_filing_pick", lambda *args: ("USD", frozenset(), {}, None))
+        _old_sync(db, monkeypatch, company, payload)
+    planted = _rows(db, company)
+    assert len(planted) == 21 and all(r.is_latest for r in planted)
+    assert {(r.concept == "revenue", r.unit) for r in planted} == {(True, "USD"), (False, "CNY"), (False, "CNY/shares")}
     [row] = _current_proxy_rows(db, company)
     assert (row.period_end, row.unit) == (date(2023, 3, 31), "USD")
     _refuses(db, company, payload, rf"\(fact {row.id}\): the payload's winner for this period is in CNY; "
                                    "sync the company first")
+    svc._persist_companyfacts_payload(db, company, payload)  # the sync the refusal asks for
+    db.commit()
+    assert _current_proxy_rows(db, company) == []
+    assert {r.unit for r in _rows(db, company, concept="revenue", is_latest=True)} == {"CNY"}
+    assert _preview(db, company, payload)["proxy"]["retired"] == 0
 
 
 def test_no_winner_but_a_stored_report_row_refuses(db, monkeypatch):

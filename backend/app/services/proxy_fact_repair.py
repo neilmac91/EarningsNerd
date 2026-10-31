@@ -1,6 +1,6 @@
 """The quarterly repair's proxy step (E211): proxy-statement values stored before #1622.
 
-Before #1622 (``facts/currency.is_proxy_form``) a proxy or information statement's pay-versus-
+Before #1622 (``facts/fiscal_naming.is_proxy_form``) a proxy or information statement's pay-versus-
 performance figure could win a companyfacts period, and the backfill's cross-check could take it as
 the authority over a filing's parse, replacing or confirming it. ``quarterly_fact_repair.
 repair_company`` runs this step after its calendar relabels and before its same-identity loop. The
@@ -44,7 +44,7 @@ from app.services import facts_service
 from app.services import quarterly_fact_repair as qfr  # repair_company imports this module at call time
 from app.services.fact_provenance import METRIC_FORMULAS, METRIC_INPUTS, PROVENANCE_VERSION
 from app.services.facts.concepts import CROSS_CHECK_TOLERANCE, HEADLINE_GAAP_TAGS, _INSTANT_HEADLINE, _parse_date
-from app.services.facts.currency import is_proxy_form
+from app.services.facts.fiscal_naming import is_proxy_form
 from app.services.facts.lineage import _is_calculated, _scope, annotate_filing_calculations, local_reconciliation
 
 PROXY_REPAIR_VERSION = "proxy-repair-v1"  # financial_fact_revision.calculation_version of the step's rows
