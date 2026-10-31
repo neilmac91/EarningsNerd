@@ -1302,10 +1302,15 @@ class TestScopeTagsHoldTheirSources:
         all the same). Classifying each errs on the safe side."""
         from app.services.edgar.instance.concepts import DURATION_CONCEPTS, INSTANT_CONCEPTS
         from app.services.edgar.instance.financial_profiles import FINANCIAL_PROFILES
+        from app.services.edgar import xbrl_companyfacts
         from app.services.edgar.xbrl_companyfacts import (
             CASH_TAG_CANDIDATES, NET_INCOME_TAG_CANDIDATES, REVENUE_TAG_CANDIDATES, TOTAL_ASSETS_TAG_CANDIDATES,
         )
 
+        # Every candidate list the module defines is read here: a new one fails until it is.
+        assert {name for name in dir(xbrl_companyfacts) if name.endswith("_TAG_CANDIDATES")} == {
+            "CASH_TAG_CANDIDATES", "NET_INCOME_TAG_CANDIDATES", "REVENUE_TAG_CANDIDATES", "TOTAL_ASSETS_TAG_CANDIDATES",
+        }
         out: dict[str, set[str]] = {}
         for table in (DURATION_CONCEPTS, INSTANT_CONCEPTS):
             for key, tags in table.items():
