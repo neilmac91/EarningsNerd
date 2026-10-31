@@ -48,10 +48,11 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     from the error it streams in the block under `if user_is_unlimited:` (the billing-unlimited caller its
  *     usage gate blocked), and every 403 the endpoint answers with (a plan or account gate: a Free reader's
  *     force regeneration of a summary the page shows, an inactive account) must match
- *     isNonRetryableStreamError, in its words and, for a coded one, by each code it can carry, so the stream
- *     never retries them and the card offers no Retry; the endpoint's 401 (a retry after a refresh or a
- *     sign-in can help), its 404 (kept retryable since round 3), its 429 and its 503 must not (one named code
- *     excepted), and a status the table does not classify fails. A reworded sentence fails here
+ *     isNonRetryableStreamError in its own words, so the stream never retries them and the card offers no
+ *     Retry; the endpoint's 401 (a retry after a refresh or a sign-in can help), its 404 (kept retryable since
+ *     round 3), its 429 and its 503 must not, and a status the table does not classify fails. These are the
+ *     words a page reads with no known code; a known code decides first, and summaryStream.spec.ts holds each
+ *     one to the E31 contract's §3. A reworded sentence fails here
  *     until the matcher follows it.
  *  4. Voice: what the page shows has no em-dash, no exclamation mark and no "please", and reads as a sentence, a line of the map
  *     or an endpoint answer the map passes through as the backend wrote it (the account check's, since E45); a
@@ -264,12 +265,16 @@ const REGISTERED_STATUS: Record<string, number> = (() => {
 })()
 
 /** The coded raises whose detail is no literal: words written elsewhere and passed through, in generate_summary_stream
-    (#1824). Each raise is named here by its detail's expression, once per raise, so a new one fails the reader until
-    it is named, even one spelled as a named one; none is held to the word legs below. */
+    (#1824). Each raise is named here by its code's and its detail's expressions, once per raise, so a new one fails the
+    reader until it is named (even one spelled as a named one), and so does a named one whose code changes. None is
+    held to the word legs below. */
 const OPAQUE_CODED_DETAILS = [
-  'exc.detail', // the request limiter's 429, re-raised with its code (its words are enforce_rate_limit's error_detail)
-  'refusal["message"]', // the durable admission's rate limit (admit_generation's sse_error words)
-  'str(exc)', // the durable job's refusals (summary_job_store.SummaryJobUnavailable), through `aliases`
+  // The request limiter's 429, re-raised with its code (its words are enforce_rate_limit's error_detail).
+  'ErrorCode.SUMMARY_RATE_LIMITED, exc.detail',
+  // The durable admission's rate limit (admit_generation's sse_error words).
+  'ErrorCode.SUMMARY_RATE_LIMITED, refusal["message"]',
+  // The durable job's refusals (summary_job_store.SummaryJobUnavailable), each at its alias's code.
+  'aliases[exc.code], str(exc)',
 ]
 
 /** The [start, end) token ranges of the depth-0 arguments of the call whose `(` is at `open` and `)` at `close`. */
@@ -317,7 +322,7 @@ function codeArms(toks: Token[], [start, end]: [number, number]): string[] | nul
 
 /** A `CodedHTTPException(...)` at `k`: its status, from the code's registered one (the code by `code=` or first, read
     by codeArms; a conditional only where its arms agree), the codes it can carry, and its detail (by `detail=` or
-    second), or the name of a detail in OPAQUE_CODED_DETAILS. Anything else it cannot read fails it. */
+    second), or its name in OPAQUE_CODED_DETAILS. Anything else it cannot read fails it. */
 function codedRaise(
   toks: Token[], k: number, where: string,
 ): { status: number; text: string; codes: KnownErrorCode[] } | { opaque: string } {
@@ -330,12 +335,14 @@ function codedRaise(
     arg && keyword(name) === arg ? [arg[0] + 2, arg[1]] : arg
   const detail = valueOf(keyword('detail') ?? positional[1], 'detail')
   if (!detail) throw new Error(`${where}: a coded error with no detail the reader can read`)
+  const code = valueOf(keyword('code') ?? positional[0], 'code')
   const lit = literalAt(toks, detail[0])
   if (!lit) {
-    if (OPAQUE_CODED_DETAILS.includes(spelled(toks, detail))) return { opaque: spelled(toks, detail) }
-    throw new Error(`${where}: a detail the reader cannot key by its text`)
+    const name = `${code ? spelled(toks, code) : ''}, ${spelled(toks, detail)}`
+    if (OPAQUE_CODED_DETAILS.includes(name)) return { opaque: name }
+    throw new Error(`${where}: a detail the reader cannot key by its text (${name}); name it in OPAQUE_CODED_DETAILS ` +
+      'only if its words are written elsewhere')
   }
-  const code = valueOf(keyword('code') ?? positional[0], 'code')
   const arms = code && codeArms(toks, code)
   if (!arms) throw new Error(`${where}: a coded error with no status the reader can read`)
   const statuses = new Set(arms.map((name) => {
@@ -643,11 +650,11 @@ describe('the summary stream error sentences the filing page maps', () => {
       { file: 'c.py', line: 3, status: 401, text: 'Sign in.', codes: ['auth_required'] },
       { file: 'c.py', line: 4, status: 429, text: 'Capped now.', codes: ['pro_fair_use_limit'] },
       { file: 'c.py', line: 5, status: 403, text: 'Spent.', codes: ['free_allowance_exhausted', 'plan_required'] },
-      { file: 'c.py', line: 6, status: 0, text: '', opaque: 'str(exc)' },
+      { file: 'c.py', line: 6, status: 0, text: '', opaque: 'aliases[exc.code], str(exc)' },
       { file: 'c.py', line: 7, status: 403, text: 'Nested.', codes: ['plan_required', 'free_allowance_exhausted'] },
     ])
-    // The real route holds each named opaque detail once per raise, and no other: a new one fails the reader until
-    // it is named, even one spelled as a named one.
+    // The real route holds each named opaque raise once, and no other: a new one fails the reader until it is named,
+    // even one spelled as a named one, and so does a named detail sent at another code.
     expect(endpointRaises().flatMap((answer) => (answer.opaque ? [answer.opaque] : [])).sort())
       .toEqual([...OPAQUE_CODED_DETAILS].sort())
     // And it reads the route's coded plan gate (the force regeneration's), not only its uncoded 403s.
@@ -655,6 +662,7 @@ describe('the summary stream error sentences the filing page maps', () => {
       expect.objectContaining({ status: 403, text: 'Regenerating a summary is a Pro feature.', codes: ['plan_required'] }),
     )
     expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail=reason)', 'q.py', 'f')).toThrow(/cannot key/)
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, str(exc))', 'q.py', 'f')).toThrow(/cannot key/)
     expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.GENERATION_PAUSED if n else ErrorCode.PLAN_REQUIRED, detail="x")', 'q.py', 'f'))
       .toThrow(/no status/)
     expect(() => raisedErrors('def f():\n    raise CodedHTTPException(code, detail="x")', 'q.py', 'f')).toThrow(/no status/)
@@ -736,26 +744,17 @@ describe('the summary stream error sentences the filing page maps', () => {
     }
     const unclassified = answers.filter((answer) => !NO_RETRY_HELPS.has(answer.status) && !A_RETRY_CAN_HELP.has(answer.status))
     expect(unclassified.map((answer) => `${answer.file}:${answer.line} ${answer.status}`), 'say here whether a retry can help this status').toEqual([])
-    // A coded answer (E31) is read twice: by its words alone, as a page before E31 reads it, and with each code it can
-    // carry, as the page reads it now (StreamingSummaryDisplay passes the code, and a known one decides first). One
-    // code's verdict is known to disagree with its status: #1824 ships `generation_paused` (503) as non-retryable,
-    // where the E31 contract's §3 row gives it a Retry; reported on #1848 for the contract's owner to settle. It is
-    // named here, so any other disagreement fails.
-    const KNOWN_CODE_DISAGREEMENTS: Record<string, number> = { generation_paused: 503 }
-    const misread = answers.flatMap((answer) =>
-      [undefined, ...(answer.codes ?? [])]
-        .filter((code) => !(code && KNOWN_CODE_DISAGREEMENTS[code] === answer.status))
-        .filter((code) => isNonRetryableStreamError(answer.text, code) !== NO_RETRY_HELPS.has(answer.status))
-        .map((code) => `${answer.file}:${answer.line} ${answer.status}${code ? ` (${code})` : ''} "${answer.text}"`),
-    )
+    // The words alone, as a page before E31 reads every answer and the page reads one with no known code. A coded
+    // answer's verdict on the page is its code's (a known code decides first): that follows the contract's §3 code
+    // by code, not the status, and summaryStream.spec.ts holds each known code to it.
+    const misread = answers
+      .filter((answer) => isNonRetryableStreamError(answer.text) !== NO_RETRY_HELPS.has(answer.status))
+      .map((answer) => `${answer.file}:${answer.line} ${answer.status} "${answer.text}"`)
     expect(
       misread,
-      'a 403 must match isNonRetryableStreamError (features/summaries/api/summaries-api.ts) in its own words and by its ' +
-        'code, or its card offers a Retry that repeats it; a 401, 404, 429 or 503 must not',
+      'a 403 must match isNonRetryableStreamError (features/summaries/api/summaries-api.ts) in its own words, or its card ' +
+        'offers a Retry that repeats it; a 401, 404, 429 or 503 must not',
     ).toEqual([])
-    const stale = Object.entries(KNOWN_CODE_DISAGREEMENTS)
-      .filter(([code, status]) => !answers.some((answer) => answer.status === status && answer.codes?.includes(code as KnownErrorCode)))
-    expect(stale.map(([code, status]) => `${status} ${code}`), 'a known disagreement the endpoint no longer answers with: drop it').toEqual([])
   })
 
   it('prints every answer the stream endpoint gives in the product voice, mapped or passed through', () => {

@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { generateSummaryStream, isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import { ERROR_CODES, type KnownErrorCode } from '@/lib/api/client'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 
 declare global {
@@ -169,6 +170,32 @@ describe('generateSummaryStream', () => {
     expect(isNonRetryableStreamError('Regenerating a summary is a Pro feature.', 'plan_required')).toBe(true)
   })
 
+  // The E31 contract's §3, code by code: whether the card withholds its Retry for a refusal carrying the code, which
+  // decides first whatever the words. `auth_required` keeps today's 401 handling, its words deciding. §3 states no
+  // Retry rule for `email_verification_required` (a gate the checkout raises) or `earnings_alert_limit` (the calendar's
+  // own reader), so those rows hold the reader's verdict. The Record's type classifies every known code, so a new
+  // one fails tsc until it is classified here.
+  const WITHHOLDS_RETRY: Record<KnownErrorCode, boolean> = {
+    auth_required: false,
+    email_verification_required: true,
+    plan_required: true,
+    free_allowance_exhausted: true,
+    pro_fair_use_limit: true,
+    generation_paused: false,
+    earnings_alert_limit: false,
+    summary_rate_limited: false,
+    sec_rate_limited: false,
+    filing_source_unavailable: false,
+  }
+  // #1824 ships `generation_paused` as non-retryable, where §3's row gives it a Retry: reported on #1848 for the
+  // contract's owner to settle. Named so that any other disagreement fails, and so does this one once it is settled.
+  const DISAGREES_WITH_SECTION_3: KnownErrorCode[] = ['generation_paused']
+
+  it.each(Object.keys(ERROR_CODES) as KnownErrorCode[])('withholds Retry for %s as the contract says', (code) => {
+    const verdict = isNonRetryableStreamError('A sentence no matcher reads.', code)
+    expect(verdict).toBe(DISAGREES_WITH_SECTION_3.includes(code) ? !WITHHOLDS_RETRY[code] : WITHHOLDS_RETRY[code])
+  })
+
   const refusedOnHttp = async (status: number, body: Record<string, unknown>, headers: Record<string, string> = {}) => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'info').mockImplementation(() => {})
@@ -204,6 +231,9 @@ describe('generateSummaryStream', () => {
     ['the fair-use cap, coded, with a stated wait', { detail: 'Summary generation allowance is exhausted', code: 'pro_fair_use_limit' },
       { 'Retry-After': '120' }, 120],
     ['a plain rate limit', { detail: 'Too many summary requests. Try again shortly.' }, {}, 60],
+    ['a 429 with an unknown code, as a plain rate limit', { detail: 'Too many summary requests. Try again shortly.', code: 'quota_v9' }, {}, 60],
+    ['a 429 carrying the plan code, registered on 403, as a plain rate limit',
+      { detail: 'Too many summary requests. Try again shortly.', code: 'plan_required' }, {}, 60],
   ])('gives %s on a 429 the wait it lifts after', async (_, body, headers, wait) => {
     const { calls } = await refusedOnHttp(429, body, headers)
     expect(calls).toHaveLength(1)
