@@ -56,10 +56,12 @@ WORKBOOK_CLOSING = (f"{EVIDENCE} {SHEETS_WITH_CELLS}, a figure with a data note 
 # counts, so the files point once where the page's "select one to see both filings" pointed (D9).
 LATER_FILING_EVIDENCE = ("Where a later filing reports a different value, Sources & methods also gives what the year’s "
                          "own annual report first reported.")
-# Sources & methods' n/m sentence, where some growth reads n/m across a change of basis (D12). A zero prior year gives no
-# growth here, never n/m (trend_analysis/dataset.py _growth), so a zero is not among its causes.
-NOT_MEANINGFUL_CAUSES = ("Growth reads n/m where it changes sign, or where a later filing reports a different value for "
-                         "one or both of its years.")
+# The files' n/m sentence, where some growth reads n/m across a change of basis (D12), with Sources & methods' lines; the
+# page prints none, its chart footnote and dialog saying each cause where it holds. Both its causes are the dataset's
+# (trend_analysis/dataset.py _growth): two values of opposite signs (a zero has none: a zero prior year gives no growth,
+# never n/m) and a later filing's value.
+NOT_MEANINGFUL_CAUSES = ("Growth reads n/m where its two years’ values have opposite signs, or where a later filing "
+                         "reports a different value for one or both of its years.")
 # A basis n/m's cause in the page dialog's words (SourceValue.tsx), before the growth the two years' own reports give.
 BASIS_CHANGE_CAUSE = "Not meaningful: a later filing reports a different value for one or both of the two years."
 # The later-filing line (D9, option A): the page's line after the notes (DataNotes.tsx), set as one more detail entry,

@@ -344,14 +344,15 @@ def test_the_closing_and_n_m_sentences_print_where_the_line_and_the_n_m_do(case)
 
 
 def test_the_n_m_sentence_names_only_the_causes_the_data_carries():
-    """A zero prior year gives no growth here, which the files print as unavailable, never n/m
-    (trend_analysis/dataset.py _growth), so Sources & methods' n/m sentence names a change of sign and a later
-    filing's value, and no zero: D12's draft, "where it changes sign or starts from zero, or where …", named one."""
+    """The dataset reads a growth n/m where its two years' values have opposite signs (trend_analysis/dataset.py
+    _growth): a zero prior year gives no growth, which the files print as unavailable, and a zero this year gives
+    -100%, so the sentence names no zero (D12's draft, "where it changes sign or starts from zero, or where …", named
+    one, and its "it" read as the growth's own sign); a later filing's value is the other cause."""
     from app.services.trend_analysis.dataset import _growth
 
-    assert (_growth(5.0, 0.0), _growth(-1.0, 1.0)) == (None, "nm")
-    assert NOT_MEANINGFUL_CAUSES == ("Growth reads n/m where it changes sign, or where a later filing reports a different "
-                                     "value for one or both of its years.")
+    assert (_growth(5.0, 0.0), _growth(-1.0, 1.0), _growth(1.0, -1.0), _growth(0.0, 5.0)) == (None, "nm", "nm", -1.0)
+    assert NOT_MEANINGFUL_CAUSES == ("Growth reads n/m where its two years’ values have opposite signs, or where a later "
+                                     "filing reports a different value for one or both of its years.")
 
 
 def test_the_closing_lines_add_only_the_evidence_sentence_and_the_comment_clause():
