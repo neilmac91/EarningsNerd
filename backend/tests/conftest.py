@@ -205,6 +205,22 @@ def _suite_schema():
     yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _import_session_local_binders():
+    """Import every app module that copies ``SessionLocal`` at import before the first test (E263).
+
+    A fixture that patches ``database.SessionLocal`` would otherwise hand its temporary factory to any such module a
+    test body imports for the first time, for the rest of the process. ``tests/support/session_local_binders.py``
+    lists them; ``tests/unit/test_session_local_binders.py`` holds the list to the code.
+    """
+    import importlib
+
+    from tests.support.session_local_binders import SESSION_LOCAL_BINDERS
+
+    for name in SESSION_LOCAL_BINDERS:
+        importlib.import_module(name)
+
+
 @pytest.fixture(autouse=True)
 def _reset_delivery_ownership():
     """Durable delivery ownership rows (E11b-1) must not leak between tests.
