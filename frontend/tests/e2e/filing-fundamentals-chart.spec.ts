@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { CHART_TOKENS } from '../../features/analysis/lib/charts/theme'
+import { FEATURED } from '../../features/fundamentals/lib/featuredMetrics'
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
 import { answerApi, API_ORIGIN, FUNDAMENTALS, type Theme } from './fixtures/filing3Api'
 
@@ -30,11 +31,18 @@ import { answerApi, API_ORIGIN, FUNDAMENTALS, type Theme } from './fixtures/fili
  * wrap and the one-line badge took the page to 511 to 516px on a calculated series. Those cases read no renderer's DOM,
  * so they hold the card's chrome whichever draws the plot.
  *
- * The card lands where its bones stood (DESIGN_SYSTEM.md §11), at 1280, 390 and 320px in both themes: the fixture's
- * answer to the card's fetch is held until the loading card, its status shown, is measured, and the card that lands on
- * revenue, the default series, which needs no source check, is that height within 0.5px. Before, its bones held the
- * plot alone, and the card grew 56px at 1280px and 128px at 390 and 320px, where the picker takes a row of its own and
- * the footnote two lines. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
+ * The card lands where its bones stood (DESIGN_SYSTEM.md §11), in both themes: the answer to the card's fetch is held
+ * until the loading card, its status shown, is measured, and the card that lands on revenue, the default series, which
+ * needs no source check, is that height within 0.5px. With the fixture's answer at 1280, 390 and 320px, and under 200%
+ * text at 530, 640, 767, 768 and 1080px; with an answer offering every featured metric at 320px, and under 200% text at
+ * 600px. Before, its bones held the plot alone, and the card grew 56px at 1280px and 128px at 390 and 320px, where the
+ * picker takes a row of its own and the footnote two lines. Then, while the select took its widest option's width and
+ * its bone 10rem, their rows wrapped apart: under 200% text the fixture's card shrank 32 to 56px as it landed at those
+ * five widths, and every featured metric's grew 28px at 320px and 56px at 600px under 200% text. The picker now takes
+ * one width, 14rem, and its bone the same (E253). And that width holds every label the picker offers: with every
+ * featured metric (the answer built from the card's own list), at 1280px at the default size and under 200% text, a
+ * hidden clone of the select holding each label alone, sized to its content, is no wider than the field.
+ * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
  */
 
 const VIEWPORTS = [
@@ -80,17 +88,28 @@ const widths = (page: Page) =>
     return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, past }
   })
 
+/** Every metric the card features, in its picker's order: the card's own list (features/fundamentals/lib/featuredMetrics.ts),
+ *  so a metric added there is offered here, and its label measured, the moment it ships. */
+const EVERY_FEATURED = FEATURED.map((metric) => metric.key)
+/** An answer to the card's fetch offering every featured metric, its widest labels ("Net investment income") among them,
+ *  each carrying revenue's first two points from the fixture, so the card still lands on revenue, with no source check. */
+const REVENUE = SERIES.find((series) => series.concept === 'revenue')!
+const EVERY_METRIC = { ...FUNDAMENTALS, concepts: EVERY_FEATURED.map((concept) => ({ ...REVENUE, concept, points: REVENUE.points.slice(0, 2) })) }
+
 /** Consent answered and the first-run coachmark seen (neither belongs to this card), the theme chosen, then the page.
- *  Given `held`, the card's fetch waits for it before the fixture answers. */
-async function openFiling(page: Page, baseURL: string, theme: Theme, held?: Promise<void>) {
+ *  Given `held`, the card's fetch waits for it; given `answer`, it takes that answer, and otherwise the fixture's; given
+ *  `doubled`, the page opens under 200% text, so its loading card lays out at that size too. */
+async function openFiling(page: Page, baseURL: string, theme: Theme, { held, answer, doubled = false }: { held?: Promise<void>; answer?: unknown; doubled?: boolean } = {}) {
   await answerApi(page, baseURL, 'anon')
-  // Registered after answerApi, so it runs first, then hands the request on to the fixture's answer.
-  if (held) {
+  // Registered after answerApi, so it runs first, and answers or hands the request on to the fixture's answer.
+  if (held || answer !== undefined) {
+    const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
     await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/filings/3/fundamentals', async (route) => {
       await held
-      await route.fallback()
+      await (answer === undefined ? route.fallback() : route.fulfill({ status: 200, headers: cors, json: answer }))
     })
   }
+  if (doubled) await (await page.context().newCDPSession(page)).send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
   await page.addInitScript((chosen: Theme) => {
     try {
       localStorage.setItem('theme', chosen)
@@ -99,6 +118,11 @@ async function openFiling(page: Page, baseURL: string, theme: Theme, held?: Prom
     } catch {}
   }, theme)
   await page.goto('/filing/3')
+  if (doubled) {
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize), { message: 'the 200% text setting took: the root computes to 32px' })
+      .toBe('32px')
+  }
   const card = financialTrends(page)
   await expect(card).toBeVisible()
   return card
@@ -212,6 +236,29 @@ async function settledHeight(page: Page, card: Locator) {
   return card.evaluate((section) => section.getBoundingClientRect().height)
 }
 
+/** The room each label the picker offers needs, read from the page's own options as chief design read it for E253: a
+ *  hidden clone of the picker's select holding that label as its only option, sized to its content (`width:
+ *  max-content`, its cap at the row lifted), set in the select's own row, so it takes the select's font, weight, padding
+ *  and chevron room. Beside them, the select's width, and a whole clone's with the cap lifted, to show the row leaves
+ *  the field its own width where it is read. */
+const labelRoom = (picker: Locator) =>
+  picker.evaluate((select: HTMLSelectElement) => {
+    const probe = (style: string, label?: string) => {
+      const clone = select.cloneNode(label === undefined) as HTMLSelectElement
+      if (label !== undefined) clone.append(new Option(label))
+      clone.style.cssText = `position:absolute;visibility:hidden;${style}`
+      select.after(clone)
+      const width = clone.getBoundingClientRect().width
+      clone.remove()
+      return width
+    }
+    return {
+      field: select.getBoundingClientRect().width,
+      uncapped: probe('max-width:none'),
+      labels: [...select.options].map((option) => ({ label: option.text, needs: probe('width:max-content;max-width:none', option.text) })),
+    }
+  })
+
 test.describe.configure({ mode: 'parallel' })
 // Full font hinting, headless Chrome's default (CI's): D1 and D8 run in the case that can break them.
 test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
@@ -241,20 +288,37 @@ for (const { width, height, isMobile, hasTouch } of VIEWPORTS) {
   })
 }
 
-for (const { width, height, isMobile, hasTouch } of [...VIEWPORTS, { width: 320, height: 844, isMobile: true, hasTouch: true }]) {
-  test.describe(`Financial trends on /filing/3 at ${width}px, its fetch held`, () => {
-    test.use({ viewport: { width, height }, isMobile, hasTouch, reducedMotion: 'reduce' })
+/** Where the card lands, its fetch held: the fixture at 1280, 390 and 320px; the fixture under 200% text at the five widths
+ *  where, while the picker's bone was narrower than the fixture's select, the two rows wrapped apart; and every featured
+ *  metric at 320px and, under 200% text, at 600px, where the select took its widest option's width and wrapped its row
+ *  under its label as the data landed (E253). */
+const LANDINGS = [
+  ...[1280, 390, 320].map((width) => ({ width, doubled: false, every: false })),
+  ...[530, 640, 767, 768, 1080].map((width) => ({ width, doubled: true, every: false })),
+  { width: 320, doubled: false, every: true },
+  { width: 600, doubled: true, every: true },
+]
+
+for (const { width, doubled, every } of LANDINGS) {
+  const phone = width < 768
+  test.describe(`Financial trends on /filing/3 at ${width}px${doubled ? ' under 200% text' : ''}, its fetch held${every ? ', every featured metric' : ''}`, () => {
+    test.use({ viewport: { width, height: phone ? 844 : 900 }, isMobile: phone, hasTouch: phone, reducedMotion: 'reduce' })
 
     for (const theme of THEMES) {
       test(`${theme}: the card lands where its bones stood`, async ({ page, baseURL }) => {
         let release!: () => void
         const held = new Promise<void>((resolve) => { release = resolve })
-        const card = await openFiling(page, baseURL!, theme, held)
+        const card = await openFiling(page, baseURL!, theme, { held, answer: every ? EVERY_METRIC : undefined, doubled })
         await expect(card.getByRole('status', { name: 'Loading financial trends', exact: true })).toBeVisible()
         const loading = await settledHeight(page, card)
 
         release()
-        await expect(card.getByRole('combobox', { name: /^Metric\b/ })).toHaveValue('revenue')
+        const picker = card.getByRole('combobox', { name: /^Metric\b/ })
+        await expect(picker).toHaveValue('revenue')
+        if (every) {
+          const offered = await picker.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))
+          expect([...offered].sort(), 'the picker offers every featured metric').toEqual([...EVERY_FEATURED].sort())
+        }
         const plot = card.getByTestId('fundamentals-chart')
         await expect(plot.getByRole('img', { name: 'Revenue chart', exact: true })).toBeVisible()
         await expect(plot).not.toHaveAttribute('aria-busy')
@@ -264,6 +328,31 @@ for (const { width, height, isMobile, hasTouch } of [...VIEWPORTS, { width: 320,
         expect(Math.abs(loaded - loading), `the card is ${loading}px loading and ${loaded}px loaded`).toBeLessThanOrEqual(0.5)
       })
     }
+  })
+}
+
+// The picker's one width holds every label it offers (chief design on E253: 14rem is "the smallest step that holds every
+// FEATURED label"), at 1280px, where the row leaves the field its own width, at the default size and under 200% text.
+// One theme: a label's room is its type and the field's padding, which the theme does not change.
+for (const doubled of [false, true]) {
+  test.describe(`Financial trends on /filing/3 at 1280px${doubled ? ' under 200% text' : ''}, every featured metric`, () => {
+    test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' })
+
+    test('light: the picker’s one width holds every label it offers', async ({ page, baseURL }) => {
+      const card = await openFiling(page, baseURL!, 'light', { answer: EVERY_METRIC, doubled })
+      const picker = card.getByRole('combobox', { name: /^Metric\b/ })
+      await expect(picker).toHaveValue('revenue')
+      const offered = await picker.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))
+      expect([...offered].sort(), 'the picker offers every featured metric').toEqual([...EVERY_FEATURED].sort())
+      await page.evaluate(() => document.fonts.ready)
+
+      const { field, uncapped, labels } = await labelRoom(picker)
+      expect(Math.abs(field - uncapped), `the row leaves the field its own width here (${field}px; ${uncapped}px uncapped)`).toBeLessThanOrEqual(0.5)
+      const needs = labels.map((label) => label.needs)
+      expect(Math.max(...needs) - Math.min(...needs), 'each clone takes its own label’s width, not the field’s').toBeGreaterThan(1)
+      const tooWide = labels.filter((label) => label.needs > field).map((label) => `"${label.label}" needs ${label.needs.toFixed(2)}px`)
+      expect(tooWide, `every label the picker offers fits its ${field}px field`).toEqual([])
+    })
   })
 }
 
