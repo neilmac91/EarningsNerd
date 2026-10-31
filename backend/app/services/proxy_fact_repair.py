@@ -7,9 +7,22 @@ repair_company`` runs this step after its calendar relabels and before its same-
 four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
 
 1. Set 4. A filing row the old cross-check replaced with a proxy's figure is restored to its recorded
-   ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row
-   that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
-   10-K contradicts, refuses the company.
+   ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row that
+   already holds the 10-K's figure is kept; one with no recorded original, or whose original the 10-K
+   contradicts, refuses the company. A row whose figure another report row holds is left, and listed, unless
+   the 10-K's figure confirms its recorded original while its value is more than 1% off, as where the backer
+   is the year's own report as first reported: that row is restored to its original as above. Left so, a row
+   that is the company's current figure and more than 1% off today's 10-K figure refuses the company (sets 4
+   and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own unit fix and left
+   first only where today's 10-K figure is of the value's sign and on its scale step (strictly within half a
+   step, about 31.6 times, of it, read exactly) or there is none; a row so left that a proxy figure holds is
+   listed in ``scale_up_retained`` where there is none, or where the 10-K's figure is more than 1% off its
+   value. Set 4 writes no such row, but set 2 still reaches one at the 10-K winner's identity behind a current
+   proxy row: it promotes the row where it agrees with the 10-K winner, and refuses the company where it does
+   not. Otherwise, as where the proxy was tagged at the wrong scale over a right parse, or the 10-K's figure
+   is of the other sign or zero, the row takes set 4's ordinary path (restored where the original is within 1%
+   of the 10-K's figure, refused beyond; left and listed, or refused when current, where a report row holds
+   its value).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -25,9 +38,12 @@ writes only into the repair's ``updates`` and its own inserts, so the repair's a
 (``proxy-repair-v1``) and audited rollback carry every change. A case it cannot settle on positive
 evidence refuses the whole company before any write, every reason in one error. The report names, by
 fact id and with the step's verdict, each row the detection file's sets 4 and 5 will still list
-(``detection_listed``), so the apply's done criterion is a comparison. The file's tests (a witness within
-1e-6, a scale band of 1%) are computed exactly, as PostgreSQL's numeric computes them. Temporary: removed
-once the E211 cohort closes (``docs/quarterly-data-repair.md``, "Proxy-statement values (E211)").
+(``detection_listed``), so the apply's done criterion is a comparison; it also names, to be read and never
+checked, each row sets 4 and 5 leave because a report row holds its figure (``left_report_backed``) and each
+scale-up set 4 leaves that today's 10-K figure does not confirm (``scale_up_retained``). The
+file's tests (a witness within 1e-6, a scale band of 1%) are computed exactly, as PostgreSQL's numeric
+computes them. Temporary: removed once the E211 cohort closes (``docs/quarterly-data-repair.md``,
+"Proxy-statement values (E211)").
 """
 from __future__ import annotations
 
@@ -53,6 +69,7 @@ DEPENDENT = "proxy_statement_operand"  # a calculation built on one, with no fre
 SAME = Fraction(1, 1_000_000)  # proxy_form_winners.sql's equality between a value and a witness (relative)
 BAND = Fraction(1, 100)  # its scale band: within 1% of 1,000 or 1,000,000 times a figure
 SCALES = (1_000, 1_000_000)
+STEP = Fraction(1_000)  # a scale step; half a step either way, on a log scale, is a factor of sqrt(1,000), about 31.6
 FALLBACK_ACCESSION = "companyfacts"  # facts/quarterly.reported_fact names an item without one so
 COUNTERS = (
     "retired", "inserted", "promoted", "corrected", "retired_without_winner",
@@ -61,6 +78,7 @@ COUNTERS = (
     "filing_rows_reconfirmed",
 )
 OTHER_KINDS = ("made_unavailable", "is_latest", "value", "label", "provenance_only")
+LISTINGS = ("left_report_backed", "scale_up_retained")  # the preview's read-only listings of rows sets 4 and 5 leave
 _KEY = ("concept", "period_end", "fiscal_period", "unit")
 _LABELS = ("fiscal_year", "fiscal_period", "period_start", "raw_tag", "form")
 _FACT_FIELDS = (
@@ -133,6 +151,28 @@ def _scale_up(value: Any, original: Any) -> bool:
     The file's ``abs(value - k * original) <= 0.01 * abs(k * original)``, exactly."""
     pair = _same_sign(value, original)
     return pair is not None and any(abs(pair[0] - k * pair[1]) <= BAND * abs(k * pair[1]) for k in SCALES)
+
+
+def _scale_up_stands(value: Any, authority: float | None) -> bool:
+    """Whether a scale-up of the stored ``value`` stays the old check's own unit fix: where there is no 10-K figure
+    (``authority`` None: nothing to read a scale from; the planner lists the row in ``scale_up_retained`` where a proxy
+    figure holds it), or where today's 10-K figure is of the value's sign and on its scale step, strictly within half
+    a step of it on a log scale, a factor of sqrt(1,000), about 31.6, either way: ``1/1,000 < (authority / value)² <
+    1,000``. It is computed exactly, as the witness test and the scale bands are, from the stored decimal string and
+    the JSON number (``_exact``); no rational ratio squares to 1,000, so half a step itself is irrational and no stored
+    figure sits on it. A figure on any other step, the original's or one between (a parse and a proxy each 1,000 times
+    off, in opposite directions), is not on the value's. Nor is a figure of the other sign, or one of zero: the rest of
+    sets 4 and 5 read a zero 10-K figure as a figure (``_authority`` returns it, ``_agrees`` and ``cross_check_facts``
+    compare against it), so its row takes set 4's ordinary path too. There a nonzero original more than 1% off it
+    refuses the company, unless no proxy figure holds its value (left, verdict ``no_proxy_figure``), or a report row
+    backs the row and it is not the company's current figure (left and listed)."""
+    if authority is None:
+        return True
+    a, v = _exact(authority), _exact(value)
+    if not a or not v or (a > 0) != (v > 0):
+        return False
+    ratio = a / v
+    return 1 / STEP < ratio * ratio < STEP
 
 
 def _scale_down(value: Any, original: Any) -> bool:
@@ -304,13 +344,16 @@ def other_kinds(before: dict[int, State], updates: dict[int, State], tagged: set
 
 def totals(blocks: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """A batch's ``proxy_totals``: each counter and each other-correction entry, summed over the
-    companies' ``proxy`` blocks."""
+    companies' ``proxy`` blocks, and how many rows they list in ``left_report_backed`` and in
+    ``scale_up_retained``."""
     out: dict[str, Any] = {**dict.fromkeys(COUNTERS, 0), "other_planned_updates": 0,
                            "other_planned_inserts": 0, "other_updates_by_kind": dict.fromkeys(OTHER_KINDS, 0),
-                           "other_inserts_by_concept": {}}
+                           "other_inserts_by_concept": {}, **dict.fromkeys(LISTINGS, 0)}
     for block in blocks:
         for name in (*COUNTERS, "other_planned_updates", "other_planned_inserts"):
             out[name] += block[name]
+        for name in LISTINGS:
+            out[name] += len(block[name])
         for name in ("other_updates_by_kind", "other_inserts_by_concept"):
             for entry, count in block[name].items():
                 out[name][entry] = out[name].get(entry, 0) + count
@@ -338,13 +381,18 @@ class ProxyPlan:
     rows: list[dict[str, Any]]
     stored_keys: set[tuple] = field(default_factory=set)  # settled in place: no upsert decides them
     verdicts: dict[int, str] = field(default_factory=dict)  # each set 4 and 5 candidate detection may list
+    left: list[dict[str, Any]] = field(default_factory=list)  # the rows sets 4 and 5 leave report-backed
+    retained: list[dict[str, Any]] = field(default_factory=list)  # the scale-ups set 4 leaves that the 10-K doesn't confirm
     own: set[tuple] = field(init=False)  # the identities of the step's inserts
 
     def __post_init__(self) -> None:
         self.own = {qfr._identity(qfr._candidate_state(fact)) for fact in self.inserts}
 
     def summary(self, before: dict[int, State], updates: dict[int, State], inserts: list[dict]) -> dict[str, Any]:
-        """The company's ``proxy`` block; ``other_*`` describe the corrections one approval also applies."""
+        """The company's ``proxy`` block; ``other_*`` describe the corrections one approval also applies,
+        ``left_report_backed`` the rows sets 4 and 5 leave because a report row holds their figure, and
+        ``scale_up_retained`` the scale-ups set 4 leaves where today's authority gives no 10-K figure, or one more
+        than 1% off the value: both inform the reading of the preview, and nothing writes, journals or checks them."""
         others = [fact for fact in inserts if qfr._identity(qfr._candidate_state(fact)) not in self.own]
         return {
             "version": PROXY_REPAIR_VERSION, **self.counts,
@@ -354,6 +402,8 @@ class ProxyPlan:
             "other_inserts_by_concept": dict(sorted(Counter(
                 f"{fact['concept']} {fact['fiscal_period']}" for fact in others).items())),
             "rows": self.rows,
+            "left_report_backed": self.left,
+            "scale_up_retained": self.retained,
         }
 
     def residual(self, states: list[State], *, twins_at: Iterable[tuple]) -> dict[str, Any]:
@@ -397,6 +447,8 @@ class _Planner:
         self.keys: dict[tuple, int] = {}
         self.stored_keys: set[tuple] = set()
         self.verdicts: dict[int, str] = {}
+        self.left: list[dict[str, Any]] = []
+        self.retained: list[dict[str, Any]] = []
         self.rechecked: dict[tuple, set[str]] = {}  # scope -> the concepts sets 4 and 5 rewrote there
         self.touched: set[int] = set()
         self.counts = dict.fromkeys(COUNTERS, 0)
@@ -420,11 +472,11 @@ class _Planner:
         proxy-form row, current or not."""
         return any(_same(value, witness) for witness in self.witnesses.get((state["concept"], state["period_end"]), ()))
 
-    def _report_backed(self, row_id: int, state: State, value: Any) -> bool:
-        """Set 4's exclusion: another stored report row at the concept and period end, any unit, holds it."""
-        return any(other_id != row_id and _is_report_row(self.before[other_id])
-                   and _same(self.before[other_id]["value"], value)
-                   for other_id in self.by_period[(state["concept"], state["period_end"])])
+    def _backers(self, row_id: int, state: State, value: Any) -> list[int]:
+        """Set 4's exclusion: the other stored report rows at the concept and period end, any unit, that hold it."""
+        return [other_id for other_id in self.by_period[(state["concept"], state["period_end"])]
+                if other_id != row_id and _is_report_row(self.before[other_id])
+                and _same(self.before[other_id]["value"], value)]
 
     def _authority(self, state: State) -> float | None:
         """Today's authority (``extract_authoritative_values``, which skips a proxy's item)."""
@@ -443,13 +495,56 @@ class _Planner:
             "gap": None if gap is None else round(gap, 6), **extra,
         }
 
-    def _left(self, row_id: int, state: State, value: Any) -> bool:
-        """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does."""
-        verdict = ("no_proxy_figure" if not self._witnessed(state, value)
-                   else "report_backed" if self._report_backed(row_id, state, value) else None)
-        if verdict is not None:
-            self.verdicts[row_id] = verdict
-        return verdict is not None
+    def _left(self, row_id: int, state: State, value: Any, number: int, original: float | None = None) -> bool:
+        """Set 5's first two cases, and set 4's once its scale-up check has passed, with the verdict: no proxy
+        figure holds ``value``, or a report does.
+        A set-4 row a report row backs whose recorded ``original`` today's 10-K figure confirms, within 1%, while
+        its value is more than 1% off it, is not left: the backer (a year's own report as first reported, which a
+        later report restated) says nothing of this filing's parse, and set 4's ordinary path restores the row to
+        its own original through today's cross-check, as it restores an unbacked one. Set 5 passes no ``original``
+        (its check confirmed the row's value rather than replacing it), so a set-5 row is never restored here.
+        Any other row left report-backed is listed in ``left_report_backed`` (its ``figure`` a decimal string, as
+        rows carry values). One that is the company's current figure at its key and more than 1% off today's 10-K
+        figure (``_authority``, which the rest of sets 4 and 5 read) refuses the company: left, the company's figure
+        would stay the proxy's where the 10-K contradicts it and its original too, or where it records none. Only the
+        value is read: the old cross-check changed a row's value and source, never its start or fiscal year. With
+        no 10-K figure, the row is left and listed."""
+        if not self._witnessed(state, value):
+            self.verdicts[row_id] = "no_proxy_figure"
+            return True
+        backers = self._backers(row_id, state, value)
+        if not backers:
+            return False
+        authority = self._authority(state)
+        if (number == 4 and original is not None and authority is not None and _agrees(original, authority)
+                and not _agrees(float(state["value"]), authority)):
+            return False
+        self.verdicts[row_id] = "report_backed"
+        figure = value if isinstance(value, str) else qfr._json_value(Decimal(str(value)))
+        self.left.append(self._row(row_id, "left_report_backed", state, None, set=number, figure=figure,
+                                   authority=authority, backed_by=[{
+                                       "fact_id": other_id, **{name: self.before[other_id][name] for name in (
+                                           "accession", "form", "is_latest", "filing_id", "source")}}
+                                       for other_id in backers]))
+        if state["is_latest"] and authority is not None and not _agrees(float(state["value"]), authority):
+            self.refuse(row_id, "a report row holds the proxy figure behind the filing row, which is the company's "
+                                f"current figure, {state['value']}, more than 1% off the 10-K's, "
+                                f"{qfr._json_value(Decimal(str(authority)))}")
+        return True
+
+    def _retained(self, row_id: int, state: State, value: Any, original: float | None,
+                  authority: float | None) -> None:
+        """List a scale-up set 4 leaves (a proxy figure holds its value) in ``scale_up_retained`` unless today's 10-K
+        figure confirms it, within 1% (``_agrees``, set 4's own test): reason ``no_10k_figure`` where today's
+        authority (``_authority``: the payload's non-proxy items under the concept's headline tags) gives none, and
+        ``off_10k_figure`` where it is more than 1% off the value, with ``gap`` the ratio value / 10-K figure. The
+        listing writes, journals and checks nothing, and no counter of the block counts it."""
+        if not self._witnessed(state, value) or (authority is not None and _agrees(float(value), authority)):
+            return
+        self.retained.append(self._row(
+            row_id, "scale_up_retained", state, None, set=4, is_latest=state["is_latest"], original=original,
+            authority=authority, gap=None if authority is None else round(float(value) / authority, 6),
+            reason="no_10k_figure" if authority is None else "off_10k_figure"))
 
     def _rewrote(self, row_id: int, state: State, verdict: str) -> None:
         self.write(row_id, state)
@@ -463,13 +558,27 @@ class _Planner:
             if state["filing_id"] is None or state["source"] != "companyfacts":
                 continue
             value = state["value"]
-            if self._left(row_id, state, value):
-                continue
             check = _authoritative_check(state)
             original = _number(check.get("original_value"))
-            if _scale_up(value, original):  # the authority scaled up a parse in units: the check's job,
-                continue  # and no verdict, since detection never lists it (scaled up is never scaled down)
             authority = self._authority(state)
+            # The authority scaled up a parse in units: the check's job, backed or not, and no verdict, since
+            # detection never lists it (scaled up is never scaled down). Only where today's 10-K figure is on the
+            # value's scale step, or there is none: otherwise (a proxy tagged at the wrong scale over a right parse,
+            # FedEx's error mirrored, or a parse and a proxy each off by a step), which detection's set 4 cannot see
+            # without the payload, the row takes the ordinary path below, where the original against today's 10-K
+            # figure decides, restored or refused, the 10-K having restated the year or not. A row so left that a
+            # proxy figure holds (set 4's) is listed where the 10-K does not confirm it: with no 10-K figure, the step
+            # cannot tell a parse read in units (SSS) from a right parse a proxy tagged at the wrong scale replaced;
+            # with one on the value's step but more than 1% off it, a unit fix and a later restatement may justify the
+            # value as filed, or may not. Set 4 writes neither, and lists each to be read against its filing. Neither is
+            # out of the step's reach, though: one at the 10-K winner's identity behind a current proxy row is what set
+            # 2 would promote, and it does where the row agrees with the 10-K winner (the normalizer's, under any tag it
+            # reads), and refuses the company, naming the row, where it does not.
+            if _scale_up(value, original) and _scale_up_stands(value, authority):
+                self._retained(row_id, state, value, original, authority)
+                continue
+            if self._left(row_id, state, value, 4, original):
+                continue
             if authority is not None and _same(value, authority):
                 self.verdicts[row_id] = "kept_agrees_with_authority"
                 self.counts["filing_rows_kept"] += 1
@@ -494,7 +603,7 @@ class _Planner:
                 continue
             check = _authoritative_check(state)
             witness = _number(check.get("authoritative_value"))
-            if check.get("outcome") != "confirmed" or witness is None or self._left(row_id, state, witness):
+            if check.get("outcome") != "confirmed" or witness is None or self._left(row_id, state, witness, 5):
                 continue
             authority = self._authority(state)
             if authority is not None and _same(witness, authority):  # a proxy quoting the 10-K exactly
@@ -710,4 +819,5 @@ def plan(before: dict[int, State], updates: dict[int, State], facts: list[dict],
                                 if is_proxy_form(state["form"]) or _quotes(state, planner.accessions)}
     return ProxyPlan(inserts=list(planner.inserts.values()), tagged=tagged, accessions=planner.accessions,
                      keys=planner.keys, counts=planner.counts, rows=planner.rows,
-                     stored_keys=planner.stored_keys, verdicts=planner.verdicts)
+                     stored_keys=planner.stored_keys, verdicts=planner.verdicts, left=planner.left,
+                     retained=planner.retained)

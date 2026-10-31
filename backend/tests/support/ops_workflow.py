@@ -27,7 +27,6 @@ RESOLVE, PROXY, DEPS = ("Resolve requested operation", "Start Cloud SQL proxy an
 RELABEL = "Run fiscal-year relabel script"
 QUARTERLY = "Run quarterly fact repair script"
 LINEAGE = "Run filing lineage backfill script"
-COUNT = "Run the figure-check count (read-only)"
 OPERAND = r"(?:steps\.request\.outputs|inputs)\.operation"  # a step's resolved operation, or a job's input
 NO_DATABASE = {DEPS}  # runs after the proxy for its operations, but opens no database session
 # An `if:` that is one `${{ }}` and nothing else, with no `${{` or `}}` inside it.
@@ -36,7 +35,9 @@ UNIT_MS = {"ms": 1, "s": 1_000, "min": 60_000, "h": 3_600_000, "d": 86_400_000}
 
 
 def selected(step) -> set[str]:
-    """The operations whose dispatch runs this step or job, read as GitHub evaluates its `if:`."""
+    """The operations whose dispatch runs this step or job, read as GitHub evaluates its `if:`. A word
+    no dispatch offers selects nothing here, so `test_ops_workflow_wiring.py` holds every name an
+    expression gives the operation to the dispatch options (E257)."""
     condition = step.get("if")
     if condition is None:
         return set(OPTIONS)

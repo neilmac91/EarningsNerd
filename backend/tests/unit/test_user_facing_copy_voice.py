@@ -10,8 +10,8 @@ EXEMPT ships.
 A literal reaches a user when it is:
 
 1. the value of a COPY_KEYWORDS keyword (``HTTPException(detail=)``, ``enforce_rate_limit(error_detail=)``,
-   ``send_email(subject=, html=)``, ``render_branded_pdf(title=)``, ``Block(text=, label=)``), or the
-   positional detail of ``HTTPException``;
+   ``send_email(subject=, html=)``, ``render_branded_pdf(title=)``, ``Block(text=, label=)``), the
+   positional detail of ``HTTPException`` or ``CodedHTTPException`` (E31), or ``sse_error``'s positional message;
 2. a value under a COPY_KEYS key of a dict literal (``{"message": ...}`` in a response body or a stream
    event), or any string inside a ``content=`` dict (a JSONResponse body);
 3. assigned to a name or attribute whose last word says which copy it holds (ROLE_NAME:
@@ -41,7 +41,8 @@ literal is.
 Checks on that copy: an em-dash (the bare null token ``"—"`` excepted); an exclamation mark (``!=``,
 ``!important`` and a comment's markup excepted: ``<!--``, ``<![endif]`` and a conditional comment's
 condition after its opener, ``<!--[if !mso]>`` or ``<![if !mso]>``; what a comment holds is read as copy);
-an emoji or dingbat; an <h1>/<h2> in Title Case. The retired colours (RETIRED_HEX) are checked in every
+an emoji or dingbat; an <h1>/<h2> in Title Case; the product name "Copilot" in any case or spelling (D-034:
+the feature is "Ask this Filing", as frontend/tests/unit/oneProductName.spec.ts holds it for the page). The retired colours (RETIRED_HEX) are checked in every
 literal of the scanned files except what is never read (above), since a hex string is only ever a colour.
 
 The account verb (docs/brand/decisions-log.md D-046, F44) is checked in every literal too: the product says
@@ -160,6 +161,9 @@ LOG_METHODS = frozenset({"debug", "info", "warning", "warn", "error", "exception
 EM_DASH = "\u2014"
 # A conditional comment's condition is markup only after the comment's own opener (<!--[if !mso]>, <![if !mso]>).
 NOT_A_BANG = re.compile(r"!=|<!--\[if\s[^\]]*\]|<!\[if\s[^\]]*\]|<!--|<!\[(?:endif|CDATA)|<!doctype|!important", re.IGNORECASE)
+# D-034: the feature is "Ask this Filing" ("ask this filing" in a sentence), and "Copilot" leaves user copy in any case
+# and spelling, as frontend/tests/unit/oneProductName.spec.ts holds it for the page.
+PRODUCT_NAME = re.compile(r"\bco-?pilots?\b", re.IGNORECASE)
 EMOJI = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]")  # pictographs, dingbats, symbols, variation selector
 RETIRED_HEX = re.compile(r"#(?:10b981|6b7280|e5e1d8|f9f9f9|333|666|ddd)(?![0-9a-f])", re.IGNORECASE)
 _ELEMENT = (
@@ -255,6 +259,11 @@ EXEMPT: dict[str, tuple[int, str]] = {
         "founder: the unlink detail's 'only sign-in method', which test_auth_flow.py pins (a locked contract "
         "test, CLAUDE.md rule 6), so it takes the account verb only under a contract change its PR documents; F56",
     ),
+    "app/dependencies.py::copilot_taste_exhausted_detail": (
+        1,
+        "E37: the free-allowance detail's 'free Copilot questions'; dependencies.py is Agent A's, so the patch that says "
+        "'free questions' goes to Agent A with #1863, and deletes this entry",
+    ),
     "app/services/trend_analysis/detectors.py": (
         1,
         "founder: the cash-conversion red flag's sentence is in the observation selector's prompt bytes and the "
@@ -269,8 +278,9 @@ EXEMPT: dict[str, tuple[int, str]] = {
 # listed the one break a locked test pins, 9 when the summary pipeline's stream sentences took the voice with
 # E217's functional change to summary_stages (F35, D-046; E92) and their four entries went. Lower it with every
 # deletion, in the same diff; when two shrinking PRs meet, the later merge sets it to the merged list's count, which
-# the equality holds it to. Raising it for new copy is the one change this gate exists to refuse.
-EXEMPT_CAP = 9
+# the equality holds it to. Raising it for new copy is the one change this gate exists to refuse. 10 when E37 taught it
+# the product name (D-034) and listed the one break that rule found, Agent A's free-allowance detail, in the same commit.
+EXEMPT_CAP = 10
 
 
 @dataclass(frozen=True)
@@ -304,6 +314,9 @@ def _copy_breaks(text: str) -> Iterator[tuple[int, str]]:
     emoji = EMOJI.search(text)
     if emoji:
         yield emoji.start(), "emoji"
+    product = PRODUCT_NAME.search(text)
+    if product:
+        yield product.start(), f"product name {product.group(0)!r}"
     for heading in HEADING.finditer(text):
         words = html.unescape(ANY_TAG.sub(" ", heading.group(2))).replace("{}", " ")
         for name in PROPER_NAMES:
@@ -483,8 +496,10 @@ class _Reader(ast.NodeVisitor):
         for keyword in node.keywords:
             if keyword.arg in COPY_KEYWORDS or keyword.arg == "content":
                 self._reach(keyword.value)
-        if _call_name(node) == "HTTPException" and len(node.args) >= 2:
-            self._reach(node.args[1])
+        if _call_name(node) in ("HTTPException", "CodedHTTPException") and len(node.args) >= 2:
+            self._reach(node.args[1])  # the detail, after the status or the E31 code
+        if _call_name(node) == "sse_error" and node.args:
+            self._reach(node.args[0])  # a stream error event's message (app.error_codes.sse_error)
         fields = self.records.get(node.func.id) if isinstance(node.func, ast.Name) else None
         if fields is not None:
             bound = list(zip(fields, node.args)) + [(k.arg, k.value) for k in node.keywords if k.arg in fields]
@@ -673,6 +688,10 @@ def route(n, run):
         raise HTTPException(400, "Try again [if you can!]")
     if n > 1:
         raise HTTPException(status_code=409, detail="This report is out of date — run it again.")
+    if n > 3:
+        raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, "Coded — and positional!")
+    if n > 4:
+        return sse_error("Streamed — and positional!", ErrorCode.PRO_FAIR_USE_LIMIT)
     run.message = "Hold on — joining."
     page = '<p style="color:#6B7280">Hi there</p><h2>Thank You for Writing</h2><h2>Welcome to EarningsNerd</h2>'
     fine = '<!-- note --><style>p {color: red !important}</style><p>a != b</p><!--[if !mso]><!-->x<!--<![endif]--><![if !mso]>y<![endif]>'
@@ -787,6 +806,10 @@ _PROBE_BREAKS = {
     ("exclamation mark", "<![if !mso]><p>Welcome back!</p><![endif]>"),
     ("exclamation mark", "<!--[if !mso]><!--><p>Welcome aboard!</p><!--<![endif]-->"),
     ("em-dash", "This report is out of date — run it again."),
+    ("em-dash", "Coded — and positional!"),
+    ("exclamation mark", "Coded — and positional!"),
+    ("em-dash", "Streamed — and positional!"),
+    ("exclamation mark", "Streamed — and positional!"),
     ("em-dash", "Hold on — joining."),
     ("retired colour #6B7280", _PAGE),
     ("Title Case <h2>", _PAGE),
@@ -998,6 +1021,38 @@ VERB_MARKS = {"flag": 66, "clean": 36, "gap": 13, "false positive": 10}
 
 def _verbs(source: str, path: str = "app/routers/probe.py") -> list[Break]:
     return [item for item in breaks_in(source, path) if item.rule.startswith("account verb")]
+
+
+_PRODUCT_NAME_PROBE = '''
+"""The Copilot module, its docstring free to name it."""
+import logging
+
+logger = logging.getLogger(__name__)
+EVENT = "copilot_question_asked"
+
+
+def route(n):
+    logger.info("copilot answered %s", n)
+    if n:
+        raise HTTPException(429, detail="You've reached the Copilot limit.")
+    if n > 1:
+        raise HTTPException(403, detail="Ask the co-pilot later.")
+    return {"message": "Our copilots are busy.", "event": EVENT}
+
+
+def build_system_message(n):
+    return "You are the filing Copilot."
+'''
+
+
+def test_the_product_name_reads_in_copy_and_nowhere_else():
+    # D-034 (E37): "Copilot" leaves user copy in any case and spelling. A docstring, a log line, an id and a prompt part
+    # may still say it.
+    assert {(b.rule, b.text) for b in breaks_in(_PRODUCT_NAME_PROBE, "app/routers/probe.py")} == {
+        ("product name 'Copilot'", "You've reached the Copilot limit."),
+        ("product name 'co-pilot'", "Ask the co-pilot later."),
+        ("product name 'copilots'", "Our copilots are busy."),
+    }
 
 
 def test_the_verb_check_scores_its_planted_forms():

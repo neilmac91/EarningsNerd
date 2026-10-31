@@ -18,9 +18,11 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
-import { ENABLE_RECOMMENDED_FILING, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
+import { ENABLE_FINANCIAL_CHARTS, ENABLE_RECOMMENDED_FILING, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
 import { CompanyIdentity } from '@/features/companies/components/CompanyIdentity'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
+import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
+import SectorPeers from '@/features/peers/components/SectorPeers'
 import { queryKeys } from '@/lib/queryKeys'
 import { selectComparisonFiling, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
 import { groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
@@ -38,6 +40,9 @@ const FULL_HISTORY_LIMIT = 300
 // Foreign private issuer forms — a company that files any of these is an FPI, which we use to show
 // the honest "insider reporting not required for FPIs" state instead of an empty insider panel.
 const FPI_FILING_TYPES = ['20-F', '40-F', '6-K']
+
+// The Sector peers panel's place under the filings, its chart-error card's too.
+const SECTOR_PEERS_SPACING = 'mt-8'
 
 interface CompanyPageClientProps {
   /** Server-fetched seeds (SEO/ISR): make the first server render carry the real page content
@@ -482,6 +487,18 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
           />
           {comparisonFiling && <ComparePeriodsCard key={comparisonFiling.id} filing={comparisonFiling} />}
         </div>
+
+        {/* The company ranked against its sector on one metric (E251): self-fetching, it shows itself only once the
+            endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31. Last in <main>, so its arrival
+            after a client fetch never moves the filings or Compare periods. The boundary is keyed on the ticker, as the
+            filings index is, so a soft navigation to another company starts the panel afresh: its picked metric, a
+            chart that failed to draw (the boundary never resets on its own) and a card chunk that failed to load (the
+            gate makes its lazy card as it mounts, so the next company asks for the chunk again). */}
+        {ENABLE_FINANCIAL_CHARTS && (
+          <ChartErrorBoundary key={normalizedTicker} className={SECTOR_PEERS_SPACING}>
+            <SectorPeers ticker={normalizedTicker} className={SECTOR_PEERS_SPACING} />
+          </ChartErrorBoundary>
+        )}
       </main>
     </div>
   )

@@ -656,6 +656,34 @@ describe('AskCopilotRail', () => {
     expect(screen.getByRole('button', { name: /see plans/i })).toBeInTheDocument()
   })
 
+  // E31: the card follows a known code whatever the words say, so their next edit cannot move a button.
+  it.each([
+    ['a plan gate in other words', 'Words that name neither.', 'plan_required' as const, { upgrade: true, retry: false }],
+    ['the cap in words that name Pro', 'Upgrade to Pro will not lift this.', 'pro_fair_use_limit' as const, { upgrade: false, retry: false }],
+    // Words the matcher alone would send to the plan card ("upgrade to pro", "fair-use limit"): only the code keeps Retry.
+    ['a pause in words that read like a plan gate', 'Upgrade to Pro, or wait out a fair-use limit for now.', 'generation_paused' as const, { upgrade: false, retry: true }],
+  ])('answers %s by its code', async (_, words, code, shows) => {
+    let captured: CopilotHandlers | null = null
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
+      captured = handlers
+    })
+    const user = userEvent.setup()
+    renderRail({ open: true })
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'anything')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+    const fetched = mockGetUsage.mock.calls.length
+    await act(async () => {
+      captured!.onError(words, code)
+    })
+
+    const bubble = (await screen.findByText(words)).closest('div')!
+    expect(within(bubble).queryAllByRole('button', { name: /upgrade to pro/i })).toHaveLength(shows.upgrade ? 1 : 0)
+    expect(within(bubble).queryAllByRole('button', { name: /try again/i })).toHaveLength(shows.retry ? 1 : 0)
+    // A plan gate, the cap's included, says the usage line is stale, by its code; a pause leaves the line as it is.
+    if (shows.retry) expect(mockGetUsage.mock.calls.length).toBe(fetched)
+    else await waitFor(() => expect(mockGetUsage.mock.calls.length).toBeGreaterThan(fetched))
+  })
+
   it('clears a cancelled pending turn, preserves completed history, and ignores obsolete callbacks after reopening', async () => {
     const requests: { handlers: CopilotHandlers; signal?: AbortSignal }[] = []
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers, signal) => {
@@ -1012,11 +1040,11 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
   })
 
   it.each([
-    ['a failed answer', 'The answer could not be completed. Please try again.', 'Try again'],
+    ['a failed answer', "I couldn't complete this answer. Try again.", 'Try again'],
     ['a plan gate', 'This is a Pro feature.', 'Upgrade to Pro'],
     [
       'the fair-use cap',
-      "You've reached this month's fair-use limit of 1,000 Copilot questions. It resets at the start of next month.",
+      "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month.",
       null,
     ],
   ])("says %s in the pane's line when it lands while the Filing tab shows: the card's sentence, whole and alone", async (
@@ -1067,10 +1095,10 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     // is in view and says it, so the line says nothing over it.
     await user.click(screen.getByRole('tab', { name: /filing/i }))
     await user.click(screen.getByRole('tab', { name: 'Ask' }))
-    act(() => requests[0].onError('The answer could not be completed. Please try again.'))
+    act(() => requests[0].onError("I couldn't complete this answer. Try again."))
     await waitFor(() => expect(said).toEqual(['Reading the filing…', '']))
     observer.disconnect()
-    expect(screen.getByRole('alert')).toHaveTextContent('The answer could not be completed. Please try again.')
+    expect(screen.getByRole('alert')).toHaveTextContent("I couldn't complete this answer. Try again.")
   })
 
   it("empties the pane's line when the rail leaves, so another filing's conversation never sits under its words", async () => {

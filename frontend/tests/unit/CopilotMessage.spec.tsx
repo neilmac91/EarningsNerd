@@ -22,6 +22,7 @@ import {
   isCopilotPaywallError,
   type CopilotCitation,
 } from '@/features/filings/api/copilot-api'
+import { ERROR_CODES, type KnownErrorCode } from '@/lib/api/client'
 
 const verifiedCitation: CopilotCitation = {
   n: 1,
@@ -333,7 +334,7 @@ describe('CopilotMessage follow-up chips', () => {
 describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
   const FAIR_USE =
-    "You've reached this month's fair-use limit of 1000 Copilot questions. It resets at the start of next month."
+    "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
   const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })
   /** The class tokens in a subtree that paint with one of the given status inks, through any variant prefix. */
   const tokensOf = (root: HTMLElement, palette: string) =>
@@ -350,7 +351,23 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(isCopilotFairUseLimit(TASTE_SPENT)).toBe(false)
     expect(isCopilotPaywallError(FAIR_USE)).toBe(true)
     expect(isCopilotFairUseLimit(FAIR_USE)).toBe(true)
-    expect(isCopilotPaywallError('The answer could not be completed. Please try again.')).toBe(false)
+    expect(isCopilotPaywallError("I couldn't complete this answer. Try again.")).toBe(false)
+  })
+
+  it('decides the plan card on a known code first, whatever its words (E31)', () => {
+    const words = 'Words that name neither the cap nor the plan.'
+    expect(isCopilotPaywallError(words, 'plan_required')).toBe(true)
+    expect(isCopilotPaywallError(words, 'free_allowance_exhausted')).toBe(true)
+    expect(isCopilotPaywallError(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(FAIR_USE, 'free_allowance_exhausted')).toBe(false)
+    // Every other known code is a pause, a rate limit or a sign-in: Retry, never the plan card (the contract's §3).
+    const others = (Object.keys(ERROR_CODES) as KnownErrorCode[])
+      .filter((code) => !['plan_required', 'free_allowance_exhausted', 'pro_fair_use_limit'].includes(code))
+    expect(others).toContain('generation_paused')
+    for (const code of others) {
+      expect([code, isCopilotPaywallError(FAIR_USE, code), isCopilotFairUseLimit(FAIR_USE, code)]).toEqual([code, false, false])
+    }
   })
 
   it('a spent allowance is the quiet card with the server sentence and Upgrade to Pro', () => {
@@ -387,7 +404,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   })
 
   it('a real failure keeps the error tint, role="alert" and Retry', () => {
-    render(<CopilotMessage message={errorMessage('The answer could not be completed. Please try again.')} onRetry={vi.fn()} />)
+    render(<CopilotMessage message={errorMessage("I couldn't complete this answer. Try again.")} onRetry={vi.fn()} />)
     const bubble = screen.getByRole('alert')
     expect(errorTokens(bubble).length).toBeGreaterThan(0)
     expect(within(bubble).getByRole('button', { name: /try again/i })).toBeInTheDocument()

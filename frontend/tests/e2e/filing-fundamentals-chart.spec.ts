@@ -185,7 +185,9 @@ async function expectEngineDrawing(card: Locator, plot: Locator, concept: string
     expect(Math.abs(value - filed[i]), `${concept}: "${text}" prints the filed ${filed[i]}`).toBeLessThanOrEqual(within + 1e-9 * Math.abs(filed[i]))
   })
   const stop = card.getByRole('slider', { name: `${label} chart values`, exact: true })
-  await expect(stop, `${concept}: the values stop opens at the newest fiscal year, with its end date`).toHaveAttribute('aria-valuetext', new RegExp(`^FY${newest}, year ended [A-Z][a-z]+ \\d{1,2}, \\d{4}\\. ${label}: `))
+  // The label goes into the pattern as text: the EPS lines' parentheses ("EPS (diluted)") would otherwise read as a group.
+  const asText = label.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+  await expect(stop, `${concept}: the values stop opens at the newest fiscal year, with its end date`).toHaveAttribute('aria-valuetext', new RegExp(`^FY${newest}, year ended [A-Z][a-z]+ \\d{1,2}, \\d{4}\\. ${asText}: `))
 
   // The spec's DOM checks for one card: its text, its marks and its inks on the card's computed ground.
   const [report] = await measurePlots(card)

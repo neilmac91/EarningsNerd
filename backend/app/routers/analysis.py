@@ -27,9 +27,11 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api_errors import CodedHTTPException
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_entitlement
+from app.error_codes import ErrorCode
 from app.models import Company, User
 from app.routers.auth import get_current_user
 from app.schemas.analysis import (
@@ -52,6 +54,7 @@ from app.services.subscription_service import (
     reserve_analysis_use,
 )
 from app.services.summary_pipeline import to_sse
+from app.services.trend_analysis.units import IncompatibleUnitsError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -62,6 +65,8 @@ DATASET_LIMITER = RateLimiter(limit=30, window_seconds=60)
 STREAM_LIMITER = RateLimiter(limit=10, window_seconds=60)
 # Workbook builds are CPU-bound (openpyxl zip) — tighter than the dataset limiter.
 XLSX_LIMITER = RateLimiter(limit=10, window_seconds=60)
+# The xlsx export's answer when the dataset the page built no longer matches what the data now builds.
+_EXPORT_DATA_CHANGED = "The financial data changed. Refresh the analysis before exporting."
 
 # How long the coverage request waits for a first-touch companyfacts sync before answering
 # `syncing: true` and letting the fetch finish in the background (frontend budget is ~30s).
@@ -267,13 +272,16 @@ async def export_analysis_xlsx(
                 dataset = trend_analysis_service.build_dataset(
                     db, company, body.mode, body.start_period, body.end_period
                 )
+            except IncompatibleUnitsError as exc:
+                # A snapshot names a dataset the page built, so its refusal now means the data changed: the 409
+                # the page reads as out of date (a blob response's 400 reaches the reader as generic text; E102).
+                if body.snapshot_id is None:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_EXPORT_DATA_CHANGED)
             except ValueError as exc:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
             if body.snapshot_id is not None and body.snapshot_id != trend_analysis_service.dataset_fingerprint(dataset):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="The financial data changed. Refresh the analysis before exporting.",
-                )
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_EXPORT_DATA_CHANGED)
             return dataset, company.ticker
         finally:
             filing_list_service.release_request_session(db)
@@ -396,8 +404,9 @@ async def stream_analysis(
                     db, company_id, body.mode, body.start_period, body.end_period
                 )
                 if not reaches_free_path:
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    # Coded (E31): the reader shows the cap with no way to the plans and no Retry.
+                    raise CodedHTTPException(
+                        ErrorCode.PRO_FAIR_USE_LIMIT,
                         detail=(
                             f"You've reached this month's fair-use limit of {cap:,} analysis generations, regenerations included. "
                             "It resets at the start of next month."
@@ -481,9 +490,8 @@ async def export_analysis_pdf(
         # dataset's links (cached_analysis_export), which is all the PDF reads of them.
         try:
             if not get_entitlements(current_user).can_export:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="PDF export is a Pro feature. Upgrade to Pro to access this feature.",
+                raise CodedHTTPException(
+                    ErrorCode.PLAN_REQUIRED, detail="PDF export is a Pro feature. Upgrade to Pro to access this feature."
                 )
             analysis = analysis_data_access.find_analysis(db, analysis_id)
             if analysis is None or not analysis.narrative_md:
