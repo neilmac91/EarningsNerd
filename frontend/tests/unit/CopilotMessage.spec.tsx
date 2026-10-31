@@ -334,7 +334,7 @@ describe('CopilotMessage follow-up chips', () => {
 describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
   const FAIR_USE =
-    "You've reached this month's fair-use limit of 1000 Copilot questions. It resets at the start of next month."
+    "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
   const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })
   /** The class tokens in a subtree that paint with one of the given status inks, through any variant prefix. */
   const tokensOf = (root: HTMLElement, palette: string) =>
@@ -351,7 +351,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(isCopilotFairUseLimit(TASTE_SPENT)).toBe(false)
     expect(isCopilotPaywallError(FAIR_USE)).toBe(true)
     expect(isCopilotFairUseLimit(FAIR_USE)).toBe(true)
-    expect(isCopilotPaywallError('The answer could not be completed. Please try again.')).toBe(false)
+    expect(isCopilotPaywallError("I couldn't complete this answer. Try again.")).toBe(false)
   })
 
   it('decides the plan card on a known code first, whatever its words (E31)', () => {
@@ -404,7 +404,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   })
 
   it('a real failure keeps the error tint, role="alert" and Retry', () => {
-    render(<CopilotMessage message={errorMessage('The answer could not be completed. Please try again.')} onRetry={vi.fn()} />)
+    render(<CopilotMessage message={errorMessage("I couldn't complete this answer. Try again.")} onRetry={vi.fn()} />)
     const bubble = screen.getByRole('alert')
     expect(errorTokens(bubble).length).toBeGreaterThan(0)
     expect(within(bubble).getByRole('button', { name: /try again/i })).toBeInTheDocument()

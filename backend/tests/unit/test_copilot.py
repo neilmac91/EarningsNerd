@@ -829,13 +829,28 @@ def test_endpoint_over_cap_returns_429(client, monkeypatch):
     with _as_user(is_pro=True), _seed_filing() as fid:
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429
-        # E31: the words unchanged, and the code the reader keys on beside them; the cap, not a rate limit, so no
-        # Retry-After rides with it.
+        # E31's code the reader keys on, beside E37's words (the product name gone, D-034); the cap, not a rate limit,
+        # so no Retry-After rides with it.
         assert resp.json() == {
-            "detail": "You've reached this month's fair-use limit of 0 Copilot questions. It resets at the start of next month.",
+            "detail": "You've reached this month's fair-use limit of 0 questions. It resets at the start of next month.",
             "code": "pro_fair_use_limit",
         }
         assert "retry-after" not in resp.headers
+
+
+@pytest.mark.requires_db
+def test_the_cap_prints_its_number_as_the_usage_line_does(client, monkeypatch):
+    # E37: the cap reads "1,000", as the rail's usage line prints it from the usage response, never "1000"; and the
+    # feature's one name stays out of the sentence (D-034).
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "check_qa_limit", lambda user, db: (False, 1000, 1000))
+    with _as_user(is_pro=True), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+    assert resp.status_code == 429
+    assert resp.json()["detail"] == (
+        "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
+    )
 
 
 @pytest.mark.requires_db

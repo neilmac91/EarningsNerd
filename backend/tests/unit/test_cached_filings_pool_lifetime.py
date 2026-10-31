@@ -4475,8 +4475,8 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
             detail = {
                 "missing": "Filing not found",
                 "taste_refused": "You've used your 3 free Copilot questions.",
-                "cap_refused": "You've reached this month's fair-use limit of 0 Copilot questions.",
-                "cap_lease_refused": "You've reached this month's fair-use limit of 1 Copilot questions.",
+                "cap_refused": "You've reached this month's fair-use limit of 0 questions.",
+                "cap_lease_refused": "You've reached this month's fair-use limit of 1 questions.",
             }[case]
             assert all(response.json()["detail"].startswith(detail) for response in responses)
         with sessions() as db:
