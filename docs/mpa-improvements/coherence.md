@@ -371,10 +371,10 @@ FDX, the case that found the defect, holds none of them.
 The mark's words and ink belong to this notation system (§2.2).
 
 **As shipped (WP5a-B).** WP5a ships as three pull requests, deployed in the order of the WP5a brief's D13, F1 → X → B:
-the page's readers (F1, #1776), then the exports' later-filing line and evidence (X), inert until the producer, then
-the producer (B), so no surface states a false cause in between. The producer is
-`backend/app/services/trend_analysis/first_reports.py`, built on the recommendations of the WP5a decision brief, each
-held in one named constant or function a review can overturn:
+the page's readers (F1, #1776), then the exports' later-filing line and evidence (X, #1866, recorded in §5's "As
+shipped (WP5a-X)"), inert until the producer, then the producer (B), so no surface states a false cause in between.
+The producer is `backend/app/services/trend_analysis/first_reports.py`, built on the recommendations of the WP5a
+decision brief, each held in one named constant or function a review can overturn:
 - D1: a figure carries its own report's value where the two differ by more than 0.1% of the own value
   (`EVIDENCE_TOLERANCE`); growth reads n/m where the two years' shown-to-first-reported ratios differ by more than 1%
   (`BASIS_TOLERANCE`), a year without evidence at ratio 1.
