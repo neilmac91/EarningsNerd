@@ -350,7 +350,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`tests/unit/badgeNeverAControl.spec.ts`, which reads a Badge and a control through their
   bindings and the control's whole face). The amendment link carries the brand focus ring.
 - **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
-  `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
+  `features/companies/components/CompanySearch.tsx`, `features/insiders`,
   `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
   `features/filings/components/FilingIndex.tsx`): a company that fails
   to load says "Couldn’t load this company" with "Try again" and never prints the raw error; only a 404
@@ -358,11 +358,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   with the search's scope ("No company with a ticker on SEC EDGAR matches
   …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
   search field reads "Search company or ticker" everywhere (the landing's string) and its result rows
-  take the inset focus ring. Sector peers and financial trends pick their metric through a compact select
-  sized to its content beside its "Metric" label (nine and up to 23 options, in sentence case on its
-  face); insider activity picks its window through the SegmentedControl; headings in sentence case; the
-  percentile is an ordinal ("21st percentile"); a trade's type carries a hidden ▲ or ▼ beside its
-  label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is; a trade's
+  take the inset focus ring. Financial trends picks its metric through a compact select sized to its
+  content beside its "Metric" label (up to 23 options, in sentence case on its face); the Sector peers
+  panel and its metric picker are retired until the SIC backfill gives it cohorts (D-066); insider
+  activity picks its window through the SegmentedControl; headings in sentence case; a trade's type
+  carries a hidden ▲ or ▼ beside its label and the discretionary net keeps its sign; the 10b5-1 note
+  says what a plan trade is; a trade's
   missing share count, value or date reads "unavailable", a missing name "name unavailable" and a row
   that lists neither a title nor a role "no role listed", each the missing-value element. "Full
   history on SEC.gov" opens the company's EDGAR list through the shared company link the lead
@@ -375,7 +376,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (new) fails a SegmentedControl given more than five options, so a long set takes the compact select,
   and the filings form filter, a set known only at run time, renders as the toolbar's compact select
   past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than
-  five; `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
+  five; `tests/unit/formatters.spec.ts` holds the signed `fmtShares`.
 - **Dashboard and watchlist** (`frontend/app/dashboard/page.tsx`, `app/dashboard/watchlist/page.tsx`,
   `features/dashboard/components/*`, `features/watchlist/components/SummaryStatusBadge.tsx`): each
   watched company's card states its summary from the server's status (ready, being written, none yet,
@@ -421,7 +422,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   on a bounded payload under the known universe: the chip shows there and nowhere else.
 - **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
   check-email countdown, the period quick picks, the narrative's "Show the N source figures" summary
-  and its bracketed Sources chip, the data notes' checked count, the peer rank and the summary's
+  and its bracketed Sources chip, the data notes' checked count and the summary's
   section index rest in the ink, and so do the values beside them: the filing viewer's "Showing ·"
   caption, which prints a section's name, and the "Sources & checks" links, which under the
   fundamentals chart print a figure's fiscal year. A What-changed chip on the dashboard is a figure's
@@ -469,8 +470,15 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   column of figures right-aligned in the data face, each figure on one line, where the page sets
   one: the Financial Highlights table's Current Period, Prior Period and Change by name, as
   FinancialMetricsTable does, and any other table's by the page's numeric-column rule; quotes sit on
-  a neutral hairline. A PDF link rests in its line's ink with an underline, as the page's prose
-  links rest, because print has no pointer to turn it sage, so the wordmark's "Nerd" is the only
+  a neutral hairline. In the summary PDF a Risks excerpt the server located sits on the device's
+  marked block, as on the filing page (D-044): the 3px brand bar and the tint on square corners, the
+  filing's words upright in the ink and in Inter, since Newsreader stays inside the product; the
+  Risks table sets its columns, so a long token breaks inside its cell (`pdf_branding.py`, E75). The
+  CSV keeps the same rows. A Financial Highlights row with no prior prints the page's missing-value
+  token (—) in that cell in both exports, where the page draws MissingValue; a zero prints as a zero
+  and every other blank cell stays blank (`MISSING_FIGURE`, E13). A PDF link rests in its line's ink
+  with an underline, as the page's prose links rest, because print has no pointer to turn it sage, so
+  the wordmark's "Nerd" is the only
   sage text in the exports. The PDFs carry Inter's italic beside its roman
   (`backend/app/assets/fonts/Inter-Variable-Italic-latin.woff2`, the same 4.001 build and latin
   subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every
@@ -505,8 +513,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
   outlines, with no transform anywhere in either PDF's stylesheet, by
   `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour value to a token in its role
-  (no colour function, colour keyword or indirection), the grounds to the page and the masthead's
-  tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd", every rule that can
+  (no colour function, colour keyword or indirection), the grounds to the page and the one tint of
+  the masthead and the marked block, every text colour to 4.5:1 on each, sage to the wordmark's
+  "Nerd", every rule that can
   style a PDF link to the ink with an underline, and the italic to an italic face (the family
   declares one, each face's file is the style it is declared as, and every font a rendered PDF
   embeds for italic text is an italic program) and every font a rendered PDF embeds to a vendored face's

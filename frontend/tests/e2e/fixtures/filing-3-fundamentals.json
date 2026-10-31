@@ -1,0 +1,247 @@
+{
+  "ticker": "AAPL",
+  "company_name": "Apple Inc.",
+  "concepts": [
+    {
+      "concept": "current_ratio",
+      "unit": "pure",
+      "points": [
+        {
+          "period_end": "2024-09-28",
+          "fiscal_year": 2024,
+          "fiscal_period": "FY",
+          "value": 0.8673125765340832,
+          "unit": "pure",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        {
+          "period_end": "2025-09-27",
+          "fiscal_year": 2025,
+          "fiscal_period": "FY",
+          "value": 0.8932929222186667,
+          "unit": "pure",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        }
+      ]
+    },
+    {
+      "concept": "net_margin",
+      "unit": "pure",
+      "points": [
+        {
+          "period_end": "2023-09-30",
+          "fiscal_year": 2023,
+          "fiscal_period": "FY",
+          "value": 25.30623426432028,
+          "unit": "pure",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        {
+          "period_end": "2024-09-28",
+          "fiscal_year": 2024,
+          "fiscal_period": "FY",
+          "value": 23.971255769943866,
+          "unit": "pure",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        {
+          "period_end": "2025-09-27",
+          "fiscal_year": 2025,
+          "fiscal_period": "FY",
+          "value": 26.91506412181824,
+          "unit": "pure",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        }
+      ]
+    },
+    {
+      "concept": "revenue",
+      "unit": "USD",
+      "points": [
+        {
+          "period_end": "2023-09-30",
+          "fiscal_year": 2023,
+          "fiscal_period": "FY",
+          "value": 383285000000.0,
+          "unit": "USD",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null,
+            "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"
+          }
+        },
+        {
+          "period_end": "2024-09-28",
+          "fiscal_year": 2024,
+          "fiscal_period": "FY",
+          "value": 391035000000.0,
+          "unit": "USD",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null,
+            "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"
+          }
+        },
+        {
+          "period_end": "2025-09-27",
+          "fiscal_year": 2025,
+          "fiscal_period": "FY",
+          "value": 416161000000.0,
+          "unit": "USD",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null,
+            "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"
+          }
+        }
+      ]
+    },
+    {
+      "concept": "working_capital",
+      "unit": "USD",
+      "points": [
+        {
+          "period_end": "2024-09-28",
+          "fiscal_year": 2024,
+          "fiscal_period": "FY",
+          "value": -23405000000.0,
+          "unit": "USD",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        {
+          "period_end": "2025-09-27",
+          "fiscal_year": 2025,
+          "fiscal_period": "FY",
+          "value": -17674000000.0,
+          "unit": "USD",
+          "form": "10-K",
+          "accession": "0000320193-25-000079",
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        }
+      ]
+    }
+  ]
+}

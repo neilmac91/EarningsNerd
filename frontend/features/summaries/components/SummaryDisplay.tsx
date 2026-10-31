@@ -24,11 +24,12 @@ import { cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholde
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
 // a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
-// recharts is heavy + DOM-only, so load it client-side like the other charts. It self-fetches and
-// renders nothing until facts exist, so no loading fallback (which would flash an empty card before
-// it decides). This is the page's single financial chart — it replaced the older current-vs-prior
-// FinancialCharts, whose bar chart duplicated this one's metrics; the FinancialMetricsTable below
-// still shows the numbers.
+// It draws through the trend charts' engine (E195 (D)), which measures its viewport and waits for
+// its font in the browser, so it loads client-side in a chunk of its own, keeping the engine out of
+// the page's first load. It self-fetches and renders nothing until facts exist, so no loading
+// fallback (which would flash an empty card before it decides). This is the page's single financial
+// chart — it replaced the older current-vs-prior FinancialCharts, whose bar chart duplicated this
+// one's metrics; the FinancialMetricsTable below still shows the numbers.
 const FundamentalsTrendChart = dynamic(
   () => import('@/features/fundamentals/components/FundamentalsTrendChart'),
   { ssr: false },

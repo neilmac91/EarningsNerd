@@ -9,6 +9,13 @@ import type { ChartModel, ChartView, ModelMark, ModelPanel, NoteGlyph } from './
 import { compactMoney, linear } from './scale'
 
 export const FONT_PX = 11
+/** Every SVG text's family (G1), the face whose advance ADVANCE assumes; it mirrors tailwind's fontFamily.data. It
+ *  leads with var(--font-geist-mono), as the data stack does (DESIGN_SYSTEM.md §12, item 3): next/font exposes the face
+ *  through that variable, which is the contract, while the family name the loader declares is no promise. The
+ *  variable ends in the generic monospace, so the families after it are never reached, and were it unset the whole
+ *  value would be invalid and the text would take its inherited family: they never stand in for it. */
+export const CHART_FONT =
+  'var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
 export const ADVANCE = FONT_PX * 0.6
 export const textWidth = (text: string) => [...text].length * ADVANCE
 
@@ -289,11 +296,12 @@ function labelAt(bar: Bar) {
 }
 
 /** A3/A4: one decimal tier for the whole panel, the most precise whose labels stay inside the SVG and keep
- *  2 px from each other in both directions. Never thinned: a tier fits every label or none. */
+ *  2 px from each other in both directions. Never thinned: a tier fits every label or none. The tiers run from the
+ *  format's d0 down to 0: an amount's d0 … 0, a percent's 1 and 0, a ratio's 2, 1 and 0. */
 function planLabels(mark: ModelMark, box: PanelFrame, bars: Bar[], width: number): LabelPlan {
   if (!mark.labelled) return { decimals: null }
   const format = box.panel.axis.format
-  const tiers = format.kind === 'money' ? Array.from({ length: format.d0 + 1 }, (_, i) => format.d0 - i) : [1, 0]
+  const tiers = Array.from({ length: format.d0 + 1 }, (_, i) => format.d0 - i)
   const own = bars.filter((bar) => bar.seriesKey === mark.seriesKey)
   for (const digits of tiers) {
     const boxes = own.map((bar) => {
