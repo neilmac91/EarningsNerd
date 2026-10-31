@@ -32,6 +32,8 @@ export interface ModelPoint {
   nm?: boolean
   /** A growth slot whose year-earlier period comes before the window (A11's structural state). */
   structural?: boolean
+  /** A bar chart's context bar (barChart.ts, E251): the context ink at the growth bars' narrower width. */
+  context?: true
 }
 
 export interface ModelMark {

@@ -70,16 +70,16 @@ export interface PeerFixture {
 
 /** Every peers case as the bar chart a ranked company chart draws (E251): a slot per company in the answer's order, its
  *  tick and long name the ticker, keyed by place where a ticker repeats, as slotsOf keys a year two points share
- *  (Company.ticker is not unique, and buildBarChart refuses a key given twice); the metric's own label, and its axis by
- *  its kind in the answer's unit, a unit naming no currency printing no sign. E251's second pull request replaces this
- *  with the panel's own builder. */
+ *  (Company.ticker is not unique, and buildBarChart refuses a key given twice); the subject a plain bar and every other
+ *  company a context bar; the metric's own label, and its axis by its kind in the answer's unit, a unit naming no
+ *  currency printing no sign. E251's second pull request replaces this with the panel's own builder. */
 export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
   return Object.entries(fixture.cases).map(([name, { response }]) => {
     const metric = FEATURED.find((candidate) => candidate.key === response.concept)!
     const tickers = response.peers.map((entry) => entry.ticker)
     const categories = response.peers.map((entry, i): BarCategory => {
       const own = entry.ticker !== '' && tickers.indexOf(entry.ticker) === tickers.lastIndexOf(entry.ticker)
-      return { key: own ? entry.ticker : `${entry.ticker || 'company'}#${i}`, tick: entry.ticker, long: entry.ticker }
+      return { key: own ? entry.ticker : `${entry.ticker || 'company'}#${i}`, tick: entry.ticker, long: entry.ticker, ...(entry.is_subject ? {} : { context: true as const }) }
     })
     return [name, {
       id: name,

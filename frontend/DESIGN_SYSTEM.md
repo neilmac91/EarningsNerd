@@ -3037,7 +3037,10 @@ series colors** (direction only) and **sage never appears inside a plot area**. 
 beside the one it is about (E251, a ranked company chart's other companies): a solid warm stone at a data mark's floor
 on the card and under the column wash in both themes, never an opacity, which D6's computed `fill` cannot see (the retired
 peers chart's grey at 45% painted Lc 32.8 and −16.7). It is no series colour, so it claims no palette slot and leaves the
-sequence alone. Chart chrome (gridlines,
+sequence alone. Colour alone cannot tell it from chart-1 for a colour-blind reader (deutan 17 / protan 9 ΔE76 in light,
+15 / 9 in dark), so a context bar also takes the growth bars' narrower width, and the bar the chart is about keeps the full
+one. No mark fades by opacity: `tests/unit/trend-charts-v2.spec.tsx` fails an `opacity`, `fill-opacity` or
+`stroke-opacity` anywhere in a plot. Chart chrome (gridlines,
 the zero rule, labels, the tooltip's inks) takes the `chart.grid/ref/label` sub-tokens and the text inks through the
 engine's `chartTokens(dark)` (`features/analysis/lib/charts/theme.ts`, below) — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).
@@ -3054,7 +3057,7 @@ secondary, `#D1D5DB` in dark, and its values primary: the engine's `name` (`text
 (`text.primary`), which `tests/unit/chart-theme.spec.ts` holds to those tokens in both themes. The chart export's
 secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
 `tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its series' legend swatch (`LegendSwatch`), in its
-mark's paint. The hover and focus cursor is the spec renderer's column wash (`cursor`, chart.1 teal @ 8% light / 16%
+mark's paint, or for a context bar in the context ink: the hovered bar's own paint (E236). The hover and focus cursor is the spec renderer's column wash (`cursor`, chart.1 teal @ 8% light / 16%
 dark), a fill over the period's column, not a hairline.
 The engine's value axis takes its widest tick label's width (`layout.ts`), so a currency printed by its code
 ("CHF 800B", "KRW 800T"; KRW, VND and XOF print by code, E203) widens the axis, where a fixed 70px once cut it.

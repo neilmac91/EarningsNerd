@@ -458,6 +458,14 @@ says so; everything else follows the spec.
     `max(36, ceil(widest line + 4))` (`layout.ts` `minSlotOf`) and a labelled chart's search runs to `max(42, that)`.
     The spec's draft rule (§0.4 row 11); a six-glyph tick ran 1.8 px past a 36 px column. `chart-engine.spec.ts` holds
     every tick line to its slot over every analysis dataset, bar case and peer case, and A7's checks read `minSlotOf`.
+  - Context bars: a `BarCategory` can be `context` (`barChart.ts`), copied onto its point and its placed bar, which takes
+    the growth bars' narrower width (`layout.ts` `contextBarWidth`), the cue the colour cannot give (§3.8, CVD); the
+    renderer paints it in the context ink (§3.8), its readout row carries the flag, and `LegendSwatch` paints that row's
+    swatch in the context ink, so a tooltip's swatch is the hovered bar's own paint (E236, as the retired peers chart's
+    `swatchOf` did). The mark stays chart-1, so M9 and the golden plans are unmoved. `trend-charts-v2.spec.tsx` draws every
+    peer case through `ChartPlotFrame` in both themes, holds each bar's paint and width to its role and each tooltip
+    swatch to its bar, and fails an `opacity`, `fill-opacity` or `stroke-opacity` anywhere in a plot: D6 reads a
+    computed `fill`, which an opacity leaves as it is.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
@@ -914,6 +922,9 @@ LCID annual margins: domain −600…+100%; one band below the plot holds six it
   - marks bound to a data value (`data-series`, `data-period`);
   - the off-scale arrows, bound to their point;
   - legend and strip swatches.
+- A bar chart's context bars (E251, §0.5) paint the context ink (§3.8), not a series token: their mark keeps chart-1 and
+  its place in this order, so a context bar claims no palette slot and M9 holds. The context ink appears only on such a
+  bar, bound to its data, and on its tooltip row's swatch.
 - The break mark on a clipped bar uses «t.surface», never a series token.
 - Gain/loss and sage tokens never appear in these four charts. Sign is carried by position against a drawn zero rule
   and by the printed "+" and "−".
@@ -1857,7 +1868,7 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | M6 | model | slot ≥ max(36, the widest x tick line + 4) px (a labelled chart: the narrowest width up to max(42, that) a period with an A4 tier), so each tick line keeps 2 px each side in its column; if the container is narrower, `scroll = true` and W is that width | text collisions, dropped values, a ticker past its column |
 | M7 | model | Every null plotted value has a band letter; every off-scale line point has an A3b item with its true value; every clipped growth bar has a break mark and its true value as its label; band letters = footnote letters = data-note letters that touch plotted values; no ↑/↓ in the band | silent gaps, orphan notes, hidden values |
 | M8 | model | H identical for W ∈ {342, 502, 1030}; H = 320 on the card; ticks and tick text identical for card and expanded | CLS, grid misalignment, export ≠ screen |
-| M9 | model | Colours = chart-1..k in order over present series; shapes circle, square, triangle by the same index; an absent series takes no slot; no gain, loss or brand token in any mark | colour misuse |
+| M9 | model | Colours = chart-1..k in order over present series; shapes circle, square, triangle by the same index; an absent series takes no slot; a bar chart's context bars take the context ink, their mark keeping its slot (E251); no gain, loss or brand token in any mark | colour misuse |
 | M10 | model | For every same-panel series pair and period, the drawn y order equals the true order (0 false orderings) | dual-axis misordering |
 | M11 | model | Clipping only on margins and growth panels; the clipped set equals the A3 output; no $ panel clipped | hidden dollars |
 | M12 | model | Every SVG string ⊆ G2; † only as a notes-band glyph (and as the key of its footnote line), and since E194 (D-061) nowhere: no band cell or footnote mark is †; no † in any legend item, caption, label or title; no `[0-9$%BMKT]\s?†` anywhere (SVG, legend, footnotes, KPI strip) | missing glyphs, † on names and numbers |
@@ -1873,7 +1884,7 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | D1 | DOM | Every `<text>` `getBBox()` lies inside the SVG viewBox, inset 1 px (ascent and descent included) | "Fiscal year" clipping |
 | D2 | DOM | No two `<text>` bboxes intersect | label collisions |
 | D3 | DOM | No note glyph (band letters, †) and no ↑/↓ inside any plot rect; text inside a plot rect is limited to bar labels, A13b labels and the `—`/`n/m` state glyphs on the zero rule | stacked "a" markers |
-| D4 | DOM | Every element with a series-colour fill or stroke has `data-series` and `data-period` (marks, off-scale arrows), or is a legend or strip swatch; count of others = 0 | coloured right-axis bar |
+| D4 | DOM | Every element with a series-colour or context-ink fill or stroke has `data-series` and `data-period` (marks, off-scale arrows), or is a legend or strip swatch; count of others = 0 | coloured right-axis bar |
 | D5 | DOM | Every y tick label's right edge < G_L; no text right of the plot except the right pad; no axis domain path, tick line or tag element exists | second axis, spine, tag |
 | D6 | DOM | Computed colours meet the §3.8 APCA thresholds against «t.surface» in both themes, including the card's HTML subtitle, legend and footnotes | low contrast |
 | D7 | DOM | Marker count = valued and zero in-domain points on line series; isolated points visible | invisible points |

@@ -97,6 +97,8 @@ export interface PlacedBar {
   clipped: boolean
   /** The printed value and its baseline (A4), or null when the panel prints none. */
   label: { text: string; y: number } | null
+  /** A bar chart's context bar (barChart.ts, E251): the renderer paints it in the context ink, at contextBarWidth. */
+  context?: true
 }
 
 /** A bar slot with no value prints "—" (missing) or "n/m" (not meaningful) on the zero rule. */
@@ -281,8 +283,8 @@ type Bar = Omit<PlacedBar, 'label'>
 const zeroOf = (box: PanelFrame) => box.y(Math.max(box.panel.axis.domain[0], Math.min(0, box.panel.axis.domain[1])))
 
 /** A13, every bar (top line, growth, equity): the rect from the zero rule to the clamped value, at least
- *  2 px, on the value's side. */
-function placeBars(box: PanelFrame, x: (period: string) => number, barWidth: number, growthBarWidth: number): Bar[] {
+ *  2 px, on the value's side. A growth bar and a context bar take their narrower widths. */
+function placeBars(box: PanelFrame, x: (period: string) => number, barWidth: number, growthBarWidth: number, contextBarWidth: number): Bar[] {
   const [d0, d1] = box.panel.axis.domain
   const zero = zeroOf(box)
   return box.panel.marks.flatMap((mark) => mark.kind === 'line' ? [] : mark.points.flatMap((point) => {
@@ -290,11 +292,12 @@ function placeBars(box: PanelFrame, x: (period: string) => number, barWidth: num
     const clamped = Math.max(d0, Math.min(d1, point.value))
     const length = Math.abs(box.y(clamped) - zero)
     const height = Math.max(2, length)
-    const width = mark.kind === 'growth' ? growthBarWidth : barWidth
+    const width = mark.kind === 'growth' ? growthBarWidth : point.context ? contextBarWidth : barWidth
     return [{
       period: point.period, seriesKey: mark.seriesKey, value: point.value,
       x: x(point.period) - width / 2, y: point.value >= 0 ? zero - height : zero, width, height, zero,
       stub: length < 2, clipped: clamped !== point.value,
+      ...(point.context ? { context: point.context } : {}),
     }]
   }))
 }
@@ -360,6 +363,10 @@ function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
   const slot = (plotRight - plotLeft) / Math.max(1, model.periods.length)
   const barWidth = Math.min(44, Math.round(0.64 * slot))
   const growthBarWidth = Math.max(4, Math.round(0.6 * barWidth))
+  // A context bar's width (E251), the cue colour alone cannot give a colour-blind reader: the context ink sits deutan 17 /
+  // protan 9 ΔE76 from chart-1 (spec §3.8, CVD). The growth bars' narrower width, the spec's precedent for telling bars
+  // apart (§3.7); the bar a chart is about keeps the full width.
+  const contextBarWidth = growthBarWidth
   const index = new Map(model.periods.map((period, i) => [period.key, i]))
   const x = (period: string) => plotLeft + slot * ((index.get(period) ?? 0) + 0.5)
   const stacked = model.panels.length > 1
@@ -402,7 +409,7 @@ function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
     const offBelow = f.offDown ? { top: cursor, ...f.offDown } : null
     cursor += f.offBottom + (i < model.panels.length - 1 ? gap : 0)
     const frame: PanelFrame = { panel, regionTop, captionY, top, height: panelHeight, y: linear(panel.axis.domain, [top + panelHeight, top]), offAbove, offBelow }
-    const placed = placeBars(frame, x, barWidth, growthBarWidth)
+    const placed = placeBars(frame, x, barWidth, growthBarWidth, contextBarWidth)
     const labelled = panel.marks.find((mark) => mark.labelled)
     const labels = labelled ? planLabels(labelled, frame, placed, width) : { decimals: null }
     const printed = new Set(panel.marks.filter((mark) => mark.labelled).map((mark) => mark.seriesKey))

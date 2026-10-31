@@ -7,7 +7,8 @@
    role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
    dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
-   and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
+   and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. A
+   ranked company chart (E251): its context bars in the context ink and the tooltip swatch the bar's own paint. Text
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
@@ -29,16 +30,18 @@ vi.mock('sonner', async (importOriginal) => {
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
+import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
 import { bonesPlan, CARD_BONES, TrendChartsSkeleton } from '@/features/analysis/components/TrendChartBones'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
-import { plannedByRole, questioned, withMixedNotes } from './chartPlan'
+import { peerBarCases, plannedByRole, questioned, withMixedNotes, type PeerFixture } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
+import { buildBarChart, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
 import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { moneyPrefix } from '@/features/analysis/lib/charts/scale'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
-import { chartReadouts } from '@/features/analysis/lib/charts/readout'
+import { chartReadouts, readouts as coreReadouts } from '@/features/analysis/lib/charts/readout'
 import { noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import analytics from '@/lib/analytics'
@@ -168,21 +171,27 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
     }
   })
 
-  // D4: a series colour paints only marks bound to their data, off-scale arrows, and the strip's swatches.
-  const seriesColours = new Set(tokens.series)
+  // D4: a series colour, or the context ink (E251), paints only marks bound to their data, off-scale arrows, and the
+  // strip's swatches.
+  const seriesColours = new Set([...tokens.series, tokens.context])
   const coloured = [...svg.querySelectorAll('*')].filter((node) => seriesColours.has(node.getAttribute('fill') ?? '') || seriesColours.has(node.getAttribute('stroke') ?? ''))
   expect(coloured.length).toBeGreaterThan(0)
   for (const node of coloured) {
     if (node.closest('[data-strip]')) continue
     expect([node.getAttribute('data-series'), node.getAttribute('data-period')].every(Boolean), `${node.tagName} in a series colour names its data`).toBe(true)
   }
-  // Literal paint only: the export serialises the plot without the page's CSS or variables.
-  for (const node of svg.querySelectorAll('*')) {
+  // Literal paint only: the export serialises the plot without the page's CSS or variables. And no mark fades by opacity
+  // (E251): D6 in a browser reads a computed fill, which an opacity leaves as it is, so a faded bar would pass it while it
+  // paints under its floor (the retired peers chart's grey at 45%, Lc 32.8 and −16.7). A paler ink is a token of its own.
+  for (const node of [svg, ...svg.querySelectorAll('*')]) {
     for (const name of ['fill', 'stroke']) {
       const paint = node.getAttribute(name)
       if (paint != null) expect(paint, `${node.tagName} ${name}`).toMatch(/^(#[0-9A-F]{6}|rgba\([^)]*\)|none)$/)
     }
-    expect(node.getAttribute('style') ?? '').not.toContain('var(')
+    for (const name of ['opacity', 'fill-opacity', 'stroke-opacity']) expect(node.hasAttribute(name), `${node.tagName} ${name}: a mark fades by a token, never an opacity`).toBe(false)
+    const style = node.getAttribute('style') ?? ''
+    expect(style).not.toContain('var(')
+    expect(style, `${node.tagName} style: a mark fades by a token, never an opacity`).not.toMatch(/opacity/i)
   }
   // D5: no axis domain, tick line or tag: every line is a gridline, an off-scale rule or a break stroke.
   expect(svg.querySelectorAll('line').length).toBe(
@@ -1081,5 +1090,53 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
       const flow = [...card.children].filter((child) => !child.classList.contains('sr-only'))
       expect(flow, 'three rows in flow').toHaveLength(3)
     }
+  })
+})
+
+describe('a ranked company chart (E251): the subject in chart-1, every other company a context bar', () => {
+  // The peers fixture's cases as a ranked company chart draws them (chartPlan.ts peerBarCases).
+  const PEERS = peerBarCases(JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture)
+  /** A chart's plot as any card draws it, through ChartPlotFrame, its font in: at the desktop card's width in jsdom. */
+  const drawPeers = (def: BarChartDef, theme: 'light' | 'dark') => {
+    const model = buildBarChart(structuredClone(def))
+    const utils = render(
+      <ChartPlotFrame model={model} readouts={coreReadouts(model)} tokens={CHART_TOKENS[theme]} fontReady view="card">
+        {({ plot }) => <section>{plot}</section>}
+      </ChartPlotFrame>,
+    )
+    return { ...utils, model, stop: within(utils.container).getByRole('slider', { name: `${model.title} chart values` }) }
+  }
+
+  describe.each(PEERS)('%s', (_name, def) => {
+    it.each(['light', 'dark'] as const)('%s: the plan drawn, each bar in its role’s ink and width, each tooltip swatch the bar’s own paint (E236)', (theme) => {
+      const tokens = CHART_TOKENS[theme]
+      const { container, model, stop } = drawPeers(def, theme)
+      const layout = layoutChart(model, DEFAULT_WIDTH, 'card')
+      const svg = container.querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!
+      // The renderer's checks on the plan, D4 with the context ink and no opacity among them.
+      expectDrawsPlan(svg, model, layout, tokens)
+      const [mark] = model.panels[0].marks
+      expect(mark.color, 'the mark stays chart-1: a context bar claims no palette slot (M9)').toBe(0)
+      const context = new Map(mark.points.map((point) => [point.period, Boolean(point.context)]))
+      const bars = [...svg.querySelectorAll('rect[data-series]')]
+      expect(bars, 'a bar a valued company').toHaveLength(mark.points.filter((point) => point.value != null).length)
+      expect(bars.some((bar) => context.get(bar.getAttribute('data-period')!)), 'a context bar drawn').toBe(true)
+      expect(bars.some((bar) => !context.get(bar.getAttribute('data-period')!)), 'the subject’s bar drawn').toBe(true)
+      for (const bar of bars) {
+        const period = bar.getAttribute('data-period')!
+        // A context bar: the context ink, never a series colour, at the growth bars' narrower width, the cue colour alone
+        // cannot give a colour-blind reader (layout.ts contextBarWidth); the subject keeps chart-1 and the full width.
+        expect([bar.getAttribute('fill'), num(bar, 'width')], period)
+          .toEqual(context.get(period) ? [tokens.context, layout.growthBarWidth] : [tokens.series[0], layout.barWidth])
+      }
+      // The values stop on each company: the tooltip row's swatch is that bar's own paint.
+      const swatch = () => container.querySelector('[data-chart-tooltip] li svg rect')?.getAttribute('fill')
+      model.periods.forEach((period, i) => {
+        fireEvent.keyDown(stop, { key: 'Home' })
+        for (let step = 0; step < i; step++) fireEvent.keyDown(stop, { key: 'ArrowRight' })
+        expect(stop).toHaveAttribute('aria-valuenow', String(i))
+        expect(swatch(), `${period.key}’s swatch`).toBe(context.get(period.key) ? tokens.context : tokens.series[0])
+      })
+    })
   })
 })
