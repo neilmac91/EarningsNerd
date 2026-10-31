@@ -864,7 +864,7 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     return { ...utils, showFiling: (filingId: number) => utils.rerender(page(filingId)) }
   }
 
-  it('a tab pressed back to Ask never moves the page: only the press that opened the pane may (E252)', async () => {
+  it('a tab pressed or switched back to Ask never moves the page: only the press that opened the pane may (E252)', async () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
     const win = window as { innerHeight: number }
     const was = win.innerHeight
@@ -883,6 +883,12 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
       frames(30)
       expect(field).toHaveFocus()
       expect(page.moves, 'the press that opened the pane').toEqual(['scrollBy'])
+      // Switched back with no press of the reader's, as a citation flow's return does: the open's move is spent.
+      fireEvent.click(screen.getByRole('tab', { name: /filing/i }))
+      fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
+      frames(30)
+      expect(field).toHaveFocus()
+      expect(page.moves, 'the switch').toEqual(['scrollBy'])
       await user.click(screen.getByRole('tab', { name: /filing/i }))
       await user.click(screen.getByRole('tab', { name: 'Ask' }))
       frames(30)
