@@ -67,7 +67,7 @@ DEPENDENT = "proxy_statement_operand"  # a calculation built on one, with no fre
 SAME = Fraction(1, 1_000_000)  # proxy_form_winners.sql's equality between a value and a witness (relative)
 BAND = Fraction(1, 100)  # its scale band: within 1% of 1,000 or 1,000,000 times a figure
 SCALES = (1_000, 1_000_000)
-HALF_STEP = math.log(1_000) / 2  # half a scale step on a log scale: a factor of about 31.6
+STEP = Fraction(1_000)  # a scale step; half a step either way, on a log scale, is a factor of sqrt(1,000), about 31.6
 FALLBACK_ACCESSION = "companyfacts"  # facts/quarterly.reported_fact names an item without one so
 COUNTERS = (
     "retired", "inserted", "promoted", "corrected", "retired_without_winner",
@@ -153,18 +153,24 @@ def _scale_up(value: Any, original: Any) -> bool:
 
 def _scale_up_stands(value: Any, authority: float | None) -> bool:
     """Whether a scale-up of the stored ``value`` stays the old check's own unit fix: where there is no 10-K figure
-    (``authority`` None: nothing to read a scale from, and the planner lists the row in ``scale_up_retained``), or
-    where today's 10-K figure is of the value's sign and on its scale step, strictly within half a step of it on a log
-    scale: ``|log(authority / value)| < log(1,000) / 2``, a factor of about 31.6 either way (half a step itself is
-    irrational, so no stored figure sits on it). A figure on any other step, the original's or one between (a parse
-    and a proxy each 1,000 times off, in opposite directions), is not on the value's. Nor is a figure of the other
-    sign, or one of zero: the rest of sets 4 and 5 read a zero 10-K figure as a figure (``_authority`` returns it,
-    ``_agrees`` and ``cross_check_facts`` compare against it), so its row takes set 4's ordinary path too, which
-    refuses a nonzero original more than 1% off it."""
+    (``authority`` None: nothing to read a scale from; the planner lists the row in ``scale_up_retained`` where a proxy
+    figure holds it), or where today's 10-K figure is of the value's sign and on its scale step, strictly within half
+    a step of it on a log scale, a factor of sqrt(1,000), about 31.6, either way: ``1/1,000 < (authority / value)² <
+    1,000``. It is computed exactly, as the witness test and the scale bands are, from the stored decimal string and
+    the JSON number (``_exact``); no rational ratio squares to 1,000, so half a step itself is irrational and no stored
+    figure sits on it. A figure on any other step, the original's or one between (a parse and a proxy each 1,000 times
+    off, in opposite directions), is not on the value's. Nor is a figure of the other sign, or one of zero: the rest of
+    sets 4 and 5 read a zero 10-K figure as a figure (``_authority`` returns it, ``_agrees`` and ``cross_check_facts``
+    compare against it), so its row takes set 4's ordinary path too. There a nonzero original more than 1% off it
+    refuses the company, unless a report row backs the row and it is not the company's current figure: then the row
+    is left and listed."""
     if authority is None:
         return True
-    ratio = authority / float(value)
-    return ratio > 0 and abs(math.log(ratio)) < HALF_STEP
+    a, v = _exact(authority), _exact(value)
+    if not a or not v or (a > 0) != (v > 0):
+        return False
+    ratio = a / v
+    return 1 / STEP < ratio * ratio < STEP
 
 
 def _scale_down(value: Any, original: Any) -> bool:

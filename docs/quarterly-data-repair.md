@@ -95,16 +95,18 @@ It runs these passes, in this order; the sets are those of `ops/detection/proxy_
    item in the payload; relative 1e-6). Left alone first when the value is 1,000 or 1,000,000 times the
    recorded original (the authority scaling up a parse read in units, the replacement the check exists
    for), whether or not a report row holds it, but only where today's 10-K figure is of the value's sign
-   and on its scale step, strictly within half a step of the value on a log scale (a factor of about 31.6
-   either way), or where the payload gives no 10-K figure at all. Set 4 never writes such a row, but
-   where today's 10-K figure does not confirm it within 1% it lists it in `scale_up_retained` (below), to
-   be read against its filing, and set 2 can still refuse the company over it (below): with no 10-K
-   figure the step cannot tell a parse read in units from a right parse a proxy tagged at the wrong scale
-   replaced, and a unit fix that a later restatement moved may stand as filed, or may not. A 10-K figure
-   of the other sign, or of zero, is on no scale step of the value's: the step reads a zero figure as a
-   figure everywhere, as the cross-check does. Anywhere else (a proxy tagged at the wrong scale over a
-   right parse, FedEx's error mirrored, a parse and a proxy each 1,000 times off in opposite directions,
-   or a 10-K figure of the other sign or zero) the row takes the ordinary path below: restored where the
+   and on its scale step, strictly within half a step of the value on a log scale (a factor of
+   sqrt(1,000), about 31.6, either way, read exactly: the squared ratio of the 10-K's figure to the value
+   lies strictly between 1/1,000 and 1,000, and no ratio of two stored figures squares to either bound),
+   or where the payload gives no 10-K figure at all. Set 4 never writes such a row, but where today's
+   10-K figure does not confirm it within 1% it lists it in `scale_up_retained` (below), to be read
+   against its filing: with no 10-K figure the step cannot tell a parse read in units from a right parse
+   a proxy tagged at the wrong scale replaced, and a unit fix that a later restatement moved may stand as
+   filed, or may not. Set 2 can still refuse the company over such a row (below). A 10-K figure of the
+   other sign, or of zero, is on no scale step of the value's: the step reads a zero figure as a figure
+   everywhere, as the cross-check does. Anywhere else (a proxy tagged at the wrong scale over a right
+   parse, FedEx's error mirrored, a parse and a proxy each 1,000 times off in opposite directions, or a
+   10-K figure of the other sign or zero) the row takes the ordinary path below: restored where the
    original is within 1% of the 10-K's figure, refused beyond (the 10-K having restated the year, or the
    original itself a step off), or left and listed, or refused when current, where a report row holds its
    value. Detection's set 4 keeps its scale-up exclusion, since it cannot read the payload's 10-K figure,

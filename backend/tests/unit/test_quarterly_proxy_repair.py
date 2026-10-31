@@ -2747,6 +2747,12 @@ def test_a_mirrored_scale_error_takes_set_4s_ordinary_path(monkeypatch, scale, g
     (1e9, 1e6, 1e9 / 32, "refused"),
     (1e9, 1e6, 1e9 * 31, "exempt"),
     (1e9, 1e6, 1e9 * 32, "refused"),
+    (1e9, 1e6, 31_622_776_600.0, "exempt"),
+    (1e9, 1e6, 31_622_776_700.0, "refused"),
+    (31_622_776_600.0, 31_622_776.6, 1e9, "exempt"),
+    (31_622_776_700.0, 31_622_776.7, 1e9, "refused"),
+    (1e9, 1e6, 31_622_776.601683795, "exempt"),
+    (1e9, 1e6, 31_622_776.60168379, "refused"),
     (4_092e9, 4_092e6, 4_092e9 / 40, "refused"),
     (4_092e9, 4_092e6, 4_092e9 / 10, "exempt"),
 ], ids=["negative-x1000-0.5pct", "negative-x1000-1.5pct", "negative-x1000000", "k28-restated-true-scale-up",
@@ -2754,8 +2760,11 @@ def test_a_mirrored_scale_error_takes_set_4s_ordinary_path(monkeypatch, scale, g
         "opposite-sign-on-the-originals-scale", "opposite-sign-on-the-values-scale",
         "negative-value-a-profit-on-its-scale", "zero-10k-figure", "31x-under-the-value-within-half-a-step",
         "32x-under-the-value-past-half-a-step", "31x-over-the-value-within-half-a-step",
-        "32x-over-the-value-past-half-a-step", "40x-under-the-value-past-half-a-step", "10x-under-the-value"])
-def test_the_scale_up_exemption_reads_the_10k_figures_scale_by_magnitude(value, original, authority, outcome):
+        "32x-over-the-value-past-half-a-step", "31.6227766x-over-the-value-within", "31.6227767x-over-the-value-past",
+        "31.6227766x-under-the-value-within", "31.6227767x-under-the-value-past",
+        "a-float-just-inside-the-bound-within", "a-float-just-outside-the-bound-past",
+        "40x-under-the-value-past-half-a-step", "10x-under-the-value"])
+def test_the_scale_up_exemption_reads_the_10k_figures_sign_and_scale(value, original, authority, outcome):
     # A pure test of the planner. A scale-up stays the old check's own unit fix only where today's 10-K figure is of the
     # value's sign and on its scale step, strictly within half a step (about 31.6 times) of it on a log scale, or where
     # there is none. Otherwise set 4's ordinary path decides, the original against the 10-K's figure. So a loss's
@@ -2764,7 +2773,10 @@ def test_the_scale_up_exemption_reads_the_10k_figures_scale_by_magnitude(value, 
     # beyond the value is refused, never exempt; a figure of the other sign, on either scale, and a zero figure, which
     # the rest of the step reads as a figure, are on no scale of the value's, and refused (review 5718798403, item 2);
     # 31 times either side of the value is within half a step and 32 times past it, as is 40 times (a plain difference
-    # would call that near); 10 times under is within it.
+    # would call that near); 10 times under is within it. The bound, a factor of sqrt(1,000), is read exactly, from the
+    # stored decimal and the JSON number: 31.6227766 times either side of the value is within it and 31.6227767 times
+    # past it, and a JSON float of 31,622,776.601683795 against a value of 1,000 million is within it by about 1e-19 of
+    # 1/1,000 in the squared ratio, where a float logarithm put it exactly on the bound and refused it.
     row = {**_state(period_start=date(2025, 1, 1), period_end=date(2025, 12, 31), fiscal_year=2025, value=value,
                     accession="K25", filing_id=3)[1],
            "provenance": {"version": 1, "checks": {"authoritative": {"outcome": "replaced", "original_value": original,
