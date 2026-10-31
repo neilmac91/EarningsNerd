@@ -146,7 +146,7 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.37.0
+openai==3.40.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
@@ -170,7 +170,7 @@ pillow==13.0.0
     #   weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.75.11
+posthog==7.76.0
     # via -r requirements.in
 proto-plus==1.29.0
     # via google-api-core
@@ -216,11 +216,11 @@ pyrate-limiter==4.3.0
     # via
     #   edgartools
     #   httpxthrottlecache
-pytest==9.1.1
+pytest==9.2.0
     # via
     #   -r requirements.in
     #   pytest-asyncio
-pytest-asyncio==1.4.0
+pytest-asyncio==1.4.1
     # via -r requirements.in
 python-dateutil==3.0.0
     # via
@@ -263,7 +263,7 @@ stamina==26.1.0
     # via edgartools
 starlette==1.3.1
     # via fastapi
-stripe==16.0.0
+stripe==16.0.1
     # via -r requirements.in
 tabulate==0.10.0
     # via edgartools
