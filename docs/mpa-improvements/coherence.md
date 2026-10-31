@@ -574,9 +574,12 @@ WP1 builds on main, where #1606 landed; they share 21 files (§6).
   its records (`#1611`); step 5, reading a chart (E193, `#1617`); step 6's gates (E194: `#1620`,
   `#1624`, `#1631`); the data face's fallback and the plots' font wait (E199, `#1636`).
 - **Step 7** (E195): since the founder's switch (F66, D-064) the spec renderer draws every trend
-  chart; its token fold landed with E195 (C), and since E195 (G) CI's e2e job reads every script
-  the built route loads to draw its charts and fails on a Recharts class name in any script
-  (`frontend/tests/e2e/charts-v2.spec.ts`).
+  chart; its token fold landed with E195 (C), and with E195 (D) Recharts left the app:
+  `frontend/tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose text names
+  the package (the lockfile and the gate itself, which plants its forms, aside), a script outside the
+  test homes whose decoded strings name it, and a lockfile entry that installs it; and
+  `frontend/tests/e2e/no-recharts-in-build.spec.ts`, which took over from E195 (G)'s case, reads
+  every script under the production build's `.next/static` and `.next/server` for its class names.
   Step 6's remainder, the notes band on this report's rule (below), landed with E194 on 2026-10-26.
 - **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
   the plot and puts them in a band under the period axis: a letter for every note on a plotted
@@ -930,6 +933,15 @@ shared notes fixture):
 | `source_conflict` | "the filings report different values (the most recent shown)" |
 | `calculation_mismatch` | "not confirmed by our calculation from the filed inputs" |
 | `missing_calculation_inputs` | "no compatible inputs in the same filing, so not checked" |
+
+**Added in E211 (#1667, data notes version 3).** The proxy repair writes two new reasons, worded to the rules above.
+Version 2's words were released with #1659, so new words take a new version (`NOTES_DIGESTS` in
+`backend/tests/unit/test_analysis_data_notes.py`):
+
+| Reason | Before #1667 | Shipped |
+|---|---|---|
+| `proxy_statement_value` | not written | "Taken from a proxy or information statement, so unavailable." |
+| `proxy_statement_operand` | not written | "Calculated from a proxy or information statement’s figure, so unavailable." |
 
 ### 3.4 Comprehension test
 

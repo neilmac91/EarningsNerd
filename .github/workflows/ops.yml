@@ -9,14 +9,16 @@ name: Ops
 # job already uses. So, since 2026-10-19, does the fiscal-year relabel (P6 of the 2026-10-15 bug
 # hunt, docs/fiscal-year-label-repair.md), and so do the bounded quarterly fact repair
 # (docs/quarterly-data-repair.md) and the lineage backfill for filing-owned legacy calculations
-# (docs/filing-lineage-repair.md), and the figure-check count, a read of what #1530's strict figure
-# check changed for the stored summaries (E184). Design constraints:
+# (docs/filing-lineage-repair.md). Design constraints:
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
-#   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries);
-#     detection SQL never touches user/auth/billing tables. The summary-recovery readout adds a
-#     fixed bounded job/SEC snapshot and only referenced usage reservations; it emits no account
-#     identity and reads no users, auth, monthly usage counters or billing-provider records.
+#   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries,
+#     and filing_content_cache for excerpt-cohort); detection SQL never touches user/auth/billing tables.
+#     The summary-recovery readout adds a fixed bounded job/SEC snapshot and only referenced usage
+#     reservations; it emits no account identity and reads no users, auth, monthly usage counters or
+#     billing-provider records. excerpt-cohort (E28) also reads the app's retained log lines through
+#     Cloud Logging's API: both of its reads are read-only, their receipt, kept as the run's artifact,
+#     holds their counts alone, and a failed read prints a closed class, never its error text.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
 #     mirroring the deploy-backend migrations step.
 #   - Every -apply operation (relabel-fy-apply, repair-ticker-apply, reset-filing-summary-apply,
@@ -55,8 +57,9 @@ name: Ops
 #   - Every Cloud SQL step sets PGOPTIONS with a lock_timeout of at most 10s (fail fast, never queue
 #     behind a held lock; the capacity ledger uses 2s). statement_timeout is per step: the write
 #     paths (the ticker repair, relabel, quarterly repair and lineage backfill scripts) match the
-#     deploy migration step (120s); the read-only detection snapshots full-scan financial_fact, and the
-#     figure-check count reads every summary's raw JSON a page at a time, so both get 600s. The proxy binary is checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
+#     deploy migration step (120s); the read-only detection snapshots full-scan financial_fact, so they
+#     get 600s; excerpt-cohort's stored count takes its file's own 120s. The proxy binary is
+#     checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -79,7 +82,7 @@ on:
           - regn-summary-incident-readout
           - summary-recovery-readout
           - capacity-readout
-          - figure-check-count
+          - excerpt-cohort
           - jobs-channel-noop-probe
           - repair-ticker-dry-run
           - repair-ticker-apply
@@ -178,7 +181,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|capacity-readout|figure-check-count|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|capacity-readout|excerpt-cohort|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -416,9 +419,47 @@ jobs:
           python3 ops/capacity/readout.py --start "$CAPACITY_START" --end "$CAPACITY_END" \
             --region "$REGION" --output capacity-receipt/cloud.json
 
+      - name: Count the logged excerpt builds (E28)
+        # Every UTC day to the top of the hour before the dispatch's (13:00 for a 14:37 dispatch), so the newest lines
+        # have time to arrive, from 1 October (before the last native eval report, so E28 (b)'s window is whole), or
+        # from 45 days before that end once 1 October is further back (the reader refuses a longer window). From a
+        # dispatch at 11:00 UTC on 18 November that start passes E28 (b)'s opening, and the receipt's
+        # e28_window.covered is false whatever the logs still hold. The reader stops at its own 25-minute budget inside
+        # these 30, so its receipt is written unless it fails outright (no gcloud token or project) or a gcloud call
+        # it makes hangs (they carry no timeout of their own) until this step's timeout; either fails the run before
+        # the stored count. The receipt keeps the counts alone (logged.json), and the reader's own line is dropped.
+        # A failure prints its exit code and a closed class, never its error text: the artifact and this log are
+        # both public, and a traceback can carry whatever the reader was reading. Retention is measured, never
+        # assumed: each day says whether its lines were read whole, have expired, or were not read.
+        if: steps.request.outputs.operation == 'excerpt-cohort'
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          umask 077
+          failure() {  # the closed class of a read's error text, which is printed nowhere
+            case "${1,,}" in
+              *"could not connect"*|*"connection refused"*|*"no route to host"*|*unreachable*|*"name or service not known"*|*"could not translate host name"*) echo unavailable ;;
+              *"permission denied"*|*permission_denied*|*forbidden*) echo permission_denied ;;
+              *"statement timeout"*|*"lock timeout"*|*"timeout expired"*|*"timed out"*|*timeouterror*) echo timeout ;;
+              *) echo other ;;
+            esac
+          }
+          mkdir -p excerpt-cohort
+          END="$(date -u -d '1 hour ago' +%Y-%m-%dT%H:00:00Z)"
+          START="$(date -u -d "@$(( $(date -u -d "$END" +%s) - 45 * 86400 ))" +%Y-%m-%dT%H:%M:%SZ)"
+          [[ "$START" > 2026-10-01T00:00:00Z ]] || START=2026-10-01T00:00:00Z
+          if ERR="$(python3 ops/excerpts/provenance_count.py --start "$START" --end "$END" \
+              --output excerpt-cohort/logged.json 2>&1 >/dev/null)"; then
+            echo "Logged excerpt counts saved to excerpt-cohort/logged.json (the run's artifact)."
+          else
+            rc=$?
+            echo "::error::The log read failed (exit $rc, $(failure "$ERR")); its error text is withheld."
+            exit "$rc"
+          fi
+
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout summary-recovery-readout figure-check-count', steps.request.outputs.operation)
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout summary-recovery-readout excerpt-cohort', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -497,6 +538,48 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+      - name: Count the stored excerpts by builder (E28)
+        # Its own step, not detection-sql's loop: it reads filing_content_cache, and its failure must not cut off
+        # the detection snapshots. The file opens a READ ONLY transaction bounded at 120 s a statement and 10 s a
+        # lock; the session itself is read-only and held to the same bounds. Counts by form, builder and bucket
+        # only, which psql writes to the receipt (stored.txt). A failure prints its exit code and a closed class,
+        # never psql's error text, which can name the database's user or host.
+        if: steps.request.outputs.operation == 'excerpt-cohort'
+        timeout-minutes: 5
+        env:
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s -c default_transaction_read_only=on
+        run: |
+          set -euo pipefail
+          umask 077
+          failure() {  # the closed class of a read's error text, which is printed nowhere
+            case "${1,,}" in
+              *"could not connect"*|*"connection refused"*|*"no route to host"*|*unreachable*|*"name or service not known"*|*"could not translate host name"*) echo unavailable ;;
+              *"permission denied"*|*permission_denied*|*forbidden*) echo permission_denied ;;
+              *"statement timeout"*|*"lock timeout"*|*"timeout expired"*|*"timed out"*|*timeouterror*) echo timeout ;;
+              *) echo other ;;
+            esac
+          }
+          mkdir -p excerpt-cohort
+          if ERR="$(psql -X -v ON_ERROR_STOP=1 -P pager=off -f ops/excerpts/source_cohort.sql 2>&1 \
+              > excerpt-cohort/stored.txt)"; then
+            echo "Stored excerpt counts saved to excerpt-cohort/stored.txt (the run's artifact)."
+          else
+            rc=$?
+            echo "::error::The stored count failed (exit $rc, $(failure "$ERR")); its error text is withheld."
+            exit "$rc"
+          fi
+
+      - name: Retain the excerpt cohort receipt
+        # The counts either read wrote, and nothing else. A run stopped before either read starts (the pre-flight,
+        # the sign-in) has nothing to keep, and this step then warns rather than adding a second error.
+        if: always() && steps.request.outputs.operation == 'excerpt-cohort'
+        uses: actions/upload-artifact@v7
+        with:
+          name: excerpt-cohort-${{ github.run_id }}-${{ github.run_attempt }}
+          path: excerpt-cohort/
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Run committed detection SQL (read-only snapshots)
         if: steps.request.outputs.operation == 'detection-sql'
         env:
@@ -513,7 +596,7 @@ jobs:
 
       # ------------------------------------------------------------------ committed scripts (runner)
       - name: Install backend dependencies
-        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply figure-check-count', steps.request.outputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply', steps.request.outputs.operation)
         run: |
           pip install -q -r backend/requirements.txt
 
@@ -680,42 +763,6 @@ jobs:
           EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
           [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
           python scripts/repair_filing_lineage.py "${ARGS[@]}"
-
-      - name: Run the figure-check count (read-only)
-        # backend/scripts/count_figure_check_changes.py (E184): over every stored summary, what #1530's strict
-        # figure check changes against main's substring check, as counts only: label transitions, the periods
-        # a swap replaces and the takeaways withheld. It reads summaries, filings and each filing's own XBRL,
-        # computes in memory and writes nothing. The session is read-only through PGOPTIONS, read back and
-        # compared with this step's before the script runs, as the relabel's dry run is; the wiring gate holds
-        # both (test_ops_workflow_wiring.py). It reads a page of summaries per transaction, so the shared lock
-        # a read holds on `summaries` and `filings` lasts a page, not the run; the 600s statement budget bounds
-        # each page's read and `timeout-minutes` the run. A migration's ALTER still waits ten seconds behind
-        # any read, so dispatch it as the header says of writes: not while a backend merge is imminent.
-        if: steps.request.outputs.operation == 'figure-check-count'
-        working-directory: backend
-        timeout-minutes: 20
-        env:
-          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=600s -c default_transaction_read_only=on
-          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3); the count
-          # calls SEC nowhere, and the pin keeps the import of the app's settings on the same budget.
-          SEC_RATE_LIMIT_PER_SECOND: '1'
-          EDGAR_RATE_LIMIT_PER_SEC: '1'
-          SKIP_REDIS_INIT: 'true'
-          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
-          STRIPE_SECRET_KEY: sk_test_ops
-          STRIPE_WEBHOOK_SECRET: whsec_ops
-          PWNED_PASSWORD_CHECK_ENABLED: 'false'
-        run: |
-          set -euo pipefail
-          [ -f scripts/count_figure_check_changes.py ] || { echo "::error::count script not committed yet"; exit 1; }
-          READ_ONLY=on
-          # The settings a session gets through the proxy, read back so this log proves them, and compared
-          # with this step's, so a lost or weakened guard stops the run before the script.
-          SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')")
-          echo "$SESSION"
-          EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=10min"
-          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
-          python scripts/count_figure_check_changes.py
 
       # ------------------------------------------------------------------ internal jobs
       - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)

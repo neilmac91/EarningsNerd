@@ -7,7 +7,8 @@
    own note letter where that note questions the number (D-061), value and YoY notes independent. Every fixture dataset
    and chart, plus synthetic notes. The golden
    plans (chart-engine.spec.ts) carry the six golden datasets' announcements. The core under them, `readouts`, reads any
-   model through a describer: every bar chart case (barChart.ts, E195 (D)) with Financial trends' own.
+   model through a describer: every bar chart case (barChart.ts, E195 (D)) with Financial trends' own, and every ranked
+   company chart (E251), whose context bars' rows say so, for their swatches.
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
@@ -19,7 +20,8 @@ import { chartReadouts, periodEndText, periodHeader, readouts as coreReadouts, t
 import { tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { markedNote, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
-import { barCases, barSeries, withMixedNotes, type BarFixture } from './chartPlan'
+import { slotsOf, trendDescriber } from '@/features/fundamentals/lib/trendChart'
+import { barCases, barSeries, peerBarCases, withMixedNotes, type BarFixture, type PeerFixture } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
 const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -177,14 +179,11 @@ describe('the core reads any model through a describer: every bar chart case (ba
   const BAR_FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/fundamentals-datasets.json', 'utf8')) as BarFixture
   const BARS = barCases(BAR_FIXTURE)
   const model = (name: string) => buildBarChart(structuredClone(BARS.find(([caseName]) => caseName === name)![1]))
-  /** Financial trends' describer, as its card builds it: a fiscal year and its end date, and calculated from its point's
-   *  provenance. It has no data notes. */
+  /** Financial trends' own describer over its own slots (features/fundamentals/lib/trendChart.ts), as its card builds
+   *  them: a fiscal year and its end date, and calculated from its point's provenance. It has no data notes. */
   const financialTrends = (name: string): ReadoutDescriber => {
-    const points = new Map(barSeries(BAR_FIXTURE, name).points.map((point) => [`FY${point.fiscal_year}`, point]))
-    return {
-      header: (period) => periodHeader(period.long, 'year', points.get(period.key)?.period_end),
-      calculated: (_mark, period) => points.get(period)?.provenance?.method === 'calculated',
-    }
+    const points = barSeries(BAR_FIXTURE, name).points
+    return trendDescriber(slotsOf(points), points)
   }
 
   it.each(BARS.map(([name]) => name))('%s', (name) => {
@@ -242,5 +241,28 @@ describe('the core reads any model through a describer: every bar chart case (ba
     expect(periodHeader('FY2025', 'year', '2025-09-27')).toEqual({ shown: 'FY2025 · year ended Sep 27, 2025', spoken: 'FY2025, year ended September 27, 2025' })
     expect(periodHeader('Q2 2026', 'quarter', '2026-06-30').shown).toBe('Q2 2026 · quarter ended Jun 30, 2026')
     expect([periodHeader('FY2025', 'year', null), periodHeader('FY2025', 'year', 'unknown')]).toEqual([{ shown: 'FY2025', spoken: 'FY2025' }, { shown: 'FY2025', spoken: 'FY2025' }])
+  })
+})
+
+describe('a ranked company chart’s readouts (E251): a row a company, a context bar’s row marked so', () => {
+  const PEERS = peerBarCases(JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture)
+
+  it.each(PEERS.map(([name]) => name))('%s', (name) => {
+    const m = buildBarChart(structuredClone(PEERS.find(([caseName]) => caseName === name)![1]))
+    const all = coreReadouts(m)
+    const [panel] = m.panels
+    const [mark] = panel.marks
+    expect(all.map((readout) => readout.period)).toEqual(m.periods.map((period) => period.key))
+    all.forEach((readout, i) => {
+      const point = mark.points[i]
+      // With no describer, a company's header is its long name, the ticker.
+      expect(readout.header).toBe(m.periods[i].long)
+      const [row] = readout.rows
+      expect([readout.rows.length, row.seriesKey, row.label, row.color, row.swatch]).toEqual([1, mark.seriesKey, mark.label, 0, 'bar'])
+      // A context bar's row carries the flag its swatch paints by (LegendSwatch, E236), and only that row.
+      expect(row.context, `${point.period}: the row is its bar’s`).toBe(point.context)
+      expect(row.value).toBe(point.value == null ? null : panel.axis.format.tip(point.value))
+    })
+    expect(all.some((readout) => readout.rows[0].context) && all.some((readout) => !readout.rows[0].context), 'a subject and a context company').toBe(true)
   })
 })

@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 
 /**
- * features/analysis/lib/charts/theme.ts is a colour mirror the raw-colour lint rule exempts, like components/ui/Chart.tsx.
+ * features/analysis/lib/charts/theme.ts is a colour mirror the raw-colour lint rule exempts, like chartExport.ts.
  * Its tokens are the spec's (§3.8, owner decision 3), and since E195's token fold they are the app's own chart and text
- * tokens, the ones the Recharts charts take through Chart.tsx too: chart-1…6 and chart-1-dark…6-dark, chart.grid,
- * chart.ref and chart.label.dark. designTokenParity holds every hex the file holds to a token; this spec holds each field
- * to the spec's table and to its own named token in both themes, which a hex found anywhere in the config cannot.
- * tests/unit/chart-apca.spec.ts holds each to its contrast floor.
+ * tokens: chart-1…6 and chart-1-dark…6-dark, chart.context (E251), chart.grid, chart.ref and chart.label.dark, and the
+ * text inks.
+ * designTokenParity holds every hex the file holds to a token; this spec holds each field to the spec's table and to
+ * its own named token in both themes, which a hex found anywhere in the config cannot. tests/unit/chart-apca.spec.ts
+ * holds each to its contrast floor.
  */
 const SPEC = readFileSync('../docs/design/analysis-trend-charts-spec-2026-10.md', 'utf8')
 const section = SPEC.slice(SPEC.indexOf('### 3.8 Theme tokens'), SPEC.indexOf('### 3.9'))
@@ -36,7 +37,7 @@ const both = (pick: (tokens: ChartTokens) => string) => [pick(CHART_TOKENS.light
 const COLOUR = /#[0-9A-Fa-f]{6}\b|rgba\([^)]*\)/g
 
 describe('the trend charts’ tokens are the spec’s (§3.8)', () => {
-  it.each(['surface', 'grid', 'zero', 'tick', 'value', 'cursor'] as const)('%s', (name) => {
+  it.each(['surface', 'grid', 'zero', 'tick', 'value', 'cursor', 'context'] as const)('%s', (name) => {
     expect(both((tokens) => tokens[name])).toEqual(row(name))
   })
 
@@ -49,7 +50,8 @@ describe('the trend charts’ tokens are the spec’s (§3.8)', () => {
     const source = readFileSync('features/analysis/lib/charts/theme.ts', 'utf8').replace(/\/\/.*$/gm, '')
     const tables = new Set((section.match(COLOUR) ?? []).map((value) => value.toUpperCase()))
     const held = source.match(COLOUR) ?? []
-    expect(held.length).toBe(2 * (6 + 6 + 3))
+    // Each theme's six series, its six chart inks (the cursor's rgba among them) and the context ink, and its three text inks.
+    expect(held.length).toBe(2 * (6 + 6 + 4))
     expect(held.filter((value) => !tables.has(value.toUpperCase()))).toEqual([])
   })
 
@@ -67,6 +69,11 @@ describe('every token is a named Tailwind token, both themes (E194, E195’s tok
     expect(both((tokens) => tokens.surface)).toEqual(pair(colors.panel))
     expect(both((tokens) => tokens.zero)).toEqual(pair(colors.chart.ref))
     expect(both((tokens) => tokens.grid)).toEqual(pair(colors.chart.grid))
+  })
+
+  it('the context ink is chart.context, a solid hex in both themes, never an opacity (E251)', () => {
+    expect(both((tokens) => tokens.context)).toEqual(pair(colors.chart.context))
+    for (const paint of both((tokens) => tokens.context)) expect(paint).toMatch(/^#[0-9A-F]{6}$/)
   })
 
   it('the series are chart-1…6, with chart-1-dark…6-dark in dark', () => {
@@ -88,7 +95,7 @@ describe('every token is a named Tailwind token, both themes (E194, E195’s tok
     expect(both((tokens) => tokens.figure)).toEqual(pair(colors.text.primary))
   })
 
-  it('the column wash is chart-1’s teal at 8% and 16%, as Chart.tsx’s bar cursor', () => {
+  it('the column wash is chart-1’s teal at 8% and 16%', () => {
     const teal = [1, 3, 5].map((at) => parseInt(colors.chart[1].slice(at, at + 2), 16)).join(',')
     expect(both((tokens) => tokens.cursor)).toEqual([`rgba(${teal},.08)`, `rgba(${teal},.16)`])
   })
