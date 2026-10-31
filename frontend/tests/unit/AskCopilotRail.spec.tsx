@@ -752,11 +752,11 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
   })
 
   it.each([
-    ['a failed answer', 'The answer could not be completed. Please try again.', 'Try again'],
+    ['a failed answer', "I couldn't complete this answer. Try again.", 'Try again'],
     ['a plan gate', 'This is a Pro feature.', 'Upgrade to Pro'],
     [
       'the fair-use cap',
-      "You've reached this month's fair-use limit of 1,000 Copilot questions. It resets at the start of next month.",
+      "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month.",
       null,
     ],
   ])("says %s in the pane's line when it lands while the Filing tab shows: the card's sentence, whole and alone", async (
@@ -807,10 +807,10 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     // is in view and says it, so the line says nothing over it.
     await user.click(screen.getByRole('tab', { name: /filing/i }))
     await user.click(screen.getByRole('tab', { name: 'Ask' }))
-    act(() => requests[0].onError('The answer could not be completed. Please try again.'))
+    act(() => requests[0].onError("I couldn't complete this answer. Try again."))
     await waitFor(() => expect(said).toEqual(['Reading the filing…', '']))
     observer.disconnect()
-    expect(screen.getByRole('alert')).toHaveTextContent('The answer could not be completed. Please try again.')
+    expect(screen.getByRole('alert')).toHaveTextContent("I couldn't complete this answer. Try again.")
   })
 
   it("empties the pane's line when the rail leaves, so another filing's conversation never sits under its words", async () => {
