@@ -94,6 +94,22 @@
       ]
     },
     {
+      "rule": "every digit at any size, and a JSON integer read as a double",
+      "why": "Intl prints a double's shortest decimal form at any size, and the page reads a JSON integer as a double, so a 20-digit integer prints the double's digits, not its own.",
+      "cases": [
+        [
+          1e+25,
+          false,
+          "+1,000,000,000,000,000,200,000,000,000.0%"
+        ],
+        [
+          12345678901234567891,
+          false,
+          "+1,234,567,890,123,456,800,000.0%"
+        ]
+      ]
+    },
+    {
       "rule": "a tie rounds half away from zero, from the shortest decimal form",
       "why": "Intl rounds a number's shortest decimal form half away from zero, where a float's own rounding is half to even on the binary value: 0.15 is 0.1499... in binary.",
       "cases": [
@@ -167,7 +183,7 @@
     },
     {
       "rule": "negative zero keeps its sign",
-      "why": "Intl's default sign display prints a minus on negative zero, and the files' copy keeps the sign the value has. No growth the producer computes is negative zero; the case pins the two copies together.",
+      "why": "Intl's default sign display prints a minus on negative zero, and the files' copy keeps the sign the value has. It is rare: a margin is negative zero where a zero numerator sits over a negative revenue, and so is its change from a positive zero.",
       "cases": [
         [
           -0.0,

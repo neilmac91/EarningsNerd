@@ -201,7 +201,37 @@ WIDER_IDS = [case["name"] for case in WIDER]
 # The shared notes fixture's datasets, which carry no evidence: its quarterly ones never will (D5), so their files stay
 # main's for good. portable_reason_identity_utf16_ascii holds a lone surrogate no workbook can store.
 NOTES = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "analysis_data_notes.json").read_text())["cases"]
-INERT = [*WIDER, *(case for case in NOTES if case["name"] != "portable_reason_identity_utf16_ascii")]
+
+
+def _quarterly_with_growth_inputs() -> dict:
+    """The notes fixture's quarterly case with what a real quarterly run carries and it lacks: growth records with
+    their two inputs (dataset_quality gives every QoQ and YoY one) and a YoY that reads n/m across a sign change."""
+    case = deepcopy(next(case for case in NOTES if case["name"] == "mixed_quarterly_quality_and_gaps"))
+    revenue = next(series for series in case["dataset"]["series"] if series["concept"] == "revenue")
+    points = {point["period"]: point for point in revenue["points"]}
+    reported = {"version": 1, "method": "reported", "validation": "passed", "reasons": []}
+    calculated = {**reported, "method": "calculated"}
+
+    def operand(value: float, start: str, end: str) -> dict:
+        return {"concept": "revenue", "value": value, "unit": "USD", "period_start": start, "period_end": end,
+                "accession": "0000000000-24-000001", "provenance": reported}
+
+    points["2024Q2"]["qoq_provenance"] = {**calculated, "formula": "quarter_over_quarter_growth", "inputs": [
+        operand(points["2024Q2"]["value"], "2024-04-01", "2024-06-30"),
+        operand(points["2024Q1"]["value"], "2024-01-01", "2024-03-31")]}
+    points["2024Q3"].update(yoy="nm", yoy_provenance={**calculated, "formula": "year_over_year_growth", "inputs": [
+        operand(points["2024Q3"]["value"], "2024-07-01", "2024-09-30"), operand(-40.0, "2023-07-01", "2023-09-30")]})
+    return {**case, "name": "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m"}
+
+
+# The page's chart fixtures, real SEC-built runs of both modes: their quarterly runs build operand rows, a YoY or QoQ
+# that reads n/m and chart sheets. Their stored data notes are left out, as the exports read the dataset's own.
+CHARTS = json.loads((Path(__file__).resolve().parents[3] / "frontend" / "tests" / "unit" / "fixtures"
+                     / "chart-datasets.json").read_text())["datasets"]
+INERT = [*WIDER, *(case for case in NOTES if case["name"] != "portable_reason_identity_utf16_ascii"),
+         _quarterly_with_growth_inputs(),
+         *({"name": name, "dataset": {key: value for key, value in entry["dataset"].items() if key != "data_notes"}}
+           for name, entry in CHARTS.items())]
 INERT_IDS = [case["name"] for case in INERT]
 
 
@@ -359,7 +389,7 @@ def test_the_evidence_words_are_the_pages():
     growth = _page("components/SourceValue.tsx", r"\{comparison\.laterFiling\?\.asFirstReported && <p[^>]*>([^<]*)<GrowthText "
                    r"text=\{comparison\.laterFiling\.asFirstReported\} /></p>\}", "growth as first reported")
     # The dialog words its evidence through the two templates above, so a sentence written inline there fails here.
-    _page("components/SourceValue.tsx", r"const finding = disagreementSentence\(first, value\)", "dialog's finding")
+    _page("components/SourceValue.tsx", r"const finding = disagreementSentence\(first, value\)\n", "dialog's finding")
     _page("components/SourceValue.tsx", r"<p>\{firstReportedSentence\(first, value, figure\)\}</p>\s*"
           r"\{finding && <p>\{finding\}</p>\}", "dialog's evidence sentence")
 
@@ -427,6 +457,12 @@ GROWTH_TEXT = [(group["rule"], value, percent, text) for group in GROWTH_TABLE["
                for value, percent, text in group["cases"]]
 
 
+def test_every_case_of_the_growth_table_runs():
+    # analysis-growth-text.spec.ts holds the page's copy to the same counts.
+    assert len(GROWTH_TABLE["groups"]) == 9 and len(GROWTH_TEXT) == sum(len(group["cases"])
+                                                                      for group in GROWTH_TABLE["groups"]) == 33
+
+
 @pytest.mark.parametrize(("rule", "value", "percent", "text"), GROWTH_TEXT,
                          ids=[f"{value}-{'pp' if percent else 'fraction'}" for _, value, percent, _ in GROWTH_TEXT])
 def test_the_growth_as_first_reported_reads_as_the_page_prints_it(rule, value, percent, text):
@@ -437,13 +473,15 @@ def test_the_growth_as_first_reported_reads_as_the_page_prints_it(rule, value, p
 
 def test_a_growth_that_is_not_finite_prints_nothing_and_a_huge_one_never_raises():
     """formatGrowth prints nothing for a number format.ts refuses, so the page's comparisonLaterFiling gives no line
-    and the files print only the cause. Past 1e27 the two copies part (Intl prints a float's binary digits), but
-    neither raises. The page's decoder refuses a growth that is not finite, so none of this is reachable today."""
-    for value in (math.nan, math.inf, -math.inf, 1e307):  # 1e307 times 100 is inf
+    and the files print only the cause; a JSON integer past a double's range is Infinity on the page. A huge finite
+    growth prints every digit, as the shared table holds. The page's decoder refuses a growth that is not finite, so
+    none of the first is reachable today."""
+    for value in (math.nan, math.inf, -math.inf, 1e307, 10 ** 400):  # 1e307 times 100 is inf
         assert growth_text(value, False) == ""
         assert evidence_lines({"first_reported_growth": value, "percent": False}) == [BASIS_CHANGE_CAUSE]
-    assert growth_text(math.nan, True) == ""
-    assert growth_text(1e25, False).startswith("+1,000,000,000,000,000,") and growth_text(1e307, True).endswith(".0pp")
+    for value in (math.nan, math.inf, -math.inf, 10 ** 400):
+        assert growth_text(value, True) == ""
+    assert growth_text(1e307, True).endswith(".0pp") and len(growth_text(1e307, True)) == 415
 
 
 def test_the_files_print_the_growth_through_the_pages_rule():
@@ -565,12 +603,16 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
              LATER_FILING_EVIDENCE, "first-reported value")
 
 
-def test_the_inert_gate_reads_quarterly_datasets_with_a_qoq_that_reads_n_m():
-    # A quarterly run never carries evidence, yet its QoQ can read n/m from a sign change: the seams must print nothing
-    # there either.
-    quarterly = [case for case in INERT if case["dataset"]["mode"] == "quarterly"]
-    assert len(quarterly) == 3 and any(point.get("qoq") == "nm" for case in quarterly
-                                       for series in case["dataset"]["series"] for point in series["points"])
+def test_the_inert_gate_reads_quarterly_runs_that_build_every_place_the_files_print():
+    # A quarterly run never carries evidence, yet its files build operand rows, a QoQ and a YoY that read n/m, and
+    # chart sheets: the seams must print nothing there either.
+    quarterly = [_strip(case["dataset"]) for case in INERT if case["dataset"]["mode"] == "quarterly"]
+    growths = {growth for dataset in quarterly for series in dataset["series"] for point in series["points"]
+               for growth in ("yoy", "qoq") if point.get(growth) == "nm"}
+    books = [_workbook(dataset) for dataset in quarterly]
+    entries = {str(row[2].value) for book in books for row in book["Sources & methods"].iter_rows() if row[2].value}
+    charts = {sheet.title for book in books for sheet in book.worksheets} - {"Overview", "Metrics", "Sources & methods"}
+    assert growths == {"yoy", "qoq"} and any(entry.startswith("Input") for entry in entries) and charts
 
 
 @pytest.mark.parametrize("case", INERT, ids=INERT_IDS)
@@ -626,6 +668,13 @@ def test_a_dataset_without_the_fields_exports_as_it_does_with_the_seams_switched
     printed = _files(dataset)
     _switched_off(monkeypatch)
     assert _files(dataset) == printed
+
+
+def test_both_inert_tests_read_every_inert_dataset():
+    for test in (test_a_dataset_without_the_fields_prints_none_of_it,
+                 test_a_dataset_without_the_fields_exports_as_it_does_with_the_seams_switched_off):
+        mark = next(mark for mark in test.pytestmark if mark.name == "parametrize")
+        assert mark.args[1] is INERT, test.__name__
 
 
 def test_the_switched_off_seams_print_nothing_of_the_evidence(monkeypatch):

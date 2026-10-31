@@ -21,9 +21,12 @@ const table: CaseTable = JSON.parse(
 const cases = table.groups.flatMap(({ rule, cases: rows }) => rows.map(([value, percent, text]) => [rule, value, percent, text] as const))
 
 describe('the growth as first reported, as the page prints it', () => {
-  it('reads a table with cases for each part of the rule', () => {
-    expect(table.groups.length).toBeGreaterThanOrEqual(6)
+  it('reads a table with cases for each part of the rule, and runs every case', () => {
+    // backend/tests/unit/test_export_later_filings.py holds the files' copy to the same counts.
+    expect(table.groups).toHaveLength(9)
     expect(table.groups.every((group) => group.cases.length > 0)).toBe(true)
+    expect(cases).toHaveLength(table.groups.reduce((total, group) => total + group.cases.length, 0))
+    expect(cases).toHaveLength(33)
   })
 
   it.each(cases)('%s: formatGrowth(%j, %j) prints %j', (_rule, value, percent, text) => {

@@ -339,12 +339,17 @@ def growth_text(value: Any, percent: bool) -> str:
     zero from the value's shortest decimal form as Intl does ("+0.3%" for 0.0025), after the times 100 in binary
     ("+0.4%" for 0.0045, whose product is 0.44999999999999996), a plus only above zero ("0.0%" for zero, "+0.0%" for a
     growth too small to show), and points for a percent series ("-9.5pp"); nothing ("") for a number that is not finite,
-    which format.ts parseNumeric refuses. Not the prompt's formatting._fmt_growth, which signs zero, groups nothing and
-    rounds half to even. backend/tests/fixtures/analysis_growth_text.json holds the two equal for every finite value
-    below 1e27 (past it Intl prints a float's binary digits); a wide context keeps any larger one from raising."""
+    which format.ts parseNumeric refuses, a JSON integer past a double's range included. A JSON integer is read as the
+    double the page reads (JSON.parse), so a long one prints the same digits. Not the prompt's
+    formatting._fmt_growth, which signs zero, groups nothing and rounds half to even.
+    backend/tests/fixtures/analysis_growth_text.json holds the two equal; the wide context lets a value of any finite
+    size print every digit Intl prints."""
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return "n/m"
-    number = value if percent else value * 100
+    try:
+        number = float(value) if percent else float(value) * 100
+    except OverflowError:
+        return ""
     if not math.isfinite(number):
         return ""
     rounded = Decimal(repr(number)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP, context=Context(prec=400))
