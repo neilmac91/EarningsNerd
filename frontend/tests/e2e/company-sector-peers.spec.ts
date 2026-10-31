@@ -6,7 +6,7 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
 
 /**
  * The Sector peers panel mounts on the company page and draws through the trend charts' engine (E251). It shows itself
- * only once the peers endpoint answers a cohort, which production cannot until the SIC backfill runs, and renders
+ * only once the peers endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31, and renders
  * nothing otherwise, so no render test can see it go missing from the page; a fixture answers its fetcher here, so this
  * browser gate can (lessons/frontend-route-redesign-needs-a-mount-gate.md). Production builds the panel (the flag is on
  * in production's build, as for the filing page's Financial trends) and so does CI's e2e job, so on a build without the
