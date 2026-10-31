@@ -1530,8 +1530,11 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         time.sleep(0.02)  # the hash's cost, blocking the password thread
         return "the new hash"
 
-    async def verification(mail: str, email: str) -> None:
-        sent.append((mail, email, engine.pool.checkedout()))
+    issued: dict[str, str] = {}  # each verification mail's raw token, by address
+
+    async def verification(_user_id: int, to_email: str, _name: Any, raw_token: str) -> None:
+        issued[to_email] = raw_token
+        sent.append(("verification", to_email, engine.pool.checkedout()))
 
     async def account_exists(*, to_email: str, **_kwargs: Any) -> None:
         sent.append(("account_exists", to_email, engine.pool.checkedout()))
@@ -1560,7 +1563,7 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
     monkeypatch.setattr(auth, "is_password_pwned", breached)
     monkeypatch.setattr(auth, "get_password_hash", hash_password)
     monkeypatch.setattr(auth, "capture_event", capture)
-    monkeypatch.setattr(account_mail_service, "send_account_mail_after_response", verification)
+    monkeypatch.setattr(account_mail_service, "send_issued_verification_link", verification)
     monkeypatch.setattr(email_service, "send_account_exists_email", account_exists)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
@@ -1601,6 +1604,7 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         with sessions() as db:
             accounts = sorted((user.email, user.hashed_password, bool(user.email_verified), bool(user.is_beta))
                               for user in db.query(User))
+            stored_tokens = {user.email: user.email_verification_token for user in db.query(User)}
             ids = {user.email: str(user.id) for user in db.query(User)}
             invites_used = [invite.used_at is not None for invite in db.query(InviteCode)]
             audits = db.query(AuditLog).filter(AuditLog.action == "register").count()
@@ -1612,6 +1616,10 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         else:
             assert accounts == []
         assert invites_used == ([invited] * 9 if case in _REGISTER_INVITE_ONLY else [])
+        # Each mailed link's token is the one the account's unit issued and committed (its hash stored), so the send
+        # after the release needed no session.
+        assert {email: auth_account_service._hash_token(raw) for email, raw in issued.items()} == (
+            stored_tokens if created else {})
         assert audits == (9 if created else 0)
         # Each new account's funnel events name it: the redemption's (whether the invite named an address) and the
         # signup's.
@@ -5428,8 +5436,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
 # each entry was a route E121 (``auth.py``) names in ``tasks/todo.md``, E171's last route having left on
 # 2026-10-25 and E121's last, register, with its register family (2026-10-31). Every async route's ceiling is
-# now 0; a new entry needs a reviewed reason. The blank line between entries keeps in-place number edits on
-# different entries mergeable in any order.
+# now 0, and ``test_no_async_route_may_keep_session_work_on_the_loop`` holds the table empty.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {}
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.
@@ -5668,6 +5675,12 @@ def _over_ceilings(
 ) -> dict[Any, list[tuple[int, str]]]:
     """Each function whose uses on the loop outnumber its ceiling (0 when unlisted), with its uses."""
     return {key: sites for key, sites in uses.items() if len(sites) > ceilings.get(key, 0)}
+
+
+def test_no_async_route_may_keep_session_work_on_the_loop():
+    """Since E121's register family no async route makes session work on the loop. An entry above would let one
+    again; adding it must change this test too, so the regression is argued in review, not slipped in as a ceiling."""
+    assert ON_LOOP_CEILINGS == {}
 
 
 def test_async_routes_keep_the_request_session_off_the_loop():

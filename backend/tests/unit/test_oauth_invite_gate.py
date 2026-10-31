@@ -514,15 +514,51 @@ def _function_references_to(symbol: str) -> list[tuple[str, str]]:
     return sorted(references)
 
 
+def _qualified_references_to(symbol: str, rel_path: str) -> list[str]:
+    """Each reference to ``symbol`` in one app file, as the dotted path of its enclosing functions (``outer.inner``),
+    one entry per reference, so a second reference under the same innermost name is counted, not folded."""
+    found: list[str] = []
+
+    class Finder(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.stack: list[str] = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.stack.append(node.name)
+            self.generic_visit(node)
+            self.stack.pop()
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+
+        def generic_visit(self, node: ast.AST) -> None:
+            named = (
+                node.id if isinstance(node, ast.Name) else
+                node.attr if isinstance(node, ast.Attribute) else
+                node.name if isinstance(node, ast.alias) else None
+            )
+            if named == symbol:
+                found.append(".".join(self.stack) or "<module>")
+            super().generic_visit(node)
+
+    Finder().visit(ast.parse((APP_DIR / rel_path).read_text(encoding="utf-8")))
+    return found
+
+
 def test_password_account_creation_is_reached_only_through_explicit_gates():
     """Registration is the sole password creator; admin provisioning cannot invent assent.
     Keep the admin boundary authenticated even though its service now always refuses."""
     references = _function_references_to(PASSWORD_ACCOUNT_CREATOR)
-    # The one reference is register's own account unit, the thread-pool unit nested in it (E121).
+    # The one reference is register's own account unit, the thread-pool unit nested in it (E121): counted by its full
+    # path, so another unit of the same name, in register or any other route, fails here.
     assert references == [
         ("routers/auth.py", "register_account"),
     ], (
         f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {references}; only validated registration may call it."
+    )
+    paths = _qualified_references_to(PASSWORD_ACCOUNT_CREATOR, "routers/auth.py")
+    assert paths == ["register.register_account"], (
+        f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {paths} in routers/auth.py; only register's account unit may "
+        "call it, once."
     )
     assert _function_references_to("_provision_account") == [], "direct admin provisioning must stay retired"
     assert _function_references_to("create_free_account") == [
@@ -530,7 +566,6 @@ def test_password_account_creation_is_reached_only_through_explicit_gates():
     ], "only the authenticated admin handler may reach free-account provisioning"
 
     (register,) = _function_defs(ast.parse((APP_DIR / "routers" / "auth.py").read_text(encoding="utf-8")), "register")
-    assert len(_function_defs(register, "register_account")) == 1, "the account unit must be register's own"
     body = ast.unparse(register)
     assert "settings.REGISTRATION_MODE" in body and "invite_service.validate_invite(" in body, (
         "register() no longer gates account creation on REGISTRATION_MODE + validate_invite"

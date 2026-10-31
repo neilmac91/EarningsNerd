@@ -102,7 +102,7 @@ def effects(monkeypatch):
         "capture_event": spies.capture,
     }.items():
         monkeypatch.setattr(auth_module, name, replacement)
-    monkeypatch.setattr(account_mail_service, "send_account_mail_after_response", spies.verification)
+    monkeypatch.setattr(account_mail_service, "send_issued_verification_link", spies.verification)
     return spies
 
 
@@ -327,7 +327,9 @@ def test_password_creation_records_current_assent_with_server_time_and_source(cl
         assert not user.email_verified
         assert db.query(RefreshToken).filter_by(user_id=user.id).count() == 0
         assert db.query(Subscription).filter_by(user_id=user.id).count() == 0
-    effects.verification.assert_awaited_once_with("verification", address)
+        user_id = user.id
+    effects.verification.assert_awaited_once()
+    assert effects.verification.await_args.args[:3] == (user_id, address, None)
 
 
 def test_registration_does_not_backfill_assent_on_an_existing_account(client, effects):

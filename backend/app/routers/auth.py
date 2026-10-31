@@ -585,13 +585,25 @@ class _Recipient:
 
 
 @dataclass(frozen=True)
+class _Created:
+    """A new account as register's unit leaves it: its id, address, name and beta tag, and the verification link's
+    token the unit issued and committed, for the send after the release."""
+
+    user_id: int
+    email: str
+    full_name: Optional[str]
+    is_beta: bool
+    raw_token: str
+
+
+@dataclass(frozen=True)
 class _Registered:
     """What register's account unit leaves the route once it has released its session: the existing account's
-    address and name for the account-exists notice, or the new account's id, address and beta tag, or neither when the
-    insert or the invite's redemption was refused."""
+    address and name for the account-exists notice, or the new account, or neither when the insert or the invite's
+    redemption was refused."""
 
     exists: Optional[_Recipient] = None
-    created: Optional[tuple[int, str, bool]] = None
+    created: Optional[_Created] = None
 
 
 @dataclass(frozen=True)
@@ -669,11 +681,12 @@ async def register(
     just chose (login does not require verification).
 
     Two units in the thread pool, each released before what follows it (E121): the invite's read, before the
-    breached-password check and the hash, and the account's lookup, its insert with the invite's redemption, and the
-    register audit row, before either mail. So no pooled connection is out across the check, the hash or a send, and no
-    statement runs on the event loop. Both mails are sent with no session: the account-exists notice from the address
-    and name the unit read, and the verification link through the account mails' own unit
-    (``account_mail_service.send_account_mail_after_response``), which issues the token on a session of its own.
+    breached-password check and the hash, and the account's lookup, its insert with the invite's redemption, the
+    verification link's token and the register audit row, before either mail. So no pooled connection is out across the
+    check, the hash or a send, and no statement runs on the event loop. Both mails are sent with no session, from what
+    the unit read or issued: the account-exists notice, and the verification link
+    (``account_mail_service.send_issued_verification_link``, the send registration shared before, failed sends logged
+    as before).
     """
     enforce_rate_limit(
         request,
@@ -737,10 +750,11 @@ async def register(
                 # A refused invite redemption (redeemed or revoked since it validated) or a lost concurrent-create
                 # race: stay opaque (rolled back).
                 return _Registered()
-            # Read before the audit row's commit expires the account.
-            user_id, stored_email, is_beta = user.id, user.email, bool(user.is_beta)
+            # Read before the token's commit expires the account.
+            user_id, stored_email, name, is_beta = user.id, user.email, user.full_name, bool(user.is_beta)
+            raw_token = auth_account_service.issue_email_verification_token(db, user)
             audit_service.log_register(db, user_id, stored_email, ip_address=hashed_ip)
-            return _Registered(created=(user_id, stored_email, is_beta))
+            return _Registered(created=_Created(user_id, stored_email, name, is_beta, raw_token))
         finally:
             filing_list_service.release_request_session(db)
 
@@ -754,7 +768,8 @@ async def register(
         return _REGISTER_OPAQUE
     if registered.created is None:
         return _REGISTER_OPAQUE
-    user_id, stored_email, is_beta = registered.created
+    created = registered.created
+    user_id = created.user_id
 
     # Reverse trial is NOT granted at registration: the email is still unverified here, so granting
     # no-card Pro now would hand full features to a disposable/unverified address (repeatable for
@@ -764,7 +779,7 @@ async def register(
     # Stripe's own trial dedup applies) — verification raises the bar but doesn't alone stop an
     # attacker cycling many disposable-but-verifiable addresses.
 
-    await account_mail_service.send_account_mail_after_response("verification", stored_email)
+    await account_mail_service.send_issued_verification_link(created.user_id, created.email, created.full_name, created.raw_token)
 
     # Closed-beta activation funnel (best-effort; telemetry must never break registration). Keyed on
     # str(user.id) so it stitches with the frontend, which identifies on String(user.id). No PII
@@ -777,7 +792,7 @@ async def register(
         capture_event(
             str(user_id),
             EVENT_SIGNUP_COMPLETED,
-            {"is_beta": is_beta, "invited": invite is not None},
+            {"is_beta": created.is_beta, "invited": invite is not None},
         )
         # EVENT_TRIAL_STARTED now fires in verify_email, where the reverse trial is actually granted.
     except Exception:  # pragma: no cover - defensive: telemetry never blocks signup
