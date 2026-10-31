@@ -3223,7 +3223,8 @@ metric picked loads and once it draws no chart; the card's chunk never asked for
 start in a browser at 300, 390 and 1280 px, the subject first, near-equal's fourth, the spread's sixth and its tenth, each
 opening where the rule puts it, its sticky gutter exactly when scrolled),
 `tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
-holds the engine, the plot or the card) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is
+holds what only a module of the engine the card pulls in, or the card, holds, and the page's own chunk is among the
+scripts read) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is
 built on is what the service answers).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for

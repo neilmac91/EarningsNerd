@@ -9,15 +9,32 @@ import path from 'node:path'
  */
 export const BUILD = path.resolve(__dirname, '../../../.next')
 
-/** A string only one module's code holds, which the minifier keeps whole, for each part the company page's first load
- *  must not carry: the engine's (features/analysis/lib/charts/barChart.ts, BROKEN_BARS), the plot's
- *  (features/analysis/components/TrendChartPlot.tsx, its scroll region's name) and the Sector peers card's
- *  (features/peers/components/SectorPeersCard.tsx, a picked metric's loading status). */
+/** For each module of the trend charts' engine the Sector peers card pulls in, and for the card, what only that module's
+ *  code holds and the minifier keeps whole (a string, a call or a prop as the minifier writes it), each checked against
+ *  every other source file under app, components, features, lib and hooks: the company page's first load must carry
+ *  none of them. A module of the engine imported into the page by any path (a constant from layout.ts, say) brings its
+ *  string with it. */
 export const MARKERS = {
-  engine: 'Bars beyond the axis are broken',
-  plot: 'Scroll horizontally to view all',
+  // features/analysis/lib/charts/
+  barChart: 'Bars beyond the axis are broken', // BROKEN_BARS
+  layout: 'Values don’t fit at this width.', // VALUES_DONT_FIT_HERE
+  scale: 'toPrecision(12)', // clean(), a tick's float noise cleared
+  model: 'Oldest period.', // PERIOD_READING
+  readout: 'No prior-year period in this window', // a growth gap's tooltip words
+  theme: 'rgba(62,142,132,.08)', // the light column wash, `cursor`
+  // features/analysis/components/
+  svg: 'geometricPrecision', // TrendChartSvg's text rendering
+  plot: 'Scroll horizontally to view all', // TrendChartPlot's scroll region's name
+  frame: '[^a-zA-Z0-9_-]', // ChartPlotFrame's plot id, from useId
+  marks: 'paintOrder:"stroke"', // chartMarks' marker ring, as the minifier writes the prop
+  // features/peers/components/SectorPeersCard.tsx, a picked metric's loading status
   card: 'Loading sector peers',
 } as const
+
+/** What only the company page's own first-load chunk holds: the peers client's path (features/peers/api/peers-api.ts),
+ *  which the Sector peers gate reads on every company page. Found among the scripts a first load reads, it shows the
+ *  reader took the page's own entry, not only the root's and the layout's, which alone clear the floor. */
+export const PAGE_MARKER = '/peers'
 
 /** Every script the browser can load from a build: `static/chunks`, by the path the build's manifests name it
  *  ("static/chunks/…js"), with its body. */
