@@ -333,7 +333,7 @@ test.describe('Sector peers while a metric picked loads', () => {
         await expect(card.locator('[data-held-rank]')).toHaveCount(1)
         const loading = await row()
         release()
-        await expect(card.getByText('Too few sector peers have diluted EPS figures to compare.', { exact: true })).toBeVisible()
+        await expect(card.getByText('Too few sector peers have EPS (diluted) figures to compare.', { exact: true })).toBeVisible()
         const none = await row()
         for (const [state, measured] of [['loading', loading], ['no chart', none]] as const) {
           expect(Math.abs(measured.height - opened.height), `${state}: the row's ${measured.height}px against ${opened.height}px`).toBeLessThanOrEqual(0.5)
