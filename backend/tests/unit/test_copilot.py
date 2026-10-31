@@ -829,8 +829,8 @@ def test_endpoint_over_cap_returns_429(client, monkeypatch):
     with _as_user(is_pro=True), _seed_filing() as fid:
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429
-        # E31: the words unchanged, and the code the reader keys on beside them; the cap, not a rate limit, so no
-        # Retry-After rides with it.
+        # E31's code the reader keys on, beside E37's words (the product name gone, D-034); the cap, not a rate limit,
+        # so no Retry-After rides with it.
         assert resp.json() == {
             "detail": "You've reached this month's fair-use limit of 0 questions. It resets at the start of next month.",
             "code": "pro_fair_use_limit",

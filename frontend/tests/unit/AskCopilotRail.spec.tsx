@@ -476,7 +476,8 @@ describe('AskCopilotRail', () => {
   it.each([
     ['a plan gate in other words', 'Words that name neither.', 'plan_required' as const, { upgrade: true, retry: false }],
     ['the cap in words that name Pro', 'Upgrade to Pro will not lift this.', 'pro_fair_use_limit' as const, { upgrade: false, retry: false }],
-    ['a pause in words that read like a limit', 'Monthly limit reached for now.', 'generation_paused' as const, { upgrade: false, retry: true }],
+    // Words the matcher alone would send to the plan card ("upgrade to pro", "fair-use limit"): only the code keeps Retry.
+    ['a pause in words that read like a plan gate', 'Upgrade to Pro, or wait out a fair-use limit for now.', 'generation_paused' as const, { upgrade: false, retry: true }],
   ])('answers %s by its code', async (_, words, code, shows) => {
     let captured: CopilotHandlers | null = null
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {

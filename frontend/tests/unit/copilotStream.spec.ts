@@ -306,7 +306,7 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
   // with no words is a moment's limit, which names no plan, so it keeps Retry and never offers a Pro reader Upgrade.
   it.each([
     [403, 'This is a Pro feature.', true],
-    [429, 'Too many questions just now. Try again shortly.', false],
+    [429, 'Too many questions. Try again shortly.', false],
   ])('reads a %s whose body names nothing in the reader\'s own words', async (status, sentence, planCard) => {
     global.fetch = async () => new Response('<html>busy</html>', { status })
     const h = handlers()
