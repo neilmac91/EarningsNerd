@@ -4,9 +4,10 @@ Both `export_service.generate_pdf_html` (filing summary) and `generate_analysis_
 (Multi-Period Analysis) delegate their document chrome here so the two exports can never drift
 apart (owner decision D4, export-overhaul plan). The shell owns:
 
-- ``@font-face`` for the vendored brand fonts (Inter variable + Geist Mono, OFL — files under
-  ``app/assets/fonts/`` with absolute ``file://`` URLs, never cwd-relative: agent/CI/Cloud Run
-  working directories differ).
+- ``@font-face`` for the vendored brand fonts (Inter variable, its roman and its italic, and Geist
+  Mono, all OFL: files under ``app/assets/fonts/`` with absolute ``file://`` URLs, never
+  cwd-relative, since agent/CI/Cloud Run working directories differ), plus Inter's symbols face, a family
+  of its own, for the marks the latin subsets lack (SOURCES.txt records each file's source).
 - ``@page`` chrome: A4 portrait default with the running document title, the
   "EarningsNerd · earningsnerd.io" footer and "Page X of Y" counters, plus the
   ``metrics-landscape`` NAMED PAGE — a section carrying ``class="metrics-landscape"`` starts on
@@ -15,24 +16,44 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
   Inter resolution inside the SVG and must NOT be inlined) + HTML wordmark + document kind.
 - The design-token PALETTE (DESIGN_SYSTEM.md) — PDFs must never use off-token grays or the
   banned legacy blue.
+- Reader-table manners (D-041, applying D-030): headers in the tertiary ink on no fill, hairline
+  rows, no cell grid; quotes on a neutral hairline, and a passage the server located on the device's
+  marked block (D-044, ``blockquote.located``). A link rests in its line's ink with a quiet
+  underline, as the page's prose links do at rest: print has no pointer to turn it sage, and its
+  text can carry an index ("Source filing 1"). Sage colours only the wordmark's "Nerd".
+
+- The document's own metadata: ``<html lang="en">``, the title as ``<title>``, EarningsNerd as author
+  and generator and an optional subject as the description, which WeasyPrint writes as the PDF's
+  /Title, /Author, /Creator, /Subject and /Lang; and ``PDF_OPTIONS``, the ``write_pdf`` options every
+  export passes (a tagged PDF, with a structure tree a screen reader can follow).
 
 The visual contract is pinned by tests/unit/test_export_service.py (shell assertions + a real
-WeasyPrint render checking page orientation).
+WeasyPrint render checking page orientation), the mark by tests/unit/test_pdf_mark_geometry.py
+and every colour, its token and its contrast by tests/unit/test_export_palette_parity.py.
 """
+from html import escape
 from pathlib import Path
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
-# Design tokens (frontend/tailwind.config.js / DESIGN_SYSTEM.md) — single source for PDF color.
+# The options every export hands WeasyPrint's write_pdf: a tagged PDF (/StructTreeRoot, /MarkInfo), so a
+# screen reader reads the headings, lists and tables in order. Not PDF/UA (pdf_variant="pdf/ua-1"): no
+# validator runs in CI to back that claim.
+PDF_OPTIONS = {"pdf_tags": True}
+
+# Design tokens (DESIGN.md's frontmatter, which designSnapshotParity holds equal to
+# frontend/tailwind.config.js) — single source for PDF and workbook colour. Each key is one token's
+# role: test_export_palette_parity.py maps it to that token by name.
 PALETTE = {
     "brand": "#4F7A63",
     "brand_strong": "#3C6650",
     "brand_weak": "#ECF2EE",
     "brand_border": "#CFE0D6",
+    "background": "#F4F3EE",
     "panel": "#FBFAF6",
     "ink": "#1A1A17",
     "ink_secondary": "#374151",
-    "ink_tertiary": "#6B7280",
+    "ink_tertiary": "#636A77",
     "border": "#E5E7EB",
 }
 
@@ -69,8 +90,27 @@ def mark_svg(height_px: int = 34, fill: str = PALETTE["brand_strong"]) -> str:
     )
 
 
+# The code points the symbols faces are declared for: every mark they carry, without the two spaces each cut
+# adds for HarfBuzz (test_vendored_font_sources.py holds this, the files' cmaps and SOURCES.txt equal).
+SYMBOLS_RANGE = "U+2020-2021, U+20A9, U+20B9, U+2190, U+2192, U+2248, U+25E6"
+
+
 def font_face_css() -> str:
     inter = (_ASSETS / "fonts" / "Inter-Variable-latin.woff2").as_uri()
+    # WeasyPrint never slants a face it lacks, so the wordmark's "Nerd" and a quote print italic only
+    # from Inter's own italic (the same 4.001 build, latin subset, as the roman).
+    inter_italic = (_ASSETS / "fonts" / "Inter-Variable-Italic-latin.woff2").as_uri()
+    # The marks the latin subsets lack (dagger and double dagger, the left and right arrows, the white
+    # bullet, "almost equal to" for a convenience translation the 20-F and 6-K prompts ask for, the won and
+    # rupee signs a summary figure may carry), roman and italic, cut from the same 4.001 build: without them
+    # they printed in DejaVu (SOURCES.txt records the cuts). A family of its own, after Inter in every stack:
+    # WeasyPrint keys an embedded font by family, style and weight, never by file, so declared as a second
+    # 'Inter Var' face it merged with the latin one, and a page drew "₩" as the latin "A" (the gid both
+    # share). Each cut also carries the space and the no-break space, which SYMBOLS_RANGE leaves out: Pango
+    # keeps a space between two marks in their run, so HarfBuzz needs one there, while fontconfig must never
+    # offer this face for a space.
+    inter_symbols = (_ASSETS / "fonts" / "Inter-Variable-symbols.woff2").as_uri()
+    inter_italic_symbols = (_ASSETS / "fonts" / "Inter-Variable-Italic-symbols.woff2").as_uri()
     geist_mono = (_ASSETS / "fonts" / "GeistMono-latin.woff2").as_uri()
     return f"""
 @font-face {{
@@ -78,6 +118,26 @@ def font_face_css() -> str:
   src: url('{inter}') format('woff2');
   font-weight: 100 900;
   font-style: normal;
+}}
+@font-face {{
+  font-family: 'Inter Var Symbols';
+  src: url('{inter_symbols}') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  unicode-range: {SYMBOLS_RANGE};
+}}
+@font-face {{
+  font-family: 'Inter Var';
+  src: url('{inter_italic}') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+}}
+@font-face {{
+  font-family: 'Inter Var Symbols';
+  src: url('{inter_italic_symbols}') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  unicode-range: {SYMBOLS_RANGE};
 }}
 @font-face {{
   font-family: 'Geist Mono';
@@ -89,7 +149,11 @@ def font_face_css() -> str:
 
 
 def shell_css() -> str:
-    """Page chrome + shared typography. Body builders add their own layout via extra_css."""
+    """Page chrome + shared typography. Body builders add their own layout via extra_css.
+
+    Every stack names Inter's symbols face after Inter, and the data face's stack names both before the
+    system's monospace, so a mark the latin subsets lack (a dagger after a figure, "≈") prints in a vendored
+    face, never DejaVu; 'DejaVu Sans' stays the sans stack's declared last resort."""
     p = PALETTE
     return f"""
 @page {{
@@ -97,19 +161,19 @@ def shell_css() -> str:
   margin: 20mm 16mm 18mm 16mm;
   @top-left {{
     content: string(doc-title);
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-left {{
     content: "EarningsNerd · earningsnerd.io";
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-right {{
     content: "Page " counter(page) " of " counter(pages);
-    font-family: 'Geist Mono', monospace;
+    font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
@@ -123,19 +187,19 @@ def shell_css() -> str:
   margin: 16mm 14mm;
   @top-left {{
     content: string(doc-title);
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-left {{
     content: "EarningsNerd · earningsnerd.io";
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-right {{
     content: "Page " counter(page) " of " counter(pages);
-    font-family: 'Geist Mono', monospace;
+    font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
@@ -143,13 +207,13 @@ def shell_css() -> str:
 section.metrics-landscape {{ page: metrics-landscape; break-before: page; }}
 
 body {{
-  font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+  font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
   color: {p["ink"]};
   font-size: 10.5pt;
   line-height: 1.55;
 }}
 h1 {{ string-set: doc-title content(); }}
-h1, h2, h3 {{ font-family: 'Inter Var', 'DejaVu Sans', sans-serif; font-weight: 600; color: {p["ink"]}; }}
+h1, h2, h3 {{ font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif; font-weight: 600; color: {p["ink"]}; }}
 h1 {{ font-size: 19pt; margin: 14px 0 4px 0; }}
 h2 {{
   font-size: 13pt;
@@ -169,7 +233,7 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
   align-items: center;
 }}
 .masthead .wordmark {{
-  font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+  font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
   font-size: 17pt;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -191,46 +255,90 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
   font-size: 9pt;
   margin: 0 0 16px 0;
 }}
-.meta .data {{ font-family: 'Geist Mono', monospace; }}
+.meta .data {{ font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace; }}
+.meta .clause {{ white-space: nowrap; }}
 
-table {{ border-collapse: collapse; width: 100%; }}
+/* With no outer frame, a table's last hairline would sit on the next block ("Profitability" under
+   Financial Highlights): it keeps a list's spacing below it. */
+table {{ border-collapse: collapse; width: 100%; border: 0; margin: 0 0 10px; }}
 thead {{ display: table-header-group; }}
 tr {{ break-inside: avoid; }}
 th {{
-  background: {p["brand_weak"]};
-  color: {p["brand_strong"]};
+  color: {p["ink_tertiary"]};
   font-weight: 600;
   font-size: 8pt;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-align: left;
   padding: 5px 7px;
-  border: 1px solid {p["border"]};
+  border: 0;
+  border-bottom: 1px solid {p["border"]};
 }}
 td {{
   padding: 4px 7px;
-  border: 1px solid {p["border"]};
+  border: 0;
+  border-bottom: 1px solid {p["border"]};
   font-size: 9pt;
   color: {p["ink_secondary"]};
 }}
-table {{ border: 1px solid {p["brand_border"]}; }}
 td.num, .data {{
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace;
   font-variant-numeric: tabular-nums;
 }}
 td.num, th.num {{ text-align: right; }}
+/* A figure keeps to one line, as the page's figure cells do ("+14.4 ppts" beside a long takeaway). */
+td.num {{ white-space: nowrap; }}
 
 blockquote {{
   margin: 10px 0;
   padding-left: 14px;
-  border-left: 3px solid {p["brand_border"]};
+  border-left: 2px solid {p["border"]};
   color: {p["ink_secondary"]};
   font-style: italic;
 }}
+blockquote cite {{
+  display: block;
+  margin-top: 2px;
+  font-size: 9pt;
+  font-style: normal;
+  color: {p["ink_tertiary"]};
+}}
+/* A passage the server located takes the device's marked block (D-044), as on the filing page: the 3px brand
+   bar and the tint on square corners, the filing's words upright in the ink. In Inter: the filing's face
+   (Newsreader) stays inside the product. Any other quote keeps the neutral hairline above (D-041). It sits in
+   a table cell, so it brings no margin of its own. */
+blockquote.located {{
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid {p["brand"]};
+  border-radius: 0;
+  background: {p["brand_weak"]};
+  color: {p["ink"]};
+  font-style: normal;
+}}
+/* The table of the filing's own words (the Risks excerpts: #, label, excerpt) sets its columns, so a long token
+   (a URL) breaks inside its cell. An auto table sizes a column to its longest word and ran such a token over the
+   page's edge, and `overflow-wrap: anywhere`, which would shrink that word, cost WeasyPrint about half a minute
+   on a 4,000-character excerpt. The number's column holds two digits; its number and label sit on the excerpt's
+   first line, as the page's metrics table sets a figure on its row label's first line (`verticalAlign="top"`):
+   a cell's default middle dropped them halfway down a long excerpt. */
+table.excerpts {{ table-layout: fixed; }}
+table.excerpts th:first-child {{ width: 1.5em; }}
+table.excerpts th:nth-child(2) {{ width: 13%; }}
+table.excerpts td {{ overflow-wrap: break-word; vertical-align: baseline; }}
 ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }}
+/* A nested list takes the disc too, as the app's lists do at every level (WeasyPrint's default is the circle). */
+ul ul {{ list-style-type: disc; }}
 li {{ margin: 3px 0; }}
 .footnote {{ color: {p["ink_tertiary"]}; font-size: 8.5pt; }}
 .ref {{ color: {p["ink_tertiary"]}; }}
+/* Every link rests in its line's ink with a quiet underline in the tertiary ink (D-041): print has
+   no pointer to turn it sage. The rule also keeps WeasyPrint's default link blue off the page. */
+a {{
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: {p["ink_tertiary"]};
+}}
 """
 
 
@@ -241,16 +349,22 @@ def render_branded_pdf(
     meta_html: str,
     body_html: str,
     extra_css: str = "",
+    subject: str = "",
 ) -> str:
     """Full HTML document: masthead band + title + meta line + body inside the branded shell.
 
     ``title`` must already be HTML-escaped by the caller (it interpolates into markup);
-    ``meta_html``/``body_html`` are trusted pre-rendered fragments from the body builders.
+    ``meta_html``/``body_html`` are trusted pre-rendered fragments from the body builders. ``subject``
+    is plain text (escaped here): the PDF's /Subject, through the description.
     """
+    description = f'\n<meta name="description" content="{escape(subject, quote=True)}">' if subject else ""
     return f"""<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
+<title>{title}</title>
+<meta name="author" content="EarningsNerd">
+<meta name="generator" content="EarningsNerd">{description}
 <style>
 {font_face_css()}
 {shell_css()}

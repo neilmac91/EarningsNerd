@@ -1,0 +1,2 @@
+{"results": 70, "results_with_returns_line": 64, "grounding_identical": 70, "grounding_changed": 0, "returns_lines_changed": 0, "other_section_fields_changed": 0, "markdown_lines_changed_outside_returns_line": 0, "hosted_line_equals_main_rerender": 70, "hosted_line_equals_branch_rerender": 70, "ratio_clauses_in_lines": 126, "ratio_current_not_net_income_current": 0}
+exit=0

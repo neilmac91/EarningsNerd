@@ -17,6 +17,10 @@ anyio==4.14.2
     #   openai
     #   starlette
     #   watchfiles
+argon2-cffi==25.1.0
+    # via -r requirements.in
+argon2-cffi-bindings==26.1.0
+    # via argon2-cffi
 backoff==2.2.1
     # via posthog
 bcrypt==5.0.0
@@ -25,16 +29,18 @@ beautifulsoup4==4.15.0
     # via
     #   -r requirements.in
     #   edgartools
-brotli==1.2.0
+brotli==1.2.1
     # via fonttools
-certifi==2026.5.20
+certifi==2026.10.19
     # via
+    #   edgartools
     #   httpcore
     #   httpx
     #   requests
     #   sentry-sdk
 cffi==2.0.0
     # via
+    #   argon2-cffi-bindings
     #   cryptography
     #   weasyprint
 charset-normalizer==3.4.7
@@ -42,29 +48,54 @@ charset-normalizer==3.4.7
 click==8.4.1
     # via uvicorn
 cryptography==50.0.0
-    # via pyjwt
+    # via
+    #   google-auth
+    #   pyjwt
 cssselect2==0.9.0
     # via weasyprint
 distro==1.9.0
     # via posthog
-dnspython==2.8.0
+dnspython==2.9.0
     # via email-validator
-edgartools==5.58.0
+edgartools==5.62.1
     # via -r requirements.in
 email-validator==2.3.0
     # via -r requirements.in
 et-xmlfile==2.0.0
     # via openpyxl
-fastapi==0.141.1
+fastapi==0.162.0
     # via
     #   -r requirements.in
     #   sentry-sdk
-filelock==3.29.4
+filelock==4.2.1
     # via httpxthrottlecache
 fonttools==4.63.0
     # via weasyprint
-greenlet==3.5.6
+google-api-core==2.43.0
+    # via
+    #   google-cloud-core
+    #   google-cloud-storage
+google-auth==2.62.0
+    # via
+    #   google-api-core
+    #   google-cloud-core
+    #   google-cloud-storage
+google-cloud-core==2.8.0
+    # via google-cloud-storage
+google-cloud-storage==3.17.1
     # via -r requirements.in
+google-crc32c==1.9.0
+    # via
+    #   google-cloud-storage
+    #   google-resumable-media
+google-resumable-media==2.11.0
+    # via google-cloud-storage
+googleapis-common-protos==1.76.0
+    # via google-api-core
+greenlet==3.5.6
+    # via
+    #   -r requirements.in
+    #   sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
@@ -100,14 +131,16 @@ jinja2==3.1.6
     # via edgartools
 jiter==0.16.0
     # via openai
-json-repair==0.63.5
+json-repair==0.64.2
     # via -r requirements.in
 lxml==6.1.3
     # via
     #   -r requirements.in
     #   edgartools
 markdown-it-py==4.2.0
-    # via rich
+    # via
+    #   -r requirements.in
+    #   rich
 markupsafe==3.0.3
     # via jinja2
 mdurl==0.1.2
@@ -118,42 +151,59 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.19.2
+openai==3.37.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
+opentelemetry-api==1.45.1
+    # via
+    #   fastapi
+    #   google-api-core
 orjson==3.11.9
     # via edgartools
 packaging==26.2
     # via pytest
-pandas==3.0.6
+pandas==3.1.0
     # via
     #   -r requirements.in
     #   edgartools
 passlib==1.7.4
     # via -r requirements.in
-pillow==12.3.0
-    # via weasyprint
+pillow==13.0.0
+    # via
+    #   -r requirements.in
+    #   weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.60.0
+posthog==7.75.11
     # via -r requirements.in
+proto-plus==1.29.0
+    # via google-api-core
+protobuf==7.36.2
+    # via
+    #   google-api-core
+    #   googleapis-common-protos
+    #   proto-plus
 psycopg2-binary==2.9.13
     # via -r requirements.in
 pyarrow==24.0.0
     # via edgartools
+pyasn1==0.6.5
+    # via pyasn1-modules
+pyasn1-modules==0.4.2
+    # via google-auth
 pycparser==3.0
     # via cffi
-pydantic==2.13.5
+pydantic==2.14.1
     # via
     #   -r requirements.in
     #   edgartools
     #   fastapi
     #   openai
     #   pydantic-settings
-pydantic-core==2.46.5
+pydantic-core==2.50.1
     # via pydantic
-pydantic-settings==2.15.0
+pydantic-settings==2.16.1
     # via -r requirements.in
 pydyf==0.12.1
     # via weasyprint
@@ -161,7 +211,7 @@ pygments==2.20.0
     # via
     #   pytest
     #   rich
-pyjwt==2.15.0
+pyjwt==2.15.1
     # via
     #   -r requirements.in
     #   pyjwt
@@ -177,11 +227,11 @@ pytest==9.1.1
     #   pytest-asyncio
 pytest-asyncio==1.4.0
     # via -r requirements.in
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0
     # via
     #   -r requirements.in
     #   pandas
-python-dotenv==1.2.3
+python-dotenv==1.2.4
     # via
     #   -r requirements.in
     #   pydantic-settings
@@ -198,11 +248,13 @@ redis==8.1.0
     # via -r requirements.in
 requests==2.34.2
     # via
+    #   google-api-core
+    #   google-cloud-storage
     #   posthog
     #   stripe
 rich==15.0.0
     # via edgartools
-sentry-sdk==2.70.0
+sentry-sdk==2.73.0
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
@@ -210,13 +262,13 @@ sniffio==1.3.1
     # via openai
 soupsieve==2.9
     # via beautifulsoup4
-sqlalchemy==2.0.54
+sqlalchemy==2.0.55
     # via -r requirements.in
 stamina==26.1.0
     # via edgartools
 starlette==1.3.1
     # via fastapi
-stripe==15.6.1
+stripe==16.0.0
     # via -r requirements.in
 tabulate==0.10.0
     # via edgartools
@@ -226,10 +278,13 @@ textdistance==4.6.3
     # via edgartools
 tinycss2==1.5.1
     # via
+    #   -r requirements.in
     #   cssselect2
     #   weasyprint
 tinyhtml5==2.1.0
-    # via weasyprint
+    # via
+    #   -r requirements.in
+    #   weasyprint
 tqdm==4.68.2
     # via edgartools
 truststore==0.10.4
@@ -237,29 +292,33 @@ truststore==0.10.4
     #   edgartools
     #   httpcore2
     #   httpx2
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   anyio
     #   beautifulsoup4
     #   fastapi
     #   httpx2
     #   openai
+    #   opentelemetry-api
     #   posthog
     #   pydantic
     #   pydantic-core
+    #   pydantic-settings
     #   pytest-asyncio
     #   sqlalchemy
     #   starlette
     #   stripe
     #   typing-inspection
-typing-inspection==0.4.2
+typing-inspection==0.4.4
     # via
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.5
+    # via python-dateutil
 unidecode==1.4.0
     # via edgartools
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   requests
     #   sentry-sdk

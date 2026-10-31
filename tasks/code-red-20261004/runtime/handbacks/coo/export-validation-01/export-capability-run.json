@@ -1,0 +1,382 @@
+{
+  "kind": "synthetic_hogql_file_export_capability_run",
+  "dispatch_id": "COO-EXPORT-VALIDATION-05",
+  "manifest": {
+    "path": "tasks/code-red-20261004/runtime/dispatch/COO-EXPORT-VALIDATION-05.json",
+    "sha256": "f7f0abfad0accb8d10c6dfd9881c7e2015089b51c05897adb3f51cc45fa201cf",
+    "bytes": 9414,
+    "verified": true
+  },
+  "role_label": "coo-export-capability-test-01",
+  "recorded_at": "2026-10-05T19:32:44.459348+00:00",
+  "repository": {
+    "branch": "claude/vigilant-goodall-633yx3",
+    "commit": "39c74850e1286a4469d705c96d1ffa7d07d80b20",
+    "mode": "read-only; no git mutation; only the manifest's output paths written"
+  },
+  "served_model": "not observable by the worker; the environment states claude-fable-5-1 and that string was passed as llm_model on every connector call",
+  "project_id": 117863,
+  "project_identity_note": "117863 is the project named by the manifest authority and confirmed by the 2026-09-30 receipt and decision record 07. This worker may not call project-get and so did not re-confirm the connector's active project in-session; the connector acts on its active project.",
+  "organization": "EarningsNerd",
+  "enablement": {
+    "state": "support-confirmed",
+    "source": "founder-relayed PostHog support message, ticket 76581 (resolved), per the manifest authority (2026-10-05 ~19:12Z)",
+    "validation_evidence": "this run: the hogql model was accepted by count-rows and create; the 2026-09-30 HTTP 403 'HogQL batch exports are not enabled for this team' did not recur"
+  },
+  "inputs_verified": [
+    {
+      "label": "Exact agreed literal-only HogQL (sha 87c47aa6…)",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/literal-projection.hogql",
+      "sha256": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4",
+      "bytes": 2923,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "September 30 export capability receipt (HTTP 403, no run)",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/export-capability.json",
+      "sha256": "b1bb12abac4c865aac33670a83a4116378778025b11e2f1ebb87caa469f93387",
+      "bytes": 1166,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "September 30 live literal projection + released consumer receipt",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/receipt.json",
+      "sha256": "5a5da5115de54f53c4ddaa454a88f493a76944598bffc46c581723631c996f21",
+      "bytes": 2223,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "September 30 evidence README",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/README.md",
+      "sha256": "17996acc339478fa710142586285ede4345c21c53135e7d3210c3f153c7f4466",
+      "bytes": 2932,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "Summary v1 readout runbook",
+      "path": "tasks/readiness-2026-09-21/beta/summary-v1-readout.md",
+      "sha256": "ffab744abf89efecaa574f057d217738057aeb00ac0cd3b6661f1ca9961b82be",
+      "bytes": 14372,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "Released consumer readout_v1.py (unchanged)",
+      "path": "tasks/readiness-2026-09-21/beta/readout_v1.py",
+      "sha256": "a9e089cd1d45672833c49cb222c6cdaab52fe9bafbb2a3dddb5c82ae9b82272e",
+      "bytes": 15092,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "Export projection query posthog-v1-export.hogql (reference only; NOT run)",
+      "path": "tasks/readiness-2026-09-21/beta/posthog-v1-export.hogql",
+      "sha256": "fa060fe65a078f90d4836d2f60361ff36def4fdf0da34f0eb24b3dbdf0bf47ef",
+      "bytes": 2612,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "COO first deliverable (G1–G5 definitions)",
+      "path": "<scratchpad handover copy: handover/officers/coo/references/FIRST-DELIVERABLE.md, as listed in manifest allowed_inputs[7]; not a repository path>",
+      "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+      "bytes": 15184,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "COO report-route proposal 01",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md",
+      "sha256": "0916b5f27190cb7805b561d82498552697375071f14121b5a91901ce24017810",
+      "bytes": 33854,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    },
+    {
+      "label": "Decision record 07",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-07.md",
+      "sha256": "0f511f5a9f6eeb97cd59886b732cb96adc6828d16373d1fae57198b980897bf0",
+      "bytes": 18305,
+      "verified": "ok (sha256 and byte length matched at 2026-10-05T19:24Z before any connector call)"
+    }
+  ],
+  "query": {
+    "path": "tasks/review-evidence/beta-readout-2026-09-30/literal-projection.hogql",
+    "sha256": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4",
+    "bytes": 2923,
+    "trailing_newline": false,
+    "cr_bytes": 0,
+    "non_ascii_bytes": 0,
+    "hogql_query_as_sent": "SELECT toString(uuid) AS uuid, event, toUnixTimestamp(timestamp) AS timestamp_s,\n  JSONExtractRaw(properties, 'evidence_version') AS evidence_version_json,\n  JSONExtractRaw(properties, 'auth_state_at_event') AS auth_state_at_event_json,\n  JSONExtractRaw(properties, 'account_id_at_event') AS account_id_at_event_json,\n  JSONExtractRaw(properties, 'analytics_consent_at_event') AS analytics_consent_at_event_json,\n  JSONExtractRaw(properties, 'filing_id') AS filing_id_json,\n  JSONExtractRaw(properties, 'summary_id') AS summary_id_json,\n  JSONExtractRaw(properties, 'request_id') AS request_id_json,\n  JSONExtractRaw(properties, 'logical_request_id') AS logical_request_id_json,\n  JSONExtractRaw(properties, 'client_attempt') AS client_attempt_json,\n  JSONExtractRaw(properties, 'transport_attempt') AS transport_attempt_json,\n  JSONExtractRaw(properties, 'identity_evidence') AS identity_evidence_json,\n  JSONExtractRaw(properties, 'consent_evidence') AS consent_evidence_json,\n  JSONExtractRaw(properties, 'outcome') AS outcome_json,\n  JSONExtractRaw(properties, 'delivery_path') AS delivery_path_json,\n  JSONExtractRaw(properties, 'summary_service_invoked') AS summary_service_invoked_json,\n  JSONExtractRaw(properties, 'duration_ms') AS duration_ms_json,\n  JSONExtractRaw(properties, 'reason') AS reason_json,\n  JSONExtractRaw(properties, 'entry_point') AS entry_point_json\nFROM (\n  SELECT '00000000-0000-4000-8000-000000000010' AS uuid,\n    'summary_viewed' AS event,\n    toDateTime('2026-09-28 00:00:00', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"summary_id\":22}' AS properties\n  UNION ALL\n  SELECT '00000000-0000-4000-8000-000000000011' AS uuid,\n    'summary_request_started' AS event,\n    toDateTime('2026-09-28 00:00:01', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"identity_evidence\":\"server_authenticated\",\"consent_evidence\":\"client_declaration\"}' AS properties\n  UNION ALL\n  SELECT '00000000-0000-4000-8000-000000000012' AS uuid,\n    'summary_request_finished' AS event,\n    toDateTime('2026-09-28 00:00:02', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"identity_evidence\":\"server_authenticated\",\"consent_evidence\":\"client_declaration\",\"summary_id\":22,\"outcome\":\"complete\",\"delivery_path\":\"generation\",\"summary_service_invoked\":true,\"duration_ms\":1000,\"reason\":\"synthetic_fixture\"}' AS properties\n)\nORDER BY timestamp, uuid\nLIMIT 10",
+    "columns_expected_21": [
+      "uuid",
+      "event",
+      "timestamp_s",
+      "evidence_version_json",
+      "auth_state_at_event_json",
+      "account_id_at_event_json",
+      "analytics_consent_at_event_json",
+      "filing_id_json",
+      "summary_id_json",
+      "request_id_json",
+      "logical_request_id_json",
+      "client_attempt_json",
+      "transport_attempt_json",
+      "identity_evidence_json",
+      "consent_evidence_json",
+      "outcome_json",
+      "delivery_path_json",
+      "summary_service_invoked_json",
+      "duration_ms_json",
+      "reason_json",
+      "entry_point_json"
+    ],
+    "literal_uuids": [
+      "00000000-0000-4000-8000-000000000010",
+      "00000000-0000-4000-8000-000000000011",
+      "00000000-0000-4000-8000-000000000012"
+    ],
+    "limit": 10,
+    "placeholders": "none ({data_interval_start}/{data_interval_end} not referenced); no data_interval bounds passed"
+  },
+  "connector": {
+    "server": "PostHog MCP (mcp__PostHog__exec)",
+    "conversation_id": "01a10d86-9b05-7402-93ab-5ac0211878dc",
+    "llm_model_passed": "claude-fable-5-1",
+    "credentials_read_or_extracted": false
+  },
+  "timestamp_method": "Each issued_at_utc is a `date -u` clock read issued in the same tool batch as the connector call (the calls run concurrently), not a server-side time; the connector responses carry no timestamps.",
+  "calls": [
+    {
+      "seq": 1,
+      "command": "learn -s \"file download batch export hogql\"",
+      "issued_at_utc": "2026-10-05T19:24:46Z",
+      "response_summary": "skill index returned; posthog:downloading-batch-export-files listed (hogql model, hogql_modifiers, count-rows note); conversation_id issued",
+      "pricing_signal": "none"
+    },
+    {
+      "seq": 2,
+      "command": "learn posthog:downloading-batch-export-files",
+      "issued_at_utc": null,
+      "issued_between_utc": [
+        "2026-10-05T19:24:46Z",
+        "2026-10-05T19:27:03Z"
+      ],
+      "response_summary": "SKILL.md (164 lines): statuses Starting/Running/Completed/Cancelled/Failed/FailedRetryable/FailedBilling/Terminated/TimedOut; download via REST GET /api/projects/{project_id}/file_download_batch_exports/{run_id}/download/{part}/ with the same PostHog authentication context, following a redirect to a temporary signed URL; hogql model closed beta, enabled per team; no host named",
+      "pricing_signal": "none (the word FailedBilling appears only in the skill's generic status table, not in any run response)"
+    },
+    {
+      "seq": 3,
+      "command": "info file-download-batch-exports-count-rows-create",
+      "issued_at_utc": null,
+      "issued_between_utc": [
+        "2026-10-05T19:24:46Z",
+        "2026-10-05T19:27:03Z"
+      ],
+      "response_summary": "schema: required model (enum hogql), hogql_query; optional hogql_modifiers, data_interval_start/end; readOnlyHint true",
+      "pricing_signal": "none"
+    },
+    {
+      "seq": 4,
+      "command": "info file-download-batch-exports-create",
+      "issued_at_utc": null,
+      "issued_between_utc": [
+        "2026-10-05T19:24:46Z",
+        "2026-10-05T19:27:03Z"
+      ],
+      "response_summary": "schema (hogql variant): required file, model, hogql_query; optional hogql_modifiers, data_interval_start/end; file {format Parquet|JSONLines, compression null|zstd|gzip|brotli|lz4|snappy, max_size_mb number|null}",
+      "pricing_signal": "none"
+    },
+    {
+      "seq": 5,
+      "command": "info file-download-batch-exports-retrieve",
+      "issued_at_utc": null,
+      "issued_between_utc": [
+        "2026-10-05T19:24:46Z",
+        "2026-10-05T19:27:03Z"
+      ],
+      "response_summary": "schema: required id (run UUID); readOnlyHint true",
+      "pricing_signal": "none"
+    },
+    {
+      "seq": 6,
+      "command": "info file-download-batch-exports-cancel-create",
+      "issued_at_utc": null,
+      "issued_between_utc": [
+        "2026-10-05T19:24:46Z",
+        "2026-10-05T19:27:03Z"
+      ],
+      "response_summary": "schema: required id; fails unless status Starting/Running",
+      "pricing_signal": "none"
+    },
+    {
+      "seq": 7,
+      "command": "call --json file-download-batch-exports-count-rows-create <request>",
+      "issued_at_utc": "2026-10-05T19:27:03Z",
+      "request": {
+        "model": "hogql",
+        "hogql_query": "SELECT toString(uuid) AS uuid, event, toUnixTimestamp(timestamp) AS timestamp_s,\n  JSONExtractRaw(properties, 'evidence_version') AS evidence_version_json,\n  JSONExtractRaw(properties, 'auth_state_at_event') AS auth_state_at_event_json,\n  JSONExtractRaw(properties, 'account_id_at_event') AS account_id_at_event_json,\n  JSONExtractRaw(properties, 'analytics_consent_at_event') AS analytics_consent_at_event_json,\n  JSONExtractRaw(properties, 'filing_id') AS filing_id_json,\n  JSONExtractRaw(properties, 'summary_id') AS summary_id_json,\n  JSONExtractRaw(properties, 'request_id') AS request_id_json,\n  JSONExtractRaw(properties, 'logical_request_id') AS logical_request_id_json,\n  JSONExtractRaw(properties, 'client_attempt') AS client_attempt_json,\n  JSONExtractRaw(properties, 'transport_attempt') AS transport_attempt_json,\n  JSONExtractRaw(properties, 'identity_evidence') AS identity_evidence_json,\n  JSONExtractRaw(properties, 'consent_evidence') AS consent_evidence_json,\n  JSONExtractRaw(properties, 'outcome') AS outcome_json,\n  JSONExtractRaw(properties, 'delivery_path') AS delivery_path_json,\n  JSONExtractRaw(properties, 'summary_service_invoked') AS summary_service_invoked_json,\n  JSONExtractRaw(properties, 'duration_ms') AS duration_ms_json,\n  JSONExtractRaw(properties, 'reason') AS reason_json,\n  JSONExtractRaw(properties, 'entry_point') AS entry_point_json\nFROM (\n  SELECT '00000000-0000-4000-8000-000000000010' AS uuid,\n    'summary_viewed' AS event,\n    toDateTime('2026-09-28 00:00:00', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"summary_id\":22}' AS properties\n  UNION ALL\n  SELECT '00000000-0000-4000-8000-000000000011' AS uuid,\n    'summary_request_started' AS event,\n    toDateTime('2026-09-28 00:00:01', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"identity_evidence\":\"server_authenticated\",\"consent_evidence\":\"client_declaration\"}' AS properties\n  UNION ALL\n  SELECT '00000000-0000-4000-8000-000000000012' AS uuid,\n    'summary_request_finished' AS event,\n    toDateTime('2026-09-28 00:00:02', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"identity_evidence\":\"server_authenticated\",\"consent_evidence\":\"client_declaration\",\"summary_id\":22,\"outcome\":\"complete\",\"delivery_path\":\"generation\",\"summary_service_invoked\":true,\"duration_ms\":1000,\"reason\":\"synthetic_fixture\"}' AS properties\n)\nORDER BY timestamp, uuid\nLIMIT 10",
+        "hogql_modifiers": {
+          "convertToProjectTimezone": false
+        }
+      },
+      "request_compact_json_sha256": "86a3c33169e240643b84b8eae707f4f19761c70ee14a192b67285322ae4b573c",
+      "response": {
+        "count": 3
+      },
+      "pricing_signal": "none"
+    },
+    {
+      "seq": 8,
+      "command": "call --json file-download-batch-exports-create <request>",
+      "issued_at_utc": "2026-10-05T19:27:31Z",
+      "request": {
+        "model": "hogql",
+        "file": {
+          "format": "JSONLines",
+          "compression": null,
+          "max_size_mb": null
+        },
+        "hogql_query": "SELECT toString(uuid) AS uuid, event, toUnixTimestamp(timestamp) AS timestamp_s,\n  JSONExtractRaw(properties, 'evidence_version') AS evidence_version_json,\n  JSONExtractRaw(properties, 'auth_state_at_event') AS auth_state_at_event_json,\n  JSONExtractRaw(properties, 'account_id_at_event') AS account_id_at_event_json,\n  JSONExtractRaw(properties, 'analytics_consent_at_event') AS analytics_consent_at_event_json,\n  JSONExtractRaw(properties, 'filing_id') AS filing_id_json,\n  JSONExtractRaw(properties, 'summary_id') AS summary_id_json,\n  JSONExtractRaw(properties, 'request_id') AS request_id_json,\n  JSONExtractRaw(properties, 'logical_request_id') AS logical_request_id_json,\n  JSONExtractRaw(properties, 'client_attempt') AS client_attempt_json,\n  JSONExtractRaw(properties, 'transport_attempt') AS transport_attempt_json,\n  JSONExtractRaw(properties, 'identity_evidence') AS identity_evidence_json,\n  JSONExtractRaw(properties, 'consent_evidence') AS consent_evidence_json,\n  JSONExtractRaw(properties, 'outcome') AS outcome_json,\n  JSONExtractRaw(properties, 'delivery_path') AS delivery_path_json,\n  JSONExtractRaw(properties, 'summary_service_invoked') AS summary_service_invoked_json,\n  JSONExtractRaw(properties, 'duration_ms') AS duration_ms_json,\n  JSONExtractRaw(properties, 'reason') AS reason_json,\n  JSONExtractRaw(properties, 'entry_point') AS entry_point_json\nFROM (\n  SELECT '00000000-0000-4000-8000-000000000010' AS uuid,\n    'summary_viewed' AS event,\n    toDateTime('2026-09-28 00:00:00', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"summary_id\":22}' AS properties\n  UNION ALL\n  SELECT '00000000-0000-4000-8000-000000000011' AS uuid,\n    'summary_request_started' AS event,\n    toDateTime('2026-09-28 00:00:01', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"identity_evidence\":\"server_authenticated\",\"consent_evidence\":\"client_declaration\"}' AS properties\n  UNION ALL\n  SELECT '00000000-0000-4000-8000-000000000012' AS uuid,\n    'summary_request_finished' AS event,\n    toDateTime('2026-09-28 00:00:02', 'UTC') AS timestamp,\n    '{\"evidence_version\":1,\"auth_state_at_event\":\"authenticated\",\"account_id_at_event\":\"1001\",\"analytics_consent_at_event\":true,\"filing_id\":11,\"entry_point\":\"synthetic_validation\",\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"identity_evidence\":\"server_authenticated\",\"consent_evidence\":\"client_declaration\",\"summary_id\":22,\"outcome\":\"complete\",\"delivery_path\":\"generation\",\"summary_service_invoked\":true,\"duration_ms\":1000,\"reason\":\"synthetic_fixture\"}' AS properties\n)\nORDER BY timestamp, uuid\nLIMIT 10",
+        "hogql_modifiers": {
+          "convertToProjectTimezone": false
+        }
+      },
+      "request_compact_json_sha256": "048ef4154b7e822918187f7be3d39b0c2b1ec2949c53ce9edc01b0c47580a8e9",
+      "response": {
+        "id": "01a10d89-1ee8-0000-3e2c-9000712c9502"
+      },
+      "pricing_signal": "none"
+    },
+    {
+      "seq": 9,
+      "command": "call --json file-download-batch-exports-retrieve {\"id\":\"01a10d89-1ee8-0000-3e2c-9000712c9502\"}",
+      "issued_at_utc": "2026-10-05T19:27:46Z",
+      "request": {
+        "id": "01a10d89-1ee8-0000-3e2c-9000712c9502"
+      },
+      "response": {
+        "status": "Completed",
+        "files": [
+          "01a10d89-3a26-0000-56f3-e1f6c4004610"
+        ],
+        "records_completed": 3
+      },
+      "pricing_signal": "none"
+    }
+  ],
+  "request_shapes": {
+    "count_rows": {
+      "model": "hogql",
+      "hogql_query": "<exact 2923 query bytes>",
+      "hogql_modifiers": {
+        "convertToProjectTimezone": false
+      }
+    },
+    "create": {
+      "model": "hogql",
+      "file": {
+        "format": "JSONLines",
+        "compression": null,
+        "max_size_mb": null
+      },
+      "hogql_query": "<exact 2923 query bytes>",
+      "hogql_modifiers": {
+        "convertToProjectTimezone": false
+      }
+    },
+    "note": "The JSON argument of each call was pasted from the generated compact file whose hogql_query round-trips byte-for-byte to the retained query; the sha256 recorded per call is that file's."
+  },
+  "call_counts": {
+    "learn": 2,
+    "info": 4,
+    "count_rows": 1,
+    "create": 1,
+    "retrieve": 1,
+    "cancel": 0,
+    "schema": 0,
+    "disallowed_tools": 0
+  },
+  "count_rows_result": 3,
+  "run": {
+    "id": "01a10d89-1ee8-0000-3e2c-9000712c9502",
+    "create_response": {
+      "id": "01a10d89-1ee8-0000-3e2c-9000712c9502"
+    },
+    "polls": [
+      {
+        "n": 1,
+        "issued_at_utc": "2026-10-05T19:27:46Z",
+        "status": "Completed",
+        "response": {
+          "status": "Completed",
+          "files": [
+            "01a10d89-3a26-0000-56f3-e1f6c4004610"
+          ],
+          "records_completed": 3
+        }
+      }
+    ],
+    "terminal_status": "Completed",
+    "terminal_on_poll": 1,
+    "records_completed": 3,
+    "files": [
+      "01a10d89-3a26-0000-56f3-e1f6c4004610"
+    ],
+    "file_count": 1,
+    "elapsed_create_to_terminal_observation": "15 s between the create clock read (19:27:31Z) and the first poll clock read (19:27:46Z); the run may have completed earlier",
+    "cancel_called": false,
+    "error_field_present": false,
+    "reconciliation": {
+      "expected_rows": 3,
+      "count_rows": 3,
+      "records_completed": 3,
+      "agree": true
+    }
+  },
+  "pricing_signal": "none — no connector response named payment, plan, billing, trial, quota purchase or a FailedBilling status",
+  "download": {
+    "attempted": false,
+    "status": "not_attempted_no_auth_context",
+    "reason": "No authenticated PostHog HTTP context exists in this environment: no environment variable name contains POSTHOG (checked by name only; no values read). Connector internals were not read; no credential was sought, guessed or extracted; no signed URL was requested or received.",
+    "endpoint_template": "GET https://<posthog-api-host>/api/projects/{project_id}/file_download_batch_exports/{run_id}/download/{file_uuid}/",
+    "endpoint_concrete": "GET https://<posthog-api-host>/api/projects/117863/file_download_batch_exports/01a10d89-1ee8-0000-3e2c-9000712c9502/download/01a10d89-3a26-0000-56f3-e1f6c4004610/",
+    "endpoint_single_file_alias": "GET https://<posthog-api-host>/api/projects/117863/file_download_batch_exports/01a10d89-1ee8-0000-3e2c-9000712c9502/download/",
+    "host": {
+      "reported_by_tools_or_skill": false,
+      "repository_configured_origin": "https://us.i.posthog.com (ingestion origin; docs/CONFIGURATION.md line 77; backend/app/config.py line 107)",
+      "api_host_by_posthog_pattern": "https://us.posthog.com for US cloud; to be confirmed by the operator from the organisation's PostHog app URL, not assumed"
+    },
+    "authentication_required": "PostHog personal API key for a user with access to project 117863, sent as Authorization: Bearer <key>; read scope recorded by the runbook for the export tools: batch_export:read (tasks/readiness-2026-09-21/beta/summary-v1-readout.md line 134); the endpoint answers with a 302 to a temporary signed URL (skill section 5); the key and the signed URL must never be stored in the repository or sent anywhere",
+    "signed_urls_recorded": false,
+    "file_hashes": null,
+    "parts_dir_created": false,
+    "file_availability_window": "not stated by the tools or the skill; unknown"
+  },
+  "handoff_codex_worker": "CODEX-WORKER HANDOFF (narrow): download and verify ONE PostHog file-download export part. Scope: exactly one authenticated HTTP GET (plus its redirect) and local verification; NO other PostHog API call (no create, retrieve, cancel, project-get, query or execute-sql).\nPreconditions: (a) an operator-held PostHog personal API key for a user with access to project 117863, with the batch_export:read scope (the read scope the runbook records for the export tools); the key is never written to the repository, a receipt, a log or this handoff; (b) the PostHog API host confirmed from the organisation's PostHog app URL (the repository's configured ingestion origin is https://us.i.posthog.com, i.e. US cloud; the US-cloud API host by PostHog's URL pattern is https://us.posthog.com — confirm, do not assume).\nStep 1. GET https://<posthog-api-host>/api/projects/117863/file_download_batch_exports/01a10d89-1ee8-0000-3e2c-9000712c9502/download/01a10d89-3a26-0000-56f3-e1f6c4004610/ with header Authorization: Bearer <key>. Let the client follow the single 302 redirect to the temporary signed URL. Do NOT log, store, print or forward the Location header / signed URL anywhere. Save the response body as raw bytes to tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/parts/posthog-hogql-01a10d89-1ee8-0000-3e2c-9000712c9502-01a10d89-3a26-0000-56f3-e1f6c4004610.jsonl (no compression was requested, so the body is plain JSONLines).\nStep 2. Record the saved file's sha256 and byte length.\nStep 3. Parse as JSONLines (one JSON object per non-empty line). Verify and record: exactly 3 rows; each row's key set is exactly these 21 names in this order: uuid, event, timestamp_s, evidence_version_json, auth_state_at_event_json, account_id_at_event_json, analytics_consent_at_event_json, filing_id_json, summary_id_json, request_id_json, logical_request_id_json, client_attempt_json, transport_attempt_json, identity_evidence_json, consent_evidence_json, outcome_json, delivery_path_json, summary_service_invoked_json, duration_ms_json, reason_json, entry_point_json; the uuid values are exactly 00000000-0000-4000-8000-000000000010, 00000000-0000-4000-8000-000000000011, 00000000-0000-4000-8000-000000000012; event values summary_viewed, summary_request_started, summary_request_finished; timestamp_s equals 1790553600, 1790553601, 1790553602 (record whether rendered as integer or string); rows ordered by timestamp then uuid (the query's ORDER BY). The 18 *_json columns are JSONExtractRaw strings (expected renderings such as \"1\", \"\\\"authenticated\\\"\", \"true\", and an empty string \"\" where the property is absent from that row's literal) — record the actual rendering of every value rather than failing on type/empty rendering; flag extra keys, missing keys, duplicate rows, a BOM or trailing-newline differences as deviations.\nStep 4. Write parts/VERIFICATION.json beside the part: endpoint used (host + path; no query string, no signed URL), HTTP status of the redirect and of the body fetch, file name, bytes, sha256, row count, key-set check, uuid check, value renderings, deviations, UTC timestamps.\nStep 5. Stop conditions: if the GET returns 401/403 (auth), 404/410 (run or file no longer available) or any body mentioning payment, plan, billing, trial or quota, STOP and report the status and text verbatim; do NOT start a new export (a second create requires new authorization). Download promptly: the tools and skill do not state how long the exported file remains available.\nStep 6. Report back: file sha256 + bytes, the three verification results, deviations, and that no other API call was made. Nothing in this handoff authorises customer-data export, a customer query, a plan change or any spend.",
+  "closes": {
+    "support_confirmed_enablement": "CLOSED — enablement is support-confirmed (ticket 76581) and validated by this run (hogql model accepted; run Completed; records_completed 3)",
+    "G2_complete_literal_file_receipt": "run completed, file verification pending the download access — exact query, run id, terminal status Completed, records_completed 3 (= count 3 = expected 3) and one file UUID retained; file bytes, hashes and the three-row/21-key content check are pending the authenticated download"
+  },
+  "does_not_close": {
+    "G1_explicit_access_decision": "OPEN — support enablement is evidenced; the explicit dated access/route decision for the adopted reporting route (FIRST-DELIVERABLE G1; REPORT-ROUTE-PROPOSAL-01 section 6) remains the CEO/founder's",
+    "G3_independent_file_contract_review": "OPEN — requires the downloaded actual part(s); no adapter, no consumer change",
+    "G4_control_packet": "OPEN — unchanged",
+    "G5_cohort_observation": "OPEN — 0/2 readouts; unchanged",
+    "cohort_reporting": "NOT complete",
+    "beta_admission": "NOT complete"
+  },
+  "next_executable_dependency": "An authenticated PostHog HTTP context (operator-held personal API key, batch_export:read, project 117863) executes the narrow Codex-worker handoff above: one GET of the single file part, sha256 + bytes, three-row/21-key/three-UUID verification, parts/ retained; then the independent file-input contract review (G3) runs against that actual artifact. Download promptly: file availability is not stated.",
+  "deviations": [
+    "Two learn calls (required `learn -s` plus the optional skill load the manifest permits).",
+    "info and skill-load calls were not individually clock-stamped (bounded between 19:24:46Z and 19:27:03Z); every call/poll was.",
+    "Timestamps are client clock reads in the same tool batch as each call, not server times; connector responses carry none.",
+    "The connector's active project was not re-confirmed in-session (project-get is disallowed); identity rests on the manifest and prior receipts.",
+    "The ~20 s poll loop ran once: the run was already Completed at the first retrieve.",
+    "The count-rows request carries no `file` object (not in that tool's schema); query and modifiers are identical to the create request.",
+    "Download not attempted; parts/ not created (manifest: only if download was possible)."
+  ],
+  "spend": {
+    "deepseek_calls": 0,
+    "usd": "0.000000",
+    "posthog_charge_observed": "none; no pricing signal; usage within the existing plan as the manifest expects",
+    "ledger_written": false
+  },
+  "customer_or_participant_data_touched": false,
+  "statement": "A synthetic three-row literal export completing is a capability validation only. Nothing here marks cohort reporting, G1 access decision, G3 review, G4, G5 or beta admission complete, authorises customer-data export, infers consent, or changes any subscription or spend."
+}

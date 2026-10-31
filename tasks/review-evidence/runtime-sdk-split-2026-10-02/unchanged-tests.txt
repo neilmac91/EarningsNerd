@@ -1,0 +1,4 @@
+base_head=efdc33f42bbf95a70ceb78d0c6615d59788800df
+tested_head=f009a602d28487fe2f9234e9fc17294cf5da5e1e
+backend/app, backend/tests, backend/evals, .github diff against current base: empty
+All existing tests, including locked contracts, are byte-identical to the integrated base.

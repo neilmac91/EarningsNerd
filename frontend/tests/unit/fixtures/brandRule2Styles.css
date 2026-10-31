@@ -1,0 +1,92 @@
+/* Planted forms for brandCopyRules.spec.ts rule 2's stylesheet check (sage never colours a number, D-030): one rule
+   per form, marked by the comment before it. `flag` sets sage ink on what it matches at rest, which the check must
+   name; `clean` is a look-alike that must pass; `gap` is a form the rule forbids and the check leaves to review (the
+   spec's header names it). The spec scores every form on every run, as it scores brandRule2Forms.tsx. Nothing imports
+   this file, so no build reads it. */
+
+/* S01 flag: a sage token at rest, by @apply */
+.s01 a { @apply text-brand-strong; }
+
+/* S02 flag: under dark: */
+.s02 a { @apply dark:text-brand-strong-dark; }
+
+/* S03 flag: under a breakpoint */
+.s03 a { @apply md:text-brand; }
+
+/* S04 flag: under a state that rests, aria-selected: */
+.s04 a { @apply aria-selected:text-brand-strong; }
+
+/* S05 flag: on a focus selector, which rests while the element is read */
+.s05 a:focus-visible { @apply text-brand-strong; }
+
+/* S06 flag: a hex value */
+.s06 a { color: #3c6650; }
+
+/* S07 flag: the same value as rgb(), space-separated */
+.s07 a { color: rgb(60 102 80); }
+
+/* S08 flag: as rgba(), comma-separated */
+.s08 a { color: rgba(152, 197, 173, 0.9); }
+
+/* S09 flag: through theme() */
+.s09 a { color: theme('colors.brand.strong'); }
+
+/* S10 flag: an arbitrary value in a token */
+.s10 a { @apply text-[#3C6650]; }
+
+/* S11 flag: the fill that paints SVG text */
+.s11 text { fill: #4f7a63; }
+
+/* S12 flag: -webkit-text-fill-color */
+.s12 a { -webkit-text-fill-color: #98c5ad; }
+
+/* S13 flag: a selector list with one member at rest */
+.s13 a, .s13 a:hover { @apply text-brand-strong; }
+
+/* S14 flag: :not(:hover) matches at rest */
+.s14 a:not(:hover) { @apply text-brand-strong; }
+
+/* S15 flag: an :is() argument at rest */
+:is(.s15 a, .s15 a:hover) { @apply text-brand-strong; }
+
+/* S16 flag: a :where() argument at rest */
+:where(.s16 a:active, .s16 a) { color: #3c6650; }
+
+/* S17 clean: under the pointer */
+.s17 a:hover { @apply text-brand-strong; }
+
+/* S18 clean: a hover: token */
+.s18 a { @apply text-text-secondary-light hover:text-brand-strong; }
+
+/* S19 clean: :active, by value */
+.s19 a:active { color: #3c6650; }
+
+/* S20 clean: every :is() argument under the pointer */
+:is(.s20 a:hover, .s20 a:active) { @apply text-brand-strong; }
+
+/* S21 clean: a :not() beside the pointer state */
+.s21 a:not([data-citation-kind]):hover { @apply text-brand-strong; }
+
+/* S22 clean: a tint and a hairline, which are not inks */
+.s22 a { @apply bg-brand-weak border-brand-border; }
+
+/* S23 clean: a sage ground, border and stroke, which colour no text */
+.s23 a { background-color: #3c6650; border-color: #3c6650; stroke: #3c6650; }
+
+/* S24 clean: a tint through theme() */
+.s24 a { background: theme('colors.brand.weak'); }
+
+/* S25 clean: the device's margin twin, which prints a bracket, never a value (an exemption the spec names) */
+.en-margin-mark { color: #3c6650; }
+
+/* S26 gap: a custom property, whose value the check does not resolve */
+.s26 a { color: var(--brand-ink); }
+
+/* S27 gap: a colour written as hsl() */
+.s27 a { color: hsl(149 26% 32%); }
+
+/* S28 flag: an arbitrary sage with an opacity modifier */
+.s28 a { @apply text-[#3C6650]/50; }
+
+/* S29 gap: a colour written as rgb() in percentages */
+.s29 a { color: rgb(23.5% 40% 31.4%); }

@@ -1,0 +1,469 @@
+{
+  "schema": 1,
+  "checked_at_utc": "2026-10-23T21:43:08.089386+00:00",
+  "current_main": "eb20bd1793a5e651d75b04ae563ffe877a617156",
+  "original_audit_date": "2026-10-15",
+  "original_captured_source": "1f12fc835fcbf525042473ab0e988b4827734f38",
+  "original_records_pr_head": "d7f7ff5b8dadf343778276ec315a49e4d2ad085f",
+  "later_captures": {
+    "date": "2026-10-23",
+    "source": "5897d602",
+    "path": "docs/brand/stress/closeout-2026-10-23",
+    "fresh_in_this_session": false
+  },
+  "original_validator": {
+    "base": "b3d3cb1118906dad44dfc1085136ad0f86fb956d",
+    "timing": "Before closeout edits",
+    "links_checked": 1689,
+    "immutable_source_line_links": 833,
+    "json_archives_parsed": 35,
+    "jpeg_files": 339,
+    "jpeg_bytes": 1596853,
+    "errors": []
+  },
+  "current_tests": {
+    "files": 4,
+    "tests_passed": 33,
+    "commands": [
+      "vitest run tests/unit/Header.spec.tsx tests/unit/hero-example-surface.spec.tsx tests/unit/headerOffsetReadsTheVariable.spec.ts",
+      "vitest run tests/unit/errorBoundaryHeadings.spec.tsx"
+    ],
+    "browser_geometry_verified": false
+  },
+  "prs": [
+    {
+      "number": 1340,
+      "title": "docs(design): review shared-system gaps with captures and ranked plans",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "d7f7ff5b8dadf343778276ec315a49e4d2ad085f",
+      "merge_commit_sha": "37e33944e2128111e4eb7ca280fbb3be2f672a71",
+      "merged_at": "2026-10-23T21:08:02Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1340"
+    },
+    {
+      "number": 1398,
+      "title": "brand(landing): every section after the hero is one ruled row, pricing is one table, and the page closes with a line (D-045)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "6fe30a1d69d7fd954944e02bb28ac5b3e415490f",
+      "merge_commit_sha": "b2454e97953f598c0bb4d6caedf1cd03c0cbb5f1",
+      "merged_at": "2026-10-20T09:16:21Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1398"
+    },
+    {
+      "number": 1457,
+      "title": "brand(analysis): the Multi-Period demo is the pipeline's own FY2020 to FY2025 run, and its labels say one saved run (E93)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "0a99c04faa053ea51019d2b8d605e0abb072ffe6",
+      "merge_commit_sha": "ab6962ecf0e40e9878c5c5c6655182bd08eabae3",
+      "merged_at": "2026-10-23T06:18:42Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1457"
+    },
+    {
+      "number": 1462,
+      "title": "brand(reflow): / and /search stop scrolling sideways at 320px under 200% text, and the hero's figures and form codes hold whole (E81)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "eb6c35ea171515637bddbe735f2c5dfa076691f2",
+      "merge_commit_sha": "bc0b2057521f4b4f186f1296f536b92f3c91cd8d",
+      "merged_at": "2026-10-21T19:18:38Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1462"
+    },
+    {
+      "number": 1521,
+      "title": "brand(chrome): the site header is the one bar that sticks: a page's own header scrolls with the page, and a keyboard focus lands below the bar (#1515, comment 6362491933)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "09a62998f5aeeebe4dff22b6c2dd584fa3fc310f",
+      "merge_commit_sha": "6418467de6d4a3fe306d415d01bc7cf0e9a722ad",
+      "merged_at": "2026-10-23T16:38:23Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1521"
+    },
+    {
+      "number": 1534,
+      "title": "brand(feedback): the feedback form's type row is the SegmentedControl, wrapping whole segments under 200% text, and its textarea takes the field recipe (E35, E154, E169)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "ea6ffe89f58686ae6ff2a8671db87e713a081ff6",
+      "merge_commit_sha": "98291323531293bd0bebfc2614e2f0b3c0c18b47",
+      "merged_at": "2026-10-23T20:57:36Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1534"
+    },
+    {
+      "number": 1395,
+      "title": "brand(pricing): no summary-history claim while no retention is enforced, and Pro's fair-use ceiling stated once (F41, E58, D-046)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "0e39fca6747485207b557dedb2b88363fc5aa754",
+      "merge_commit_sha": "31e51f1c22207908550a39cf586421d37a8967b4",
+      "merged_at": "2026-10-20T03:02:24Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1395"
+    },
+    {
+      "number": 1492,
+      "title": "fix(fonts): the root's fonts have one module, so a page declares one Inter, the layout's optical-size instance (E147)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "823561d6639ae6d0dbfee0052451eaeead5e194c",
+      "merge_commit_sha": "681dd63bbe63a2ad722ee08fcb7c35d6af68a8e8",
+      "merged_at": "2026-10-22T19:59:27Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1492"
+    },
+    {
+      "number": 1518,
+      "title": "records(brand): rescore current main and hand off the sweep",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "e4b8c8613807c53f7c02a5c72618443336bb1663",
+      "merge_commit_sha": "1556a0137b790f56603e7c7817204a09bde03572",
+      "merged_at": "2026-10-23T17:17:12Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1518"
+    },
+    {
+      "number": 1530,
+      "title": "brand(evidence): plain evidence labels product-wide, a figure check that reads scale and both years and shows the filed figure where the summary's differs, and the landing's evidence row on the live example's own rows (D-058)",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "head_sha": "58e64031ac3ec06cc28fbea2cea8ace44f6e936a",
+      "merge_commit_sha": null,
+      "merged_at": null,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1530"
+    },
+    {
+      "number": 1538,
+      "title": "brand(header): the desktop controls keep the right of their own line where the bar wraps, so the notification and account menus open on the screen under 200% text (E160)",
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "head_sha": "4caa3f5707634a9909a8d192d9a08fbf2af16adf",
+      "merge_commit_sha": "6fc2b190b35a062d3d505169d8857cfd88514d23",
+      "merged_at": null,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1538"
+    },
+    {
+      "number": 1474,
+      "title": "fix(auth): a logout whose revoke fails still clears this browser's session, and the app says logged out only when /me finds no user",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "1f452e1eff932a554a30a13f63fdb21c19412d29",
+      "merge_commit_sha": "787c82ba4b48125c4fb6be81df9f03bfa1a95733",
+      "merged_at": "2026-10-22T10:50:23Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1474"
+    },
+    {
+      "number": 1515,
+      "title": "brand(analysis): the teaser's locked preview holds one screen and fades at its foot, its upgrade action centred there (E139)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "8f387643862bcfe3f0188ac449edb363e566d432",
+      "merge_commit_sha": "71a70753df969fabcf4b70a6de0e3135d22cb9c7",
+      "merged_at": "2026-10-23T10:46:03Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1515"
+    },
+    {
+      "number": 1491,
+      "title": "brand(names): every surface that prints a served company name prints it through formatCompanyName (E146)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "18b0d84fb67999a232483fd7d4235fcfe832efcd",
+      "merge_commit_sha": "82fc125775f8b795985b85229ebb1430f41ee82f",
+      "merged_at": "2026-10-23T20:06:05Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1491"
+    },
+    {
+      "number": 1535,
+      "title": "fix(auth): forgot-password and resend-verification answer the same way for every address and send their mail after the response, capped and retried (F60)",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "head_sha": "ab3cda1666eebce3a69352e1778d45a8c6f8b0aa",
+      "merge_commit_sha": null,
+      "merged_at": null,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1535"
+    },
+    {
+      "number": 1121,
+      "title": "Set up public email contacts and streamline privacy disclosures",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "head_sha": "5a610a4e75309997359eb80e020919bb2d8cc434",
+      "merge_commit_sha": "083f59c3cff75d2734bf529d5b61de8f16dc5401",
+      "merged_at": null,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1121"
+    },
+    {
+      "number": 1379,
+      "title": "brand(theme pairs): the brand tints' dark twins, and the new chip on the brand tint with its sage dot (E66, E51)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "251024c14de6ad467c2474688749255d963a5233",
+      "merge_commit_sha": "6172c2e74f4361f989dd92f7eff6e9bb61854a44",
+      "merged_at": "2026-10-17T07:53:04Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1379"
+    },
+    {
+      "number": 1370,
+      "title": "brand(gates): the brand gates read as wide as their rules (the post-merge review of #1291, #1299, #1310, #1312)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "fab190142f8997dbc632563b3f69e48259587808",
+      "merge_commit_sha": "270b1cf0ba5c6f7fb24a8f7813e2802c7e4924b3",
+      "merged_at": "2026-10-20T14:31:16Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1370"
+    },
+    {
+      "number": 1437,
+      "title": "feat(notable): the feed serves D-046's rule, 10-K and 10-Q filings from companies holding a summary the filing page shows, newest first, at most six (E90, backend half)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "93efeea1912b0c932baa840acf4261ad7862cce2",
+      "merge_commit_sha": "ca0a5e6e475988048ae246e7ed3dabfb96f5fbc4",
+      "merged_at": "2026-10-20T22:29:30Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1437"
+    },
+    {
+      "number": 1461,
+      "title": "brand(landing): Notable filings returns to / as a ruled row under D-046's rule (E90, frontend half)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "779156fbb352e9af8c15f253656cc3ff7c47f374",
+      "merge_commit_sha": "451d089dc779de4787e7d191aa30097ef89c3c80",
+      "merged_at": "2026-10-21T18:57:53Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1461"
+    },
+    {
+      "number": 1484,
+      "title": "Use C5 filled italic emphasis for the homepage source phrase",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "1eed42112cb09e11f4db1b3ef395a3261f1fa8cf",
+      "merge_commit_sha": "5dcaaa718f17f1f991c0566e6b8be8e3923111da",
+      "merged_at": "2026-10-22T10:38:31Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1484"
+    },
+    {
+      "number": 1485,
+      "title": "Keep enlarged C5 hero emphasis clear of neighboring text",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "bf76358f2789d2fb9fcafe0b5102eb42b60cf0be",
+      "merge_commit_sha": "4941a09c2cc59c386e8572619dd61a337f43b877",
+      "merged_at": "2026-10-22T11:57:04Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1485"
+    },
+    {
+      "number": 1487,
+      "title": "Apply C5 consistently across current promotional emphasis",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "91896005e6160b395c9e06d8d6cccb0709055c1a",
+      "merge_commit_sha": "77f8f8b6ae4b5516772e1ba0ac109ad3d1404642",
+      "merged_at": "2026-10-22T15:30:02Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1487"
+    },
+    {
+      "number": 1290,
+      "title": "brand(dashboard): truthful summary states on the watchlist, what-changed chips off sage with a direction-token rule, feed and banner copy, bell copy and count",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "f9f7d2798557f9505a6ec30a908349f37cf880fd",
+      "merge_commit_sha": "fcedd3626bf75fd32863f03f951e9d7701fb13f7",
+      "merged_at": "2026-10-16T07:17:53Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1290"
+    },
+    {
+      "number": 1291,
+      "title": "brand(settings): filing alerts offer what the jobs read, one flag-gated Pro list, trial banner states its end date, \"Upgrade to Pro\" overlay, post-checkout notices (D-033)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "68dfc404cd99f79889c83d8a4b1b54e9780ca191",
+      "merge_commit_sha": "e4607a51559b233f670aa6d2975bfe734175c282",
+      "merged_at": "2026-10-16T07:40:40Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1291"
+    },
+    {
+      "number": 1292,
+      "title": "brand(company): load failure with Retry vs not found, metric pickers as compact selects with a no-hand-rolled-toggle rule, ordinal ranks, signed net shares, EDGAR link ring",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "7eacc2286daf0bc1893b40ce461258019b4876b9",
+      "merge_commit_sha": "5dab7d829be5850032e48d0bc0ff740b273a1a23",
+      "merged_at": "2026-10-15T13:05:41Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1292"
+    },
+    {
+      "number": 1295,
+      "title": "brand(copilot): one feature name, scoped claims, verified sample, usage lines from the usage response, quiet plan card, braces glyph, 12px chips, data-xs allowlist (D-034)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "9a22abe8450461e40bcc4551ba07cd0d94c8714b",
+      "merge_commit_sha": "437e94d102d89ba63cd47a9de4a0c0f6b0816b60",
+      "merged_at": "2026-10-16T13:27:21Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1295"
+    },
+    {
+      "number": 1301,
+      "title": "brand(calendar, search): true descriptions and metadata, provider-sourced estimate wording, signed-out bell by access mode, flame removed, form code in the data face, rings, local error fallbacks",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "0ad0eb3454abf22e287cb431dd2daed1ef5cb8b3",
+      "merge_commit_sha": "137cf36f0bd839123c1534377d3abbec09e33d19",
+      "merged_at": "2026-10-16T02:24:55Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1301"
+    },
+    {
+      "number": 1309,
+      "title": "brand(admin): invites say created and emailed, never sent; plain empty lines, Notice and Retry, status chips on the quiet ground with a contrast gate",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "5ff19cd32f7c5e792edaebb659b278565db86ab3",
+      "merge_commit_sha": "e697ccfe633d9c6c53c2771f34cdcd89b1881d64",
+      "merged_at": "2026-10-15T11:31:32Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1309"
+    },
+    {
+      "number": 1310,
+      "title": "brand(auth pages): say only what the code does on check-email and verify-email, one password rule from the server, OAuth conflict copy, register subhead by promo, theme-pair and password-rule gates, rings",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "415d35d3bf7b70b665aa57f1bb40273fc133f6b2",
+      "merge_commit_sha": "a14427f5aee3bcc475c9662336db97b2416e967d",
+      "merged_at": "2026-10-16T10:22:46Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1310"
+    },
+    {
+      "number": 1311,
+      "title": "brand(public pages): Ask demo from the verified set, pricing truth, hero quotes and live labels, waitlist panel and outline, flag-gated Multi-Period, reader-quote slot, rings, text floors on every public route",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "855f16312f1029ce25cbb9556632a1710bf5a338",
+      "merge_commit_sha": "229a9980308b3ddd6bdc799a70900ae25fab1618",
+      "merged_at": "2026-10-15T12:44:19Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1311"
+    },
+    {
+      "number": 1393,
+      "title": "brand(auth): the product's verb is \"Log in\", and the login page asks for an invite while access is by invite (F44, D-046)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "41d594f1023bf06f60c13e33aee32a8cd736c521",
+      "merge_commit_sha": "7335985311831f59bffa2ba1b5a39e1408998129",
+      "merged_at": "2026-10-20T15:26:56Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1393"
+    },
+    {
+      "number": 1369,
+      "title": "brand(calendar, search): #1301's five 200%-text fixes on main, the stacked row's chip clear of the bell, the month cell off the px-0 ban (#1301 follow-up)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "360943d055cc5a1dd5de1aa08e672ce5ce56ee10",
+      "merge_commit_sha": "89242e2b2da846e0537dcb5b62e6ee0a3cb3170d",
+      "merged_at": "2026-10-17T12:27:28Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1369"
+    }
+  ],
+  "limits": [
+    "No fresh browser captures or interactions",
+    "No production account, email submission, generation, paid call or deployment",
+    "No application implementation or PR merge by this session",
+    "Original scores and measured ratios/geometry retain their original date"
+  ],
+  "archive_preservation": {
+    "compared_to_pr_head": "d7f7ff5b8dadf343778276ec315a49e4d2ad085f",
+    "original_files_verified": 389,
+    "all_original_bytes_preserved_except_additive_report_notice": true,
+    "captures": 339,
+    "capture_bytes": 1596853,
+    "capture_manifest_sha256": "9412d7234033c8f945b2568f71129a1d144b0a3848b788ec3fe015fffa01a499",
+    "original_record_manifest_sha256": "fdfb511130fb7895ee6ef9dfba7b718fe6f56b9729cd4e9ca27177a615af0eec"
+  },
+  "closeout_link_check": {
+    "local_links_and_anchors_checked": 102,
+    "remote_urls_counted_not_fetched": 131,
+    "errors": []
+  },
+  "pr_snapshot_at_utc": "2026-10-23T21:41:17.175161+00:00",
+  "open_patches_rechecked": {
+    "1538": {
+      "head": "4caa3f5707634a9909a8d192d9a08fbf2af16adf",
+      "scope": "Header alignment only, no auth geometry reservation"
+    },
+    "1121": {
+      "head": "5a610a4e75309997359eb80e020919bb2d8cc434",
+      "scope": "AuthShell/settings/error frames/ContactForm preserve original landmark/shell patterns"
+    },
+    "1530": {
+      "head": "58e64031ac3ec06cc28fbea2cea8ace44f6e936a",
+      "scope": "No modal ownership, live badge wrapping or generic risk-source/export label fix"
+    },
+    "1535": {
+      "head": "ab3cda1666eebce3a69352e1778d45a8c6f8b0aa",
+      "scope": "No check-email page change"
+    }
+  },
+  "review": {
+    "tier": "records",
+    "method": "One independent read-only records pass",
+    "blockers": 0,
+    "should_fix": 0,
+    "completeness": [
+      "14 system findings",
+      "16 old plan items",
+      "12 original copy seams",
+      "4 route-only observations",
+      "decision follow-ups"
+    ],
+    "correction": "Added missing route-only observations and wider reflow ownership before final review"
+  },
+  "initial_reconciliation_main": "b3d3cb1118906dad44dfc1085136ad0f86fb956d",
+  "final_main_continuity": {
+    "pr": 1529,
+    "changes": [
+      "backend/app/routers/subscriptions.py",
+      "backend/app/services/billing_account_service.py",
+      "backend/tests/integration/test_subscription_event_transactions.py",
+      "backend/tests/unit/test_cached_filings_pool_lifetime.py",
+      "backend/tests/unit/test_checkout_session.py",
+      "backend/tests/unit/test_subscription_identity.py",
+      "backend/tests/unit/test_subscription_routes.py",
+      "frontend/tests/unit/authPagesCopy.spec.tsx",
+      "lessons/arch-store-a-stripe-customer-only-while-the-account-has-none.md",
+      "lessons/ops-release-cached-filing-reads-before-yield.md",
+      "tasks/todo.md"
+    ],
+    "audited_runtime_paths_and_four_tested_frontend_specs_unchanged": true
+  }
+}

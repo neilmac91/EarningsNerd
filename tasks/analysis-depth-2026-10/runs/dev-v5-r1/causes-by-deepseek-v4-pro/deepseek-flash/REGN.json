@@ -1,0 +1,116 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 8,
+ "output_sha256": "cdb59399efa6ea33a1023d60e218f296bae08a91600201008590cd56ee271698",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2022 reversal followed as REGEN-COV sales fell to zero, a 36.3pp drag, after new SARS-CoV-2 variants proved unsusceptible to the treatment .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Under the terms of the Roche collaboration, Roche distributed and recorded net product sales of Ronapreve\u2122 outside the United States, and the parties shared gross profits from sales based on a pre-specified formula. In 2023, total Roche collaboration revenue was $211.0 million. Net product sales of Ronapreve outside the United States declined as a result of new variants of the SARS-CoV-2 virus emerging that are not susceptible to the treatment."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports decline due to unsusceptible variants but not the 36.3pp drag or zero sales."
+  },
+  {
+   "sentence": "US EYLEA sales dropped 42.4% to $2,747.8 million in FY2025, a 14.2pp drag, on competitive pressure, compounded bevacizumab and the EYLEA HD transition .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states competitive pressures, bevacizumab, and EYLEA HD transition caused EYLEA sales decrease."
+  },
+  {
+   "sentence": "EYLEA HD partly offset that, rising 36.3% to $1,636.9 million and adding 3.1pp, on higher volumes .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA HD increased in 2025 compared to 2024, due to higher sales volumes, partly offset by a lower net selling price. EYLEA HD was approved by the FDA in August 2023."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher sales volumes drove EYLEA HD increase."
+  },
+  {
+   "sentence": "Regeneron's share of Sanofi antibody profits grew 33.6% to $5,241.6 million, contributing 9.3pp, driven by higher Dupixent sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher Dupixent sales drove increase in share of profits."
+  },
+  {
+   "sentence": "SG&A added 2.0pp back, falling 8.6% to $2,700.0 million, primarily on lower charitable contributions to Good Days .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states lower charitable contributions to Good Days primarily caused SG&A decrease."
+  },
+  {
+   "sentence": "Gross margin on net product sales also narrowed on manufacturing investment, higher inventory write-offs and Libtayo royalty amortization .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin on net product sales decreased in 2025, compared to 2024, partly due to ongoing investments to support our manufacturing operations and higher inventory write-offs and reserves. In addition, gross margin on net product sales decreased due to higher amortization expense associated with our Libtayo intangible asset as each quarter we record additions to the intangible asset related to royalties due to Sanofi."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states manufacturing investments, inventory write-offs, and Libtayo amortization caused gross margin decrease."
+  },
+  {
+   "sentence": "The FY2021 conversion peak reflected REGEN-COV receivables, which rose $1.927 billion before collection in the fourth quarter of 2021 .",
+   "passages": [
+    {
+     "id": "P20",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December 31, 2021, Accounts receivable increased by $1.927 billion, compared to December 31, 2020, primarily due to REGEN-COV sales in connection with our September 2021 agreement to supply drug product to the U.S. government. As of December\u00a031, 2022, Accounts receivable had decreased by $707.8 million, compared to December 31, 2021, driven by the Company's collection of amounts due from the U.S. government in connection with such sales in the fourth quarter of 2021."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports receivables increase due to REGEN-COV sales but not the FY2021 conversion peak."
+  },
+  {
+   "sentence": "The decline is structural, not cyclical: EYLEA US sales are eroding to competition and the profit mix is shifting to collaboration income .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    },
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passages support EYLEA erosion and profit mix shift but not the structural claim."
+  }
+ ],
+ "cost_usd": 0.001595,
+ "backend": "openai_compat",
+ "input_tokens": 1388,
+ "cached_input_tokens": 0,
+ "output_tokens": 343
+}

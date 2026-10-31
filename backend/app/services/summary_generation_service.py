@@ -2,11 +2,14 @@ import time
 import json
 from app.services.excerpt_provenance import excerpt_provenance
 from app.utils.datetimes import utcnow
-from datetime import timezone
-from typing import Optional, Dict, Any, List, Tuple
+from datetime import timedelta, timezone
+from typing import Optional, Dict, Any, List, Tuple, Callable
+from sqlalchemy import DateTime, extract, func, literal
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
-from fastapi.concurrency import run_in_threadpool
+from app.services.request_work import run_owned_sync as run_in_threadpool
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
 from app.services.openai_service import openai_service
 from app.services.subscription_service import increment_user_usage, get_current_month
@@ -268,6 +271,8 @@ def assess_quality(
     )
     grounding_available = bool(usable_excerpt) or any(math.isfinite(v) for v in xbrl_values(xbrl_metrics))
     if not grounding_available:
+        # Literal contract with the badge's words in SummaryDisplay.tsx (NO_GROUNDING_REASON), which
+        # test_quality_grounding_presence.py ties to this string: reword BOTH together.
         reasons.append("filing grounding unavailable: no usable excerpt or numeric XBRL data")
 
     numeric_grounded = grounding_available
@@ -328,7 +333,8 @@ def assess_quality(
             if not numeric_grounded:
                 # Literal contract with the badge de-escalation in SummaryDisplay.tsx
                 # (GROUNDING_REASON) — pinned on both sides (test_assess_quality_bank.py /
-                # summary-quality-badge.spec.tsx); reword BOTH together or safeguard #5 dissolves.
+                # summary-quality-badge.spec.tsx) and tied together by test_quality_grounding_presence.py;
+                # reword BOTH together or safeguard #5 dissolves.
                 reasons.append("financial figures not grounded in SEC XBRL data")
 
     if covered < min_full:
@@ -398,45 +404,46 @@ def record_progress(
     *,
     error: Optional[str] = None,
     section_coverage: Optional[Dict[str, Any]] = None,
-) -> SummaryGenerationProgress:
+    starts_run: bool = False,
+) -> None:
+    """Write the filing's progress row in one statement, and commit (E214).
+
+    A write to a filing with no row inserts it and starts its clock (``started_at``). Any other write sets the stage,
+    the error (``None`` clears it) and, when given, the section coverage; it keeps the stored ``started_at`` and counts
+    ``elapsed_seconds`` from it in SQL. The fetch stage's write, an admitted run's first, passes ``starts_run`` and
+    restarts the clock instead, so a retry after an error, or the unready summary's regeneration, does not count from
+    the run that left the row (E216). A leader that fails before that write passes it on its error, the run's first
+    write; a follower's error, or one from a run that failed before its claim, keeps the clock (E217). With no read
+    before the write, a clear or an insert landing just before it (a Pro force's clear, an admin reset, another run of
+    the filing on the API's other instance, the task worker or a job) cannot fail the run: after a clear it inserts a
+    fresh row, and after an insert it updates that row."""
     now = utcnow()
-    progress = (
-        db.query(SummaryGenerationProgress)
-        .filter(SummaryGenerationProgress.filing_id == filing_id)
-        .first()
-    )
-
-    if not progress:
-        progress = SummaryGenerationProgress(
-            filing_id=filing_id,
-            stage=stage,
-            started_at=now,
-            updated_at=now,
-            elapsed_seconds=0.0,
-            error=error,
-        )
-        db.add(progress)
-        if section_coverage is not None:
-            progress.section_coverage = section_coverage
+    dialect = db.get_bind().dialect.name
+    insert = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(dialect)
+    if insert is None:
+        raise ValueError(f"Unsupported progress database dialect: {dialect}")
+    values: Dict[str, Any] = {"filing_id": filing_id, "stage": stage, "started_at": now, "updated_at": now,
+                              "elapsed_seconds": 0.0, "error": error}
+    if section_coverage is not None:
+        # Left out when not given: the column then stays SQL NULL, where a None would store JSON null.
+        values["section_coverage"] = section_coverage
+    statement = insert(SummaryGenerationProgress).values(**values)
+    # In the conflict's SET, the table's own columns are the stored row's, and ``excluded`` holds this write's values.
+    moment = literal(now, DateTime(timezone=True))
+    started_at = SummaryGenerationProgress.started_at
+    if dialect == "postgresql":
+        elapsed = extract("epoch", moment - started_at)
     else:
-        progress.stage = stage
-        if progress.started_at is None:
-            progress.started_at = now
-        progress.updated_at = now
-        # Handle timezone-aware vs timezone-naive datetime comparison
-        started_at = progress.started_at
-        if started_at.tzinfo is None:
-            # Convert timezone-naive to UTC if needed
-            started_at = started_at.replace(tzinfo=timezone.utc)
-        progress.elapsed_seconds = float((now - started_at).total_seconds())
-        progress.error = error
-        if section_coverage is not None:
-            progress.section_coverage = section_coverage
-
-    db.flush()
+        elapsed = (func.julianday(moment) - func.julianday(started_at)) * 86400.0
+    updates: Dict[str, Any] = {"stage": statement.excluded.stage, "updated_at": statement.excluded.updated_at,
+                               "elapsed_seconds": elapsed, "error": statement.excluded.error}
+    if section_coverage is not None:
+        updates["section_coverage"] = statement.excluded.section_coverage
+    if starts_run:
+        updates["started_at"] = statement.excluded.started_at
+        updates["elapsed_seconds"] = statement.excluded.elapsed_seconds
+    db.execute(statement.on_conflict_do_update(index_elements=[SummaryGenerationProgress.filing_id], set_=updates))
     db.commit()
-    db.refresh(progress)
-    return progress
 
 def progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
     elapsed = progress.elapsed_seconds
@@ -465,10 +472,19 @@ def get_or_cache_excerpt(
     filing: Filing,
     filing_text: Optional[str],
     sections: Optional[Dict[str, str]] = None,
+    *,
+    reuse_stored: bool = True,
+    persist: bool = True,
+    on_provenance: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Optional[str]:
-    # ``sections`` (when provided) is edgartools-parsed section text; it lets us build a
-    # high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit path). We
-    # still need one of the two inputs to produce anything.
+    # ``reuse_stored=False`` builds with the current extraction even when an excerpt is stored;
+    # ``persist=False`` returns the built excerpt without writing it (a forced run's finalize stores it
+    # with the summary it grounds). The defaults are the cache-and-reuse behaviour every other caller has.
+    # ``on_provenance`` receives the excerpt source record this call logs (``excerpt_provenance``, the E80-C1
+    # contract), so a harness reads the builder's own outcome rather than re-deriving it.
+    # ``sections`` (when provided) is section text parsed from the fetched primary document; it
+    # lets us build a high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit
+    # path). We still need one of the two inputs to produce anything.
     if not filing_text and not sections:
         return None
 
@@ -488,41 +504,54 @@ def get_or_cache_excerpt(
     filing_type = filing_reattached.filing_type
     accession = filing_reattached.accession_number
 
-    def observe(excerpt: str, source: str) -> None:
+    filing_type_key = (filing_type or "10-K").upper()
+
+    def observe(excerpt: str, source: str, fallback_reason: Optional[str] = None) -> None:
         metadata = excerpt_provenance(
             excerpt, accession=accession,
             source=source, sections=sections,
+            filing_type=filing_type_key, fallback_reason=fallback_reason, document_text=filing_text,
+            hash_inputs=on_provenance is not None,
         )
         logger.info("Excerpt provenance: %s", json.dumps(metadata, sort_keys=True))
+        if on_provenance is not None:
+            on_provenance(metadata)
 
-    if cache and cache.critical_excerpt:
+    if reuse_stored and cache and cache.critical_excerpt:
         observe(cache.critical_excerpt, "legacy_cached_excerpt")
         return cache.critical_excerpt
 
-    filing_type_key = (filing_type or "10-K").upper()
-
-    # Prefer edgartools' native section parser (precise, robust to fragmented HTML); fall back
-    # to the legacy regex + dense-window extractor when sections are unavailable or too thin.
+    # Prefer the sections edgartools' HTML parser found in the fetched document (precise, robust to
+    # fragmented HTML); fall back to the legacy regex + dense-window extractor when sections are
+    # unavailable or too thin, and record which of those it was.
     excerpt = None
     source = "edgartools"
-    if sections and settings.USE_EDGARTOOLS_SECTIONS:
+    fallback_reason = None
+    if not settings.USE_EDGARTOOLS_SECTIONS:
+        fallback_reason = "native_sections_disabled"
+    elif not sections:
+        fallback_reason = "sections_not_supplied"
+    else:
         excerpt = openai_service.assemble_excerpt_from_sections(
             sections, filing_type_key, filing_text=filing_text
         )
         if excerpt and len(excerpt) < _EDGARTOOLS_EXCERPT_MIN:
             excerpt = None
+        if not excerpt:
+            fallback_reason = "native_excerpt_thin"
     if not excerpt:
         source = "regex_fallback"
         excerpt = openai_service.extract_critical_sections(filing_text or "", filing_type_key)
     if excerpt:
-        if cache is None:
-            cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
-            db.add(cache)
-        else:
-            cache.critical_excerpt = excerpt
-        db.flush()
-        db.commit()
-        observe(excerpt, source)
+        if persist:
+            if cache is None:
+                cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
+                db.add(cache)
+            else:
+                cache.critical_excerpt = excerpt
+            db.flush()
+            db.commit()
+    observe(excerpt or "", source, fallback_reason)
     return excerpt
 
 def _prepare_background_generation(filing_id: int, user_id: Optional[int], *, force_regenerate: bool) -> bool:
@@ -581,13 +610,17 @@ def _prepare_background_generation(filing_id: int, user_id: Optional[int], *, fo
 
 
 async def generate_summary_background(
-    filing_id: int, user_id: Optional[int], *, force_regenerate: bool = False
+    filing_id: int, user_id: Optional[int], *, force_regenerate: bool = False,
+    rebuild_excerpt: bool = False,
 ):
     """Background task to generate summary.
 
     ``force_regenerate=True`` (admin refresh-stale) skips the existing-summary short-circuit and
     threads the flag into the ONE orchestrator, which UPDATEs the stored row in place (preserving
     ``summaries.id`` so saved-summary bookmarks survive) under a keep-better quality gate.
+    ``rebuild_excerpt=True`` (a forced precompute) has that run build its excerpt with the current
+    extraction; the run stores it only with a summary it writes. When that summary replaces and the run
+    has no excerpt, finalize clears the stored, stale one in the same commit (``clear_stale_excerpt``).
     """
 
     if not await run_in_threadpool(
@@ -615,6 +648,7 @@ async def generate_summary_background(
         telemetry_ctx={},
         emit_funnel_telemetry=False,
         force_regenerate=force_regenerate,
+        rebuild_excerpt=rebuild_excerpt,
     ):
         pass
     # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal in
@@ -639,13 +673,16 @@ TERMINAL_STAGES = {"completed", "error", "partial"}
 STALE_PROGRESS_SECONDS = 180
 
 
-def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
-    """Detect an orphaned (stuck) progress row and flip it to a retryable error in-place.
+STALLED_ERROR = "Generation stalled and was abandoned. Please retry."
 
-    Fire-and-forget background generation can die without recording a terminal state if it
-    crashes before its inner guard runs. Rather than leave the UI spinning forever, surface
-    a stale non-terminal row as an error the user can retry. Returns True if it mutated the
-    row (caller is responsible for committing)."""
+
+def progress_is_stalled(progress: SummaryGenerationProgress) -> bool:
+    """Whether a progress row looks orphaned: a non-terminal stage whose last write is older than
+    ``STALE_PROGRESS_SECONDS``.
+
+    Fire-and-forget background generation can die without recording a terminal state if it crashes
+    before its inner guard runs. Rather than leave the UI spinning forever, the progress poll marks
+    such a row a retryable error (``mark_stale_progress_as_error``)."""
     if progress.stage in TERMINAL_STAGES:
         return False
 
@@ -655,22 +692,80 @@ def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
     if last_update.tzinfo is None:
         last_update = last_update.replace(tzinfo=timezone.utc)
 
-    if (utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
-        return False
-
-    progress.stage = "error"
-    progress.error = "Generation stalled and was abandoned. Please retry."
-    return True
+    return (utcnow() - last_update).total_seconds() > STALE_PROGRESS_SECONDS
 
 
-def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
-    """Return the persisted generation progress for a filing, if available."""
-    with SessionLocal() as session:
+def mark_stale_progress_as_error(db: Session, filing_id: int) -> bool:
+    """Mark the filing's progress row a retryable error if it is stalled, in one UPDATE by filing on
+    the criteria ``progress_is_stalled`` checks: a non-terminal stage whose last write is older than
+    ``STALE_PROGRESS_SECONDS`` (E215). A clear, or a write that leaves the row terminal or fresh,
+    landing after the caller read the row leaves the UPDATE matching nothing. Returns whether it
+    marked the row; the caller commits."""
+    cutoff = utcnow() - timedelta(seconds=STALE_PROGRESS_SECONDS)
+    last_write = func.coalesce(SummaryGenerationProgress.updated_at, SummaryGenerationProgress.started_at)
+    marked = (
+        db.query(SummaryGenerationProgress)
+        .filter(
+            SummaryGenerationProgress.filing_id == filing_id,
+            SummaryGenerationProgress.stage.not_in(TERMINAL_STAGES),
+            last_write < cutoff,
+        )
+        .update(
+            {SummaryGenerationProgress.stage: "error", SummaryGenerationProgress.error: STALLED_ERROR},
+            synchronize_session=False,
+        )
+    )
+    return marked > 0
+
+
+def progress_poll_answer(db: Session, filing_id: int) -> Dict[str, Any]:
+    """The progress poll's answer for a filing: "completed" while a summary exists, the progress
+    row's state while one does, else "pending". A row that looks stalled is marked a retryable
+    error and read again after the mark, so the answer is the row as it then stands: the error, a
+    new run's stage, or "pending" after a clear (E215)."""
+    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+    if summary:
+        return {"stage": "completed", "elapsedSeconds": 0}
+
+    progress = (
+        db.query(SummaryGenerationProgress)
+        .filter(SummaryGenerationProgress.filing_id == filing_id)
+        .first()
+    )
+    if progress is not None and progress_is_stalled(progress):
+        if mark_stale_progress_as_error(db, filing_id):
+            db.commit()
+        # Read the row again: the mark, a clear or a run's write may have changed it since the read, and
+        # the UPDATE bypassed this session, so populate_existing() replaces the values it loaded then.
         progress = (
-            session.query(SummaryGenerationProgress)
+            db.query(SummaryGenerationProgress)
+            .populate_existing()
             .filter(SummaryGenerationProgress.filing_id == filing_id)
             .first()
         )
-        if not progress:
-            return None
-        return progress_as_dict(progress)
+    if progress is None:
+        return {"stage": "pending", "elapsedSeconds": 0}
+    return progress_as_dict(progress)
+
+
+def progress_read_status(
+    progress: Optional[SummaryGenerationProgress],
+) -> Tuple[str, Optional[Dict[str, Any]]]:
+    """What a read-only surface (the watchlist insights, the dashboard feed) reports for a filing with no stored
+    summary, from the progress row the caller loaded: its ``summary_status`` and the progress snapshot sent beside it
+    (E43). It writes nothing; only the progress poll marks a stalled row (``progress_poll_answer``).
+
+    A fresh run in a stage short of the end is ``generating:<stage>``, with its snapshot. A failed run is ``error``,
+    and so is a run ``progress_is_stalled`` calls orphaned, whose snapshot carries the stage and error the poll's mark
+    writes (``error``, ``STALLED_ERROR``); its ``updated_at`` stays the stored one, since nothing is written. No row
+    is ``missing``, and so is a ``completed`` or ``partial`` row with no summary beside it, with no snapshot: its run
+    has ended, none is writing a summary, and none failed."""
+    if progress is None:
+        return "missing", None
+    if progress.stage == "error":
+        return "error", progress_as_dict(progress)
+    if progress_is_stalled(progress):
+        return "error", {**progress_as_dict(progress), "stage": "error", "error": STALLED_ERROR}
+    if progress.stage in TERMINAL_STAGES:
+        return "missing", None
+    return f"generating:{progress.stage}", progress_as_dict(progress)

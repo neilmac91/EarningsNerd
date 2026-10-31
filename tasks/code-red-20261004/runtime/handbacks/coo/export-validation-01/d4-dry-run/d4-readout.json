@@ -1,0 +1,71 @@
+{
+  "conflicting_event_uuids": [],
+  "diagnostics": [],
+  "duplicate_uuid_deliveries": 0,
+  "eligible_denominator": 1,
+  "export_complete_observed": false,
+  "export_row_count": 3,
+  "input_sha256": {
+    "events": "e37fed76e32e7252bdcdc4791e4b797b2df7347cd870685e9d9718b17c8971b0",
+    "parameters": "6a64e5f39d9bee9fd211e276a437274cd4a041df2531a10e1478d4f152d8eca8",
+    "query": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4"
+  },
+  "limits": [
+    "All eligible accounts remain in the denominator; absent observations are unknown.",
+    "View identity is client-observed; server request identity is authenticated but consent is a client declaration.",
+    "Pairing covers this export/window only; missing sides, capture loss and unexported identities remain unknown.",
+    "Event time has one-second resolution; paired duration uses the server-emitted duration_ms.",
+    "No usefulness, browser terminal receipt, provider cost, exact cached-view count or whole-cohort success rate is inferred."
+  ],
+  "observed_view_accounts": 1,
+  "paired_outcome_counts": {
+    "complete": 1
+  },
+  "poisoned_request_ids": [],
+  "poisoned_request_reasons": {},
+  "project_unattributable_event_count": null,
+  "readout_version": 1,
+  "request_status_counts": {
+    "paired": 1
+  },
+  "requests": [
+    {
+      "account_id": "1001",
+      "client_attempt": null,
+      "duplicate_deliveries": 0,
+      "errors": [],
+      "event_uuids": [
+        "00000000-0000-4000-8000-000000000011",
+        "00000000-0000-4000-8000-000000000012"
+      ],
+      "filing_id": 11,
+      "logical_request_id": null,
+      "observed_terminal": {
+        "delivery_path": "generation",
+        "outcome": "complete",
+        "reason": "synthetic_fixture",
+        "summary_id": 22,
+        "summary_service_invoked": true
+      },
+      "paired_duration_ms": 1000,
+      "request_id": "00000000-0000-4000-8000-000000000001",
+      "status": "paired",
+      "transport_attempt": null
+    }
+  ],
+  "unobserved_view_accounts_unknown": 0,
+  "users": [
+    {
+      "account_id": "1001",
+      "first_observed_view_timestamp_s": 1790553600,
+      "observed_later_week_new_filing_return": null,
+      "observed_summary_views": 1,
+      "summary_view_state": "observed",
+      "view_event_uuids": [
+        "00000000-0000-4000-8000-000000000010"
+      ]
+    }
+  ],
+  "window_end": "2026-09-29T00:00:00Z",
+  "window_start": "2026-09-28T00:00:00Z"
+}

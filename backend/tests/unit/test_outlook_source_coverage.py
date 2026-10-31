@@ -20,7 +20,7 @@ def ford_mda():
     path = Path(__file__).parents[1] / "fixtures/outlook/ford-2026q1.html.gz"
     html = gzip.decompress(path.read_bytes())
     assert hashlib.sha256(html).hexdigest() == "8f7a1adee57f71fcb32c011cc47e8358ebb68f1b0248a3a719e32da26b27750e"
-    # Same parser/config/part-qualified selection as TenQ and _extract_sections_sync.
+    # Same parser/config/part-qualified selection as TenQ and xbrl_sections._sections_from_html.
     document = HTMLParser(ParserConfig(form="10-Q")).parse(html)
     return document.sections.get("part_i_item_2").text().strip()
 

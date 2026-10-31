@@ -4,6 +4,8 @@ Ratios/margins → percentage points ("+14.4 ppts"); everything else → relativ
 one decimal, U+2212 minus). This is the source of truth that ends the +85%/+85.0%/+85.2% and
 relative-%-vs-ppts divergence.
 """
+import pytest
+
 from app.services import metric_delta_service as m
 
 
@@ -73,3 +75,29 @@ def test_parse_handles_suffixes_and_parens():
     assert m._parse_number("$1,234.5M")[0] == 1234.5e6
     val, is_pct = m._parse_number("(2.5%)")
     assert is_pct is True and val == -2.5
+
+
+def _revenue_facts(currency):
+    return {"revenue": {
+        "current": {"value": 941_168_000_000.0, "period": "2025-03-31", "currency": currency},
+        "prior": {"value": 868_687_000_000.0, "period": "2024-03-31", "currency": currency},
+    }}
+
+
+@pytest.mark.parametrize("current, prior, facts_currency, change", [
+    ("AED 941.2B", "AED 868.7B", "AED", "+8.3%"),
+    ("AED941.2B", "AED868.7B", "AED", "+8.3%"),
+    ("AED 941.2B", "AED 868.7B", "USD", None),  # the cell's currency contradicts the facts'
+    ("AED941.2B", "AED868.7B", "USD", None),  # glued to its figure: this bound before
+    ("US$941.2B", "US$868.7B", "USD", "+8.3%"),  # read as Singapore's "S$" before, so refused
+    ("US$941.2B", "US$868.7B", "SGD", None),  # and bound against SGD facts
+    ("$941.2B", "$868.7B", "USD", "+8.3%"),
+])
+def test_an_exact_change_binds_only_to_cells_in_the_facts_currency(current, prior, facts_currency, change):
+    """The exact-delta reader takes each cell's currency from the prefix the display parser reads, so
+    a figure labelled in another currency than its facts never gets their exact change."""
+    section = {"table": [{"metric": "Revenue", "current_period": current, "prior_period": prior}]}
+
+    bound = m.bind_exact_xbrl_deltas(section, _revenue_facts(facts_currency))
+
+    assert bound["table"][0].get("change_display") == change

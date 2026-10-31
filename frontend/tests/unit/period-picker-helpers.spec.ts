@@ -1,7 +1,19 @@
-/** PeriodPicker range logic: chips, default window, and the single-anchor range mutation. */
+/** PeriodPicker range logic: visible options and independently edited, bounded endpoints. */
 import { describe, expect, it } from 'vitest'
-import { chipsFor, defaultRange, nextRange } from '@/features/analysis/components/PeriodPicker'
+import { optionsFor, defaultRange, latestRange, nextRange } from '@/features/analysis/components/PeriodPicker'
 import type { AnalysisCoverage } from '@/features/analysis/api/analysis-api'
+import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+
+describe('analysis period labels', () => {
+  it('formats fiscal-quarter keys for full and compact display without recasting annual or unknown labels', () => {
+    expect(formatAnalysisPeriod('2026Q2')).toBe('Q2 2026')
+    expect(formatAnalysisPeriod('2026Q2', 'short')).toBe('Q2 ’26')
+    expect(formatAnalysisPeriod('FY2026')).toBe('FY2026')
+    expect(formatAnalysisPeriod('FY2026', 'short')).toBe('FY2026')
+    expect(formatAnalysisPeriod('2026Q5')).toBe('2026Q5')
+    expect(formatAnalysisPeriod('Trailing 12 months')).toBe('Trailing 12 months')
+  })
+})
 
 const coverage: AnalysisCoverage = {
   ticker: 'TST',
@@ -24,14 +36,14 @@ const coverage: AnalysisCoverage = {
   ],
 }
 
-describe('chipsFor', () => {
+describe('optionsFor', () => {
   it('disables annual years without core data and flags derived quarters', () => {
-    const annual = chipsFor(coverage, 'annual')
+    const annual = optionsFor(coverage, 'annual')
     expect(annual.find((c) => c.key === 'FY2019')?.disabled).toBe(true)
     expect(annual.find((c) => c.key === 'FY2023')?.disabled).toBe(false)
 
-    const quarterly = chipsFor(coverage, 'quarterly')
-    expect(quarterly.find((c) => c.key === '2023Q4')?.derived).toBe(true)
+    const quarterly = optionsFor(coverage, 'quarterly')
+    expect(quarterly.find((c) => c.key === '2023Q4')).toMatchObject({ derived: true, label: 'Q4 2023' })
     expect(quarterly.find((c) => c.key === '2023Q2')?.derived).toBe(false)
   })
 })
@@ -47,25 +59,32 @@ describe('defaultRange', () => {
 })
 
 describe('nextRange', () => {
-  const keys = ['FY2019', 'FY2020', 'FY2021', 'FY2022', 'FY2023']
+  const options = optionsFor(coverage, 'annual')
   const range = { start: 'FY2021', end: 'FY2023' }
 
-  it('extends toward an earlier click by moving the start', () => {
-    expect(nextRange(keys, range, 'FY2020', 10)).toEqual({ start: 'FY2020', end: 'FY2023' })
+  it('keeps the selected From and pulls To inside the cap', () => {
+    expect(nextRange(options, range, 'start', 'FY2020', 3)).toEqual({ start: 'FY2020', end: 'FY2022' })
   })
 
-  it('clamps to the cap by pulling the far endpoint in', () => {
-    expect(nextRange(keys, range, 'FY2019', 3)).toEqual({ start: 'FY2019', end: 'FY2021' })
+  it('keeps the selected To and pulls From inside the cap', () => {
+    expect(nextRange(options, { start: 'FY2020', end: 'FY2021' }, 'end', 'FY2023', 3)).toEqual(range)
   })
 
-  it('moves the nearer endpoint for a click inside the range', () => {
-    expect(nextRange(keys, { start: 'FY2019', end: 'FY2023' }, 'FY2022', 10)).toEqual({
-      start: 'FY2019',
-      end: 'FY2022',
-    })
+  it('moves the other endpoint when the reader crosses it', () => {
+    expect(nextRange(options, range, 'end', 'FY2020', 3)).toEqual({ start: 'FY2020', end: 'FY2020' })
+    expect(nextRange(options, { start: 'FY2020', end: 'FY2021' }, 'start', 'FY2023', 3)).toEqual({ start: 'FY2023', end: 'FY2023' })
   })
 
-  it('ignores unknown keys', () => {
-    expect(nextRange(keys, range, 'FY1999', 10)).toEqual(range)
+  it('ignores missing and disabled endpoints, and can start from no selection', () => {
+    expect(nextRange(options, range, 'start', 'FY1999', 3)).toEqual(range)
+    expect(nextRange(options, range, 'start', 'FY2019', 3)).toEqual(range)
+    expect(nextRange(options, null, 'start', 'FY2020', 3)).toEqual({ start: 'FY2020', end: 'FY2020' })
+  })
+
+  it('counts unavailable years inside the cap and never clamps onto a disabled year', () => {
+    const withGap = options.map((option) => ({ ...option, disabled: ['FY2019', 'FY2021'].includes(option.key) }))
+    expect(latestRange(withGap, 3)).toEqual({ start: 'FY2022', end: 'FY2023' })
+    expect(nextRange(withGap, range, 'start', 'FY2020', 2)).toEqual({ start: 'FY2020', end: 'FY2020' })
+    expect(nextRange(withGap, { start: 'FY2020', end: 'FY2020' }, 'end', 'FY2023', 3)).toEqual({ start: 'FY2022', end: 'FY2023' })
   })
 })

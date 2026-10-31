@@ -13,7 +13,8 @@
    name; this surface is the empty/error guidance card only.
 ============================================================================= */
 
-import { type ReactNode } from 'react'
+import { useId, type HTMLAttributes, type ReactNode, type Ref } from 'react'
+import { MagnifyingGlassIcon, WarningCircleIcon } from '@/lib/icons'
 import { cx } from './cx'
 
 export type GuidanceCardVariant = 'empty' | 'error'
@@ -23,6 +24,19 @@ export interface GuidanceCardProps {
   /** Defaults: magnifier (empty) / alert circle (error). */
   icon?: ReactNode
   title: string
+  /**
+   * The title's element, chosen for its place in the page outline (DESIGN_SYSTEM §5): 'h3' (default)
+   * for a card inside an h2 section; 'h2' where the card stands in for a page's content directly under
+   * the page h1 (the filing page's signup gate and failure cards, an empty watchlist); 'h1' where the
+   * card is the whole page (the route error boundaries). Size is unchanged.
+   */
+  headingLevel?: 'h1' | 'h2' | 'h3'
+  /**
+   * Makes the title a focus target (tabIndex={-1}, no outline), for a card that takes focus when it appears. The
+   * description then describes the title (aria-describedby), so a screen reader that cuts the card's live
+   * announcement short for the focus change still reads why, not only the title.
+   */
+  headingRef?: Ref<HTMLHeadingElement>
   description?: ReactNode
   /** Usually a <Button> — primary for empty, secondary for error retry. */
   action?: ReactNode
@@ -40,41 +54,70 @@ const ICON_WRAP: Record<GuidanceCardVariant, string> = {
   ),
 }
 
-function DefaultIcon({ variant }: { variant: GuidanceCardVariant }) {
-  return variant === 'error' ? (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M12 7.5v5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      <circle cx="12" cy="16.4" r="1" fill="currentColor" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
-      <path d="m15.8 15.8 3.7 3.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
+/** The card's icon well: a round well in its variant's tint (the brand's for guidance, the error's for a failure),
+    the glyph in the tint's ink. The card draws it at 44px; the alert bell's blocked panel draws its glyph in it at
+    32px, so the well is one recipe wherever it shows (E196 (4)). */
+export function GuidanceIconWell({
+  variant,
+  className,
+  ...rest
+}: { variant: GuidanceCardVariant } & HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      className={cx('flex flex-none items-center justify-center rounded-full border', ICON_WRAP[variant], className)}
+      {...rest}
+    />
   )
 }
 
-export function GuidanceCard({ variant = 'empty', icon, title, description, action, className }: GuidanceCardProps) {
+/** The variant's glyph, Phosphor's from lib/icons at regular weight (DESIGN.md › Icons), as Notice's are: the
+    magnifier for an empty state, the warning circle for an error, 20px in the tile's ink (ICON_WRAP). */
+function DefaultIcon({ variant }: { variant: GuidanceCardVariant }) {
+  const Glyph = variant === 'error' ? WarningCircleIcon : MagnifyingGlassIcon
+  return <Glyph className="h-5 w-5" aria-hidden="true" />
+}
+
+export function GuidanceCard({
+  variant = 'empty',
+  icon,
+  title,
+  headingLevel: Heading = 'h3',
+  headingRef,
+  description,
+  action,
+  className,
+}: GuidanceCardProps) {
+  const descriptionId = useId()
+  const describes = headingRef && description ? descriptionId : undefined
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
       className={cx(
-        'flex flex-col items-center rounded-xl border border-border-light bg-panel-light px-6 py-10 text-center shadow-e2',
+        'flex flex-col items-center rounded-xl border border-border-light bg-panel-light px-cap-6 py-cap-10 text-center shadow-e2',
         'dark:border-white/10 dark:bg-panel-dark dark:shadow-none',
         className,
       )}
     >
-      <span className={cx('flex h-11 w-11 items-center justify-center rounded-full border', ICON_WRAP[variant])}>
+      <GuidanceIconWell variant={variant} className="h-11 w-11">
         {icon ?? <DefaultIcon variant={variant} />}
-      </span>
-      <h3 className="mt-4 text-base font-semibold">{title}</h3>
+      </GuidanceIconWell>
+      <Heading
+        ref={headingRef}
+        tabIndex={headingRef ? -1 : undefined}
+        aria-describedby={describes}
+        className={cx('mt-4 text-base font-semibold', headingRef ? 'outline-none' : undefined)}
+      >
+        {title}
+      </Heading>
       {description ? (
-        <p className="mt-1.5 max-w-[38ch] text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+        <p id={describes} className="mt-1.5 max-w-[38ch] break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           {description}
         </p>
       ) : null}
-      {action ? <div className="mt-5 flex items-center gap-2">{action}</div> : null}
+      {/* Two actions wrap to two centred rows when they do not fit side by side (a Retry keeps the room of
+          "Trying again…", wider than its label), so a card never pushes a control past its edge or the screen's
+          (tests/e2e/reflow-200.spec.ts holds the dashboard's account card and the error boundaries). */}
+      {action ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
     </div>
   )
 }

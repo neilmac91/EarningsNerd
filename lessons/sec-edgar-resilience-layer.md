@@ -9,20 +9,24 @@ breaker's trip set is network-shaped (`EdgarNetworkError`, timeouts, rate-limit 
 business errors (404s, parse failures) never open it; (2) heavy LOCAL parse operations
 (big-filing section/statement parsing legitimately runs 20–40s) must NOT feed the shared
 breaker — five slow filings in a row would open the circuit and fail-fast every SEC call
-while SEC is healthy. Also: full retry/backoff ladders (Retry-After up to 120s) belong to
-background jobs; user-facing cold paths get a bounded single attempt + stale-cache
-fallback.
+while SEC is healthy. Full backoff ladders belong to background jobs. The document
+transport's user-facing budget includes token waits, requests and backoff; it permits at
+most three transient attempts within that one deadline. A server cooldown that exceeds
+the remaining budget ends the request without an early retry.
 
 **Rule**: New SEC fetches use `run_with_circuit_breaker` (edgartools) or
 `sec_rate_limiter.execute*` (raw HTTP) — never bare httpx to sec.gov. CPU-bound parse
 steps stay on plain `run_in_executor_with_timeout` with a comment saying why they are
-breaker-exempt. Choose `execute()` (single token wait) on user-facing paths and
-`execute_with_backoff` only where minutes of latency is acceptable.
+breaker-exempt. Choose `execute()` (one token per physical attempt) on user-facing paths
+and `execute_with_backoff` only where minutes of latency is acceptable. Translate raw
+HTTPX transport failures inside the breaker's boundary so they count toward its trip
+threshold. Local token-wait exhaustion and permanent 403/404 responses must not masquerade
+as repeated transient network failures.
 
 **Existing paths**: `SECFullTextSearchClient` in `backend/app/integrations/sec_api.py`
-and `_fetch_companyfacts_async` in `backend/app/services/facts_service.py` (also used by its
+and `_fetch_companyfacts_async` in `backend/app/services/facts/transport.py` (also used by its
 sync bridge) use direct httpx through shared limiter/backoff without the breaker. The in-layer
-`edgar/xbrl_service.py` companyfacts fallback uses `execute()` without the breaker. Ticker and
+`edgar/xbrl_companyfacts.py` companyfacts fallback uses `execute()` without the breaker. Ticker and
 filing-document fetches in `edgar/compat.py` carry both limiter and breaker. Primary XBRL/local
 parsing retains plain timeouts so CPU cost does not become a false SEC-health failure.
 Preserve these existing transport owners. They do not authorize raw-HTTP SEC bypasses

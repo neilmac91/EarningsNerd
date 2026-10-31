@@ -1,0 +1,14 @@
+{
+  "base": "432fa5dfefa910b84071d812210dfd182bbd2855",
+  "source_head": "de8caeaf0146569c35cad0a4a6716ead082b357d",
+  "runtime_pins": 99,
+  "all_three_requirement_files_match_installed_versions": true,
+  "selected_versions": {
+    "openai": "3.20.0",
+    "pyjwt": "2.15.1",
+    "sentry-sdk": "2.71.0",
+    "anthropic": "1.9.0",
+    "edgartools": "5.58.0",
+    "docstring-parser": "0.18.0"
+  }
+}

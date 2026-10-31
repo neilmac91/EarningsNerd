@@ -76,7 +76,7 @@ def _remediate(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -
     os.environ["USE_STATEMENT_FINANCIALS"] = "true"  # force the fix on for the re-extraction
     from app.database import SessionLocal
     from app.services import facts_service
-    from app.services.edgar.xbrl_service import _extract_from_filing_instance_sync
+    from app.services.edgar.xbrl_instance import _extract_from_filing_instance_sync
 
     def refetch(company, filing):
         cik = str(getattr(company, "cik", "") or "").strip()
@@ -142,7 +142,6 @@ def _backfill_sic(*, tickers: list[str] | None, limit: int | None, dry_run: bool
 
 if __name__ == "__main__":
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
-    os.environ.setdefault("EDGAR_IDENTITY", "EarningsNerd support@earningsnerd.io")
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(description="Backfill financial_fact from filings' XBRL.")
@@ -183,6 +182,9 @@ if __name__ == "__main__":
             "--dry-run is supported only with --remediate-financials or --backfill-company-sic"
         )
 
+    from app.public_email_addresses import SUPPORT_EMAIL
+
+    os.environ.setdefault("EDGAR_IDENTITY", f"EarningsNerd {SUPPORT_EMAIL}")
     tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
     if args.backfill_company_sic:
         _backfill_sic(tickers=tickers, limit=args.limit, dry_run=args.dry_run)

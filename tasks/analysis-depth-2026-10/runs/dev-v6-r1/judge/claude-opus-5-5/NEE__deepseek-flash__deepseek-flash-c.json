@@ -1,0 +1,106 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "31451522cf1ce0dafc5cd9f6ae9bed89fd103991921b6c9dc30c633eee3b1e23",
+ "y_sha256": "b80dc03afd942aeafe28246db1e19d88e5391e35779024b3fb8663d4de3134ae",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both cite passages that do not state the $89m cash-flow hit or the $585m tax credits. A misstates the OCF/NI range: FY2018 was 0.99x, not within 1.55x\u20132.73x. B overstates fuel recovery as the main FY2022 driver and wrongly calls the sub-1.0x current ratio a single-period flag. A explains more: the FY2025 rebound, NEER capacity additions and the persistence of the weak current ratio. B better separates its analysis from facts."
+   },
+   "cost_usd": 0.138649,
+   "latency_s": 19.343,
+   "backend": "claude_cli",
+   "input_tokens": 14311,
+   "cached_input_tokens": 727,
+   "output_tokens": 1492,
+   "reasoning_tokens": 1254,
+   "meta": {
+    "duration_api_ms": 14518,
+    "cache_creation_input_tokens": 13582,
+    "list_cost_usd": 0.084321
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"Both cite passages that do not state the $89m cash-flow hit or the $585m tax credits. A misstates the OCF/NI range: FY2018 was 0.99x, not within 1.55x\u20132.73x. B overstates fuel recovery as the main FY2022 driver and wrongly calls the sub-1.0x current ratio a single-period flag. A explains more: the FY2025 rebound, NEER capacity additions and the persistence of the weak current ratio. B better separates its analysis from facts.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "B explains more: the FY2025 storm-recovery rebound, NEER capacity additions, and the FY2023/FY2024 margin swing. A has unsupported claims. It cites 'committed credit lines' with no source, and it says a negative tax rate helps explain net margin sitting below operating margin, which is backwards. Both drafts cite the $89m cash-flow figure and the $585m tax-credit figure from truncated passages. A labels its analysis more visibly, but B is better grounded."
+   },
+   "cost_usd": 0.128777,
+   "latency_s": 14.448,
+   "backend": "claude_cli",
+   "input_tokens": 14317,
+   "cached_input_tokens": 727,
+   "output_tokens": 996,
+   "reasoning_tokens": 762,
+   "meta": {
+    "duration_api_ms": 9533,
+    "cache_creation_input_tokens": 13588,
+    "list_cost_usd": 0.074425
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"B explains more: the FY2025 storm-recovery rebound, NEER capacity additions, and the FY2023/FY2024 margin swing. A has unsupported claims. It cites 'committed credit lines' with no source, and it says a negative tax rate helps explain net margin sitting below operating margin, which is backwards. Both drafts cite the $89m cash-flow figure and the $585m tax-credit figure from truncated passages. A labels its analysis more visibly, but B is better grounded.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.267426
+}

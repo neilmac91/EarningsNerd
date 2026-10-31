@@ -19,8 +19,13 @@ from app import database
 from app.models import Base, Company, Filing, FinancialFact
 from app.services import facts_service, filing_amendment_service as amendments
 from app.services import trend_analysis_service as analysis
+# Import before sessions patches database.SessionLocal; importing inside a test makes seed
+# retain that temporary factory after teardown.
+from app.services import universe_seed_service
+from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl
 from app.services.edgar.fiscal_periods import fiscal_label
+from app.services.trend_analysis.data_notes import REASONS
 
 
 @pytest.fixture
@@ -82,7 +87,7 @@ def test_instance_to_facts_keeps_quarters_currency_and_raw_precision(monkeypatch
         "EarningsPerShareBasic": pd.DataFrame([{**r, "numeric_value": 1.2345, "currency": None, "decimals": 4} for r in rows])}),
                          entity_info={"fiscal_year": 2026, "fiscal_period": "Q3"})
     sec_filing = SimpleNamespace(form="10-Q", period_of_report="2025-10-31", xbrl=lambda: xb)
-    monkeypatch.setattr(xbrl, "resolve_filing_by_accession", lambda *args: (SimpleNamespace(sic=None), [sec_filing]))
+    monkeypatch.setattr(xbrl_instance, "resolve_filing_by_accession", lambda *args: (SimpleNamespace(sic=None), [sec_filing]))
     raw = xbrl._extract_from_filing_instance_sync("0000000001", "acc")
     standardized = xbrl.edgar_xbrl_service.extract_standardized_metrics(raw)
     facts = facts_service.normalize_standardized_to_facts(1, 1, "acc", "10-Q", standardized)
@@ -212,13 +217,13 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
     citations = analysis.resolve_narrative_citations("Revenue [F1]. Growth [F3].", index)[1]
     assert all(c["reconciled"] is False and c["verified"] for c in citations)
     wb = load_workbook(BytesIO(build_analysis_workbook(dataset)))
-    assert "Unreconciled" in wb["Metrics"]["D2"].comment.text
-    assert "unreconciled" in wb["Metrics"]["F2"].comment.text
-    assert "unreconciled" in wb["Revenue & growth"]["C3"].comment.text
+    assert wb["Metrics"]["D2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Metrics"]["F2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Revenue & growth"]["C3"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):
-    from app.services import universe_seed_service as seed
+    seed = universe_seed_service
     monkeypatch.setattr(seed, "SessionLocal", sessions)
     monkeypatch.setattr(seed, "member_tickers", lambda: frozenset({"A", "B", "B.B", "MISSING"}))
     ticker_file = {"0": {"cik_str": 1, "ticker": "A", "title": "A"},
@@ -315,7 +320,7 @@ def test_backfill_deploy_restores_only_its_scheduled_entrypoint():
     assert len(updates) == 1
     tokens = shlex.split(updates[0])
     assert "--image=$IMAGE:${GITHUB_SHA::7}" in tokens
-    assert "--update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0" in tokens
+    assert "--update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1" in tokens
     assert "--command=python" in tokens
     assert "--args=scripts/backfill_facts.py,--only-new" in tokens
     assert "--dry-run" not in tokens
@@ -369,12 +374,13 @@ def test_refresh_existing_amendments_repairs_links_and_locks_company(sessions):
 def test_pdf_retains_value_and_citation_quality():
     from app.services.export_service import export_service
     record = SimpleNamespace(mode="annual", period_key="FY2025", narrative_md="Revenue grew [1].",
-        dataset_json={"periods": [{"key": "FY2025"}], "series": [{"concept": "revenue", "label": "Revenue",
+        dataset_json={"mode": "annual", "period_key": "FY2025", "periods": [{"key": "FY2025"}], "series": [{"concept": "revenue", "label": "Revenue",
         "unit": "USD", "points": [{"period": "FY2025", "value": 123, "reconciled": False}]}]},
         citations_json=[{"n": 1, "excerpt": "Revenue = 123", "verified": True, "reconciled": False}])
     html = export_service.generate_analysis_pdf_html(record, SimpleNamespace(name="A", ticker="A"))
-    assert "$123 [unreconciled]" in html
-    assert "Unreconciled value — check source filing." in html
+    assert '$123<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
+    assert 'Revenue grew [1]<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
+    assert html.count(REASONS["source_check_needed"]) == 1
     assert "Citation verification confirms traceability, not financial reconciliation." in html
 
 
@@ -399,7 +405,7 @@ def test_precompute_prefers_latest_period_over_late_old_amendment(sessions, monk
 def test_seed_script_records_distinct_dry_and_applied_attempts(sessions, monkeypatch):
     import importlib.util
     from app.models import JobRun
-    from app.services import universe_seed_service, job_run_service
+    from app.services import job_run_service
     monkeypatch.setattr(job_run_service, "SessionLocal", sessions)
     seed = AsyncMock(return_value={"would_create": 2, "source_errors": 0})
     monkeypatch.setattr(universe_seed_service, "seed_universe_companies", seed)
@@ -451,7 +457,7 @@ def test_bulk_delayed_response_preserves_known_amendment(sessions, incoming_know
             "accession": "002", "form": "10-Q/A", "value": 200}])
         result = facts_service.upsert_facts_bulk(db, [{**common, "filing_id": None,
             "accession": "001", "form": "10-Q", "value": 100}])
-        assert result == {"inserted": 1, "skipped": 0, "demoted": 0}
+        assert result == {"inserted": 1, "skipped": 0, "demoted": 0, "history": 0}
         assert [(row.accession, row.value) for row in db.query(FinancialFact).filter_by(is_latest=True)] == [("002", 200)]
         assert db.query(FinancialFact).filter_by(accession="001").one().value == 100
         # A later comparative filing still becomes current when its metadata establishes order.

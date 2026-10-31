@@ -17,7 +17,8 @@ complete, strictly parsed followups array of two or three nonblank strings. Do n
 repair an incomplete array, or discard extra trailing content. Publish one admitted completion or
 a safe application error.
 Live progress and activity labels must contain only application-owned text. Preserve cancellation,
-provider accounting and the router's completion-only quota conversion.
+provider accounting and the router's quota conversion at provider start (the request dispatcher's
+provider-start signal; a disconnect after it keeps the unit, a provider-side failure refunds it).
 
 At the browser's external completion boundary, require the matched-source count to equal the
 admitted citation count and each returned citation ID to occur in the answer. Repeated references

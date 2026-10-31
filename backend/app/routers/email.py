@@ -39,7 +39,7 @@ async def send_test_email(
         result = await send_email(
             to=[to_email],
             subject="EarningsNerd test email",
-            html="<strong>It works!</strong>",
+            html="<strong>It works.</strong>",
         )
     except ResendError as exc:
         raise HTTPException(

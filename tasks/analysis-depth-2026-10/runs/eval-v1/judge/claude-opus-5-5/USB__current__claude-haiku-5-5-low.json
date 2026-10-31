@@ -1,0 +1,86 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values. It says 'no red flags' despite the FY2024 NII drop and offers vague watch items. B has real grounding slips: it ties the FY2022 provision to MUB, which the passage does not, and its FDIC cause for FY2023 is absent from the quote. Still, most of B's causal claims match their passages, and it adds peer context, segment drivers, data-gap disclosures and numeric thresholds."
+   },
+   "cost_usd": 0.099817,
+   "latency_s": 13.997,
+   "input_tokens": 10747,
+   "output_tokens": 976,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values. It says 'no red flags' despite the FY2024 NII drop and offers vague watch items. B has real grounding slips: it ties the FY2022 provision to MUB, which the passage does not, and its FDIC cause for FY2023 is absent from the quote. Still, most of B's causal claims match their passages, and it adds peer context, segment drivers, data-gap disclosures and numeric thresholds.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A has grounding slips: MUB tied to the FY2022 provision, the FDIC assessment cited for FY2023 though that passage omits it, sales-volume beyond a truncated quote, and an undisclosed 67.4% vs 66.7% efficiency gap. B is fully supported but only restates table values, finds no margin data and misses the FY2024 revenue decline. A's explained drivers, peer context and numeric watch thresholds outweigh its errors, so A is clearly more useful."
+   },
+   "cost_usd": 0.100553,
+   "latency_s": 14.414,
+   "input_tokens": 10749,
+   "output_tokens": 1012,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"A has grounding slips: MUB tied to the FY2022 provision, the FDIC assessment cited for FY2023 though that passage omits it, sales-volume beyond a truncated quote, and an undisclosed 67.4% vs 66.7% efficiency gap. B is fully supported but only restates table values, finds no margin data and misses the FY2024 revenue decline. A's explained drivers, peer context and numeric watch thresholds outweigh its errors, so A is clearly more useful.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.20037
+}

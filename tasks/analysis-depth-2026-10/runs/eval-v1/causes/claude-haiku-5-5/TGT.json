@@ -1,0 +1,123 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "TGT",
+ "split": "holdout",
+ "claims": 9,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2020 jump reflected a 19.3% comparable sales increase and new stores .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in 2020 sales compared to 2019 is due to a 19.3 percent comparable sales increase and the contribution from new stores. The COVID-19 pandemic has affected the amount and mix of sales across channels and categories."
+    }
+   ],
+   "label": "supported",
+   "reason": "P51 states 2020 sales increase due to 19.3% comparable sales increase and new stores."
+  },
+  {
+   "sentence": "Operating margin fell 4.9pp in FY2022 to 3.5% , which the filing ties to markdowns, cancelled orders and inventory costs .",
+   "passages": [
+    {
+     "id": "P38",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2022, our comparable sales growth slowed significantly, reflecting sales decreases in our Discretionary categories (Apparel & Accessories, Hardlines, and Home Furnishings & Decor) that substantially offset growth in our Frequency categories (Beauty & Household Essentials and Food & Beverage). In response to this shift in demand, we took several actions to address our inventory position and create additional flexibility in a rapidly changing environment, including increasing promotional and clearance markdowns, removing excess inventory, and cancelling purchase orders. In addition, during the second half of 2022, port congestion, shipping container availability, and other supply chain pressures improved. This resulted in some inventory arriving earlier than anticipated, which resulted in increased costs of managing elevated inventory levels and an increased working capital investment. These factors, net of the impact of retail price increases taken to address merchandise and freight cost inflation, resulted in decreased profitability compared to the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P38 attributes decreased profitability to markdowns, cancelled orders, and inventory costs."
+  },
+  {
+   "sentence": "Comparable sales fell 2.6%, driven by a 2.2% traffic decline , matching the 1.7% revenue fall in FY2025 .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Comparable sales decreased 2.6 percent, driven by a 2.2 percent decrease in traffic and a 0.4 percent decrease in average transaction amount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 states comparable sales decreased 2.6% driven by 2.2% traffic decline."
+  },
+  {
+   "sentence": "The SG&A benefit reflected a 0.6-point interchange settlement gain, partly offset by deleverage on lower sales .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our SG&A expense rate was 20.6\u00a0percent in 2025, consistent with 2024. The 2025 rate included a 0.6 percentage point benefit from interchange fee settlements, partially offset by 0.2 percentage points of business transformation costs. Excluding these items, our Adjusted SG&A expense rate was 20.9 percent in 2025, compared with 20.6 percent in 2024, reflecting the deleveraging impact of lower Net Sales and the net impact of other costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P11 states SG&A rate included 0.6pp benefit from interchange settlements, partially offset by deleverage."
+  },
+  {
+   "sentence": "Net margin of 3.5% sits 1.4pp below operating margin ; net interest rose to $445 million  on higher average debt .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net interest expense was $445 million for 2025, compared with $411 million for 2024. The increase in net interest expense was primarily due to higher average debt levels."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 states net interest expense increased to $445 million due to higher average debt."
+  },
+  {
+   "sentence": "Operating cash fell 10.9% , which the filing ties to lower net earnings and weaker payables leverage .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash flows provided by operating activities were $6.6 billion in 2025 compared with $7.4 billion in 2024. The operating cash flow decrease reflects lower net earnings, as well as the net impact of lower accounts payable leverage and inventory purchases in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 states operating cash flow decrease reflects lower net earnings and lower accounts payable leverage."
+  },
+  {
+   "sentence": "Capital expenditure rose 28.9% to $3.73 billion , mainly for new stores and remodels , at 1.19x D&A .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Capital expenditures in 2025 reflect continued investment in our strategic initiatives, including investments in both stores and in our supply chain, enhancing our capabilities and guest experience across stores and digital channels. The increase in capital expenditures in 2025 compared with 2024 primarily reflects an increased investment in both new stores and remodels."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 states capital expenditure increase primarily reflects increased investment in new stores and remodels."
+  },
+  {
+   "sentence": "The filings tie the slide to discretionary categories weakening from 2022  and a 2.2% traffic decline in FY2025 .",
+   "passages": [
+    {
+     "id": "P30",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2023, we experienced sales declines across our business, primarily in each of our Discretionary categories (Apparel & Accessories, Hardlines, and Home Furnishings & Decor) partially offset by growth in Frequency categories (Beauty & Household Essentials and Food & Beverage). This trend of decreased Discretionary category sales began in 2022. In response, during 2022, we took actions and employed strategies to align inventories with sales trends. These actions, as well as improvements in the supply chain, have resulted in decreased inventory in 2023 compared with 2022, as well as a reduction in costs related to managing elevated inventory levels."
+    },
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Comparable sales decreased 2.6 percent, driven by a 2.2 percent decrease in traffic and a 0.4 percent decrease in average transaction amount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P30 states discretionary category sales decline began in 2022; P14 states 2.2% traffic decline."
+  },
+  {
+   "sentence": "Free cash flow fell 36.7% in FY2025 , reversing a 17.3% gain in FY2024 ; lower earnings and payables leverage explain the operating side .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash flows provided by operating activities were $6.6 billion in 2025 compared with $7.4 billion in 2024. The operating cash flow decrease reflects lower net earnings, as well as the net impact of lower accounts payable leverage and inventory purchases in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 states operating cash flow decrease reflects lower net earnings and lower accounts payable leverage."
+  }
+ ],
+ "cost_usd": 0.00174
+}

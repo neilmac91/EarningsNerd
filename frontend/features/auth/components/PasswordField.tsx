@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { EyeIcon, EyeSlashIcon } from '@/lib/icons'
 import { inputClasses } from '@/components/ui/Input'
+import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
 
 type PasswordFieldProps = {
   id: string
@@ -22,21 +23,27 @@ type PasswordFieldProps = {
 
 const STRENGTH_LABELS = ['Too short', 'Weak', 'Fair', 'Good', 'Strong']
 const STRENGTH_COLORS = [
-  'bg-error-light',
-  'bg-warning-light',
-  'bg-warning-light',
-  'bg-brand-strong',
-  'bg-brand',
+  'bg-error-light dark:bg-error-dark',
+  'bg-warning-light dark:bg-warning-dark',
+  'bg-warning-light dark:bg-warning-dark',
+  'bg-success-light dark:bg-success-dark',
+  'bg-success-light dark:bg-success-dark',
 ]
 
-function scorePassword(pw: string): number {
-  if (!pw) return 0
-  let score = 0
-  if (pw.length >= 8) score++
-  if (pw.length >= 12) score++
+/** Length beyond the floor that earns the meter's second bar. */
+const LENGTH_STEP = 4
+
+/**
+ * A password under the floor is "Too short" whatever else it holds: the server rejects it. Clearing the
+ * floor is one bar ("Weak"); length past it by LENGTH_STEP, letters with digits, and a symbol add one each.
+ */
+function scorePassword(pw: string, floor: number): number {
+  if (!pw || pw.length < floor) return 0
+  let score = 1
+  if (pw.length >= floor + LENGTH_STEP) score++
   if (/\d/.test(pw) && /[a-zA-Z]/.test(pw)) score++
   if (/[^a-zA-Z0-9]/.test(pw)) score++
-  return Math.min(score, 4)
+  return score
 }
 
 export default function PasswordField({
@@ -53,7 +60,8 @@ export default function PasswordField({
   autoFocus,
 }: PasswordFieldProps) {
   const [show, setShow] = useState(false)
-  const score = showStrength ? scorePassword(value) : 0
+  // The meter scores against the server's floor unless the field is told otherwise.
+  const score = showStrength ? scorePassword(value, minLength ?? PASSWORD_MIN_LENGTH) : 0
 
   return (
     <div>
@@ -68,8 +76,9 @@ export default function PasswordField({
       </div>
 
       <div className="relative">
-        {/* Raw input + inputClasses(): pr-10 must pad the field itself so typed
-            text clears the eye toggle — the v2 <Input> shell owns className. */}
+        {/* Raw input + inputClasses(): the field itself takes the trailing inset so
+            typed text clears the eye toggle: the v2 <Input> shell owns className.
+            `trailingIcon`, not pr-10 on top: that would resolve by stylesheet order. */}
         <input
           type={show ? 'text' : 'password'}
           id={id}
@@ -79,13 +88,13 @@ export default function PasswordField({
           minLength={minLength}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
-          className={inputClasses({ className: 'pr-10' })}
+          className={inputClasses({ trailingIcon: true })}
         />
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
           aria-label={show ? 'Hide password' : 'Show password'}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-tertiary-light transition-colors hover:text-text-secondary-light dark:text-text-secondary-dark dark:hover:text-text-secondary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-tertiary-light transition-colors hover:text-text-secondary-light dark:text-text-tertiary-dark dark:hover:text-text-secondary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
           {show ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
         </button>
@@ -103,14 +112,14 @@ export default function PasswordField({
               />
             ))}
           </div>
-          <p className="mt-1 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="mt-1 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
             {STRENGTH_LABELS[score]}
           </p>
         </div>
       )}
 
       {hint && (
-        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">{hint}</p>
+        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{hint}</p>
       )}
     </div>
   )

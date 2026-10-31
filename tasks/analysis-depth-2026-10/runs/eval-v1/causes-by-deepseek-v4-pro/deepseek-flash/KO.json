@@ -1,0 +1,104 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "KO",
+ "split": "holdout",
+ "claims": 7,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Bottling Investments revenue fell 42.8% in FY2017 and 40.0% in FY2018 as bottling territories were refranchised .",
+   "passages": [
+    {
+     "id": "P71",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general and administrative expenses decreased $2,716 million, or 18 percent. During the year ended December 31, 2017, fluctuations in foreign currency exchange rates had a nominal impact on selling, general and administrative expenses. The decrease in selling and distribution expenses and advertising expenses during 2017 reflects the impact of divestitures. Additionally, advertising expenses during 2017 decreased 1 percent as a result of foreign currency exchange rate fluctuations. The decrease in other operating expenses during 2017 reflects savings from our productivity and reinvestment initiatives. Foreign currency exchange rate fluctuations had a more significant impact on both advertising and other operating expenses as compared to our selling and distribution expenses since they were generally transacted in local currency. Our selling and distribution expenses were primarily related to our Company-owned bottling operations, of which the majority of expenses are attributable to CCR and were primarily denominated in U.S. dollars."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage discusses SG&A decrease, not Bottling Investments revenue or refranchising."
+  },
+  {
+   "sentence": "The FY2025 jump of 7.5pp came mainly from lower other operating charges after the prior-year fairlife contingent-consideration remeasurement .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states lower other operating charges due to prior year fairlife remeasurement drove operating margin increase."
+  },
+  {
+   "sentence": "Worldwide concentrate sales volume grew 1% in FY2025, with EMEA up 3% and Latin America even .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2025, worldwide concentrate sales volume grew 1% and unit case volume was even compared to 2024. The difference between concentrate sales volume and unit case volume growth rates for our Latin America operating segment was primarily due to the timing of concentrate shipments."
+    },
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Unit case volume in EMEA increased 3%, which included 2% growth in Trademark Coca-Cola, 3% growth in sparkling flavors, 2% growth in water, sports, coffee and tea as well as growth in energy drinks, partially offset by a 4% decline in juice, value-added dairy and plant-based beverages. The operating segment reported growth in unit case volume of 7% in the Eurasia and Middle East operating unit, growth of 3% in the Africa operating unit and growth in energy drinks, partially offset by a decline of 1% in the Europe operating unit."
+    },
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In Latin America, unit case volume was even, which included 1% growth in both water, sports, coffee and tea, and juice, value-added dairy and plant-based beverages as well as growth in energy drinks, offset by a 1% decline in Trademark Coca-Cola and a 2% decline in sparkling flavors. The operating segment\u2019s volume performance included 2% growth in Brazil and 6% growth in Argentina, offset by a decline of 4% in Mexico."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages confirm worldwide concentrate sales volume grew 1%, EMEA unit case volume up 3%, Latin America even."
+  },
+  {
+   "sentence": "The FY2025 gross margin gain of 0.6pp came from pricing and prior-year refranchising, partly offset by currency and commodities .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross profit margin increased to 61.6% in 2025 from 61.1% in 2024. This increase was primarily due to the impact of favorable pricing initiatives and the impact of the prior year refranchising of our bottling operations in the Philippines, Bangladesh and certain territories in India, partially offset by the unfavorable impact of foreign currency exchange rate fluctuations and higher commodity costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes gross margin increase to pricing and prior year refranchising, partially offset by currency and commodities."
+  },
+  {
+   "sentence": "SG&A fell 0.4% and added 0.7pp to margin on lower Foundation contributions and incentive expense .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general and administrative expenses were $14,521 million in 2025, compared to $14,582 million in 2024, a decrease of $61 million. This decrease was primarily due to lower contributions to The Coca-Cola Foundation and lower annual incentive expense, partially offset by higher severance costs in 2025 associated with ongoing initiatives to optimize our organization, higher advertising expenses and an asset impairment charge related to certain prototypes in the prior year. Advertising expenses for 2025 and 2024 were $5.4 billion and $5.1 billion, respectively. Refer to Note\u00a017 of Notes to Consolidated Financial Statements for more information on the impairment charge."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states SG&A decrease due to lower Foundation contributions and incentive expense."
+  },
+  {
+   "sentence": "Operating cash flow rose 8.9% on strong cash operating results and lower tax payments .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2025 and 2024 was $7,408\u00a0million and $6,805\u00a0million, respectively, an increase of $603\u00a0million, or 9%. This increase was primarily driven by strong cash operating results, lower tax payments, the timing of changes in working capital and lower contributions to The Coca-Cola Foundation compared to the prior year. These items were partially offset by the prior year benefit of the trade accounts receivable factoring program and higher transfers of surplus non-U.S. plan assets from pension trusts to general assets of the Company in the prior year. The increase was also partially offset by unfavorable hedging activity, higher marketing payments, tax deposits related to Israel and Vietnam, and higher net interest payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes operating cash flow increase to strong cash operating results and lower tax payments."
+  },
+  {
+   "sentence": "The FY2024 collapse in conversion followed a $6.0 billion IRS tax litigation deposit .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2024 and 2023 was $6,805\u00a0million and $11,599\u00a0million, respectively, a decrease of $4,794\u00a0million, or 41%. This decrease was primarily driven by the $6.0 billion IRS Tax Litigation Deposit, an unfavorable impact due to foreign currency exchange rate fluctuations, higher other tax payments, increased charitable donations, and the reduced operating cash flows resulting from the refranchising of our bottling operations. The decrease was also impacted by additional annual incentive payments in the current year due to improved business performance in the prior year. These items were partially offset by strong cash operating results, the transfer of surplus international plan assets from pension trusts to general assets of the Company, payments in the prior year resulting from the buildup of inventory to manage potential supply chain disruptions, increased dividend payments from our equity method investees, and $167\u00a0million of the $275\u00a0million milestone payment for fairlife in the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states decrease driven by $6.0 billion IRS Tax Litigation Deposit."
+  }
+ ],
+ "cost_usd": 0.001753
+}

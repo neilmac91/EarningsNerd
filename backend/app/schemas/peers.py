@@ -1,6 +1,6 @@
 """Response schemas for the cross-company peer comparison API (P3/F3)."""
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
@@ -16,6 +16,7 @@ class PeerEntry(BaseModel):
     percentile: Optional[float] = None
     # False when the reconciliation gate flagged this value (UI shows a quality badge).
     reconciled: bool = True
+    provenance: Optional[dict[str, Any]] = None
 
 
 class PeerComparisonResponse(BaseModel):

@@ -1,0 +1,145 @@
+{
+  "dispatch_id": "CTO-ENVELOPE-HANDBACK-02",
+  "recorded_at": "2026-10-05T08:18:16.193885+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "CTO",
+  "wave": "R3 input (C1 capacity evidence for the COO); not R5",
+  "lane": "beta operations",
+  "role_label": "cto-envelope-handback-rev4-author-01",
+  "provisional_label_registered": "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:cto-envelope-handback-rev4-author-01 (closure 145)",
+  "requested_model": "inherited (claude-fable-5-1)",
+  "repository_read_scope": {
+    "commit": "0b8d39ebad065a8ab5f3ab4b6213892f2e7544a2 (main) plus the open branch claude/vigilant-goodall-633yx3 at 0aebe6d9 for the runtime records",
+    "mode": "read-only; no git writes; no tests or servers run; no gcloud/network/production reads; no provider call"
+  },
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md (revision 4)",
+    "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json (revision 4)",
+    "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CORRECTION-03.md (rev 3 → rev 4 hash chain and field-by-field diff)"
+  ],
+  "allowed_inputs": [
+    {
+      "label": "CTO handback revision 3 (Markdown)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md",
+      "sha256": "58ef902d0339ba812e859a764575f53828f60588b8104bf9318d79c69b0a967e",
+      "bytes": 36686
+    },
+    {
+      "label": "CTO handback revision 3 (bounds JSON)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json",
+      "sha256": "5ee84009c08f8ecf107174376f67c34084f9461b162fdbc5864e718f4ce3c8fd",
+      "bytes": 38003
+    },
+    {
+      "label": "Correction 01 (rev 1 → 2)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CORRECTION-01.md",
+      "sha256": "d3383d37bb7faf89824b40872a88c0687d896ff7cfbc4cfa70d9853362332625",
+      "bytes": 2420
+    },
+    {
+      "label": "Correction 02 (rev 2 → 3)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CORRECTION-02.md",
+      "sha256": "d7ffd463c59049dacb629fb1482dd94d724f0e910a1b7f23bf01870bc0fa77b0",
+      "bytes": 3028
+    },
+    {
+      "label": "COO operating-envelope disposition (HOLD, 8 items)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md",
+      "sha256": "d30bdd50125ae304ad5c4fd1c6559326d3767c0f17c1ca7ec41d895ab6fc13be",
+      "bytes": 40291
+    },
+    {
+      "label": "Capacity-readout receipt note (chief → COO, 2026-10-05)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md",
+      "sha256": "eea93bba6b1285354bd921e472ad18e8ffb83edaf60ce13cfbc757174ec9c297",
+      "bytes": 7453
+    },
+    {
+      "label": "Readout cloud.json (Ops run 37282199614)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/receipts/capacity-readout-37282199614/cloud.json",
+      "sha256": "2a177f6df5c13b4859bf02da80f53676e745791f8d6fe96cdb267c7230d1337d",
+      "bytes": 9841
+    },
+    {
+      "label": "Readout database.jsonl (Ops run 37282199614)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/receipts/capacity-readout-37282199614/database.jsonl",
+      "sha256": "37094bf81b34a1a4e44afeae1bf29fe2ec4353bf278ee7dd9e207ea35a0c4768",
+      "bytes": 2755
+    },
+    {
+      "label": "Decision record 02 (D3 SEC budgets, D6 stop conditions, D7 provider limits, D8 egress, D9 refuters, Appendices A/B)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-02.md",
+      "sha256": "4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b",
+      "bytes": 21885
+    },
+    {
+      "label": "Decision record 03 (rate_limit_hits semantics correction)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-03.md",
+      "sha256": "56bfb21b3ff5b7dccfafd53a7355cb70795a8962f1454aab951223c70efccd26",
+      "bytes": 8578
+    },
+    {
+      "label": "Decision record 04",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-04.md",
+      "sha256": "9d66fbd093b5ff9cd022c98058dca0fcdfd5a2dbb126e8f4c8c76bfa00b116cd",
+      "bytes": 7812
+    },
+    {
+      "label": "Decision record 05 (telemetry wording correction)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-05.md",
+      "sha256": "d3723842b2140cdc81976edfefecfe94a307d613ce5410bb17571c9862799d50",
+      "bytes": 10357
+    },
+    {
+      "label": "Decision record 06 (C1 closures, readout plan)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-06.md",
+      "sha256": "13f852f0b4bb8f69e37d4e5477e30e2b8d3363efb2ecc3e53d3a38213c56a8d3",
+      "bytes": 14904
+    },
+    {
+      "label": "Production configuration observation (two Ops describes)",
+      "path": "tasks/code-red-20261004/runtime/control/PRODUCTION-CONFIG-OBSERVATION-20261004.md",
+      "sha256": "ea3689c8744023f9b627c2e0e51622bb01b7fa70382f1a70c8fac59f17c3564d",
+      "bytes": 4534
+    },
+    {
+      "label": "Original CTO assignment (rules, components, classification table, output format)",
+      "path": "tasks/code-red-20261004/runtime/dispatch/CTO-ENVELOPE-HANDBACK-ASSIGNMENT.md",
+      "sha256": "13dcf2c78ebeab70f5bd9a8cb84dd4a5faafcc66a42e656d2a557310ff9abe76",
+      "bytes": 10792
+    },
+    {
+      "label": "Exclusion closure 146",
+      "path": "tasks/code-red-20261004/runtime/control/source-context-exclusion-146.json",
+      "sha256": "804426be7030c64a52e3de04e82d489d526b81a96cb4cbbbbef6e3567463ebd3",
+      "bytes": 18618
+    }
+  ],
+  "required_changes": [
+    "B07/B08: one serving process per instance is now observed (PRODUCTION-CONFIG-OBSERVATION; record 02 Appendix B) → reclassify with the evidence identity",
+    "B36: fleet SEC configured ceiling corrected to the two-bucket model (app singleton 10 req/s + edgartools 9 req/s per process = 19 sustained, first-second 29; ten processes = 190; Monday 07:00 UTC five processes = 95) per record 02 D3 and Appendix A; note the founder-held D3 patch (1 + 1 per process) as the configuration route, not applied",
+    "B41: provider stream ceiling qualified per the refuters (Appendix A/B qualifications)",
+    "B52: guest generation path — read the code at main to classify (ENABLE_GUEST_DAILY_QUOTA handling); B51 burst limiter values likewise if a bounded code read suffices",
+    "B32: add the 2026-10-05 readout observation: Monitoring/Logging channels HTTP 403 → DB-reserve still unknown; job-ledger overlap facts (9.15 s and 6.57 s business-phase overlaps with near-empty work) recorded as observed; new sub-dependency (Monitoring/Logging read access for the Ops identity) with owner",
+    "B37: closed for compliance by record 02 D8 (SEC cap is per user regardless of IP) — record as such",
+    "B46: provider limits recorded as published/dated by record 02 D7",
+    "B39: rate_limit_hits semantics per records 03/05 (counts only recognised rate-limit errors on backoff paths; HTTPStatusError → 429 only; message fallback only for non-HTTPStatusError exceptions; execute() paths never increment)",
+    "B58: provider spend authority provenance updated to the successor ledger (ceiling USD 25 after event 2; conditional unreserved USD 22.570771; holds USD 1.881713; 0 reservations; paid dispatch HELD) — provenance only, no spend proposed",
+    "Section 5 / determination: re-determine C5 on the updated evidence; keep \"no E09 subset demonstrated necessary\" only if the evidence still supports it; name exactly what remains missing (founder D3 numbers; B32 observation route; B39)"
+  ],
+  "entry_condition": "Readout receipt exists (run 37282199614 success); records 02–06 merged or on the open branch; COO disposition item 7 names the CTO re-determination as the next owner action.",
+  "stop_conditions": [
+    "any production/cloud read or mutation",
+    "any E09 code or dormant-code activation",
+    "any source/customer payload",
+    "any policy number chosen from the four-slot arithmetic or the 110/120 s request controls without evidence",
+    "any claim of fleet capacity from process-local settings",
+    "any invented value for a channel the receipt marks unavailable"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false
+  },
+  "one_writer_for_output_paths": true
+}

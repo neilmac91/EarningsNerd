@@ -1,18 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
+import { CircleNotchIcon, WarningIcon, XIcon } from '@/lib/icons'
+import { cx, noticeTint } from '@/components/ui'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { isAuthRoute } from '@/components/SiteChrome'
 import { queryKeys } from '@/lib/queryKeys'
+import { getErrorStatus } from '@/lib/api/types'
 
 const DISMISS_KEY = 'verifyBannerDismissed'
 
 /**
  * Slim, session-dismissible banner shown to logged-in users who haven't verified
- * their email yet (email_verified gates AI generation + checkout on the backend).
+ * their email yet. Checkout is the one action that refuses an unverified email, with a 403
+ * (`backend/app/routers/subscriptions.py`); generating and reading summaries never wait on it. A
+ * Google or Apple sign-in links to an existing account only once both sides have verified the email
+ * (`backend/app/services/oauth_account_service.py`), which the login page's conflict sentence says,
+ * so the banner's line names subscribing alone.
  */
 export default function VerificationBanner() {
   const pathname = usePathname()
@@ -26,23 +32,40 @@ export default function VerificationBanner() {
   const [dismissed, setDismissed] = useState(true) // start hidden to avoid SSR flash
   const [loading, setLoading] = useState(false)
   const [resent, setResent] = useState(false)
+  const [limited, setLimited] = useState(false)
+  const [failure, setFailure] = useState<{ message: string; n: number } | null>(null)
+  const statusRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time sessionStorage read; effect is the SSR-safe way to hydrate the dismissed flag
     setDismissed(sessionStorage.getItem(DISMISS_KEY) === '1')
   }, [])
 
+  useEffect(() => {
+    // A successful resend swaps the focused "Resend link" for the sent line, dropping focus to
+    // <body>; hand it to that line instead (unless focus has already moved elsewhere).
+    if (resent && document.activeElement === document.body) statusRef.current?.focus({ preventScroll: true })
+  }, [resent])
+
   if (!user || user.email_verified !== false) return null
   if (dismissed || isAuthRoute(pathname)) return null
 
   const handleResend = async () => {
-    if (loading || resent) return
+    if (loading || resent || limited) return
     setLoading(true)
     try {
       await resendVerification(user.email)
       setResent(true)
-    } catch {
-      // best-effort; keep the banner quiet on failure
+      setFailure(null)
+    } catch (error) {
+      const rateLimited = getErrorStatus(error) === 429
+      setLimited(rateLimited)
+      setFailure((previous) => ({
+        message: rateLimited
+          ? "We can't send another link right now. Use the newest link in your inbox, or reload this page to try again later."
+          : "Couldn't send a new link. Try again in a few minutes.",
+        n: (previous?.n ?? 0) + 1,
+      }))
     } finally {
       setLoading(false)
     }
@@ -54,24 +77,33 @@ export default function VerificationBanner() {
   }
 
   return (
-    <div className="border-b border-warning-light/30 bg-warning-light/10 text-warning-light dark:border-warning-dark/20 dark:bg-warning-dark/10 dark:text-warning-dark">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
-        <WarningCircleIcon className="h-4 w-4 shrink-0" />
-        <p className="flex-1">
+    // An unverified address is a state, so the strip takes the warning Notice's tint by name, and as in a Notice its
+    // words rest in the ink and the warning ink is the glyph's alone (E196 (2); DESIGN_SYSTEM.md §4 › Inline notice).
+    <div className={cx('border-b text-text-primary-light dark:text-text-primary-dark', noticeTint('warning'))}>
+      {/* One row while it fits. With enlarged text on a phone, "Resend link" and the dismiss wrap onto
+          a second row, the dismiss at its right end, rather than pushing past the viewport. */}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
+        <WarningIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-warning-light dark:text-warning-dark" />
+        <p ref={statusRef} tabIndex={-1} className="flex-1 outline-none">
           {resent ? (
             <>Verification email sent. Check your inbox.</>
           ) : (
-            <>Verify your email to generate summaries and subscribe.</>
+            <>Verify your email to subscribe.</>
           )}
         </p>
         {!resent && (
+          // aria-disabled while its own request is in flight (handleResend returns early), not
+          // native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades the
+          // label's ink (the spinner and the underline draw in it), not the element: an element opacity
+          // would fade the focus ring too (DESIGN_SYSTEM §4).
           <button
             type="button"
             onClick={handleResend}
-            disabled={loading}
-            className="inline-flex shrink-0 items-center gap-1.5 font-semibold underline-offset-2 hover:underline disabled:opacity-50"
+            aria-disabled={loading || limited || undefined}
+            aria-busy={loading || undefined}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg font-semibold underline-offset-2 hover:underline aria-disabled:text-text-primary-light/50 dark:aria-disabled:text-text-primary-dark/50 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            {loading && <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />}
+            {loading && <CircleNotchIcon aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />}
             Resend link
           </button>
         )}
@@ -79,11 +111,17 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15"
+          // A dialog's close: the tertiary ink, the primary on hover, no ground of its own on the strip's tint.
+          className="ml-auto shrink-0 rounded p-1 text-text-tertiary-light transition-colors hover:text-text-primary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
-          <XIcon className="h-4 w-4" />
+          <XIcon aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
+      {failure ? (
+        <p key={failure.n} role="alert" className="mx-auto max-w-7xl px-4 pb-2.5 text-sm sm:px-6 lg:px-8">
+          {failure.message}
+        </p>
+      ) : null}
     </div>
   )
 }

@@ -1,22 +1,34 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PRICE_VARIANTS } from '@/app/pricing/prices'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { ACCESS_COPY } from '@/features/marketing/lib/access'
+import { FREE_COPILOT_QUESTIONS, FREE_EARNINGS_ALERT_LIMIT, FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 /**
  * The landing pricing section shows the SAME numbers as the pricing page (one price source, one
- * PostHog arm), never the design's placeholders; the toggle is an accessible radio group; and the
- * beta line, account CTA and trial copy each follow their one deciding source.
+ * approved offer), never the design's placeholders; it is one table, the plans as its columns and what
+ * each includes as its rows (D-045); the toggle is an accessible radio group; and the beta line, account
+ * CTA and trial copy each follow their one deciding source.
  */
 
-// The pricing A/B arm, per test. Default (undefined) = the $39 control, as on the pricing page.
-const mockVariant = vi.hoisted(() => ({ value: undefined as unknown }))
-vi.mock('posthog-js/react', () => ({ useFeatureFlagVariantKey: () => mockVariant.value }))
-
 // Live mutable flag so a test can flip ENABLE_PRO_TRIAL without re-importing the component.
-const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
-vi.mock('@/lib/featureFlags', () => flags)
+// The flags ship off: the plan lists leave out the lines they decide (lib/planLimits.ts shipped).
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
+vi.mock('@/lib/featureFlags', async (original) => ({ ...(await original<typeof import('@/lib/featureFlags')>()), ...flags,
+  get ENABLE_PRO_TRIAL() { return flags.ENABLE_PRO_TRIAL },
+  get ENABLE_ANALYSIS() { return flags.ENABLE_ANALYSIS },
+  get ENABLE_FPI_FILINGS() { return flags.ENABLE_FPI_FILINGS },
+}))
+
+// These offer/layout cases assume released checkout; publicAccess.spec.tsx exercises the hold.
+vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
+  const { ACCESS_COPY } = await import('@/features/marketing/lib/access')
+  const { legalReady } = await import('./fixtures/legalReady')
+  return {
+    usePublicAccess: (mode: keyof typeof ACCESS_COPY) => ACCESS_COPY[mode],
+    usePublicReadiness: () => ({ readiness: legalReady, loading: false }),
+  }
+})
 
 vi.mock('@/lib/analytics', () => ({ default: { homepageSectionViewed: vi.fn(), billingCycleToggled: vi.fn() } }))
 
@@ -35,24 +47,21 @@ const renderSection = (props: Partial<React.ComponentProps<typeof PricingSection
 
 describe('PricingSection', () => {
   beforeEach(() => {
-    mockVariant.value = undefined
     flags.ENABLE_PRO_TRIAL = false
   })
 
-  it('defaults to monthly at the control price and shows the annual per-month equivalent when selected', () => {
+  it('opens on annual at the $20 per month headline with its full charge, and shows $25 on monthly', () => {
     renderSection()
-    const { monthlyDisplay, yearlyDisplay } = PRICE_VARIANTS.control
 
-    expect(screen.getByText(monthlyDisplay)).toBeInTheDocument()
-    expect(screen.getByText(`Billed monthly. Or ${yearlyDisplay} a year, 2 months free.`)).toBeInTheDocument()
+    expect(screen.getByText('$20')).toBeInTheDocument()
+    expect(screen.getByText('per month')).toBeInTheDocument()
+    expect(screen.getByText('Billed annually at $240, saving $60 a year.')).toBeInTheDocument()
+    expect(screen.getByText('· save 20%')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    // $390 / 12, formatted like the pricing page.
-    expect(screen.getByText('$32.50')).toBeInTheDocument()
-    expect(screen.queryByText(monthlyDisplay)).not.toBeInTheDocument()
-    expect(
-      screen.getByText(`Billed annually at ${yearlyDisplay}. Two months free against monthly.`),
-    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    expect(screen.getByText('$25')).toBeInTheDocument()
+    expect(screen.queryByText('$20')).not.toBeInTheDocument()
+    expect(screen.getByText('Billed monthly. Or $20 a month, billed annually at $240.')).toBeInTheDocument()
   })
 
   it('is a two-option radio group whose checked state and roving focus follow clicks and arrow keys', () => {
@@ -62,13 +71,17 @@ describe('PricingSection', () => {
     expect(radios).toHaveLength(2)
     const [monthly, annual] = radios
 
-    expect(monthly).toHaveAttribute('aria-checked', 'true')
-    expect(annual).toHaveAttribute('aria-checked', 'false')
-    expect(monthly).toHaveAttribute('tabindex', '0')
-    expect(annual).toHaveAttribute('tabindex', '-1')
-
-    fireEvent.click(annual)
+    expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(monthly).toHaveAttribute('aria-checked', 'false')
+    expect(annual).toHaveAttribute('tabindex', '0')
+    expect(monthly).toHaveAttribute('tabindex', '-1')
+
+    fireEvent.click(monthly)
+    expect(annual).toHaveAttribute('aria-checked', 'false')
+    expect(monthly).toHaveAttribute('aria-checked', 'true')
+    expect(monthly).toHaveFocus()
+
+    fireEvent.keyDown(group, { key: 'ArrowRight' })
     expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(annual).toHaveFocus()
 
@@ -79,6 +92,62 @@ describe('PricingSection', () => {
     fireEvent.keyDown(group, { key: 'End' })
     expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(annual).toHaveFocus()
+
+    fireEvent.keyDown(group, { key: 'Home' })
+    expect(monthly).toHaveAttribute('aria-checked', 'true')
+    expect(monthly).toHaveFocus()
+  })
+
+  // The Filings row names 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS
+  // (tasks/todo.md F39), and never the "Supported" hedge, as /pricing does (PricingPage.spec.tsx); both plans read it.
+  it.each([true, false])('names the filing forms in both plans without a hedge, 20-F only while the FPI flag ships it (flag %s)', (on) => {
+    flags.ENABLE_FPI_FILINGS = on
+    const { container } = renderSection()
+    const row = screen.getByRole('rowheader', { name: 'Filings' }).closest('tr')!
+    expect(within(row).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(
+      Array(2).fill(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR'),
+    )
+    if (!on) expect(container).not.toHaveTextContent('20-F')
+    expect(container).not.toHaveTextContent(/Supported/i)
+    flags.ENABLE_FPI_FILINGS = false
+  })
+
+  // D-045: pricing on the landing is one table, a real one: a caption that names it, the two plans as column headers,
+  // what each includes as row headers, one cell per plan in every row, read from lib/planLimits.ts. A plan that does
+  // not include a row's thing reads "Not included" to a screen reader, never a bare dash.
+  it('is one table: the plans as its columns and what each includes as its rows, from the plan-line mirror', () => {
+    const { container } = renderSection()
+    expect(container.querySelectorAll('table')).toHaveLength(1)
+    const table = screen.getByRole('table', { name: 'What each plan includes' })
+    expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Free', 'Pro'])
+    expect(within(table).getAllByRole('rowheader').map((header) => header.textContent)).toEqual([
+      'Price',
+      'Summaries',
+      'Filings',
+      'Company search and historical filings',
+      'Ask this Filing',
+      'Change Report',
+      'Alerts',
+      'Exports',
+      'Watchlist',
+      'Priority support',
+    ])
+    const cells = (label: string) =>
+      within(screen.getByRole('rowheader', { name: label }).closest('tr')!).getAllByRole('cell').map((cell) => cell.textContent)
+    expect(cells('Summaries')).toEqual([`${FREE_SUMMARY_LIMIT} a month`, 'Unlimited'])
+    expect(cells('Ask this Filing')).toEqual([`${FREE_COPILOT_QUESTIONS} questions`, 'Included'])
+    expect(cells('Alerts')).toEqual([`${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`, 'Hourly filing alerts and 8-K alerts'])
+    expect(cells('Exports')).toEqual(['—Not included', 'PDF and CSV exports'])
+    expect(cells('Priority support')).toEqual(['—Not included', 'Included'])
+    // Every row is a row header and one cell per plan; the closing row holds the two calls to action under their plans.
+    for (const row of within(table).getAllByRole('row').slice(1, -1)) {
+      expect(within(row).getAllByRole('rowheader')).toHaveLength(1)
+      expect(within(row).getAllByRole('cell')).toHaveLength(2)
+    }
+    const actions = within(table).getAllByRole('row').at(-1)!
+    expect(within(actions).getAllByRole('link').map((link) => link.textContent)).toEqual([ACCESS_COPY.public.cta, 'Upgrade to Pro'])
+    // The dash is decoration: the reading is the words.
+    for (const dash of within(table).getAllByText('—')) expect(dash).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('shows the beta line only when showBeta is set', () => {
@@ -103,6 +172,8 @@ describe('PricingSection', () => {
 
   it('preserves the selected cycle and advertises a trial only on monthly when enabled', () => {
     const { unmount } = renderSection()
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=yearly')
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=monthly')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
@@ -110,37 +181,25 @@ describe('PricingSection', () => {
 
     flags.ENABLE_PRO_TRIAL = true
     renderSection()
-    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing?billing=monthly')
-    expect(screen.queryByRole('link', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
-    expect(screen.getByText(TRIAL_LINE)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
+    // Annual, the default, carries no trial.
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=yearly')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing?billing=monthly')
+    expect(screen.queryByRole('link', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
+    expect(screen.getByText(TRIAL_LINE)).toBeInTheDocument()
   })
 
   it('does not pair the free beta offer with a card-required trial promise', () => {
     flags.ENABLE_PRO_TRIAL = true
     renderSection({ showBeta: true })
+    // Monthly is the cycle that would otherwise carry the trial.
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
     expect(screen.getByText('Free for beta members')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
-  })
-
-  it('lowers the displayed price on the price_29 arm, in both billing periods', () => {
-    mockVariant.value = 'price_29'
-    renderSection()
-    const { monthlyDisplay, yearlyDisplay } = PRICE_VARIANTS.price_29
-
-    expect(screen.getByText(monthlyDisplay)).toBeInTheDocument()
-    expect(screen.queryByText(PRICE_VARIANTS.control.monthlyDisplay)).not.toBeInTheDocument()
-    expect(screen.getByText(`Billed monthly. Or ${yearlyDisplay} a year, 2 months free.`)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    // $290 / 12.
-    expect(screen.getByText('$24.17')).toBeInTheDocument()
-    expect(screen.queryByText('$32.50')).not.toBeInTheDocument()
   })
 })

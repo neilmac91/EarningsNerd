@@ -1,0 +1,86 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "A is fully supported but only restates table values; its watch item benchmarks against stale FY2022 free cash flow. B ties revenue, DD&A, operating expense and cash-flow moves to quoted filing passages. It adds peer and capital-return context, flags the revenue-basis mismatch and labels its analysis. One overreach: cost growth 'so' pretax fell is B's own inference. B still clearly serves readers better."
+   },
+   "cost_usd": 0.091709,
+   "latency_s": 11.478,
+   "input_tokens": 10356,
+   "output_tokens": 727,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"strong\", \"rationale\": \"A is fully supported but only restates table values; its watch item benchmarks against stale FY2022 free cash flow. B ties revenue, DD&A, operating expense and cash-flow moves to quoted filing passages. It adds peer and capital-return context, flags the revenue-basis mismatch and labels its analysis. One overreach: cost growth 'so' pretax fell is B's own inference. B still clearly serves readers better.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains the drivers the table cannot show: Shell Permian and Marathon volumes, DD&A and severance, the tax-rate rise, peer net cash, and the 46% payout. It also flags data gaps and the revenue-basis mismatch. It has minor stretches, such as treating cost growth as the reason pretax income fell. B is fully supported but only restates table values, with no causes and vague things to watch. A's depth far outweighs its small grounding lapses."
+   },
+   "cost_usd": 0.091493,
+   "latency_s": 11.747,
+   "input_tokens": 10354,
+   "output_tokens": 717,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains the drivers the table cannot show: Shell Permian and Marathon volumes, DD&A and severance, the tax-rate rise, peer net cash, and the 46% payout. It also flags data gaps and the revenue-basis mismatch. It has minor stretches, such as treating cost growth as the reason pretax income fell. B is fully supported but only restates table values, with no causes and vague things to watch. A's depth far outweighs its small grounding lapses.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.183202
+}

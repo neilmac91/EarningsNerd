@@ -46,4 +46,11 @@ describe('fetchFilingContent', () => {
     getImpl = () => Promise.reject(new Error('Request failed with status 404'))
     await expect(fetchFilingContent(7)).rejects.toThrow(/404/)
   })
+
+  // Rule 9: the response is attributed to the requested filing only once the boundary has checked
+  // `filing_id` names it. A missing, non-integer or different id is refused for every caller.
+  it.each([undefined, null, '7', 8, 7.5])('rejects a response whose filing_id is %j before attributing its text', async (filing_id) => {
+    getImpl = () => Promise.resolve({ data: { filing_id, has_content: true, markdown_content: 'A quote.' } })
+    await expect(fetchFilingContent(7)).rejects.toThrow('identify the requested filing')
+  })
 })

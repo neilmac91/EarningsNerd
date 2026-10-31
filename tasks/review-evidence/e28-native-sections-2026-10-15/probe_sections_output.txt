@@ -1,0 +1,19 @@
+edgar.settings INFO Identity of the Edgar REST client set to [EarningsNerd research contact@earningsnerd.io]
+app.services.edgar.client INFO EdgarTools initialized with identity: EarningsNerd research contact@earningsnerd.io
+edgar.settings INFO Identity of the Edgar REST client set to [EarningsNerd research contact@earningsnerd.io]
+httpx2 INFO HTTP Request: GET https://data.sec.gov/submissions/CIK0000320193.json "HTTP/1.1 200 OK"
+httpx2 INFO HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+httpx2 INFO HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/0000320193-25-000079-index.html "HTTP/1.1 403 Forbidden"
+httpx2 INFO HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+httpx2 INFO HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/0000320193-25-000079-index.html "HTTP/1.1 403 Forbidden"
+
+===== 10-K 0000320193-25-000079 cik 0000320193
+resolved filings: 1 list
+filing: 10-K 0000320193-25-000079 2025-10-31
+primary doc url: https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm
+obj(): TenK
+  Item 1A: AttributeError: 'NoneType' object has no attribute 'download'
+  Item 7: AttributeError: 'NoneType' object has no attribute 'download'
+  Item 8: AttributeError: 'NoneType' object has no attribute 'download'
+_extract_sections_sync -> None
+elapsed 1.3s

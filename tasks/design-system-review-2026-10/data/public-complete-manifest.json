@@ -1,0 +1,3344 @@
+[
+  {
+    "name": "production-check-email-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/check-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:34.892Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-check-email-dark-1440-settled.json",
+      "production-check-email-dark-1440-settled.png",
+      "production-check-email-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-check-email-dark-390-settled",
+    "url": "https://www.earningsnerd.io/check-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:38.488Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-check-email-dark-390-settled.json",
+      "production-check-email-dark-390-settled.png",
+      "production-check-email-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-check-email-light-1440-settled",
+    "url": "https://www.earningsnerd.io/check-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:28.079Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-check-email-light-1440-settled.json",
+      "production-check-email-light-1440-settled.png",
+      "production-check-email-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-check-email-light-390-settled",
+    "url": "https://www.earningsnerd.io/check-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:31.569Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-check-email-light-390-settled.json",
+      "production-check-email-light-390-settled.png",
+      "production-check-email-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:06:49.486Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 2001
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-1023-edge-reduced.json",
+      "production-company-AAPL-dark-1023-edge-reduced.png",
+      "production-company-AAPL-dark-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-1024-edge",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:06:55.051Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 1665
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-1024-edge.json",
+      "production-company-AAPL-dark-1024-edge.png",
+      "production-company-AAPL-dark-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-1440-first",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:02:56.760Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1603
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-1440-first.json",
+      "production-company-AAPL-dark-1440-first.png",
+      "production-company-AAPL-dark-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:01.728Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1603
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-1440-settled.json",
+      "production-company-AAPL-dark-1440-settled.png",
+      "production-company-AAPL-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-320-small",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:06:37.711Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 3022
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-320-small.json",
+      "production-company-AAPL-dark-320-small.png",
+      "production-company-AAPL-dark-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-390-first",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:03:02.929Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 2786
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-390-first.json",
+      "production-company-AAPL-dark-390-first.png",
+      "production-company-AAPL-dark-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-390-settled",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:07.500Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 2786
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-390-settled.json",
+      "production-company-AAPL-dark-390-settled.png",
+      "production-company-AAPL-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-390-text200",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:06:43.776Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 8784
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-390-text200.json",
+      "production-company-AAPL-dark-390-text200.png",
+      "production-company-AAPL-dark-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-dark-768-tablet",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:06:31.940Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 2049
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-dark-768-tablet.json",
+      "production-company-AAPL-dark-768-tablet.png",
+      "production-company-AAPL-dark-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:06:20.017Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 2001
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-1023-edge-reduced.json",
+      "production-company-AAPL-light-1023-edge-reduced.png",
+      "production-company-AAPL-light-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-1024-edge",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:06:25.962Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 1665
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-1024-edge.json",
+      "production-company-AAPL-light-1024-edge.png",
+      "production-company-AAPL-light-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-1440-first",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:02:45.198Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1603
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-1440-first.json",
+      "production-company-AAPL-light-1440-first.png",
+      "production-company-AAPL-light-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-1440-settled",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:58:50.397Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1603
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-1440-settled.json",
+      "production-company-AAPL-light-1440-settled.png",
+      "production-company-AAPL-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-320-small",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:06:08.369Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 3022
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-320-small.json",
+      "production-company-AAPL-light-320-small.png",
+      "production-company-AAPL-light-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-390-first",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:02:50.940Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 2786
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-390-first.json",
+      "production-company-AAPL-light-390-first.png",
+      "production-company-AAPL-light-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-390-settled",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:58:56.190Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 2786
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-390-settled.json",
+      "production-company-AAPL-light-390-settled.png",
+      "production-company-AAPL-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-390-text200",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:06:14.344Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 8784
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-390-text200.json",
+      "production-company-AAPL-light-390-text200.png",
+      "production-company-AAPL-light-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-company-AAPL-light-768-tablet",
+    "url": "https://www.earningsnerd.io/company/AAPL",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:06:02.338Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 2049
+    },
+    "mainCount": 1,
+    "files": [
+      "production-company-AAPL-light-768-tablet.json",
+      "production-company-AAPL-light-768-tablet.png",
+      "production-company-AAPL-light-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-contact-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/contact",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:56.748Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1589
+    },
+    "mainCount": 1,
+    "files": [
+      "production-contact-dark-1440-settled.json",
+      "production-contact-dark-1440-settled.png",
+      "production-contact-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-contact-dark-390-settled",
+    "url": "https://www.earningsnerd.io/contact",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:59.806Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 2107
+    },
+    "mainCount": 1,
+    "files": [
+      "production-contact-dark-390-settled.json",
+      "production-contact-dark-390-settled.png",
+      "production-contact-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-contact-light-1440-settled",
+    "url": "https://www.earningsnerd.io/contact",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:50.727Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1589
+    },
+    "mainCount": 1,
+    "files": [
+      "production-contact-light-1440-settled.json",
+      "production-contact-light-1440-settled.png",
+      "production-contact-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-contact-light-390-settled",
+    "url": "https://www.earningsnerd.io/contact",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:53.781Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 2107
+    },
+    "mainCount": 1,
+    "files": [
+      "production-contact-light-390-settled.json",
+      "production-contact-light-390-settled.png",
+      "production-contact-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:05:49.824Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 6482
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-1023-edge-reduced.json",
+      "production-filing-3-dark-1023-edge-reduced.png",
+      "production-filing-3-dark-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-1024-edge",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:05:56.270Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 6991
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-1024-edge.json",
+      "production-filing-3-dark-1024-edge.png",
+      "production-filing-3-dark-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-1440-first",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:02:32.142Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 6217
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-1440-first.json",
+      "production-filing-3-dark-1440-first.png",
+      "production-filing-3-dark-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:58:37.388Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 6217
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-1440-settled.json",
+      "production-filing-3-dark-1440-settled.png",
+      "production-filing-3-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-320-small",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:05:34.552Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 13087
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-320-small.json",
+      "production-filing-3-dark-320-small.png",
+      "production-filing-3-dark-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-390-first",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:02:38.912Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-390-first.json",
+      "production-filing-3-dark-390-first.png",
+      "production-filing-3-dark-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-390-launcher-occlusion",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:13:03.277Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-390-launcher-occlusion.json",
+      "production-filing-3-dark-390-launcher-occlusion.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-390-settled",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:58:44.271Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-390-settled.json",
+      "production-filing-3-dark-390-settled.png",
+      "production-filing-3-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-390-source-filing",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:11:28.098Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-390-source-filing.json",
+      "production-filing-3-dark-390-source-filing.png",
+      "production-filing-3-dark-390-source-filing-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-390-source-open",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:08:43.662Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-390-source-open.json",
+      "production-filing-3-dark-390-source-open.png",
+      "production-filing-3-dark-390-source-open-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-390-text200",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:05:43.133Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 38649
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-390-text200.json",
+      "production-filing-3-dark-390-text200.png",
+      "production-filing-3-dark-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-dark-768-tablet",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:05:27.726Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 7467
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-dark-768-tablet.json",
+      "production-filing-3-dark-768-tablet.png",
+      "production-filing-3-dark-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:05:14.819Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 6482
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-1023-edge-reduced.json",
+      "production-filing-3-light-1023-edge-reduced.png",
+      "production-filing-3-light-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-1024-edge",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:05:21.254Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 6991
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-1024-edge.json",
+      "production-filing-3-light-1024-edge.png",
+      "production-filing-3-light-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-1440-first",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:02:17.245Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 6217
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-1440-first.json",
+      "production-filing-3-light-1440-first.png",
+      "production-filing-3-light-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-1440-settled",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:58:24.438Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 6217
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-1440-settled.json",
+      "production-filing-3-light-1440-settled.png",
+      "production-filing-3-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-320-small",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:04:59.875Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 13087
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-320-small.json",
+      "production-filing-3-light-320-small.png",
+      "production-filing-3-light-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-390-first",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:02:25.044Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-390-first.json",
+      "production-filing-3-light-390-first.png",
+      "production-filing-3-light-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-390-launcher-occlusion",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:12:58.465Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-390-launcher-occlusion.json",
+      "production-filing-3-light-390-launcher-occlusion.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-390-settled",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:58:31.083Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-390-settled.json",
+      "production-filing-3-light-390-settled.png",
+      "production-filing-3-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-390-source-filing",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:11:11.030Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-390-source-filing.json",
+      "production-filing-3-light-390-source-filing.png",
+      "production-filing-3-light-390-source-filing-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-390-source-open",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:08:20.717Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 11648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-390-source-open.json",
+      "production-filing-3-light-390-source-open.png",
+      "production-filing-3-light-390-source-open-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-390-text200",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:05:08.355Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 38649
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-390-text200.json",
+      "production-filing-3-light-390-text200.png",
+      "production-filing-3-light-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-filing-3-light-768-tablet",
+    "url": "https://www.earningsnerd.io/filing/3",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:04:53.087Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 7467
+    },
+    "mainCount": 1,
+    "files": [
+      "production-filing-3-light-768-tablet.json",
+      "production-filing-3-light-768-tablet.png",
+      "production-filing-3-light-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-forgot-password-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/forgot-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:09.011Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-forgot-password-dark-1440-settled.json",
+      "production-forgot-password-dark-1440-settled.png",
+      "production-forgot-password-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-forgot-password-dark-390-settled",
+    "url": "https://www.earningsnerd.io/forgot-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:11.926Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-forgot-password-dark-390-settled.json",
+      "production-forgot-password-dark-390-settled.png",
+      "production-forgot-password-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-forgot-password-light-1440-settled",
+    "url": "https://www.earningsnerd.io/forgot-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:02.866Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-forgot-password-light-1440-settled.json",
+      "production-forgot-password-light-1440-settled.png",
+      "production-forgot-password-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-forgot-password-light-390-settled",
+    "url": "https://www.earningsnerd.io/forgot-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:05.958Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-forgot-password-light-390-settled.json",
+      "production-forgot-password-light-390-settled.png",
+      "production-forgot-password-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:09.669Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 9457
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-1023-edge-reduced.json",
+      "production-home-dark-1023-edge-reduced.png",
+      "production-home-dark-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-1024-edge",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:13.867Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 8464
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-1024-edge.json",
+      "production-home-dark-1024-edge.png",
+      "production-home-dark-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-1440-first",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:55:13.775Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 8374
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-1440-first.json",
+      "production-home-dark-1440-first.png",
+      "production-home-dark-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:57:59.112Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 8374
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-1440-settled.json",
+      "production-home-dark-1440-settled.png",
+      "production-home-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-320-small",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:03:58.492Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 15106
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-320-small.json",
+      "production-home-dark-320-small.png",
+      "production-home-dark-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-390-first",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:57.246Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 13700
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-390-first.json",
+      "production-home-dark-390-first.png",
+      "production-home-dark-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-390-menu",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:08:36.106Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 14006
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-390-menu.json",
+      "production-home-dark-390-menu.png",
+      "production-home-dark-390-menu-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-390-settled",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:58:04.158Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 13700
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-390-settled.json",
+      "production-home-dark-390-settled.png",
+      "production-home-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-390-text200",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:05.073Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 41456
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-390-text200.json",
+      "production-home-dark-390-text200.png",
+      "production-home-dark-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-dark-768-tablet",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:03:54.011Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 9931
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-dark-768-tablet.json",
+      "production-home-dark-768-tablet.png",
+      "production-home-dark-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:45.768Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 9457
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-1023-edge-reduced.json",
+      "production-home-light-1023-edge-reduced.png",
+      "production-home-light-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-1024-edge",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:49.806Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 8464
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-1024-edge.json",
+      "production-home-light-1024-edge.png",
+      "production-home-light-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-1440-first",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:55:09.475Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 8374
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-1440-first.json",
+      "production-home-light-1440-first.png",
+      "production-home-light-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-1440-settled",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:57:49.957Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 8374
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-1440-settled.json",
+      "production-home-light-1440-settled.png",
+      "production-home-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-320-small",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:35.080Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 15106
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-320-small.json",
+      "production-home-light-320-small.png",
+      "production-home-light-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-390-first",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:01:52.337Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 13700
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-390-first.json",
+      "production-home-light-390-first.png",
+      "production-home-light-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-390-menu",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:08:13.159Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 14006
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-390-menu.json",
+      "production-home-light-390-menu.png",
+      "production-home-light-390-menu-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-390-settled",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:57:54.585Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 13700
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-390-settled.json",
+      "production-home-light-390-settled.png",
+      "production-home-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-390-text200",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:41.223Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 41456
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-390-text200.json",
+      "production-home-light-390-text200.png",
+      "production-home-light-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-home-light-768-tablet",
+    "url": "https://www.earningsnerd.io/",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:30.589Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 9931
+    },
+    "mainCount": 1,
+    "files": [
+      "production-home-light-768-tablet.json",
+      "production-home-light-768-tablet.png",
+      "production-home-light-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:07:21.443Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-1023-edge-reduced.json",
+      "production-login-dark-1023-edge-reduced.png",
+      "production-login-dark-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-1024-edge",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:07:24.310Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-1024-edge.json",
+      "production-login-dark-1024-edge.png",
+      "production-login-dark-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-1440-email",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:11:16.949Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-1440-email.json",
+      "production-login-dark-1440-email.png",
+      "production-login-dark-1440-email-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-1440-first",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:03:12.235Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-1440-first.json",
+      "production-login-dark-1440-first.png",
+      "production-login-dark-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-1440-hover",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:08:32.023Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-1440-hover.json",
+      "production-login-dark-1440-hover.png",
+      "production-login-dark-1440-hover-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:16.816Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-1440-settled.json",
+      "production-login-dark-1440-settled.png",
+      "production-login-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-320-small",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:07:15.632Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 568
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-320-small.json",
+      "production-login-dark-320-small.png",
+      "production-login-dark-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-390-email",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:11:20.407Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-390-email.json",
+      "production-login-dark-390-email.png",
+      "production-login-dark-390-email-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-390-first",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:03:15.279Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-390-first.json",
+      "production-login-dark-390-first.png",
+      "production-login-dark-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-390-settled",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:20.374Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-390-settled.json",
+      "production-login-dark-390-settled.png",
+      "production-login-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-390-text200",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:07:18.524Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 558,
+      "height": 1208
+    },
+    "document": {
+      "width": 558,
+      "clientWidth": 390,
+      "height": 1266
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-390-text200.json",
+      "production-login-dark-390-text200.png",
+      "production-login-dark-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-dark-768-tablet",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:07:12.743Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 1024
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-dark-768-tablet.json",
+      "production-login-dark-768-tablet.png",
+      "production-login-dark-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:07:06.785Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-1023-edge-reduced.json",
+      "production-login-light-1023-edge-reduced.png",
+      "production-login-light-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-1024-edge",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:07:09.759Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-1024-edge.json",
+      "production-login-light-1024-edge.png",
+      "production-login-light-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-1440-email",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:10:59.912Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-1440-email.json",
+      "production-login-light-1440-email.png",
+      "production-login-light-1440-email-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-1440-first",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:06.072Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-1440-first.json",
+      "production-login-light-1440-first.png",
+      "production-login-light-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-1440-hover",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:08:08.947Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-1440-hover.json",
+      "production-login-light-1440-hover.png",
+      "production-login-light-1440-hover-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-1440-settled",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:10.597Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-1440-settled.json",
+      "production-login-light-1440-settled.png",
+      "production-login-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-320-small",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:07:00.848Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 568
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-320-small.json",
+      "production-login-light-320-small.png",
+      "production-login-light-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-390-email",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:11:03.297Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-390-email.json",
+      "production-login-light-390-email.png",
+      "production-login-light-390-email-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-390-first",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:09.323Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-390-first.json",
+      "production-login-light-390-first.png",
+      "production-login-light-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-390-settled",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:13.764Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-390-settled.json",
+      "production-login-light-390-settled.png",
+      "production-login-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-390-text200",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:07:03.871Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 558,
+      "height": 1208
+    },
+    "document": {
+      "width": 558,
+      "clientWidth": 390,
+      "height": 1266
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-390-text200.json",
+      "production-login-light-390-text200.png",
+      "production-login-light-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-login-light-768-tablet",
+    "url": "https://www.earningsnerd.io/login",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:06:58.023Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 1024
+    },
+    "mainCount": 0,
+    "files": [
+      "production-login-light-768-tablet.json",
+      "production-login-light-768-tablet.png",
+      "production-login-light-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-nonexistent-design-review-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/nonexistent-design-review",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:02.008Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 959
+    },
+    "mainCount": 1,
+    "files": [
+      "production-nonexistent-design-review-dark-1440-settled.json",
+      "production-nonexistent-design-review-dark-1440-settled.png",
+      "production-nonexistent-design-review-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-nonexistent-design-review-dark-390-settled",
+    "url": "https://www.earningsnerd.io/nonexistent-design-review",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:05.072Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 1384
+    },
+    "mainCount": 1,
+    "files": [
+      "production-nonexistent-design-review-dark-390-settled.json",
+      "production-nonexistent-design-review-dark-390-settled.png",
+      "production-nonexistent-design-review-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-nonexistent-design-review-light-1440-settled",
+    "url": "https://www.earningsnerd.io/nonexistent-design-review",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:55.895Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 959
+    },
+    "mainCount": 1,
+    "files": [
+      "production-nonexistent-design-review-light-1440-settled.json",
+      "production-nonexistent-design-review-light-1440-settled.png",
+      "production-nonexistent-design-review-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-nonexistent-design-review-light-390-settled",
+    "url": "https://www.earningsnerd.io/nonexistent-design-review",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:58.951Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 1384
+    },
+    "mainCount": 1,
+    "files": [
+      "production-nonexistent-design-review-light-390-settled.json",
+      "production-nonexistent-design-review-light-390-settled.png",
+      "production-nonexistent-design-review-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:43.941Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 1999
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-1023-edge-reduced.json",
+      "production-pricing-dark-1023-edge-reduced.png",
+      "production-pricing-dark-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-1024-edge",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:46.991Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 1995
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-1024-edge.json",
+      "production-pricing-dark-1024-edge.png",
+      "production-pricing-dark-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-1440-first",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:02:07.647Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1979
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-1440-first.json",
+      "production-pricing-dark-1440-first.png",
+      "production-pricing-dark-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:58:14.845Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1979
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-1440-settled.json",
+      "production-pricing-dark-1440-settled.png",
+      "production-pricing-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-320-small",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:37.089Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 3712
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-320-small.json",
+      "production-pricing-dark-320-small.png",
+      "production-pricing-dark-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-390-first",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:02:11.296Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 3292
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-390-first.json",
+      "production-pricing-dark-390-first.png",
+      "production-pricing-dark-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-390-settled",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:58:18.363Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 3292
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-390-settled.json",
+      "production-pricing-dark-390-settled.png",
+      "production-pricing-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-390-text200",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:40.811Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 10214
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-390-text200.json",
+      "production-pricing-dark-390-text200.png",
+      "production-pricing-dark-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-dark-768-tablet",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:04:33.846Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 2115
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-dark-768-tablet.json",
+      "production-pricing-dark-768-tablet.png",
+      "production-pricing-dark-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-1023-edge-reduced",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:04:27.555Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1023,
+      "height": 900
+    },
+    "document": {
+      "width": 1023,
+      "clientWidth": 1023,
+      "height": 1999
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-1023-edge-reduced.json",
+      "production-pricing-light-1023-edge-reduced.png",
+      "production-pricing-light-1023-edge-reduced-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-1024-edge",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:04:30.586Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1024,
+      "height": 900
+    },
+    "document": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "height": 1995
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-1024-edge.json",
+      "production-pricing-light-1024-edge.png",
+      "production-pricing-light-1024-edge-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-1440-first",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:02:00.907Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1979
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-1440-first.json",
+      "production-pricing-light-1440-first.png",
+      "production-pricing-light-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-1440-settled",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:58:08.126Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 1979
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-1440-settled.json",
+      "production-pricing-light-1440-settled.png",
+      "production-pricing-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-320-small",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:04:20.783Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "document": {
+      "width": 320,
+      "clientWidth": 320,
+      "height": 3712
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-320-small.json",
+      "production-pricing-light-320-small.png",
+      "production-pricing-light-320-small-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-390-first",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:02:04.349Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 3292
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-390-first.json",
+      "production-pricing-light-390-first.png",
+      "production-pricing-light-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-390-settled",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:58:11.386Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 3292
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-390-settled.json",
+      "production-pricing-light-390-settled.png",
+      "production-pricing-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-390-text200",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:04:24.463Z",
+    "rootFont": "32px",
+    "viewport": {
+      "width": 543,
+      "height": 1176
+    },
+    "document": {
+      "width": 543,
+      "clientWidth": 390,
+      "height": 10214
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-390-text200.json",
+      "production-pricing-light-390-text200.png",
+      "production-pricing-light-390-text200-fold.png"
+    ]
+  },
+  {
+    "name": "production-pricing-light-768-tablet",
+    "url": "https://www.earningsnerd.io/pricing",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:04:17.522Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "document": {
+      "width": 768,
+      "clientWidth": 768,
+      "height": 2115
+    },
+    "mainCount": 1,
+    "files": [
+      "production-pricing-light-768-tablet.json",
+      "production-pricing-light-768-tablet.png",
+      "production-pricing-light-768-tablet-fold.png"
+    ]
+  },
+  {
+    "name": "production-privacy-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/privacy",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:16.102Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 4920
+    },
+    "mainCount": 1,
+    "files": [
+      "production-privacy-dark-1440-settled.json",
+      "production-privacy-dark-1440-settled.png",
+      "production-privacy-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-privacy-dark-390-settled",
+    "url": "https://www.earningsnerd.io/privacy",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:20.175Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 8427
+    },
+    "mainCount": 1,
+    "files": [
+      "production-privacy-dark-390-settled.json",
+      "production-privacy-dark-390-settled.png",
+      "production-privacy-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-privacy-light-1440-settled",
+    "url": "https://www.earningsnerd.io/privacy",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:01:08.393Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 4920
+    },
+    "mainCount": 1,
+    "files": [
+      "production-privacy-light-1440-settled.json",
+      "production-privacy-light-1440-settled.png",
+      "production-privacy-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-privacy-light-390-settled",
+    "url": "https://www.earningsnerd.io/privacy",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:01:12.343Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 8427
+    },
+    "mainCount": 1,
+    "files": [
+      "production-privacy-light-390-settled.json",
+      "production-privacy-light-390-settled.png",
+      "production-privacy-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-dark-1440-first",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:03:24.116Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-dark-1440-first.json",
+      "production-register-dark-1440-first.png",
+      "production-register-dark-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:29.262Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-dark-1440-settled.json",
+      "production-register-dark-1440-settled.png",
+      "production-register-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-dark-390-first",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:03:27.037Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-dark-390-first.json",
+      "production-register-dark-390-first.png",
+      "production-register-dark-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-dark-390-settled",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:32.788Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-dark-390-settled.json",
+      "production-register-dark-390-settled.png",
+      "production-register-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-light-1440-first",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:18.165Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-light-1440-first.json",
+      "production-register-light-1440-first.png",
+      "production-register-light-1440-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-light-1440-settled",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:23.320Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-light-1440-settled.json",
+      "production-register-light-1440-settled.png",
+      "production-register-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-light-390-first",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:03:21.172Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-light-390-first.json",
+      "production-register-light-390-first.png",
+      "production-register-light-390-first-fold.png"
+    ]
+  },
+  {
+    "name": "production-register-light-390-settled",
+    "url": "https://www.earningsnerd.io/register",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:26.386Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-register-light-390-settled.json",
+      "production-register-light-390-settled.png",
+      "production-register-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-reset-password-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/reset-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:21.275Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-reset-password-dark-1440-settled.json",
+      "production-reset-password-dark-1440-settled.png",
+      "production-reset-password-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-reset-password-dark-390-settled",
+    "url": "https://www.earningsnerd.io/reset-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:24.631Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-reset-password-dark-390-settled.json",
+      "production-reset-password-dark-390-settled.png",
+      "production-reset-password-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-reset-password-light-1440-settled",
+    "url": "https://www.earningsnerd.io/reset-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:15.249Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-reset-password-light-1440-settled.json",
+      "production-reset-password-light-1440-settled.png",
+      "production-reset-password-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-reset-password-light-390-settled",
+    "url": "https://www.earningsnerd.io/reset-password",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:18.275Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-reset-password-light-390-settled.json",
+      "production-reset-password-light-390-settled.png",
+      "production-reset-password-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-security-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/security",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:44.691Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 3648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-security-dark-1440-settled.json",
+      "production-security-dark-1440-settled.png",
+      "production-security-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-security-dark-390-settled",
+    "url": "https://www.earningsnerd.io/security",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:48.172Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 6011
+    },
+    "mainCount": 1,
+    "files": [
+      "production-security-dark-390-settled.json",
+      "production-security-dark-390-settled.png",
+      "production-security-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-security-light-1440-settled",
+    "url": "https://www.earningsnerd.io/security",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:01:37.420Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 3648
+    },
+    "mainCount": 1,
+    "files": [
+      "production-security-light-1440-settled.json",
+      "production-security-light-1440-settled.png",
+      "production-security-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-security-light-390-settled",
+    "url": "https://www.earningsnerd.io/security",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:01:41.338Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 6011
+    },
+    "mainCount": 1,
+    "files": [
+      "production-security-light-390-settled.json",
+      "production-security-light-390-settled.png",
+      "production-security-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-terms-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/terms",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:30.489Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 2911
+    },
+    "mainCount": 1,
+    "files": [
+      "production-terms-dark-1440-settled.json",
+      "production-terms-dark-1440-settled.png",
+      "production-terms-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-terms-dark-390-settled",
+    "url": "https://www.earningsnerd.io/terms",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:01:33.941Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 5058
+    },
+    "mainCount": 1,
+    "files": [
+      "production-terms-dark-390-settled.json",
+      "production-terms-dark-390-settled.png",
+      "production-terms-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-terms-light-1440-settled",
+    "url": "https://www.earningsnerd.io/terms",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:01:23.699Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 2911
+    },
+    "mainCount": 1,
+    "files": [
+      "production-terms-light-1440-settled.json",
+      "production-terms-light-1440-settled.png",
+      "production-terms-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-terms-light-390-settled",
+    "url": "https://www.earningsnerd.io/terms",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:01:27.120Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 5058
+    },
+    "mainCount": 1,
+    "files": [
+      "production-terms-light-390-settled.json",
+      "production-terms-light-390-settled.png",
+      "production-terms-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-verify-email-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/verify-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:49.083Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-verify-email-dark-1440-settled.json",
+      "production-verify-email-dark-1440-settled.png",
+      "production-verify-email-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-verify-email-dark-390-settled",
+    "url": "https://www.earningsnerd.io/verify-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T10:00:52.505Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-verify-email-dark-390-settled.json",
+      "production-verify-email-dark-390-settled.png",
+      "production-verify-email-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-verify-email-light-1440-settled",
+    "url": "https://www.earningsnerd.io/verify-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:41.997Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 900
+    },
+    "mainCount": 0,
+    "files": [
+      "production-verify-email-light-1440-settled.json",
+      "production-verify-email-light-1440-settled.png",
+      "production-verify-email-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-verify-email-light-390-settled",
+    "url": "https://www.earningsnerd.io/verify-email",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T10:00:45.820Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 844
+    },
+    "mainCount": 0,
+    "files": [
+      "production-verify-email-light-390-settled.json",
+      "production-verify-email-light-390-settled.png",
+      "production-verify-email-light-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-waitlist-dark-1440-settled",
+    "url": "https://www.earningsnerd.io/waitlist",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:44.138Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 2762
+    },
+    "mainCount": 1,
+    "files": [
+      "production-waitlist-dark-1440-settled.json",
+      "production-waitlist-dark-1440-settled.png",
+      "production-waitlist-dark-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-waitlist-dark-390-settled",
+    "url": "https://www.earningsnerd.io/waitlist",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable dark",
+    "capturedAt": "2026-10-15T09:59:47.703Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 5447
+    },
+    "mainCount": 1,
+    "files": [
+      "production-waitlist-dark-390-settled.json",
+      "production-waitlist-dark-390-settled.png",
+      "production-waitlist-dark-390-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-waitlist-light-1440-settled",
+    "url": "https://www.earningsnerd.io/waitlist",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:36.318Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "document": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "height": 2691
+    },
+    "mainCount": 1,
+    "files": [
+      "production-waitlist-light-1440-settled.json",
+      "production-waitlist-light-1440-settled.png",
+      "production-waitlist-light-1440-settled-fold.png"
+    ]
+  },
+  {
+    "name": "production-waitlist-light-390-settled",
+    "url": "https://www.earningsnerd.io/waitlist",
+    "theme": "nZow5q_variable z61v7q_variable Hgd59q_variable",
+    "capturedAt": "2026-10-15T09:59:40.387Z",
+    "rootFont": "16px",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "document": {
+      "width": 390,
+      "clientWidth": 390,
+      "height": 5447
+    },
+    "mainCount": 1,
+    "files": [
+      "production-waitlist-light-390-settled.json",
+      "production-waitlist-light-390-settled.png",
+      "production-waitlist-light-390-settled-fold.png"
+    ]
+  }
+]

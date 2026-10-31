@@ -1,0 +1,106 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "be98f5e54a5ecb6766cb58d741450ce2a484794b9d2fee4f341ca8989bb30f50",
+ "y_sha256": "fcc5a4579971766b45488b7e36a8aa3b14a844b0c8227cb67317b5bf59437fd7",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A twice blames the FY2023 decline on weak PC demand and inventory correction, but its cited passage [11] only mentions lower processor and semi-custom sales. Draft B cites the Client passage that does say this. B adds depth through stock-based compensation, the Gaming driver, Client ASP and volume, and labels its judgements as analysis. A is cleaner prose and discloses later recasts. B garbles a gross-margin causal link and adds unsourced 'AI-driven' framing."
+   },
+   "cost_usd": 0.150169,
+   "latency_s": 13.615,
+   "backend": "claude_cli",
+   "input_tokens": 16991,
+   "cached_input_tokens": 727,
+   "output_tokens": 996,
+   "reasoning_tokens": 760,
+   "meta": {
+    "duration_api_ms": 9187,
+    "cache_creation_input_tokens": 16262,
+    "list_cost_usd": 0.085121
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A twice blames the FY2023 decline on weak PC demand and inventory correction, but its cited passage [11] only mentions lower processor and semi-custom sales. Draft B cites the Client passage that does say this. B adds depth through stock-based compensation, the Gaming driver, Client ASP and volume, and labels its judgements as analysis. A is cleaner prose and discloses later recasts. B garbles a gross-margin causal link and adds unsourced 'AI-driven' framing.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A makes several claims its sources don't support: 'rather than structural loss of share', 'AI-driven trend', 'does not threaten the balance sheet'. It also explains the gross-margin gain with SG&A, which sits below gross margin. Draft B has small gaps of its own: the 3% Embedded decline is unsupported, and its FY2023 cause cites a passage that never mentions PC weakness. B still decomposes the operating margin properly, sources the other-income cause and discloses recast data."
+   },
+   "cost_usd": 0.151333,
+   "latency_s": 13.572,
+   "backend": "claude_cli",
+   "input_tokens": 16989,
+   "cached_input_tokens": 727,
+   "output_tokens": 1055,
+   "reasoning_tokens": 819,
+   "meta": {
+    "duration_api_ms": 9799,
+    "cache_creation_input_tokens": 16260,
+    "list_cost_usd": 0.086293
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A makes several claims its sources don't support: 'rather than structural loss of share', 'AI-driven trend', 'does not threaten the balance sheet'. It also explains the gross-margin gain with SG&A, which sits below gross margin. Draft B has small gaps of its own: the 3% Embedded decline is unsupported, and its FY2023 cause cites a passage that never mentions PC weakness. B still decomposes the operating margin properly, sources the other-income cause and discloses recast data.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.301502
+}

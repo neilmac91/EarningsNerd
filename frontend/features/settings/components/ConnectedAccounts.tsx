@@ -1,16 +1,26 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { CircleNotchIcon, KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
+import { toast } from 'sonner'
+import { KeyIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
 import {
   getConnections,
   unlinkProvider,
-  logoutAllSessions,
+  LogoutAllSuperseded,
   type AuthConnection,
+  type CurrentUser,
 } from '@/features/auth/api/auth-api'
+import {
+  LOGGED_IN_AS_ANOTHER_MESSAGE,
+  LOGGED_OUT_FIRST_MESSAGE,
+  LoggedOutFirst,
+  STEP_TOAST_DURATION_MS,
+  logoutAllInTurn,
+} from '@/features/auth/lib/accountQueryState'
+import { ApiError } from '@/lib/api/client'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -33,28 +43,63 @@ export default function ConnectedAccounts() {
     retry: false,
   })
 
+  // A successful unlink's refetch drops its row, and the focused Unlink with it. Hand focus to the
+  // section heading, but only when it fell to <body>.
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const unlinked = useRef(false)
+  useEffect(() => {
+    if (!unlinked.current) return
+    unlinked.current = false
+    if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [data])
+
   const unlinkMutation = useMutation({
     mutationFn: (provider: string) => unlinkProvider(provider),
     onSuccess: () => {
       setError('')
-      queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
+      unlinked.current = true
+      // Returned so the unlink stays pending until the refetch drops its row: the focused button
+      // must not turn active again for a provider that is already gone.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
     },
     onError: (err: unknown) => {
       setError(
-        isApiError(err) ? getErrorMessage(err) : 'Could not unlink that sign-in method.',
+        isApiError(err) ? getErrorMessage(err) : 'Could not unlink that login method.',
       )
     },
   })
 
+  // In the one-logout flight (logoutAllInTurn, E157): pressed while a Log out runs, it waits for that one, and posts
+  // only while the session survived it; a Log out pressed while it runs waits for it, and runs on its own if it fails.
   const logoutAllMutation = useMutation({
-    mutationFn: logoutAllSessions,
+    // It names the account this tab shows as it is pressed, and the route refuses another's (E157 (2)).
+    mutationFn: () => logoutAllInTurn(queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id),
     onSuccess: () => {
       queryClient.clear()
       router.push('/login')
     },
     onError: (err: unknown) => {
+      // Another login was accepted while it waited: the tab is that account's now, so there is nothing to clear, to
+      // leave or to say here.
+      if (err instanceof LogoutAllSuperseded) return
+      // The Log out it waited for logged this device out (E157). The page leaves with that Log out and renders no section
+      // for a reader gone, so this section's error line would never show: a toast outlives the page.
+      if (err instanceof LoggedOutFirst) {
+        toast.error(LOGGED_OUT_FIRST_MESSAGE, { duration: STEP_TOAST_DURATION_MS })
+        return
+      }
+      // The browser's session is another account's (another tab logged in, E29 (3)), so the route ended nothing (E157
+      // (2)). A read of /me moves this tab to that account, whose snapshots replace this section's, so a toast says it,
+      // an error as LoggedOutFirst's is: in both, no device was logged out.
+      if (err instanceof ApiError && err.status === 409) {
+        // A line an earlier failure left says nothing true of this press.
+        setError('')
+        toast.error(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: STEP_TOAST_DURATION_MS })
+        void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+        return
+      }
       setError(
-        isApiError(err) ? getErrorMessage(err) : 'Could not sign out of all devices.',
+        isApiError(err) ? getErrorMessage(err) : 'Could not log out of all devices.',
       )
     },
   })
@@ -65,15 +110,18 @@ export default function ConnectedAccounts() {
   const credentialCount = (data?.has_password ? 1 : 0) + providers.length
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
-        <LinkIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+        >
           Connected accounts &amp; sessions
         </h2>
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-        Manage how you sign in. You can&apos;t remove your only sign-in method.
+        Manage how you log in. You can&apos;t remove your only login method.
       </p>
 
       {isLoading ? (
@@ -85,13 +133,14 @@ export default function ConnectedAccounts() {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Password row */}
-          <div className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3">
+          {/* Password row. The value wraps under the label when both do not fit (200% text on a phone),
+              and the gap keeps them apart when they share the line. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-border-light dark:border-border-dark px-4 py-3">
             <div className="flex items-center gap-3">
-              <KeyIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
+              <KeyIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
               <span className="text-sm text-text-primary-light dark:text-text-primary-dark">Password</span>
             </div>
-            <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+            <span className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
               {data?.has_password ? 'Set' : 'Not set'}
             </span>
           </div>
@@ -103,24 +152,33 @@ export default function ConnectedAccounts() {
             return (
               <div
                 key={p.provider}
-                className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-border-light dark:border-border-dark px-4 py-3"
               >
-                <div>
+                <div className="min-w-0 [overflow-wrap:anywhere]">
                   <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                     {providerLabel(p.provider)}
                   </span>
                   {p.provider_email && (
-                    <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                    <span className="block text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                       {p.provider_email}
                     </span>
                   )}
                 </div>
+                {/* aria-disabled + an early return, never native `disabled` — a focused button
+                    that turns disabled is blurred to <body> in Chromium. That covers `pending` (its
+                    own request) and `isLast`, which a sibling row's unlink can flip on while this
+                    button holds focus. Unavailable fades the label's ink, not the element, so the
+                    focus indicator keeps its strength. */}
                 <button
                   type="button"
-                  onClick={() => unlinkMutation.mutate(p.provider)}
-                  disabled={isLast || pending}
-                  title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
-                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  onClick={() => {
+                    if (isLast || pending) return
+                    unlinkMutation.mutate(p.provider)
+                  }}
+                  aria-disabled={isLast || pending || undefined}
+                  aria-busy={pending || undefined}
+                  title={isLast ? 'Set a password first so you keep a way to log in' : undefined}
+                  className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:cursor-not-allowed aria-disabled:text-error-light/40 aria-disabled:no-underline dark:aria-disabled:text-error-dark/40"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
                 </button>
@@ -129,8 +187,8 @@ export default function ConnectedAccounts() {
           })}
 
           {providers.length === 0 && (
-            <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-              No social sign-ins linked.
+            <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+              No social logins linked.
             </p>
           )}
 
@@ -143,17 +201,17 @@ export default function ConnectedAccounts() {
 
           {/* Sign out everywhere */}
           <div className="pt-2">
+            {/* `loading` (spinner in the icon slot) rather than `disabled`, so the focused button
+                keeps focus while the request is in flight. */}
             <Button
               variant="secondary"
+              wrap
+              className="max-w-full"
               onClick={() => logoutAllMutation.mutate()}
-              disabled={logoutAllMutation.isPending}
+              loading={logoutAllMutation.isPending}
+              leftIcon={<SignOutIcon className="h-4 w-4 shrink-0" />}
             >
-              {logoutAllMutation.isPending ? (
-                <CircleNotchIcon className="h-4 w-4 animate-spin" />
-              ) : (
-                <SignOutIcon className="h-4 w-4" />
-              )}
-              Sign out of all devices
+              Log out of all devices
             </Button>
           </div>
         </div>

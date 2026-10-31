@@ -16,27 +16,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
+from types import SimpleNamespace
 
 import anyio
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi import Response as FastAPIResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api_errors import CodedHTTPException
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_entitlement
+from app.error_codes import ErrorCode
 from app.models import Company, User
 from app.routers.auth import get_current_user
 from app.schemas.analysis import (
     CoverageLimits,
     CoverageResponse,
     DatasetRequest,
+    ExportDatasetRequest,
     StreamRequest,
 )
-from app.services import facts_service, trend_analysis_service
+from app.services import analysis_data_access, facts_service, filing_list_service, trend_analysis_service
+from app.services.durable_tasks import enqueue_task
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
@@ -48,6 +54,7 @@ from app.services.subscription_service import (
     reserve_analysis_use,
 )
 from app.services.summary_pipeline import to_sse
+from app.services.trend_analysis.units import IncompatibleUnitsError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -58,13 +65,15 @@ DATASET_LIMITER = RateLimiter(limit=30, window_seconds=60)
 STREAM_LIMITER = RateLimiter(limit=10, window_seconds=60)
 # Workbook builds are CPU-bound (openpyxl zip) — tighter than the dataset limiter.
 XLSX_LIMITER = RateLimiter(limit=10, window_seconds=60)
+# The xlsx export's answer when the dataset the page built no longer matches what the data now builds.
+_EXPORT_DATA_CHANGED = "The financial data changed. Refresh the analysis before exporting."
 
 # How long the coverage request waits for a first-touch companyfacts sync before answering
 # `syncing: true` and letting the fetch finish in the background (frontend budget is ~30s).
 COVERAGE_SYNC_WAIT_SECONDS = 20.0
 
-# Strong references to background sync tasks (the summary_pipeline._spawn_background pattern) so
-# the event loop can't garbage-collect one mid-fetch after we answer `syncing: true`.
+# Strong references for the legacy mode's syncs that outlive `syncing: true` responses.
+# Durable mode instead cancels request-owned work before handing it to the queue.
 _background_syncs: set[asyncio.Task] = set()
 
 
@@ -76,7 +85,7 @@ def _limits() -> CoverageLimits:
 
 
 def _get_company(db: Session, ticker: str) -> Company:
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
+    company = analysis_data_access.find_company(db, ticker)
     if company is None:
         # The frontend resolves a ticker through GET /api/companies/{ticker} (get-or-create from
         # EDGAR) before calling analysis endpoints, so a miss here means a genuinely unknown ticker.
@@ -86,10 +95,10 @@ def _get_company(db: Session, ticker: str) -> Company:
 
 async def _ingest_with_own_session(company_id: int) -> dict:
     """Run companyfacts ingest in short DB units so it can safely outlive the request."""
-    from app.database import SessionLocal
 
-    return await facts_service.ingest_companyfacts_by_id(
-        company_id, session_factory=SessionLocal
+    return await analysis_data_access.ingest_with_own_session(
+        company_id,
+        ingest_companyfacts_by_id=facts_service.ingest_companyfacts_by_id,
     )
 
 
@@ -106,31 +115,70 @@ async def get_coverage(
         COVERAGE_LIMITER,
         f"analysis-coverage:{current_user.id}",
         error_detail="Too many coverage requests. Please retry in a minute.",
+        include_client_ip=False,
     )
-    company = _get_company(db, ticker)
+
+    def identify() -> Company:
+        # The lookup and its release are one unit off the event loop, so no connection waits through
+        # the SEC wait below (or, on timeout, the continuing background task). The row comes back
+        # detached with its columns loaded; everything after this reads only its identity fields,
+        # plus fresh, short reads, each released in its own unit
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            return _get_company(db, ticker)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    def read_periods(*, with_synced_at: bool) -> tuple[dict, datetime | None]:
+        try:
+            periods = trend_analysis_service.available_periods(db, company_id)
+            synced_at = analysis_data_access.facts_synced_at(db, company_id) if with_synced_at else None
+            return periods, synced_at
+        finally:
+            filing_list_service.release_request_session(db)
+
+    company = await run_in_threadpool(identify)
     company_id = company.id
     company_ticker = company.ticker
     company_name = company.name
 
-    # The dependency session otherwise survives the external SEC wait (and, on timeout, the
-    # continuing background task). Everything below uses immutable identity fields plus fresh,
-    # short reads after the wait.
-    db.close()
-
     task = asyncio.create_task(_ingest_with_own_session(company_id))
-    _background_syncs.add(task)
-    task.add_done_callback(_background_syncs.discard)
-    done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
+    if settings.DURABLE_TASKS_ENABLED:
+        # The request owns this attempt until it finishes or reaches the frontend's wait budget.
+        # Stop it before durable delivery takes over; a disconnect must not leave a local sync
+        # running without a request to keep Cloud Run's CPU allocated.
+        try:
+            done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
+        finally:
+            with anyio.CancelScope(shield=True):
+                if not task.done():
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+    else:
+        _background_syncs.add(task)
+        task.add_done_callback(_background_syncs.discard)
+        done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
 
     sync: dict = {"synced": False}
+    handoff_pending = task not in done
     if task in done:
         try:
             sync = task.result()
         except Exception:  # noqa: BLE001 - a failed sync degrades to whatever the DB already has
             logger.exception("companyfacts sync failed inside coverage for %s", company_ticker)
-    else:
-        # First-touch sync still running — serve what exists and tell the client to retry.
-        periods = trend_analysis_service.available_periods(db, company_id)
+        if settings.DURABLE_TASKS_ENABLED and sync.get("waited") and not sync.get("synced"):
+            # Cancelling a timed-out local leader wakes followers before its queue handoff finishes.
+            # They must join durable delivery instead of reporting missing facts as final coverage.
+            handoff_pending = True
+    if handoff_pending:
+        if settings.DURABLE_TASKS_ENABLED:
+            await enqueue_task(
+                "companyfacts", {"company_id": company_id},
+                dedupe_key=f"companyfacts:{company_id}", dedupe_seconds=60,
+            )
+        # First-touch sync is continuing through durable delivery (or the legacy local task).
+        # Serve what exists and tell the client to retry only after delivery was accepted.
+        periods, _ = await run_in_threadpool(read_periods, with_synced_at=False)
         return CoverageResponse(
             ticker=company_ticker,
             company_name=company_name,
@@ -142,8 +190,7 @@ async def get_coverage(
             limits=_limits(),
         )
 
-    periods = trend_analysis_service.available_periods(db, company_id)
-    synced_at = db.query(Company.facts_synced_at).filter(Company.id == company_id).scalar()
+    periods, synced_at = await run_in_threadpool(read_periods, with_synced_at=True)
     has_any = bool(periods["annual"] or periods["quarterly"])
     reason = None
     if not has_any:
@@ -175,43 +222,71 @@ async def get_dataset(
         DATASET_LIMITER,
         f"analysis-dataset:{current_user.id}",
         error_detail="Too many analysis requests. Please retry in a minute.",
+        include_client_ip=False,
     )
-    company = _get_company(db, ticker)
-    try:
-        dataset = trend_analysis_service.build_dataset(
-            db, company, body.mode, body.start_period, body.end_period
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    return dataset
+
+    def dataset_for_reader() -> dict:
+        # The lookup, the build (its reads and its CPU work) and the release in one unit off the
+        # event loop.
+        try:
+            company = _get_company(db, ticker)
+            try:
+                return trend_analysis_service.build_dataset(
+                    db, company, body.mode, body.start_period, body.end_period
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(dataset_for_reader)
 
 
 @router.post("/{ticker}/export/xlsx")
 async def export_analysis_xlsx(
     ticker: str,
-    body: DatasetRequest,
+    body: ExportDatasetRequest,
     request: Request,
     current_user: User = Depends(require_entitlement("can_export", "Excel export")),
     db: Session = Depends(get_db),
 ):
     """Branded Excel workbook over the deterministic dataset (Pro ``can_export``).
 
-    Takes the same ``DatasetRequest`` as ``/dataset`` and rebuilds server-side — so it works
-    pre-narrative, exactly like the CSV download it replaces (no analysis_id involved).
+    Rebuilds the selected range server-side and checks the optional client snapshot ID before
+    rendering. Works before narrative generation; no analysis_id is required.
     """
     enforce_rate_limit(
         request,
         XLSX_LIMITER,
         f"analysis-xlsx:{current_user.id}",
         error_detail="Too many export requests. Please retry in a minute.",
+        include_client_ip=False,
     )
-    company = _get_company(db, ticker)
-    try:
-        dataset = trend_analysis_service.build_dataset(
-            db, company, body.mode, body.start_period, body.end_period
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    def dataset_for_export() -> tuple[dict, str]:
+        # The lookup, the build, the snapshot check and the release in one unit off the event loop,
+        # so no connection waits through the workbook render below.
+        try:
+            company = _get_company(db, ticker)
+            try:
+                dataset = trend_analysis_service.build_dataset(
+                    db, company, body.mode, body.start_period, body.end_period
+                )
+            except IncompatibleUnitsError as exc:
+                # A snapshot names a dataset the page built, so its refusal now means the data changed: the 409
+                # the page reads as out of date (a blob response's 400 reaches the reader as generic text; E102).
+                if body.snapshot_id is None:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_EXPORT_DATA_CHANGED)
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+            if body.snapshot_id is not None and body.snapshot_id != trend_analysis_service.dataset_fingerprint(dataset):
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_EXPORT_DATA_CHANGED)
+            return dataset, company.ticker
+        finally:
+            filing_list_service.release_request_session(db)
+
+    dataset, company_ticker = await run_in_threadpool(dataset_for_export)
 
     # Local import: openpyxl is heavy and only this route needs it (the export_analysis_pdf
     # pattern below). Building + zipping the workbook is CPU-bound — off the event loop.
@@ -219,7 +294,7 @@ async def export_analysis_xlsx(
 
     workbook_bytes = await asyncio.to_thread(build_analysis_workbook, dataset)
     filename = (
-        f"{company.ticker}_{dataset['period_key'].replace('..', '-')}_{body.mode}-metrics.xlsx"
+        f"{company_ticker}_{dataset['period_key'].replace('..', '-')}_{body.mode}-metrics.xlsx"
     )
     return FastAPIResponse(
         content=workbook_bytes,
@@ -232,33 +307,23 @@ def _meter_analysis_best_effort(user_id: int, token: str | None = None) -> bool:
     """Meter one FRESH analysis generation in a fresh DB session (best-effort — a metering failure
     must never break the stream the user already received). Converts the admission lease
     (``token``) in the same commit; returns whether it did, so the caller can release otherwise."""
-    from app.database import SessionLocal
 
-    db = SessionLocal()
-    try:
-        month = convert_reservation(token, db) or get_current_month()
-        increment_user_analysis(user_id, month, db)
-        return True
-    except Exception:  # noqa: BLE001 - metering must not break the stream
-        logger.warning("Failed to meter analysis for user %s", user_id, exc_info=True)
-        return False
-    finally:
-        db.close()
+    return analysis_data_access.meter_analysis_best_effort(
+        user_id,
+        token,
+        convert_reservation=convert_reservation,
+        get_current_month=get_current_month,
+        increment_user_analysis=increment_user_analysis,
+        logger=logger,
+    )
 
 
 def _release_reservation_best_effort(token: str | None) -> None:
     """Give an admission lease back (fresh session; the lease expires on its own if this fails)."""
-    if not token:
-        return
-    from app.database import SessionLocal
 
-    db = SessionLocal()
-    try:
-        release_reservation(token, db)
-    except Exception:  # noqa: BLE001 - never mask the stream outcome
-        logger.warning("Could not release an analysis admission reservation", exc_info=True)
-    finally:
-        db.close()
+    analysis_data_access.release_reservation_best_effort(
+        token, release_reservation=release_reservation, logger=logger
+    )
 
 
 def _emit_analysis_cost_best_effort(user_id: int, ticker: str, mode: str, event: dict) -> None:
@@ -295,7 +360,7 @@ async def stream_analysis(
 ):
     """Streamed (SSE) AI trend narrative over the deterministic dataset.
 
-    Cache-first: a stored narrative whose prompt_version + dataset fingerprint still match is
+    Cache-first: a stored narrative whose prompt, display format and financial snapshot match is
     re-served instantly (no model call, no meter); ``force`` regenerates. Metering counts only
     fresh "analysis" completions against the monthly fair-use cap — a failed or aborted generation
     never burns quota. Excluded from the timeout middleware by the ``*stream*`` name rule.
@@ -305,38 +370,53 @@ async def stream_analysis(
         STREAM_LIMITER,
         f"analysis-stream:{current_user.id}",
         error_detail="Too many analysis generations. Please retry in a minute.",
+        include_client_ip=False,
     )
-    company = _get_company(db, ticker)
-
-    # Snapshot everything the generator needs — it runs after this request's session is gone.
-    # Read before the admission below commits, so no expired instance is refreshed under a lease.
-    company_id = company.id
-    ticker_value = company.ticker
     user_id = current_user.id
 
-    allowed, _count, cap = check_analysis_limit(current_user, db)
-    token = None
-    if allowed:
-        # The read above is not serialized; the reservation is (E07b slice 2). It holds one unit
-        # until a fresh generation converts it or a cached / exempt outcome releases it.
-        allowed, _count, cap, token = reserve_analysis_use(current_user, db)
-    if not allowed:
-        # The cap blocks only runs that would CONSUME quota. A non-force request whose range
-        # already has a cached row can only resolve free — a cache re-serve, or a
-        # system-invalidated regeneration (prompt bump / new facts), which is meter-exempt —
-        # so it proceeds; without this, the very prompt bump that invalidates the cached fleet
-        # would lock at-cap users out of analyses they already paid quota for.
-        reaches_free_path = not body.force and trend_analysis_service.has_cached_analysis(
-            db, company_id, body.mode, body.start_period, body.end_period
-        )
-        if not reaches_free_path:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"You've reached this month's fair-use limit of {cap} analyses. "
-                    "It resets at the start of next month."
-                ),
-            )
+    # The admission (the company lookup, the cap check, the lease and the cached-range read) and the
+    # session release are one unit off the event loop. The generator below runs after this request's
+    # session is gone, and the dependency's finalizer runs only once the stream ends, so a transaction
+    # left open here would hold a pooled connection for the whole stream
+    # (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+    def admit_reader() -> tuple[int, str, str | None]:
+        try:
+            company = _get_company(db, ticker)
+
+            # Snapshot everything the generator needs. Read before the admission below commits,
+            # so no expired instance is refreshed under a lease.
+            company_id = company.id
+            ticker_value = company.ticker
+
+            allowed, _count, cap = check_analysis_limit(current_user, db)
+            token = None
+            if allowed:
+                # The read above is not serialized; the reservation is (E07b slice 2). It holds one
+                # unit until a fresh generation converts it or a cached / exempt outcome releases it.
+                allowed, _count, cap, token = reserve_analysis_use(current_user, db)
+            if not allowed:
+                # The cap blocks only runs that would CONSUME quota. A non-force request whose range
+                # already has a cached row can only resolve free — a cache re-serve, or a
+                # system-invalidated regeneration (prompt bump / new facts), which is meter-exempt —
+                # so it proceeds; without this, the very prompt bump that invalidates the cached
+                # fleet would lock at-cap users out of analyses they already paid quota for.
+                reaches_free_path = not body.force and trend_analysis_service.has_cached_analysis(
+                    db, company_id, body.mode, body.start_period, body.end_period
+                )
+                if not reaches_free_path:
+                    # Coded (E31): the reader shows the cap with no way to the plans and no Retry.
+                    raise CodedHTTPException(
+                        ErrorCode.PRO_FAIR_USE_LIMIT,
+                        detail=(
+                            f"You've reached this month's fair-use limit of {cap:,} analysis generations, regenerations included. "
+                            "It resets at the start of next month."
+                        ),
+                    )
+            return company_id, ticker_value, token
+        finally:
+            filing_list_service.release_request_session(db)
+
+    company_id, ticker_value, token = await run_in_threadpool(admit_reader)
 
     held = {"token": token}  # the admission lease, until converted by metering or released
 
@@ -394,33 +474,76 @@ async def stream_analysis(
 @router.get("/export/{analysis_id}/pdf")
 async def export_analysis_pdf(
     analysis_id: int,
+    snapshot_id: str | None = Query(default=None, pattern=r"^[a-f0-9]{64}$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Export a completed analysis as PDF (Pro `can_export`, the summaries export pattern)."""
-    from app.models import TrendAnalysis
     from app.services.entitlements import get_entitlements
     from app.services.export_service import export_service
+    from app.services.trend_analysis.presentation import cached_analysis_export, presentation_is_current
 
-    if not get_entitlements(current_user).can_export:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="PDF export is a Pro feature. Upgrade to Pro to access this feature.",
-        )
-    analysis = db.get(TrendAnalysis, analysis_id)
-    if analysis is None or not analysis.narrative_md:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
-    if analysis.prompt_version != trend_analysis_service.PROMPT_VERSION:
-        # A row persisted under an older prompt version carries old-semantics dataset flags and
-        # citation text (e.g. the pre-v2 over-broad "derived Q4" labels) — never export it.
-        # Re-running the analysis regenerates the row in place under the same id.
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This analysis was generated under an older version — re-run it to export.",
-        )
-    company = db.get(Company, analysis.company_id)
-    if company is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+    def analysis_for_export() -> tuple[SimpleNamespace, Company]:
+        # The plan check (its subscription read), the lookups, the snapshot checks and the release
+        # in one unit off the event loop, so no connection waits through the render below. The company
+        # comes back detached with its columns loaded and the analysis as a copy with the rebuilt
+        # dataset's links (cached_analysis_export), which is all the PDF reads of them.
+        try:
+            if not get_entitlements(current_user).can_export:
+                raise CodedHTTPException(
+                    ErrorCode.PLAN_REQUIRED, detail="PDF export is a Pro feature. Upgrade to Pro to access this feature."
+                )
+            analysis = analysis_data_access.find_analysis(db, analysis_id)
+            if analysis is None or not analysis.narrative_md:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+            if analysis.prompt_version != trend_analysis_service.PROMPT_VERSION:
+                # A row persisted under an older prompt version carries old-semantics dataset flags and
+                # citation text (e.g. the pre-v2 over-broad "derived Q4" labels) — never export it.
+                # Re-running the analysis regenerates the row in place under the same id.
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This report is out of date. Run analysis again before exporting.",
+                )
+            company = analysis_data_access.find_company_by_id(db, analysis.company_id)
+            if company is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+            # Saved narratives and current facts must describe the same snapshot. A data correction
+            # invalidates the PDF as well as the on-page narrative, even without a prompt-version bump.
+            saved_dataset = analysis.dataset_json or {}
+            if not presentation_is_current(saved_dataset):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This analysis uses an older presentation format. Re-run it before exporting.",
+                )
+            try:
+                start_period, end_period = analysis.period_key.split("..")
+                current_dataset = trend_analysis_service.build_dataset(
+                    db, company, analysis.mode, start_period, end_period
+                )
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This analysis no longer matches available data. Re-run it before exporting.",
+                )
+            saved_fingerprint = trend_analysis_service.dataset_fingerprint(saved_dataset)
+            if (
+                not saved_dataset.get("dataset_version")
+                or saved_dataset.get("dataset_version") != current_dataset.get("dataset_version")
+                or saved_dataset.get("snapshot_id") != saved_fingerprint
+                or saved_fingerprint != trend_analysis_service.dataset_fingerprint(current_dataset)
+                or analysis.dataset_fingerprint != saved_fingerprint
+                or (snapshot_id is not None and snapshot_id != saved_fingerprint)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="The financial data changed. Re-run the analysis before exporting.",
+                )
+            return cached_analysis_export(current_dataset, analysis), company
+        finally:
+            filing_list_service.release_request_session(db)
+
+    analysis, company = await run_in_threadpool(analysis_for_export)
 
     try:
         pdf_bytes = await export_service.export_analysis_pdf(analysis, company)

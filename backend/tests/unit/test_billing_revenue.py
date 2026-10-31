@@ -9,6 +9,7 @@ from unittest.mock import Mock
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.models import BillingPayment, InviteCode, Subscription, User
@@ -46,7 +47,8 @@ def invoice(invoice_id="in_one", customer="cus_one", subscription="sub_one", **c
 
 @pytest.fixture
 def db():
-    engine = create_engine("sqlite://")
+    # One in-memory connection that any thread may use: the account export works the session in the thread pool.
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
@@ -271,10 +273,13 @@ async def test_account_export_contains_only_own_retained_payment_evidence(db, mo
         for payment in retained_payments:
             set_committed_value(payment, "paid_at", datetime.fromtimestamp(PAID_AT, zone))
             set_committed_value(payment, "observed_at", SINCE.astimezone(zone))
-    selected_user = owner
+    owner_id, empty_id = owner.id, empty.id
+    selected_user_id = owner_id
 
     async def authenticated_user():
-        return selected_user
+        # Loaded on the request's session, as the auth lookup loads it: each export releases that session,
+        # which detaches the rows it held, so a row the test kept would no longer load.
+        return db.get(User, selected_user_id)
 
     async def export_db():
         yield db
@@ -295,7 +300,7 @@ async def test_account_export_contains_only_own_retained_payment_evidence(db, mo
             "source_api_version": "2026-08-26.dahlia", "amount_minor": 3900,
             "currency": "usd", "payment_type": "payment_intent",
             "paid_at": "2026-09-07T00:00:00Z", "observed_at": "2026-09-01T00:00:00Z",
-            "subscription_invoice": True, "user_id": owner.id, "attribution": "attributed",
+            "subscription_invoice": True, "user_id": owner_id, "attribution": "attributed",
             "stripe_customer_id": "cus_one", "stripe_subscription_id": "sub_one",
             "is_beta_observed": True, "invite_cohort_observed": "export_wave", "billing_cycle": "monthly",
         }
@@ -307,7 +312,7 @@ async def test_account_export_contains_only_own_retained_payment_evidence(db, mo
              "is_beta_observed": None, "invite_cohort_observed": None, "billing_cycle": None},
         ]
         assert datetime.fromisoformat(expected["paid_at"]).timestamp() == PAID_AT
-        selected_user = empty
+        selected_user_id = empty_id
         empty_response = await client.get("/api/users/export")
         assert empty_response.status_code == 200
         assert empty_response.json()["billing_payments"] == []

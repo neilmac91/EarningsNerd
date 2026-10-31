@@ -35,8 +35,9 @@ UNSUPPORTED_FOREIGN_REASON = (
 def unsupported_foreign_name(ticker: str) -> Optional[str]:
     """Display name if ``ticker`` is a known unsupported foreign issuer, else ``None``.
 
-    Looked up BEFORE any SEC resolution so a recognizable ADR ticker can never fuzzy-match onto an
-    unrelated reporting issuer (the TCEHY/Tencent → TME/Tencent Music guard — TME is a real 20-F
-    filer at a different CIK and must stay fully supported).
+    Looked up BEFORE any DB or SEC resolution so a recognizable ADR ticker gets the honest
+    coverage-unavailable state instead of a bare not-found, and can never resolve to a stale DB row
+    bound to an unrelated reporting issuer (the TCEHY/Tencent → TME/Tencent Music guard — TME is a
+    real 20-F filer at a different CIK and must stay fully supported).
     """
     return UNSUPPORTED_FOREIGN_NAMES.get((ticker or "").upper().strip())

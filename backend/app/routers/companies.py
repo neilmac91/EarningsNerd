@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from sqlalchemy.exc import IntegrityError
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from typing import Dict, List, Optional, Tuple
 from app.database import get_db
-from app.models import Company
+from app.services import company_lookup_service
 from app.services.company_coverage import UNSUPPORTED_FOREIGN_REASON, unsupported_foreign_name
-from app.services.company_resolution import resolve_or_create_company_by_cik
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
+from app.services.latest_filing_service import LatestFilingRef
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from app.utils.datetimes import utcnow
@@ -142,28 +142,21 @@ class CompanyResponse(BaseModel):
     # state instead of a bare "Company not found".
     coverage_status: Optional[str] = None
     coverage_reason: Optional[str] = None
+    # Search only: the filing the company page leads with (latest_filing_service), so the results
+    # can say which filing a pick lands on. Absent when no such filing is stored yet.
+    latest_filing: Optional[LatestFilingRef] = None
 
     class Config:
         from_attributes = True
 
 
-def _company_identity(company: Company) -> dict:
-    """Snapshot response fields before the request Session is released for network I/O."""
-    return {
-        "id": company.id,
-        "cik": company.cik,
-        "ticker": company.ticker,
-        "name": company.name,
-        "exchange": company.exchange,
-    }
-
-
 def _unsupported_foreign_response(ticker: str) -> Optional[CompanyResponse]:
     """Honest 'coverage unavailable' response for a known unsupported foreign name, else None.
 
-    Returned BEFORE any SEC resolution so a recognizable ADR ticker can never fuzzy-match onto an
-    unrelated reporting issuer (e.g. TCEHY/Tencent must NOT bind to TME/Tencent Music, a real 20-F
-    filer at a different CIK). The synthesized response is never persisted to the DB. The curated
+    Returned BEFORE any DB or SEC resolution so a recognizable ADR ticker gets this state instead
+    of a bare "Company not found" and can never resolve to a stale DB row bound to an unrelated
+    reporting issuer (e.g. TCEHY/Tencent must NOT be served as TME/Tencent Music, a real 20-F filer
+    at a different CIK). The synthesized response is never persisted to the DB. The curated
     set lives in ``app.services.company_coverage`` (the single source of truth).
     """
     name = unsupported_foreign_name(ticker)
@@ -202,103 +195,25 @@ async def search_companies(
             if cik and cik not in primary_by_cik:
                 primary_by_cik[cik] = await sec_edgar_service.primary_ticker_for_cik(cik)
         
-        # Store or update companies in database — ONE row per CIK (data-quality plan P0-1).
-        # SEC's ticker file carries one entry per LISTED SECURITY: iterating it raw returned N
-        # duplicate rows per company and let the LAST entry's ticker win the persisted row
-        # (preferred classes sort last in the file — that is how JPMorgan became "JPM-PM" and
-        # served the preferred share's quote as its stock price).
-        companies: List[Company] = []
-        ciks = [result["cik"] for result in sec_results if result.get("cik")]
-        existing_companies: Dict[str, Company] = {}
-        if ciks:
-            existing = db.query(Company).filter(Company.cik.in_(ciks)).all()
-            existing_companies = {company.cik: company for company in existing}
-
-        new_companies: List[Company] = []
-        updated_companies: List[Company] = []
-        seen_ciks: set = set()
-        response_ciks: List[str] = []
-
-        for sec_data in sec_results:
-            cik = sec_data.get("cik")
-            if not cik or cik in seen_ciks:
-                continue  # one response row per company, not per listed share class
-            seen_ciks.add(cik)
-
-            # The canonical listing ticker — NEVER assigned from the per-entry sec_data, which
-            # for a multi-class issuer can be any share class. None (CIK absent from the file,
-            # e.g. delisted) leaves an existing row's ticker unchanged.
-            primary = primary_by_cik[cik]
-
-            company = existing_companies.get(cik)
-            if not company:
-                company = Company(
-                    cik=cik,
-                    ticker=primary or sec_data.get("ticker"),
-                    name=sec_data.get("name"),
-                    exchange=sec_data.get("exchange"),
-                )
-                db.add(company)
-                new_companies.append(company)
-            else:
-                updated = False
-                name = sec_data.get("name")
-                exchange = sec_data.get("exchange")
-
-                # Ticker updates only TO the canonical primary: permits real renames, forbids
-                # preferred-class downgrades (the pre-P0-1 last-write-wins corruption).
-                if primary and company.ticker != primary:
-                    company.ticker = primary
-                    updated = True
-                if name and company.name != name:
-                    company.name = name
-                    updated = True
-                if company.exchange != exchange:
-                    company.exchange = exchange
-                    updated = True
-
-                if updated:
-                    updated_companies.append(company)
-
-            companies.append(company)
-            response_ciks.append(cik)
-
-        if new_companies or updated_companies:
-            try:
-                with db.begin_nested():  # SAVEPOINT: a concurrent-search race must not 500
-                    db.flush()
-                db.commit()
-                for company in new_companies:
-                    db.refresh(company)
-            except IntegrityError:
-                # A concurrent request inserted one of these CIKs between our read and flush.
-                # The batch rollback discards ALL pending inserts, so re-resolve each CIK
-                # individually via the per-row-SAVEPOINT helper — a race on one CIK no longer
-                # drops the other genuinely-new companies from the response.
-                logger.warning(
-                    "company_upsert_conflict cik=%s ticker=%s path=companies.search",
-                    ",".join(response_ciks),
-                    q,
-                )
-                db.rollback()
-                by_cik: Dict[str, Company] = {}
-                for cik in response_ciks:
-                    sec_data = next(r for r in sec_results if r.get("cik") == cik)
-                    primary = primary_by_cik[cik]
-                    by_cik[cik] = resolve_or_create_company_by_cik(
-                        db,
-                        cik=cik,
-                        ticker=primary or sec_data.get("ticker"),
-                        name=sec_data.get("name"),
-                        exchange=sec_data.get("exchange"),
-                        path="companies.search",
-                        canonical_ticker=primary,
-                    )
-                db.commit()
-                companies = [by_cik[c] for c in response_ciks]
-
-        company_rows = [_company_identity(company) for company in companies]
-        db.close()
+        # Store or update one row per CIK, from its first SEC entry, and answer in SEC result order
+        # (data-quality plan P0-1). Each session unit runs in the thread pool and releases the
+        # session before it returns, so no checkout waits on the event loop and the quote fan-out
+        # holds no connection (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            company_rows, latest_by_company = await run_in_threadpool(
+                company_lookup_service.upsert_search_results, db, sec_results, primary_by_cik
+            )
+        except company_lookup_service.SearchUpsertConflict as conflict:
+            # A concurrent request inserted one of these CIKs between our read and flush.
+            logger.warning(
+                "company_upsert_conflict cik=%s ticker=%s path=companies.search",
+                ",".join(conflict.response_ciks),
+                q,
+            )
+            company_rows, latest_by_company = await run_in_threadpool(
+                company_lookup_service.resolve_search_conflict,
+                db, sec_results, primary_by_cik, conflict.response_ciks,
+            )
 
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
         quote_tasks = [_get_stock_quote_with_timeout(row["ticker"]) for row in company_rows]
@@ -310,7 +225,8 @@ async def search_companies(
             quote = stock_quotes[i] if not isinstance(stock_quotes[i], Exception) else None
             result.append(CompanyResponse(
                 **row,
-                stock_quote=quote
+                stock_quote=quote,
+                latest_filing=latest_by_company.get(row["id"]),
             ))
         
         return result
@@ -327,43 +243,9 @@ async def get_trending_companies(
     db: Session = Depends(get_db)
 ) -> List[CompanyResponse]:
     """Get trending companies based on search/filing activity"""
-    from sqlalchemy import func, desc
-    from app.models import Filing
-    
-    # Get companies with most recent filings in the last 30 days
-    from datetime import datetime, timedelta
-    thirty_days_ago = datetime.now() - timedelta(days=30)
-    
-    # Get companies with most filings in recent period
-    trending_query = db.query(
-        Company.id,
-        Company.cik,
-        Company.ticker,
-        Company.name,
-        Company.exchange,
-        func.count(Filing.id).label('filing_count')
-    ).join(
-        Filing, Company.id == Filing.company_id
-    ).filter(
-        Filing.filing_date >= thirty_days_ago
-    ).group_by(
-        Company.id
-    ).order_by(
-        desc('filing_count')
-    ).limit(limit).all()
+    # The read and the release are one unit in the thread pool, before the quote fan-out.
+    company_rows = await run_in_threadpool(company_lookup_service.trending_company_rows, db, limit)
 
-    company_rows = [
-        {
-            "id": row.id,
-            "cik": row.cik,
-            "ticker": row.ticker,
-            "name": row.name,
-            "exchange": row.exchange,
-        }
-        for row in trending_query
-    ]
-    db.close()
-    
     # Convert to CompanyResponse
     result = []
     quote_tasks = [get_stock_quote(row["ticker"]) for row in company_rows]
@@ -464,40 +346,31 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
 async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResponse:
     """Get company by ticker"""
     # Known unsupported foreign issuer → honest "coverage unavailable" state, checked BEFORE any DB
-    # or SEC lookup so a recognizable ADR ticker can never resolve to a stale/polluted DB row or
-    # fuzzy-match an unrelated reporting CIK (the TCEHY/Tencent → TME/Tencent Music guard). Not
-    # persisted.
+    # or SEC lookup so a recognizable ADR ticker gets that state, not the exact SEC miss's bare 404,
+    # and can never resolve to a stale/polluted DB row (the TCEHY/Tencent → TME/Tencent Music
+    # guard). Not persisted.
     unsupported = _unsupported_foreign_response(ticker)
     if unsupported is not None:
         return unsupported
 
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
+    # Each session unit runs in the thread pool and releases the session before it returns, so no
+    # checkout waits on the event loop and no SEC or Yahoo await holds a connection
+    # (lessons/ops-release-cached-filing-reads-before-yield.md).
+    company_row = await run_in_threadpool(company_lookup_service.find_company_row_by_ticker, db, ticker)
 
-    if not company:
+    if company_row is None:
         # Try to fetch from SEC
-        # The initial SELECT opened a transaction. Release it before the SEC wait; the Session is
-        # reusable for the short persistence unit below.
-        db.close()
+        # The lookup released the initial SELECT's transaction before this SEC wait; the Session
+        # is reusable for the short persistence unit below.
         try:
-            sec_results = await sec_edgar_service.search_company(ticker)
-            if sec_results:
-                sec_data = sec_results[0]
-                # CIK-first: when this CIK already has a row under another ticker (e.g. a
-                # preferred-class overwrite like JPM-PM), reuse it instead of 500-ing on the
-                # unique-CIK insert (data-quality plan, interim safeguard 1). A genuinely-new
-                # row gets the CANONICAL primary ticker, not whatever class was queried (P0-1).
+            # Exact ticker only: a ticker missing from SEC's file is a 404, never its first partial
+            # name/ticker match (RTN once served Enterprise Products Partners).
+            sec_data = await sec_edgar_service.resolve_ticker(ticker)
+            if sec_data:
                 primary = await sec_edgar_service.primary_ticker_for_cik(sec_data["cik"])
-                company = resolve_or_create_company_by_cik(
-                    db,
-                    cik=sec_data["cik"],
-                    ticker=primary or sec_data["ticker"],
-                    name=sec_data["name"],
-                    exchange=sec_data.get("exchange"),
-                    path="companies.get_company",
-                    canonical_ticker=primary,  # self-heal a stale JPM-PM row → JPM (P0-1)
+                company_row = await run_in_threadpool(
+                    company_lookup_service.persist_sec_company, db, sec_data, primary
                 )
-                db.commit()
-                db.refresh(company)
             else:
                 raise HTTPException(status_code=404, detail="Company not found")
         except SECEdgarServiceError as e:
@@ -508,9 +381,6 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
-
-    company_row = _company_identity(company)
-    db.close()
 
     # Fetch stock quote
     stock_quote = await get_stock_quote(company_row["ticker"])

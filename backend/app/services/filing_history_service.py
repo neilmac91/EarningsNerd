@@ -1,17 +1,23 @@
 """Deep filing-history backfill via EFTS (P1-6).
 
 The company-filings endpoint serves only the newest filings (a recent-window submissions
-download). This backfills DEEP history — 10-K/10-Q since 2001 — into the ``filings`` table so the
-company page can show a full history and the fiscal-year filter has data to work with.
+download). This backfills DEEP history — 10-K/10-Q since 2001, and with ``ENABLE_FPI_FILINGS`` on a
+foreign private issuer's 20-F/40-F annual reports — into the ``filings`` table so the company page
+can show a full history and the fiscal-year filter has data to work with.
 
 Uses the EFTS full-text-search integration (``app.integrations.sec_api`` — Path B: rate-limited via
 ``sec_rate_limiter``, no circuit breaker) with query-less form+cik+date-window listings: one
 page-0 request per window (EFTS returns HTTP 500 for ``from>0`` on query-less searches), windows
 sized so a company's per-window hit count stays under the ~100-hit page cap. Rows are written
 through ``filing_scan_service.upsert_filings`` (NOT-NULL-safe, accession-deduped). Each company is
-stamped ``companies.history_backfilled_at`` so the on-visit enqueue never re-walks it.
+stamped ``companies.history_backfilled_at`` so the on-visit enqueue never re-walks it. The stamp does
+not record the forms walked (each walk's log line does): a process with ``ENABLE_FPI_FILINGS`` off
+walks 10-K/10-Q only and still stamps a foreign issuer, so every process that runs the walk carries
+the service's flag, and ``migrations/20261023_rewalk_foreign_issuer_history.sql`` cleared the stamps
+the 10-K/10-Q-only walk had left on foreign issuers.
 
 Annual and quarterly amendments are included; same-period originals remain available and are marked superseded.
+A foreign issuer's 20-F/40-F amendments are not walked, as the company list does not serve them.
 """
 from __future__ import annotations
 
@@ -25,16 +31,30 @@ from app.config import settings
 from app.models import Company, Watchlist
 from app.services import filing_scan_service
 from app.services.edgar.config import FilingType
+from app.services.request_work import run_owned_sync
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
 
 # Match the company display: retain both originals and same-period amendments.
 _BACKFILL_FORMS = ("10-K", "10-K/A", "10-Q", "10-Q/A")
-_ALLOWED_FILING_TYPES = frozenset(_BACKFILL_FORMS)
+# A foreign private issuer's annual reports, walked while ENABLE_FPI_FILINGS lists 20-F and 40-F on
+# the company page. They join the same per-window query, so they cost no EFTS request, and a filer
+# adds hits only for forms it files: about one a year, under the four reports a year the windows are
+# sized for. Originals only, as the list serves them: the default list, the filing scan and
+# precompute store no 20-F/A or 40-F/A (expand_amendment_forms expands the domestic reports only),
+# and one stored here would become the Change Report's prior for the next year. 6-K stays out: a
+# high-volume interim form (a heavy filer furnishes one most business days) would fill a window's
+# ~100-hit page and push the annual reports off it.
+_FPI_BACKFILL_FORMS = ("20-F", "40-F")
 # Transient-5xx retries scoped to THIS path — the shared limiter's execute_with_backoff only
 # retries rate-limit errors, not the sporadic 5xx EFTS emits, so we add a small bounded ladder.
 _BACKFILL_RETRY_ATTEMPTS = 3
+
+
+def _backfill_forms() -> tuple[str, ...]:
+    """The forms the walk lists and keeps: the foreign annual reports only behind ENABLE_FPI_FILINGS."""
+    return _BACKFILL_FORMS + (_FPI_BACKFILL_FORMS if settings.ENABLE_FPI_FILINGS else ())
 
 
 def _windows(since_year: int, end: datetime, window_years: int) -> list[tuple[str, str]]:
@@ -54,8 +74,9 @@ def _windows(since_year: int, end: datetime, window_years: int) -> list[tuple[st
 def _hit_to_filing_dict(hit: Any) -> Optional[dict]:
     """Adapt an ``EftsHit`` to the ``upsert_filings`` dict shape, or ``None`` to skip.
 
-    Skips rows missing the NOT-NULL keys (accession/sec_url/document_url), unknown/other forms,
-    so only clean annual/quarterly reports and their amendments are inserted."""
+    Skips rows missing the NOT-NULL keys (accession/sec_url/document_url) and any form the walk does
+    not list (``_backfill_forms``), so only 10-K/10-Q reports and their amendments are inserted, and
+    with ``ENABLE_FPI_FILINGS`` on 20-F/40-F originals."""
     accession = getattr(hit, "accession_no", None)
     sec_url = getattr(hit, "sec_url", None)
     document_url = getattr(hit, "document_url", None)
@@ -64,7 +85,7 @@ def _hit_to_filing_dict(hit: Any) -> Optional[dict]:
     if not accession or not sec_url or not document_url or not raw_form or not filed_date:
         return None
     ftype = FilingType.from_string(raw_form, strict=False)
-    if ftype is FilingType.UNKNOWN or ftype.value not in _ALLOWED_FILING_TYPES:
+    if ftype is FilingType.UNKNOWN or ftype.value not in _backfill_forms():
         return None
     return {
         "accession_number": accession,
@@ -102,7 +123,7 @@ async def _fetch_history_rows(
         from app.integrations.sec_api import sec_full_text_search_client
         efts_client = sec_full_text_search_client
 
-    forms = ",".join(_BACKFILL_FORMS)
+    forms = ",".join(_backfill_forms())
     windows = _windows(
         settings.HISTORY_BACKFILL_SINCE_YEAR, utcnow(), settings.HISTORY_BACKFILL_WINDOW_YEARS
     )
@@ -141,18 +162,23 @@ def _persist_history_rows(
     rows: list[dict],
     windows: int,
     windows_ok: int,
+    require_complete: bool = False,
 ) -> dict:
     """Persist already-fetched history in one short caller-owned transaction."""
     ticker = company.ticker
     inserted = filing_scan_service.upsert_filings(db, company, rows)
-    if windows_ok:
+    if windows_ok and (not require_complete or windows_ok == windows):
         company.history_backfilled_at = utcnow()
         db.commit()
     stats = {
         "ticker": ticker, "windows": windows, "windows_ok": windows_ok,
         "hits": len(rows), "inserted": len(inserted),
+        # The forms this process walks, so a walk with ENABLE_FPI_FILINGS off shows in its log line.
+        "forms": ",".join(_backfill_forms()),
     }
     logger.info("History backfill %s", stats)
+    if require_complete and windows_ok != windows:
+        raise RuntimeError("History backfill incomplete; retry missing windows")
     return stats
 
 
@@ -178,30 +204,61 @@ async def backfill_company_by_id(
     *,
     session_factory: Callable[[], Session],
     efts_client=None,
+    require_complete: bool = False,
+    force: bool = False,
 ) -> dict | None:
     """Backfill an on-visit company without retaining a connection during EFTS I/O.
 
-    The two sessions are owned here and contain only short read/persistence units. Generic batch
-    callers keep using ``backfill_company`` so this path never closes their sessions or discards
-    pending mutations.
+    The two sessions are owned here and contain only short read/persistence units, each run in the
+    thread pool (``run_owned_sync``), so neither checkout waits on the event loop: with
+    ``DURABLE_TASKS_ENABLED`` off the visit's backfill runs in the API process after the response
+    (E123). Generic batch callers keep using ``backfill_company`` so this path never closes their
+    sessions or discards pending mutations.
     """
-    with session_factory() as db:
-        company = db.get(Company, company_id)
-        if company is None or company.history_backfilled_at is not None:
-            return None
-        cik = company.cik
-        ticker = company.ticker
+    identity = await run_owned_sync(_company_to_backfill, session_factory, company_id, force)
+    if identity is None:
+        return None
+    cik, ticker = identity
 
     rows, windows, windows_ok = await _fetch_history_rows(
         cik=cik, ticker=ticker, efts_client=efts_client
     )
 
+    return await run_owned_sync(
+        _persist_backfill, session_factory, company_id,
+        rows=rows, windows=windows, windows_ok=windows_ok, require_complete=require_complete,
+    )
+
+
+def _company_to_backfill(
+    session_factory: Callable[[], Session], company_id: int, force: bool
+) -> tuple[str, str] | None:
+    """The backfill's first unit: the company's CIK and ticker, or None when it is gone or done."""
+    with session_factory() as db:
+        company = db.get(Company, company_id)
+        if company is None or (not force and company.history_backfilled_at is not None):
+            return None
+        return company.cik, company.ticker
+
+
+def _persist_backfill(
+    session_factory: Callable[[], Session],
+    company_id: int,
+    *,
+    rows: list[dict],
+    windows: int,
+    windows_ok: int,
+    require_complete: bool,
+) -> dict | None:
+    """The backfill's second unit: persist the fetched rows on a session of its own, or None when
+    the company is gone."""
     with session_factory() as db:
         company = db.get(Company, company_id)
         if company is None:
             return None
         return _persist_history_rows(
-            db, company, rows=rows, windows=windows, windows_ok=windows_ok
+            db, company, rows=rows, windows=windows, windows_ok=windows_ok,
+            require_complete=require_complete,
         )
 
 

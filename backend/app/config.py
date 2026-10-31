@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator, model_validator
 from typing import List
 import os
+from app.public_email_addresses import SUPPORT_EMAIL
 
 # Single source of truth for the app version (FastAPI metadata, "/" payload,
 # /metrics). Bump on notable releases; also serves as a deploy marker.
@@ -29,19 +30,24 @@ class Settings(BaseSettings):
     
     # SEC EDGAR API
     SEC_EDGAR_BASE_URL: str = "https://data.sec.gov"
-    SEC_USER_AGENT: str = "EarningsNerd/1.0 (contact@earningsnerd.io)"
+    SEC_USER_AGENT: str = f"EarningsNerd/1.0 ({SUPPORT_EMAIL})"
     SEC_RATE_LIMIT_PER_SECOND: int = 10
     SEC_MAX_RETRIES: int = 5
     SEC_BASE_BACKOFF_SECONDS: float = 1.0
+    # Optional shared fleet admission. Enable only after all callers are deployed,
+    # old executions drain and one extra DB connection/process fits the DB budget.
+    SEC_DISTRIBUTED_LIMIT_ENABLED: bool = False
+    SEC_DISTRIBUTED_WAIT_SECONDS: float = Field(default=10.0, gt=0, le=30, allow_inf_nan=False)
     # Multi-Period Analysis: how long a company's ingested companyfacts history stays fresh before
     # the coverage endpoint re-syncs it (a Filing row newer than the stamp overrides the TTL).
     COMPANYFACTS_SYNC_TTL_HOURS: int = 24
     # EDGAR full-text search (EFTS) — searches filing/exhibit text since 2001, keyless.
     SEC_EFTS_BASE_URL: str = "https://efts.sec.gov/LATEST/search-index"
     SEC_EFTS_TIMEOUT_SECONDS: float = 8.0
-    # Historical filings backfill (P1-6): deep 10-K/10-Q history via EFTS windowed listings. Each
-    # window is one query-less page-0 request (EFTS 500s on from>0 for query-less searches), sized
-    # to keep a company's per-window hit count under the ~100 page cap.
+    # Historical filings backfill (P1-6): deep 10-K/10-Q history, and 20-F/40-F behind
+    # ENABLE_FPI_FILINGS, via EFTS windowed listings. Each window is one query-less page-0 request
+    # (EFTS 500s on from>0 for query-less searches), sized to keep a company's per-window hit count
+    # under the ~100 page cap.
     HISTORY_BACKFILL_SINCE_YEAR: int = 2001  # EFTS full-text index begins in 2001
     HISTORY_BACKFILL_WINDOW_YEARS: int = 8   # ~3-4 windows since 2001; ~32 hits/window worst case
     HISTORY_BACKFILL_MAX_COMPANIES: int = 50  # cap per batch-job run
@@ -59,7 +65,9 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Stripe dashboard
-    # One current-state read under the account lock; phase/inactivity limits, NOT a total deadline.
+    # Each exact-ID Stripe read (the current subscription under the account lock, a paid invoice before
+    # that lock is taken, the serving Prices for GET /api/subscriptions/prices); phase/inactivity
+    # limits, NOT a total deadline.
     STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS: float = Field(default=2.0, gt=0, le=10, allow_inf_nan=False)
     STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0, le=10, allow_inf_nan=False)
     # Price IDs from Stripe Dashboard > Products > Pricing
@@ -93,14 +101,48 @@ class Settings(BaseSettings):
     REVERSE_TRIAL_DAYS: int = 7
 
     # Closed-beta invite gate. When REGISTRATION_MODE="invite_only", /api/auth/register requires a
-    # valid, unexpired, unused InviteCode token; "public" (default) keeps registration open so no
-    # behavior changes until prod flips it. Invite magic links expire after INVITE_EXPIRY_HOURS.
+    # valid, unexpired, unused InviteCode token; "public" removes only the invite requirement.
+    # Both modes still require legal collection readiness and the user's own agreement.
+    # Invite magic links expire after INVITE_EXPIRY_HOURS.
     REGISTRATION_MODE: str = "public"
     INVITE_EXPIRY_HOURS: int = 168  # 7 days
+
+    # New personal-data collection requires an explicitly published operator notice as well as
+    # its own rollout switch. Empty defaults disclose no identity. These are public notice fields,
+    # not secrets; only LEGAL_OPERATOR_PUBLISHED permits the API to return their values.
+    LEGAL_COLLECTION_ENABLED: bool = False
+    LEGAL_OPERATOR_PUBLISHED: bool = False
+    LEGAL_OPERATOR_NAME: str = ""
+    LEGAL_OPERATOR_POSTAL_ADDRESS: str = ""
+    LEGAL_OPERATOR_COUNTRY: str = ""
+    LEGAL_OPERATOR_EMAIL: str = ""
 
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.
     INTERNAL_JOB_TOKEN: str = ""
+
+    # Opt-in rollout: queue delivery must be verified before enabling request-based CPU billing.
+    DURABLE_TASKS_ENABLED: bool = False
+    # Requires validated worker/schema rollout. Existing SSE behavior remains the default.
+    SUMMARY_DURABLE_GENERATION_ENABLED: bool = False
+    # Stop only NEW work for a drain/rollback; existing durable workers keep running.
+    SUMMARY_NEW_JOBS_PAUSED: bool = False
+    SUMMARY_JOB_FAILED_RETRY_SECONDS: int = Field(default=60, ge=15, le=3600)
+    SUMMARY_JOB_MAX_PENDING_PER_ACCOUNT: int = Field(default=3, ge=1, le=20)
+    SUMMARY_JOB_MAX_ATTEMPTS: int = Field(default=4, ge=1, le=8)
+    SUMMARY_JOB_LEASE_SECONDS: int = Field(default=90, ge=30, le=300)
+    SUMMARY_JOB_RECOVERY_SECONDS: int = Field(default=300, ge=60, le=1800)
+    SUMMARY_JOB_MAX_AGE_SECONDS: int = Field(default=3600, ge=300, le=86400)
+    # Zero prevents alert discovery from creating system-funded model work.
+    SUMMARY_PREWARM_MAX_PER_DAY: int = Field(default=0, ge=0, le=200)
+    SUMMARY_PREWARM_MAX_PER_SCAN: int = Field(default=0, ge=0, le=20)
+    TASKS_PROJECT_ID: str = ""
+    TASKS_LOCATION: str = "us-west1"
+    TASKS_QUEUE: str = "earningsnerd-background"
+    TASKS_WORKER_URL: str = ""
+    TASKS_INVOKER_EMAIL: str = ""
+    TASKS_WORKER_PROCESS: bool = False
+    TASKS_WORK_TIMEOUT_SECONDS: float = Field(default=480, gt=0, le=480)
 
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
@@ -119,8 +161,21 @@ class Settings(BaseSettings):
     # own Resend account, so leaving it unset would silently drop verification/reset emails to real
     # users. Matches the prod RESEND_FROM_EMAIL secret (overridden by it in prod regardless).
     RESEND_FROM_EMAIL: str = "EarningsNerd <hello@inbound.earningsnerd.io>"
+    # Replies reach the Workspace role; keep the verified transactional sender independent.
+    RESEND_REPLY_TO_EMAIL: str = SUPPORT_EMAIL
+    # Notifications must not be routed to an outbound-only Resend sender.
+    CONTACT_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
+    FEEDBACK_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
+    # Uploads remain closed until the private bucket and cleanup job are verified. Turning
+    # this off stops new uploads; authorized reads and cleanup retain the bucket setting.
+    FEEDBACK_MEDIA_ENABLED: bool = False
+    FEEDBACK_MEDIA_BUCKET: str = ""
+    FEEDBACK_MEDIA_RETENTION_DAYS: int = Field(default=180, ge=1, le=180)
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
-    FRONTEND_URL: str = "https://earningsnerd.io"
+    # The site's origin that answers without a redirect (the apex redirects to it). Mail links,
+    # sign-in redirects and the mail header's tile are built on it, and sent mail keeps the whole
+    # address, so it stays the redirect-free origin. Production sets none and runs on this default.
+    FRONTEND_URL: str = "https://www.earningsnerd.io"
     # Recipient for the weekly data-quality report (P1-9). Founder inbox by default.
     DATA_QUALITY_REPORT_EMAIL: str = "neil@earningsnerd.io"
 
@@ -260,6 +315,18 @@ class Settings(BaseSettings):
                 v = v[1:-1].strip()
         return v
 
+    @field_validator('FRONTEND_URL')
+    @classmethod
+    def _canonical_frontend_url(cls, v: str) -> str:
+        """One canonical origin for every link: callers append ``/path`` to FRONTEND_URL, so whitespace around the
+        configured value, or a trailing slash or several, would break or double the separator. Those are removed,
+        and only those: scheme, host, case and any path are kept as configured. A value left empty would make every
+        link relative, so it is refused (E111). It runs after the value is a string, whatever it was given as."""
+        v = v.strip().rstrip("/")
+        if not v:
+            raise ValueError("FRONTEND_URL is empty once its whitespace and trailing slashes are removed: set the frontend's origin")
+        return v
+
     # App Settings
     ENVIRONMENT: str = "development"
     COOKIE_NAME: str = "earningsnerd_access_token"
@@ -325,17 +392,18 @@ class Settings(BaseSettings):
     # Settings, so the env var name matches the field name; case-insensitive).
     USE_STRUCTURED_OUTPUT: bool = False
 
-    # Native section extraction via edgartools (report-quality fix). The legacy regex extractor
-    # in openai_service.extract_critical_sections assumes a line-oriented plain-text 10-K layout;
-    # on modern inline-XBRL filings BeautifulSoup.get_text(separator='\n') shreds the item headers
+    # Native section extraction (report-quality fix; E28). The legacy regex extractor in
+    # openai_service.extract_critical_sections assumes a line-oriented plain-text 10-K layout; on
+    # modern inline-XBRL filings BeautifulSoup.get_text(separator='\n') shreds the item headers
     # across many lines, so the targeted regex captures ~0 chars and the pipeline silently falls
-    # back to keyword "dense windows" (~260k chars of lower-precision text). edgartools' own parser
-    # (filing.obj().sections / obj['Item 7']) resolves the real section boundaries, yielding a
-    # smaller, higher-precision excerpt (verified: AAPL 10-K ~147k precise chars vs ~260k window).
-    # When True (default), the pipeline prefers edgartools sections and falls back to the legacy
-    # regex + dense-window path whenever sections come back empty/thin or parsing fails — so the
-    # safety net is preserved. Set USE_EDGARTOOLS_SECTIONS=false for instant rollback to the
-    # legacy-only behavior.
+    # back to keyword "dense windows" (~260k chars of lower-precision text). edgartools' HTML parser
+    # resolves the real section boundaries, yielding a smaller, higher-precision excerpt (AAPL
+    # 10-K: 124k chars vs 260k). When True (default), the pipeline parses the 10-K/10-Q/20-F
+    # sections from the primary document it already fetched (edgar/xbrl_sections.py; no SEC
+    # request) and falls back to the legacy regex + dense-window path whenever sections come back
+    # empty/thin, the document is over the size cap, or the parse fails or runs past its 30 s
+    # bound (40 s for a 20-F) — so the safety net is preserved. Set USE_EDGARTOOLS_SECTIONS=false for
+    # instant rollback to the legacy-only behavior.
     USE_EDGARTOOLS_SECTIONS: bool = True
 
     # Semantic quality gate (roadmap S4). When True, a summary assessed "partial" (thin coverage
@@ -412,6 +480,31 @@ class Settings(BaseSettings):
     # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
     ENABLE_FPI_FILINGS: bool = False
 
+    # Insider-activity endpoint (GET /api/companies/{ticker}/insiders). A cold load is a live
+    # edgartools fan-out of about two SEC requests per Form 4 (up to 60 Form 4s), which cannot fit the
+    # deploy-pinned 1 req/s budget (CODE RED D3, docs/OPERATIONS.md), so the endpoint answers 404
+    # unless this is set. Its company-page panel is dark too (frontend NEXT_PUBLIC_ENABLE_INSIDER_
+    # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
+    ENABLE_INSIDER_ACTIVITY: bool = False
+
+    # "What changed" wording diff (the Change Report's `section_changes` block; tasks/todo.md E27).
+    # When True, the hourly filing-scan job also extracts and stores Item 1A text for the watched
+    # companies' 10-K/10-Q filings (one SEC request per filing, serial, through the shared limiter)
+    # and GET /api/summaries/filing/{id}/what-changed serves the paragraph-paired wording diff
+    # against the prior same-form filing: the first few items for Free/anonymous readers, the whole
+    # list for Pro (entitlements.section_changes). Ships OFF: nothing is fetched or stored and the
+    # report carries `section_changes: null`. scripts/extract_sections.py backfills regardless of
+    # this flag so an operator can warm the table before flipping it.
+    ENABLE_SECTION_CHANGES: bool = False
+    # Filings extracted per scan run (one SEC request each, up to three attempts). The 2026-10
+    # corpus averaged 2.7 s per filing for fetch plus parse (7.7 s for the largest 10-K), so 25
+    # keeps a typical hourly run near a minute and still backfills a watchlist's recent filings
+    # within a day; a document that times out on every attempt costs about three minutes on its own.
+    SECTION_EXTRACTION_BATCH_LIMIT: int = Field(default=25, ge=0, le=500)
+    # Section texts longer than this are recorded as `oversize` without their text. The longest
+    # Item 1A in the 2026-10 corpus of 56 filings was 161k characters.
+    SECTION_TEXT_MAX_CHARS: int = Field(default=400_000, gt=0)
+
     # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
     # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead
     # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json
@@ -453,13 +546,6 @@ class Settings(BaseSettings):
     # explicit env override remains supported. SIC backfill/remediation is a separate founder run.
     USE_STATEMENT_FINANCIALS: bool = True
 
-    # Pro summary fair-use ceiling. Pro is "unlimited" as a BILLING promise (entitlements keeps
-    # monthly_summary_limit=None so the plan API never advertises a cap), but a single account —
-    # compromised, scripted, or reverse-trial-farmed — could otherwise drive thousands of fresh
-    # LLM generations/day. This is an INVISIBLE anti-abuse guardrail (degrade with a generic
-    # message, never an upsell), mirroring COPILOT_MONTHLY_QUESTION_CAP / ANALYSIS_MONTHLY_CAP.
-    # Set generously above any real human's monthly usage; 0 disables the ceiling entirely.
-    PRO_SUMMARY_MONTHLY_CAP: int = 300
     # Per-transaction PostgreSQL lock waits for completed-use counter writes; not a total deadline.
     USAGE_COUNTER_LOCK_TIMEOUT_MS: int = Field(default=3000, gt=0, le=10_000)
     # E12b: deadline for each schema step the serving container runs at startup (create_all,
@@ -485,7 +571,7 @@ class Settings(BaseSettings):
     # distinct filings would thrash the core and inflate everyone's latency toward the pipeline
     # timeout. This semaphore queues excess generations instead. Process-local (same scope as the
     # in-flight dedup + L1 caches); the dedup already collapses concurrent hits on the SAME filing.
-    # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0.
+    # <= 0 disables the ceiling (unbounded).
     MAX_CONCURRENT_GENERATIONS: int = 6
 
     # AI Recovery Settings
@@ -517,13 +603,11 @@ class Settings(BaseSettings):
     COPILOT_HISTORY_MAX_ITEMS: int = 50
     COPILOT_HISTORY_ITEM_CHAR_CAP: int = 8000
 
-    # Multi-Period Analysis (Pro flagship): N-period trend datasets + grounded AI narrative.
-    #   ANALYSIS_MONTHLY_CAP          — fair-use soft cap on FRESH generations per Pro user per month
-    #                                     (cached re-serves are free and unmetered; Copilot philosophy).
+    # Multi-Period Analysis (Pro flagship): N-period trend datasets + grounded AI narrative. Its
+    # monthly fair-use ceiling is a plan fact, entitlements.ANALYSIS_MONTHLY_CAP (D-050).
     #   ANALYSIS_MAX_TOKENS           — max completion tokens for the narrative.
     #   ANALYSIS_MAX_ANNUAL_PERIODS   — most fiscal years selectable in annual mode.
     #   ANALYSIS_MAX_QUARTERLY_PERIODS— most quarters selectable in quarterly mode.
-    ANALYSIS_MONTHLY_CAP: int = 100
     ANALYSIS_MAX_TOKENS: int = 3200
     ANALYSIS_MAX_ANNUAL_PERIODS: int = 10
     ANALYSIS_MAX_QUARTERLY_PERIODS: int = 12
@@ -558,6 +642,20 @@ class Settings(BaseSettings):
         # This ensures we get the value from Cursor settings if available
         case_sensitive = False
         env_file_encoding = 'utf-8'
+        # A validation error's text must never print its input: pydantic appends each failing field's
+        # value, and a missing field's input is every environment-derived value, secrets included, so
+        # the error would carry them into a startup log, CI's public log or an agent's output. This hides
+        # the input from str() and repr() only: errors() and json() still return it unless called with
+        # include_input=False, which the gate requires of every except block that calls them.
+        # Gate: tests/unit/test_never_echo_environment_values.py.
+        hide_input_in_errors = True
+
+    def __repr_args__(self) -> tuple[()]:
+        # A settings object prints no value: repr() is "Settings()" and str() is empty. Sentry's default
+        # local-variable capture serializes the repr of every frame local, so a captured error in any frame
+        # holding `settings` would otherwise send every secret. The values themselves are untouched.
+        # Gate: tests/unit/test_never_echo_environment_values.py.
+        return ()
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -709,4 +807,3 @@ class Settings(BaseSettings):
         return (not warnings), warnings
 
 settings = Settings()
-

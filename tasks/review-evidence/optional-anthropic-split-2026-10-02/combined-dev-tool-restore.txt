@@ -1,0 +1,45 @@
+The first combined full-gate attempt exited before lint because the copied environment had Ruff package metadata without its native executable. Restored all three exact requirements-dev.txt pins with pip --force-reinstall --no-deps, then reran the full gate without changing source/tests.
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/private/tmp/earningsnerd-deps-20261002/combined/lib/python3.11/site-packages/ruff/__main__.py", line 27, in <module>
+    _run()
+  File "/private/tmp/earningsnerd-deps-20261002/combined/lib/python3.11/site-packages/ruff/__main__.py", line 10, in _run
+    ruff = find_ruff_bin()
+           ^^^^^^^^^^^^^^^
+  File "/private/tmp/earningsnerd-deps-20261002/combined/lib/python3.11/site-packages/ruff/_find_ruff.py", line 53, in find_ruff_bin
+    raise RuffNotFound(
+ruff._find_ruff.RuffNotFound: Could not find the ruff binary in any of the following locations:
+ - /private/tmp/earningsnerd-deps-20261002/combined/bin
+ - /Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/bin
+ - /private/tmp/earningsnerd-deps-20261002/combined/lib/python3.11/site-packages/bin
+ - /Users/neilmacaogain/.local/bin
+
+
+Collecting ruff==0.16.9 (from -r backend/requirements-dev.txt (line 5))
+  Using cached ruff-0.16.9-py3-none-macosx_11_0_arm64.whl.metadata (20 kB)
+Collecting bandit==1.9.4 (from -r backend/requirements-dev.txt (line 6))
+  Using cached bandit-1.9.4-py3-none-any.whl.metadata (7.1 kB)
+Collecting pip-audit==2.10.1 (from -r backend/requirements-dev.txt (line 9))
+  Using cached pip_audit-2.10.1-py3-none-any.whl.metadata (28 kB)
+Using cached ruff-0.16.9-py3-none-macosx_11_0_arm64.whl (9.9 MB)
+Using cached bandit-1.9.4-py3-none-any.whl (134 kB)
+Using cached pip_audit-2.10.1-py3-none-any.whl (62 kB)
+Installing collected packages: ruff, pip-audit, bandit
+  Attempting uninstall: ruff
+    Found existing installation: ruff 0.16.9
+    Uninstalling ruff-0.16.9:
+      Successfully uninstalled ruff-0.16.9
+  Attempting uninstall: pip-audit
+    Found existing installation: pip_audit 2.10.1
+    Uninstalling pip_audit-2.10.1:
+      Successfully uninstalled pip_audit-2.10.1
+  Attempting uninstall: bandit
+    Found existing installation: bandit 1.9.4
+    Uninstalling bandit-1.9.4:
+      Successfully uninstalled bandit-1.9.4
+Successfully installed bandit-1.9.4 pip-audit-2.10.1 ruff-0.16.9
+
+[notice] A new release of pip is available: 24.0 -> 26.2.1
+[notice] To update, run: /private/tmp/earningsnerd-deps-20261002/combined/bin/python -m pip install --upgrade pip

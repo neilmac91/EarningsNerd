@@ -1,0 +1,114 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "That trough came from $2.17 billion of inventory provisions against excess Ampere supply, particularly for expected demand in China .",
+   "passages": [
+    {
+     "id": "P35",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin was 56.9% and 64.9% for fiscal years 2023 and 2022, respectively. The decrease in fiscal year 2023 was primarily due to $2.17 billion of inventory provisions in fiscal year 2023, which consists of approximately $1.04 billion for inventory on hand and approximately $1.13 billion for inventory purchase obligations in excess of our current demand projections."
+    },
+    {
+     "id": "P38",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin for fiscal year 2023 declined from a year ago, driven by $2.17 billion of inventory charges largely relating to excess supply of NVIDIA Ampere architecture Gaming and Data Center products as compared to the demand expectations for these products, particularly for the expected demand in China. The inventory charges were comprised of $1.04 billion for inventory on hand and $1.13 billion for inventory purchase obligations in excess of our demand expectations."
+    }
+   ],
+   "label": "supported",
+   "reason": "P38 attributes the $2.17B inventory charges to excess Ampere supply versus demand expectations, particularly expected demand in China."
+  },
+  {
+   "sentence": "The recovery was a step change: revenue rose 125.9% in FY2024 and 114.2% in FY2025, driven by data center compute and networking for accelerated computing and AI .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2026 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Our Blackwell architectures represented the majority of our Data Center revenue."
+    },
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2025 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Demand for our Hopper architecture drove our significant growth for the full year. We began shipping production systems of the Blackwell architecture in the fourth quarter of fiscal year 2025."
+    }
+   ],
+   "label": "partial",
+   "reason": "P16 states this cause for FY2025. No cited passage covers FY2024; P10 covers FY2026 instead."
+  },
+  {
+   "sentence": "Within it, Data Center computing grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200 and GB300 systems .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 states compute grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200/GB300, among other drivers."
+  },
+  {
+   "sentence": "The FY2026 Compute & Networking operating-income increase was partly offset by a $4.5 billion H20 excess-inventory and purchase-obligation charge .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Reportable segment operating income \u2013 The year over year increase in Compute & Networking segment operating income was driven by growth in revenue, partially offset by a $4.5 billion charge associated with H20 excess inventory and purchase obligations in the first quarter of fiscal year 2026. The year over year increase in Graphics segment operating income was driven by the growth in revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 states the segment income increase was partially offset by a $4.5B H20 excess inventory and purchase obligation charge."
+  },
+  {
+   "sentence": "Operating expenses rose 41%, driven by compensation and benefits from employee growth and by compute and infrastructure costs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating expenses for fiscal year 2026 were up 41% from a year ago, driven by higher compensation and benefits expenses due to employee growth and compute and infrastructure costs."
+    },
+    {
+     "id": "P5",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increases in research and development expenses for fiscal year 2026 were driven by a 29% increase in compensation and benefits expense, including stock-based compensation, reflecting employee growth and compensation increases and a 79% increase in compute and infrastructure."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 attributes the 41% opex rise to compensation and benefits from employee growth and to compute and infrastructure costs."
+  },
+  {
+   "sentence": "Net margin held at 55.6% because other income of $11.1 billion, largely unrealized equity gains including Intel, offset a tax rate rising to 15.1% .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income, net primarily consists of realized or unrealized gains and losses from investments in non-marketable equity securities, publicly-held equity securities, and the impact of changes in foreign currency rates. The change in Other income, net, compared to fiscal year 2025, was primarily driven by unrealized gains in non-marketable and publicly-held equity securities, including gains from our previously announced investment in Intel\u2019s common stock. Refer to Note 7 and 8 of the Notes to the Consolidated Financial Statements in Part\u00a0IV, Item\u00a015 of this Annual Report on Form\u00a010-K for additional information regarding our non-marketable equity securities."
+    },
+    {
+     "id": "P2",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The effective tax rate increased primarily due to a lower percentage of tax benefits from stock-based compensation, FDDEI, and U.S. federal research tax credit relative to the increase in income before income tax."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passages explain the other income change (Intel gains) and the tax rate rise separately, but never say one offset the other to hold margin."
+  },
+  {
+   "sentence": "Investing outflow of $52.2 billion rose on higher equity investment purchases and a non-exclusive license agreement with Groq .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash used in investing activities increased in fiscal year 2026 compared to fiscal year 2025, primarily driven by higher purchases of equity investment securities and the execution of a non-exclusive license agreement with Groq."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 attributes the higher investing outflow to equity investment purchases and the Groq non-exclusive license agreement."
+  }
+ ],
+ "cost_usd": 0.040504
+}

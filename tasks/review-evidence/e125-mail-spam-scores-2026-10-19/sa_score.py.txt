@@ -1,0 +1,35 @@
+"""E125: score every mime/<option>/<mail>.eml with SpamAssassin 4.0 (local tests only) and keep each test's points.
+
+Usage: python sa_score.py <out.json>. Reads the report SpamAssassin appends in test mode (-t): one line per test hit,
+"<points> <TEST> <description>", so each test's points are read as scored, not looked up."""
+import concurrent.futures
+import email
+import json
+import re
+import subprocess
+import sys
+from email import policy
+from pathlib import Path
+
+root = Path(__file__).with_name("mime")
+LINE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s+([A-Z][A-Z0-9_]+)\s", re.M)
+
+
+def score(path: Path):
+    out = subprocess.run(["spamassassin", "-L", "-t"], input=path.read_bytes(), capture_output=True, timeout=120).stdout
+    msg = email.message_from_bytes(out, policy=policy.default)
+    status = str(msg.get("X-Spam-Status", ""))
+    total = float(re.search(r"score=(-?\d+(?:\.\d+)?)", status).group(1))
+    text = out.decode("utf-8", "replace")
+    report = text[text.find("Content analysis details"):] if "Content analysis details" in text else ""
+    tests = {name: float(points) for points, name in LINE.findall(report)}
+    return path.parent.name, path.stem, total, tests
+
+
+paths = sorted(root.glob("*/*.eml"))
+results = {}
+with concurrent.futures.ThreadPoolExecutor(8) as pool:
+    for option, name, total, tests in pool.map(score, paths):
+        results.setdefault(option, {})[name] = {"score": total, "tests": tests}
+json.dump(results, open(sys.argv[1], "w"), indent=1, sort_keys=True)
+print("scored", sum(len(v) for v in results.values()))

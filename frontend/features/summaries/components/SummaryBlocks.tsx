@@ -1,15 +1,30 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Badge, Card, CardHeader, CardTitle, CardBody } from '@/components/ui'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react'
+import { Badge, countControlClass, cx } from '@/components/ui'
+import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
-import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
+import { Callout } from '@/features/summaries/components/Callout'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
+import { WHAT_CHANGED_ID, WhatChanged, reportHasContent } from '@/features/filings/components/WhatChanged'
+import type { WordingContext } from '@/features/filings/components/WordingChanges'
+import { useSectionArrival } from '@/features/summaries/hooks/useSectionArrival'
 import { SectionEmpty } from './SectionEmpty'
 import { normalizeRisk } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
-import type { BlockEvidence, RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
+import type { BlockEvidence, ChangeReport, RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
+import { parseNumeric } from '@/lib/format'
+
+/** The filing page's section nav's rendered height, published on <html> as a CSS length: below lg the nav sticks
+    under the site header, a second bar. The document's top scroll padding adds it to the header's (app/globals.css),
+    so a keyboard focus lands below both bars, and a section's scroll margin gives it back, so an anchor jump lands
+    where it did. 0px from lg up, where the nav is hidden; unset when the nav is not mounted (DESIGN_SYSTEM.md §4
+    Stacking; tests/e2e/header-covers-nothing.spec.ts walks /filing at 390px). */
+export const SECTION_NAV_HEIGHT_PROPERTY = '--section-nav-h'
+
+// Isomorphic layout effect (the repo's SSR-safe alias, as in Header): the nav renders on the server too.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 // A block/row citation → the shared Trace-to-Source chip (T4). Renders nothing when there's nothing to
 // trace (SourceTrace's own guard), so an unenriched or uncited block is unaffected. The excerpt is shown
@@ -33,26 +48,55 @@ const RISKS_SECTION_ID = 'investment-risks-concerns'
 const isRisksSection = (section: RenderedSection): boolean =>
   section.role === 'risks' || section.id === RISKS_SECTION_ID
 
-// tone -> Badge variant (T1.2 treatment). neutral/unknown render nothing: tone is a schema field
-// name, not user copy.
-const TONE_VARIANT: Record<string, 'brand' | 'warning'> = {
-  positive: 'brand',
-  cautious: 'warning',
+// tone -> the header Badge's label. One neutral Badge for both: a tone is the model's reading of
+// management's language, not a status, so it takes neither the brand nor a warning colour, and the
+// label names what it is. neutral/unknown render nothing: tone is a schema field name, not user copy.
+const TONE_LABEL: Record<string, string> = {
+  positive: 'Management tone: positive',
+  cautious: 'Management tone: cautious',
+}
+
+const INK = 'text-text-primary-light dark:text-text-primary-dark'
+const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
+const HAIRLINE = 'border-border-light dark:border-white/10'
+
+/** "01", "02", … — the data-face index a section shares with its table-of-contents entry. */
+const sectionIndex = (i: number) => String(i + 1).padStart(2, '0')
+
+interface PageSection {
+  id: string
+  title: string
+  tone?: string
+  body: ReactNode
 }
 
 interface SummaryBlocksProps {
   sections: RenderedSection[]
   /** The full summary — read only for the risks section's enriched provenance (source traces). */
   summary: Summary
+  /** The period-over-period change report; rendered as section 02 territory when it has something
+   *  to show (metric deltas, or the Item 1A wording comparison). */
+  whatChanged?: ChangeReport | null
+  /** Who is reading the report, for its wording block's events and teaser. */
+  whatChangedContext?: WordingContext
+  /** Optional completion-focus target without introducing a second document heading. */
+  firstHeadingRef?: Ref<HTMLHeadingElement>
 }
 
 /**
  * The single web surface for a filing summary (T2): renders the backend's `rendered_sections`
- * projection — the SAME Section/Block list that feeds the PDF and CSV — as one scrolling page of
- * per-section Cards with a sticky table of contents. Replaces the ReactMarkdown card, the tabbed
- * SummarySections, and the standalone metrics table, so a number has exactly one home on the page.
+ * projection — the SAME Section/Block list that feeds the PDF and CSV — as one scrolling page with an
+ * indexed table of contents. Replaces the ReactMarkdown card, the tabbed SummarySections, and the
+ * standalone metrics table, so a number has exactly one home on the page.
+ *
+ * "Quiet ledger" (2026-10 critique, P-05 / P-07): hierarchy comes from type, not containers. Each
+ * section is a 20/28 heading with a data-face index ("01") that matches its table-of-contents entry,
+ * set straight on the page with no card; hairlines live inside the content (tables, evidence rows),
+ * not around it. The change report, when the filing has one, is the section right after the first
+ * metrics section. Subheadings are 14/600 headings, never uppercase eyebrows (eyebrows are for
+ * metric labels only).
  */
-export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
+export function SummaryBlocks({ sections, summary, whatChanged, whatChangedContext, firstHeadingRef }: SummaryBlocksProps) {
   // Enriched, placeholder-filtered risks (with source_url/verified) for the risks special-case.
   const risks = useMemo<RiskFactor[]>(() => {
     const sections = summary.raw_summary?.sections as { risks?: unknown; risk_factors?: unknown } | undefined
@@ -67,64 +111,120 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
         version?: number
         verified_count?: number
         withheld_count?: number
+        candidate_count?: number
         source_available?: boolean
       }
     } | undefined
   )?._risk_source_projection : undefined
+  const withChanges = reportHasContent(whatChanged) && !(sections ?? []).some((section) => section.id === WHAT_CHANGED_ID)
+  useSectionArrival([...(sections ?? []).map((section) => section.id), ...(withChanges ? [WHAT_CHANGED_ID] : [])].join(' '))
 
   if (!sections?.length) {
     return <SectionEmpty label="summary" />
   }
 
-  return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_13rem] lg:gap-8">
-      <div className="space-y-6">
-        <MobileSectionNav sections={sections} />
-        {sections.map((section) => {
-          const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
-          return (
-            <Card as="section" key={section.id} id={section.id} className="scroll-mt-32 overflow-hidden lg:scroll-mt-24">
-              <CardHeader className="flex items-center justify-between gap-2">
-                <CardTitle>{section.title}</CardTitle>
-                {toneVariant && (
-                  <Badge variant={toneVariant} className="shrink-0 capitalize">
-                    {section.tone}
-                  </Badge>
-                )}
-              </CardHeader>
-              <CardBody className="space-y-4">
-                {isRisksSection(section) ? (
-                  <SummaryRisks risks={risks} projection={riskProjection} />
-                ) : (
-                  section.blocks.map((block, i) => <BlockView key={i} block={block} />)
-                )}
-              </CardBody>
-            </Card>
-          )
-        })}
-      </div>
+  const pageSections: PageSection[] = sections.map((section) => {
+    const tableCount = section.blocks.filter((block) => block.kind === 'table').length
+    let tableNumber = 0
+    return {
+      id: section.id,
+      title: section.title,
+      tone: section.tone,
+      body: isRisksSection(section) ? (
+        <SummaryRisks risks={risks} projection={riskProjection} />
+      ) : (
+        section.blocks.map((block, i) => <BlockView key={i} block={block}
+          tableLabel={block.kind === 'table'
+            ? `${section.title}${tableCount > 1 ? `, table ${++tableNumber} of ${tableCount}` : ''}`
+            : undefined}
+        />)
+      ),
+    }
+  })
+  if (whatChanged && withChanges) {
+    const metricsAt = sections.findIndex((section) => section.blocks.some((block) => block.kind === 'metrics'))
+    pageSections.splice(metricsAt === -1 ? 1 : metricsAt + 1, 0, {
+      id: WHAT_CHANGED_ID,
+      title: 'What changed',
+      body: <WhatChanged report={whatChanged} bare context={whatChangedContext} />,
+    })
+  }
 
-      {/* Sticky in-page table of contents — anchor links to each section (widescreen only, so it
-          never crowds the reading column on narrow/reflowed layouts). */}
+  return (
+    <div className="lg:grid lg:grid-cols-[10rem_minmax(0,1fr)] lg:gap-8">
+      {/* Sticky table of contents, widescreen only (it would crowd a reflowed reading column), on the
+          reading side of the page: each entry carries its section's index. */}
       <aside className="hidden lg:block">
-        <nav aria-label="Summary sections" className="sticky top-24 self-start">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark">
-            On this page
-          </p>
-          <ul className="space-y-1 border-l border-border-light dark:border-border-dark">
-            {sections.map((section) => (
+        <nav aria-label="Summary sections" className="sticky top-[calc(var(--site-header-h,4rem)_+_2rem)]">
+          <p className={`mb-3 text-xs font-medium ${MUTED}`}>On this page</p>
+          <ol role="list" className="space-y-1">
+            {pageSections.map((section, i) => (
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
-                  className="-ml-px block border-l border-transparent py-1 pl-3 text-sm text-text-secondary-light transition-colors hover:border-brand-border hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
+                  className={`flex gap-2.5 rounded py-1 text-sm transition-colors duration-fast hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-white dark:focus-visible:shadow-ring-brand-dark ${MUTED}`}
                 >
-                  {section.title}
+                  <span aria-hidden="true" className="font-data text-xs leading-5 text-text-tertiary-light dark:text-text-tertiary-dark">
+                    {sectionIndex(i)}
+                  </span>
+                  <span className="min-w-0">{section.title}</span>
                 </a>
               </li>
             ))}
-          </ul>
+          </ol>
         </nav>
       </aside>
+
+      <div className="min-w-0">
+        {/* Outside the spaced stack: Tailwind 3's space-y margins every child after a sibling without
+            the hidden attribute, so this display:none-at-lg nav pushed section 01 44px below the TOC
+            on wide screens. Its own bottom margin keeps the phone gap. */}
+        <MobileSectionNav sections={pageSections} />
+        <div className="space-y-11">
+          {pageSections.map((section, i) => {
+            const toneLabel = section.tone ? TONE_LABEL[section.tone.toLowerCase()] : undefined
+            return (
+              <section
+                key={section.id}
+                id={section.id}
+                aria-labelledby={`${section.id}-heading`}
+                // Its own room beyond the bars: 4rem below the site header, less the section nav, which the
+                // document's scroll padding reserves below lg, so a jump lands where it did before the padding
+                // counted the nav; 2rem from lg, where the nav is hidden.
+                className="scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))] lg:scroll-mt-8"
+              >
+                {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
+                    so a long heading wraps its own words beside its index, never drops beneath it. When
+                    the group and the badge do not fit on one line (a 320px phone, or 200% text) the badge
+                    moves beneath the heading instead of squeezing it or pushing the page wider, and its
+                    label wraps inside the badge if even a line of its own is too narrow (the label's span
+                    overrides the Badge's nowrap). */}
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <div className="flex min-w-0 items-baseline gap-3">
+                    <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
+                      {sectionIndex(i)}
+                    </span>
+                    <h2
+                      ref={i === 0 ? firstHeadingRef : undefined}
+                      tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
+                      id={`${section.id}-heading`}
+                      className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
+                    >
+                      {section.title}
+                    </h2>
+                  </div>
+                  {toneLabel && (
+                    <Badge variant="neutral" className="max-w-full self-center">
+                      <span className="min-w-0 whitespace-normal">{toneLabel}</span>
+                    </Badge>
+                  )}
+                </div>
+                <div className="mt-4 space-y-4">{section.body}</div>
+              </section>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -136,19 +236,40 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
  * chip is reachable by Tab with the brand focus ring. The two navs never coexist in the
  * accessibility tree (each is display:none at the other breakpoint), so their labels can differ.
  */
-function MobileSectionNav({ sections }: { sections: RenderedSection[] }) {
+function MobileSectionNav({ sections }: { sections: PageSection[] }) {
+  const navRef = useRef<HTMLElement>(null)
+  // Publish the nav's height (SECTION_NAV_HEIGHT_PROPERTY) before the first paint and on every reflow (a text-size
+  // change; the lg breakpoint, where it is hidden and measures 0px); cleared when it leaves.
+  useIsoLayoutEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const root = document.documentElement
+    const measure = () => root.style.setProperty(SECTION_NAV_HEIGHT_PROPERTY, `${Math.ceil(nav.getBoundingClientRect().height)}px`)
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(nav)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty(SECTION_NAV_HEIGHT_PROPERTY)
+    }
+  }, [])
   return (
     <nav
+      ref={navRef}
+      data-section-nav
       aria-label="Jump to section"
-      className="sticky top-16 z-10 -mx-4 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
+      className="sticky top-[var(--site-header-h,4rem)] z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >
       <ul className="flex gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {sections.map((section) => (
+        {sections.map((section, i) => (
           <li key={section.id} className="shrink-0">
             <a
               href={`#${section.id}`}
-              className="inline-flex min-h-9 items-center whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium text-text-secondary-light shadow-e1 transition-colors hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className={cx('inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none', countControlClass('button'))}
             >
+              <span aria-hidden="true" className="font-data text-text-tertiary-light dark:text-text-tertiary-dark">
+                {sectionIndex(i)}
+              </span>
               {section.title}
             </a>
           </li>
@@ -160,47 +281,58 @@ function MobileSectionNav({ sections }: { sections: RenderedSection[] }) {
 
 /** One Block.kind → one renderer. The backend already strips field-name scaffolding, so text
     blocks render as plain prose (no ReactMarkdown needed). Unknown kinds render nothing. */
-function BlockView({ block }: { block: RenderedBlock }) {
+function BlockView({ block, tableLabel }: { block: RenderedBlock; tableLabel?: string }) {
   switch (block.kind) {
     case 'paragraph':
       return block.text ? (
-        // Justified body copy with hyphenation, matching the .markdown-body prose treatment (T1.7).
-        <p className="text-justify leading-relaxed text-text-secondary-light [hyphens:auto] dark:text-text-secondary-dark">
+        // Justified body copy with hyphenation at ≥sm only, matching the .markdown-body prose treatment
+        // (T1.7; v3 Q3 keeps phone-width panes ragged-right). Body ink: the summary is the document.
+        <p className={`leading-relaxed sm:text-justify sm:[hyphens:auto] ${INK}`}>
           {block.text}
         </p>
       ) : null
 
     case 'subheading':
-      return block.text ? (
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark">
-          {block.text}
-        </h4>
-      ) : null
+      // A 14/600 heading under the section's h2, in sentence register: never an uppercase eyebrow.
+      return block.text ? <h3 className="text-sm font-semibold">{block.text}</h3> : null
 
-    case 'quote':
-      return block.text ? (
-        <blockquote className="border-l-4 border-brand-border pl-4 italic text-text-secondary-light dark:border-brand-border-dark dark:text-text-secondary-dark">
+    case 'quote': {
+      if (!block.text) return null
+      const quote = (
+        <>
           <p>“{block.text}”</p>
           {(block.speaker || block.evidence) && (
-            <div className="mt-1 flex items-center gap-2">
+            // Wraps, so the chip drops under the speaker where the line cannot hold both (the marked block's padding
+            // narrows it: at 390 under 200% text the chip ran 4px past the page).
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {/* The speaker is attribution, not the filing's words: the body face, inside a marked block too. */}
               {block.speaker && (
-                <cite className="block text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
-                  — {block.speaker}
+                <cite className="block font-sans text-sm not-italic text-text-tertiary-light dark:text-text-tertiary-dark">
+                  {block.speaker}
                 </cite>
               )}
               <EvidenceChip evidence={block.evidence} />
             </div>
           )}
-        </blockquote>
-      ) : null
+        </>
+      )
+      // The device marks a quote whose evidence the server located (D-044): the marked block, the quote in the
+      // filing's face, and no marker or twin, since a quote block has no heading to carry one. Any other quote
+      // keeps the neutral hairline.
+      return block.evidence?.verified === true ? (
+        <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>{quote}</blockquote>
+      ) : (
+        <blockquote className={`border-l-2 pl-3.5 italic ${HAIRLINE} ${MUTED}`}>{quote}</blockquote>
+      )
+    }
 
     case 'bullets':
       return block.items && block.items.length > 0 ? (
         <div>
           {block.text && (
-            <p className="mb-1 font-semibold text-text-primary-light dark:text-text-primary-dark">{block.text}</p>
+            <p className={`mb-1 font-semibold ${INK}`}>{block.text}</p>
           )}
-          <ul className="list-disc space-y-1 pl-5 text-text-secondary-light dark:text-text-secondary-dark">
+          <ul className={`list-disc space-y-1 pl-5 ${INK}`}>
             {block.items.map((item, i) => (
               <li key={i}>{item}</li>
             ))}
@@ -211,6 +343,7 @@ function BlockView({ block }: { block: RenderedBlock }) {
     case 'table':
       return (
         <GenericTable
+          label={tableLabel ?? 'Summary table'}
           headers={block.headers ?? []}
           rows={block.rows ?? []}
           rowEvidence={block.row_evidence}
@@ -220,15 +353,15 @@ function BlockView({ block }: { block: RenderedBlock }) {
     case 'metrics':
       // The metrics rows carry the server-computed deltas (rule-12 single source) + provenance, so
       // FinancialMetricsTable renders identically to the old standalone table — just without its own
-      // header (the section Card supplies the "Financial Highlights" title).
+      // header (the section heading supplies the "Financial Highlights" title).
       return <FinancialMetricsTable metrics={block.metric_rows} bare />
 
     case 'callout': {
       const flagged = /flag|risk|concern|caution|warn/i.test(block.label ?? '')
       return block.text ? (
-        <SummaryBlock type={flagged ? 'bearish' : 'neutral'} title={block.label || undefined}>
+        <Callout label={block.label} tone={flagged ? 'caution' : 'neutral'}>
           {block.text}
-        </SummaryBlock>
+        </Callout>
       ) : null
     }
 
@@ -237,31 +370,60 @@ function BlockView({ block }: { block: RenderedBlock }) {
   }
 }
 
-/** A plain string-cell table (segments, footnotes) styled with design-system tokens and horizontal
-    scroll so wide grids never push the page sideways. When `rowEvidence` is present (T4 — footnotes),
-    a per-row Trace-to-Source chip is appended under the row's last cell. */
-function GenericTable({
-  headers,
-  rows,
-  rowEvidence,
-}: {
+// No letters except one trailing K/M/B/T scale: "$391.0B", "-3.2%", "(12.4)" — not "$2.1B goodwill …".
+const WHOLE_FIGURE = /^\P{L}*[KMBT]?$/iu
+
+/** A plain string-cell table (segments, footnotes) on reader-table manners: hairline rows with no
+    outer frame, no header fill, eyebrow header, and numeric COLUMNS detected via parseNumeric and
+    rendered right-aligned in the data face (segment-revenue grids were left-aligned prose). The
+    outer cells sit flush with the section's text edge. On phones, prose columns keep a readable
+    measure instead of shrinking into tall word stacks. Wide tables scroll in a named keyboard
+    region; tables that fit add no stop. When `rowEvidence` is present (T4 — footnotes), a per-row
+    Trace-to-Source chip is appended under the row's last cell. */
+function GenericTable({ label, headers, rows, rowEvidence }: {
+  label: string
   headers: string[]
   rows: string[][]
   rowEvidence?: (BlockEvidence | null)[]
 }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const hintId = useId()
+  const { overflowing, regionProps } = useOverflowRegion(boxRef, {
+    label: `Scrollable table: ${label}`,
+    describedBy: hintId,
+    enabled: rows.length > 0,
+  })
   if (rows.length === 0) return null
   const hasRowEvidence = rowEvidence?.some(Boolean) ?? false
+  const colCount = Math.max(headers.length, ...rows.map((r) => r.length))
+  // Numeric column = every non-empty cell is a whole figure ($391.0B, 61.2%, (12.4), —). parseNumeric
+  // reads a leading number, so a cell must also carry no letters beyond one scale suffix: commentary
+  // that merely opens with a figure ("41% operating margin — …") stays wrapping prose.
+  const numericCol = Array.from({ length: colCount }, (_, c) => {
+    const cells = rows.map((r) => (r[c] ?? '').trim())
+    return cells.some((v) => v !== '') &&
+      cells.every((v) => v === '' || v === '—' || v === '-' || (WHOLE_FIGURE.test(v) && parseNumeric(v) !== null))
+  })
   return (
-    <div className="overflow-x-auto rounded-xl border border-border-light dark:border-border-dark">
-      <table className="min-w-full divide-y divide-border-light dark:divide-border-dark">
+    <div>
+      {overflowing && <p id={hintId} className={`mb-2 text-xs ${MUTED}`}>Scroll horizontally to read all columns.</p>}
+      {/* The region's attributes are written out, not spread from regionProps, so tests/unit/siteChromeFocusRing.spec.ts
+          reads the box's Tab stop and holds it to the ring, and tests/unit/dialogAllowlist.spec.ts can prove the role is
+          no dialog's. */}
+      <div ref={boxRef}
+        role={overflowing ? 'region' : undefined}
+        tabIndex={regionProps.tabIndex}
+        aria-label={regionProps['aria-label']}
+        aria-describedby={regionProps['aria-describedby']}
+        className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+      <table className="min-w-full border-collapse">
+        <caption className="sr-only">{label}</caption>
         {headers.length > 0 && (
-          <thead className="bg-background-light dark:bg-background-dark">
-            <tr>
+          <thead>
+            <tr className={`border-b ${HAIRLINE}`}>
               {headers.map((header, i) => (
-                <th
-                  key={i}
-                  className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
-                >
+                <th key={i} scope="col"
+                  className={`px-3 py-2 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light first:pl-0 last:pr-0 dark:text-text-tertiary-dark ${numericCol[i] ? 'text-right' : 'text-left'}`}>
                   {header}
                 </th>
               ))}
@@ -276,25 +438,25 @@ function GenericTable({
             // table (segments) keeps its default vertical alignment.
             const cellAlign = hasRowEvidence ? ' align-top' : ''
             return (
-              <tr key={r}>
+              // Every row closes with a hairline (the header row carries its own), so the ledger ends
+              // on a rule and no two lines double up.
+              <tr key={r} className={`border-b ${HAIRLINE}`}>
                 {row.map((cell, c) => (
-                  <td
-                    key={c}
-                    className={`border-t border-border-light px-4 py-3 text-sm text-text-secondary-light dark:border-border-dark dark:text-text-secondary-dark${cellAlign}`}
-                  >
+                  <td key={c}
+                    className={`px-3 py-2.5 text-sm first:pl-0 last:pr-0 ${MUTED}${cellAlign}${numericCol[c] ? ' text-right font-data tabular-nums whitespace-nowrap' : ' min-w-[12rem] [overflow-wrap:anywhere] md:min-w-0'}`}>
                     {cell}
                     {c === last && ev && (
-                      <span className="mt-1 block">
-                        <EvidenceChip evidence={ev} />
-                      </span>
+                      <span className="mt-1 block"><EvidenceChip evidence={ev} /></span>
                     )}
                   </td>
                 ))}
+                {row.length === 0 && ev && <td colSpan={Math.max(1, colCount)} className="py-2.5"><EvidenceChip evidence={ev} /></td>}
               </tr>
             )
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

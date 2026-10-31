@@ -17,7 +17,7 @@ from app.services.prompt_loader import get_structured_prompt
 # Anchored to __file__ (Gemini on #626): tests/unit/ -> backend/ -> app/... — runs
 # identically regardless of the runner's working directory.
 _OPENAI_SERVICE_SRC = (
-    Path(__file__).resolve().parents[2] / "app" / "services" / "openai_service.py"
+    Path(__file__).resolve().parents[2] / "app" / "services" / "ai" / "summary_prompt.py"
 ).read_text()
 
 

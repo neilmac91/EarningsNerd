@@ -1,169 +1,177 @@
 'use client'
 
-import { useMemo } from 'react'
-import { cx } from '@/components/ui'
+import { useId, useMemo, useState } from 'react'
+import { SegmentedControl, countControlClass, cx, inputClasses } from '@/components/ui'
 import type { AnalysisCoverage, AnalysisMode } from '@/features/analysis/api/analysis-api'
+import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 
 export interface PeriodRange {
   start: string
   end: string
 }
 
-interface PeriodChip {
+export interface PeriodOption {
   key: string
   label: string
   disabled: boolean
   derived: boolean
 }
 
-/**
- * The available periods for a mode as ordered chips (oldest → newest). Selection is a contiguous
- * range: clicking a chip moves the nearer endpoint (single-anchor UX — no drag needed), clamped
- * to the mode's period cap. Years without a top line + net income are disabled; fully-derived Q4
- * columns carry a † badge.
- */
-export function chipsFor(coverage: AnalysisCoverage, mode: AnalysisMode): PeriodChip[] {
-  if (mode === 'annual') {
-    return coverage.annual.map((p) => ({
-      key: p.key,
-      label: p.key,
-      disabled: !p.has_core,
-      derived: false,
-    }))
-  }
-  return coverage.quarterly.map((p) => ({
-    key: p.key,
-    label: `${p.fiscal_period} ’${String(p.fiscal_year).slice(2)}`,
-    disabled: false,
-    derived: p.derived,
-  }))
+/** All available period labels, oldest first; unavailable years stay visible in the selects. */
+export function optionsFor(coverage: AnalysisCoverage, mode: AnalysisMode): PeriodOption[] {
+  return mode === 'annual'
+    ? coverage.annual.map((period) => ({ key: period.key, label: formatAnalysisPeriod(period.key), disabled: !period.has_core, derived: false }))
+    : coverage.quarterly.map((period) => ({ key: period.key, label: formatAnalysisPeriod(period.key), disabled: false, derived: period.derived }))
 }
 
-/** Default range: the newest `cap` periods (what a fresh visit should analyze). */
+/** Newest bounded range. Disabled years cannot become endpoints or extend the period cap. */
+export function latestRange(options: PeriodOption[], cap: number): PeriodRange | null {
+  const end = options.findLastIndex((option) => !option.disabled)
+  if (end < 0 || cap < 1) return null
+  const start = options.findIndex((option, index) => index >= Math.max(0, end - cap + 1) && !option.disabled)
+  return { start: options[start].key, end: options[end].key }
+}
+
 export function defaultRange(coverage: AnalysisCoverage, mode: AnalysisMode): PeriodRange | null {
-  const chips = chipsFor(coverage, mode).filter((c) => !c.disabled)
-  if (chips.length === 0) return null
-  const cap = mode === 'annual' ? coverage.limits.annual : coverage.limits.quarterly
-  const window = chips.slice(-cap)
-  return { start: window[0].key, end: window[window.length - 1].key }
+  return latestRange(optionsFor(coverage, mode), coverage.limits[mode])
 }
 
-/** Move the nearer endpoint of [start, end] to `clicked`, clamped to `cap` periods. */
+/** Keep the edited endpoint and pull the other into a valid, ordered, capped range. */
 export function nextRange(
-  keys: string[],
-  range: PeriodRange,
-  clicked: string,
-  cap: number
-): PeriodRange {
-  const index = keys.indexOf(clicked)
-  const startIndex = keys.indexOf(range.start)
-  const endIndex = keys.indexOf(range.end)
-  if (index === -1 || startIndex === -1 || endIndex === -1) return range
-
-  let nextStart = startIndex
-  let nextEnd = endIndex
-  if (index < startIndex) nextStart = index
-  else if (index > endIndex) nextEnd = index
-  else if (Math.abs(index - startIndex) <= Math.abs(endIndex - index)) nextStart = index
-  else nextEnd = index
-
-  // Clamp to the cap by pulling the OTHER endpoint toward the one just moved.
-  if (nextEnd - nextStart + 1 > cap) {
-    if (nextStart !== startIndex) nextEnd = nextStart + cap - 1
-    else nextStart = nextEnd - cap + 1
+  options: PeriodOption[],
+  range: PeriodRange | null,
+  endpoint: keyof PeriodRange,
+  key: string,
+  cap: number,
+): PeriodRange | null {
+  const moved = options.findIndex((option) => option.key === key && !option.disabled)
+  if (moved < 0 || cap < 1) return range
+  let start = range ? options.findIndex((option) => option.key === range.start && !option.disabled) : moved
+  let end = range ? options.findIndex((option) => option.key === range.end && !option.disabled) : moved
+  if (endpoint === 'start') {
+    start = moved
+    end = Math.min(Math.max(start, end), start + cap - 1)
+    while (end > start && options[end].disabled) end--
+  } else {
+    end = moved
+    start = Math.max(Math.min(start < 0 ? end : start, end), end - cap + 1)
+    while (start < end && options[start].disabled) start++
   }
-  return { start: keys[nextStart], end: keys[nextEnd] }
+  return { start: options[start].key, end: options[end].key }
 }
 
-export default function PeriodPicker({
-  coverage,
-  mode,
-  range,
-  onModeChange,
-  onRangeChange,
-}: {
+export default function PeriodPicker({ coverage, mode, range, onModeChange, onRangeChange }: {
   coverage: AnalysisCoverage
   mode: AnalysisMode
   range: PeriodRange | null
   onModeChange: (mode: AnalysisMode) => void
   onRangeChange: (range: PeriodRange) => void
 }) {
-  const chips = useMemo(() => chipsFor(coverage, mode), [coverage, mode])
-  const keys = useMemo(() => chips.map((c) => c.key), [chips])
-  const cap = mode === 'annual' ? coverage.limits.annual : coverage.limits.quarterly
-  const startIndex = range ? keys.indexOf(range.start) : -1
-  const endIndex = range ? keys.indexOf(range.end) : -1
-  const inRange = (index: number) =>
-    startIndex !== -1 && endIndex !== -1 && index >= startIndex && index <= endIndex
-  const selectedCount = startIndex !== -1 && endIndex !== -1 ? endIndex - startIndex + 1 : 0
-
-  const hasQuarters = coverage.quarterly.length > 0
+  const id = useId()
+  const [announcement, setAnnouncement] = useState<{ key: string; text: string } | null>(null)
+  const options = useMemo(() => optionsFor(coverage, mode), [coverage, mode])
+  const cap = coverage.limits[mode]
+  const selected = range ? options.filter((option) => option.key >= range.start && option.key <= range.end) : []
+  const derivedCount = selected.filter((option) => option.derived).length
+  const noun = mode === 'quarterly' ? selected.length === 1 ? 'quarter' : 'quarters' : selected.length === 1 ? 'year' : 'years'
+  const limitNoun = mode === 'quarterly' ? cap === 1 ? 'quarter' : 'quarters' : cap === 1 ? 'year' : 'years'
+  const selectionKey = (selection: PeriodRange | null) => `${coverage.ticker}:${mode}:${selection?.start}:${selection?.end}`
+  // The parent can retain Annual while freshly loaded coverage has no usable annual data.
+  // Preserve its controlled selection and explanation; the reader chooses an available mode.
+  const unavailableModes = {
+    annual: !coverage.annual.some((period) => period.has_core),
+    quarterly: coverage.quarterly.length === 0,
+  }
+  const presets = [...new Set((mode === 'quarterly' ? [4, 8, 12] : [5, 10]).map((count) => Math.min(count, cap)))].filter((count) => count > 0)
+    .map((count) => {
+      const preset = latestRange(options, count)
+      return { count: preset ? options.filter((option) => option.key >= preset.start && option.key <= preset.end).length : 0, range: preset }
+    })
+    .filter((preset, index, all) => all.findIndex((item) => item.range?.start === preset.range?.start && item.range?.end === preset.range?.end) === index)
+  const updateEndpoint = (endpoint: keyof PeriodRange, key: string) => {
+    const next = nextRange(options, range, endpoint, key, cap)
+    if (!next) return
+    const other = endpoint === 'start' ? 'end' : 'start'
+    const crossed = range && (endpoint === 'start' ? key > range.end : key < range.start)
+    setAnnouncement(range && next[other] !== range[other] ? {
+      key: selectionKey(next),
+      text: `${other === 'start' ? 'From' : 'To'} moved to ${formatAnalysisPeriod(next[other])} to keep ${crossed ? 'the range ordered' : `at most ${cap} ${limitNoun}`}.`,
+    } : null)
+    onRangeChange(next)
+  }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Mode toggle — segmented control. */}
-        <div
-          role="group"
-          aria-label="Analysis mode"
-          className="inline-flex rounded-xl border border-border-light bg-background-light p-0.5 dark:border-white/10 dark:bg-white/5"
-        >
-          {(['annual', 'quarterly'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onModeChange(m)}
-              disabled={m === 'quarterly' && !hasQuarters}
-              aria-pressed={mode === m}
-              className={cx(
-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
-                mode === m
-                  ? 'bg-brand text-white dark:bg-brand-dark dark:text-background-dark'
-                  : 'text-text-secondary-light hover:bg-brand-weak dark:text-text-secondary-dark dark:hover:bg-white/10'
-              )}
-            >
-              {m === 'annual' ? 'Annual' : 'Quarterly'}
-            </button>
-          ))}
-        </div>
-        <span className="tnum font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-          {selectedCount > 0 ? `${selectedCount} of ${cap} periods` : `up to ${cap} periods`}
-        </span>
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex min-w-0 flex-wrap items-end gap-3">
+        <SegmentedControl<AnalysisMode>
+          label="Analysis mode"
+          value={mode}
+          onChange={(next) => { setAnnouncement(null); onModeChange(next) }}
+          size="md"
+          fullWidth
+          focusableDisabled
+          options={[
+            { value: 'annual', label: 'Annual', disabled: unavailableModes.annual, descriptionId: unavailableModes.annual ? `${id}-annual` : undefined },
+            { value: 'quarterly', label: 'Quarterly', disabled: unavailableModes.quarterly, descriptionId: unavailableModes.quarterly ? `${id}-quarterly` : undefined },
+          ]}
+        />
+        {options.length > 0 && (
+          <div className="flex w-full min-w-0 flex-wrap gap-3 sm:w-auto">
+            {(['start', 'end'] as const).map((endpoint) => (
+              <label key={endpoint} className="flex w-full min-w-0 flex-col gap-1.5 text-sm font-medium sm:w-auto">
+                {endpoint === 'start' ? 'From' : 'To'}
+                <select
+                  className={inputClasses({ select: true, density: 'compact', autoWidth: true, className: 'w-full min-w-0 font-data tabular-nums sm:w-auto sm:min-w-[10.5em]' })}
+                  value={range?.[endpoint] ?? ''}
+                  onChange={(event) => updateEndpoint(endpoint, event.target.value)}
+                >
+                  {!range && <option value="" disabled>Select a period</option>}
+                  {options.map((option) => (
+                    <option key={option.key} value={option.key} disabled={option.disabled}>
+                      {option.label}{option.derived ? ' †' : ''}{option.disabled ? ' (insufficient data)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
-
-      {chips.length === 0 ? (
-        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-          No {mode} periods available for this company yet.
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Select period range">
-          {chips.map((chip, index) => (
-            <button
-              key={chip.key}
-              type="button"
-              disabled={chip.disabled}
-              onClick={() => range && onRangeChange(nextRange(keys, range, chip.key, cap))}
-              aria-pressed={inRange(index)}
-              title={
-                chip.disabled
-                  ? 'Not enough reported data in this period'
-                  : chip.derived
-                    ? 'Computed Q4 (derived from the annual report; no discrete Q4 filing exists)'
-                    : undefined
-              }
-              className={cx(
-                'tnum font-data rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
-                inRange(index)
-                  ? 'bg-brand text-white dark:bg-brand-dark dark:text-background-dark'
-                  : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
-              )}
-            >
-              {chip.label}
-              {chip.derived ? '†' : ''}
-            </button>
+      {options.some((option) => !option.disabled) && (
+        <div role="group" aria-label="Recent period presets" className="flex flex-wrap gap-2">
+          {presets.map(({ count, range: preset }) => (
+              <button
+                key={count}
+                type="button"
+                onClick={() => { if (preset) { setAnnouncement(null); onRangeChange(preset) } }}
+                // A count rests in the ink and turns sage only under the pointer, focus drawing the ring (the
+                // count control, D-030), so this is Button sm's shape and weight with the count control's recipe,
+                // not the ghost variant, whose label is sage at rest.
+                className={cx('inline-flex h-8 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-semibold', countControlClass('button'))}
+              >
+                Last {count}
+              </button>
           ))}
         </div>
       )}
+      {selected.length > 0 && range && <p className="font-data text-xs tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
+        {formatAnalysisWindow(range.start, range.end)} · {selected.length} {noun}
+      </p>}
+      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+        {derivedCount > 0 && <>† Fourth-quarter flows are calculated from annual totals. </>}
+        {mode === 'quarterly' && options.length > 0 && <>Fiscal quarters. </>}
+        {options.length > 0
+          ? <>Data from {formatAnalysisPeriod(options[0].key)}; up to {cap} {limitNoun} at a time.</>
+          : <>No {mode} periods available for this company yet.</>}
+      </p>
+      {(['annual', 'quarterly'] as const).filter((candidate) => unavailableModes[candidate]).map((candidate) => (
+        <p key={candidate} id={`${id}-${candidate}`} className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+          {candidate === 'annual' ? 'Annual' : 'Quarterly'} data isn&apos;t available for this company.
+        </p>
+      ))}
+      <p role="status" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+        {announcement?.key === selectionKey(range) ? announcement.text : ''}
+      </p>
     </div>
   )
 }

@@ -17,6 +17,7 @@ from app.database import Base, get_db
 from app.routers import feedback as feedback_router
 from app.routers.auth import get_current_user
 from app.models.feedback import Feedback
+from app.models import User
 
 
 @pytest.fixture
@@ -25,7 +26,11 @@ def session_factory():
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
     Base.metadata.create_all(engine)
-    return sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    with factory() as db:
+        db.add(User(id=1, email="beta@example.com", is_active=True))
+        db.commit()
+    return factory
 
 
 @pytest.fixture

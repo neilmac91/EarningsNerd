@@ -1,7 +1,23 @@
-import { describe, expect, it } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { useRef, useState } from 'react'
 import StreamingSummaryDisplay from '@/app/filing/[id]/StreamingSummaryDisplay'
+import { GuidanceCard } from '@/components/ui'
 import type { Filing } from '@/features/filings/api/filings-api'
+import { proFairUseLine } from '@/lib/planLimits'
+
+// The trial ships behind ENABLE_PRO_TRIAL (flipped with the backend's PRO_TRIAL_DAYS); a live flag lets a
+// case turn it on without re-importing the component.
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+vi.mock('@/lib/featureFlags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
+  get ENABLE_PRO_TRIAL() {
+    return flags.ENABLE_PRO_TRIAL
+  },
+}))
+beforeEach(() => {
+  flags.ENABLE_PRO_TRIAL = false
+})
 
 const filing: Filing = {
   id: 3,
@@ -14,6 +30,13 @@ const filing: Filing = {
   sec_url: 'https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/',
   company: { id: 1, ticker: 'AAPL', name: 'APPLE INC.' },
 } as Filing
+
+/** A step's label, found by its row's text: the fetching step's form code is a run of its own inside it. */
+const stepLabel = (text: string) => {
+  const row = screen.getAllByRole('listitem').find((item) => item.textContent === text)
+  if (!row) throw new Error(`no step reads ${text}`)
+  return row.lastElementChild as HTMLElement
+}
 
 const renderAt = (stage: string, elapsedSeconds = 0) =>
   render(
@@ -33,25 +56,25 @@ describe('StreamingSummaryDisplay live region', () => {
     renderAt('parsing')
     await act(async () => {})
     // SkeletonText carries its own role="status" (DS §4), so locate ours by its announcement.
-    const status = screen.getByText('Extracting financial statements, risk factors & MD&A.')
+    const status = screen.getByText('Reading the statements, risk factors and MD&A.')
     expect(status).toHaveAttribute('role', 'status')
     expect(status).toHaveAttribute('aria-live', 'polite')
     expect(status.className).toContain('sr-only')
   })
 
-  it('names the filing type when retrieving from EDGAR', async () => {
+  it('names the filing type when fetching from SEC.gov', async () => {
     renderAt('fetching')
     await act(async () => {})
-    expect(screen.getByText('Retrieving 10-K filing from EDGAR.')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('Fetching the 10-K from SEC.gov.')).toHaveAttribute('aria-live', 'polite')
   })
 
   it('changes only on stage transitions, not on progress ticks', async () => {
-    const { rerender } = renderAt('analyzing', 5)
+    const { rerender } = renderAt('parsing', 5)
     await act(async () => {})
-    const live = () => screen.getByText(/^(Cross-referencing standardized XBRL financials|Generating investment analysis)\.$/)
+    const live = () => screen.getByText(/^(Reading the statements, risk factors and MD&A|Writing the summary and checking figures against the filing)\.$/)
     const before = live().textContent
     rerender(
-      <StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={20} />,
+      <StreamingSummaryDisplay streamingText="" stage="parsing" message="" filing={filing} elapsedSeconds={20} />,
     )
     await act(async () => {})
     expect(live().textContent).toBe(before)
@@ -59,7 +82,22 @@ describe('StreamingSummaryDisplay live region', () => {
       <StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={21} />,
     )
     await act(async () => {})
-    expect(live()).toHaveTextContent('Generating investment analysis.')
+    expect(live()).toHaveTextContent('Writing the summary and checking figures against the filing.')
+  })
+
+  // The backend's analyzing stage passes in milliseconds, and the figures are checked while the summary is written
+  // (under summarizing), so one step says both: the region announces it once, as analyzing starts, and the stage
+  // change to summarizing says nothing new (E196 (6)).
+  it('announces the writing step once across analyzing and summarizing, where the figure check is part of it', async () => {
+    const { rerender } = renderAt('analyzing', 5)
+    await act(async () => {})
+    const live = screen.getByText('Writing the summary and checking figures against the filing.')
+    expect(live).toHaveAttribute('aria-live', 'polite')
+    rerender(
+      <StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={21} />,
+    )
+    await act(async () => {})
+    expect(live).toHaveTextContent(/^Writing the summary and checking figures against the filing\.$/)
   })
 
   it('has a generic announcement for early and unknown stages', async () => {
@@ -68,22 +106,499 @@ describe('StreamingSummaryDisplay live region', () => {
     expect(screen.getByText('Starting summary generation.')).toHaveAttribute('aria-live', 'polite')
     rerender(<StreamingSummaryDisplay streamingText="" stage="mystery" message="" filing={filing} />)
     await act(async () => {})
-    expect(screen.getByText('Generating your analysis.')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('Generating the summary.')).toHaveAttribute('aria-live', 'polite')
+  })
+})
+
+// A pending step reads in tertiary ink at full opacity (4.9:1 and up), never faded: opacity-40 put it at
+// 2.1:1 (filing/F14). The real-browser contrast census is tests/e2e/text-floors.spec.ts.
+describe('StreamingSummaryDisplay step log', () => {
+  it('shows a pending step with its empty marker, its label at full opacity in tertiary ink', async () => {
+    renderAt('fetching')
+    await act(async () => {})
+    const pending = screen.getByText('Writing the summary and checking figures against the filing')
+    // Its marker: the empty hairline circle (no check, no dot) beside the label.
+    const marker = pending.previousElementSibling as HTMLElement
+    expect(marker.className.split(/\s+/)).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-border-light', 'dark:border-border-dark']))
+    expect(marker.childElementCount).toBe(0)
+    // Whole class tokens: a translucent ink (`text-text-tertiary-light/40`) fades it as opacity-40 did.
+    expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-tertiary-dark']))
+    expect(pending.className).not.toMatch(/text-text-(?:tertiary|secondary)-(?:light|dark)\//)
+    for (let el: HTMLElement | null = pending; el; el = el.parentElement) expect(el.className).not.toMatch(/\bopacity-/)
+    expect(stepLabel('Fetching the 10-K from SEC.gov').className).toContain('font-medium')
+  })
+
+  // At 390px under 200% text the fetching step broke "10-" over "K from SEC.gov". Its form code is one
+  // whitespace-nowrap run, as the live-status line's is, an amended form's included, while the live region reads
+  // the plain sentence (E230).
+  it.each(['10-K', '10-K/A', '20-F'])('keeps the %s whole in the fetching step, the live region reading the plain sentence', async (form) => {
+    render(<StreamingSummaryDisplay streamingText="" stage="fetching" message="" filing={{ ...filing, filing_type: form }} elapsedSeconds={0} />)
+    await act(async () => {})
+    const label = stepLabel(`Fetching the ${form} from SEC.gov`)
+    const runs = [...label.querySelectorAll('span')]
+    expect(runs.map((run) => [run.textContent, run.className])).toEqual([[form, 'whitespace-nowrap']])
+    expect(screen.getByText(`Fetching the ${form} from SEC.gov.`)).toHaveAttribute('aria-live', 'polite')
+  })
+
+  it('names no form code when the filing has none, and keeps no run for one', async () => {
+    render(<StreamingSummaryDisplay streamingText="" stage="fetching" message="" filing={{ ...filing, filing_type: '' }} elapsedSeconds={0} />)
+    await act(async () => {})
+    expect(stepLabel('Fetching the filing from SEC.gov').querySelectorAll('span')).toHaveLength(0)
+  })
+
+  it('reads the three steps in the product voice, the first naming the filing’s own form', async () => {
+    renderAt('fetching')
+    await act(async () => {})
+    const labels = screen.getAllByRole('listitem').map((item) => item.textContent)
+    expect(labels).toEqual([
+      'Fetching the 10-K from SEC.gov',
+      'Reading the statements, risk factors and MD&A',
+      'Writing the summary and checking figures against the filing',
+    ])
+  })
+
+  // A step of its own for the figure check ticked done within milliseconds of the analyzing stage, before any figure
+  // was checked; the writing step now covers both stages: active through each, done only when the run completes.
+  it('keeps the writing step active through analyzing and summarizing, and done only at completion', async () => {
+    const step = () => screen.getByText('Writing the summary and checking figures against the filing')
+    const reading = () => screen.getByText('Reading the statements, risk factors and MD&A')
+    const { rerender } = renderAt('parsing')
+    await act(async () => {})
+    expect(step().className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light']))
+    for (const stage of ['analyzing', 'summarizing']) {
+      rerender(<StreamingSummaryDisplay streamingText="" stage={stage} message="" filing={filing} elapsedSeconds={1} />)
+      await act(async () => {})
+      expect(step().className, stage).toContain('font-medium')
+      expect(reading().className, stage).not.toContain('font-medium')
+      expect(reading().className.split(/\s+/), stage).toEqual(expect.arrayContaining(['text-text-secondary-light']))
+      expect((step().previousElementSibling as HTMLElement).querySelector('svg'), stage).toBeNull()
+    }
+    // Done at completion: the label in the secondary ink, the check in its marker.
+    rerender(<StreamingSummaryDisplay streamingText="" stage="completed" message="" filing={filing} elapsedSeconds={1} />)
+    await act(async () => {})
+    expect(step().className).not.toContain('font-medium')
+    expect(step().className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-secondary-light']))
+    expect((step().previousElementSibling as HTMLElement).querySelector('svg')).not.toBeNull()
+  })
+
+  // The writing step's label wraps at phone widths. Each row aligns its 20px marker to its label's first line, whose
+  // line box is the same 1.25rem (text-sm), where centring it on the whole label set the dot between the lines.
+  it('aligns each step’s marker to its label’s first line', async () => {
+    renderAt('summarizing')
+    await act(async () => {})
+    const rows = screen.getAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    for (const row of rows) {
+      expect(row.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'items-start']))
+      expect(row.className).not.toMatch(/\bitems-center\b/)
+      expect((row.firstElementChild as HTMLElement).className.split(/\s+/)).toEqual(expect.arrayContaining(['h-5', 'w-5']))
+      expect((row.lastElementChild as HTMLElement).className.split(/\s+/)).toContain('text-sm')
+    }
+  })
+
+  // The stalled sentence takes the header's live-status line (a sentence the reader must read: secondary ink,
+  // DESIGN_SYSTEM §7) and joins the live region; the "Still running" signature went with the callout (2026-10-24).
+  it('says a slow run is still working, in the status line and the live region, without guessing why', async () => {
+    renderAt('fetching', 50)
+    await act(async () => {})
+    const meta = screen.getByRole('heading', { level: 2, name: 'Generating the summary' }).nextElementSibling as HTMLElement
+    expect(meta).toHaveTextContent('10-K · Taking longer than usual. Still working on it.')
+    expect(meta.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-sm', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+    const live = screen.getByText('Fetching the 10-K from SEC.gov. Taking longer than usual. Still working on it.')
+    expect(live).toHaveAttribute('aria-live', 'polite')
+    expect(live.className).toContain('sr-only')
+    expect(screen.queryByText('Still running')).toBeNull()
+  })
+})
+
+// The header's live-status line carries one line of the voice per pipeline stage, chosen per filing, in place
+// of a status notice (the blue info Notice of 2026-07-04 to 2026-10-24: a quip is activity, not a state;
+// DESIGN_SYSTEM §4 Inline notice, §9). It changes only when the backend's stage does: no timer, so nothing
+// auto-updates (WCAG 2.2.2), and a pool's line never flips between re-renders.
+describe('StreamingSummaryDisplay status line', () => {
+  const metaOf = () => screen.getByRole('heading', { level: 2, name: 'Generating the summary' }).nextElementSibling as HTMLElement
+  const LINES = {
+    fetching: ['Opening the filing…'],
+    parsing: [
+      'Reading the size-8 fine print…',
+      'Reading the footnotes so you can go straight to the ones that matter…',
+      'Reviewing the line called Other…',
+    ],
+    summarizing: [
+      'Finding where the filing says that…',
+      'Translating management’s phrasing into plain English…',
+    ],
+  } as const
+
+  it.each([
+    ['initializing', 'fetching'],
+    ['fetching', 'fetching'],
+    ['parsing', 'parsing'],
+    ['analyzing', 'summarizing'],
+    ['summarizing', 'summarizing'],
+  ] as const)('at %s shows one of the %s lines after the form code, in secondary ink', async (stage, pool) => {
+    renderAt(stage)
+    await act(async () => {})
+    const meta = metaOf()
+    const text = meta.textContent ?? ''
+    expect(text.startsWith('10-K · ')).toBe(true)
+    expect(LINES[pool]).toContain(text.slice('10-K · '.length))
+    expect(meta.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-sm', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+  })
+
+  it('keeps a queued job at zero and shows its preparation state without claiming a source fetch', async () => {
+    render(<StreamingSummaryDisplay streamingText="" stage="queued" message="Waiting to retry the source…" filing={filing} elapsedSeconds={90} />)
+    await act(async () => {})
+    expect(screen.getByText('Waiting to retry the source…')).toBeInTheDocument()
+    expect(screen.queryByText('Opening the filing…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Taking longer than usual. Still working on it.')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+  })
+
+  // A line says what the step beside it does not: the summarizing pool's "Checking the figures against the filing's
+  // data…" left once the writing step said the same (E230). Each filing takes its own line, so the case reads one
+  // filing per place in the pool.
+  it('shows only the summarizing pool’s lines at summarizing, none of them the writing step’s check', async () => {
+    const seen = new Set<string>()
+    for (const id of [1, 2, 3, 4, 5, 6]) {
+      const { unmount } = render(<StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={{ ...filing, id }} elapsedSeconds={0} />)
+      await act(async () => {})
+      const line = (metaOf().textContent ?? '').slice('10-K · '.length)
+      expect(LINES.summarizing, `filing ${id}`).toContain(line)
+      expect(line, `filing ${id}`).not.toMatch(/figures/i)
+      seen.add(line)
+      unmount()
+    }
+    expect([...seen].sort()).toEqual([...LINES.summarizing].sort())
+  })
+
+  it('keeps its line through a stage’s ticks and re-renders, and changes it only with the stage', async () => {
+    const { rerender } = renderAt('parsing', 5)
+    await act(async () => {})
+    const before = metaOf().textContent
+    for (const elapsedSeconds of [10, 20, 30]) {
+      rerender(<StreamingSummaryDisplay streamingText="" stage="parsing" message="" filing={filing} elapsedSeconds={elapsedSeconds} />)
+      await act(async () => {})
+      expect(metaOf().textContent).toBe(before)
+    }
+    rerender(<StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={31} />)
+    await act(async () => {})
+    const analyzing = metaOf().textContent
+    expect(analyzing).not.toBe(before)
+    expect(LINES.summarizing).toContain(analyzing!.slice('10-K · '.length))
+    // analyzing and summarizing share a pool and a line: the millisecond analyzing stage never flashes a third line.
+    rerender(<StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={32} />)
+    await act(async () => {})
+    expect(metaOf().textContent).toBe(analyzing)
+  })
+
+  it('renders no status notice: no info tint, no signature, no live region hidden from assistive tech', async () => {
+    renderAt('summarizing')
+    await act(async () => {})
+    const card = screen.getByRole('heading', { level: 2, name: 'Generating the summary' }).closest('.rounded-xl') as HTMLElement
+    expect(card).not.toBeNull()
+    expect(card.querySelectorAll('[class*="info-"]')).toHaveLength(0)
+    expect(card.querySelectorAll('[aria-hidden="true"] [role="status"]')).toHaveLength(0)
+    expect(screen.queryByText('Reading the filing')).toBeNull()
+    expect(screen.queryByText(/Processing…/)).toBeNull()
+  })
+})
+
+// No glyph beside a section heading (DESIGN.md › Icons): the sparkle is the AI summary chip's alone, and
+// both headings say what they are in words. The progress card's head and the streamed summary's head
+// carried a 20px sparkle each until the design owner's call on #1288's MEANING thread.
+describe('StreamingSummaryDisplay headings', () => {
+  it('sets no icon in or beside "Generating the summary" or "AI-generated summary"', async () => {
+    render(<StreamingSummaryDisplay streamingText="Revenue rose." stage="summarizing" message="" filing={filing} />)
+    await act(async () => {})
+    for (const name of ['Generating the summary', 'AI-generated summary']) {
+      const heading = screen.getByRole('heading', { level: 2, name })
+      // The heading's own row (the nearest flex row holding it), the heading included, at any depth: a glyph
+      // inside the heading or wrapped in a span beside it is a glyph beside a section heading all the same.
+      const row = heading.closest('div.flex') as HTMLElement
+      expect(row, name).not.toBeNull()
+      expect(row.querySelector('svg'), name).toBeNull()
+    }
+  })
+
+  // The capture review at 200% text on a 390px phone: the percent printed over "Generating the summary",
+  // the former "Usually 30–60s" line collided with it, and the meta line broke "10-|K". The current
+  // "Estimated progress" line shares that wrapping header: the percent keeps to the right edge on a line of
+  // its own, and the form code is one unbreakable run.
+  it('lets the percent move beneath the heading, and keeps the form code whole', async () => {
+    renderAt('fetching')
+    await act(async () => {})
+    const classes = (el: Element) => el.className.split(/\s+/)
+    const heading = screen.getByRole('heading', { level: 2, name: 'Generating the summary' })
+    const row = heading.parentElement!.parentElement!
+    expect(classes(row)).toContain('flex-wrap')
+    const percent = row.lastElementChild!
+    expect(percent).toHaveTextContent(/\d+%/)
+    expect(classes(percent)).toEqual(expect.arrayContaining(['ml-auto', 'flex-none']))
+    const meta = heading.nextElementSibling as HTMLElement
+    expect(meta).toHaveTextContent('10-K · Opening the filing…')
+    expect(classes(within(meta).getByText('10-K'))).toContain('whitespace-nowrap')
   })
 })
 
 describe('StreamingSummaryDisplay paywall routing', () => {
   it.each([true, false])('preserves monthly billing for a promised trial (eligible=%s)', (trialEligible) => {
+    flags.ENABLE_PRO_TRIAL = true
     render(
       <StreamingSummaryDisplay
         streamingText=""
         stage="error"
-        message="Monthly limit reached"
+        message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
         filing={filing}
         trialEligible={trialEligible}
       />,
     )
     const label = trialEligible ? 'Start 7-day free trial' : 'Upgrade to Pro'
     expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', trialEligible ? '/pricing?billing=monthly' : '/pricing')
+  })
+
+  it('promises no trial while the trial does not ship, whatever the page says about the user', () => {
+    render(<StreamingSummaryDisplay streamingText="" stage="error" message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries." filing={filing} trialEligible />)
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
+    expect(screen.queryByText(/free trial/)).toBeNull()
+  })
+})
+
+// The pipeline's sentences took the product's words with E217's functional change to summary_stages (F35, D-046,
+// E92), and the free monthly limit and Pro's fair-use ceiling with E37; the card still maps the stream endpoint's own
+// answers and a retired sentence (features/summaries/lib/streamErrorCopy.ts), and the raw sentence, or its code, still
+// routes it.
+describe('StreamingSummaryDisplay failure reason', () => {
+  it('shows a backend sentence in the product voice', async () => {
+    render(
+      <StreamingSummaryDisplay
+        streamingText=""
+        stage="error"
+        message=""
+        error="Filing not found"
+        filing={filing}
+      />,
+    )
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(screen.getByText('This filing could not be found.')).toBeInTheDocument()
+    expect(screen.queryByText('Filing not found')).toBeNull()
+  })
+
+  // Pro's fair-use ceiling holds until the month turns, so a Retry could only repeat the blocked request: the card
+  // keeps its sentence and offers none (isNonRetryableStreamError, the matcher that also stops the stream's own
+  // retry). A failure a retry can help keeps its Retry. The card's one button is its Retry, read by role and not
+  // by label, so the case holds whatever the Retry says.
+  it("offers no Retry at Pro's fair-use ceiling, and one for a failure a retry can help", async () => {
+    const failed = (error: string) => (
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
+    )
+    const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
+    const { rerender } = render(
+      failed(
+        "Your account has reached this month's limit for generating summaries, regenerations included. " +
+          'It resets next month. Contact support with any questions.',
+      ),
+    )
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
+      ),
+    ).toBeInTheDocument()
+    expect(cardButton()).toBeNull()
+    rerender(failed('The filing could not be summarized right now.'))
+    expect(cardButton()).toBeInTheDocument()
+  })
+
+  // While E37 deploys, the page serves before its backend, whose stream still sends the ceiling's old words, coded: the
+  // code withholds the Retry, and the card shows the ceiling's words, never the retired ones.
+  it("shows the ceiling's words for its retired sentence, and the code withholds the Retry", async () => {
+    render(
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" filing={filing} onRetry={() => {}}
+        error="We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support." failure={{ code: 'pro_fair_use_limit' }} />,
+    )
+    await act(async () => {})
+    expect(screen.getByText("Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.")).toBeInTheDocument()
+    expect(screen.queryByText(/temporarily paused/)).toBeNull()
+    expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
+  })
+
+  // The stream endpoint's 403s hold whatever the reader retries. A Free reader's retry after a failed summary read
+  // sends force, and with a summary the page shows on the server, the route answers that regenerating is Pro-only:
+  // the card says the summary is there to read and offers no Retry, and stays the error card, not the paywall's
+  // monthly-limit card, which this reader has not hit. An inactive account's 403 offers none either.
+  it("offers no Retry at the stream endpoint's 403s, and shows each in the product's words", async () => {
+    const failed = (error: string) => (
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
+    )
+    const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
+    const { rerender } = render(failed('Regenerating a summary is a Pro feature.'))
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(
+      screen.getByText('A summary of this filing is ready, and regenerating it is a Pro feature. Reload the page to read it.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: "You've hit this month's free limit" })).toBeNull()
+    expect(cardButton()).toBeNull()
+    rerender(failed('This account is inactive. Contact support with any questions.'))
+    expect(screen.getByText('This account is inactive. Contact support with any questions.')).toBeInTheDocument()
+    expect(cardButton()).toBeNull()
+  })
+})
+
+// EN-05: a failed generation used to leave focus where it was, usually <body> after page load, so a
+// keyboard user tabbed through the whole site header to reach the card's Retry (9 stops at 1440px on
+// main), and the Retry's own press dropped focus to <body> again. Real-browser runs:
+// tests/e2e/summary-generation-focus.spec.ts.
+describe('StreamingSummaryDisplay focus around a failed generation', () => {
+  interface Run { stage: string; error: string | null }
+  const STREAMING: Run = { stage: 'fetching', error: null }
+  const FAILED: Run = { stage: 'error', error: 'The filing could not be summarized right now.' }
+  const LIMIT: Run = { stage: 'error', error: "You've reached your monthly limit. Upgrade to Pro for unlimited summaries." }
+
+  /** page-client's slot for one generation: the stream's state, restarted the way useSummaryGeneration does, or,
+      when `pressed` is given, the state a press leaves (a signed-out press starts no run). */
+  function Page({ start, pressed }: { start: Run; pressed?: Run }) {
+    const [run, setRun] = useState(start)
+    return (
+      <div>
+        <button>elsewhere</button>
+        {/* The stream's callbacks, from outside the display: a click() here moves no focus. */}
+        <button onClick={() => setRun(FAILED)}>fail</button>
+        <button onClick={() => setRun(LIMIT)}>limit</button>
+        <button onClick={() => setRun({ ...FAILED, error: 'The server could not start the summary. Try again in a moment.' })}>fail differently</button>
+        <StreamingSummaryDisplay
+          streamingText=""
+          stage={run.stage}
+          message=""
+          filing={filing}
+          error={run.error}
+          // handleGenerateSummary clears the error in the same render that starts the stream.
+          onRetry={() => setRun(pressed ?? { stage: 'initializing', error: null })}
+        />
+      </div>
+    )
+  }
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+  const outside = (name: string) => act(() => { screen.getByRole('button', { name }).click() })
+  const heading = (name: string) => screen.getByRole('heading', { name })
+  const retry = () => screen.getByRole('button', { name: 'Try again' })
+
+  it('a failure that lands with focus on <body> focuses the card heading, one Tab before its Retry', async () => {
+    render(<Page start={STREAMING} />)
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(heading('Generation interrupted'))
+    expect(heading('Generation interrupted')).toHaveAttribute('tabindex', '-1')
+    // The reason rides on the focused title too, whatever the live announcement does when focus moves.
+    expect(heading('Generation interrupted')).toHaveAccessibleDescription(FAILED.error!)
+    // The heading, not the Retry: a key pressed as the card lands never restarts the run.
+    expect(heading('Generation interrupted').compareDocumentPosition(retry()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('focus somebody holds when the failure lands stays where it is', async () => {
+    render(<Page start={STREAMING} />)
+    await settle()
+    const elsewhere = screen.getByRole('button', { name: 'elsewhere' })
+    elsewhere.focus()
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('an error already there at mount (the fallback card) takes focus once the client render shows it', async () => {
+    render(<Page start={FAILED} />)
+    await settle()
+    expect(document.activeElement).toBe(heading('Generation interrupted'))
+  })
+
+  it("the monthly-limit card takes focus the same way: its heading, ahead of the upgrade link", async () => {
+    render(<Page start={STREAMING} />)
+    await settle()
+    outside('limit')
+    await settle()
+    expect(document.activeElement).toBe(heading("You've hit this month's free limit"))
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).not.toHaveFocus()
+    // What "go unlimited" holds, in the one sentence lib/planLimits.ts builds (E58, D-046, D-050).
+    expect(screen.getByText(proFairUseLine())).toBeInTheDocument()
+  })
+
+  it('its Try again hands focus to the progress heading when its press restarts the run', async () => {
+    render(<Page start={FAILED} />)
+    await settle()
+    retry().focus()
+    fireEvent.click(retry(), { detail: 0 })
+    await settle()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    expect(document.activeElement).toBe(heading('Generating the summary'))
+    expect(heading('Generating the summary')).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('a press that starts no run keeps the card, drops its Retry and hands focus to the card heading', async () => {
+    // Signed out, useSummaryGeneration sets its log-in sentence and starts nothing: the card stays, and no retry
+    // can help that sentence, so the Retry leaves while it holds focus. The progress heading is not there.
+    render(<Page start={FAILED} pressed={{ stage: 'error', error: 'Log in to generate this summary.' }} />)
+    await settle()
+    retry().focus()
+    fireEvent.click(retry(), { detail: 0 })
+    await settle()
+    expect(screen.getByText('Log in to generate this summary.')).toBeInTheDocument()
+    expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
+    expect(document.activeElement).toBe(heading('Generation interrupted'))
+  })
+
+  it('a restart that fails again brings focus back into the new card', async () => {
+    render(<Page start={FAILED} />)
+    await settle()
+    retry().focus()
+    fireEvent.click(retry(), { detail: 0 })
+    await settle()
+    expect(document.activeElement).toBe(heading('Generating the summary'))
+    // The progress card, its focused heading with it, leaves in the commit that shows the new card.
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(heading('Generation interrupted'))
+  })
+
+  it('once the card is up it never takes focus back: a re-render while it shows leaves focus alone', async () => {
+    render(<Page start={STREAMING} />)
+    await settle()
+    outside('fail')
+    await settle()
+    act(() => (document.activeElement as HTMLElement).blur())
+    outside('fail differently')
+    await settle()
+    expect(screen.getByText('The server could not start the summary. Try again in a moment.')).toBeInTheDocument()
+    expect(document.activeElement).toBe(document.body)
+  })
+})
+
+describe('GuidanceCard headingRef', () => {
+  function WithRef({ title, description }: { title: string; description?: string }) {
+    const ref = useRef<HTMLHeadingElement>(null)
+    return <GuidanceCard variant="error" title={title} description={description} headingRef={ref} />
+  }
+
+  it('makes the title a focus target, described by the description, only when a ref is passed', () => {
+    render(
+      <>
+        <GuidanceCard variant="error" title="Without a ref" description="Plain reason." />
+        <WithRef title="With a ref" description="The reason." />
+        <WithRef title="No description" />
+      </>,
+    )
+    const plain = screen.getByRole('heading', { name: 'Without a ref' })
+    expect(plain).not.toHaveAttribute('tabindex')
+    expect(plain).not.toHaveAttribute('aria-describedby')
+    expect(screen.getByText('Plain reason.')).not.toHaveAttribute('id')
+    const target = screen.getByRole('heading', { name: 'With a ref' })
+    expect(target).toHaveAttribute('tabindex', '-1')
+    expect(target.className).toContain('outline-none')
+    expect(target).toHaveAccessibleDescription('The reason.')
+    expect(screen.getByRole('heading', { name: 'No description' })).not.toHaveAttribute('aria-describedby')
   })
 })

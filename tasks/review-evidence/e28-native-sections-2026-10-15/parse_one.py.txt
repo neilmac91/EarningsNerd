@@ -1,0 +1,45 @@
+"""Parse one primary document locally the way a revived section source would; print one JSON line."""
+import os, sys, json, time, resource
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+sys.path.insert(0, "/home/user/EarningsNerd/backend")
+path, form = sys.argv[1], sys.argv[2]
+html = open(path, encoding="utf-8").read()
+from edgar.documents import HTMLParser
+from edgar.documents.config import ParserConfig
+t0 = time.perf_counter()
+doc = HTMLParser(ParserConfig(form=form)).parse(html)
+t_parse = time.perf_counter() - t0
+secs = doc.sections
+def text_of(s):
+    if s is None: return None
+    a = getattr(s, "text", None); v = a() if callable(a) else a
+    return (v or "").strip() or None
+plan = {
+    "10-K": [("risk", [("item", "1A", "I")]), ("mda", [("item", "7", "II")]), ("financials", [("item", "8", "II")])],
+    "10-Q": [("financials", [("key", "part_i_item_1")]), ("mda", [("key", "part_i_item_2")]), ("risk", [("key", "part_ii_item_1a")])],
+    "20-F": [("risk", [("key", "part_i_item_3")]), ("mda", [("key", "part_i_item_5")]),
+             ("financials", [("key", "part_iii_item_18"), ("key", "part_iii_item_17"), ("key", "part_i_item_8")])],
+}[form]
+out, how = {}, {}
+for canon, cands in plan:
+    for c in cands:
+        if c[0] == "key":
+            s = secs.get(c[1]) if hasattr(secs, "get") else None
+        else:
+            s = secs.get_item(c[1], c[2]) or secs.get_item(c[1])
+        t = text_of(s)
+        if t and len(t) >= 200:
+            out[canon] = t; how[canon] = c[1]; break
+from app.services.openai_service import openai_service
+t1 = time.perf_counter()
+ex_sections = openai_service.assemble_excerpt_from_sections(out or None, form, filing_text=html) if out else ""
+ex_regex = openai_service.extract_critical_sections(html, form)
+t_total = time.perf_counter() - t0
+print(json.dumps({"doc": os.path.basename(path), "form": form, "html_mb": round(len(html) / 1e6, 1),
+    "parse_s": round(t_parse, 2), "total_s": round(t_total, 2),
+    "maxrss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024),
+    "keys": sorted(list(secs.keys()))[:40] if hasattr(secs, "keys") else None,
+    "found": {k: len(v) for k, v in out.items()}, "via": how,
+    "excerpt_sections_chars": len(ex_sections or ""), "excerpt_regex_chars": len(ex_regex or ""),
+    "passes_floor": bool(ex_sections) and len(ex_sections) >= 8000}))

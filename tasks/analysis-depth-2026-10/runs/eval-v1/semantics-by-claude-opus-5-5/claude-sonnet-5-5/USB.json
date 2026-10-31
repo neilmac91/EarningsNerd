@@ -1,0 +1,499 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "USB",
+ "split": "holdout",
+ "auditor": "claude-opus-5-5",
+ "cost_usd": 0.131256,
+ "items": [
+  {
+   "sentence": "From FY2016 to FY2025 net interest income compounded at 4.0% , ahead of noninterest income at 2.8%  and net income at 2.8% .",
+   "claim": "4.0%",
+   "match": "cited: F115 = Net interest income CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net interest income CAGR FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "From FY2016 to FY2025 net interest income compounded at 4.0% , ahead of noninterest income at 2.8%  and net income at 2.8% .",
+   "claim": "2.8%",
+   "match": "cited: F116 = Noninterest income CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Noninterest income CAGR FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "From FY2016 to FY2025 net interest income compounded at 4.0% , ahead of noninterest income at 2.8%  and net income at 2.8% .",
+   "claim": "2.8%",
+   "match": "cited: F116 = Noninterest income CAGR, FY2016..FY2025",
+   "label": "mismatch",
+   "reason": "Sentence says net income CAGR; match is noninterest income CAGR."
+  },
+  {
+   "sentence": "Net income fell 28.3% to $4.96 billion in FY2020 .",
+   "claim": "28.3%",
+   "match": "cited: D99 = Net income growth, FY2020",
+   "label": "consistent",
+   "reason": "Net income growth FY2020, a decline of 28.3%."
+  },
+  {
+   "sentence": "Net income fell 28.3% to $4.96 billion in FY2020 .",
+   "claim": "$4.96 billion",
+   "match": "cited: F25 = Net income, FY2020",
+   "label": "consistent",
+   "reason": "Net income FY2020 matches."
+  },
+  {
+   "sentence": "Net income then rose 60.6% to $7.96 billion in FY2021 , reflecting a lower provision for credit losses .",
+   "claim": "60.6%",
+   "match": "cited: D125 = Net income growth, FY2021",
+   "label": "consistent",
+   "reason": "Net income growth FY2021 matches."
+  },
+  {
+   "sentence": "Net income then rose 60.6% to $7.96 billion in FY2021 , reflecting a lower provision for credit losses .",
+   "claim": "$7.96 billion",
+   "match": "cited: F26 = Net income, FY2021",
+   "label": "consistent",
+   "reason": "Net income FY2021 matches."
+  },
+  {
+   "sentence": "Net interest income rose 17.9% in FY2022 , primarily on rising interest rates on earning assets and strong loan growth .",
+   "claim": "17.9%",
+   "match": "cited: D159 = Net interest income growth, FY2022",
+   "label": "consistent",
+   "reason": "Net interest income growth FY2022 matches."
+  },
+  {
+   "sentence": "Noninterest expense rose 26.6% in FY2023 , reflecting MUB acquisition charges and a $734 million FDIC special assessment .",
+   "claim": "26.6%",
+   "match": "cited: D188 = Noninterest expense growth, FY2023",
+   "label": "consistent",
+   "reason": "Noninterest expense growth FY2023 matches."
+  },
+  {
+   "sentence": "Noninterest expense rose 26.6% in FY2023 , reflecting MUB acquisition charges and a $734 million FDIC special assessment .",
+   "claim": "$734 million",
+   "match": "passage P30: P30 = a figure in a FY2023 10-K passage",
+   "label": "consistent",
+   "reason": "FY2023 10-K passage figure for the FDIC special assessment."
+  },
+  {
+   "sentence": "Payment Services added 1.4pp to FY2025 revenue growth  and made up 25.8% of revenue .",
+   "claim": "1.4pp",
+   "match": "cited: D261 = Operating Segments \u2014 Payment Services (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Payment Services contribution to FY2025 revenue growth matches."
+  },
+  {
+   "sentence": "Payment Services added 1.4pp to FY2025 revenue growth  and made up 25.8% of revenue .",
+   "claim": "25.8%",
+   "match": "cited: D259 = Operating Segments \u2014 Payment Services (segment) share of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Payment Services share of revenue FY2025 matches."
+  },
+  {
+   "sentence": "Its revenue grew 5.4% , driven by merchant processing and card revenue on higher sales volume .",
+   "claim": "5.4%",
+   "match": "cited: D260 = Operating Segments \u2014 Payment Services (segment) growth, FY2025",
+   "label": "consistent",
+   "reason": "Payment Services segment growth FY2025 matches."
+  },
+  {
+   "sentence": "Consumer and Business Banking subtracted 1.3pp , as net interest income fell on deposit mix and second-quarter loan sales .",
+   "claim": "1.3pp",
+   "match": "cited: D253 = Operating Segments \u2014 Consumer And Business Banking (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Consumer and Business Banking contribution to revenue growth, negative 1.3pp."
+  },
+  {
+   "sentence": "Bank revenue grew 4.4% in FY2025  while noninterest expense fell 2.0% , lifting net income 20.2% .",
+   "claim": "4.4%",
+   "match": "cited: D239 = Bank revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Bank revenue growth FY2025 matches."
+  },
+  {
+   "sentence": "Bank revenue grew 4.4% in FY2025  while noninterest expense fell 2.0% , lifting net income 20.2% .",
+   "claim": "2.0%",
+   "match": "cited: D238 = Noninterest expense growth, FY2025",
+   "label": "consistent",
+   "reason": "Noninterest expense growth FY2025, a decline of 2.0%."
+  },
+  {
+   "sentence": "Bank revenue grew 4.4% in FY2025  while noninterest expense fell 2.0% , lifting net income 20.2% .",
+   "claim": "20.2%",
+   "match": "cited: D227 = Net income growth, FY2025",
+   "label": "consistent",
+   "reason": "Net income growth FY2025 matches."
+  },
+  {
+   "sentence": "Diluted shares fell from 1,724 million in FY2016  to 1,558 million in FY2025 , so EPS compounded at 4.0%  against net income at 2.8% .",
+   "claim": "1,724 million",
+   "match": "cited: X66 = Diluted weighted-average shares, FY2016",
+   "label": "consistent",
+   "reason": "Diluted shares FY2016 matches."
+  },
+  {
+   "sentence": "Diluted shares fell from 1,724 million in FY2016  to 1,558 million in FY2025 , so EPS compounded at 4.0%  against net income at 2.8% .",
+   "claim": "1,558 million",
+   "match": "cited: X75 = Diluted weighted-average shares, FY2025",
+   "label": "consistent",
+   "reason": "Diluted shares FY2025 matches."
+  },
+  {
+   "sentence": "Diluted shares fell from 1,724 million in FY2016  to 1,558 million in FY2025 , so EPS compounded at 4.0%  against net income at 2.8% .",
+   "claim": "4.0%",
+   "match": "cited: F119 = EPS (diluted) CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Diluted EPS CAGR FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "Diluted shares fell from 1,724 million in FY2016  to 1,558 million in FY2025 , so EPS compounded at 4.0%  against net income at 2.8% .",
+   "claim": "2.8%",
+   "match": "cited: F117 = Net income CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net income CAGR FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "The efficiency ratio was 59.0% in FY2025 , near the window median of 59.3% , between a low of 55.3%  and a high of 67.4% .",
+   "claim": "59.0%",
+   "match": "cited: D220 = Efficiency ratio (noninterest expense / revenue), FY2025",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2025 matches."
+  },
+  {
+   "sentence": "The efficiency ratio was 59.0% in FY2025 , near the window median of 59.3% , between a low of 55.3%  and a high of 67.4% .",
+   "claim": "59.3%",
+   "match": "cited: D277 = Efficiency ratio window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Efficiency ratio window median matches."
+  },
+  {
+   "sentence": "The efficiency ratio was 59.0% in FY2025 , near the window median of 59.3% , between a low of 55.3%  and a high of 67.4% .",
+   "claim": "55.3%",
+   "match": "cited: D275 = Efficiency ratio window low (FY2018), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Efficiency ratio window low matches."
+  },
+  {
+   "sentence": "The efficiency ratio was 59.0% in FY2025 , near the window median of 59.3% , between a low of 55.3%  and a high of 67.4% .",
+   "claim": "67.4%",
+   "match": "cited: D276 = Efficiency ratio window high (FY2023), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Efficiency ratio window high matches."
+  },
+  {
+   "sentence": "The ratio fell 3.9pp from 62.9% in FY2024  to 59.0% , as prior-year merger charges and the FDIC special assessment dropped out .",
+   "claim": "3.9pp",
+   "match": "pp D220-D195: D220 = Efficiency ratio (noninterest expense / revenue), FY2025; D195 = Efficiency ratio (noninterest expense / revenue), FY2024",
+   "label": "consistent",
+   "reason": "pp change in efficiency ratio, FY2024 to FY2025."
+  },
+  {
+   "sentence": "The ratio fell 3.9pp from 62.9% in FY2024  to 59.0% , as prior-year merger charges and the FDIC special assessment dropped out .",
+   "claim": "62.9%",
+   "match": "cited: D195 = Efficiency ratio (noninterest expense / revenue), FY2024",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2024 matches."
+  },
+  {
+   "sentence": "The ratio fell 3.9pp from 62.9% in FY2024  to 59.0% , as prior-year merger charges and the FDIC special assessment dropped out .",
+   "claim": "59.0%",
+   "match": "cited: D220 = Efficiency ratio (noninterest expense / revenue), FY2025",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2025 matches."
+  },
+  {
+   "sentence": "The largest move was FY2023, when the ratio rose 5.8pp from 61.6%  to 67.4% , on MUB integration costs and the FDIC charge .",
+   "claim": "5.8pp",
+   "match": "pp D170-D144: D170 = Efficiency ratio (noninterest expense / revenue), FY2023; D144 = Efficiency ratio (noninterest expense / revenue), FY2022",
+   "label": "consistent",
+   "reason": "pp change in efficiency ratio, FY2022 to FY2023."
+  },
+  {
+   "sentence": "The largest move was FY2023, when the ratio rose 5.8pp from 61.6%  to 67.4% , on MUB integration costs and the FDIC charge .",
+   "claim": "61.6%",
+   "match": "cited: D144 = Efficiency ratio (noninterest expense / revenue), FY2022",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2022 matches the prior-year value."
+  },
+  {
+   "sentence": "The largest move was FY2023, when the ratio rose 5.8pp from 61.6%  to 67.4% , on MUB integration costs and the FDIC charge .",
+   "claim": "67.4%",
+   "match": "cited: D170 = Efficiency ratio (noninterest expense / revenue), FY2023",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2023 matches."
+  },
+  {
+   "sentence": "Provision for credit losses was 7.7% of revenue in FY2025 , above the four-bank peer median of 6.1% .",
+   "claim": "7.7%",
+   "match": "cited: D221 = Credit-loss provision % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Provision as a percentage of revenue, FY2025, matches."
+  },
+  {
+   "sentence": "Provision for credit losses was 7.7% of revenue in FY2025 , above the four-bank peer median of 6.1% .",
+   "claim": "6.1%",
+   "match": "cited: D285 = Credit-loss provision % of revenue: banks peer median (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Four-bank peer median for provision % of revenue matches."
+  },
+  {
+   "sentence": "The provision fell 2.3% to $2.19 billion , driven by improved credit quality and loan sales .",
+   "claim": "2.3%",
+   "match": "passage P12: P12 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2025 10-K passage figure for the provision decline."
+  },
+  {
+   "sentence": "The provision fell 2.3% to $2.19 billion , driven by improved credit quality and loan sales .",
+   "claim": "$2.19 billion",
+   "match": "cited: X145 = Provision for credit losses, FY2025",
+   "label": "consistent",
+   "reason": "Provision for credit losses FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks plus dividends were $3.66 billion in FY2025 , 48.3% of net income of $7.57 billion .",
+   "claim": "$3.66 billion",
+   "match": "cited: D218 = Buybacks plus dividends, FY2025",
+   "label": "consistent",
+   "reason": "Buybacks plus dividends FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks plus dividends were $3.66 billion in FY2025 , 48.3% of net income of $7.57 billion .",
+   "claim": "48.3%",
+   "match": "share D218/F30: D218 = Buybacks plus dividends, FY2025; F30 = Net income, FY2025",
+   "label": "consistent",
+   "reason": "Payout share of net income FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks plus dividends were $3.66 billion in FY2025 , 48.3% of net income of $7.57 billion .",
+   "claim": "$7.57 billion",
+   "match": "cited: F30 = Net income, FY2025",
+   "label": "consistent",
+   "reason": "Net income FY2025 matches."
+  },
+  {
+   "sentence": "In FY2019 the payout was $6.97 billion  against net income of $6.91 billion , about 100.8%.",
+   "claim": "$6.97 billion",
+   "match": "cited: D65 = Buybacks plus dividends, FY2019",
+   "label": "consistent",
+   "reason": "Buybacks plus dividends FY2019 matches."
+  },
+  {
+   "sentence": "In FY2019 the payout was $6.97 billion  against net income of $6.91 billion , about 100.8%.",
+   "claim": "$6.91 billion",
+   "match": "cited: F24 = Net income, FY2019",
+   "label": "consistent",
+   "reason": "Net income FY2019 matches."
+  },
+  {
+   "sentence": "In FY2019 the payout was $6.97 billion  against net income of $6.91 billion , about 100.8%.",
+   "claim": "100.8%",
+   "match": "share D65/F24: D65 = Buybacks plus dividends, FY2019; F24 = Net income, FY2019",
+   "label": "consistent",
+   "reason": "Payout share of net income FY2019 matches."
+  },
+  {
+   "sentence": "Shareholders' equity rose 11.3% to $65.2 billion in FY2025 .",
+   "claim": "11.3%",
+   "match": "cited: D233 = Shareholders' equity growth, FY2025",
+   "label": "consistent",
+   "reason": "Shareholders' equity growth FY2025 matches."
+  },
+  {
+   "sentence": "Shareholders' equity rose 11.3% to $65.2 billion in FY2025 .",
+   "claim": "$65.2 billion",
+   "match": "cited: F114 = Shareholders' equity, FY2025",
+   "label": "consistent",
+   "reason": "Shareholders' equity FY2025 matches."
+  },
+  {
+   "sentence": "Return on average equity was 12.2% , above the peer median of 11.8% , at the 71st percentile of seven banks .",
+   "claim": "12.2%",
+   "match": "cited: D226 = Return on average equity, FY2025",
+   "label": "consistent",
+   "reason": "ROE FY2025 matches."
+  },
+  {
+   "sentence": "Return on average equity was 12.2% , above the peer median of 11.8% , at the 71st percentile of seven banks .",
+   "claim": "11.8%",
+   "match": "cited: D283 = Return on average equity: banks peer median (n=7), FY2025",
+   "label": "consistent",
+   "reason": "Seven-bank peer median ROE matches."
+  },
+  {
+   "sentence": "Return on average equity was 12.2% , above the peer median of 11.8% , at the 71st percentile of seven banks .",
+   "claim": "71st percentile",
+   "match": "cited: D282 = Return on average equity: percentile vs banks peers (n=7), FY2025",
+   "label": "consistent",
+   "reason": "ROE percentile among seven peers matches."
+  },
+  {
+   "sentence": "Loans were 73.5% of deposits , up from 67.2% in FY2021 , while cash fell 17.0% to $46.9 billion .",
+   "claim": "73.5%",
+   "match": "cited: D224 = Loans % of deposits, FY2025",
+   "label": "consistent",
+   "reason": "Loans as a percentage of deposits, FY2025, matches."
+  },
+  {
+   "sentence": "Loans were 73.5% of deposits , up from 67.2% in FY2021 , while cash fell 17.0% to $46.9 billion .",
+   "claim": "67.2%",
+   "match": "cited: D122 = Loans % of deposits, FY2021",
+   "label": "consistent",
+   "reason": "Loans as a percentage of deposits, FY2021, matches."
+  },
+  {
+   "sentence": "Loans were 73.5% of deposits , up from 67.2% in FY2021 , while cash fell 17.0% to $46.9 billion .",
+   "claim": "17.0%",
+   "match": "cited: D232 = Cash & equivalents growth, FY2025",
+   "label": "consistent",
+   "reason": "Cash growth FY2025, a decline of 17.0%."
+  },
+  {
+   "sentence": "Loans were 73.5% of deposits , up from 67.2% in FY2021 , while cash fell 17.0% to $46.9 billion .",
+   "claim": "$46.9 billion",
+   "match": "cited: F97 = Cash & equivalents, FY2025",
+   "label": "consistent",
+   "reason": "Cash and equivalents FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks were $489 million in FY2025  against $4.53 billion in FY2019 , and diluted shares moved -0.2% to 1,558 million .",
+   "claim": "$489 million",
+   "match": "cited: X85 = Share repurchases (cash), FY2025",
+   "label": "consistent",
+   "reason": "Share repurchases FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks were $489 million in FY2025  against $4.53 billion in FY2019 , and diluted shares moved -0.2% to 1,558 million .",
+   "claim": "$4.53 billion",
+   "match": "cited: X79 = Share repurchases (cash), FY2019",
+   "label": "consistent",
+   "reason": "Share repurchases FY2019 matches."
+  },
+  {
+   "sentence": "Buybacks were $489 million in FY2025  against $4.53 billion in FY2019 , and diluted shares moved -0.2% to 1,558 million .",
+   "claim": "-0.2%",
+   "match": "cited: D237 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "Diluted share count change FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks were $489 million in FY2025  against $4.53 billion in FY2019 , and diluted shares moved -0.2% to 1,558 million .",
+   "claim": "1,558 million",
+   "match": "cited: X75 = Diluted weighted-average shares, FY2025",
+   "label": "consistent",
+   "reason": "Diluted shares FY2025 matches."
+  },
+  {
+   "sentence": "Bank revenue fell 2.4% to $27.3 billion in FY2024  on deposit mix and pricing pressure on net interest income , then recovered 4.4% in FY2025 .",
+   "claim": "2.4%",
+   "match": "cited: D214 = Bank revenue growth, FY2024",
+   "label": "consistent",
+   "reason": "Bank revenue growth FY2024, a decline of 2.4%."
+  },
+  {
+   "sentence": "Bank revenue fell 2.4% to $27.3 billion in FY2024  on deposit mix and pricing pressure on net interest income , then recovered 4.4% in FY2025 .",
+   "claim": "$27.3 billion",
+   "match": "cited: D194 = Net interest income plus noninterest income, FY2024",
+   "label": "consistent",
+   "reason": "Net interest income plus noninterest income equals bank revenue, FY2024."
+  },
+  {
+   "sentence": "Bank revenue fell 2.4% to $27.3 billion in FY2024  on deposit mix and pricing pressure on net interest income , then recovered 4.4% in FY2025 .",
+   "claim": "4.4%",
+   "match": "cited: D239 = Bank revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Bank revenue growth FY2025 matches."
+  },
+  {
+   "sentence": "Consumer and Business Banking revenue fell 3.9% in FY2025  to $8.87 billion , from $10.3 billion in FY2023 .",
+   "claim": "3.9%",
+   "match": "cited: D252 = Operating Segments \u2014 Consumer And Business Banking (segment) growth, FY2025",
+   "label": "consistent",
+   "reason": "Consumer and Business Banking segment growth FY2025 matches."
+  },
+  {
+   "sentence": "Consumer and Business Banking revenue fell 3.9% in FY2025  to $8.87 billion , from $10.3 billion in FY2023 .",
+   "claim": "$8.87 billion",
+   "match": "cited: S57 = Operating Segments \u2014 Consumer And Business Banking (segment), FY2025",
+   "label": "consistent",
+   "reason": "Consumer and Business Banking segment revenue FY2025 matches."
+  },
+  {
+   "sentence": "Consumer and Business Banking revenue fell 3.9% in FY2025  to $8.87 billion , from $10.3 billion in FY2023 .",
+   "claim": "$10.3 billion",
+   "match": "cited: S55 = Operating Segments \u2014 Consumer And Business Banking (segment), FY2023",
+   "label": "consistent",
+   "reason": "Consumer and Business Banking segment revenue FY2023 matches."
+  },
+  {
+   "sentence": "Segment net income was $1.72 billion  against $2.50 billion in FY2023 , and the latest revenue decline reflects deposit mix and loan sales .",
+   "claim": "$1.72 billion",
+   "match": "cited: S7 = Operating Segments \u2014 Consumer And Business Banking (segment, NetIncomeLoss), FY2025",
+   "label": "consistent",
+   "reason": "Consumer and Business Banking segment net income FY2025 matches."
+  },
+  {
+   "sentence": "Segment net income was $1.72 billion  against $2.50 billion in FY2023 , and the latest revenue decline reflects deposit mix and loan sales .",
+   "claim": "$2.50 billion",
+   "match": "cited: S5 = Operating Segments \u2014 Consumer And Business Banking (segment, NetIncomeLoss), FY2023",
+   "label": "consistent",
+   "reason": "Consumer and Business Banking segment net income FY2023 matches."
+  },
+  {
+   "sentence": "Provision at 7.7% of revenue  exceeds the four-bank peer median of 6.1% , with the allowance at 2.0% of loans .",
+   "claim": "7.7%",
+   "match": "cited: D221 = Credit-loss provision % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Provision as a percentage of revenue, FY2025, matches."
+  },
+  {
+   "sentence": "Provision at 7.7% of revenue  exceeds the four-bank peer median of 6.1% , with the allowance at 2.0% of loans .",
+   "claim": "6.1%",
+   "match": "cited: D285 = Credit-loss provision % of revenue: banks peer median (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer median for provision % of revenue matches."
+  },
+  {
+   "sentence": "Provision at 7.7% of revenue  exceeds the four-bank peer median of 6.1% , with the allowance at 2.0% of loans .",
+   "claim": "2.0%",
+   "match": "cited: D225 = Allowance % of loans, FY2025",
+   "label": "consistent",
+   "reason": "Allowance as a percentage of loans, FY2025, matches."
+  },
+  {
+   "sentence": "An efficiency ratio above the window median of 59.3% , from 59.0% in FY2025 , would reverse the cost improvement; look in the FY2026 10-K.",
+   "claim": "59.3%",
+   "match": "cited: D277 = Efficiency ratio window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Efficiency ratio window median matches."
+  },
+  {
+   "sentence": "An efficiency ratio above the window median of 59.3% , from 59.0% in FY2025 , would reverse the cost improvement; look in the FY2026 10-K.",
+   "claim": "59.0%",
+   "match": "cited: D220 = Efficiency ratio (noninterest expense / revenue), FY2025",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2025 matches."
+  },
+  {
+   "sentence": "A net interest margin below 2.70%, the FY2024 level , from 2.72% in FY2025 , would reverse the net interest income recovery; look in the FY2026 10-K.",
+   "claim": "2.70%",
+   "match": "passage P15: P15 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2025 10-K passage gives the FY2024 NIM level."
+  },
+  {
+   "sentence": "A net interest margin below 2.70%, the FY2024 level , from 2.72% in FY2025 , would reverse the net interest income recovery; look in the FY2026 10-K.",
+   "claim": "2.72%",
+   "match": "passage P15: P15 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2025 10-K passage gives the FY2025 NIM."
+  },
+  {
+   "sentence": "Consumer and Business Banking revenue below FY2025's $8.87 billion  would extend the segment decline; look in the FY2026 10-K.",
+   "claim": "$8.87 billion",
+   "match": "cited: S57 = Operating Segments \u2014 Consumer And Business Banking (segment), FY2025",
+   "label": "consistent",
+   "reason": "Consumer and Business Banking segment revenue FY2025 matches."
+  }
+ ]
+}

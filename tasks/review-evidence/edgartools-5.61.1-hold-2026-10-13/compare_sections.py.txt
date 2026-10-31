@@ -1,0 +1,62 @@
+"""Compare two Ford section dumps (dump_sections.py.txt output) and write the evidence files.
+
+Usage: python3 -I compare_sections.py.txt <dump-A> <dump-B> <evidence-dir> <scratch-dir>
+
+Writes into <evidence-dir>: content_compare.txt (raw / non-whitespace equality and lost or gained
+characters per section), roic-row.txt (the MD&A ROIC row), probe_table_seams.txt (the three
+prose/table seams the 5.59.1 evidence found glued) and outlook_block.txt (Outlook block lengths and
+checks). Writes the two Outlook blocks into <scratch-dir>; diff_outlook_block.txt is `diff` of those.
+Each seam probe pairs a marker with the occurrence of its header that follows within 80 characters,
+so a marker that also appears elsewhere in the section (`with the SEC.` does in MD&A) is matched
+only where it is adjacent to the table.
+"""
+import re, sys
+from collections import Counter
+from pathlib import Path
+
+A, B, E, scratch = (Path(p) for p in sys.argv[1:5])
+E.mkdir(parents=True, exist_ok=True); scratch.mkdir(parents=True, exist_ok=True)
+va, vb = (A / "VERSION").read_text(), (B / "VERSION").read_text()
+
+lines = []
+for fa in sorted(A.glob("section_*.txt")):
+    a, b = fa.read_text(encoding="utf-8"), (B / fa.name).read_text(encoding="utf-8")
+    na, nb = re.sub(r"\s+", "", a), re.sub(r"\s+", "", b)
+    ca, cb = Counter(na), Counter(nb)
+    lines.append(f"{fa.name}: raw_equal={a == b} nonws_equal={na == nb} nonws_lenA={len(na)} nonws_lenB={len(nb)} "
+                 f"same_char_multiset={ca == cb} lost_in_B={dict(ca - cb)} gained_in_B={dict(cb - ca)}")
+(E / "content_compare.txt").write_text(f"A={va} B={vb}\n" + "\n".join(lines) + "\n", encoding="utf-8")
+
+mda = {va: (A / "section_part_i_item_2.txt").read_text(encoding="utf-8"),
+       vb: (B / "section_part_i_item_2.txt").read_text(encoding="utf-8")}
+roic = []
+for label, text in mda.items():
+    roic.append(f"{label} MD&A:")
+    roic += [f"{i}:{line}" for i, line in enumerate(text.splitlines(), 1) if line.startswith("ROIC (a)")]
+(E / "roic-row.txt").write_text("\n".join(roic) + "\n", encoding="utf-8")
+
+seams = [("part_i_item_2", "with the SEC.", "2026 Guidance"),
+         ("part_i_item_1", "(in millions):", "First Quarter 2025"),
+         ("part_i_item_1", "were as follows (in millions):", "December 31, 2025")]
+out = ["The three prose/table seams the 5.59.1 evidence found glued; `between` is the text separating the prose from the table header.\n"]
+for sec, before, after in seams:
+    for label, root in ((va, A), (vb, B)):
+        text = (root / f"section_{sec}.txt").read_text(encoding="utf-8")
+        hits = []
+        for m in re.finditer(re.escape(before), text):
+            j = text.find(after, m.end())
+            if 0 <= j - m.end() <= 80:   # the occurrence adjacent to this table, not the first in the section
+                hits.append(text[m.end():j])
+        out.append(f"{label} {sec}: {before!r} + {after!r} -> between={hits!r}")
+(E / "probe_table_seams.txt").write_text("\n".join(out) + "\n", encoding="utf-8")
+
+rowre = re.compile(r"Adjusted EBIT \(a\)[ \t]*\$8\.5 - \$10\.5 billion")
+blocks = ["== Outlook block (compare_sections.py.txt, final section) =="]
+for label, text in mda.items():
+    s = text.index("OUTLOOK"); e = text.index("Cautionary Note on Forward-Looking Statements", s)
+    block = text[s:e].strip()
+    (scratch / f"outlook-{label}.txt").write_text(block, encoding="utf-8")
+    blocks.append(f"{label}: OUTLOOK at {s} len(block)={len(block)} glued_literal={'Adjusted EBIT (a)$8.5 - $10.5 billion' in block} "
+                  f"row_regex={bool(rowre.search(block))} ford_energy={'Ford Energy' in block}")
+(E / "outlook_block.txt").write_text("\n".join(blocks) + "\n", encoding="utf-8")
+print("\n".join(blocks[1:]))

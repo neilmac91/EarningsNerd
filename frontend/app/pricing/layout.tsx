@@ -1,33 +1,40 @@
 import type { Metadata } from 'next'
-import { PRICE_VARIANTS } from './prices'
+import { ANALYSIS_LINES, shipped } from '@/lib/planLimits'
+import { PRICING_HINT_BOOTSTRAP } from '@/features/subscriptions/lib/pricingHint'
+import { PRO_PRICING } from './prices'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
-// The pricing page itself is a client component, so its metadata lives here.
+// The pricing page itself is a client component, so its metadata lives here. Pro's questions have a monthly cap, so
+// "unlimited" never heads a list that names filing Q&A: Q&A has a sentence of its own (planLimitsLockstep.spec.ts).
 export const metadata: Metadata = {
   title: 'Pricing | EarningsNerd',
   description:
-    'EarningsNerd plans: free AI summaries of SEC filings every month, or go Pro for unlimited 10-K and 10-Q analysis, exports, and filing Q&A.',
+    'EarningsNerd plans: free AI summaries of SEC filings every month, or go Pro for unlimited 10-K and 10-Q analysis and exports. Pro also includes filing Q&A.',
   alternates: { canonical: '/pricing' },
 }
 
-// Product/Offer structured data for the pricing rich result. Uses the CONTROL anchor: the
-// $39-vs-$29 fake-door A/B is a client-side display experiment and must not leak a variant price
-// into what crawlers index.
-const PRICING_JSON_LD = {
+// Product/Offer structured data uses the same approved offer as the visible pricing surfaces, and
+// names multi-period analysis only while ENABLE_ANALYSIS ships it, as the Pro lists do (/analysis
+// 404s while the flag is off): its piece is lib/planLimits.ts ANALYSIS_LINES.productJsonLd, read
+// through shipped() at render, as the page and PricingSection read their lines.
+const pricingJsonLd = () => ({
   '@context': 'https://schema.org',
   '@type': 'Product',
   '@id': `${SITE_URL}/pricing#product`,
   name: 'EarningsNerd Pro',
-  description:
-    'Unlimited AI summaries of SEC 10-K and 10-Q filings, multi-period analysis, filing Q&A, alerts, and exports.',
+  description: `${shipped([
+    { text: 'Unlimited AI summaries of SEC 10-K and 10-Q filings' },
+    ANALYSIS_LINES.productJsonLd,
+    { text: 'alerts' },
+  ]).join(', ')}, and exports. Pro also includes filing Q&A.`,
   brand: { '@type': 'Brand', name: 'EarningsNerd' },
   url: `${SITE_URL}/pricing`,
   offers: [
     {
       '@type': 'Offer',
       name: 'Pro (monthly)',
-      price: PRICE_VARIANTS.control.monthly,
+      price: PRO_PRICING.monthly,
       priceCurrency: 'USD',
       url: `${SITE_URL}/pricing`,
       availability: 'https://schema.org/InStock',
@@ -35,23 +42,25 @@ const PRICING_JSON_LD = {
     {
       '@type': 'Offer',
       name: 'Pro (annual)',
-      price: PRICE_VARIANTS.control.yearly,
+      price: PRO_PRICING.yearly,
       priceCurrency: 'USD',
       url: `${SITE_URL}/pricing`,
       availability: 'https://schema.org/InStock',
     },
   ],
-}
+})
 
 // Escape `<` as the JSON-safe `<` so a `</script>` sequence inside the serialized JSON can
 // never terminate the tag (the existing JSON-LD sites serialize static, hand-written objects; this
 // one is the pattern to copy when the payload grows).
-const JSON_LD_HTML = JSON.stringify(PRICING_JSON_LD).replace(/</g, '\\u003c')
+const jsonLdHtml = () => JSON.stringify(pricingJsonLd()).replace(/</g, '\\u003c')
 
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD_HTML }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml() }} />
+      {/* Before the plans, so it runs before they paint: it marks a returning reader's plan (E228). */}
+      <script dangerouslySetInnerHTML={{ __html: PRICING_HINT_BOOTSTRAP }} />
       {children}
     </>
   )

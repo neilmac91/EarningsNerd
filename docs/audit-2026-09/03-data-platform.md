@@ -13,6 +13,8 @@ No sec.gov traffic. Anything not verified in code/logs is labelled **[hypothesis
 
 > **Lead correction (PR #653 review, 2026-09-04):** a 6-K summary path DOES exist — `backend/prompts/6k-analyst-agent.md`, `6k-structured-agent.md` and `summary_pipeline.py:358-489` (`get_sixk_text` EX-99 grounding) behind `ENABLE_FPI_FILINGS`, which prod sets. Read "no summary path exists for 6-K" below as "no 6-K classifier and no 6-K golden-set coverage"; the coverage numbers stand.
 
+> **Correction, 2026-10-09:** two findings below are closed; their rows keep the original snapshot. The companyfacts cross-check no longer bypasses the limiter: WS-8 (`d517ef19`, 2026-09-04) made `facts_service._fetch_companyfacts_sync` a bridge onto the rate-limited `_fetch_companyfacts_async` (no bare `httpx`, no `sleep(0.2)`), and the `xbrl_service` fallback was already limiter-wired. That closes the cross-check note in the `earningsnerd-backfill-facts` row and the "un-metered fetcher" in (A), the rule-5 concern of (C)'s "Unify the two companyfacts fetchers" row (both fetchers now use the limiter; they remain two code paths), and (D)'s "Raw sec.gov httpx outside the limiter" risk. `_parse_company_facts` has filled `total_liabilities` and `cash_and_equivalents` since `499648e6` (2026-09-05), pinned by `backend/tests/unit/test_companyfacts_fixture.py:116-127`, which closes (C)'s "never fills" row.
+
 
 1. **Production has been frozen on the 2026-07-13 image (`4994360`) for 7 weeks, and the cause is a data-platform defect.**
    CI run `29524625738` (push of `e8ea339`, 07-16): all test jobs green; `deploy-backend` step "Apply database migrations"

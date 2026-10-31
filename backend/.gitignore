@@ -13,3 +13,7 @@ __pycache__/
 
 # Generated eval bake-off reports (run artifacts, not source)
 evals/reports/
+
+# Default output of the copilot-eval replay tools under tasks/review-evidence/ when run from backend/
+# (f_attribution.py writes f-attribution.json to the working directory); evidence lives in their folders.
+/f-attribution.json

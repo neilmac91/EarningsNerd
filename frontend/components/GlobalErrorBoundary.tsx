@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { ArrowsClockwiseIcon, HouseIcon, WarningIcon } from '@/lib/icons'
@@ -62,10 +63,11 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
+        <main className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
           <div className="w-full max-w-md space-y-4">
             <GuidanceCard
               variant="error"
+              headingLevel="h1"
               icon={<WarningIcon className="h-5 w-5" />}
               title="Something went wrong"
               description="This has been reported automatically. Try again, or head back home."
@@ -91,12 +93,16 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
             <p className="text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
               If this problem persists, please contact{' '}
-              <a href="mailto:support@earningsnerd.io" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
-                support@earningsnerd.io
+              <a
+                href={contactMailto('support')}
+                className="rounded text-brand-strong hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              >
+                {CONTACT_ADDRESSES.support}
+
               </a>
             </p>
           </div>
-        </div>
+        </main>
       )
     }
 

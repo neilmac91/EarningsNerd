@@ -56,6 +56,38 @@ test.describe('Home Page - Unauthenticated Users', () => {
     await expect(clientError).not.toBeVisible()
   })
 
+  // D-045: every section after the hero is one ruled row (features/marketing/components/LandingRow.tsx) numbered by
+  // the `landing-row` CSS counter that app/page.tsx resets on <main>, so a section that renders nothing takes no
+  // number. The number is a ::before box, which no DOM read returns resolved (getComputedStyle gives
+  // `counter(landing-row, decimal-leading-zero)`, innerText nothing), so this reads the painted text from Chromium's
+  // DOM snapshot: each row's number, in document order, at the default text size.
+  test('numbers the landing rows 01, 02, … in document order with no gap', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('section[data-landing-row]').first()).toBeVisible()
+    const rows = await page.locator('section[data-landing-row]').count()
+    // Anti-vacuity: with no backend the five rows that need no live data render (claims to pricing).
+    expect(rows).toBeGreaterThanOrEqual(5)
+
+    const cdp = await page.context().newCDPSession(page)
+    const { documents, strings } = await cdp.send('DOMSnapshot.captureSnapshot', { computedStyles: [] })
+    const { nodes, layout } = documents[0]
+    const str = (index: number) => (index >= 0 ? strings[index] : '')
+    // The number spans in document order, then the painted text of each one's ::before box.
+    const spans = (nodes.attributes ?? []).flatMap((attributes, node) =>
+      attributes.some((name, i) => i % 2 === 0 && str(name) === 'data-landing-row-number') ? [node] : [],
+    )
+    const numbers = spans.map((span) => {
+      const before = (nodes.parentIndex ?? []).findIndex(
+        (parent, node) => parent === span && str((nodes.nodeName ?? [])[node]) === '::before',
+      )
+      return layout.nodeIndex
+        .flatMap((node, entry) => (node === before ? [str(layout.text[entry])] : []))
+        .join('')
+    })
+    expect(spans).toHaveLength(rows)
+    expect(numbers).toEqual(Array.from({ length: rows }, (_, i) => String(i + 1).padStart(2, '0')))
+  })
+
   test('should handle search interaction without errors', async ({ page }) => {
     await page.goto('/')
 

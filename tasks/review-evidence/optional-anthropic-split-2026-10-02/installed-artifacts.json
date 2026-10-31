@@ -1,0 +1,170 @@
+[
+  {
+    "name": "ruff",
+    "version": "0.16.9",
+    "url": "https://files.pythonhosted.org/packages/b6/63/09659283f92f02dff45809da194a70da2f688d87c55d8875c4fae3536072/ruff-0.16.9-py3-none-macosx_11_0_arm64.whl",
+    "hashes": {
+      "sha256": "1632eb1d6197f33bd00b1acbc5b71009e89a8895c158e2d2b03a834fac964ab6"
+    }
+  },
+  {
+    "name": "bandit",
+    "version": "1.9.4",
+    "url": "https://files.pythonhosted.org/packages/05/a4/a26d5b25671d27e03afb5401a0be5899d94ff8fab6a698b1ac5be3ec29ef/bandit-1.9.4-py3-none-any.whl",
+    "hashes": {
+      "sha256": "f89ffa663767f5a0585ea075f01020207e966a9c0f2b9ef56a57c7963a3f6f8e"
+    }
+  },
+  {
+    "name": "pip_audit",
+    "version": "2.10.1",
+    "url": "https://files.pythonhosted.org/packages/a3/a7/b0c504148114047bd1bc9d97447453c6850ca176bb2f3c0038835994e8b7/pip_audit-2.10.1-py3-none-any.whl",
+    "hashes": {
+      "sha256": "99ef3f600a317c1945f1e89e227ef26e1c2d618429b8bd3fa6f4f7c440c4611a"
+    }
+  },
+  {
+    "name": "anthropic",
+    "version": "1.9.0",
+    "url": "https://files.pythonhosted.org/packages/15/2a/67c1b2ddf91be3112856ed74b96d1576f00dd423e4f20bb251aa144fbd6b/anthropic-1.9.0-py3-none-any.whl",
+    "hashes": {
+      "sha256": "a7fe05a9e4b72113b934501698df5d56484ac89f05677f0f793f8bfddb15cfff"
+    }
+  },
+  {
+    "name": "docstring_parser",
+    "version": "0.18.0",
+    "url": "https://files.pythonhosted.org/packages/a7/5f/ed01f9a3cdffbd5a008556fc7b2a08ddb1cc6ace7effa7340604b1d16699/docstring_parser-0.18.0-py3-none-any.whl",
+    "hashes": {
+      "sha256": "b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b"
+    }
+  },
+  {
+    "name": "CacheControl",
+    "version": "0.14.4",
+    "url": "https://files.pythonhosted.org/packages/ef/79/c45f2d53efe6ada1110cf6f9fca095e4ff47a0454444aefdde6ac4789179/cachecontrol-0.14.4-py3-none-any.whl",
+    "hashes": {
+      "sha256": "b7ac014ff72ee199b5f8af1de29d60239954f223e948196fa3d84adaffc71d2b"
+    }
+  },
+  {
+    "name": "cyclonedx-python-lib",
+    "version": "11.12.0",
+    "url": "https://files.pythonhosted.org/packages/cf/f0/b2cb999244f2f4194df63ecff6939228178fa63a33be809c412684ca8db7/cyclonedx_python_lib-11.12.0-py3-none-any.whl",
+    "hashes": {
+      "sha256": "0e807521a921a5c3cb8ce1153f8a61d29eedfe76a46aac2796b7c6b573391a54"
+    }
+  },
+  {
+    "name": "pip_api",
+    "version": "0.0.35",
+    "url": "https://files.pythonhosted.org/packages/1d/2e/d424c5b5877be862dd9a2c8b7e9ddb13382bb25e132e6dd50cc09c0a7dde/pip_api-0.0.35-py3-none-any.whl",
+    "hashes": {
+      "sha256": "66990d0da25378555cbb538db79384bab92d4617c6350dfd7a2126ba2a3a9894"
+    }
+  },
+  {
+    "name": "pip-requirements-parser",
+    "version": "32.0.1",
+    "url": "https://files.pythonhosted.org/packages/54/d0/d04f1d1e064ac901439699ee097f58688caadea42498ec9c4b4ad2ef84ab/pip_requirements_parser-32.0.1-py3-none-any.whl",
+    "hashes": {
+      "sha256": "4659bc2a667783e7a15d190f6fccf8b2486685b6dba4c19c3876314769c57526"
+    }
+  },
+  {
+    "name": "platformdirs",
+    "version": "4.12.2",
+    "url": "https://files.pythonhosted.org/packages/d0/89/446044f33aba0348d35e433f56d12206d010a5281a1df54054d4cfb82388/platformdirs-4.12.2-py3-none-any.whl",
+    "hashes": {
+      "sha256": "29dbf06d96c500bc6bdbce75fb0a14d63279c93b1842f97e72a135b33e856983"
+    }
+  },
+  {
+    "name": "stevedore",
+    "version": "5.9.1",
+    "url": "https://files.pythonhosted.org/packages/c5/97/bba6e7ec2f5498b9dcb7b1b6400086b80ae5a8ebaff4b25e8c8add75f439/stevedore-5.9.1-py3-none-any.whl",
+    "hashes": {
+      "sha256": "5c8ff3a9f336cc1a06ac0f597bc79d11a2f950bfd32e290ca56b5a301fafafbf"
+    }
+  },
+  {
+    "name": "tomli",
+    "version": "2.4.1",
+    "url": "https://files.pythonhosted.org/packages/6d/f7/675db52c7e46064a9aa928885a9b20f4124ecb9bc2e1ce74c9106648d202/tomli-2.4.1-cp311-cp311-macosx_11_0_arm64.whl",
+    "hashes": {
+      "sha256": "4ab97e64ccda8756376892c53a72bd1f964e519c77236368527f758fbc36a53a"
+    }
+  },
+  {
+    "name": "tomli_w",
+    "version": "1.2.0",
+    "url": "https://files.pythonhosted.org/packages/c7/18/c86eb8e0202e32dd3df50d43d7ff9854f8e0603945ff398974c1d91ac1ef/tomli_w-1.2.0-py3-none-any.whl",
+    "hashes": {
+      "sha256": "188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90"
+    }
+  },
+  {
+    "name": "license-expression",
+    "version": "30.4.4",
+    "url": "https://files.pythonhosted.org/packages/af/40/791891d4c0c4dab4c5e187c17261cedc26285fd41541577f900470a45a4d/license_expression-30.4.4-py3-none-any.whl",
+    "hashes": {
+      "sha256": "421788fdcadb41f049d2dc934ce666626265aeccefddd25e162a26f23bcbf8a4"
+    }
+  },
+  {
+    "name": "msgpack",
+    "version": "1.2.3",
+    "url": "https://files.pythonhosted.org/packages/50/cd/fc9e2e367e80f1493e2ec5f610dda558b344eeede296f88976db133e8f2c/msgpack-1.2.3-cp311-cp311-macosx_11_0_arm64.whl",
+    "hashes": {
+      "sha256": "9d7e9cbb0998bbfd363fd9a09c330520d5e9cb323c05b5a1a05865d23ccf2226"
+    }
+  },
+  {
+    "name": "packageurl-python",
+    "version": "0.17.6",
+    "url": "https://files.pythonhosted.org/packages/b1/2f/c7277b7615a93f51b5fbc1eacfc1b75e8103370e786fd8ce2abf6e5c04ab/packageurl_python-0.17.6-py3-none-any.whl",
+    "hashes": {
+      "sha256": "31a85c2717bc41dd818f3c62908685ff9eebcb68588213745b14a6ee9e7df7c9"
+    }
+  },
+  {
+    "name": "py-serializable",
+    "version": "2.1.0",
+    "url": "https://files.pythonhosted.org/packages/9b/bf/7595e817906a29453ba4d99394e781b6fabe55d21f3c15d240f85dd06bb1/py_serializable-2.1.0-py3-none-any.whl",
+    "hashes": {
+      "sha256": "b56d5d686b5a03ba4f4db5e769dc32336e142fc3bd4d68a8c25579ebb0a67304"
+    }
+  },
+  {
+    "name": "sortedcontainers",
+    "version": "2.4.0",
+    "url": "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl",
+    "hashes": {
+      "sha256": "a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"
+    }
+  },
+  {
+    "name": "pyparsing",
+    "version": "3.3.3",
+    "url": "https://files.pythonhosted.org/packages/38/bb/d215ee7c73b61497b28a5503f9f53523f294fcc936762b7caf90e0c1c2b5/pyparsing-3.3.3-py3-none-any.whl",
+    "hashes": {
+      "sha256": "ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4"
+    }
+  },
+  {
+    "name": "boolean.py",
+    "version": "5.0",
+    "url": "https://files.pythonhosted.org/packages/e5/ca/78d423b324b8d77900030fa59c4aa9054261ef0925631cd2501dd015b7b7/boolean_py-5.0-py3-none-any.whl",
+    "hashes": {
+      "sha256": "ef28a70bd43115208441b53a045d1549e2f0ec6e3d08a9d142cbc41c1938e8d9"
+    }
+  },
+  {
+    "name": "defusedxml",
+    "version": "0.7.1",
+    "url": "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl",
+    "hashes": {
+      "sha256": "a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61"
+    }
+  }
+]

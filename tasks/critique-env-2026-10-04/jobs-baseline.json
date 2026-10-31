@@ -1,0 +1,570 @@
+[
+ {
+  "out": "home-light-desktop",
+  "route": "/",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true,
+  "styles": "h1,h2,p,a,button,.text-text-tertiary-light,.text-text-secondary-light"
+ },
+ {
+  "out": "home-light-mobile",
+  "route": "/",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "390x844",
+  "full": true
+ },
+ {
+  "out": "home-dark-desktop",
+  "route": "/",
+  "scenario": "anon",
+  "theme": "dark",
+  "viewport": "1440x900",
+  "full": true,
+  "styles": "h1,h2,p,a,button"
+ },
+ {
+  "out": "home-dark-mobile",
+  "route": "/",
+  "scenario": "anon",
+  "theme": "dark",
+  "viewport": "390x844",
+  "full": true
+ },
+ {
+  "out": "home-light-desktop-search-typed",
+  "route": "/",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "click=placeholder:ticker;wait=300;type=placeholder:ticker|appl;wait=1500;shot=results;press=ArrowDown;wait=200;keyfocus;aria=role:listbox",
+  "settle": 800
+ },
+ {
+  "out": "home-light-desktop-tabtrail",
+  "route": "/",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "tabtrail=14"
+ },
+ {
+  "out": "home-dark-mobile-menu",
+  "route": "/",
+  "scenario": "anon",
+  "theme": "dark",
+  "viewport": "390x844",
+  "steps": "click=role:button:Open menu;wait=400;shot=menu;tabtrail=6"
+ },
+ {
+  "out": "search-light-desktop-empty",
+  "route": "/search",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true,
+  "styles": "h1,h2,input,button,label,p"
+ },
+ {
+  "out": "search-light-desktop-results",
+  "route": "/search",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "fill=label:Search the full text of SEC filings|iPhone;press=Enter;wait=4000;waitidle;fullshot=results;aria=body",
+  "settle": 800
+ },
+ {
+  "out": "search-dark-mobile-results",
+  "route": "/search",
+  "scenario": "anon",
+  "theme": "dark",
+  "viewport": "390x844",
+  "steps": "fill=label:Search the full text of SEC filings|tariff;press=Enter;wait=4000;waitidle;fullshot=results"
+ },
+ {
+  "out": "search-light-desktop-noresults",
+  "route": "/search",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "fill=label:Search the full text of SEC filings|zzqxv9notaword;press=Enter;wait=4000;waitidle;shot=empty"
+ },
+ {
+  "out": "company-light-desktop",
+  "route": "/company/AAPL",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true,
+  "styles": "h1,h2,h3,td,th,a,button,.text-text-tertiary-light,.text-data-xs",
+  "aria": true
+ },
+ {
+  "out": "company-dark-mobile",
+  "route": "/company/AAPL",
+  "scenario": "anon",
+  "theme": "dark",
+  "viewport": "390x844",
+  "full": true
+ },
+ {
+  "out": "company-dark-desktop-pro",
+  "route": "/company/AAPL",
+  "scenario": "pro,watch",
+  "theme": "dark",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "company-light-desktop-filters",
+  "route": "/company/AAPL",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "click=role:button:10-Q;wait=600;shot=filter-10q;click=role:button:Show full history;wait=2500;waitidle;fullshot=full-history",
+  "settle": 800
+ },
+ {
+  "out": "company-light-desktop-tabtrail",
+  "route": "/company/AAPL",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "tabtrail=18"
+ },
+ {
+  "out": "company-light-desktop-unknown",
+  "route": "/company/ZZZZQ",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "analysis-light-desktop-anon",
+  "route": "/analysis?ticker=AAPL",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "analysis-dark-mobile-free",
+  "route": "/analysis?ticker=AAPL",
+  "scenario": "free",
+  "theme": "dark",
+  "viewport": "390x844",
+  "full": true
+ },
+ {
+  "out": "analysis-light-desktop-pro",
+  "route": "/analysis?ticker=AAPL",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "wait=3500;waitidle;shot=dataset;wait=9000;waitidle;fullshot=narrative;aria=body",
+  "settle": 1500,
+  "styles": "h1,h2,th,td,svg text,.text-data-xs,button,.text-gain-text,.text-loss-text,.text-flat-light,.text-text-tertiary-light"
+ },
+ {
+  "out": "analysis-dark-desktop-pro",
+  "route": "/analysis?ticker=AAPL",
+  "scenario": "pro",
+  "theme": "dark",
+  "viewport": "1440x900",
+  "steps": "wait=3500;waitidle;wait=9000;waitidle;fullshot=narrative",
+  "settle": 1500,
+  "styles": "h1,h2,th,td,svg text,.text-data-xs,button,.dark\\:text-gain-dark,.dark\\:text-loss-dark"
+ },
+ {
+  "out": "analysis-light-mobile-pro",
+  "route": "/analysis?ticker=AAPL",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "390x844",
+  "steps": "wait=3500;waitidle;wait=9000;waitidle;fullshot=narrative",
+  "settle": 1500
+ },
+ {
+  "out": "analysis-light-desktop-pro-picker",
+  "route": "/analysis?ticker=AAPL",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "wait=3000;waitidle;tabtrail=12;shot=picker-focus",
+  "settle": 1500
+ },
+ {
+  "out": "analysis-light-desktop-pro-unsupported",
+  "route": "/analysis?ticker=TSLA",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "wait=3000;waitidle",
+  "full": true,
+  "settle": 1000
+ },
+ {
+  "out": "filing-light-desktop-anon",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true,
+  "styles": "h1,h2,h3,.text-text-tertiary-light,.text-data-xs,.tracking-eyebrow,td,th,main a,main button,[role=dialog] button,kbd,.text-text-secondary-light,.markdown-body p,p",
+  "aria": true
+ },
+ {
+  "out": "filing-light-desktop-anon-demo",
+  "route": "/filing/3?entry=hero_example&demo=1",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "filing-dark-desktop-anon",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "dark",
+  "viewport": "1440x900",
+  "full": true,
+  "styles": "h1,h2,h3,.dark\\:text-text-secondary-dark,.text-data-xs,.tracking-eyebrow,td,th,main a,main button,[role=dialog] button,kbd,p"
+ },
+ {
+  "out": "filing-light-mobile-anon",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "390x844",
+  "full": true,
+  "styles": "h1,h2,td,th,.text-data-xs,p,button"
+ },
+ {
+  "out": "filing-dark-mobile-anon",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "dark",
+  "viewport": "390x844",
+  "full": true
+ },
+ {
+  "out": "filing-light-tablet-anon",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "768x1024",
+  "full": true
+ },
+ {
+  "out": "filing-light-desktop-anon-viewport-top",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "shot=top;scroll=900;shot=scrolled-900;scroll=1400;shot=scrolled-2300"
+ },
+ {
+  "out": "filing-light-desktop-anon-zoom200",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "zoom": 2,
+  "full": true
+ },
+ {
+  "out": "filing-light-desktop-anon-tabtrail",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "tabtrail=30",
+  "coachSeen": true
+ },
+ {
+  "out": "filing-light-desktop-anon-loading",
+  "route": "/filing/3",
+  "scenario": "anon,slow",
+  "theme": "light",
+  "viewport": "1440x900",
+  "settle": 250,
+  "steps": "shot=t0;wait=1200;shot=t1200;wait=2500;shot=t3700"
+ },
+ {
+  "out": "filing-light-desktop-anon-nosummary",
+  "route": "/filing/3",
+  "scenario": "anon,nosummary",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "filing-dark-mobile-anon-nosummary",
+  "route": "/filing/3",
+  "scenario": "anon,nosummary",
+  "theme": "dark",
+  "viewport": "390x844",
+  "full": true
+ },
+ {
+  "out": "filing-light-desktop-free-generating",
+  "route": "/filing/3",
+  "scenario": "free,nosummary",
+  "theme": "light",
+  "viewport": "1440x900",
+  "settle": 200,
+  "steps": "shot=t0;wait=1500;shot=t1500;wait=2500;shot=t4000;wait=3500;shot=t7500;wait=4000;waitidle;fullshot=done"
+ },
+ {
+  "out": "filing-light-desktop-free-genfail",
+  "route": "/filing/3",
+  "scenario": "free,nosummary,genfail",
+  "theme": "light",
+  "viewport": "1440x900",
+  "settle": 200,
+  "steps": "wait=4500;shot=error;tabtrail=8;shot=focus"
+ },
+ {
+  "out": "filing-light-desktop-pro-summaryerror",
+  "route": "/filing/3",
+  "scenario": "pro,summaryerror",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "filing-light-desktop-pro-partial",
+  "route": "/filing/3",
+  "scenario": "pro,partial",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "shot=top",
+  "coachSeen": true
+ },
+ {
+  "out": "filing-light-desktop-pro-saved",
+  "route": "/filing/3",
+  "scenario": "pro,saved",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "shot=top",
+  "coachSeen": true
+ },
+ {
+  "out": "filing-light-desktop-pro-save-flow",
+  "route": "/filing/3",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "focus=role:button:Save Summary;keyfocus;press=Enter;wait=900;keyfocus;shot=saved"
+ },
+ {
+  "out": "filing-light-desktop-pro-copy-link",
+  "route": "/filing/3",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Copy filing link;wait=600;shot=copied;text=[role=status]"
+ },
+ {
+  "out": "filing-light-desktop-pro-ask-flow",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;shot=rail-open;aria=role:dialog;click=[role=dialog] button:has-text('What');wait=4500;shot=answer;aria=role:dialog;click=[role=dialog] button[data-citation-kind='text'];wait=1500;shot=filing-highlight;hover=[role=dialog] [role=tab]:has-text('Answer');click=role:tab:Answer;wait=500;shot=back-to-answer;press=Escape;wait=500;keyfocus;shot=closed"
+ },
+ {
+  "out": "filing-light-desktop-pro-ask-keyboard",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "press=Control+k;wait=700;keyfocus;shot=opened-by-key;type=role:textbox|What are the main risks?;press=Enter;wait=4500;shot=answer;tabtrail=10;shot=tab-into-answer;press=Escape;wait=400;keyfocus"
+ },
+ {
+  "out": "filing-light-desktop-pro-citation-popover",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;click=[role=dialog] button:has-text('revenue');wait=4500;hover=[role=dialog] button[data-citation-kind='text'];wait=500;shot=popover;hover=[role=dialog] button[data-citation-kind='xbrl'];wait=500;shot=xbrl-popover;focus=[role=dialog] button[data-citation-kind='text'];wait=400;shot=popover-focus"
+ },
+ {
+  "out": "filing-dark-mobile-pro-ask-flow",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "dark",
+  "viewport": "390x844",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=800;shot=sheet-open;aria=role:dialog;click=[role=dialog] button:has-text('What');wait=4500;shot=answer;click=[role=dialog] button[data-citation-kind='text'];wait=1500;shot=filing-sheet;press=Escape;wait=500;keyfocus;shot=closed"
+ },
+ {
+  "out": "filing-light-mobile-pro-sourcetrace-sheet",
+  "route": "/filing/3",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "390x844",
+  "coachSeen": true,
+  "steps": "scroll=role:button:Source: Verified in filing;wait=300;click=role:button:Source: Verified in filing;wait=700;shot=source-sheet;aria=role:dialog;press=Escape;wait=400;keyfocus"
+ },
+ {
+  "out": "filing-light-desktop-pro-sourcetrace-popover",
+  "route": "/filing/3",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "scroll=role:button:Source: Verified in filing;wait=300;hover=role:button:Source: Verified in filing;wait=500;shot=popover;focus=role:button:Source: Verified in filing;wait=400;shot=popover-focus;keyfocus"
+ },
+ {
+  "out": "filing-light-desktop-pro-trace-nocontent",
+  "route": "/filing/3",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "scroll=role:button:Source: Verified in filing;click=role:button:Source: Verified in filing;wait=2500;shot=viewer-empty;aria=role:dialog"
+ },
+ {
+  "out": "filing-light-desktop-pro-trace-content",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "scroll=role:button:Source: Verified in filing;click=role:button:Source: Verified in filing;wait=2500;shot=viewer-highlight;click=role:button:Source: Revenue;wait=1500;shot=viewer-metric-jump;styles=.filing-reader p,.filing-reader table,.filing-reader h2,.filing-reader h3,.citation-flash"
+ },
+ {
+  "out": "filing-dark-desktop-pro-trace-content",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "dark",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "scroll=role:button:Source: Verified in filing;click=role:button:Source: Verified in filing;wait=2500;shot=viewer-highlight;click=role:tab:Filing;wait=300;scroll=0"
+ },
+ {
+  "out": "filing-light-desktop-pro-filing-tab-table",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=600;click=role:tab:Filing;wait=2500;eval=document.querySelector('.filing-reader').scrollTop=document.querySelector('.filing-reader').scrollHeight*0.42;wait=400;shot=wide-table;eval=document.querySelector('.filing-reader').scrollTop=document.querySelector('.filing-reader').scrollHeight*0.68;wait=400;shot=statements"
+ },
+ {
+  "out": "filing-light-desktop-free-rail",
+  "route": "/filing/3",
+  "scenario": "free",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;shot=free-rail;click=[role=dialog] button:has-text('What');wait=4500;shot=free-answer"
+ },
+ {
+  "out": "filing-light-desktop-free-exhausted",
+  "route": "/filing/3",
+  "scenario": "free,exhausted",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;shot=teaser;click=[role=dialog] button:has-text('Upgrade');wait=600;shot=upgrade-modal;aria=role:dialog;press=Escape;wait=400;keyfocus"
+ },
+ {
+  "out": "filing-light-desktop-anon-rail",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;shot=anon-teaser;aria=role:dialog"
+ },
+ {
+  "out": "filing-light-desktop-anon-coachmark",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "shot=coachmark;click=role:button:Dismiss;wait=300;shot=dismissed"
+ },
+ {
+  "out": "filing-light-desktop-pro-askfail",
+  "route": "/filing/3",
+  "scenario": "pro,content,askfail",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;click=[role=dialog] button:has-text('What');wait=2500;shot=error;tabtrail=4"
+ },
+ {
+  "out": "filing-light-desktop-pro-reduced-motion",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "light",
+  "viewport": "1440x900",
+  "reducedMotion": true,
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;click=[role=dialog] button:has-text('What');wait=1200;shot=reading-state;wait=3500;shot=answer"
+ },
+ {
+  "out": "filing-light-desktop-pro-resize-pane",
+  "route": "/filing/3",
+  "scenario": "pro,content",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "click=role:button:Ask this Filing;wait=700;focus=role:separator;keyfocus;press=ArrowLeft;press=ArrowLeft;press=ArrowLeft;wait=300;shot=resized"
+ },
+ {
+  "out": "filing-light-desktop-pro-selection",
+  "route": "/filing/3",
+  "scenario": "pro",
+  "theme": "light",
+  "viewport": "1440x900",
+  "coachSeen": true,
+  "steps": "eval=(()=>{const p=document.querySelector('main p');const r=document.createRange();r.selectNodeContents(p);const s=getSelection();s.removeAllRanges();s.addRange(r);document.dispatchEvent(new Event('selectionchange'));p.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));return p.textContent.slice(0,60)})();wait=600;shot=selection-pill"
+ },
+ {
+  "out": "filing-light-desktop-anon-whatchanged",
+  "route": "/filing/3",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "steps": "scroll=text=What changed;wait=400;shot=what-changed",
+  "coachSeen": true
+ },
+ {
+  "out": "filing-light-desktop-notfound",
+  "route": "/filing/999999999",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "filing-light-desktop-ticker-legacy",
+  "route": "/filing/AAPL",
+  "scenario": "anon",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ },
+ {
+  "out": "filing-light-desktop-offline",
+  "route": "/filing/3",
+  "scenario": "anon,offline",
+  "theme": "light",
+  "viewport": "1440x900",
+  "full": true
+ }
+]

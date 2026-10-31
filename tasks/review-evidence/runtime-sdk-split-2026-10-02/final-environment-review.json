@@ -1,0 +1,8 @@
+{
+  "runtime_exact_pin_count": 99,
+  "runtime_has_optional_anthropic": false,
+  "optional_runtime_pins_match_independent_base": true,
+  "combined_runtime_pins_match_new_runtime": true,
+  "anthropic_in_optional_and_combined": "1.9.0",
+  "edgartools_all_environments": "5.58.0"
+}

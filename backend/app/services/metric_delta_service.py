@@ -22,7 +22,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
-from app.utils.numbers import parse_display_number
+from app.utils.numbers import display_currency, parse_display_number
 
 _MINUS = "−"  # U+2212 MINUS SIGN — byte-identical to the existing chip rendering
 
@@ -64,13 +64,6 @@ _NUMBER_TOKEN = re.compile(
     r"(?:(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.(?P<decimals>[0-9]+))?"
     r"|\.(?P<leading_decimals>[0-9]+))"
 )
-_CURRENCY_CODE = re.compile(
-    r"\b(USD|EUR|GBP|JPY|CNY|RMB|TWD|DKK|HKD|SGD|AUD|CAD|CHF|SEK|NOK|KRW|INR|BRL|MXN|ZAR|NZD)\b",
-    re.IGNORECASE,
-)
-_SYMBOL_CURRENCY: dict[str, Optional[str]] = {
-    "$": "USD", "€": "EUR", "£": "GBP", "¥": None, "₹": "INR", "₩": "KRW",
-}
 _DISPLAY_SCALE = {
     "k": Decimal("1e3"), "thousand": Decimal("1e3"),
     "m": Decimal("1e6"), "mn": Decimal("1e6"), "million": Decimal("1e6"),
@@ -144,6 +137,31 @@ def strict_xbrl_metric_key(metric_name: Any) -> Optional[str]:
     return _STRICT_XBRL_KEYS.get(" ".join(metric_name.casefold().split()))
 
 
+def _has_unsupported_income_scope(metric_name: Any) -> bool:
+    """Refuse qualified total-income math without source-owned attribution and entity scope.
+
+    This is a withholding boundary, never an alias into ``net_income``. The current exact
+    envelope cannot establish a qualified parent/consolidated claim's native entity ownership.
+    Whole per-share labels remain the separate displayed-EPS policy; a mention of EPS or shares
+    elsewhere in a total-income claim cannot exempt that claim.
+    """
+    if not isinstance(metric_name, str):
+        return False
+    label = " ".join(metric_name.casefold().split())
+    if label == "net income":
+        return False  # Preserve only the original whole-label generic mapping exemption.
+    # Normalize presentation punctuation solely to withhold; never feed this into concept binding.
+    label = " ".join(re.sub(r"[()/]", " ", label).split())
+    income_terms = r"(?:income|earnings|loss)"
+    if not re.search(rf"\bnet {income_terms}\b", label):
+        return False
+    return re.fullmatch(
+        rf"(?:(?:basic|diluted) )?net {income_terms}(?: {income_terms})* per (?:common )?share"
+        r"(?: attributable to [^,;]+)?",
+        label,
+    ) is None
+
+
 def _as_finite_decimal(value: Any) -> Optional[Decimal]:
     if isinstance(value, bool):
         return None
@@ -154,6 +172,13 @@ def _as_finite_decimal(value: Any) -> Optional[Decimal]:
     return number if number.is_finite() else None
 
 
+def _display_scale(text: str, token: re.Match) -> Optional[Decimal]:
+    """The scale a displayed scalar states after its number ("B", "million"), or ``None`` when it states none."""
+    suffix = text[token.end():].casefold().replace(")", "").strip()
+    unit_match = re.match(r"(thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b", suffix)
+    return _DISPLAY_SCALE.get(unit_match.group(1)) if unit_match else None
+
+
 def _display_resolution(text: Any) -> Optional[Decimal]:
     """Return one unit in the displayed scalar's last stated decimal place."""
     if not isinstance(text, str) or parse_display_number(text)[0] is None:
@@ -162,10 +187,16 @@ def _display_resolution(text: Any) -> Optional[Decimal]:
     if token is None:
         return None
     decimals = len(token.group("decimals") or token.group("leading_decimals") or "")
-    suffix = text[token.end():].casefold().replace(")", "").strip()
-    unit_match = re.match(r"(thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b", suffix)
-    scale = _DISPLAY_SCALE.get(unit_match.group(1), Decimal(1)) if unit_match else Decimal(1)
+    scale = _display_scale(text, token) or Decimal(1)
     return scale * (Decimal(10) ** -decimals)
+
+
+def display_names_scale(text: Any) -> bool:
+    """Whether a displayed scalar states its scale after its number ("$416.2B", "416,161 million")."""
+    if not isinstance(text, str) or parse_display_number(text)[0] is None:
+        return False
+    token = _NUMBER_TOKEN.search(text)
+    return token is not None and _display_scale(text, token) is not None
 
 
 def _display_matches_exact(text: Any, exact: Decimal) -> bool:
@@ -179,25 +210,15 @@ def _display_matches_exact(text: Any, exact: Decimal) -> bool:
     return abs(displayed - exact) <= resolution / 2 + epsilon
 
 
-def _display_currency(text: Any) -> tuple[bool, Optional[str]]:
-    """Return whether a currency token is present and its unambiguous ISO code, if any."""
-    if not isinstance(text, str):
-        return False, None
-    code = _CURRENCY_CODE.search(text)
-    if code:
-        value = code.group(1).upper()
-        return True, "CNY" if value == "RMB" else value
-    # Compound dollar symbols must be checked before the plain "$" fallback.
-    for prefix, currency in (("A$", "AUD"), ("C$", "CAD"), ("HK$", "HKD"),
-                             ("S$", "SGD"), ("NT$", "TWD"), ("R$", "BRL")):
-        if prefix in text:
-            return True, currency
-    for symbol, currency in _SYMBOL_CURRENCY.items():
-        if symbol in text:
-            # A bare yen/yuan symbol is not enough to distinguish JPY from CNY. Keep its explicit
-            # presence so exact binding rejects it rather than treating it as an unlabeled scalar.
-            return True, currency
-    return False, None
+def display_matches_value(text: Any, value: Any) -> bool:
+    """Whether a displayed figure is ``value`` at the display's own scale and last stated digit.
+
+    The figure check (``provenance_service.build_metric_source``) reads a row's numbers with the same
+    rounding bucket the exact binder uses: "$416.2B" and "$416,161M" match 416,161,000,000, while
+    "$416.2M" (the wrong scale) and "$416.9B" (the wrong digit) do not.
+    """
+    exact = _as_finite_decimal(value)
+    return exact is not None and _display_matches_exact(text, exact)
 
 
 def _matching_duration_scopes(current: dict, prior: dict) -> bool:
@@ -217,8 +238,62 @@ def _matching_duration_scopes(current: dict, prior: dict) -> bool:
     return current_days > 0 and prior_days > 0 and abs(current_days - prior_days) <= 8
 
 
+def comparable_facts(current: Any, prior: Any) -> bool:
+    """Whether two standardized facts are one concept's current and prior periods.
+
+    Distinct, named periods of the same form, fiscal period, currency, duration scope and tag. Missing
+    optional metadata stays unknown rather than being fabricated; a conflict is an explicit refusal. The
+    exact binder and the figure check (``provenance_service.build_metric_source``) share this one test.
+    """
+    if not isinstance(current, dict) or not isinstance(prior, dict):
+        return False
+    current_period = current.get("period")
+    prior_period = prior.get("period")
+    if (
+        not isinstance(current_period, str) or not current_period.strip()
+        or not isinstance(prior_period, str) or not prior_period.strip()
+        or current_period.strip() == prior_period.strip()
+    ):
+        return False
+
+    # Reject cross-form, cross-quarter, currency and duration/instant drift.
+    for field in ("form", "fiscal_period", "currency"):
+        left, right = current.get(field), prior.get(field)
+        if left is not None and right is not None and left != right:
+            return False
+    current_start, prior_start = current.get("period_start"), prior.get("period_start")
+    if not _matching_duration_scopes(current, prior):
+        return False
+    if current_start is not None and current_start == prior_start:
+        return False
+    current_tag, prior_tag = current.get("raw_tag"), prior.get("raw_tag")
+    if current_tag and prior_tag and current_tag != prior_tag:
+        return False
+    return True
+
+
 def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[MetricDelta]:
     """Return a delta only when exact XBRL operands match the row's basis and displayed values."""
+    operands = _exact_operands_for_row(row, metric, metric_key)
+    if operands is None:
+        return None
+    current_value, prior_value, is_ratio = operands
+    return compute(float(current_value), float(prior_value), is_ratio=is_ratio)
+
+
+def exact_operands(row: Any, xbrl_metrics: Any) -> Optional[tuple[Decimal, Decimal]]:
+    """The filed current and prior values ``bind_exact_xbrl_deltas`` computes a row's change from, or ``None``
+    when it binds none, so another reading of the row (its normalized fact) states the same change."""
+    if not isinstance(row, dict):
+        return None
+    metric_key = strict_xbrl_metric_key(row.get("metric"))
+    metric = xbrl_metrics.get(metric_key) if metric_key and isinstance(xbrl_metrics, dict) else None
+    operands = _exact_operands_for_row(row, metric, metric_key) if metric_key else None
+    return None if operands is None else (operands[0], operands[1])
+
+
+def _exact_operands_for_row(row: dict, metric: Any, metric_key: str) -> Optional[tuple[Decimal, Decimal, bool]]:
+    """Both filed values and whether the row is a ratio, when they match its basis and displayed values."""
     if not isinstance(metric, dict):
         return None
     current = metric.get("current")
@@ -227,29 +302,7 @@ def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[Me
         return None
     current_value = _as_finite_decimal(current.get("value"))
     prior_value = _as_finite_decimal(prior.get("value"))
-    current_period = current.get("period")
-    prior_period = prior.get("period")
-    if (
-        current_value is None or prior_value is None
-        or not isinstance(current_period, str) or not current_period.strip()
-        or not isinstance(prior_period, str) or not prior_period.strip()
-        or current_period.strip() == prior_period.strip()
-    ):
-        return None
-
-    # Reject cross-form, cross-quarter, currency and duration/instant drift. Missing optional metadata
-    # stays unknown rather than being fabricated; a conflict is an explicit refusal.
-    for field in ("form", "fiscal_period", "currency"):
-        left, right = current.get(field), prior.get(field)
-        if left is not None and right is not None and left != right:
-            return None
-    current_start, prior_start = current.get("period_start"), prior.get("period_start")
-    if not _matching_duration_scopes(current, prior):
-        return None
-    if current_start is not None and current_start == prior_start:
-        return None
-    current_tag, prior_tag = current.get("raw_tag"), prior.get("raw_tag")
-    if current_tag and prior_tag and current_tag != prior_tag:
+    if current_value is None or prior_value is None or not comparable_facts(current, prior):
         return None
 
     current_text = row.get("current_period") or row.get("currentPeriod")
@@ -262,14 +315,15 @@ def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[Me
     currency = current.get("currency") or prior.get("currency")
     if isinstance(currency, str):
         for text in (current_text, prior_text):
-            has_currency, displayed_currency = _display_currency(text)
+            # The parser's own prefix: a bare "¥" names no code, so exact binding refuses it.
+            has_currency, displayed_currency = display_currency(text)
             if has_currency and displayed_currency != currency.upper():
                 return None
     if not _display_matches_exact(current_text, current_value):
         return None
     if not _display_matches_exact(prior_text, prior_value):
         return None
-    return compute(float(current_value), float(prior_value), is_ratio=is_ratio)
+    return current_value, prior_value, is_ratio
 
 
 def _has_complete_exact_operands(metric: Any) -> bool:
@@ -340,14 +394,17 @@ def delta_for_row(row: dict, *, exact_owned: bool = False) -> Optional[MetricDel
     """
     if not isinstance(row, dict):
         return None
+    cur, cur_pct = _parse_number(row.get("current_period") or row.get("currentPeriod"))
+    prior, prior_pct = _parse_number(row.get("prior_period") or row.get("priorPeriod"))
+    is_parsed_ratio = cur is not None and prior is not None and cur_pct and prior_pct
+    if _has_unsupported_income_scope(row.get("metric")) and not is_parsed_ratio:
+        return None
     if exact_owned and isinstance(row.get("change_display"), str):
         display = row["change_display"]
         direction = row.get("change_direction")
         tone = row.get("change_tone")
         if direction in {"up", "down", "flat"} and tone in {"gain", "loss", "flat"}:
             return MetricDelta(None, None, direction, tone, False, display)
-    cur, cur_pct = _parse_number(row.get("current_period") or row.get("currentPeriod"))
-    prior, prior_pct = _parse_number(row.get("prior_period") or row.get("priorPeriod"))
     if cur is None or prior is None:
         return None
     if cur_pct != prior_pct:

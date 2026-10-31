@@ -1,0 +1,86 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better coverage of red flags and watch items, and stronger grounding with explicit citations for each claim. Draft B is also solid but less comprehensive and occasionally less precise."
+   },
+   "cost_usd": 0.005502,
+   "latency_s": 2.245,
+   "input_tokens": 10602,
+   "output_tokens": 111,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better coverage of red flags and watch items, and stronger grounding with explicit citations for each claim. Draft B is also solid but less comprehensive and occasionally less precise.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides more interpretive depth, covering segment and membership drivers, tax rate, and peer comparisons, with all claims supported by cited sources. Draft A is also well-grounded but less comprehensive. B's additional insights and clear organization make it more useful for investors."
+   },
+   "cost_usd": 0.00553,
+   "latency_s": 2.978,
+   "input_tokens": 10602,
+   "output_tokens": 125,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B provides more interpretive depth, covering segment and membership drivers, tax rate, and peer comparisons, with all claims supported by cited sources. Draft A is also well-grounded but less comprehensive. B's additional insights and clear organization make it more useful for investors.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.011032
+}

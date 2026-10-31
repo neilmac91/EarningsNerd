@@ -8,7 +8,7 @@ export interface RevenuePoint {
 }
 
 const BILLION = 1e9
-/** Gridline spacing in billions: one hairline per $100B. */
+/** Gridline spacing in billions: one gridline per $100B. */
 const TICK_STEP = 100
 const CHART_HEIGHT = 'h-[140px]'
 const Y_AXIS_WIDTH = 'w-8'
@@ -17,10 +17,10 @@ const AXIS_LABEL = 'font-data tnum text-data-xs leading-none text-chart-label-li
 
 /**
  * The Multi-Period screen's revenue bar chart, drawn as plain DOM (design "Revenue · USD,
- * billions"). Deliberately NOT TrendCharts: that component pulls recharts into the route, and the
+ * billions"). Deliberately NOT TrendCharts: that component pulls the chart renderer into the route, and the
  * landing page carries a JS budget the marketing screens must not spend. Server-safe: no hooks,
- * no theme context; chart chrome uses the chart.axis / chart.label tokens, the single series uses
- * chart-1 (the first colour of the sequence, DESIGN_SYSTEM §10).
+ * no theme context; chart chrome uses the chart.grid / chart.label tokens, the single series uses
+ * chart-1 and, in dark, its dark half chart-1-dark (the first colour of the sequence, DESIGN_SYSTEM §10).
  *
  * The axis tops out one full tick above the tallest bar so its value label never collides with
  * the top of the plot: ticks every $100B up to (ceil(max / 100) + 1) * 100.
@@ -67,7 +67,7 @@ export default function RevenueBars({ points }: { points: ReadonlyArray<RevenueP
             {ticks.map((tick) => (
               <span
                 key={tick}
-                className="absolute inset-x-0 border-t border-chart-axis-light dark:border-chart-axis-dark"
+                className="absolute inset-x-0 border-t border-chart-grid-light dark:border-chart-grid-dark"
                 style={{ bottom: `${(tick / top) * 100}%` }}
               />
             ))}
@@ -78,7 +78,7 @@ export default function RevenueBars({ points }: { points: ReadonlyArray<RevenueP
                 <span className="mb-1 whitespace-nowrap font-data tnum text-data-xs leading-none text-text-secondary-light dark:text-text-secondary-dark">
                   {bar.label}
                 </span>
-                <div className="w-full rounded-t-sm bg-chart-1" style={{ height: `${bar.heightPct}%` }} />
+                <div className="w-full rounded-t-sm bg-chart-1 dark:bg-chart-1-dark" style={{ height: `${bar.heightPct}%` }} />
               </div>
             ))}
           </div>

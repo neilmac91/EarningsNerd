@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
+import { ArrowRightIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { Button, GuidanceCard, Skeleton } from '@/components/ui'
+import { GuidanceCard, Skeleton, countControlClass, cx } from '@/components/ui'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
 import FeedOnboarding from './FeedOnboarding'
 
@@ -21,15 +23,22 @@ export default function FilingFeed({
   /** Number of companies the user follows — the true overflow count and the empty-state switch. */
   watchlistCount?: number
 }) {
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const feedQuery = useQuery({
     queryKey: queryKeys.dashboardFeed(),
     queryFn: () => getDashboardFeed(20),
     retry: false,
     enabled,
   })
+  const { data } = feedQuery
+  // A failure keeps the error card, and a focused Retry in it, through any refetch until data replaces
+  // it. An errored feed has no data, so its refetch goes back to pending, and the skeleton branch would
+  // replace the card. A fetch paused offline is still in flight.
+  const failure = useRetainedFailure(feedQuery, queryKeys.dashboardFeed())
+  const isError = failure.failed
+  const isLoading = feedQuery.isLoading && !failure.failed
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
-  // Overflow count comes from the watchlist (companies followed), never data.length — the feed array
+  // Overflow count comes from the watchlist (companies followed), never data.length: the feed array
   // is capped at the fetch limit, so data.length would misreport "See all 20 companies" for a user
   // following 30. When the true count isn't known, drop the number rather than show a wrong one.
   const hasMore =
@@ -37,22 +46,37 @@ export default function FilingFeed({
   const overflowLabel =
     watchlistCount != null ? `See all ${watchlistCount} companies` : 'See all companies'
 
+  // The onboarding panel leaves once an add succeeds (the watchlist count or the feed changes), taking
+  // the focused chip or search option with it. Hand focus to the section heading, but only when it
+  // fell to <body>.
+  const onboarding = !isLoading && !isError && (!data || data.length === 0) && watchlistCount === 0
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const wasOnboarding = useRef(onboarding)
+  useEffect(() => {
+    const left = wasOnboarding.current && !onboarding
+    wasOnboarding.current = onboarding
+    if (left && document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [onboarding])
+
   return (
     <section>
       <div className="mb-4">
         <div className="flex items-center gap-2">
-          <NewspaperIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             What&apos;s new
           </h2>
         </div>
         <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          The latest filing from each company you follow.
+          The latest annual or quarterly report from the companies you follow.
         </p>
       </div>
 
       {isLoading ? (
-        <div role="status" aria-label="Loading feed" className="grid gap-4 sm:grid-cols-2">
+        <div role="status" aria-label="Loading feed" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
@@ -62,11 +86,9 @@ export default function FilingFeed({
         <GuidanceCard
           variant="error"
           title="Couldn't load your feed"
-          description="Please retry in a moment."
+          description="Try again in a moment."
           action={
-            <Button variant="secondary" onClick={() => refetch()} loading={isFetching} loadingText="Retrying…">
-              Retry
-            </Button>
+            <RetryButton failures={[failure]} focusTarget={headingRef} />
           }
         />
       ) : !data || data.length === 0 ? (
@@ -88,16 +110,19 @@ export default function FilingFeed({
         )
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* grid-cols-1 (minmax(0, 1fr)) lets a card shrink below its untruncated company name on phones. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {visible.map((item) => (
               <WhatChangedCard key={item.filing_id} item={item} />
             ))}
           </div>
           {hasMore && (
             <div className="mt-4 text-right">
+              {/* The label carries a count, so the link rests in the secondary ink and turns sage under
+                  the pointer (the count control, DESIGN_SYSTEM.md; D-030): one text run, one underline. */}
               <Link
                 href="/dashboard/watchlist"
-                className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+                className={cx('inline-flex items-center gap-1 rounded-lg text-sm font-medium', countControlClass('link'))}
               >
                 {overflowLabel}
                 <ArrowRightIcon className="h-4 w-4" />

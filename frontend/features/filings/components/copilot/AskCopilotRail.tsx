@@ -2,27 +2,32 @@
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { SparkleIcon, XIcon } from '@/lib/icons'
+import { ChatCircleTextIcon, XIcon } from '@/lib/icons'
 import {
   askFilingStream,
   isCopilotPaywallError,
+  isXbrlCitation,
   type CopilotCompletion,
   type CopilotTurn,
 } from '@/features/filings/api/copilot-api'
 import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import { Badge, Button } from '@/components/ui'
-import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
+import CopilotMessage, { READING_LINE, errorSentence, type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
 import { useFilingViewer } from './FilingViewerContext'
+import { usePaneStatus } from './PaneStatusContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import UpgradeModal from '@/features/subscriptions/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
 import { starterQuestions } from './starterQuestions'
+import { COPILOT_CLAIM } from './copilotClaim'
 import { queryKeys } from '@/lib/queryKeys'
+import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
+import { fmtCount } from '@/lib/format'
 
 // Below lg the standalone overlay is a modal bottom-sheet; at lg+ it docks as a static side pane.
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
@@ -50,13 +55,26 @@ interface AskCopilotRailProps {
 }
 
 // Open-panel container classes per layout variant. Mobile (bottom-sheet) is identical; they differ
-// only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell.
+// only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell. Both the
+// sheet and the docked overlay rest on the cookie-consent bar while it is mounted (bottom =
+// --consent-inset, lib/consentLayer) and the sheet gives up that height from its 80vh cap (EN-02).
 const PANEL_BASE =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
+  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-modal flex max-h-[calc(80vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
-    'lg:inset-x-auto lg:bottom-0 lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
+    'lg:z-40 lg:inset-x-auto lg:right-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
   pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
+}
+
+// The reader's own acts that drop a page reveal armed by a press, before the composer takes focus (armPageReveal). A
+// click with no pointer press before it is how assistive technology and voice control activate a control.
+const READER_ACTS = ['wheel', 'touchstart', 'pointerdown', 'click', 'keydown'] as const
+
+// Standalone launcher pinned bottom-RIGHT: clear of the home indicator and of the consent bar
+// (BOTTOM_CHROME_OFFSET adds the bar's height while it is mounted), like FilingWorkspace's.
+const LAUNCHER_OFFSET: CSSProperties = {
+  bottom: BOTTOM_CHROME_OFFSET,
+  right: 'max(1.25rem, env(safe-area-inset-right))',
 }
 
 // Number of prior turns sent back as `history` so the model has conversational context
@@ -86,9 +104,12 @@ export default function AskCopilotRail({
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // The standalone overlay panel container — owns the mobile focus trap (when !embedded).
+  // The conversation's column (messages, composer, usage line): it scrolls as one only when an enlarged
+  // text size makes the composer outgrow what the conversation leaves it.
+  const columnRef = useRef<HTMLDivElement>(null)
+  // The standalone overlay panel container: owns the mobile focus trap (when !embedded).
   const panelRef = useRef<HTMLDivElement>(null)
-  // The standalone launcher (closed state) — focus returns here when the sheet closes.
+  // The standalone launcher (closed state): focus returns here when the sheet closes.
   const launcherRef = useRef<HTMLButtonElement>(null)
   // Keep the last asked question so the Retry button can re-run it.
   const lastQuestionRef = useRef<string | null>(null)
@@ -103,6 +124,32 @@ export default function AskCopilotRail({
     setMessages(next)
   }
 
+  // The rail's status line, sr-only. The reading card is created with its words in it, so the card never says them;
+  // the line says READING_LINE when a question is sent and "Answer ready." when the answer completes. It empties
+  // before each question, so the same words are heard again; on an error, which the card says itself (its alert, or
+  // the plan card's sentence in its region); and on a cancel (a close mid-question), whose card shows it when the rail
+  // is next in view. In the filing workspace the line is the pane's (PaneStatusContext), between the tabs and the
+  // panels, so it is heard whichever tab shows; elsewhere the rail keeps one of its own, mounted with the conversation
+  // before any question. An error that lands while the Filing tab shows has its card in the hidden Ask panel, so the
+  // pane's line says the card's sentence instead, whole and alone (errorSentence); a later tab switch says nothing more.
+  const setPaneStatus = usePaneStatus()
+  const [ownStatus, setOwnStatus] = useState('')
+  const setStatusLine = setPaneStatus ?? setOwnStatus
+  // A question's words, set a frame after the line empties: an answer, an error or a cancel before then drops them.
+  const statusFrame = useRef<number | null>(null)
+  const sayStatus = useCallback((words: string) => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+    statusFrame.current = null
+    setStatusLine(words)
+  }, [setStatusLine])
+  // An unmount drops the pending words, then empties the line: the pane's outlives the rail (another filing's rail,
+  // or the summary gone and back), and a new conversation never sits under the last one's words. Words still a frame
+  // away would land after the emptying, so the frame goes first.
+  useEffect(() => () => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+    setStatusLine('')
+  }, [setStatusLine])
+
   // Abort any in-flight stream when the panel closes or the component unmounts.
   const abortStream = useCallback((clearPending = false) => {
     const controller = abortRef.current
@@ -110,7 +157,7 @@ export default function AskCopilotRail({
     controller?.abort()
     if (clearPending && controller) {
       const next = messagesRef.current.map((m): CopilotMessageData =>
-        m.role === 'assistant' && (m.status === 'reading' || m.status === 'streaming')
+        m.role === 'assistant' && m.status === 'reading'
           ? { ...m, content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
               status: 'error', error: 'The question was cancelled. Please try again.' }
           : m,
@@ -118,8 +165,9 @@ export default function AskCopilotRail({
       messagesRef.current = next
       setMessages(next)
       setIsStreaming(false)
+      sayStatus('')
     }
-  }, [])
+  }, [sayStatus])
   useEffect(() => {
     if (!open) abortStream(true)
   }, [open, abortStream])
@@ -135,7 +183,7 @@ export default function AskCopilotRail({
   const { data: usage } = useQuery({
     queryKey: queryKeys.usage.byUser(user?.id),
     queryFn: getUsage,
-    // /usage is auth-gated — never fire it for an anon user (a guaranteed 401 from a public page).
+    // /usage is auth-gated: never fire it for an anon user (a guaranteed 401 from a public page).
     enabled: !!user && isAuthenticated && open,
     staleTime: 60_000,
   })
@@ -147,13 +195,16 @@ export default function AskCopilotRail({
   const canAsk = isPro || freeHasTaste
 
   // Anchor each turn ONCE, at ask time: the question + "Reading…" placeholder scroll into view,
-  // which is exactly where the answer will start. Deliberately NOT bottom-following the stream —
+  // which is exactly where the answer will start. Deliberately NOT bottom-following the stream:
   // that parked the reader at the sources list when the answer completed, forcing a scroll back
   // up to read from the start (field report). The reader scrolls at their own pace. One initial
   // scroll still runs when a restored history hydrates, so reopening shows the latest exchange.
+  // The anchor keys on the reading turn's id: a progress heartbeat (every few seconds while the
+  // model works) patches that turn in place, and must not pull a reader who scrolled away back.
   const didInitialScrollRef = useRef(false)
+  const anchoredTurnRef = useRef<string | null>(null)
   const lastMessage = messages[messages.length - 1]
-  const lastStatus = lastMessage?.role === 'assistant' ? lastMessage.status : undefined
+  const readingTurnId = lastMessage?.role === 'assistant' && lastMessage.status === 'reading' ? lastMessage.id : null
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -163,36 +214,91 @@ export default function AskCopilotRail({
       didInitialScrollRef.current = false
       return
     }
-    if (lastStatus === 'reading' || !didInitialScrollRef.current) {
+    const newTurn = readingTurnId !== null && readingTurnId !== anchoredTurnRef.current
+    if (newTurn || !didInitialScrollRef.current) {
+      if (newTurn) anchoredTurnRef.current = readingTurnId
       el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
+      // A question asked from a composer scrolled into view brings the conversation back to the top. Keyboard focus
+      // stays in the composer (its field or Send; runQuestion hands it there from a starter, a follow-up or Retry), so
+      // the composer then comes back to the column's nearest edge, its focus ring whole: an enlarged text size or a
+      // short sheet never leaves the focused control out of view.
+      if (columnRef.current) {
+        columnRef.current.scrollTop = 0
+        composerRef.current?.revealFocus()
+      }
     }
-  }, [messages, lastStatus])
+  }, [messages, readingTurnId])
 
   // In the embedded layout the Copilot shares the pane with the filing view; only focus the composer
   // when the Copilot view is actually active (focusing it while the Filing tab is shown would steal
   // focus, and the hidden container can't take focus anyway). Standalone overlay is always "active".
   const viewer = useFilingViewer()
   const isCopilotActive = !embedded || (viewer?.activeView ?? 'copilot') === 'copilot'
+  // Read when an error lands: the tab showing then decides whether the pane's line says it, not the tab its question
+  // was sent from (the status line, above).
+  const copilotActiveRef = useRef(isCopilotActive)
+  useEffect(() => {
+    copilotActiveRef.current = isCopilotActive
+  }, [isCopilotActive])
+
+  // A press that opens the pane on Ask (Source, the coachmark's Try, an in-page Ask, ⌘K or "/") or pre-fills it may
+  // move the page once, after the pane settles, when the composer is still out of view (E252; CopilotComposer's
+  // revealOnPage). The composer's next focus spends it. canAsk can turn true seconds after the press, once usage or the
+  // plan loads: a reader who wheels, touches, clicks or types before then has moved on, so their act drops it and the
+  // page stays where they left it. An open on the Filing tab arms nothing: the composer takes focus later, from a tab
+  // pressed or switched back to Ask, or a citation flow's return, and none of those moves the page.
+  const pageRevealRef = useRef<(() => void) | null>(null)
+  const armPageReveal = useCallback(() => {
+    pageRevealRef.current?.()
+    const drop = () => {
+      for (const type of READER_ACTS) window.removeEventListener(type, drop, true)
+      if (pageRevealRef.current === drop) pageRevealRef.current = null
+    }
+    for (const type of READER_ACTS) window.addEventListener(type, drop, { capture: true, passive: true })
+    pageRevealRef.current = drop
+  }, [])
+  const spendPageReveal = useCallback(() => {
+    const armed = pageRevealRef.current
+    armed?.()
+    return armed !== null
+  }, [])
+  useEffect(() => {
+    if (!open) pageRevealRef.current?.()
+    else if (copilotActiveRef.current) armPageReveal()
+  }, [open, armPageReveal])
+  useEffect(() => () => pageRevealRef.current?.(), [])
 
   // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
-  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs).
+  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs). The
+  // handle never moves the page while the pane settles: canAsk can turn true later, once usage or the
+  // plan loads (CopilotComposer's revealInScrollBox). Only a press moves it after (revealOnPage): the
+  // open on Ask, a pre-fill, ⌘K or "/".
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
     if (!open || !canAsk || !isCopilotActive) return
-    const raf = requestAnimationFrame(() => composerRef.current?.focus())
+    const raf = requestAnimationFrame(() => composerRef.current?.focus({ revealOnPage: spendPageReveal() }))
     return () => cancelAnimationFrame(raf)
-  }, [open, canAsk, isCopilotActive])
+  }, [open, canAsk, isCopilotActive, spendPageReveal])
 
-  // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us).
+  // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us). The press arms the
+  // page reveal, as an open does, also while the pane is already open.
   const lastPrefillNonce = useRef(0)
+  const armedPrefillNonce = useRef(0)
   useEffect(() => {
-    if (!prefill || !canAsk || prefill.nonce === lastPrefillNonce.current) return
+    if (!prefill) return
+    if (prefill.nonce !== armedPrefillNonce.current) {
+      armedPrefillNonce.current = prefill.nonce
+      armPageReveal()
+    }
+    if (!canAsk || prefill.nonce === lastPrefillNonce.current) return
     lastPrefillNonce.current = prefill.nonce
     // Defer so the composer has mounted (the rail was opened in the same tick).
-    const raf = requestAnimationFrame(() => composerRef.current?.prefill(prefill.text))
+    const raf = requestAnimationFrame(() =>
+      composerRef.current?.prefill(prefill.text, { revealOnPage: spendPageReveal() }),
+    )
     return () => cancelAnimationFrame(raf)
-  }, [prefill, canAsk])
+  }, [prefill, canAsk, armPageReveal, spendPageReveal])
 
   // Below lg the standalone overlay acts as a modal (focus trap + scrim). When `embedded`,
   // FilingWorkspace owns the trap/scrim, so we disable the query entirely (isMobile stays false)
@@ -223,8 +329,11 @@ export default function AskCopilotRail({
       if (openCombo || slashCombo) {
         e.preventDefault()
         if (open) {
-          // Already open → the focus-on-open effect won't re-fire, so focus directly.
-          composerRef.current?.focus()
+          // Already open → the focus-on-open effect won't re-fire, so focus directly. The press may move the page
+          // once the pane settles (revealOnPage); while the composer waits on usage or the plan, it arms that move
+          // for the focus the effect makes once it can.
+          if (composerRef.current) composerRef.current.focus({ revealOnPage: true })
+          else armPageReveal()
         } else {
           // Opening → the focus-on-open effect handles focus once the composer mounts.
           onOpenChange(true)
@@ -236,7 +345,7 @@ export default function AskCopilotRail({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onOpenChange, summaryAvailable])
+  }, [open, onOpenChange, summaryAvailable, armPageReveal])
 
   const updateAssistant = (
     id: string,
@@ -248,6 +357,14 @@ export default function AskCopilotRail({
   }
 
   const runQuestion = (question: string, priorMessages: CopilotMessageData[]) => {
+    // A starter, a follow-up chip or Retry sits in the conversation and is replaced by the turn it
+    // starts, so the control a keyboard user just pressed unmounts and focus falls to <body>. Hand
+    // it to the composer first. Only keyboard focus (:focus-visible): moving a tap's focus into the
+    // textarea would raise the touch keyboard over the answer.
+    const active = document.activeElement
+    if (active instanceof HTMLElement && scrollRef.current?.contains(active) && active.matches(':focus-visible')) {
+      composerRef.current?.focus()
+    }
     lastQuestionRef.current = question
     // Build history from finalized turns only (user + completed assistant answers).
     const history: CopilotTurn[] = priorMessages
@@ -267,6 +384,11 @@ export default function AskCopilotRail({
       { id: assistantId, role: 'assistant', content: '', status: 'reading' },
     ])
     setIsStreaming(true)
+    sayStatus('')
+    statusFrame.current = requestAnimationFrame(() => {
+      statusFrame.current = null
+      setStatusLine(READING_LINE)
+    })
     analytics.copilotQuestionAsked({ filingId, ticker, filingType })
 
     const controller = new AbortController()
@@ -295,6 +417,7 @@ export default function AskCopilotRail({
             followups: c.followups,
             status: 'done',
           })
+          sayStatus('Answer ready.')
           analytics.copilotAnswerCompleted({
             filingId,
             ticker,
@@ -302,25 +425,29 @@ export default function AskCopilotRail({
             kind: c.kind,
             grounded: c.grounded,
             citations: c.citations.length,
-            usedXbrl: c.citations.some(
-              (cit) => cit?.section_ref?.toUpperCase().startsWith('XBRL') ?? false,
-            ),
+            usedXbrl: c.citations.some(isXbrlCitation),
           })
           setIsStreaming(false)
           abortRef.current = null
-          // A question was metered server-side on completion — refresh the "N of M left" pill.
+          // A question was metered server-side on completion: refresh the "N of M left" pill.
           queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
-        onError: (msg) => {
+        onError: (msg, code) => {
           if (abortRef.current !== controller) return
           abortRef.current = null
           updateAssistant(assistantId, {
             content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
-            status: 'error', error: msg,
+            status: 'error', error: msg, errorCode: code,
           })
+          // The card says it where it shows. While the Filing tab shows, the card is in the hidden Ask panel, so the
+          // pane's line says its sentence, politely like the rest of the line; otherwise the line empties.
+          sayStatus(setPaneStatus && !copilotActiveRef.current ? errorSentence(msg) : '')
           analytics.copilotAnswerErrored({ filingId, message: msg })
           setIsStreaming(false)
           abortRef.current = null
+          // A plan gate (the spent allowance's 403, a Pro-only 403, the fair-use 429) says the counts the
+          // usage line shows are stale: refetch them, so the line agrees with the plan card above it.
+          if (isCopilotPaywallError(msg, code)) queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
       },
       controller.signal
@@ -329,7 +456,7 @@ export default function AskCopilotRail({
 
   const handleSubmit = (question: string) => {
     // Guard on canAsk too (not just the disabled composer) so a starter-question click can't slip
-    // past an exhausted FREE taste — the server would 403 anyway, but fail fast client-side.
+    // past an exhausted FREE taste: the server would 403 anyway, but fail fast client-side.
     if (isStreaming || !canAsk) return
     runQuestion(question, messagesRef.current)
   }
@@ -354,10 +481,12 @@ export default function AskCopilotRail({
     setUpgradeOpen(true)
   }
 
-  // Need a summary to cite against — don't render the rail at all without one.
+  // Need a summary to cite against: don't render the rail at all without one.
   if (!summaryAvailable) return null
 
-  const subjectLabel = ticker || companyName || 'this filing'
+  // "AAPL’s 10-K" when the issuer is known, else "this 10-K" (never "this filing’s 10-K").
+  const subjectName = ticker || companyName
+  const subjectFiling = subjectName ? `${subjectName}’s ${filingType}` : `this ${filingType}`
 
   // Who sees the conversation vs the teaser (roadmap 2.2): PRO and FREE-with-taste get the composer.
   // An authed FREE user who exhausts mid-session keeps the conversation (messages.length > 0) with
@@ -377,16 +506,28 @@ export default function AskCopilotRail({
       onUpgrade={() => handleUpgrade('copilot_rail')}
     />
   ) : (
-    <>
+    // At an enlarged text size the composer, its note and the usage line can outgrow the sheet: the
+    // conversation keeps min(40vh, 12rem) of it, and past that the column scrolls as one, the composer
+    // below. 12rem scales with the text: at a 32px root the floor is 40vh, and at the default size it is
+    // 192px, so a sheet the consent bar and a bottom inset have shortened still fits the composer above
+    // the bar (tests/e2e/consent-bar-yields.spec.ts).
+    <div ref={columnRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* The rail's own status line, outside the filing workspace (whose pane holds the line there). The column clips,
+          so a positioned box inside it holds the line's sr-only box; nothing else in the column changes its
+          containing block (lessons/frontend-sr-only-needs-a-positioned-clip.md). */}
+      {!setPaneStatus && (
+        <div className="relative">
+          <p role="status" className="sr-only">{ownStatus}</p>
+        </div>
+      )}
       {/* Messages / empty state */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="min-h-[min(40vh,12rem)] flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
-              cite the excerpts they came from.
+              Ask anything about {subjectFiling}. {COPILOT_CLAIM}
             </p>
-            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
               Try asking
             </p>
             <div className="flex flex-col gap-2">
@@ -395,7 +536,7 @@ export default function AskCopilotRail({
                   key={q}
                   type="button"
                   onClick={() => handleSubmit(q)}
-                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-white/10"
+                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   {q}
                 </button>
@@ -408,7 +549,7 @@ export default function AskCopilotRail({
               key={m.id}
               message={m}
               onRetry={handleRetry}
-              isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '')}
+              isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '', m.errorCode)}
               onUpgrade={() => handleUpgrade('copilot_limit')}
               ticker={ticker}
               filingType={filingType}
@@ -420,15 +561,18 @@ export default function AskCopilotRail({
         )}
       </div>
 
-      {/* Composer — disabled while streaming, or once a FREE user has spent their taste. */}
-      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming || !canAsk} />
+      {/* Composer: Send locked (aria-disabled, still focusable) while streaming, or once a FREE
+          user has spent their taste. */}
+      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} locked={isStreaming || !canAsk} />
 
       {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
-          gentle upsell at exhaustion (the conversation above stays put). */}
+          gentle upsell at exhaustion (the conversation above stays put). Pro's questions are capped
+          too, so no line promises an uncapped plan; the cap comes from the usage response
+          (planLimitsLockstep.spec.ts holds that word out of this directory). */}
       {isPro && usage && (
         <p className="px-4 pb-2 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
-          {usage.qa_limit.toLocaleString()} questions left this month
+          {fmtCount(Math.max(usage.qa_limit - usage.qa_used, 0))} of{' '}
+          {fmtCount(usage.qa_limit)} questions left this month
         </p>
       )}
       {!isPro && usage && freeTasteTotal > 0 && (
@@ -438,30 +582,35 @@ export default function AskCopilotRail({
             <button
               type="button"
               onClick={() => handleUpgrade('copilot_free_taste')}
-              className="font-semibold text-brand-strong hover:underline dark:text-brand-strong-dark"
+              className="font-semibold text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
-              Upgrade for unlimited
+              Upgrade to Pro
             </button>
           </p>
         ) : (
           <div className="px-4 pb-3 pt-1 text-center">
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              You’ve used your {freeTasteTotal} free Copilot question{freeTasteTotal === 1 ? '' : 's'}.
+              You’ve used your {freeTasteTotal} free question{freeTasteTotal === 1 ? '' : 's'}.
             </p>
+            {usage.qa_limit > 0 && (
+              <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {`Pro includes ${fmtCount(usage.qa_limit)} questions a month.`}
+              </p>
+            )}
             <Button size="sm" className="mt-1" onClick={() => handleUpgrade('copilot_free_taste_exhausted')}>
-              Upgrade to Pro for unlimited questions
+              Upgrade to Pro
             </Button>
           </div>
         )
       )}
-    </>
+    </div>
   )
 
   const upgradeModal = (
     <UpgradeModal
       open={upgradeOpen}
       onClose={() => setUpgradeOpen(false)}
-      feature="The filing Copilot"
+      feature="Ask this Filing"
     />
   )
 
@@ -485,11 +634,11 @@ export default function AskCopilotRail({
         onClick={() => onOpenChange(true)}
         aria-haspopup="dialog"
         aria-expanded={false}
-        style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom))', right: 'max(1.25rem, env(safe-area-inset-right))' }}
+        style={LAUNCHER_OFFSET}
         className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         aria-label="Ask this Filing"
       >
-        <SparkleIcon className="h-4 w-4" />
+        <ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />
         Ask this Filing
         <kbd className="ml-1 hidden rounded border border-black/25 bg-black/10 px-1.5 py-0.5 text-data-xs font-semibold leading-none sm:inline-block">
           ⌘K
@@ -501,14 +650,15 @@ export default function AskCopilotRail({
   // --- Panel (open, standalone overlay) ---
   return (
     <>
-      {/* Mobile-only scrim behind the bottom-sheet (z-30 < panel's z-40). Tapping it closes the
-          sheet. `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
+      {/* Mobile-only modal scrim: covers the site header and consent bar. The panel follows
+          at the same modal rung, so DOM order keeps it above the scrim. Tapping it closes the sheet.
+          `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
       <button
         type="button"
         aria-hidden="true"
         tabIndex={-1}
         onClick={handleClose}
-        className="lg:hidden fixed inset-0 z-30 bg-black/50"
+        className="lg:hidden fixed inset-0 z-modal bg-overlay"
       />
       <div
         ref={panelRef}
@@ -520,7 +670,7 @@ export default function AskCopilotRail({
         {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <SparkleIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+            <ChatCircleTextIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Ask this Filing</h2>
             <Badge
               variant="brand"
@@ -534,7 +684,7 @@ export default function AskCopilotRail({
             type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <XIcon className="h-4 w-4" />
           </button>

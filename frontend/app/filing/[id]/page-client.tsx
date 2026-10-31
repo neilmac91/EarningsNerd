@@ -1,10 +1,11 @@
 'use client'
 
 import { formatCompanyName } from '@/lib/formatCompanyName'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getFiling, Filing } from '@/features/filings/api/filings-api'
-import { saveSummary, getSavedSummaryStatus, type Summary } from '@/features/summaries/api/summaries-api'
+import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
+import { saveSummary, getSavedSummaryStatus, type ChangeReport, type Summary } from '@/features/summaries/api/summaries-api'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
@@ -12,24 +13,31 @@ import { FilingViewerProvider } from '@/features/filings/components/copilot/Fili
 import AskAboutSelection from '@/features/filings/components/copilot/AskAboutSelection'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { CircleNotchIcon, SparkleIcon } from '@/lib/icons'
+import { CircleNotchIcon } from '@/lib/icons'
 import Link from 'next/link'
 // formatLocalDate (not date-fns format(new Date(...))): filing dates are UTC-midnight instants;
 // local-TZ rendering shifts the calendar day west of UTC and, now that this page is
 // server-rendered with data, would also cause a server/client hydration mismatch.
 import { formatLocalDate } from '@/lib/format'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { Badge } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import StreamingSummaryDisplay from './StreamingSummaryDisplay'
 import { TickerFilingsView } from '@/features/filings/components/TickerFilingsView'
-import SupersededFilingNotice from '@/features/filings/components/SupersededFilingNotice'
+import { FilingIdentity } from '@/features/filings/components/FilingIdentity'
+import { VerificationTallyLine } from '@/features/summaries/components/VerificationTallyLine'
+import { verificationTally } from '@/features/summaries/lib/verificationTally'
 import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
 import { GenerateSignupGate } from '@/features/summaries/components/GenerateSignupGate'
+import { ChangeReportCard } from '@/features/summaries/components/ChangeReportCard'
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
+import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
+import { isSummaryFailure } from '@/features/summaries/lib/summaryPlaceholder'
+import { Notice } from '@/components/ui'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getErrorStatus } from '@/lib/api/types'
 
 // StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
 // The summary-generation state machine lives in features/summaries/hooks/useSummaryGeneration;
@@ -41,11 +49,11 @@ interface FilingSeedProps {
    * the backend confirmed no summary exists; `undefined` means unknown (client refetches). */
   initialFiling?: Filing
   initialSummary?: Summary | null
+  /** The change report, read with them, so What changed is in the first render (no late insert). */
+  initialChangeReport?: ChangeReport
 }
 
-function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingId: number } & FilingSeedProps) {
-  const router = useRouter()
-
+function FilingDetailView({ filingId, initialFiling, initialSummary, initialChangeReport }: { filingId: number } & FilingSeedProps) {
   // debug/demo URL flags. Read post-hydration from window.location rather than useSearchParams():
   // this page statically renders (ISR), and a useSearchParams() outside Suspense would bail the
   // whole tree out of the server HTML — the exact thing the SSR seeds exist for. Both flags only
@@ -63,6 +71,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   // "Ask about this" text selection → open the rail + pre-fill the composer.
   const [copilotPrefill, setCopilotPrefill] = useState<{ text: string; nonce: number } | null>(null)
   const summaryContentRef = useRef<HTMLElement>(null)
+  const completedSummaryHeadingRef = useRef<HTMLHeadingElement>(null)
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
   const hasTrackedSummaryViewed = useRef(false)
@@ -82,12 +91,16 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
 
   // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale so the client refetches
   // on mount — the seed only guarantees the first paint (and the crawler HTML).
-  const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
+  const filingQuery = useQuery<Filing>({
     queryKey: queryKeys.filing(filingId),
     queryFn: () => getFiling(filingId),
     initialData: initialFiling,
     initialDataUpdatedAt: 0,
   })
+  const filingFailure = useRetainedFailure(filingQuery, queryKeys.filing(filingId))
+  const filingNotFound = getErrorStatus(filingFailure.error) === 404
+  // A confirmed missing filing supersedes an older server/cache seed too.
+  const filing = filingNotFound ? undefined : filingQuery.data
 
   const {
     summary,
@@ -98,11 +111,22 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
     elapsedSeconds,
     generationError,
     activeErrorMessage,
+    generationFailure,
+    retryAfterSeconds,
     isStreaming,
     hasStartedGeneration,
     hasSummaryContent,
     handleRegenerateSummary,
+    handleRetrySummary,
   } = useSummaryGeneration({ filingId, filing, isAuthenticated, isAuthResolved, entryPoint, initialSummary })
+
+  // This owner survives the progress-to-summary swap. Cached reads never claim focus, and a
+  // failed regeneration must not announce the retained previous summary as a completed run.
+  useFocusOnArrival(
+    completedSummaryHeadingRef,
+    hasStartedGeneration && !isStreaming && !generationError && hasSummaryContent
+      && Boolean(summary && !isSummaryFailure(summary)),
+  )
 
   // Single entry point for every "Ask" affordance (callout CTA, starter chips, tappable follow-ups,
   // coachmark, text selection): open the rail, optionally pre-fill, and attribute the surface. FREE
@@ -127,33 +151,10 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
     const snippet = text.length > 1500 ? `${text.slice(0, 1500)}…` : text
     handleAskCopilot(`Explain this excerpt: "${snippet}"`, 'selection')
   }, [handleAskCopilot])
-
-  // Smart back navigation handler
-  const handleBack = () => {
-    if (typeof window === 'undefined') return
-
-    // Check if user navigated from within the app (has referrer from same origin)
-    const referrer = document.referrer
-    const currentOrigin = window.location.origin
-
-    // If referrer exists and is from same origin, use browser back navigation
-    // This preserves the user's navigation flow (e.g., from company page)
-    if (referrer && referrer.startsWith(currentOrigin)) {
-      // Use browser back to return to previous page in history
-      router.back()
-      return
-    }
-
-    // Fallback: navigate to company page if filing has company data
-    // This handles cases where user came directly via URL or external link
-    if (filing?.company?.ticker) {
-      router.push(`/company/${filing.company.ticker}`)
-      return
-    }
-
-    // Last resort: go to homepage
-    router.push('/')
-  }
+  // A provenance chip (SourceTrace in the summary, CitationChip in an answer) opens the pane on the
+  // Filing tab through the viewer provider. It is a source lookup, not an Ask entry: no
+  // copilotEntryClicked, no prefill, and no plan or sign-in check (EN-01).
+  const openPaneForSource = useCallback(() => setCopilotOpen(true), [])
 
   const { data: subscription } = useQuery({
     queryKey: queryKeys.subscription.byUser(currentUser?.id),
@@ -183,19 +184,22 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   const saveMutation = useMutation({
     mutationFn: (summaryId: number) => saveSummary(summaryId),
     onSuccess: () => {
-      // The shared prefix refreshes this summary's status and the dashboard library.
-      queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
+      // The shared prefix refreshes this summary's status and the dashboard library. Returned, so the
+      // save stays pending until the status refetch swaps Save for Saved: Save keeps focus, and
+      // released any sooner a second Enter would save (and count) the summary again.
+      const refreshed = queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
       if (summary?.filing_id) {
         analytics.summarySaved(summary.filing_id, filing?.company?.ticker ?? null)
       }
+      return refreshed
     },
   })
 
   const isSaved = savedStatus?.is_saved ?? false
   const debugSummary = urlFlags.debug
   // Demo mode (curated first impression): the example/onboarding deep-links carry `?demo=1`.
-  // It suppresses the quality badge + Regenerate button and silences the copilot attention nudge,
-  // so a first-time visitor never meets a "Partial" badge on the curated example (plan item 1.3).
+  // It suppresses Regenerate and silences the copilot attention nudge. Recorded coverage
+  // remains visible so the example carries the same limitations as an ordinary summary.
   const demoMode = urlFlags.demo
 
   useEffect(() => {
@@ -244,96 +248,78 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
     }
   }, [hasSummaryContent, filing, summary, entryPoint, authPending, authError, currentUser])
 
-  if (filingLoading) {
+  if (filingQuery.isPending && !filingFailure.failed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
-      </div>
+      <main className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark" aria-label="Filing">
+        <div role="status" aria-label="Loading filing">
+          <CircleNotchIcon aria-hidden="true" className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+          <span className="sr-only">Loading filing…</span>
+        </div>
+      </main>
     )
   }
 
+  const filingFailureNotice = (
+    <Notice
+      variant="error"
+      title={filing ? 'Could not refresh this filing.' : 'Could not load this filing.'}
+      description={filing ? 'Showing the last loaded filing.' : 'Try again in a moment.'}
+      action={<RetryButton failures={[filingFailure]} focusTarget={summaryContentRef} size="sm" />}
+    />
+  )
+
   if (!filing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
-          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+      <main ref={summaryContentRef} tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4 outline-none" aria-label="Filing">
+        <div className="w-full max-w-lg">
+          <h1 className="text-2xl font-semibold mb-4">{filingNotFound ? 'Filing not found' : 'Filing unavailable'}</h1>
+          {filingNotFound ? <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Check the link, or search for the company from the homepage.</p> : filingFailureNotice}
+          <Link href="/" className="mt-4 inline-block text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Go back home
           </Link>
         </div>
-      </div>
+      </main>
     )
   }
+
+  // "Open original" and the viewer's empty-state CTA land on the primary document (document_url),
+  // with the EDGAR folder (sec_url) as the fallback; derived from the filing, never hard-coded.
+  const originalUrl = originalDocumentUrl(filing)
+  // The research pane's subtitle: the filing it shows, in the identity strip's vocabulary.
+  const filed = formatLocalDate(filing.filing_date, 'MMM d, yyyy')
+  const sourceLabel = [filing.company?.ticker || formatCompanyName(filing.company?.name), filing.filing_type, filed && `filed ${filed}`]
+    .filter(Boolean)
+    .join(' · ')
+  // What the server matched, once a summary is on the page (never during generation).
+  const tally = summary && hasSummaryContent ? verificationTally(summary) : null
+  // The change report needs no summary (stored XBRL, free to read): where the page settles without one,
+  // under the signup gate and under a run that ended in an error or at the monthly limit, it is a card
+  // of its own, and the company page's "Open change report" lands on it there.
+  const changeReportCard = (
+    <ChangeReportCard
+      filingId={filing.id}
+      initialReport={initialChangeReport}
+      context={{ filingId: filing.id, ticker: filing.company?.ticker ?? null, filingType: filing.filing_type, isAuthenticated }}
+    />
+  )
 
   return (
     <FilingViewerProvider
       filingId={filing.id}
       ticker={filing.company?.ticker ?? null}
       filingType={filing.filing_type}
+      onRequestOpen={openPaneForSource}
+      paneOpen={copilotOpen}
     >
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      {/* Header */}
-      <header className="bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <button
-              onClick={handleBack}
-              className="text-brand-strong dark:text-brand-strong-dark hover:underline inline-flex items-center space-x-1 transition-colors group"
-            >
-              <span className="group-hover:-translate-x-1 transition-transform">←</span>
-              <span>Back</span>
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex-1">
-              {filing.company ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-3 mb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight">
-                        {formatCompanyName(filing.company.name)}
-                      </h1>
-                      <Badge variant="solid" className="text-sm">
-                        {filing.company.ticker}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    <Badge variant={/10-Q|6-K/i.test(filing.filing_type) ? 'info' : 'neutral'}>
-                      {filing.filing_type}
-                    </Badge>
-                    <SupersededFilingNotice filing={filing} />
-                    <span className="flex items-center space-x-1">
-                      <span>Filed:</span>
-                      <span className="font-medium">{formatLocalDate(filing.filing_date, 'MMMM dd, yyyy')}</span>
-                    </span>
-                    {filing.company.exchange && (
-                      <span className="text-text-tertiary-light dark:text-text-secondary-dark">
-                        {filing.company.exchange}
-                      </span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight mb-2">
-                    {filing.filing_type} Summary
-                  </h1>
-                  <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                    Filed: {formatLocalDate(filing.filing_date, 'MMMM dd, yyyy')}
-                  </p>
-                  <SupersededFilingNotice filing={filing} />
-                </>
-              )}
-            </div>
-
-            {/* Tech badge */}
-            <Badge variant="brand" className="hidden md:inline-flex">
-              <SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              AI analysis
-            </Badge>
-          </div>
+      {/* The filing identity strip (2026-10 critique P-04): breadcrumb, company + ticker, one
+          data-face line of facts and the EDGAR link, then the verification tally. On the page
+          ground, with a hairline under it: no panel strip, no form Badge, no "AI analysis" chip. */}
+      <header className="border-b border-border-light dark:border-border-dark">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-6">
+          <FilingIdentity filing={filing}>
+            {tally && <VerificationTallyLine tally={tally} />}
+          </FilingIdentity>
         </div>
       </header>
 
@@ -343,7 +329,8 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
         onOpenChange={setCopilotOpen}
         summaryAvailable={hasSummaryContent}
         demoMode={demoMode}
-        secUrl={filing.sec_url ?? filing.document_url ?? null}
+        secUrl={originalUrl}
+        sourceLabel={sourceLabel}
         copilotBody={
           <AskCopilotRail
             key={filing.id}
@@ -365,12 +352,29 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
             key={filing.id}
             filingId={filing.id}
             filingLabel={`${filing.company?.ticker || formatCompanyName(filing.company?.name) || 'Filing'} ${filing.filing_type}`}
-            secUrl={filing.sec_url ?? filing.document_url ?? null}
+            secUrl={originalUrl}
             embedded
           />
         }
       >
-        <main ref={summaryContentRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main ref={summaryContentRef} tabIndex={-1} aria-label="Filing research" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 outline-none">
+          {filingFailure.failed && <div className="mb-6">{filingFailureNotice}</div>}
+          {generationError && hasSummaryContent && summary && !isSummaryFailure(summary) && !isStreaming && (
+            <div className="mb-6">
+              <StreamingSummaryDisplay
+                retainedResult
+                retainedFocusTarget={summaryContentRef}
+                streamingText=""
+                stage="error"
+                message={generationError}
+                error={generationError}
+                filing={filing}
+                failure={generationFailure}
+                retryAfterSeconds={retryAfterSeconds}
+                onRetry={handleRetrySummary}
+              />
+            </div>
+          )}
           {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
             <StreamingSummaryDisplay
               streamingText={streamingText}
@@ -378,9 +382,12 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
               message={streamingMessage}
               filing={filing}
               error={generationError}
-              onRetry={handleRegenerateSummary}
+              onRetry={handleRetrySummary}
+              failure={generationFailure}
+              retryAfterSeconds={retryAfterSeconds}
               elapsedSeconds={elapsedSeconds}
               trialEligible={trialEligible}
+              afterFailure={changeReportCard}
             />
           ) : summary && hasSummaryContent && filing ? (
             <SummaryDisplay
@@ -392,8 +399,11 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
               debug={debugSummary}
               demoMode={demoMode}
               isAuthenticated={isAuthenticated}
-              onRetry={handleRegenerateSummary}
+              onRetry={handleRetrySummary}
+              onRegenerate={handleRegenerateSummary}
               onAsk={handleAskCopilot}
+              initialChangeReport={initialChangeReport}
+              headingRef={completedSummaryHeadingRef}
             />
           ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
             // No displayable summary (query settled) + signed out: generation requires an account,
@@ -402,27 +412,34 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
             // gate is only reached when there's genuinely nothing to show; !summaryLoading stops it
             // flashing while the query loads. Deliberately NOT gated on !activeErrorMessage: a
             // transient getSummary error must keep the working gate for a guest, not fall through
-            // to the error card whose "Retry generation" dead-ends at "please sign in" for them
+            // to the error card whose "Try again" dead-ends at "please sign in" for them
             // (it self-heals on reload if a cached summary did exist).
-            <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
+            <div className="space-y-6">
+              <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
+              {changeReportCard}
+            </div>
           ) : !activeErrorMessage && (summaryLoading || !isAuthResolved) ? (
             // Still settling (summary query loading, or /me not yet resolved) and not actively
-            // generating: show a neutral spinner, NOT the fake "Initializing AI analysis" progress
+            // generating: show a neutral spinner, NOT the fake "Reading the filing" progress
             // card. A signed-out visitor headed for the gate must never flash live AI-progress for
             // a generation that will never run (and it spun up a 200ms optimistic-progress timer).
-            <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
-              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            <div className="flex items-center justify-center py-24" role="status" aria-label="Loading the summary">
+              <CircleNotchIcon aria-hidden="true" className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+              <span className="sr-only">Loading the summary…</span>
             </div>
           ) : (
             <StreamingSummaryDisplay
               streamingText=""
               stage={activeErrorMessage ? 'error' : 'initializing'}
-              message={activeErrorMessage || 'Initializing AI analysis...'}
+              message={activeErrorMessage || 'Reading the filing…'}
               filing={filing}
               error={activeErrorMessage}
-              onRetry={handleRegenerateSummary}
+              onRetry={handleRetrySummary}
+              failure={generationFailure}
+              retryAfterSeconds={retryAfterSeconds}
               elapsedSeconds={0}
               trialEligible={trialEligible}
+              afterFailure={changeReportCard}
             />
           )}
         </main>
@@ -437,7 +454,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   )
 }
 
-export default function FilingPageClient({ initialFiling, initialSummary }: FilingSeedProps = {}) {
+export default function FilingPageClient({ initialFiling, initialSummary, initialChangeReport }: FilingSeedProps = {}) {
   const params = useParams()
   const identifier = params.id as string
   const isTickerView = !/^\d+$/.test(identifier)
@@ -447,5 +464,13 @@ export default function FilingPageClient({ initialFiling, initialSummary }: Fili
   }
 
   const filingId = parseInt(identifier, 10)
-  return <FilingDetailView filingId={filingId} initialFiling={initialFiling} initialSummary={initialSummary} />
+  return (
+    <FilingDetailView
+      key={filingId}
+      filingId={filingId}
+      initialFiling={initialFiling}
+      initialSummary={initialSummary}
+      initialChangeReport={initialChangeReport}
+    />
+  )
 }

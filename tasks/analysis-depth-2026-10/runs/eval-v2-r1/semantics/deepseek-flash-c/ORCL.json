@@ -1,0 +1,449 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "ORCL",
+ "split": "holdout",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Revenue compounded at 6.6% a year from $37.8 billion in FY2017 to $67.4 billion in FY2026 .",
+   "claim": "6.6%",
+   "match": "cited: F196 = Revenue CAGR, FY2017..FY2026, 6.63%",
+   "label": "consistent",
+   "reason": "Revenue CAGR FY2017\u2013FY2026, 6.63%"
+  },
+  {
+   "sentence": "Revenue compounded at 6.6% a year from $37.8 billion in FY2017 to $67.4 billion in FY2026 .",
+   "claim": "$37.8 billion",
+   "match": "cited: F1 = Revenue, FY2017, $37.79 billion",
+   "label": "consistent",
+   "reason": "Revenue FY2017 $37.79B"
+  },
+  {
+   "sentence": "Revenue compounded at 6.6% a year from $37.8 billion in FY2017 to $67.4 billion in FY2026 .",
+   "claim": "$67.4 billion",
+   "match": "cited: F10 = Revenue, FY2026, $67.36 billion; same value as X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "Revenue FY2026 $67.36B"
+  },
+  {
+   "sentence": "The path was flat through FY2022, then stepped up 17.7% in FY2023 and 17.3% in FY2026 .",
+   "claim": "17.7%",
+   "match": "cited: D280 = Revenue growth, FY2023, 17.70%",
+   "label": "consistent",
+   "reason": "Revenue growth FY2023 17.70%"
+  },
+  {
+   "sentence": "The path was flat through FY2022, then stepped up 17.7% in FY2023 and 17.3% in FY2026 .",
+   "claim": "17.3%",
+   "match": "cited: D421 = Revenue growth, FY2026, 17.35%",
+   "label": "consistent",
+   "reason": "Revenue growth FY2026 17.35%"
+  },
+  {
+   "sentence": "Cloud Infrastructure contributed 13.7pp of the 17.3% revenue growth in FY2026 and reached 26.9% of revenue .",
+   "claim": "13.7pp",
+   "match": "cited: D645 = Cloud Infrastructure (product) contribution to revenue growth (pp), FY2026, +13.71pp",
+   "label": "consistent",
+   "reason": "Cloud Infrastructure contribution to FY2026 revenue growth +13.71pp"
+  },
+  {
+   "sentence": "Cloud Infrastructure contributed 13.7pp of the 17.3% revenue growth in FY2026 and reached 26.9% of revenue .",
+   "claim": "17.3%",
+   "match": "cited: D421 = Revenue growth, FY2026, 17.35%",
+   "label": "consistent",
+   "reason": "Revenue growth FY2026 17.35%"
+  },
+  {
+   "sentence": "Cloud Infrastructure contributed 13.7pp of the 17.3% revenue growth in FY2026 and reached 26.9% of revenue .",
+   "claim": "26.9%",
+   "match": "cited: D643 = Cloud Infrastructure (product) share of revenue, FY2026, 26.87%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Cloud Infrastructure share of revenue FY2026 26.87%"
+  },
+  {
+   "sentence": "Cloud applications and cloud infrastructure contributed 16% and 84% of constant-currency cloud revenue growth in FY2026 .",
+   "claim": "16%",
+   "match": "passage P17: P17 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"Excluding the favorable impact of currency rate fluctuations of 2% in fiscal 2026, cloud applications and cloud infrastructure contributed 16% and 84%, respectively, to the constant currency growth in cloud revenues in fiscal 2026.\"",
+   "label": "consistent",
+   "reason": "Passage: cloud applications contributed 16% of constant-currency cloud growth"
+  },
+  {
+   "sentence": "Cloud applications and cloud infrastructure contributed 16% and 84% of constant-currency cloud revenue growth in FY2026 .",
+   "claim": "84%",
+   "match": "passage P17: P17 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"Excluding the favorable impact of currency rate fluctuations of 2% in fiscal 2026, cloud applications and cloud infrastructure contributed 16% and 84%, respectively, to the constant currency growth in cloud revenues in fiscal 2026.\"",
+   "label": "consistent",
+   "reason": "Passage: cloud infrastructure contributed 84% of constant-currency cloud growth"
+  },
+  {
+   "sentence": "The Americas contributed 14.2pp of FY2026 growth and 66.0% of revenue .",
+   "claim": "14.2pp",
+   "match": "cited: D470 = Americas (geography) contribution to revenue growth (pp), FY2026, +14.18pp",
+   "label": "consistent",
+   "reason": "Americas contribution to FY2026 revenue growth +14.18pp"
+  },
+  {
+   "sentence": "The Americas contributed 14.2pp of FY2026 growth and 66.0% of revenue .",
+   "claim": "66.0%",
+   "match": "cited: D468 = Americas (geography) share of revenue, FY2026, 66.03%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Americas share of revenue FY2026 66.03%"
+  },
+  {
+   "sentence": "Operating income grew 16.6% in FY2026 against 17.3% revenue growth, an incremental margin of 29.4% .",
+   "claim": "16.6%",
+   "match": "cited: D422 = Operating income growth, FY2026, 16.56%",
+   "label": "consistent",
+   "reason": "Operating income growth FY2026 16.56%"
+  },
+  {
+   "sentence": "Operating income grew 16.6% in FY2026 against 17.3% revenue growth, an incremental margin of 29.4% .",
+   "claim": "17.3%",
+   "match": "cited: D421 = Revenue growth, FY2026, 17.35%",
+   "label": "consistent",
+   "reason": "Revenue growth FY2026 17.35%"
+  },
+  {
+   "sentence": "Operating income grew 16.6% in FY2026 against 17.3% revenue growth, an incremental margin of 29.4% .",
+   "claim": "29.4%",
+   "match": "cited: D442 = Incremental operating margin (change in operating income / change in revenue), FY2026, 29.40%",
+   "label": "consistent",
+   "reason": "Incremental operating margin FY2026 29.40%"
+  },
+  {
+   "sentence": "Operating costs grew 0.3pp faster than revenue in FY2026, at 17.7% .",
+   "claim": "0.3pp",
+   "match": "reversed D443 = +0.35pp: D443 = Revenue growth minus operating-cost growth, FY2026, -0.35pp",
+   "label": "consistent",
+   "reason": "Revenue minus cost growth -0.35pp means costs grew 0.35pp faster"
+  },
+  {
+   "sentence": "Operating costs grew 0.3pp faster than revenue in FY2026, at 17.7% .",
+   "claim": "17.7%",
+   "match": "cited: D436 = Operating expenses growth, FY2026, 17.70%",
+   "label": "consistent",
+   "reason": "Operating expenses growth FY2026 17.70%"
+  },
+  {
+   "sentence": "Operating margin of 30.6% in FY2026 sits below the 32.2% window median and well below the 37.6% FY2021 high .",
+   "claim": "30.6%",
+   "match": "cited: F34 = Operating margin, FY2026, 30.59%",
+   "label": "consistent",
+   "reason": "Operating margin FY2026 30.59%"
+  },
+  {
+   "sentence": "Operating margin of 30.6% in FY2026 sits below the 32.2% window median and well below the 37.6% FY2021 high .",
+   "claim": "32.2%",
+   "match": "cited: D788 = Operating margin window median, FY2017..FY2026, 32.24%",
+   "label": "consistent",
+   "reason": "Operating margin window median 32.24%"
+  },
+  {
+   "sentence": "Operating margin of 30.6% in FY2026 sits below the 32.2% window median and well below the 37.6% FY2021 high .",
+   "claim": "37.6%",
+   "match": "cited: D787 = Operating margin window high (FY2021), FY2017..FY2026, 37.58%",
+   "label": "consistent",
+   "reason": "Operating margin window high in FY2021, 37.58%"
+  },
+  {
+   "sentence": "The FY2026 margin slipped 0.2pp as R&D added 1.9pp while other lines took off 2.1pp .",
+   "claim": "0.2pp",
+   "match": "cited: D433 = Operating margin change, FY2026, -0.21pp",
+   "label": "consistent",
+   "reason": "Operating margin change FY2026 -0.21pp, stated as slipped"
+  },
+  {
+   "sentence": "The FY2026 margin slipped 0.2pp as R&D added 1.9pp while other lines took off 2.1pp .",
+   "claim": "1.9pp",
+   "match": "cited: D444 = Operating-margin effect of R&D (pp), FY2026, +1.93pp",
+   "label": "consistent",
+   "reason": "R&D margin effect +1.93pp, stated as added"
+  },
+  {
+   "sentence": "The FY2026 margin slipped 0.2pp as R&D added 1.9pp while other lines took off 2.1pp .",
+   "claim": "2.1pp",
+   "match": "cited: D445 = Operating-margin effect of other lines (residual, pp), FY2026, -2.13pp",
+   "label": "consistent",
+   "reason": "Other-lines margin effect -2.13pp, stated as took off"
+  },
+  {
+   "sentence": "The other-line drag reflects a $1.5 billion rise in restructuring and other expenses from the 2026 Restructuring Plan .",
+   "claim": "$1.5 billion",
+   "match": "passage P11: P11 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"Restructuring and other expenses increased by $1.5 billion in reported currency in fiscal 2026 relative to fiscal 2025 primarily due to higher restructuring expenses from actions we took in fiscal 2026 relative to fiscal 2025.\"",
+   "label": "consistent",
+   "reason": "Passage: restructuring and other expenses increased $1.5B in FY2026"
+  },
+  {
+   "sentence": "In FY2026 net margin of 25.2% sat 5.4pp below the 30.6% operating margin, narrower than the 9.1pp gap in FY2025 .",
+   "claim": "25.2%",
+   "match": "cited: F54 = Net margin, FY2026, 25.21%",
+   "label": "consistent",
+   "reason": "Net margin FY2026 25.21%"
+  },
+  {
+   "sentence": "In FY2026 net margin of 25.2% sat 5.4pp below the 30.6% operating margin, narrower than the 9.1pp gap in FY2025 .",
+   "claim": "5.4pp",
+   "match": "cited: D832 = Net margin minus operating margin (pp, same year), FY2026, -5.38pp",
+   "label": "consistent",
+   "reason": "Net minus operating margin -5.38pp, stated as below"
+  },
+  {
+   "sentence": "In FY2026 net margin of 25.2% sat 5.4pp below the 30.6% operating margin, narrower than the 9.1pp gap in FY2025 .",
+   "claim": "30.6%",
+   "match": "cited: F34 = Operating margin, FY2026, 30.59%",
+   "label": "consistent",
+   "reason": "Operating margin FY2026 30.59%"
+  },
+  {
+   "sentence": "In FY2026 net margin of 25.2% sat 5.4pp below the 30.6% operating margin, narrower than the 9.1pp gap in FY2025 .",
+   "claim": "9.1pp",
+   "match": "cited: D831 = Net margin minus operating margin (pp, same year), FY2025, -9.12pp",
+   "label": "consistent",
+   "reason": "FY2025 gap -9.12pp, wider than FY2026 gap"
+  },
+  {
+   "sentence": "Operating cash flow of $32.0 billion was 1.88x net income in FY2026, above the 1.58x window median .",
+   "claim": "$32.0 billion",
+   "match": "cited: F84 = Operating cash flow, FY2026, $31.98 billion",
+   "label": "consistent",
+   "reason": "Operating cash flow FY2026 $31.98B"
+  },
+  {
+   "sentence": "Operating cash flow of $32.0 billion was 1.88x net income in FY2026, above the 1.58x window median .",
+   "claim": "1.88x",
+   "match": "cited: D408 = Operating cash flow / net income, FY2026, 1.88x",
+   "label": "consistent",
+   "reason": "Operating cash flow / net income FY2026 1.88x"
+  },
+  {
+   "sentence": "Operating cash flow of $32.0 billion was 1.88x net income in FY2026, above the 1.58x window median .",
+   "claim": "1.58x",
+   "match": "cited: D822 = Operating cash flow / net income window median, FY2017..FY2026, 1.58x",
+   "label": "consistent",
+   "reason": "Operating cash flow / net income window median 1.58x"
+  },
+  {
+   "sentence": "Operating cash rose $11.2 billion on higher net income and favorable working capital, including $4.6 billion of customer prepayments .",
+   "claim": "$11.2 billion",
+   "match": "passage P6: P6 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"Net cash provided by operating activities increased by $11.2 billion in fiscal 2026 relative to fiscal 2025 primarily due to higher net income adjusted for certain non-cash charges and higher cash favorable working capital changes, net, which includes $4.6 billion cash inflows from customer prepayments with significant financing component.\"",
+   "label": "consistent",
+   "reason": "Passage: operating cash increased $11.2B in FY2026"
+  },
+  {
+   "sentence": "Operating cash rose $11.2 billion on higher net income and favorable working capital, including $4.6 billion of customer prepayments .",
+   "claim": "$4.6 billion",
+   "match": "passage P6: P6 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"Net cash provided by operating activities increased by $11.2 billion in fiscal 2026 relative to fiscal 2025 primarily due to higher net income adjusted for certain non-cash charges and higher cash favorable working capital changes, net, which includes $4.6 billion cash inflows from customer prepayments with significant financing component.\"",
+   "label": "consistent",
+   "reason": "Passage: $4.6B inflows from customer prepayments"
+  },
+  {
+   "sentence": "Free cash flow was -$23.7 billion, a -35.2% margin, as capex of $55.7 billion reached 82.6% of revenue and 7.30x D&A .",
+   "claim": "-$23.7 billion",
+   "match": "cited: F104 = Free cash flow, FY2026, -$23.69 billion",
+   "label": "consistent",
+   "reason": "Free cash flow FY2026 -$23.69B"
+  },
+  {
+   "sentence": "Free cash flow was -$23.7 billion, a -35.2% margin, as capex of $55.7 billion reached 82.6% of revenue and 7.30x D&A .",
+   "claim": "-35.2%",
+   "match": "cited: D405 = Free cash flow margin, FY2026, -35.16%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Free cash flow margin FY2026 -35.16%"
+  },
+  {
+   "sentence": "Free cash flow was -$23.7 billion, a -35.2% margin, as capex of $55.7 billion reached 82.6% of revenue and 7.30x D&A .",
+   "claim": "$55.7 billion",
+   "match": "cited: F94 = Capital expenditures, FY2026, $55.66 billion",
+   "label": "consistent",
+   "reason": "Capex FY2026 $55.66B"
+  },
+  {
+   "sentence": "Free cash flow was -$23.7 billion, a -35.2% margin, as capex of $55.7 billion reached 82.6% of revenue and 7.30x D&A .",
+   "claim": "82.6%",
+   "match": "cited: D404 = Capex % of revenue, FY2026, 82.64%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Capex % of revenue FY2026 82.64%"
+  },
+  {
+   "sentence": "Free cash flow was -$23.7 billion, a -35.2% margin, as capex of $55.7 billion reached 82.6% of revenue and 7.30x D&A .",
+   "claim": "7.30x",
+   "match": "cited: D410 = Capex / D&A, FY2026, 7.30x",
+   "label": "consistent",
+   "reason": "Capex / D&A FY2026 7.30x"
+  },
+  {
+   "sentence": "Investing outflows rose $30.1 billion mainly on a $34.4 billion increase in capital expenditures .",
+   "claim": "$30.1 billion",
+   "match": "passage P5: P5 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"Net cash used for investing activities increased by $30.1 billion in fiscal 2026 relative to fiscal 2025 primarily due to a $34.4 billion increase in capital expenditures, partially offset by $4.3 billion of cash proceeds from the sale of our investment in Ampere.\"",
+   "label": "consistent",
+   "reason": "Passage: investing outflows increased $30.1B"
+  },
+  {
+   "sentence": "Investing outflows rose $30.1 billion mainly on a $34.4 billion increase in capital expenditures .",
+   "claim": "$34.4 billion",
+   "match": "passage P5: P5 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"Net cash used for investing activities increased by $30.1 billion in fiscal 2026 relative to fiscal 2025 primarily due to a $34.4 billion increase in capital expenditures, partially offset by $4.3 billion of cash proceeds from the sale of our investment in Ampere.\"",
+   "label": "consistent",
+   "reason": "Passage: capex increased $34.4B"
+  },
+  {
+   "sentence": "Net debt reached $97.6 billion in FY2026, net cash of -145.0% of revenue against a -0.5% peer median, the 0th percentile of six peers .",
+   "claim": "$97.6 billion",
+   "match": "cited: D414 = Net cash (cash and investments less debt), FY2026, -$97.65 billion",
+   "label": "consistent",
+   "reason": "Net cash -$97.65B stated as net debt"
+  },
+  {
+   "sentence": "Net debt reached $97.6 billion in FY2026, net cash of -145.0% of revenue against a -0.5% peer median, the 0th percentile of six peers .",
+   "claim": "-145.0%",
+   "match": "cited: D415 = Net cash % of revenue, FY2026, -144.97%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Net cash % of revenue FY2026 -144.97%"
+  },
+  {
+   "sentence": "Net debt reached $97.6 billion in FY2026, net cash of -145.0% of revenue against a -0.5% peer median, the 0th percentile of six peers .",
+   "claim": "-0.5%",
+   "match": "cited: D816 = Net cash % of revenue: software peer median (n=6), FY2026, -0.55%",
+   "label": "consistent",
+   "reason": "Peer median net cash % of revenue -0.55%"
+  },
+  {
+   "sentence": "Net debt reached $97.6 billion in FY2026, net cash of -145.0% of revenue against a -0.5% peer median, the 0th percentile of six peers .",
+   "claim": "0th percentile",
+   "match": "cited: D815 = Net cash % of revenue: percentile vs software peers (n=6), FY2026, 0.00 (percentile)",
+   "label": "consistent",
+   "reason": "Percentile vs six peers 0.00"
+  },
+  {
+   "sentence": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes issued in FY2026 .",
+   "claim": "39.9%",
+   "match": "cited: D440 = Total debt growth, FY2026, 39.94%",
+   "label": "consistent",
+   "reason": "Total debt growth FY2026 39.94%"
+  },
+  {
+   "sentence": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes issued in FY2026 .",
+   "claim": "$129.5 billion",
+   "match": "cited: D413 = Total debt, FY2026, $129.54 billion",
+   "label": "consistent",
+   "reason": "Total debt FY2026 $129.54B"
+  },
+  {
+   "sentence": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes issued in FY2026 .",
+   "claim": "$42.7 billion",
+   "match": "passage P7: P7 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis: \"was primarily due to proceeds from the issuance of senior notes, net of issuance costs, of $42.7 billion during fiscal 2026; $32.0 billion of cash inflows from our operations; $5.0 billion of cash proceeds from the issuance of Mandatory Convertible Preferred Stock, net of issuance costs; $4.9 billion of cash inflows from the sale of our investments, primarily in Ampere; $3.3 billion of cash inflow\u2026\" (cut to 400 characters around the figure)",
+   "label": "consistent",
+   "reason": "Passage: senior notes issued FY2026 $42.7B"
+  },
+  {
+   "sentence": "Buybacks plus dividends of $5.9 billion were paid while free cash flow was -$23.7 billion, and the diluted share count rose 1.7% .",
+   "claim": "$5.9 billion",
+   "match": "cited: D416 = Buybacks plus dividends, FY2026, $5.88 billion",
+   "label": "consistent",
+   "reason": "Buybacks plus dividends FY2026 $5.88B"
+  },
+  {
+   "sentence": "Buybacks plus dividends of $5.9 billion were paid while free cash flow was -$23.7 billion, and the diluted share count rose 1.7% .",
+   "claim": "-$23.7 billion",
+   "match": "cited: F104 = Free cash flow, FY2026, -$23.69 billion",
+   "label": "consistent",
+   "reason": "Free cash flow FY2026 -$23.69B"
+  },
+  {
+   "sentence": "Buybacks plus dividends of $5.9 billion were paid while free cash flow was -$23.7 billion, and the diluted share count rose 1.7% .",
+   "claim": "1.7%",
+   "match": "cited: D438 = Diluted share count change, FY2026, 1.67%",
+   "label": "consistent",
+   "reason": "Diluted share count change FY2026 +1.67%"
+  },
+  {
+   "sentence": "The balance sheet now carries the data-center build rather than funding it from internal cash, and $260 billion of additional lease commitments sit off balance sheet .",
+   "claim": "$260 billion",
+   "match": "passage P1: P1 = a figure in the FY2026 10-K, Note 9. LEASES, OTHER COMMITMENTS AND CERTAIN CONTINGENCIES: \"29\nAs of May 31, 2026, we had $260 billion of additional lease commitments, substantially all related to data center arrangements, that are generally expected to commence between the first quarter of fiscal 2027 and fiscal 2029 and for terms of fifteen to nineteen years that were not reflected on our consolidated balance sheet as of May 31, 2026 or in the maturities table above.\"",
+   "label": "consistent",
+   "reason": "Passage: $260B additional lease commitments off balance sheet"
+  },
+  {
+   "sentence": "Cash and investments of $31.9 billion cover 1.3 years of the FY2026 burn .",
+   "claim": "$31.9 billion",
+   "match": "cited: D412 = Cash and investments, FY2026, $31.89 billion",
+   "label": "consistent",
+   "reason": "Cash and investments FY2026 $31.89B"
+  },
+  {
+   "sentence": "Cash and investments of $31.9 billion cover 1.3 years of the FY2026 burn .",
+   "claim": "1.3 years",
+   "match": "cited: D419 = Years of burn covered by cash and investments, FY2026, 1.35 years",
+   "label": "consistent",
+   "reason": "Years of burn covered FY2026 1.35"
+  },
+  {
+   "sentence": "Free cash flow ran below net income in FY2025 and FY2026, at -0.03x and -1.39x .",
+   "claim": "-0.03x",
+   "match": "cited: D362 = Free cash flow / net income, FY2025, -0.03x; its input F43 = Net income has the same value as X19 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "FCF / net income FY2025 -0.03x"
+  },
+  {
+   "sentence": "Free cash flow ran below net income in FY2025 and FY2026, at -0.03x and -1.39x .",
+   "claim": "-1.39x",
+   "match": "cited: D409 = Free cash flow / net income, FY2026, -1.39x",
+   "label": "consistent",
+   "reason": "FCF / net income FY2026 -1.39x"
+  },
+  {
+   "sentence": "Two years of sub-net-income conversion mark a break from the 1.06x window median .",
+   "claim": "1.06x",
+   "match": "cited: D800 = Free cash flow / net income window median, FY2017..FY2026, 1.06x",
+   "label": "consistent",
+   "reason": "FCF / net income window median 1.06x"
+  },
+  {
+   "sentence": "Net debt rose for a second year to $97.6 billion and total debt rose 39.9% in FY2026 .",
+   "claim": "$97.6 billion",
+   "match": "cited: D414 = Net cash (cash and investments less debt), FY2026, -$97.65 billion",
+   "label": "consistent",
+   "reason": "Net cash -$97.65B stated as net debt level"
+  },
+  {
+   "sentence": "Net debt rose for a second year to $97.6 billion and total debt rose 39.9% in FY2026 .",
+   "claim": "39.9%",
+   "match": "cited: D440 = Total debt growth, FY2026, 39.94%",
+   "label": "consistent",
+   "reason": "Total debt growth FY2026 39.94%"
+  },
+  {
+   "sentence": "Whether FY2027 capex falls below the FY2026 $55.7 billion, reported in the FY2027 10-K cash flow statement .",
+   "claim": "$55.7 billion",
+   "match": "cited: F94 = Capital expenditures, FY2026, $55.66 billion",
+   "label": "consistent",
+   "reason": "Capex FY2026 $55.66B"
+  },
+  {
+   "sentence": "Whether free cash flow margin recovers above the -35.2% FY2026 low toward the 26.0% window median .",
+   "claim": "-35.2%",
+   "match": "cited: D792 = Free cash flow margin window low (FY2026), FY2017..FY2026, -35.16%",
+   "label": "consistent",
+   "reason": "FCF margin window low in FY2026, -35.16%"
+  },
+  {
+   "sentence": "Whether free cash flow margin recovers above the -35.2% FY2026 low toward the 26.0% window median .",
+   "claim": "26.0%",
+   "match": "cited: D794 = Free cash flow margin window median, FY2017..FY2026, 25.96%",
+   "label": "consistent",
+   "reason": "FCF margin window median 25.96%"
+  },
+  {
+   "sentence": "Whether net cash as a share of revenue improves from -145.0% in FY2026 .",
+   "claim": "-145.0%",
+   "match": "cited: D415 = Net cash % of revenue, FY2026, -144.97%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Net cash % of revenue FY2026 -144.97%"
+  }
+ ],
+ "output_sha256": "3f23c3a9269fb590786c7aaf59adc6a67b0c5a3d36012ea8f483a74a7a85e200",
+ "view": 2,
+ "cost_usd": 0.133747,
+ "backend": "claude_cli",
+ "input_tokens": 9833,
+ "cached_input_tokens": 1014,
+ "output_tokens": 3150
+}

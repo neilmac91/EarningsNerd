@@ -1,0 +1,15 @@
+import json, collections, sys
+d = json.load(open(sys.argv[1]))
+base = d["current"]
+for opt in ("current","inline_nested","inline_related_top","inline_mixed_top","text_tile_url","header_home_link","text_site_line"):
+    r = d[opt]
+    added, removed = collections.Counter(), collections.Counter()
+    for n, row in r.items():
+        a, b = row["tests"], base[n]["tests"]
+        for k in a:
+            if k not in b: added[f"{k}({a[k]:+g})"] += 1
+        for k in b:
+            if k not in a: removed[f"{k}({b[k]:+g})"] += 1
+    s = [row["score"] for row in r.values()]
+    print(f"{opt:20s} sum {sum(s):5.1f} per-mail {min(s):.1f}..{max(s):.1f}  added {dict(added)}  removed {dict(removed)}")
+print("\ncurrent tests:", dict(collections.Counter(f"{k}({v:+g})" for row in base.values() for k, v in row["tests"].items())))

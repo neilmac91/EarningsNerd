@@ -101,6 +101,20 @@ async def test_worker_uses_frozen_sources_and_retains_every_surface(tmp_path, mo
         assert any(row["path"] == "edgar.get_sixk_text" for row in calls)
     assert any(row["path"] == "statement_source" and row["outcome"] == "bound" for row in calls)
     assert any(row["path"] == "filing_excerpt" and row["outcome"] == "returned" for row in calls)
+    section_rows = [row for row in calls if row["path"] == "edgar.get_filing_sections"]
+    section_calls = [call for call in grounding["source_calls"]
+                     if call["owner"] == "xbrl_service.get_filing_sections"]
+    assert not any(row.get("channel") == "sections" for row in calls)
+    if form == "6-K":
+        assert section_rows == [] and section_calls == []
+    else:
+        primary_sha = receipt["source_packets"]["primary"]["sha256"]
+        fetched = next(index for index, row in enumerate(calls)
+                       if row["path"] == "sec_edgar_service.get_filing_document" and row["outcome"] == "bound")
+        assert [row["outcome"] for row in section_rows] == ["attempted", "returned"]
+        assert calls.index(section_rows[0]) > fetched  # the parse reads the fetched document
+        assert {row["input_sha256"] for row in section_rows} == {primary_sha}
+        assert len(section_calls) == 1 and section_calls[0]["html_sha256"] == primary_sha
     if form == "6-K" and with_release:
         assert "Archived earnings release facts and management context." in seen[0]
     else:
@@ -165,10 +179,10 @@ async def test_stream_disabled_preserves_non_streaming_provider_mode(tmp_path, m
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("fault", ["network", "wrong_filing", "unbound_xbrl"])
+@pytest.mark.parametrize("fault", ["network", "wrong_filing", "unbound_xbrl", "unbound_sections"])
 async def test_swallowed_source_fault_never_reaches_provider(tmp_path, monkeypatch, fault):
-    _, spec, _, invocation, config = setup_sources(tmp_path, monkeypatch,
-                                                          form="10-K" if fault == "unbound_xbrl" else "6-K")
+    _, spec, _, invocation, config = setup_sources(
+        tmp_path, monkeypatch, form="10-K" if fault in {"unbound_xbrl", "unbound_sections"} else "6-K")
     from app.services.edgar import sixk_extractor
     from edgar import attachments
 
@@ -179,6 +193,9 @@ async def test_swallowed_source_fault_never_reaches_provider(tmp_path, monkeypat
 
     if fault == "unbound_xbrl":
         monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value={"revenues": 999}))
+    elif fault == "unbound_sections":
+        monkeypatch.setattr(summary_pipeline.xbrl_service, "get_filing_sections",
+                            AsyncMock(return_value={"mda": "Unparsed text. " * 30}))
     else:
         monkeypatch.setattr(sixk_extractor, "_extract_sixk_text_sync", force_fault)
     provider = AsyncMock(return_value=CANONICAL_PAYLOAD)
@@ -213,3 +230,20 @@ def test_every_provider_reservation_checks_source_binding(tmp_path):
             with pytest.raises(InvalidMeasurement, match="Archive source violation"):
                 meter.reserve({}, "section_recovery", "https://fake.invalid")
     assert delegate.reserve.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_parsed_primary_sections_reach_the_excerpt(tmp_path, monkeypatch):
+    from app.services.edgar import xbrl_service
+
+    root, spec, content, invocation, config = setup_sources(tmp_path, monkeypatch, form="10-K")
+    parsed = {"financials": "F" * 300, "mda": "M" * 300, "risk": "R" * 300}
+    monkeypatch.setattr(xbrl_service, "_sections_from_html",
+                        lambda html, form: dict(parsed) if html == content else None)
+    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing",
+                        AsyncMock(return_value=json.loads(json.dumps(CANONICAL_PAYLOAD))))
+    receipt = await run_invocation(spec, invocation, config, StubMeter())
+    assert receipt["status"] == "complete", receipt["errors"]
+    calls = json.loads((invocation / "grounding.json").read_text())["archive_binding"]["source_calls"]
+    excerpt = [row for row in calls if row["path"] == "filing_excerpt" and row["outcome"] == "returned"]
+    assert excerpt and excerpt[0]["section_keys"] == ["financials", "mda", "risk"]

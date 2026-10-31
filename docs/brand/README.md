@@ -1,0 +1,209 @@
+# Brand studio: the handoff
+
+The identity work for EarningsNerd under the brief of 2026-10-11, complete through Phase 10 on
+one branch (`claude/adoring-hamilton-y8iuak`, PR #1226). This folder holds the public-safe
+records; the system itself lives where the repository already keeps it, and this page is the
+index to both. Founder deliberations stay outside the repository (AGENTS.md §7).
+
+**What it is, in one paragraph.** EarningsNerd is the summary that shows its work. The mark and
+the wordmark are unchanged (the founder's call, D-015); around them the system adds one graphic
+device, the margin and the mark, that only ever means "located in the filing" and "cited": a pale
+sage highlight with a hairline under a phrase of ours, a bracket twin in the margin beside a
+figure's marker, the filing's own words in the editorial face inside a marked block. Sage never
+colours a number; gain and loss keep their own tokens and always carry a sign. The voice is dry
+with a pulse, says what the product does in behaviours rather than hedges, and never claims a
+figure nobody measured. The static promotional figures use Apple's FY2025 10-K against FY2024, verified against SEC XBRL;
+the labelled Multi-Period sample is one saved run from FY2020 to FY2025.
+
+**Current promotional emphasis (C5).** The original studio treatment above is historical.
+Current headline accents and brand templates use a solid Bright Sage fill, crisp italic ink and
+soft corners. The web shares `BrandEmphasis`; located filing passages keep their annotation
+paint. See [the current device specification](06-system.md#6-the-graphic-device-the-margin-and-the-mark)
+and [the implementation recipe](../../frontend/DESIGN_SYSTEM.md#7-marketing-surfaces).
+
+## Logo files
+
+| File | Use |
+|---|---|
+| `frontend/public/assets/earningsnerd-logo-light.svg`, `-dark.svg` | The horizontal lockup, unchanged; the header and the auth pane |
+| `frontend/public/assets/earningsnerd-logo-mono.svg` | The lockup in one colour, for print and mono contexts (new) |
+| `frontend/public/assets/earningsnerd-logo-stacked-light.svg`, `-dark.svg`, `-mono.svg` | The stacked lockup for square and narrow placements (new) |
+| `frontend/public/assets/earningsnerd-mark-sage.svg`, `-navy.svg`, `-white.svg`, `-mono.svg` | The EN monogram in its four sanctioned colours, unchanged |
+| `frontend/public/assets/earningsnerd-icon-light.svg`, `-dark.svg`, `earningsnerd-appicon.svg` | The favicon and app icon, unchanged |
+| `frontend/public/assets/earningsnerd-mask-icon.svg` | Safari's pinned tab, declared in `app/layout.tsx` (new) |
+| `frontend/public/og-image.png`, `frontend/scripts/brand/og-template.html` | The social image and its source; regenerate with `npm run brand:assets` |
+| `frontend/public/assets/LOGO_README.md` | Clear space, minimum sizes, colours, and what is never done to the mark |
+
+## Guidelines
+
+- `DESIGN.md`: the system, with the new "Graphic device" section and the Marked Copy Rule; the
+  frontmatter is the token snapshot that `designSnapshotParity.spec.ts` checks against the code.
+- `frontend/DESIGN_SYSTEM.md`: the implementation rules; §3 and §7 carry the device and the accent
+  phrase; §12 is the done-gate grep.
+- `docs/voice-and-style.md`: the voice: the four rules, the tone, the do and don't table from the
+  live site, the five headlines and the tagline, dashes and house conventions.
+- `.impeccable/design.json`: the generated sidecar, in parity with `DESIGN.md`.
+- [06-system.md](06-system.md): the measured contrast tables for every light and dark pair, the
+  type scale, icons, imagery and the device's specification (§6).
+- [05-mark.md](05-mark.md): the mark's audit and arrangements; the mark itself does not change.
+
+## Tokens and the device
+
+- `frontend/tailwind.config.js`: every colour, including `brand.*`, `gain.*`, `loss.*`.
+- `frontend/app/globals.css`: the "Brand device" block: `.en-mark` (the highlight), `.en-marked`
+  (the marked block), `.en-margin` (the gutter) and `.en-margin-mark` (the bracket twin), each
+  with its dark pair.
+- `frontend/components/ui/MarkedCopy.tsx`: the component that measures the markers and places
+  their twins (`EnRef` renders a marker), on the landing page and the filing page's Risks (D-044).
+
+## Templates
+
+[templates/](templates/) with its own README: the social post (1080 × 1350, HTML and PNG), the
+business card front and back (SVG with trim guide and fill-in layer), the PDF cover (A4), the
+email header (a fluid column up to 600 px) and the A5 notebook cover (SVG and preview). Every figure
+is from the verified set; every colour is a token; the mark's paths are byte-identical to the mono
+mark.
+
+## Records by phase
+
+| Phase | File | Outcome |
+|---|---|---|
+| 0 | [00-audit.md](00-audit.md), [audit/](audit/) | Twenty touchpoints; sameness score 36 of 42 |
+| 1 | [01-interview.md](01-interview.md) | Cited answers; the founder's decisions, labelled A1 to A9 (the questions and recommendations are in the founder's private notes) |
+| 2 | [02-battlefield.md](02-battlefield.md), [battlefield/](battlefield/) | Eight competitors, seven captured; the empty space is the act of checking |
+| 3 | [03-strategy.md](03-strategy.md) | Positioning, three behaviours, the spectrum, the promise, the never list (S1 to S5) |
+| 4 | [04-directions.md](04-directions.md), [directions/](directions/) | Three rendered directions; B, the Marked Copy, chosen by the founder with the mark untouched |
+| 5 | [05-mark.md](05-mark.md), [mark/](mark/) | The mark's audit, arrangements, rules and renditions; the drawing unchanged |
+| 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
+| 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
+| 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings back under D-046's rule (E90) |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; original second score 11 of 42; current-main rescore 9 of 42, T4's move retained |
+| 10 | this page | The handoff |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-057 |
+
+## The pull request
+
+[PR #1226](https://github.com/neilmac91/EarningsNerd/pull/1226), one branch for all ten phases.
+Review tier: routine (AGENTS.md §5), because the later phases touch marketing components, the
+pricing page's call to action, the consent bar, one product table's number formatting, backend
+copy in mail and exports, and their specs. Not touched: prompts, evals, entitlements, auth logic
+(`features/auth/api/auth-api.ts` is identical to main; the login and register pages' brand pane,
+`AuthShell.tsx`, changed its copy and sample only), billing, the summary pipeline, legal pages,
+`vercel.json`, `next.config.js`, workflows.
+
+The review (one Opus lens, a Sonnet refuter per blocker) found three blockers, all upheld and
+all fixed: matching claims that had lost the server's scope, a widened search-coverage claim,
+and a consent clause broader than the code. The fixes and the should-fix items are recorded in
+[09-stress-test.md](09-stress-test.md) §4 and decisions D-021 to D-025. Codex's review of the
+ready PR (D-027) and the founder's review of `ab3f8f0` (D-028: the quote promise scoped to risk
+excerpts, the catch card at 200% text, the margin twin's centring, the geometry gate's
+hierarchy check) followed, each fixed in the branch.
+
+## Gates this work added
+
+Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
+
+- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope, the outline
+  is "up to nine parts", and only risk excerpts are promised as located or withheld; no sage number
+  on a public surface (D-030 widened this to the whole app); the highlight never on a figure or
+  price; the margin only inside `MarkedCopy`, and never without a marker.
+- `frontend/tests/unit/markSingleSource.spec.ts`: every rendition of the EN monogram copies the
+  canonical outlines byte for byte, places them through the canonical groups and nothing else,
+  and never stretches them.
+- `frontend/tests/unit/markedCopy.spec.tsx` and `frontend/tests/e2e/figure-receipt-reflow.spec.ts`: the
+  margin twin centres on its marker at any root size; the receipt card's amounts (it replaced the catch
+  card, D-058) never overlap their step's words or leave the card, at 390px and 320px under a 200% root
+  font and in the desktop column, in both themes.
+- `frontend/tests/unit/waitlistCounter.spec.tsx`: no counter below its floor or passing through
+  "0+", the count in neutral ink. The former `founderNote.spec.tsx` was retired with the empty slot.
+
+## Gate tails
+
+Run on 2026-10-11 in this container against `485334a`, the branch after its second merge of
+main, and then by CI on the same commit.
+
+```
+frontend: npm run lint                      eslint . --max-warnings 0           exit 0
+frontend: npx tsc -p tsconfig.ci.json                                           exit 0
+frontend: npm run build                     Next 16 production build, CI's env   exit 0
+frontend: npm run test -- --run             Test Files 189 passed (189); Tests 1905 passed (1905)
+frontend: npx playwright test (the whole suite; next start, no backend, CI's env:
+          NEXT_PUBLIC_API_BASE_URL=http://localhost:8000, WAITLIST_MODE=false,
+          NEXT_PUBLIC_ENABLE_ANALYSIS=true; 2 workers)        205 passed, 3 skipped (6.3m)
+backend:  ruff check .                      All checks passed!                   exit 0
+backend:  bandit -r app -ll                 no findings                          exit 0
+backend:  python -m pytest                  11 failed, 7023 passed, 39 skipped in 201.44s
+CI (run 38158954845 on 485334a): backend-tests, frontend-tests, e2e-tests, lighthouse,
+          migrations-postgres, secret-scan, eval-baseline    success
+```
+
+The eleven local backend failures are not this branch's: the same eleven fail on `origin/main` in
+this container (Python 3.13.16), ten `test_copilot_prose_quotations` cases for two code points this
+Python's Unicode tables assign and `test_capacity_readout_error_detail_never_aborts_the_receipt`,
+and CI's backend job, on its pinned toolchain, passed on the same commit.
+
+## Lessons
+
+- `lessons/brand-the-mark-is-protected.md`: never change the EN monogram or the wordmark; brand
+  work composes around them. `markSingleSource.spec.ts` holds the outlines and their placement;
+  the colours and the small-size rule are review-checked, so the lesson stays in session reading.
+- `lessons/brand-a-promise-names-what-the-code-enforces.md`: trace each surface a promise covers
+  to the code that enforces it, flag defaults included, before writing it.
+- `lessons/frontend-check-brand-layouts-at-200-percent-text.md`: a figure pair wraps on its own
+  width; a positioned twin centres on its anchor's measured midpoint.
+
+## Decided by the founder
+
+The founder took the last four on 2026-10-17 (D-045 and D-046):
+
+1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is regenerated
+   through the pipeline to end at FY2025: one run, FY2020 to FY2025, USD 0.000196 against the
+   USD 0.10 ceiling (E93), made on 2026-10-22 once E149 let each source link open its filing's
+   document. A first run on 2026-10-20 cost USD 0.00046.
+2. Notable filings returned to the homepage as a ruled row after Reporting this week, with 10-K
+   and 10-Q filings only, from companies that hold a full summary (one the filing page shows,
+   D-052), newest first, at most six: the backend's query in #1437 and the row in E90's frontend
+   half (`NotableFilings.tsx`).
+3. The landing page's sections after the hero became ruled rows (tell T4, D-045, #1398).
+4. Vercel Web Analytics loads only after the visitor allows analytics (D-046, #1387), so the consent
+   bar's promise is true in code. What `/privacy` says of Do Not Track is settled (D-049); what it says
+   of analytics, in draft #1265, stays with the founder (F4).
+
+Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
+site goes without (A5) unless the founder writes one (D6, F48).
+
+## The sweep's record
+
+Current-main check: 2026-10-23, `5897d602`, after #1457 (`ab6962ec`). E120's capped
+surface insets (#1495) are included; E146's company-name formatting (#1491) is still a draft
+at this checkpoint. A draft is not a shipped closure. The [current capture set](stress/closeout-2026-10-23/README.md)
+and [fourteen-tell rescore](09-stress-test.md#2-the-sameness-test-rerun) separate new evidence
+from carried scores: 9 of 42, with T4's move from 3 to 1 confirmed.
+
+Done: the ruled landing composition; the shared promotional emphasis; the located-passage device
+on Risks, located summary quotes and the Source pane; public and account-page voice; shared
+controls, status chips and missing-value treatment; homepage receipts opening the filing document;
+the curated Notable filings query and row; consent-gated web analytics; and the saved FY2020 to
+FY2025 analysis demo. #1515 bounds that teaser to one screen with its action centred and the preview
+fading at its foot. The existing gates and each implementation PR's committed-state mutation
+proofs remain their evidence; this records-only change introduces no new rule. #1476 already records
+D-056's opening reservation and the rule to await the ready mark's own completed clean review.
+
+What remains is not listed here. Each open item is a row in [the open-items page](../../tasks/todo.md)
+with its owner and next step, and leaves it in the pull request that closes it (AGENTS.md §7), so
+a second list on this page would go stale as they close.
+
+The fresh matrix covers eight local routes, both themes, 390/1440px and default/200% text;
+all 64 route measurements fit the document width and logged no uncaught page error. It does not
+replace each PR's before/after evidence, establish production behaviour, or retest mail clients,
+PDFs, provider consoles and successful feed states. The source-pane and export work retain their
+own capture and gate evidence. The founder's held items keep their rows in the open-items page,
+and the founder receives the final sweep report as a message, not as a committed release verdict.
+
+## Closing
+
+The brief asked for a brand that could be recognised with the logo covered. On the rebuilt pages
+the thing you would recognise is small and specific: a phrase with a pale mark under it, a
+bracket in the margin, a figure beside the sentence it came from. That is the product's own habit
+made visible, which is why it will hold: nothing in it needs a campaign to stay true, only the
+rules the gates above now hold. The landing composition now follows the filing's ruled items; the remaining work follows the open-items page above.

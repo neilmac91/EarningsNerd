@@ -1,0 +1,5 @@
+# pip-audit 2.10.1 over the backend manifests CI does not audit, Python 3.11.17 environment from main's lock, 2026-10-14 20:38 UTC
+pip-audit -r backend/requirements-dev.txt:
+No known vulnerabilities found
+pip-audit -r backend/requirements-eval.txt:
+No known vulnerabilities found

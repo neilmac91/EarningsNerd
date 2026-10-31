@@ -1,0 +1,86 @@
+{
+ "ticker": "ORCL",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values, and its stale FY2018 gross margin adds nothing. B explains Cerner, cloud infrastructure, capex, debt, off-balance-sheet leases, peers and the proxy-sourced net income. Its tax claim ($1.5B SBC benefit) is not in the cited passage, and it misstates R&D causality. These are minor flaws against substantial, mostly well-sourced analysis, so B is clearly better."
+   },
+   "cost_usd": 0.117617,
+   "latency_s": 13.05,
+   "input_tokens": 13097,
+   "output_tokens": 926,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully supported but only restates table values, and its stale FY2018 gross margin adds nothing. B explains Cerner, cloud infrastructure, capex, debt, off-balance-sheet leases, peers and the proxy-sourced net income. Its tax claim ($1.5B SBC benefit) is not in the cited passage, and it misstates R&D causality. These are minor flaws against substantial, mostly well-sourced analysis, so B is clearly better.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values, with a stale FY2018 gross margin, an operand dump and vague watch items. A explains drivers well: Cerner, the OCI mix, infrastructure costs, capex funded by debt, and $260bn of off-balance-sheet leases. A has grounding slips: the $1.5bn stock-compensation tax benefit is absent from the cited passage, and 'R&D growth slowed on higher costs' misreads its source. A still serves readers far better."
+   },
+   "cost_usd": 0.116153,
+   "latency_s": 13.878,
+   "input_tokens": 13099,
+   "output_tokens": 852,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"B is fully supported but only restates table values, with a stale FY2018 gross margin, an operand dump and vague watch items. A explains drivers well: Cerner, the OCI mix, infrastructure costs, capex funded by debt, and $260bn of off-balance-sheet leases. A has grounding slips: the $1.5bn stock-compensation tax benefit is absent from the cited passage, and 'R&D growth slowed on higher costs' misreads its source. A still serves readers far better.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.23377
+}

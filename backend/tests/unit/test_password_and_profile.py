@@ -77,6 +77,7 @@ def test_change_password_with_correct_current(client):
         )
         assert resp.status_code == 200
         new_hash = _reload_hash(uid)
+        assert new_hash.startswith("$argon2id$")  # a changed password is Argon2id (E97)
         assert verify_password("BrandNewPassw0rd!", new_hash)
         assert not verify_password("OldStr0ngPassw0rd!", new_hash)
 
@@ -102,6 +103,7 @@ def test_oauth_only_user_can_set_password_without_current(client):
             json={"new_password": "FirstPassw0rd123!"},
         )
         assert resp.status_code == 200
+        assert _reload_hash(uid).startswith("$argon2id$")
         assert verify_password("FirstPassw0rd123!", _reload_hash(uid))
 
 
@@ -133,3 +135,28 @@ def test_clear_profile_name(client):
         assert resp.status_code == 200
         assert resp.json()["full_name"] is None
         assert _reload_name(uid) is None
+
+
+@pytest.mark.requires_db
+def test_update_profile_name_of_a_user_another_session_loaded(client):
+    # The edit writes through the row the request's own session reads, so it is saved even when the
+    # user the auth dependency hands over was loaded, and detached, by another session.
+    with _auth_as(has_password=True) as uid:
+        db = SessionLocal()
+        detached = db.query(User).filter(User.id == uid).first()
+        db.close()
+        app.dependency_overrides[get_current_user] = lambda: detached
+        resp = client.patch("/api/users/me", json={"full_name": "Elsewhere"})
+        assert resp.status_code == 200
+        assert resp.json()["full_name"] == "Elsewhere"
+        assert _reload_name(uid) == "Elsewhere"
+
+
+@pytest.mark.requires_db
+def test_empty_profile_patch_keeps_name(client):
+    # Only the fields the client sent are applied: leaving full_name out must not clear it.
+    with _auth_as(has_password=True) as uid:
+        resp = client.patch("/api/users/me", json={})
+        assert resp.status_code == 200
+        assert resp.json()["full_name"] == "Original Name"
+        assert _reload_name(uid) == "Original Name"

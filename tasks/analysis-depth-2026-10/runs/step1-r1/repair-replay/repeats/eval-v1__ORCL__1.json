@@ -1,0 +1,2908 @@
+{
+ "ticker": "ORCL",
+ "arm": "deepseek-flash",
+ "pipeline": "v2",
+ "source": "eval-v1/deepseek-flash/ORCL",
+ "first_pass_prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded 6.6% a year from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was flat through FY2022, then two step changes: 17.7% growth in FY2023 and 17.3% in FY2026 [D280][D421]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2023 step came from the Cerner acquisition, which contributed $5.9 billion of revenue, 11.8% of the year [S61][D604][P48]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026 growth came from cloud, as cloud applications and cloud infrastructure contributed 16% and 84% of cloud revenue growth [P17]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Cloud Infrastructure is now the growth engine: $18.1 billion, 26.9% of revenue, up 76.9% and adding 13.7pp [S92][D643][D644][D645]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cloud Applications added 2.8pp on 11.3% growth, while Software License fell 8.9% and subtracted 0.8pp [D668][D667][D682][D681]."
+     },
+     {
+      "type": "comparison",
+      "text": "The Americas contributed 14.2pp of the 17.3% growth and now are 66.0% of revenue [D470][D421][D468]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 16.6% against 17.3% revenue growth, an incremental margin of 29.4% [D422][D421][D442]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS grew 34.3% against 36.5% net income growth, with the diluted share count up 1.7% [D425][D423][D438]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin was 30.6% in FY2026, below the 32.2% window median and far below the 37.6% FY2021 high [F34][D788][D787]."
+     },
+     {
+      "type": "comparison",
+      "text": "It slipped 0.2pp as operating costs grew 17.7% against 17.3% revenue growth [D433][D436][D421]."
+     },
+     {
+      "type": "cause",
+      "text": "The drag was infrastructure expense for cloud growth, which lifted cloud and software expenses by $6.0 billion and cut that segment's margin to 58.9% [P19][D761]."
+     },
+     {
+      "type": "cause",
+      "text": "R&D fell to 15.3% of revenue, the window low, adding 1.9pp, as growth slowed to 4.2% on higher employee and equipment costs [D399][D795][D444][D435][P12]."
+     },
+     {
+      "type": "cause",
+      "text": "Net margin rose 3.5pp to 25.2% as the effective tax rate fell to 28.4% from 39.2%, helped by $1.5 billion more stock-based compensation tax benefit [D434][F54][D407][D360][P9]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow rose 53.6% to $32.0 billion, 47.5% of revenue, but capex of $55.7 billion pushed free cash flow to -$23.7 billion [D426][F84][D406][F94][F104]."
+     },
+     {
+      "type": "cause",
+      "text": "The $34.4 billion capex increase was the main investing outflow, partly offset by $4.3 billion from the Ampere sale [P5]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow gained on higher net income and $4.6 billion of customer prepayments with a significant financing component [P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was -1.39x net income against a 1.06x window median, and capex ran 7.30x D&A [D409][D800][D410]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median net cash is -0.5% of revenue [D414][D415][D815][D816]."
+     },
+     {
+      "type": "cause",
+      "text": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes and $5.0 billion of mandatory convertible preferred [D440][D413][P7]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks plus dividends were only $5.9 billion, with repurchases down to $95 million [D416][X155]."
+     },
+     {
+      "type": "comparison",
+      "text": "The diluted share count rose 1.7%, reversing the 11.9% annual shrink of FY2019 [D438][D114]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Cash and investments of $31.9 billion cover only 1.3 years of the latest burn, and $260 billion of data-center lease commitments sit off balance sheet [D419][D412][P1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow ran below net income for two years, at -0.03x in FY2025 and -1.39x in FY2026 [D362][D409]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash has fallen into deeper net debt for two straight years, from -$76.2 billion to -$97.6 billion [D320][D367][D414]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2026 net income in the table is proxy-sourced and rounded; the 10-K figure is $17.1 billion [F44][X20]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin: a return above the 26.0% window median would confirm the capex cycle is peaking; another year near the -35.2% low would not [D794][D792]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating margin: holding above the 30.6% latest level would show cloud infrastructure leverage; a drop toward the 25.7% FY2022 low would reverse it [F34][D786]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash: any narrowing of the -$97.6 billion gap would ease balance-sheet strain; further widening would extend it [D414]."
+     }
+    ]
+   }
+  ]
+ },
+ "attempts": [
+  {
+   "attempt": "repair",
+   "input_tokens": 43047,
+   "cached_input_tokens": 40832,
+   "output_tokens": 229,
+   "reasoning_tokens": 0,
+   "latency_s": 2.188,
+   "cost_usd": 0.000592,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 43276
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"balance_sheet\", \"original\": \"Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median is -0.5% [D414][D415][D815][D816].\", \"type\": \"comparison\", \"text\": \"Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median net cash is -0.5% of revenue [D414][D415][D815][D816].\"}, {\"section\": \"red_flags\", \"original\": \"Free cash flow has run below 80% of net income for two years, at -1.39x in FY2026 [D362][D409].\", \"type\": \"comparison\", \"text\": \"Free cash flow ran below net income for two years, at -0.03x in FY2025 and -1.39x in FY2026 [D362][D409].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 43047,
+  "cached_input_tokens": 40832,
+  "output_tokens": 229,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 2.188,
+ "cost_usd": 0.000592,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 3,
+   "comparison": 18,
+   "cause": 8
+  },
+  "claims": 78,
+  "verified": 77,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "balance_sheet",
+    "sentence": "Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median is -0.5% [D414][D415][D815][D816].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-0.5%' net cash's minus sign printed under 'net debt' [D816]"
+   },
+   {
+    "section": "red_flags",
+    "sentence": "Free cash flow has run below 80% of net income for two years, at -1.39x in FY2026 [D362][D409].",
+    "type": "comparison",
+    "failure": "'80%' matches nothing the sentence cites"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded 6.6% a year from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F196"
+    ],
+    "claims": [
+     {
+      "claim": "6.6%",
+      "value": 6.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F196"
+      ]
+     },
+     {
+      "claim": "$37.8 billion",
+      "value": 37.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$67.4 billion",
+      "value": 67.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was flat through FY2022, then two step changes: 17.7% growth in FY2023 and 17.3% in FY2026 [D280][D421].",
+    "type": "comparison",
+    "citations": [
+     "D280",
+     "D421"
+    ],
+    "claims": [
+     {
+      "claim": "17.7%",
+      "value": 17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D280"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2023 step came from the Cerner acquisition, which contributed $5.9 billion of revenue, 11.8% of the year [S61][D604][P48].",
+    "type": "cause",
+    "citations": [
+     "S61",
+     "D604",
+     "P48"
+    ],
+    "claims": [
+     {
+      "claim": "$5.9 billion",
+      "value": 5.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S61"
+      ]
+     },
+     {
+      "claim": "11.8%",
+      "value": 11.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D604"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2026 growth came from cloud, as cloud applications and cloud infrastructure contributed 16% and 84% of cloud revenue growth [P17].",
+    "type": "cause",
+    "citations": [
+     "P17"
+    ],
+    "claims": [
+     {
+      "claim": "16%",
+      "value": 16.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P17",
+      "ids": [
+       "P17"
+      ]
+     },
+     {
+      "claim": "84%",
+      "value": 84.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P17",
+      "ids": [
+       "P17"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Cloud Infrastructure is now the growth engine: $18.1 billion, 26.9% of revenue, up 76.9% and adding 13.7pp [S92][D643][D644][D645].",
+    "type": "comparison",
+    "citations": [
+     "S92",
+     "D643",
+     "D644",
+     "D645"
+    ],
+    "claims": [
+     {
+      "claim": "$18.1 billion",
+      "value": 18.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S92"
+      ]
+     },
+     {
+      "claim": "26.9%",
+      "value": 26.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D643"
+      ]
+     },
+     {
+      "claim": "76.9%",
+      "value": 76.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D644"
+      ]
+     },
+     {
+      "claim": "13.7pp",
+      "value": 13.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D645"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Cloud Applications added 2.8pp on 11.3% growth, while Software License fell 8.9% and subtracted 0.8pp [D668][D667][D682][D681].",
+    "type": "comparison",
+    "citations": [
+     "D668",
+     "D667",
+     "D682",
+     "D681"
+    ],
+    "claims": [
+     {
+      "claim": "2.8pp",
+      "value": 2.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D668"
+      ]
+     },
+     {
+      "claim": "11.3%",
+      "value": 11.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D667"
+      ]
+     },
+     {
+      "claim": "8.9%",
+      "value": 8.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D681"
+      ]
+     },
+     {
+      "claim": "0.8pp",
+      "value": 0.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D682"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The Americas contributed 14.2pp of the 17.3% growth and now are 66.0% of revenue [D470][D421][D468].",
+    "type": "comparison",
+    "citations": [
+     "D470",
+     "D421",
+     "D468"
+    ],
+    "claims": [
+     {
+      "claim": "14.2pp",
+      "value": 14.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     },
+     {
+      "claim": "66.0%",
+      "value": 66.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D468"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 16.6% against 17.3% revenue growth, an incremental margin of 29.4% [D422][D421][D442].",
+    "type": "comparison",
+    "citations": [
+     "D422",
+     "D421",
+     "D442"
+    ],
+    "claims": [
+     {
+      "claim": "16.6%",
+      "value": 16.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D422"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     },
+     {
+      "claim": "29.4%",
+      "value": 29.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS grew 34.3% against 36.5% net income growth, with the diluted share count up 1.7% [D425][D423][D438].",
+    "type": "comparison",
+    "citations": [
+     "D425",
+     "D423",
+     "D438"
+    ],
+    "claims": [
+     {
+      "claim": "34.3%",
+      "value": 34.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     },
+     {
+      "claim": "36.5%",
+      "value": 36.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D423"
+      ]
+     },
+     {
+      "claim": "1.7%",
+      "value": 1.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D438"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin was 30.6% in FY2026, below the 32.2% window median and far below the 37.6% FY2021 high [F34][D788][D787].",
+    "type": "comparison",
+    "citations": [
+     "F34",
+     "D788",
+     "D787"
+    ],
+    "claims": [
+     {
+      "claim": "30.6%",
+      "value": 30.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F34"
+      ]
+     },
+     {
+      "claim": "32.2%",
+      "value": 32.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D788"
+      ]
+     },
+     {
+      "claim": "37.6%",
+      "value": 37.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D787"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "It slipped 0.2pp as operating costs grew 17.7% against 17.3% revenue growth [D433][D436][D421].",
+    "type": "comparison",
+    "citations": [
+     "D433",
+     "D436",
+     "D421"
+    ],
+    "claims": [
+     {
+      "claim": "0.2pp",
+      "value": 0.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D433"
+      ]
+     },
+     {
+      "claim": "17.7%",
+      "value": 17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D436"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The drag was infrastructure expense for cloud growth, which lifted cloud and software expenses by $6.0 billion and cut that segment's margin to 58.9% [P19][D761].",
+    "type": "cause",
+    "citations": [
+     "P19",
+     "D761"
+    ],
+    "claims": [
+     {
+      "claim": "$6.0 billion",
+      "value": 6.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P19",
+      "ids": [
+       "P19"
+      ]
+     },
+     {
+      "claim": "58.9%",
+      "value": 58.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D761"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "R&D fell to 15.3% of revenue, the window low, adding 1.9pp, as growth slowed to 4.2% on higher employee and equipment costs [D399][D795][D444][D435][P12].",
+    "type": "cause",
+    "citations": [
+     "D399",
+     "D795",
+     "D444",
+     "D435",
+     "P12"
+    ],
+    "claims": [
+     {
+      "claim": "15.3%",
+      "value": 15.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D399"
+      ]
+     },
+     {
+      "claim": "1.9pp",
+      "value": 1.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "4.2%",
+      "value": 4.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin rose 3.5pp to 25.2% as the effective tax rate fell to 28.4% from 39.2%, helped by $1.5 billion more stock-based compensation tax benefit [D434][F54][D407][D360][P9].",
+    "type": "cause",
+    "citations": [
+     "D434",
+     "F54",
+     "D407",
+     "D360",
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "3.5pp",
+      "value": 3.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     },
+     {
+      "claim": "25.2%",
+      "value": 25.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F54"
+      ]
+     },
+     {
+      "claim": "28.4%",
+      "value": 28.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D407"
+      ]
+     },
+     {
+      "claim": "39.2%",
+      "value": 39.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D360"
+      ]
+     },
+     {
+      "claim": "$1.5 billion",
+      "value": 1.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9",
+      "ids": [
+       "P9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow rose 53.6% to $32.0 billion, 47.5% of revenue, but capex of $55.7 billion pushed free cash flow to -$23.7 billion [D426][F84][D406][F94][F104].",
+    "type": "comparison",
+    "citations": [
+     "D426",
+     "F84",
+     "D406",
+     "F94",
+     "F104"
+    ],
+    "claims": [
+     {
+      "claim": "53.6%",
+      "value": 53.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D426"
+      ]
+     },
+     {
+      "claim": "$32.0 billion",
+      "value": 32.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F84"
+      ]
+     },
+     {
+      "claim": "47.5%",
+      "value": 47.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D406"
+      ]
+     },
+     {
+      "claim": "$55.7 billion",
+      "value": 55.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F94"
+      ]
+     },
+     {
+      "claim": "-$23.7 billion",
+      "value": -23.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F104"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The $34.4 billion capex increase was the main investing outflow, partly offset by $4.3 billion from the Ampere sale [P5].",
+    "type": "cause",
+    "citations": [
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "$34.4 billion",
+      "value": 34.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P5",
+      "ids": [
+       "P5"
+      ]
+     },
+     {
+      "claim": "$4.3 billion",
+      "value": 4.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P5",
+      "ids": [
+       "P5"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow gained on higher net income and $4.6 billion of customer prepayments with a significant financing component [P6].",
+    "type": "cause",
+    "citations": [
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow was -1.39x net income against a 1.06x window median, and capex ran 7.30x D&A [D409][D800][D410].",
+    "type": "comparison",
+    "citations": [
+     "D409",
+     "D800",
+     "D410"
+    ],
+    "claims": [
+     {
+      "claim": "-1.39x",
+      "value": -1.39,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D409"
+      ]
+     },
+     {
+      "claim": "1.06x",
+      "value": 1.06,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D800"
+      ]
+     },
+     {
+      "claim": "7.30x",
+      "value": 7.3,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D410"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median is -0.5% [D414][D415][D815][D816].",
+    "type": "comparison",
+    "citations": [
+     "D414",
+     "D415",
+     "D815",
+     "D816"
+    ],
+    "claims": [
+     {
+      "claim": "$97.6 billion",
+      "value": 97.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D414"
+      ]
+     },
+     {
+      "claim": "145.0%",
+      "value": 145.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D415"
+      ]
+     },
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D815"
+      ]
+     },
+     {
+      "claim": "-0.5%",
+      "value": -0.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D816"
+      ]
+     }
+    ],
+    "failures": [
+     "backstop R2a: '-0.5%' net cash's minus sign printed under 'net debt' [D816]"
+    ]
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes and $5.0 billion of mandatory convertible preferred [D440][D413][P7].",
+    "type": "cause",
+    "citations": [
+     "D440",
+     "D413",
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "39.9%",
+      "value": 39.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "$129.5 billion",
+      "value": 129.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D413"
+      ]
+     },
+     {
+      "claim": "$42.7 billion",
+      "value": 42.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     },
+     {
+      "claim": "$5.0 billion",
+      "value": 5.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks plus dividends were only $5.9 billion, with repurchases down to $95 million [D416][X155].",
+    "type": "fact",
+    "citations": [
+     "D416",
+     "X155"
+    ],
+    "claims": [
+     {
+      "claim": "$5.9 billion",
+      "value": 5.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D416"
+      ]
+     },
+     {
+      "claim": "$95 million",
+      "value": 95.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X155"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "The diluted share count rose 1.7%, reversing the 11.9% annual shrink of FY2019 [D438][D114].",
+    "type": "comparison",
+    "citations": [
+     "D438",
+     "D114"
+    ],
+    "claims": [
+     {
+      "claim": "1.7%",
+      "value": 1.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D438"
+      ]
+     },
+     {
+      "claim": "11.9%",
+      "value": 11.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D114"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Cash and investments of $31.9 billion cover only 1.3 years of the latest burn, and $260 billion of data-center lease commitments sit off balance sheet [D419][D412][P1].",
+    "type": "comparison",
+    "citations": [
+     "D419",
+     "D412",
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$31.9 billion",
+      "value": 31.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D412"
+      ]
+     },
+     {
+      "claim": "1.3 years",
+      "value": 1.3,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D419"
+      ]
+     },
+     {
+      "claim": "$260 billion",
+      "value": 260.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P1",
+      "ids": [
+       "P1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow has run below 80% of net income for two years, at -1.39x in FY2026 [D362][D409].",
+    "type": "comparison",
+    "citations": [
+     "D362",
+     "D409"
+    ],
+    "claims": [
+     {
+      "claim": "80%",
+      "value": 80.0,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "no_match"
+     },
+     {
+      "claim": "-1.39x",
+      "value": -1.39,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D409"
+      ]
+     }
+    ],
+    "failures": [
+     "'80%' matches nothing the sentence cites"
+    ]
+   },
+   {
+    "section": "red_flags",
+    "text": "Net cash has fallen into deeper net debt for two straight years, from -$76.2 billion to -$97.6 billion [D320][D367][D414].",
+    "type": "comparison",
+    "citations": [
+     "D320",
+     "D367",
+     "D414"
+    ],
+    "claims": [
+     {
+      "claim": "-$76.2 billion",
+      "value": -76.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D320"
+      ]
+     },
+     {
+      "claim": "-$97.6 billion",
+      "value": -97.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D414"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2026 net income in the table is proxy-sourced and rounded; the 10-K figure is $17.1 billion [F44][X20].",
+    "type": "fact",
+    "citations": [
+     "F44",
+     "X20"
+    ],
+    "claims": [
+     {
+      "claim": "$17.1 billion",
+      "value": 17.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X20"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Free cash flow margin: a return above the 26.0% window median would confirm the capex cycle is peaking; another year near the -35.2% low would not [D794][D792].",
+    "type": "comparison",
+    "citations": [
+     "D794",
+     "D792"
+    ],
+    "claims": [
+     {
+      "claim": "26.0%",
+      "value": 26.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D794"
+      ]
+     },
+     {
+      "claim": "-35.2%",
+      "value": -35.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D792"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Operating margin: holding above the 30.6% latest level would show cloud infrastructure leverage; a drop toward the 25.7% FY2022 low would reverse it [F34][D786].",
+    "type": "comparison",
+    "citations": [
+     "F34",
+     "D786"
+    ],
+    "claims": [
+     {
+      "claim": "30.6%",
+      "value": 30.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F34"
+      ]
+     },
+     {
+      "claim": "25.7%",
+      "value": 25.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D786"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Net cash: any narrowing of the -$97.6 billion gap would ease balance-sheet strain; further widening would extend it [D414].",
+    "type": "comparison",
+    "citations": [
+     "D414"
+    ],
+    "claims": [
+     {
+      "claim": "-$97.6 billion",
+      "value": -97.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D414"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 1
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 3,
+   "comparison": 18,
+   "cause": 8
+  },
+  "claims": 78,
+  "verified": 78,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded 6.6% a year from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F196"
+    ],
+    "claims": [
+     {
+      "claim": "6.6%",
+      "value": 6.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F196"
+      ]
+     },
+     {
+      "claim": "$37.8 billion",
+      "value": 37.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$67.4 billion",
+      "value": 67.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was flat through FY2022, then two step changes: 17.7% growth in FY2023 and 17.3% in FY2026 [D280][D421].",
+    "type": "comparison",
+    "citations": [
+     "D280",
+     "D421"
+    ],
+    "claims": [
+     {
+      "claim": "17.7%",
+      "value": 17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D280"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2023 step came from the Cerner acquisition, which contributed $5.9 billion of revenue, 11.8% of the year [S61][D604][P48].",
+    "type": "cause",
+    "citations": [
+     "S61",
+     "D604",
+     "P48"
+    ],
+    "claims": [
+     {
+      "claim": "$5.9 billion",
+      "value": 5.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S61"
+      ]
+     },
+     {
+      "claim": "11.8%",
+      "value": 11.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D604"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2026 growth came from cloud, as cloud applications and cloud infrastructure contributed 16% and 84% of cloud revenue growth [P17].",
+    "type": "cause",
+    "citations": [
+     "P17"
+    ],
+    "claims": [
+     {
+      "claim": "16%",
+      "value": 16.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P17",
+      "ids": [
+       "P17"
+      ]
+     },
+     {
+      "claim": "84%",
+      "value": 84.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P17",
+      "ids": [
+       "P17"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Cloud Infrastructure is now the growth engine: $18.1 billion, 26.9% of revenue, up 76.9% and adding 13.7pp [S92][D643][D644][D645].",
+    "type": "comparison",
+    "citations": [
+     "S92",
+     "D643",
+     "D644",
+     "D645"
+    ],
+    "claims": [
+     {
+      "claim": "$18.1 billion",
+      "value": 18.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S92"
+      ]
+     },
+     {
+      "claim": "26.9%",
+      "value": 26.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D643"
+      ]
+     },
+     {
+      "claim": "76.9%",
+      "value": 76.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D644"
+      ]
+     },
+     {
+      "claim": "13.7pp",
+      "value": 13.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D645"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Cloud Applications added 2.8pp on 11.3% growth, while Software License fell 8.9% and subtracted 0.8pp [D668][D667][D682][D681].",
+    "type": "comparison",
+    "citations": [
+     "D668",
+     "D667",
+     "D682",
+     "D681"
+    ],
+    "claims": [
+     {
+      "claim": "2.8pp",
+      "value": 2.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D668"
+      ]
+     },
+     {
+      "claim": "11.3%",
+      "value": 11.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D667"
+      ]
+     },
+     {
+      "claim": "8.9%",
+      "value": 8.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D681"
+      ]
+     },
+     {
+      "claim": "0.8pp",
+      "value": 0.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D682"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The Americas contributed 14.2pp of the 17.3% growth and now are 66.0% of revenue [D470][D421][D468].",
+    "type": "comparison",
+    "citations": [
+     "D470",
+     "D421",
+     "D468"
+    ],
+    "claims": [
+     {
+      "claim": "14.2pp",
+      "value": 14.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     },
+     {
+      "claim": "66.0%",
+      "value": 66.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D468"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 16.6% against 17.3% revenue growth, an incremental margin of 29.4% [D422][D421][D442].",
+    "type": "comparison",
+    "citations": [
+     "D422",
+     "D421",
+     "D442"
+    ],
+    "claims": [
+     {
+      "claim": "16.6%",
+      "value": 16.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D422"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     },
+     {
+      "claim": "29.4%",
+      "value": 29.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS grew 34.3% against 36.5% net income growth, with the diluted share count up 1.7% [D425][D423][D438].",
+    "type": "comparison",
+    "citations": [
+     "D425",
+     "D423",
+     "D438"
+    ],
+    "claims": [
+     {
+      "claim": "34.3%",
+      "value": 34.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     },
+     {
+      "claim": "36.5%",
+      "value": 36.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D423"
+      ]
+     },
+     {
+      "claim": "1.7%",
+      "value": 1.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D438"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin was 30.6% in FY2026, below the 32.2% window median and far below the 37.6% FY2021 high [F34][D788][D787].",
+    "type": "comparison",
+    "citations": [
+     "F34",
+     "D788",
+     "D787"
+    ],
+    "claims": [
+     {
+      "claim": "30.6%",
+      "value": 30.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F34"
+      ]
+     },
+     {
+      "claim": "32.2%",
+      "value": 32.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D788"
+      ]
+     },
+     {
+      "claim": "37.6%",
+      "value": 37.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D787"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "It slipped 0.2pp as operating costs grew 17.7% against 17.3% revenue growth [D433][D436][D421].",
+    "type": "comparison",
+    "citations": [
+     "D433",
+     "D436",
+     "D421"
+    ],
+    "claims": [
+     {
+      "claim": "0.2pp",
+      "value": 0.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D433"
+      ]
+     },
+     {
+      "claim": "17.7%",
+      "value": 17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D436"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The drag was infrastructure expense for cloud growth, which lifted cloud and software expenses by $6.0 billion and cut that segment's margin to 58.9% [P19][D761].",
+    "type": "cause",
+    "citations": [
+     "P19",
+     "D761"
+    ],
+    "claims": [
+     {
+      "claim": "$6.0 billion",
+      "value": 6.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P19",
+      "ids": [
+       "P19"
+      ]
+     },
+     {
+      "claim": "58.9%",
+      "value": 58.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D761"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "R&D fell to 15.3% of revenue, the window low, adding 1.9pp, as growth slowed to 4.2% on higher employee and equipment costs [D399][D795][D444][D435][P12].",
+    "type": "cause",
+    "citations": [
+     "D399",
+     "D795",
+     "D444",
+     "D435",
+     "P12"
+    ],
+    "claims": [
+     {
+      "claim": "15.3%",
+      "value": 15.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D399"
+      ]
+     },
+     {
+      "claim": "1.9pp",
+      "value": 1.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "4.2%",
+      "value": 4.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin rose 3.5pp to 25.2% as the effective tax rate fell to 28.4% from 39.2%, helped by $1.5 billion more stock-based compensation tax benefit [D434][F54][D407][D360][P9].",
+    "type": "cause",
+    "citations": [
+     "D434",
+     "F54",
+     "D407",
+     "D360",
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "3.5pp",
+      "value": 3.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     },
+     {
+      "claim": "25.2%",
+      "value": 25.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F54"
+      ]
+     },
+     {
+      "claim": "28.4%",
+      "value": 28.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D407"
+      ]
+     },
+     {
+      "claim": "39.2%",
+      "value": 39.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D360"
+      ]
+     },
+     {
+      "claim": "$1.5 billion",
+      "value": 1.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9",
+      "ids": [
+       "P9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow rose 53.6% to $32.0 billion, 47.5% of revenue, but capex of $55.7 billion pushed free cash flow to -$23.7 billion [D426][F84][D406][F94][F104].",
+    "type": "comparison",
+    "citations": [
+     "D426",
+     "F84",
+     "D406",
+     "F94",
+     "F104"
+    ],
+    "claims": [
+     {
+      "claim": "53.6%",
+      "value": 53.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D426"
+      ]
+     },
+     {
+      "claim": "$32.0 billion",
+      "value": 32.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F84"
+      ]
+     },
+     {
+      "claim": "47.5%",
+      "value": 47.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D406"
+      ]
+     },
+     {
+      "claim": "$55.7 billion",
+      "value": 55.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F94"
+      ]
+     },
+     {
+      "claim": "-$23.7 billion",
+      "value": -23.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F104"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The $34.4 billion capex increase was the main investing outflow, partly offset by $4.3 billion from the Ampere sale [P5].",
+    "type": "cause",
+    "citations": [
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "$34.4 billion",
+      "value": 34.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P5",
+      "ids": [
+       "P5"
+      ]
+     },
+     {
+      "claim": "$4.3 billion",
+      "value": 4.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P5",
+      "ids": [
+       "P5"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow gained on higher net income and $4.6 billion of customer prepayments with a significant financing component [P6].",
+    "type": "cause",
+    "citations": [
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow was -1.39x net income against a 1.06x window median, and capex ran 7.30x D&A [D409][D800][D410].",
+    "type": "comparison",
+    "citations": [
+     "D409",
+     "D800",
+     "D410"
+    ],
+    "claims": [
+     {
+      "claim": "-1.39x",
+      "value": -1.39,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D409"
+      ]
+     },
+     {
+      "claim": "1.06x",
+      "value": 1.06,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D800"
+      ]
+     },
+     {
+      "claim": "7.30x",
+      "value": 7.3,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D410"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median net cash is -0.5% of revenue [D414][D415][D815][D816].",
+    "type": "comparison",
+    "citations": [
+     "D414",
+     "D415",
+     "D815",
+     "D816"
+    ],
+    "claims": [
+     {
+      "claim": "$97.6 billion",
+      "value": 97.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D414"
+      ]
+     },
+     {
+      "claim": "145.0%",
+      "value": 145.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D415"
+      ]
+     },
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D815"
+      ]
+     },
+     {
+      "claim": "-0.5%",
+      "value": -0.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D816"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes and $5.0 billion of mandatory convertible preferred [D440][D413][P7].",
+    "type": "cause",
+    "citations": [
+     "D440",
+     "D413",
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "39.9%",
+      "value": 39.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "$129.5 billion",
+      "value": 129.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D413"
+      ]
+     },
+     {
+      "claim": "$42.7 billion",
+      "value": 42.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     },
+     {
+      "claim": "$5.0 billion",
+      "value": 5.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks plus dividends were only $5.9 billion, with repurchases down to $95 million [D416][X155].",
+    "type": "fact",
+    "citations": [
+     "D416",
+     "X155"
+    ],
+    "claims": [
+     {
+      "claim": "$5.9 billion",
+      "value": 5.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D416"
+      ]
+     },
+     {
+      "claim": "$95 million",
+      "value": 95.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X155"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "The diluted share count rose 1.7%, reversing the 11.9% annual shrink of FY2019 [D438][D114].",
+    "type": "comparison",
+    "citations": [
+     "D438",
+     "D114"
+    ],
+    "claims": [
+     {
+      "claim": "1.7%",
+      "value": 1.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D438"
+      ]
+     },
+     {
+      "claim": "11.9%",
+      "value": 11.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D114"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Cash and investments of $31.9 billion cover only 1.3 years of the latest burn, and $260 billion of data-center lease commitments sit off balance sheet [D419][D412][P1].",
+    "type": "comparison",
+    "citations": [
+     "D419",
+     "D412",
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$31.9 billion",
+      "value": 31.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D412"
+      ]
+     },
+     {
+      "claim": "1.3 years",
+      "value": 1.3,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D419"
+      ]
+     },
+     {
+      "claim": "$260 billion",
+      "value": 260.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P1",
+      "ids": [
+       "P1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow ran below net income for two years, at -0.03x in FY2025 and -1.39x in FY2026 [D362][D409].",
+    "type": "comparison",
+    "citations": [
+     "D362",
+     "D409"
+    ],
+    "claims": [
+     {
+      "claim": "-0.03x",
+      "value": -0.03,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D362"
+      ]
+     },
+     {
+      "claim": "-1.39x",
+      "value": -1.39,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D409"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net cash has fallen into deeper net debt for two straight years, from -$76.2 billion to -$97.6 billion [D320][D367][D414].",
+    "type": "comparison",
+    "citations": [
+     "D320",
+     "D367",
+     "D414"
+    ],
+    "claims": [
+     {
+      "claim": "-$76.2 billion",
+      "value": -76.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D320"
+      ]
+     },
+     {
+      "claim": "-$97.6 billion",
+      "value": -97.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D414"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2026 net income in the table is proxy-sourced and rounded; the 10-K figure is $17.1 billion [F44][X20].",
+    "type": "fact",
+    "citations": [
+     "F44",
+     "X20"
+    ],
+    "claims": [
+     {
+      "claim": "$17.1 billion",
+      "value": 17.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X20"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Free cash flow margin: a return above the 26.0% window median would confirm the capex cycle is peaking; another year near the -35.2% low would not [D794][D792].",
+    "type": "comparison",
+    "citations": [
+     "D794",
+     "D792"
+    ],
+    "claims": [
+     {
+      "claim": "26.0%",
+      "value": 26.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D794"
+      ]
+     },
+     {
+      "claim": "-35.2%",
+      "value": -35.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D792"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Operating margin: holding above the 30.6% latest level would show cloud infrastructure leverage; a drop toward the 25.7% FY2022 low would reverse it [F34][D786].",
+    "type": "comparison",
+    "citations": [
+     "F34",
+     "D786"
+    ],
+    "claims": [
+     {
+      "claim": "30.6%",
+      "value": 30.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F34"
+      ]
+     },
+     {
+      "claim": "25.7%",
+      "value": 25.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D786"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Net cash: any narrowing of the -$97.6 billion gap would ease balance-sheet strain; further widening would extend it [D414].",
+    "type": "comparison",
+    "citations": [
+     "D414"
+    ],
+    "claims": [
+     {
+      "claim": "-$97.6 billion",
+      "value": -97.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D414"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "words": 566,
+ "repeat": 1,
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 78,
+  "verified": 77,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "balance_sheet",
+    "sentence": "Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median is -0.5% [D414][D415][D815][D816].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-0.5%' net cash's minus sign printed under 'net debt' [D816]"
+   },
+   {
+    "section": "red_flags",
+    "sentence": "Free cash flow has run below 80% of net income for two years, at -1.39x in FY2026 [D362][D409].",
+    "type": "comparison",
+    "failure": "'80%' matches nothing the sentence cites"
+   }
+  ],
+  "backstop_failures": 1
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded 6.6% a year from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was flat through FY2022, then two step changes: 17.7% growth in FY2023 and 17.3% in FY2026 [D280][D421]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2023 step came from the Cerner acquisition, which contributed $5.9 billion of revenue, 11.8% of the year [S61][D604][P48]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026 growth came from cloud, as cloud applications and cloud infrastructure contributed 16% and 84% of cloud revenue growth [P17]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Cloud Infrastructure is now the growth engine: $18.1 billion, 26.9% of revenue, up 76.9% and adding 13.7pp [S92][D643][D644][D645]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cloud Applications added 2.8pp on 11.3% growth, while Software License fell 8.9% and subtracted 0.8pp [D668][D667][D682][D681]."
+     },
+     {
+      "type": "comparison",
+      "text": "The Americas contributed 14.2pp of the 17.3% growth and now are 66.0% of revenue [D470][D421][D468]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 16.6% against 17.3% revenue growth, an incremental margin of 29.4% [D422][D421][D442]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS grew 34.3% against 36.5% net income growth, with the diluted share count up 1.7% [D425][D423][D438]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin was 30.6% in FY2026, below the 32.2% window median and far below the 37.6% FY2021 high [F34][D788][D787]."
+     },
+     {
+      "type": "comparison",
+      "text": "It slipped 0.2pp as operating costs grew 17.7% against 17.3% revenue growth [D433][D436][D421]."
+     },
+     {
+      "type": "cause",
+      "text": "The drag was infrastructure expense for cloud growth, which lifted cloud and software expenses by $6.0 billion and cut that segment's margin to 58.9% [P19][D761]."
+     },
+     {
+      "type": "cause",
+      "text": "R&D fell to 15.3% of revenue, the window low, adding 1.9pp, as growth slowed to 4.2% on higher employee and equipment costs [D399][D795][D444][D435][P12]."
+     },
+     {
+      "type": "cause",
+      "text": "Net margin rose 3.5pp to 25.2% as the effective tax rate fell to 28.4% from 39.2%, helped by $1.5 billion more stock-based compensation tax benefit [D434][F54][D407][D360][P9]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow rose 53.6% to $32.0 billion, 47.5% of revenue, but capex of $55.7 billion pushed free cash flow to -$23.7 billion [D426][F84][D406][F94][F104]."
+     },
+     {
+      "type": "cause",
+      "text": "The $34.4 billion capex increase was the main investing outflow, partly offset by $4.3 billion from the Ampere sale [P5]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow gained on higher net income and $4.6 billion of customer prepayments with a significant financing component [P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was -1.39x net income against a 1.06x window median, and capex ran 7.30x D&A [D409][D800][D410]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt widened to $97.6 billion, 145.0% of revenue, the 0th percentile against six software peers whose median is -0.5% [D414][D415][D815][D816]."
+     },
+     {
+      "type": "cause",
+      "text": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes and $5.0 billion of mandatory convertible preferred [D440][D413][P7]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks plus dividends were only $5.9 billion, with repurchases down to $95 million [D416][X155]."
+     },
+     {
+      "type": "comparison",
+      "text": "The diluted share count rose 1.7%, reversing the 11.9% annual shrink of FY2019 [D438][D114]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Cash and investments of $31.9 billion cover only 1.3 years of the latest burn, and $260 billion of data-center lease commitments sit off balance sheet [D419][D412][P1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow has run below 80% of net income for two years, at -1.39x in FY2026 [D362][D409]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash has fallen into deeper net debt for two straight years, from -$76.2 billion to -$97.6 billion [D320][D367][D414]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2026 net income in the table is proxy-sourced and rounded; the 10-K figure is $17.1 billion [F44][X20]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin: a return above the 26.0% window median would confirm the capex cycle is peaking; another year near the -35.2% low would not [D794][D792]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating margin: holding above the 30.6% latest level would show cloud infrastructure leverage; a drop toward the 25.7% FY2022 low would reverse it [F34][D786]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash: any narrowing of the -$97.6 billion gap would ease balance-sheet strain; further widening would extend it [D414]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch",
+ "measures": {
+  "repair_kind": "patch",
+  "calls": 1,
+  "latency_s": 2.188,
+  "input_tokens": 43047,
+  "cached_input_tokens": 40832,
+  "output_tokens": 229,
+  "reasoning_tokens": 0,
+  "cost_usd": 0.000592,
+  "cost_warm_usd": 0.000564,
+  "gate_passed": true,
+  "failures_after": 0,
+  "untouched_kept": [
+   27,
+   27
+  ],
+  "repair_failed": null,
+  "repair_error": null
+ }
+}

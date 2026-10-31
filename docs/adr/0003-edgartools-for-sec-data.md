@@ -27,7 +27,7 @@ time was `>=5.12.0`; it has since advanced to `>=5.56.0` in `requirements.in`, w
 `requirements.txt` pinning `edgartools==5.56.0`.)
 
 - SEC access preserves the existing owners in `backend/app/services/edgar/`,
-  `app/integrations/sec_api.py` and `app/services/facts_service.py`, with the shared limiter.
+  `app/integrations/sec_api.py` and `app/services/facts/transport.py`, with the shared limiter.
 - Network-bearing synchronous `edgartools` calls use the dedicated thread-pool executor
   (`edgar/async_executor.py`). Fetch paths include circuit-breaker protection, while local
   parsing is deliberately exempt; the existing companyfacts and full-text HTTP owners use

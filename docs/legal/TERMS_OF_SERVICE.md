@@ -2,7 +2,7 @@
 
 **Last updated: [DATE] · Version 1.0**
 
-> ⚠️ **Template — not legal advice.** Drafted for a Switzerland-based solo provider selling worldwide.
+> ⚠️ **Template — not legal advice.** Historical draft; the maintained website terms are in `frontend/app/terms/page.tsx`.
 > Have a qualified lawyer review it (especially consumer-law conformity per market, the investment
 > disclaimer, and VAT/tax) and complete the `[bracketed]` placeholders before relying on it. These
 > Terms govern the **website and direct (web) use**; purchases made through the Apple App Store or
@@ -11,8 +11,8 @@
 
 ## 1. Who we are and acceptance
 
-These Terms of Service ("**Terms**") are a binding agreement between you and **[Neil Mac Aogain]**,
-a sole proprietor based in Switzerland ("**EarningsNerd**", "**we**", "**us**"), governing your use
+These Terms of Service ("**Terms**") are a draft agreement between you and the operator of
+**EarningsNerd** ("**we**", "**us**"), governing your use
 of our website and services (the "**Service**"). By creating an account or using the Service, you
 agree to these Terms and to our **[Privacy Policy](./PRIVACY_POLICY.md)**. If you do not agree, do
 not use the Service.
@@ -159,7 +159,9 @@ are the entire agreement between us regarding the Service.
 
 ## 20. Contact
 
-**support@earningsnerd.io** · legal: **legal@earningsnerd.io** · **[Address, Switzerland]**
+Support and terms questions: **support@earningsnerd.io**. Billing: **billing@earningsnerd.io**.
+
+Confirm any legally required party and correspondence details before using this historical draft. No entity, personal name or address is supplied here.
 
 ---
 

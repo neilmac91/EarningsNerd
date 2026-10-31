@@ -52,6 +52,14 @@ DEFAULT_TICKERS = [
 # 10-K it never files. (Requires ENABLE_FPI_FILINGS for precompute_one to accept 20-F.)
 _ANNUAL_FORM_BY_TICKER = {"BABA": "20-F"}
 
+# How each precompute status reads in the job log; any other status prints as itself.
+_STATUS_DETAIL = {
+    "generated": "summary cached",
+    "already_cached": "summary cached",
+    "kept": "stored summary kept",  # a forced refresh that ranked below it (keep-better)
+    "failed": "forced refresh failed",  # an error counter: the job run fails
+}
+
 
 async def pregenerate_for_ticker(ticker: str, force: bool = False, *, form: str | None = None) -> dict:
     """Resolve the latest annual filing (10-K, or 20-F for foreign issuers) for ``ticker``,
@@ -59,16 +67,16 @@ async def pregenerate_for_ticker(ticker: str, force: bool = False, *, form: str 
 
     Thin wrapper over ``precompute_service.precompute_one`` — the shared, idempotent core also used
     by the token-gated ``POST /internal/jobs/precompute`` trigger. When ``force`` is True the
-    existing summary + cached excerpt are cleared first, so generation re-runs on the current
-    code/prompts (otherwise generation is idempotent and skips filings that already have a summary).
+    existing summary is regenerated in place on the current code/prompts, with a freshly built
+    excerpt, under keep-better (otherwise generation is idempotent and skips filings that already
+    have a summary).
     """
     # Deferred import so the module parses without app config (and SKIP_REDIS_INIT is set first).
     from app.services.precompute_service import precompute_one
 
     form = form or _ANNUAL_FORM_BY_TICKER.get(ticker.upper().strip(), "10-K")
     r = await precompute_one(ticker, form, force=force)
-    cached = r["status"] in ("generated", "already_cached")
-    detail = "summary cached" if cached else r["status"].replace("_", " ")
+    detail = _STATUS_DETAIL.get(r["status"], r["status"].replace("_", " "))
     if r.get("filing_id"):
         print(f"{r['ticker']}: filing_id={r['filing_id']} accession={r['accession']} -> {detail}")
     else:
@@ -119,8 +127,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Reset each filing's existing summary + cached excerpt before regenerating, so the "
-             "refresh picks up the current extraction/prompts instead of skipping cached filings.",
+        help="Regenerate each filing's existing summary in place with a freshly built excerpt, so the "
+             "refresh picks up the current extraction/prompts instead of skipping cached filings; "
+             "a result that ranks below the stored summary is not saved (keep-better).",
     )
     parser.add_argument("--annual-only", action="store_true", help="Resolve annual reports only.")
     args = parser.parse_args()

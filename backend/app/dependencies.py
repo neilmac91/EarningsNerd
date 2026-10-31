@@ -9,6 +9,7 @@ These build on the (required-auth) ``get_current_user`` dependency. To avoid an 
 (``app.routers`` package init imports the routers, some of which import *this* module), the auth
 dependency is resolved **lazily at request time** via ``_resolve_current_user`` rather than imported
 at module load. So importing ``app.dependencies`` touches only services/models, never routers.
+``resolve_current_user_or_none`` reads the same user, lazily too, for a route that has another way to find one.
 """
 from __future__ import annotations
 
@@ -38,6 +39,25 @@ async def _resolve_current_user(
     return await get_current_user(request, credentials, db)
 
 
+async def resolve_current_user_or_none(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_security),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """``get_current_user``'s user, or None where it answers 401: no access token came, or it has lapsed, does not
+    verify or names no user. Its 403 for an inactive account, and a lookup that fails, still raise. The logout of every
+    session (``routers/auth.py::logout_all``) reads its user this way, so that a request its refresh cookie does not
+    serve is answered as ``get_current_user`` answers it (E157 (2))."""
+    from app.routers.auth import get_current_user
+
+    try:
+        return await get_current_user(request, credentials, db)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
+
+
 def require_pro(current_user: User = Depends(_resolve_current_user)) -> User:
     """Allow only Pro (or trialing) users through; 403 otherwise."""
     if not is_pro_user(current_user):
@@ -53,7 +73,8 @@ def require_copilot_or_taste(current_user: User = Depends(_resolve_current_user)
     lifetime free-taste questions left (roadmap 2.2); 403 → upsell once the taste is spent.
 
     Unlike ``require_entitlement("copilot")`` (a hard Pro gate), this lets Free users sample the
-    feature a few times. The lifetime counter is metered on the endpoint after a successful answer.
+    feature a few times. The lifetime counter is metered on the endpoint as the provider request is
+    issued (the dispatcher's provider-start signal); a provider-side failure refunds it.
     """
     if can_use_copilot(current_user):
         return current_user

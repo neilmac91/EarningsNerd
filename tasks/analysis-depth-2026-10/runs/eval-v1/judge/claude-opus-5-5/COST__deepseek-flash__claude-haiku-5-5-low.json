@@ -1,0 +1,86 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A has more driver detail, but several claims go beyond its sources. Its IEEPA tariff-refund claim cites a passage that never mentions tariffs, and it presents inventory-turn and supplier-term causes the truncated passage omits. Its cash-conversion flag and watch item contradict the data, since 1.02x already exceeds the 0.99x median. Both drafts overreach on the cause of operating cash flow growth. B labels its analysis, discloses missing causes and ties the tariff point correctly to its source."
+   },
+   "cost_usd": 0.152373,
+   "latency_s": 17.562,
+   "input_tokens": 16344,
+   "output_tokens": 1365,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A has more driver detail, but several claims go beyond its sources. Its IEEPA tariff-refund claim cites a passage that never mentions tariffs, and it presents inventory-turn and supplier-term causes the truncated passage omits. Its cash-conversion flag and watch item contradict the data, since 1.02x already exceeds the 0.99x median. Both drafts overreach on the cause of operating cash flow growth. B labels its analysis, discloses missing causes and ties the tariff point correctly to its source.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B goes deeper, with US segment share, ticket and frequency drivers, membership drivers and receivables. But it states more unsupported causes: tariff refunds 'adding three basis points', inventory gains from 'faster turns and supplier terms', and capex blamed for FCF falling from a 1.58x high. It also wants FCF to 'recover' to a 0.99x median it already exceeds. A has one unsupported cash-flow attribution, labels its analysis and discloses gaps."
+   },
+   "cost_usd": 0.147581,
+   "latency_s": 15.798,
+   "input_tokens": 16340,
+   "output_tokens": 1127,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B goes deeper, with US segment share, ticket and frequency drivers, membership drivers and receivables. But it states more unsupported causes: tariff refunds 'adding three basis points', inventory gains from 'faster turns and supplier terms', and capex blamed for FCF falling from a 1.58x high. It also wants FCF to 'recover' to a 0.99x median it already exceeds. A has one unsupported cash-flow attribution, labels its analysis and discloses gaps.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.299954
+}

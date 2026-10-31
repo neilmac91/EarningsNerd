@@ -1,0 +1,8 @@
+{
+  "eligible_account_ids": [
+    "1001"
+  ],
+  "excluded_account_ids": [],
+  "window_end": "2026-09-29T00:00:00Z",
+  "window_start": "2026-09-28T00:00:00Z"
+}

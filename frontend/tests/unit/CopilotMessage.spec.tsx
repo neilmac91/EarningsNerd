@@ -17,7 +17,12 @@ vi.mock('next/link', () => ({
 import CopilotMessage, {
   type CopilotMessageData,
 } from '@/features/filings/components/copilot/CopilotMessage'
-import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import {
+  isCopilotFairUseLimit,
+  isCopilotPaywallError,
+  type CopilotCitation,
+} from '@/features/filings/api/copilot-api'
+import { ERROR_CODES, type KnownErrorCode } from '@/lib/api/client'
 
 const verifiedCitation: CopilotCitation = {
   n: 1,
@@ -56,25 +61,52 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.getAllByText('Revenue increased to $94.0B').length).toBeGreaterThan(0)
   })
 
-  it('shows the "Cited" label (not "Verified") for an unverified citation', () => {
+  it('shows the "Section linked" label (not "Verified") for an unverified citation', () => {
     const unverified: CopilotCitation = { ...verifiedCitation, verified: false }
     render(<CopilotMessage message={doneMessage({ citations: [unverified] })} />)
-    expect(screen.getAllByText('Cited').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Section linked').length).toBeGreaterThan(0)
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
-    expect(screen.queryByText('Verified in filing')).not.toBeInTheDocument()
+    expect(screen.queryByText('Quote found in filing')).not.toBeInTheDocument()
+  })
+
+  it('reads a figure the server calculated as "Calculated from filing", never "Matches filing"', () => {
+    // compute_metric's growth or margin (value_kind, admitted as `calculated`): the filing does not state it.
+    const growth: CopilotCitation = { n: 1, excerpt: 'Revenue YoY growth = 6.4% (FY2025/FY)',
+      section_ref: 'XBRL · us-gaap:Revenues', verified: true, fragment_url: 'https://www.sec.gov/filing', calculated: true }
+    render(<CopilotMessage message={doneMessage({ content: 'Revenue grew 6.4% [1].', citations: [growth], grounded: 1 })} />)
+    expect(screen.getAllByText('Calculated from filing').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Matches filing')).not.toBeInTheDocument()
+    // Listed with its own label, never counted as a matched source.
+    expect(screen.queryByText(/^\d+ matched sources?$/)).not.toBeInTheDocument()
+  })
+
+  it('counts a calculated figure beside a filed one as one matched source, not two', () => {
+    const total: CopilotCitation = { n: 1, excerpt: 'Revenue = $416.16B USD (FY2025/FY)', section_ref: 'XBRL · us-gaap:Revenues',
+      verified: true, fragment_url: 'https://www.sec.gov/filing', fact: true }
+    const growth: CopilotCitation = { ...total, n: 2, excerpt: 'Revenue YoY growth = 6.4% (FY2025/FY)', fact: undefined, calculated: true }
+    render(<CopilotMessage message={doneMessage({ content: 'Revenue was $416.2B [1], up 6.4% [2].', citations: [total, growth], grounded: 2 })} />)
+    expect(screen.getByText('1 matched source')).toBeInTheDocument()
+  })
+
+  it('reads an unverified citation that names no section as "Quote not found", never "Section linked"', () => {
+    const sectionless: CopilotCitation = { ...verifiedCitation, verified: false, section_ref: null }
+    render(<CopilotMessage message={doneMessage({ citations: [sectionless] })} />)
+    expect(screen.getAllByText('Quote not found').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Section linked')).not.toBeInTheDocument()
   })
 
   it('renders an inline chip for a tool-figure marker, numbered by the backend like any other citation', () => {
     // The backend's unified citation-resolution pass assigns every citation (text or XBRL fact
     // alike) a plain sequential int — the "F#" shape only ever existed as an internal marker
-    // between the model and the tool, never on the wire. Only `section_ref` distinguishes an XBRL
-    // fact for styling purposes now.
+    // between the model and the tool, never on the wire. Only the server's payload (`fact`, admitted
+    // from its concept) distinguishes an XBRL fact for styling purposes now (E179).
     const factCitation: CopilotCitation = {
       n: 9,
       excerpt: 'Revenue = $391.04B USD (FY2024)',
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       verified: true,
       fragment_url: 'https://www.sec.gov/filing',
+      fact: true,
     }
     const msg = doneMessage({ content: 'Revenue was $391.0B [9].', citations: [factCitation] })
     render(<CopilotMessage message={msg} />)
@@ -86,8 +118,8 @@ describe('CopilotMessage citation chips', () => {
 
   it('renders a chip for a lowercase / spaced marker ([f 1]) matched against a legacy "F1" citation id', () => {
     // Defensive: the frontend matcher still tolerates an "F#"-shaped id/marker (case + whitespace
-    // insensitive) even though the backend no longer emits one, so an older cached/replayed
-    // payload still renders correctly.
+    // insensitive) even though the backend no longer emits one, so such a marker still finds its chip.
+    // The id alone never makes a figure (E179): with no fact payload this one renders as a passage.
     const factCitation: CopilotCitation = {
       n: 'F1',
       excerpt: 'Revenue = $391.04B USD (FY2024)',
@@ -107,33 +139,39 @@ describe('CopilotMessage citation chips', () => {
       section_ref: 'Item 8 — Consolidated Statements of Operations' }
     const fact: CopilotCitation = { n: 1, excerpt: 'Revenue = $416.16B USD (FY2025/FY)',
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
-      verified: true, fragment_url: 'https://www.sec.gov/filing' }
+      verified: true, fragment_url: 'https://www.sec.gov/filing', fact: true }
     const labelledText: CopilotCitation = { ...excerpt, n: 4, section_ref: 'XBRL · model-labelled excerpt' }
     render(<CopilotMessage message={doneMessage({
       content: 'Total net sales were $416,161 million [1]. The statement presents sales and gross margin [3]. Another source [4].',
       citations: [fact, excerpt, labelledText], grounded: 3,
     })} />)
-    expect(screen.getAllByText('Source match found')).toHaveLength(3)
+    // A matched fact reads "Matches filing", a matched passage "Quote found in filing" (citationVerificationLabel). Only
+    // the server's fact payload (`fact`) makes a figure: [4], an excerpt the model labelled "XBRL · …", is still a quote.
+    expect(screen.getAllByText('Matches filing')).toHaveLength(1)
+    expect(screen.getAllByText('Quote found in filing')).toHaveLength(2)
     expect(screen.queryByText('Numeric source verified')).not.toBeInTheDocument()
     expect(screen.queryByText('Excerpt found in filing')).not.toBeInTheDocument()
-    expect(screen.getByText(/does not verify every claim in the answer/)).toBeInTheDocument()
+    expect(screen.getByText(/does not check every claim in the answer/)).toBeInTheDocument()
     expect(screen.getAllByText(excerpt.excerpt)).toHaveLength(2)
     expect(screen.getByText('3 matched sources')).toBeInTheDocument()
+    // The count is said once (ASK-14): no second "citations · source checks" tally beside it.
+    expect(screen.queryByText(/source checks|\d+ citations?\b/i)).not.toBeInTheDocument()
     const textChip = screen.getByRole('link', { name: /citation 3:/i })
     expect(textChip).toHaveAttribute('href', excerpt.fragment_url)
     fireEvent.focus(textChip)
     const textPopover = screen.getByRole('group', { name: /citation 3:/i })
-    expect(within(textPopover).getByText('Source match found')).toBeInTheDocument()
+    expect(within(textPopover).getByText('Quote found in filing')).toBeInTheDocument()
     expect(within(textPopover).queryByText('Numeric source verified')).not.toBeInTheDocument()
     expect(within(textPopover).getByText(excerpt.excerpt)).toBeInTheDocument()
     fireEvent.focus(screen.getByRole('link', { name: /citation 1:/i }))
     const factPopover = screen.getByRole('group', { name: /citation 1:/i })
-    expect(within(factPopover).getByText('Source match found')).toBeInTheDocument()
-    expect(within(factPopover).getByText(/does not verify every claim/)).toBeInTheDocument()
+    expect(within(factPopover).getByText('Matches filing')).toBeInTheDocument()
+    expect(within(factPopover).getByText(/does not check every claim/)).toBeInTheDocument()
     fireEvent.focus(screen.getByRole('link', { name: /citation 4:/i }))
     const labelledPopover = screen.getByRole('group', { name: /citation 4:/i })
-    expect(within(labelledPopover).getByText('Source match found')).toBeInTheDocument()
-    expect(within(labelledPopover).getByText(/does not verify every claim/)).toBeInTheDocument()
+    expect(within(labelledPopover).getByText('Quote found in filing')).toBeInTheDocument()
+    expect(within(labelledPopover).queryByText('Matches filing')).not.toBeInTheDocument()
+    expect(within(labelledPopover).getByText(/does not check every claim/)).toBeInTheDocument()
     expect(within(labelledPopover).queryByText('Numeric source verified')).not.toBeInTheDocument()
   })
 
@@ -145,13 +183,6 @@ describe('CopilotMessage citation chips', () => {
     // And there is no citation chip / anchor for [2].
     expect(screen.queryByRole('link', { name: /citation 2/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
-  })
-
-  it('does not inject chips while streaming (markers stay plain text)', () => {
-    const streaming = doneMessage({ status: 'streaming', content: 'Revenue grew [1]', citations: undefined })
-    render(<CopilotMessage message={streaming} />)
-    expect(screen.getByText(/\[1\]/)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /citation 1/i })).not.toBeInTheDocument()
   })
 })
 
@@ -168,7 +199,11 @@ describe('CopilotMessage not-disclosed redirect', () => {
   it('points to the right filing type + the company’s filings for a 10-Q', () => {
     render(<CopilotMessage message={notDisclosed()} ticker="AAPL" filingType="10-Q" />)
     // 10-Q → nudge toward the 10-K for annual-only details.
-    expect(screen.getByText(/usually live in the company’s 10-K/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Full risk factors and the business overview usually live in the company’s 10-K. Executive pay is usually in its proxy statement.',
+      ),
+    ).toBeInTheDocument()
     const link = screen.getByRole('link', { name: /browse AAPL’s other filings/i })
     expect(link).toHaveAttribute('href', '/company/AAPL')
   })
@@ -203,6 +238,7 @@ describe('CopilotMessage XBRL fact sources', () => {
     section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
     verified: true,
     fragment_url: null,
+    fact: true,
   }
 
   it('renders an XBRL fact as a dense data row (figure value + source tag)', () => {
@@ -217,6 +253,37 @@ describe('CopilotMessage XBRL fact sources', () => {
     expect(
       screen.getByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'),
     ).toBeInTheDocument()
+  })
+
+  it('renders an "XBRL · …" label without the fact payload as a quoted passage, never a figure row (E179)', () => {
+    const labelled: CopilotCitation = { ...fact, fact: undefined }
+    render(
+      <CopilotMessage
+        message={doneMessage({ content: 'Revenue was $391.0B [1].', citations: [labelled] })}
+      />,
+    )
+    expect(screen.getByText('Revenue = $391.04B USD (FY2024)').closest('blockquote')).not.toBeNull()
+    expect(screen.queryByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax')).not.toBeInTheDocument()
+    const kinds = Array.from(document.querySelectorAll('[data-citation-kind]'), (chip) => chip.getAttribute('data-citation-kind'))
+    expect(kinds).toEqual(['text'])
+  })
+})
+
+describe('CopilotMessage source-check badges', () => {
+  // A badge carries a verification claim, so it is 12px (text-xs, never data-xs; DESIGN_SYSTEM.md §3), and at an
+  // enlarged text size it wraps its words inside the card (max-w-full, never shrink-0; #1326).
+  it('both badges keep their 12px and stay inside the card at any text size', () => {
+    const cited: CopilotCitation = { n: 2, excerpt: 'Services net sales increased', section_ref: 'Item 7', verified: false, fragment_url: null }
+    render(
+      <CopilotMessage
+        message={doneMessage({ content: 'Revenue grew [1] and Services grew [2].', citations: [verifiedCitation, cited] })}
+      />,
+    )
+    for (const badge of [screen.getByText('Quote found in filing'), screen.getByText('Section linked')]) {
+      const classes = (badge.getAttribute('class') ?? '').split(/\s+/)
+      expect(classes, badge.textContent ?? '').toEqual(expect.arrayContaining(['max-w-full', 'text-xs']))
+      expect(classes, badge.textContent ?? '').not.toContain('shrink-0')
+    }
   })
 })
 
@@ -253,5 +320,93 @@ describe('CopilotMessage follow-up chips', () => {
     const msg = doneMessage({ followups: ['Q?'] })
     render(<CopilotMessage message={msg} showFollowups={false} onFollowup={() => {}} />)
     expect(screen.queryByText('Ask next')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * statusTintsOnlyForStatus: a plan gate (a spent free allowance, a Pro-only 403, the Pro fair-use 429) is
+ * a plan fact, not a failure. It renders in the quiet answer card, role="status", with no status-palette
+ * token anywhere in it (error, warning, success, info, loss or gain: a "limit reached" card that turns amber
+ * regresses as surely as one that turns red); the error tint and role="alert" stay for real failures
+ * (DESIGN_SYSTEM.md "Ask answer"; ASK-10). The sentences are the backend's own (backend/app/dependencies.py,
+ * routers/summaries.py).
+ */
+describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
+  const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
+  const FAIR_USE =
+    "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
+  const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })
+  /** The class tokens in a subtree that paint with one of the given status inks, through any variant prefix. */
+  const tokensOf = (root: HTMLElement, palette: string) =>
+    [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]
+      .flatMap((el) => (el.getAttribute('class') ?? '').split(/\s+/))
+      .filter((token) =>
+        new RegExp(String.raw`(?:^|:)(?:text|bg|border|ring|shadow|outline|divide|fill|stroke|decoration|from|via|to)-(?:${palette})\b`).test(token),
+      )
+  const statusTokens = (root: HTMLElement) => tokensOf(root, 'error|warning|success|info|loss|gain')
+  const errorTokens = (root: HTMLElement) => tokensOf(root, 'error')
+
+  it('classifies the backend sentences: the fair-use 429 is a plan gate with no upgrade', () => {
+    expect(isCopilotPaywallError(TASTE_SPENT)).toBe(true)
+    expect(isCopilotFairUseLimit(TASTE_SPENT)).toBe(false)
+    expect(isCopilotPaywallError(FAIR_USE)).toBe(true)
+    expect(isCopilotFairUseLimit(FAIR_USE)).toBe(true)
+    expect(isCopilotPaywallError("I couldn't complete this answer. Try again.")).toBe(false)
+  })
+
+  it('decides the plan card on a known code first, whatever its words (E31)', () => {
+    const words = 'Words that name neither the cap nor the plan.'
+    expect(isCopilotPaywallError(words, 'plan_required')).toBe(true)
+    expect(isCopilotPaywallError(words, 'free_allowance_exhausted')).toBe(true)
+    expect(isCopilotPaywallError(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(FAIR_USE, 'free_allowance_exhausted')).toBe(false)
+    // Every other known code is a pause, a rate limit or a sign-in: Retry, never the plan card (the contract's §3).
+    const others = (Object.keys(ERROR_CODES) as KnownErrorCode[])
+      .filter((code) => !['plan_required', 'free_allowance_exhausted', 'pro_fair_use_limit'].includes(code))
+    expect(others).toContain('generation_paused')
+    for (const code of others) {
+      expect([code, isCopilotPaywallError(FAIR_USE, code), isCopilotFairUseLimit(FAIR_USE, code)]).toEqual([code, false, false])
+    }
+  })
+
+  it('a spent allowance is the quiet card with the server sentence and Upgrade to Pro', () => {
+    const onUpgrade = vi.fn()
+    render(<CopilotMessage message={errorMessage(TASTE_SPENT)} isPaywallError onUpgrade={onUpgrade} onRetry={vi.fn()} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const card = screen.getByRole('status')
+    expect(card).toHaveTextContent(TASTE_SPENT)
+    expect(statusTokens(card)).toEqual([])
+    fireEvent.click(within(card).getByRole('button', { name: 'Upgrade to Pro' }))
+    expect(onUpgrade).toHaveBeenCalledTimes(1)
+    expect(within(card).queryByRole('button', { name: /try again/i })).not.toBeInTheDocument()
+  })
+
+  it('the Pro fair-use cap is the same quiet card, with no button (upgrading cannot lift it)', () => {
+    render(<CopilotMessage message={errorMessage(FAIR_USE)} isPaywallError onUpgrade={vi.fn()} onRetry={vi.fn()} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const card = screen.getByRole('status')
+    expect(card).toHaveTextContent(FAIR_USE)
+    expect(statusTokens(card)).toEqual([])
+    expect(within(card).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  // A status region announces text added to it, never text it was created with. The rail turns the reading card into
+  // the plan card in place, so the sentence must land in a region that already existed: the reading card itself.
+  it('the plan card is announced: its sentence lands in the status region the reading card already was', () => {
+    const reading: CopilotMessageData = { id: 'e1', role: 'assistant', content: '', status: 'reading' }
+    const { rerender } = render(<CopilotMessage message={reading} onUpgrade={vi.fn()} onRetry={vi.fn()} />)
+    const region = screen.getByRole('status')
+    expect(region).toHaveTextContent(/Reading the filing/)
+    rerender(<CopilotMessage message={errorMessage(TASTE_SPENT)} isPaywallError onUpgrade={vi.fn()} onRetry={vi.fn()} />)
+    expect(screen.getByRole('status')).toBe(region)
+    expect(region).toHaveTextContent(TASTE_SPENT)
+  })
+
+  it('a real failure keeps the error tint, role="alert" and Retry', () => {
+    render(<CopilotMessage message={errorMessage("I couldn't complete this answer. Try again.")} onRetry={vi.fn()} />)
+    const bubble = screen.getByRole('alert')
+    expect(errorTokens(bubble).length).toBeGreaterThan(0)
+    expect(within(bubble).getByRole('button', { name: /try again/i })).toBeInTheDocument()
   })
 })

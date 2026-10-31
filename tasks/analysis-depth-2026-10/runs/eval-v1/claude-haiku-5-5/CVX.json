@@ -1,0 +1,1471 @@
+{
+ "ticker": "CVX",
+ "arm": "claude-haiku-5-5",
+ "family": "claude",
+ "model": "claude-haiku-5-5",
+ "split": "holdout",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "8bd4fdb325c9aa0ec1a11405ba12c2a25cb9837a0613e0656b1f6d2de18a8cd7",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 43188,
+   "cached_input_tokens": 42356,
+   "output_tokens": 21352,
+   "reasoning_tokens": 18863,
+   "latency_s": 92.19,
+   "cost_usd": 0.011266,
+   "backend": "claude_cli",
+   "model_served": "claude-haiku-5-5",
+   "meta": {
+    "duration_api_ms": 87274,
+    "cache_creation_input_tokens": 830,
+    "list_cost_usd": 0.011183
+   },
+   "problems": [],
+   "raw": "```json\n{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Revenue has cycled rather than compounded: it peaked at $236 billion in FY2022 [F7], then fell three years running to $184 billion in FY2025 [F10], a three-year CAGR of -7.9% [D626].\"},\n    {\"type\": \"fact\", \"text\": \"The 5.4% revenue CAGR over the full window [F177] mixes presentations, because FY2018 and FY2021 to FY2025 are later recasts of the first-reported figures [F3][X3][F7][X7].\"},\n    {\"type\": \"cause\", \"text\": \"Revenue rose 51.5% in FY2022 [D232] and net income rose 127.6% [D233]; the filing attributes the pre-tax gain to higher upstream realizations and downstream margins [P57].\"},\n    {\"type\": \"fact\", \"text\": \"FY2020 was the weakest year, with revenue down 32.5% [D153] and a net margin of -5.9% [D611]; the filings cited do not explain that year.\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"In FY2025 Chevron U.S.A. Inc. was 75.1% of revenue [D402], fell 5.3% [D403] and took 3.9pp off the 4.6% total decline [D404][D358].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating Segments \u2014 US, Upstream grew 34.0% [D553], added 2.5pp [D554], the largest positive contribution, and reached 10.6% of revenue [D552].\"},\n    {\"type\": \"cause\", \"text\": \"Revenue fell 4.6% [D358] to $184 billion [F10]; the filing attributes this mainly to lower crude and refined product prices, partly offset by higher volumes and gas prices [P17].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating costs fell 3.4% [D373] against revenue's 4.6% decline [D358], so revenue growth minus cost growth was -1.2pp [D379], negative operating leverage.\"},\n    {\"type\": \"comparison\", \"text\": \"Diluted EPS fell 31.8% [D361], more than net income's 30.5% [D359], because diluted shares rose 2.1% [D374].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The FY2025 net margin of 6.7% [F30] is below the 7.9% window median [D613] and the 10.2% energy peer median [D632], ranking 33rd percentile of six peers [D631].\"},\n    {\"type\": \"cause\", \"text\": \"Cost of revenue fell 9.2% [D370], taking its share of revenue to 57.2% from 58.8% [D338][D296], a 1.6pp gain, as purchased crude and products fell [P14].\"},\n    {\"type\": \"cause\", \"text\": \"The effective tax rate rose to 36.8% [D345] from 27.6% [D261] in FY2023, which the filing attributes to the mix of earnings across tax jurisdictions [P33].\"},\n    {\"type\": \"cause\", \"text\": \"DD&A rose to 10.7% of revenue [D341] from 8.5% [D299], which the filing attributes to higher production and rates [P12].\"},\n    {\"type\": \"fact\", \"text\": \"The largest window move was FY2021's +15.9pp net margin gain [D201]; the filings cited do not explain it.\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow of $33.9 billion [F60] was 2.76x net income [D346], and free cash flow was 1.35x [D347] against a 1.10x window median [D622].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow margin was 8.8% [D343], just below its 8.9% window median [D616], while capex took 9.2% of revenue [D342].\"},\n    {\"type\": \"fact\", \"text\": \"The filing guides 2026 organic capex to $18 to $19 billion [P4], above FY2025's $17.3 billion [F70], which was 0.86x D&A [D348].\"},\n    {\"type\": \"cause\", \"text\": \"Operating cash flow rose 7.8% [D362] in FY2025, which the filing attributes to higher TCO distributions and legacy Hess contributions that offset lower prices [P6].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Net cash was $3.96 billion [D351], or 2.1% of revenue [D352], up from -$156 million [D309] in FY2024.\"},\n    {\"type\": \"comparison\", \"text\": \"That ranks at the 83rd percentile among six energy peers [D637], against a peer median of -7.7% of revenue [D638].\"},\n    {\"type\": \"fact\", \"text\": \"Buybacks and dividends totalled $24.8 billion [D353], or 149.7% of free cash flow [D354].\"},\n    {\"type\": \"fact\", \"text\": \"Diluted shares still rose 2.1% [D374], and the filings cited do not explain why.\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"cause\", \"text\": \"Revenue has fallen three years running, down 16.5% [D274], 1.8% [D316] and 4.6% [D358] from FY2023 to FY2025 [R1]; the FY2025 cut reflects lower prices [P17].\"},\n    {\"type\": \"comparison\", \"text\": \"Net income fell 39.7% [D275], 17.3% [D317] and 30.5% [D359] over the same years, a CAGR of -29.8% [D627] against revenue's -7.9% [D626].\"},\n    {\"type\": \"fact\", \"text\": \"Buybacks and dividends exceeded free cash flow in FY2023 to FY2025, at 132.8% [D270], 179.7% [D312] and 149.7% [D354] [R4]; asset sales of about $9 billion since 2024 were a partial offset [P31].\"},\n    {\"type\": \"fact\", \"text\": \"FY2018 and FY2021 to FY2025 are later revenue recasts, so growth in those years mixes presentations; first-reported growth was 17.4% [D629] and 71.6% [D630] [R3].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"In the FY2026 10-K, a net margin above the 7.9% window median [D613] would reverse the decline from 6.7% [F30]; a reading below 6.7% [F30] would confirm it.\"},\n    {\"type\": \"comparison\", \"text\": \"In the FY2026 10-K, buybacks and dividends falling below the FY2023 level of 132.8% of free cash flow [D270] would show a return toward self-funding; a rise above 149.7% [D354] would widen the gap.\"},\n    {\"type\": \"comparison\", \"text\": \"In the FY2026 10-K, capex above the FY2024 level of 0.95x D&A [D306], against the 0.86x of FY2025 [D348] and the $18 to $19 billion guidance [P4], would confirm a higher investment load.\"}\n  ]}\n]}\n```"
+  }
+ ],
+ "usage": {
+  "input_tokens": 43188,
+  "cached_input_tokens": 42356,
+  "output_tokens": 21352,
+  "reasoning_tokens": 18863
+ },
+ "latency_s": 92.19,
+ "cost_usd": 0.011266,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Revenue has cycled rather than compounded: it peaked at $236 billion in FY2022 [F7], then fell three years running to $184 billion in FY2025 [F10], a three-year CAGR of -7.9% [D626]."
+     },
+     {
+      "type": "fact",
+      "text": "The 5.4% revenue CAGR over the full window [F177] mixes presentations, because FY2018 and FY2021 to FY2025 are later recasts of the first-reported figures [F3][X3][F7][X7]."
+     },
+     {
+      "type": "cause",
+      "text": "Revenue rose 51.5% in FY2022 [D232] and net income rose 127.6% [D233]; the filing attributes the pre-tax gain to higher upstream realizations and downstream margins [P57]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2020 was the weakest year, with revenue down 32.5% [D153] and a net margin of -5.9% [D611]; the filings cited do not explain that year."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "In FY2025 Chevron U.S.A. Inc. was 75.1% of revenue [D402], fell 5.3% [D403] and took 3.9pp off the 4.6% total decline [D404][D358]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating Segments \u2014 US, Upstream grew 34.0% [D553], added 2.5pp [D554], the largest positive contribution, and reached 10.6% of revenue [D552]."
+     },
+     {
+      "type": "cause",
+      "text": "Revenue fell 4.6% [D358] to $184 billion [F10]; the filing attributes this mainly to lower crude and refined product prices, partly offset by higher volumes and gas prices [P17]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs fell 3.4% [D373] against revenue's 4.6% decline [D358], so revenue growth minus cost growth was -1.2pp [D379], negative operating leverage."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS fell 31.8% [D361], more than net income's 30.5% [D359], because diluted shares rose 2.1% [D374]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The FY2025 net margin of 6.7% [F30] is below the 7.9% window median [D613] and the 10.2% energy peer median [D632], ranking 33rd percentile of six peers [D631]."
+     },
+     {
+      "type": "cause",
+      "text": "Cost of revenue fell 9.2% [D370], taking its share of revenue to 57.2% from 58.8% [D338][D296], a 1.6pp gain, as purchased crude and products fell [P14]."
+     },
+     {
+      "type": "cause",
+      "text": "The effective tax rate rose to 36.8% [D345] from 27.6% [D261] in FY2023, which the filing attributes to the mix of earnings across tax jurisdictions [P33]."
+     },
+     {
+      "type": "cause",
+      "text": "DD&A rose to 10.7% of revenue [D341] from 8.5% [D299], which the filing attributes to higher production and rates [P12]."
+     },
+     {
+      "type": "fact",
+      "text": "The largest window move was FY2021's +15.9pp net margin gain [D201]; the filings cited do not explain it."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $33.9 billion [F60] was 2.76x net income [D346], and free cash flow was 1.35x [D347] against a 1.10x window median [D622]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin was 8.8% [D343], just below its 8.9% window median [D616], while capex took 9.2% of revenue [D342]."
+     },
+     {
+      "type": "fact",
+      "text": "The filing guides 2026 organic capex to $18 to $19 billion [P4], above FY2025's $17.3 billion [F70], which was 0.86x D&A [D348]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow rose 7.8% [D362] in FY2025, which the filing attributes to higher TCO distributions and legacy Hess contributions that offset lower prices [P6]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash was $3.96 billion [D351], or 2.1% of revenue [D352], up from -$156 million [D309] in FY2024."
+     },
+     {
+      "type": "comparison",
+      "text": "That ranks at the 83rd percentile among six energy peers [D637], against a peer median of -7.7% of revenue [D638]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks and dividends totalled $24.8 billion [D353], or 149.7% of free cash flow [D354]."
+     },
+     {
+      "type": "fact",
+      "text": "Diluted shares still rose 2.1% [D374], and the filings cited do not explain why."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "cause",
+      "text": "Revenue has fallen three years running, down 16.5% [D274], 1.8% [D316] and 4.6% [D358] from FY2023 to FY2025 [R1]; the FY2025 cut reflects lower prices [P17]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net income fell 39.7% [D275], 17.3% [D317] and 30.5% [D359] over the same years, a CAGR of -29.8% [D627] against revenue's -7.9% [D626]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks and dividends exceeded free cash flow in FY2023 to FY2025, at 132.8% [D270], 179.7% [D312] and 149.7% [D354] [R4]; asset sales of about $9 billion since 2024 were a partial offset [P31]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2018 and FY2021 to FY2025 are later revenue recasts, so growth in those years mixes presentations; first-reported growth was 17.4% [D629] and 71.6% [D630] [R3]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "In the FY2026 10-K, a net margin above the 7.9% window median [D613] would reverse the decline from 6.7% [F30]; a reading below 6.7% [F30] would confirm it."
+     },
+     {
+      "type": "comparison",
+      "text": "In the FY2026 10-K, buybacks and dividends falling below the FY2023 level of 132.8% of free cash flow [D270] would show a return toward self-funding; a rise above 149.7% [D354] would widen the gap."
+     },
+     {
+      "type": "comparison",
+      "text": "In the FY2026 10-K, capex above the FY2024 level of 0.95x D&A [D306], against the 0.86x of FY2025 [D348] and the $18 to $19 billion guidance [P4], would confirm a higher investment load."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 668,
+ "gate": {
+  "passed": true,
+  "sentences": 29,
+  "sentence_types": {
+   "comparison": 14,
+   "fact": 8,
+   "cause": 7
+  },
+  "claims": 79,
+  "verified": 79,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue has cycled rather than compounded: it peaked at $236 billion in FY2022 [F7], then fell three years running to $184 billion in FY2025 [F10], a three-year CAGR of -7.9% [D626].",
+    "type": "comparison",
+    "citations": [
+     "F7",
+     "F10",
+     "D626"
+    ],
+    "claims": [
+     {
+      "claim": "$236 billion",
+      "value": 236.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F7"
+      ]
+     },
+     {
+      "claim": "$184 billion",
+      "value": 184.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     },
+     {
+      "claim": "-7.9%",
+      "value": -7.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D626"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The 5.4% revenue CAGR over the full window [F177] mixes presentations, because FY2018 and FY2021 to FY2025 are later recasts of the first-reported figures [F3][X3][F7][X7].",
+    "type": "fact",
+    "citations": [
+     "F177",
+     "F3",
+     "X3",
+     "F7",
+     "X7"
+    ],
+    "claims": [
+     {
+      "claim": "5.4%",
+      "value": 5.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F177"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Revenue rose 51.5% in FY2022 [D232] and net income rose 127.6% [D233]; the filing attributes the pre-tax gain to higher upstream realizations and downstream margins [P57].",
+    "type": "cause",
+    "citations": [
+     "D232",
+     "D233",
+     "P57"
+    ],
+    "claims": [
+     {
+      "claim": "51.5%",
+      "value": 51.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D232"
+      ]
+     },
+     {
+      "claim": "127.6%",
+      "value": 127.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D233"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2020 was the weakest year, with revenue down 32.5% [D153] and a net margin of -5.9% [D611]; the filings cited do not explain that year.",
+    "type": "fact",
+    "citations": [
+     "D153",
+     "D611"
+    ],
+    "claims": [
+     {
+      "claim": "32.5%",
+      "value": 32.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D153"
+      ]
+     },
+     {
+      "claim": "-5.9%",
+      "value": -5.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D611"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "In FY2025 Chevron U.S.A. Inc. was 75.1% of revenue [D402], fell 5.3% [D403] and took 3.9pp off the 4.6% total decline [D404][D358].",
+    "type": "comparison",
+    "citations": [
+     "D402",
+     "D403",
+     "D404",
+     "D358"
+    ],
+    "claims": [
+     {
+      "claim": "75.1%",
+      "value": 75.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D402"
+      ]
+     },
+     {
+      "claim": "5.3%",
+      "value": 5.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D403"
+      ]
+     },
+     {
+      "claim": "3.9pp",
+      "value": 3.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D404"
+      ]
+     },
+     {
+      "claim": "4.6%",
+      "value": 4.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating Segments \u2014 US, Upstream grew 34.0% [D553], added 2.5pp [D554], the largest positive contribution, and reached 10.6% of revenue [D552].",
+    "type": "comparison",
+    "citations": [
+     "D553",
+     "D554",
+     "D552"
+    ],
+    "claims": [
+     {
+      "claim": "34.0%",
+      "value": 34.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D553"
+      ]
+     },
+     {
+      "claim": "2.5pp",
+      "value": 2.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D554"
+      ]
+     },
+     {
+      "claim": "10.6%",
+      "value": 10.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D552"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Revenue fell 4.6% [D358] to $184 billion [F10]; the filing attributes this mainly to lower crude and refined product prices, partly offset by higher volumes and gas prices [P17].",
+    "type": "cause",
+    "citations": [
+     "D358",
+     "F10",
+     "P17"
+    ],
+    "claims": [
+     {
+      "claim": "4.6%",
+      "value": 4.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     },
+     {
+      "claim": "$184 billion",
+      "value": 184.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs fell 3.4% [D373] against revenue's 4.6% decline [D358], so revenue growth minus cost growth was -1.2pp [D379], negative operating leverage.",
+    "type": "comparison",
+    "citations": [
+     "D373",
+     "D358",
+     "D379"
+    ],
+    "claims": [
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D373"
+      ]
+     },
+     {
+      "claim": "4.6%",
+      "value": 4.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     },
+     {
+      "claim": "-1.2pp",
+      "value": -1.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D373-D358",
+      "ids": [
+       "D373",
+       "D358"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS fell 31.8% [D361], more than net income's 30.5% [D359], because diluted shares rose 2.1% [D374].",
+    "type": "comparison",
+    "citations": [
+     "D361",
+     "D359",
+     "D374"
+    ],
+    "claims": [
+     {
+      "claim": "31.8%",
+      "value": 31.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D361"
+      ]
+     },
+     {
+      "claim": "30.5%",
+      "value": 30.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D359"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D374"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2025 net margin of 6.7% [F30] is below the 7.9% window median [D613] and the 10.2% energy peer median [D632], ranking 33rd percentile of six peers [D631].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D613",
+     "D632",
+     "D631"
+    ],
+    "claims": [
+     {
+      "claim": "6.7%",
+      "value": 6.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "7.9%",
+      "value": 7.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D613"
+      ]
+     },
+     {
+      "claim": "10.2%",
+      "value": 10.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D632"
+      ]
+     },
+     {
+      "claim": "33rd percentile",
+      "value": 33.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D631"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Cost of revenue fell 9.2% [D370], taking its share of revenue to 57.2% from 58.8% [D338][D296], a 1.6pp gain, as purchased crude and products fell [P14].",
+    "type": "cause",
+    "citations": [
+     "D370",
+     "D338",
+     "D296",
+     "P14"
+    ],
+    "claims": [
+     {
+      "claim": "9.2%",
+      "value": 9.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D370"
+      ]
+     },
+     {
+      "claim": "57.2%",
+      "value": 57.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D338"
+      ]
+     },
+     {
+      "claim": "58.8%",
+      "value": 58.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D296"
+      ]
+     },
+     {
+      "claim": "1.6pp",
+      "value": 1.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D338-D296",
+      "ids": [
+       "D338",
+       "D296"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The effective tax rate rose to 36.8% [D345] from 27.6% [D261] in FY2023, which the filing attributes to the mix of earnings across tax jurisdictions [P33].",
+    "type": "cause",
+    "citations": [
+     "D345",
+     "D261",
+     "P33"
+    ],
+    "claims": [
+     {
+      "claim": "36.8%",
+      "value": 36.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D345"
+      ]
+     },
+     {
+      "claim": "27.6%",
+      "value": 27.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D261"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "DD&A rose to 10.7% of revenue [D341] from 8.5% [D299], which the filing attributes to higher production and rates [P12].",
+    "type": "cause",
+    "citations": [
+     "D341",
+     "D299",
+     "P12"
+    ],
+    "claims": [
+     {
+      "claim": "10.7%",
+      "value": 10.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D341"
+      ]
+     },
+     {
+      "claim": "8.5%",
+      "value": 8.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D299"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The largest window move was FY2021's +15.9pp net margin gain [D201]; the filings cited do not explain it.",
+    "type": "fact",
+    "citations": [
+     "D201"
+    ],
+    "claims": [
+     {
+      "claim": "15.9pp",
+      "value": 15.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D201"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $33.9 billion [F60] was 2.76x net income [D346], and free cash flow was 1.35x [D347] against a 1.10x window median [D622].",
+    "type": "comparison",
+    "citations": [
+     "F60",
+     "D346",
+     "D347",
+     "D622"
+    ],
+    "claims": [
+     {
+      "claim": "$33.9 billion",
+      "value": 33.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F60"
+      ]
+     },
+     {
+      "claim": "2.76x",
+      "value": 2.76,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D346"
+      ]
+     },
+     {
+      "claim": "1.35x",
+      "value": 1.35,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D347"
+      ]
+     },
+     {
+      "claim": "1.10x",
+      "value": 1.1,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D622"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin was 8.8% [D343], just below its 8.9% window median [D616], while capex took 9.2% of revenue [D342].",
+    "type": "comparison",
+    "citations": [
+     "D343",
+     "D616",
+     "D342"
+    ],
+    "claims": [
+     {
+      "claim": "8.8%",
+      "value": 8.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D343"
+      ]
+     },
+     {
+      "claim": "8.9%",
+      "value": 8.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D616"
+      ]
+     },
+     {
+      "claim": "9.2%",
+      "value": 9.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D342"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The filing guides 2026 organic capex to $18 to $19 billion [P4], above FY2025's $17.3 billion [F70], which was 0.86x D&A [D348].",
+    "type": "fact",
+    "citations": [
+     "P4",
+     "F70",
+     "D348"
+    ],
+    "claims": [
+     {
+      "claim": "$18",
+      "value": 18.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     },
+     {
+      "claim": "$19 billion",
+      "value": 19.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     },
+     {
+      "claim": "$17.3 billion",
+      "value": 17.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F70"
+      ]
+     },
+     {
+      "claim": "0.86x",
+      "value": 0.86,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D348"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow rose 7.8% [D362] in FY2025, which the filing attributes to higher TCO distributions and legacy Hess contributions that offset lower prices [P6].",
+    "type": "cause",
+    "citations": [
+     "D362",
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "7.8%",
+      "value": 7.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D362"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash was $3.96 billion [D351], or 2.1% of revenue [D352], up from -$156 million [D309] in FY2024.",
+    "type": "comparison",
+    "citations": [
+     "D351",
+     "D352",
+     "D309"
+    ],
+    "claims": [
+     {
+      "claim": "$3.96 billion",
+      "value": 3.96,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D351"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     },
+     {
+      "claim": "-$156 million",
+      "value": -156.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D309"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "That ranks at the 83rd percentile among six energy peers [D637], against a peer median of -7.7% of revenue [D638].",
+    "type": "comparison",
+    "citations": [
+     "D637",
+     "D638"
+    ],
+    "claims": [
+     {
+      "claim": "83rd percentile",
+      "value": 83.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D637"
+      ]
+     },
+     {
+      "claim": "-7.7%",
+      "value": -7.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D638"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks and dividends totalled $24.8 billion [D353], or 149.7% of free cash flow [D354].",
+    "type": "fact",
+    "citations": [
+     "D353",
+     "D354"
+    ],
+    "claims": [
+     {
+      "claim": "$24.8 billion",
+      "value": 24.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D353"
+      ]
+     },
+     {
+      "claim": "149.7%",
+      "value": 149.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D354"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Diluted shares still rose 2.1% [D374], and the filings cited do not explain why.",
+    "type": "fact",
+    "citations": [
+     "D374"
+    ],
+    "claims": [
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D374"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Revenue has fallen three years running, down 16.5% [D274], 1.8% [D316] and 4.6% [D358] from FY2023 to FY2025 [R1]; the FY2025 cut reflects lower prices [P17].",
+    "type": "cause",
+    "citations": [
+     "D274",
+     "D316",
+     "D358",
+     "R1",
+     "P17"
+    ],
+    "claims": [
+     {
+      "claim": "16.5%",
+      "value": 16.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D274"
+      ]
+     },
+     {
+      "claim": "1.8%",
+      "value": 1.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D316"
+      ]
+     },
+     {
+      "claim": "4.6%",
+      "value": 4.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net income fell 39.7% [D275], 17.3% [D317] and 30.5% [D359] over the same years, a CAGR of -29.8% [D627] against revenue's -7.9% [D626].",
+    "type": "comparison",
+    "citations": [
+     "D275",
+     "D317",
+     "D359",
+     "D627",
+     "D626"
+    ],
+    "claims": [
+     {
+      "claim": "39.7%",
+      "value": 39.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D275"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D317"
+      ]
+     },
+     {
+      "claim": "30.5%",
+      "value": 30.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D359"
+      ]
+     },
+     {
+      "claim": "-29.8%",
+      "value": -29.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D627"
+      ]
+     },
+     {
+      "claim": "-7.9%",
+      "value": -7.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D626"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Buybacks and dividends exceeded free cash flow in FY2023 to FY2025, at 132.8% [D270], 179.7% [D312] and 149.7% [D354] [R4]; asset sales of about $9 billion since 2024 were a partial offset [P31].",
+    "type": "fact",
+    "citations": [
+     "D270",
+     "D312",
+     "D354",
+     "R4",
+     "P31"
+    ],
+    "claims": [
+     {
+      "claim": "132.8%",
+      "value": 132.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D270"
+      ]
+     },
+     {
+      "claim": "179.7%",
+      "value": 179.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D312"
+      ]
+     },
+     {
+      "claim": "149.7%",
+      "value": 149.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D354"
+      ]
+     },
+     {
+      "claim": "$9 billion",
+      "value": 9.0,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P31",
+      "ids": [
+       "P31"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2018 and FY2021 to FY2025 are later revenue recasts, so growth in those years mixes presentations; first-reported growth was 17.4% [D629] and 71.6% [D630] [R3].",
+    "type": "fact",
+    "citations": [
+     "D629",
+     "D630",
+     "R3"
+    ],
+    "claims": [
+     {
+      "claim": "17.4%",
+      "value": 17.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D629"
+      ]
+     },
+     {
+      "claim": "71.6%",
+      "value": 71.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D630"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "In the FY2026 10-K, a net margin above the 7.9% window median [D613] would reverse the decline from 6.7% [F30]; a reading below 6.7% [F30] would confirm it.",
+    "type": "comparison",
+    "citations": [
+     "D613",
+     "F30",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "7.9%",
+      "value": 7.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D613"
+      ]
+     },
+     {
+      "claim": "6.7%",
+      "value": 6.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "6.7%",
+      "value": 6.7,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "In the FY2026 10-K, buybacks and dividends falling below the FY2023 level of 132.8% of free cash flow [D270] would show a return toward self-funding; a rise above 149.7% [D354] would widen the gap.",
+    "type": "comparison",
+    "citations": [
+     "D270",
+     "D354"
+    ],
+    "claims": [
+     {
+      "claim": "132.8%",
+      "value": 132.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D270"
+      ]
+     },
+     {
+      "claim": "149.7%",
+      "value": 149.7,
+      "unit": "pct",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D354"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "In the FY2026 10-K, capex above the FY2024 level of 0.95x D&A [D306], against the 0.86x of FY2025 [D348] and the $18 to $19 billion guidance [P4], would confirm a higher investment load.",
+    "type": "comparison",
+    "citations": [
+     "D306",
+     "D348",
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "0.95x",
+      "value": 0.95,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D306"
+      ]
+     },
+     {
+      "claim": "0.86x",
+      "value": 0.86,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D348"
+      ]
+     },
+     {
+      "claim": "$18",
+      "value": 18.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     },
+     {
+      "claim": "$19 billion",
+      "value": 19.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ }
+}

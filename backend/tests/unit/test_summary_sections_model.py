@@ -125,7 +125,7 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
         raw[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
         block = next(b for s in render_sections(raw) for b in s.blocks if b.kind == "metrics")
         assert [row[3] for row in block.rows] == [
-            "+6.4%", "+33.3%", "+32.9%", "+6.6%", "+14.4 ppts",
+            "+6.4%", "+33.3%", "—", "+6.6%", "+14.4 ppts",
         ]
         assert block.metric_rows[0]["change"] == "model says 99%"
 
@@ -258,6 +258,7 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
     filing = SimpleNamespace(
         id=1,
         filing_date=None, period_end_date=None, sec_url="https://sec.example/filing",
+        document_url="https://sec.example/filing/primary.htm",
         filing_type="10-K", company=SimpleNamespace(name="PGR"),
         content_cache=SimpleNamespace(filing_id=1, critical_excerpt=None, markdown_content=None),
     )

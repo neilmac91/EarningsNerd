@@ -1,0 +1,82 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "CVX",
+ "split": "holdout",
+ "claims": 6,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2022 peak reflected higher upstream realizations and downstream margins, which the FY2022 filing cites as the driver of a $28.0 billion rise in income before tax .",
+   "passages": [
+    {
+     "id": "P57",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in income tax expense in 2022 of $8.1 billion is due to the increase in total income before tax for the company of $28.0 billion. The increase in income before taxes for the company is primarily the result of higher upstream realizations and downstream margins."
+    }
+   ],
+   "label": "supported",
+   "reason": "P57 attributes the $28.0 billion rise in 2022 income before tax primarily to higher upstream realizations and downstream margins."
+  },
+  {
+   "sentence": "The FY2025 decline came mainly from lower crude oil and refined product prices, partly offset by higher volumes .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased in 2025 mainly due to lower crude oil and refined product prices, partially offset by higher crude oil and refined product sales volumes and higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "P17 attributes the 2025 revenue decrease mainly to lower crude and refined product prices, partially offset by higher volumes."
+  },
+  {
+   "sentence": "The FY2025 volume gain came from the Hess acquisition and higher TCO, Permian and Gulf of America production, partly offset by asset sales .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production The company\u2019s worldwide net oil-equivalent production in 2025 was 3.7 million barrels per day, 12 percent higher than in 2024 primarily due to the acquisition of Hess and growth in TCO, the Permian Basin and the Gulf of America, which were partly offset by the impacts of asset sales. About 21 percent of the company\u2019s net oil-equivalent production in 2025 occurred in OPEC+ member countries of Equatorial Guinea, Kazakhstan, Malaysia, Nigeria and the Partitioned Zone between Saudi Arabia and Kuwait."
+    }
+   ],
+   "label": "supported",
+   "reason": "P28 cites Hess acquisition and TCO, Permian, Gulf of America growth, partly offset by asset sales."
+  },
+  {
+   "sentence": "Purchased crude oil and products decreased on lower crude and refined product prices and volumes, partly offset by higher natural gas prices and volumes .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Purchased crude oil and products decreased in 2025 due to lower crude oil and refined product prices and volumes, partially offset by higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 states this exact cause and offset for the 2025 decrease in purchased crude oil and products."
+  },
+  {
+   "sentence": "Depreciation, depletion and amortization rose to 10.7% of revenue from 8.5%, driven by higher production and higher rates .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation, depletion and amortization expenses increased in 2025 primarily due to higher production and higher rates."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 attributes the 2025 DD&A increase primarily to higher production and higher rates."
+  },
+  {
+   "sentence": "Operating cash flow rose on higher TCO distributions and legacy Hess contributions, which more than offset lower commodity prices .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash, Cash Equivalents and Marketable Securities Total balances were $6.3 billion and $6.8 billion at December\u00a031, 2025 and 2024, respectively. The company holds its cash with a diverse group of major financial institutions and has processes and safeguards in place designed to manage its cash balances and mitigate the risk of loss. Cash provided by operating activities in 2025 was $33.9 billion, compared to $31.5 billion in 2024, primarily as higher cash distributions from TCO and contributions from legacy Hess assets more than offset the impact of lower commodity prices. Between January and March 2025, Chevron purchased 15.38 million shares of Hess common stock in open market transactions for approximately $2.2 billion. Cash provided by operating activities was net of contributions to employee pension plans of approximately $588 million in 2025 and $844 million in 2024. Capital expenditures totaled $17.3 billion in 2025 compared to $16.4 billion in 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 states higher TCO distributions and legacy Hess contributions more than offset lower commodity prices."
+  }
+ ],
+ "cost_usd": 0.031816
+}

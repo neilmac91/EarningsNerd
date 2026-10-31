@@ -9,9 +9,13 @@ test_invite_gate.py.
 import uuid
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 
 from main import app
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit
 
@@ -92,7 +96,7 @@ def test_public_signup_emits_signup_completed_not_beta(client, captured_events):
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={"email": email, "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD},
     )
     assert resp.status_code == 200, resp.text
     client.cookies.clear()
@@ -117,7 +121,7 @@ def test_invited_signup_emits_invite_redeemed_and_signup_completed(
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={"email": email, "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert resp.status_code == 200, resp.text
     client.cookies.clear()

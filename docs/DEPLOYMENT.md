@@ -4,7 +4,7 @@ EarningsNerd runs on two platforms:
 
 | Tier | Platform | How it deploys |
 |------|----------|----------------|
-| **Backend** (FastAPI) | Google Cloud Run — service `earningsnerd-backend`, project `earnings-nerd`, region `us-west1` | **Automated** via GitHub Actions on push to `main` (gated on tests) |
+| **Backend** (FastAPI) | Google Cloud Run — service `earningsnerd-backend`, project `earnings-nerd`, region `us-west1` | **Automated** via GitHub Actions on push to `main` (gated on tests and the secret scan) |
 | **Frontend** (Next.js) | Vercel | **Automated** via Vercel's GitHub integration on push to `main` |
 | **Database** | Cloud SQL for PostgreSQL 15 (`earningsnerd-db`) | Reached over the Cloud SQL connector socket |
 | **Cache** | None in production (`SKIP_REDIS_INIT=true`) — L1 in-memory only | Redis is local-dev only (docker-compose) |
@@ -20,8 +20,10 @@ EarningsNerd runs on two platforms:
 The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) deploys automatically when:
 
 - the push is to `main`, **and**
-- `backend/` changed, **and**
-- all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed.
+- the repository variable `GCP_WIF_PROVIDER` is set (the job is skipped without it), **and**
+- `backend/` changed outside `backend/tests/`, **and**
+- all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed, **and**
+- `secret-scan` (gitleaks over every branch's history) found no committed credential.
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
 (`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every not-yet-recorded
@@ -35,31 +37,326 @@ skips files whose filename + sha256 are recorded; the psql session is pinned to 
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
 to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy. It then runs `gcloud run deploy` and routes
-traffic to the new revision, updates the required pregenerate job image, and updates seven other
+traffic to the new revision, updates the required pregenerate job image, and updates eight other
 configured job targets only when found (filing-scan, filing-digest, backfill-facts,
-earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge). Missing jobs are skipped,
+earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge, feedback-media-cleanup). Missing jobs are skipped,
 not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
 30-minute `timeout-minutes` so a stuck step can never hold the deploy group for GitHub's 6-hour
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
 `GCP_DEPLOYER_SA`).
 
-> **Only a push to `main` that touches `backend/` deploys.** `workflow_dispatch` runs tests only,
-> and a cancelled/failed deploy is not retried automatically — the next backend-touching merge
-> is the lever. Check the `deploy-backend` job's conclusion after every backend merge.
+> **Only a push to `main` that touches `backend/` outside `backend/tests/` deploys.** Changes confined to
+> `backend/tests/` still run all CI gates (the exclusion is that path prefix only); `backend/.dockerignore`
+> excludes `tests/` from the image.
+> `workflow_dispatch` runs tests only, and a cancelled/failed deploy is not retried automatically —
+> the next merge touching deployable backend files is the lever. Check the `deploy-backend` job's
+> conclusion after every such merge.
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
+
+### Docker build caching
+
+Backend releases build with Docker Buildx and reuse dependency layers through a scoped GitHub
+Actions v2 cache. Registry authentication, the seven-character commit tag and `latest` tag are
+unchanged. Cache export failure does not block a successful image push; imports and exports each
+have a five-minute timeout. The first build or an evicted cache builds normally. This uses the
+repository's GitHub cache quota; it does not remove older Artifact Registry images.
+
+### Durable background delivery rollout
+
+The default remains `DURABLE_TASKS_ENABLED=false` and CPU always allocated. Keep one warm API
+instance and 1 GiB; do not reduce either as part of this rollout. Provision a dedicated Cloud Tasks
+queue in us-west1 with one concurrent dispatch, 0.2 dispatches/second, five attempts,
+`max-retry-duration=0s` and 30–900 second backoff. The finite attempt count controls retry exposure;
+a positive duration would allow retries past five until both conditions are satisfied
+([Google retry semantics](https://docs.cloud.google.com/tasks/docs/configuring-queues#retry)).
+Enable the Cloud Tasks API; create a dedicated task
+identity. Grant the API runtime `roles/cloudtasks.enqueuer` on that queue and
+`roles/iam.serviceAccountUser` on the task identity, and the task identity `roles/run.invoker` only
+on the private worker. Grant the Cloud Tasks primary service agent
+`service-PROJECT_NUMBER@gcp-sa-cloudtasks.iam.gserviceaccount.com`
+`roles/iam.serviceAccountUser` on that task identity as required by Google's
+[authenticated HTTP task setup](https://docs.cloud.google.com/tasks/docs/creating-http-target-tasks).
+IAM changes require the founder's specific approval.
+
+Bootstrap `earningsnerd-task-worker` using a verified image built from this migration; an older
+live image does not contain the worker entrypoint. Set ingress to `all` so Cloud Tasks can reach
+it, enforce IAM authentication, and grant neither `allUsers` nor `allAuthenticatedUsers` access.
+Use minimum zero, maximum one, concurrency one, 1 CPU, 2 GiB and request-based CPU.
+Override the image command to `uvicorn` with args
+`task_worker_main:app,--host,0.0.0.0,--port,8080,--proxy-headers,--forwarded-allow-ips=*`.
+Do not launch it through `main:app`: the API's HTTP middleware deadline is shorter than task work.
+The parent imports no database engine; its isolated child uses `DB_POOL_SIZE=3`,
+`DB_MAX_OVERFLOW=0`, and the existing Cloud SQL socket. Budget three additional connections.
+Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email,
+and the API's `SENTRY_DSN` for the worker and its task children to report failures (F50; binding it is a
+founder/IAM step, and without it the worker logs `Sentry error tracking: unconfigured`);
+do not copy secret values into commands, tasks, source or logs. Match current generation flags.
+Set `TASKS_WORKER_PROCESS=true`, `DURABLE_TASKS_ENABLED=true`, and the complete `TASKS_*` queue,
+worker-origin and identity settings on the worker, plus `SEC_RATE_LIMIT_PER_SECOND=1` and
+`EDGAR_RATE_LIMIT_PER_SEC=1` (`docs/OPERATIONS.md`, "SEC budgets per process").
+
+First enqueue an authenticated `probe` with an empty payload. It verifies delivery without SQL
+business work, SEC calls, email or AI generation. Confirm worker completion logs and task removal
+(`capacity-readout`: completion is inferred from `2xx` worker requests and `ok` queue attempts and
+from the queue depth returning to zero; the worker logs completion at INFO, which the readout does
+not collect). Then set nonsecret repository variables `GCP_TASKS_WORKER_URL` and
+`GCP_DURABLE_TASKS_ENABLED=true` (every main push prints the `Variable-driven rollout switches:`
+line). CI requires the existing worker and updates its pinned image before deploying the API,
+routing worker traffic to the latest revision and clearing tags; it also pins queue handoff and
+request-based CPU together (`describe-service`: `Worker serving traffic`, `DURABLE_TASKS_ENABLED`,
+`Revision CPU allocation … MATCH`, `TASKS_WORKER_PROCESS` `'true'` on the worker and `'false'` on
+the service). Verify the current-head CI run (the merge's `deploy-backend` job), API detailed health
+(the deploy's own health step), service minimum one/memory 1 GiB (`describe-service`:
+`Revision minScale`, `Revision memory`), worker command and revision (`describe-service`:
+`Worker command/args`, `Worker revision`), and authenticated task success (`capacity-readout`:
+`queue_task_attempts` by response code, `worker_request_count` by response class). The worker's
+invoker-policy item is complete only when `describe-service` prints
+`Worker invoker policy: PRIVATE`; `UNVERIFIED` leaves it open. Watch task retry/errors, API latency
+and SQL connections before expanding workload (`capacity-readout`: `queue_task_attempts`,
+`worker_error_logs`, `request_latencies`, `database_connections`). Cold worker starts affect queued
+work, not the warm API.
+The post-deploy checks (the verification list, the invoker-policy item and the three watch items)
+were completed on 2026-10-10 against #1176's deploy (`0a672ebe`): `describe-service` passed with
+the worker invoker policy `PRIVATE` and `describe-jobs` passed, and a `capacity-readout` over
+10:55–12:55Z showed 17 queue attempts, all `ok`, matching 17 worker requests, all 2xx, with no worker
+error logs (CODE RED record 22, `tasks/code-red-20261004/runtime/control/DECISIONS-22.md`). The first
+probe stays unverified: no operation records it, and delivery through the enforced invoker check was
+observed instead. No operation reads back the queue's settings, the worker's `DB_MAX_OVERFLOW`,
+`TASKS_*` values or generation flags, or any IAM grant beyond the worker's own invoker policy: the
+enqueuer grant on the queue, the service-account-user grants on the task identity, project-level IAM,
+and which identity the policy's one invoker member is stay unread. Repeat the post-deploy checks after
+any change to the worker's or the queue's configuration or the service's sizing, and enqueue the probe
+first whenever delivery is switched on again.
+
+For rollback, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
+with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
+or delete it with unfinished tasks. CI pins the flag-off API back to always allocated CPU
+(`--no-cpu-throttling` unless the variable is `true`); confirm a rollback took with
+`describe-service`'s `Revision CPU allocation` line. A hand-rolled worker rollback by
+`--to-revisions` must be followed by `update-traffic --to-latest --clear-tags` before
+`describe-service` passes.
+
+Cloud Tasks can duplicate a delivery. Existing cache/upsert/delivery ownership remains the
+idempotency authority; force-generating a paid summary is deliberately excluded. Ordinary API
+SEC read-only timeout tails and SDK telemetry remain best effort; they do not perform the durable
+business mutations above. A slow native summary worker can extend cleanup, so monitor error tails
+and latency during the billing-mode change rather than claiming all thread operations are bounded.
 
 ### Read-only release configuration audit
 
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
-independent release evidence through the repository's existing keyless WIF identity. The first
-operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, and both
-service and revision `maxScale` for operator comparison. The second reports image, task count, and
-pool values for all eight expected jobs, and fails when their release or connection budget
-invariants drift. `describe-jobs` also fails if any expected job, including
-`earningsnerd-retention-purge`, is missing or unreadable.
-They only call Cloud Run describe APIs and do not access the database, application HTTP endpoints,
-or model providers.
+independent release evidence through the repository's existing keyless WIF identity. Dispatch one
+Ops operation at a time and wait for it to finish: GitHub keeps one pending run per concurrency
+group, so a second pending dispatch in the `ops` group replaces the first. An `-apply` waits for the
+founder's approval outside that group, but once approved it queues like any dispatch, so a later
+dispatch can still replace it and waste the approval. `describe-service` and `logs-probe` alone run in a
+group of their own run (F51), so neither replaces, nor waits behind, a pending operation; they can overlap
+one in progress: a describe that overlaps a `feedback-media` enable or disable apply can stop on a revision
+that is not ready, as during a deploy, and one during or after `rollback-traffic` stops on the traffic
+check until traffic is moved back to the latest revision. Dispatch after the
+merge's `deploy-backend` job has concluded: a describe during a deploy can fail transiently
+(`latest created revision … is not ready`) or show the worker and the API on different images. Both
+describe operations carry a ten-minute step timeout and run committed stdlib-only modules,
+`ops/describe/service.py` and `ops/describe/jobs.py`. In `describe-service` a failed gcloud read, the
+API service's own describe included, prints only its closed class (`permission_denied`, `not_found`,
+`unavailable`, `timeout` after 80 s, `unreadable_response`, `error (gcloud exit N)` or
+`error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
+host or a URL. `describe-jobs` makes its nine reads independently in Python, each with a
+40-second deadline (six minutes of gcloud waits inside its ten-minute step). It reports closed
+failure classes, retains every readable job's projection and finishes nonzero if any job is
+unverified or any readable invariant fails.
+
+The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `excerpt-cohort`,
+`detection-sql`, the repair-ticker,
+the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
+lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
+including success-path warnings.
+A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
+`unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
+The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
+operator evidence; their six step/command pairs (eight call sites) remain explicitly listed in
+[the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map.
+These mutating actions are not live-test probes. The gate's stdin-program check does not
+recognise an interpreter invoked through a variable or another name (`$INTERPRETER -`, `pypy3 -`).
+
+`describe-service` reports, for the API service, traffic (100 % on the latest ready revision, no
+tags, revision names and percentages only), the serving revision image, `SENTRY_RELEASE`, pool
+values, the allow-listed flag and SEC-pin values (`SEC_RATE_LIMIT_PER_SECOND`,
+`EDGAR_RATE_LIMIT_PER_SEC`, `DURABLE_TASKS_ENABLED`, `ENABLE_INSIDER_ACTIVITY`,
+`TASKS_WORKER_PROCESS`) for the serving revision and the pregenerate job, and the service's minimum
+and maximum instances at service and revision level (the API deploy sets `--min-instances` and a
+service-level `--max=2` but no service-level `--min`, so `Service minScale` is expected to read
+`absent` and `Service maxScale` `2`; `Revision minScale` answers the checklist), CPU,
+memory, CPU allocation (`request-based` or `always-allocated` from the revision's `cpu-throttling`
+annotation, an absent annotation meaning request-based, compared with the expectation `ci.yml`
+derives from `DURABLE_TASKS_ENABLED`), startup CPU boost, `containerConcurrency` and
+`timeoutSeconds`. For the private task worker `earningsnerd-task-worker` it reports the serving
+revision and traffic, the same allow-listed env values (`TASKS_WORKER_URL`, `TASKS_INVOKER_EMAIL`
+and `TASKS_QUEUE` stay name-only), the same sizing lines, the ingress annotation, whether the
+configured command and args match the committed `uvicorn` `task_worker_main:app` entrypoint in
+`ci.yml` (values are never printed), whether the invoker IAM check is enforced, and whether the
+invoker policy admits the public. It fails (`Unresolved production configuration: …`, non-zero)
+immediately, before any later read and without a verdict line, on tagged, split or non-latest
+traffic on the service or the worker and on an undescribable or multi-container resource; and,
+after printing every block, one `::error::` line per defect and a `describe-service: FAIL (N
+invariant failure(s))` verdict, on a worker policy granting `allUsers` or `allAuthenticatedUsers`
+any role, on a disabled invoker IAM check, on a duplicate or nameless env entry, and on either SEC
+pin that is missing, a secret reference or any value other than `1` on the service's or the
+worker's serving revision. An immediate exit still names every defect collected before it. A
+denied or failed `get-iam-policy` read prints `Worker invoker policy: UNVERIFIED
+(<class>)` with a workflow warning and does not fail the step: it is absence of evidence, not
+evidence of exposure, and the grant that resolves `permission_denied` (`run.services.getIamPolicy`,
+carried by `roles/run.viewer`) is an IAM change the founder approves; any other class is a
+transient or misdirected read to re-dispatch before concluding. A run that prints `UNVERIFIED` has
+not verified the invoker policy; the invoker-policy item of the durable-tasks checklist is complete
+only when a run prints `Worker invoker policy: PRIVATE`. A `PRIVATE` line with
+`0 roles/run.invoker member(s)` means Cloud Tasks cannot invoke the worker; the task identity's
+binding is a founder IAM item. When every block printed, the final line is `describe-service: PASS`,
+`describe-service: PASS; UNVERIFIED: worker invoker policy (<class>)`, or
+`describe-service: FAIL (N invariant failure(s))`; an immediate exit prints no verdict line.
+
+`describe-jobs` reports image, task count, pool values and both SEC pin values for all nine
+expected jobs, states whether `earningsnerd-backfill-facts` carries the committed
+`python scripts/backfill_facts.py --only-new` entrypoint (other jobs: override present or image
+default; values are never printed). Every named job gets a block, including a closed UNVERIFIED
+classification when its read fails or its description is malformed. Readable blocks report fixed
+configuration fields and counts of environment entries; arbitrary environment names/values and
+unexpected image identities are withheld. The final inventory counts distinguish projected and
+unverified resources. A readable pool, pin, task-count, image-parity or backfill-entrypoint defect
+produces FAIL; an unreadable job without readable drift produces INCOMPLETE. Both exit nonzero.
+A missing or unreadable separately provisioned job, including feedback cleanup, never suppresses
+evidence for the other jobs and never silently becomes a healthy optional resource. Provisioning
+that resource remains its separate operational decision. These two
+operations access no database, application HTTP endpoint or model provider. In addition to the
+Cloud Run descriptions and worker IAM policy read, `describe-service` reads exactly three
+fixed resources: Scheduler jobs `filing-scan-hourly` and `summary-recovery-minute`, and the
+`earningsnerd-background` Cloud Tasks queue, all in the configured region of `earnings-nerd`.
+Each additional read has a 20-second timeout; the six existing reads have 80-second timeouts,
+so their combined timeout budget is 540 seconds inside the unchanged ten-minute step.
+
+Both describe operations print a separate typed summary/SEC configuration block: durable
+summary/task switches, new-job pause, shared SEC admission switch/wait, job cooldown/backlog/
+attempt/lease/recovery/age limits, preparation caps and task work deadline. Only valid booleans
+and bounded numbers print. Absent fields are `not_set_image_default_unverified`; a secret
+reference, duplicate field or malformed value remains unresolved, never an inferred default
+or a printed value. The internal-job token is presence-only, never its value or reference.
+This can inspect images predating those capabilities without claiming that their defaults apply.
+
+Scheduler output contains state, supported numeric cron, recognized timezone, deadline/retry
+limits, an exact POST-target match and authentication/header presence. URLs, identities,
+audiences, header values and request bodies never print. `summary-recovery-minute` is a proposed
+canonical name, not a scheduler this release creates: `not_found` concerns that name alone;
+other caller names are not searched. The recovery endpoint needs its internal-token header;
+OAuth/OIDC presence alone is not authentication evidence. Queue output contains state,
+dispatch rate/concurrency/burst and retry limits. Missing or denied optional reads report
+`UNVERIFIED` with the closed failure class, a warning and a qualified final verdict; they never
+erase a prior failure. Unsupported field shapes remain null/unresolved. No settings, IAM,
+scheduler, queue or traffic are changed, and no tasks are created.
+
+These are configuration receipts, not an activation decision. They do not prove scheduler
+execution/non-overlap, recovery success, queue age, mail latency, effective image defaults,
+database headroom, outbound SEC throughput or logical charge reconciliation. Use the existing
+bounded `capacity-readout` below for observed aggregates and the fixed
+`summary-recovery-readout` for the separately scoped summary receipt snapshot. Production flag and capacity changes still require founder approval.
+
+`summary-recovery-readout` is a fixed database observation, not a recovery trigger. It checks
+REGN filings 45003/45004 against their exact accession, form and CIK, projects their current job
+and referenced reservation/result consistency, counts the oldest 1,000 known-active jobs with
+an explicit 1,001st-row truncation probe, and reads the shared SEC coordinator singleton.
+It accepts no scope or SQL arguments, emits no account/job/lease/reservation identifiers or
+filing bodies, and reads no monthly usage counters. Its fixed thresholds are reference values,
+not deployed Settings. See [the readout contract](../ops/summary_readout/README.md).
+
+The operation retains the deploy-in-flight preflight and uses the existing Cloud SQL proxy.
+Its repeatable-read transaction is read-only, with 15-second statement and 2-second lock bounds,
+a 25-second psql deadline and a 32 KiB accepted-output limit. Normalized evidence, including a
+closed UNVERIFIED failure where the reader ran, is retained as `summary-recovery-receipt.json`
+for 14 days. A valid snapshot may identify missing or inconsistent records: exit zero means
+observation completed, never that activation, delivery, recovery or billing reconciliation passed.
+No generation, queue dispatch, repair or settings change is performed.
+
+`capacity-readout` reads a bounded past window (`capacity_start`/`capacity_end`, UTC, at most two
+hours, ending in the past; end it at least five minutes before dispatch, because Cloud Tasks and
+Cloud Run metric points become visible up to 180 s after sampling and a window ending inside that
+lag under-reports its tail — the receipt records `window.end_age_seconds` and flags `freshness`) of
+aggregates only: job executions, Cloud SQL backends, request counts by response class and latency
+distributions for the API service and the task worker, the `earningsnerd-background` queue's depth
+and task attempts by canonical response code (Cloud Tasks publishes no class label), and
+error-level log entries for the service, the jobs and the worker as counts by severity and
+pool-timeout signature plus timestamp/severity/resource/signature records (never message text or
+URLs), together with a read-only database snapshot. Each source carries its own `state`
+(`complete`, `partial`, `unavailable`): a missing permission, an empty series or an unrecognised
+response shape is recorded as such, never as zero (a job execution that cannot be placed counts in
+that channel's `unplaced_count`), and counts on a `partial` channel are a floor.
+A channel whose API call failed with an HTTP error also carries `error_detail` when the body has
+something to record: from a Google error envelope, the error's status, code, reason and domain and at
+most 240 characters of its message, in which URLs, email addresses or principals, dotted host names
+and IP addresses have first been replaced by `<url>`, `<email>` or `<host>`; from a body that cannot
+be read or parsed, only `body` (`non_json_or_unreadable` or `truncated_or_non_json`); other JSON
+leaves none. The redaction is shape-based: a dotted name is withheld whenever its last label could
+end a host name, except an IAM permission name ending in `.get`, `.list` or `.use`; a single-label
+host name, a host name followed by a label that cannot end one (`.1`, `_1`), a name dotted with a
+non-ASCII dot (U+3002, U+FF0E) or encoded dots (`%2E`), an IPv4 address glued to a letter, digit,
+`_` or `-`, an integer or hexadecimal IPv4 address (`3221225991`, `0xc0000207`) and an IPv6
+address after a `label:` prefix are kept, and a host name in a script written with combining marks
+(Indic) is not covered.
+The response body itself is never kept.
+The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
+
+`excerpt-cohort` (E28) counts which builder wrote the summary excerpts, two ways, both read-only,
+into a receipt of counts. `ops/excerpts/provenance_count.py` reads the `Excerpt provenance`, fetch and size-cap
+log lines Cloud Logging still holds for the API service, the task worker and the jobs, one UTC day
+at a time to the top of the hour before the dispatch's, from 2026-10-01 or, once that is more than
+45 days back, from 45 days before that end (the reader's limit); at most 40 pages of 1,000 entries a
+day, and a 25-minute budget inside the step's 30. Its `e28_window.covered` says whether the read
+held E28 (b)'s whole window: from a dispatch at 11:00 UTC on 2026-11-18 the rolled start passes the
+window's opening and it is false whatever the logs still hold, and a day of the window that has
+expired makes it false sooner. It dates what has expired from the `_Default` bucket's
+`retentionDays`, where the identity may read it, and the oldest entry the app's streams still hold.
+Each day carries its own state: `complete`, `expired_or_absent`, `partly_expired_or_absent`,
+`retention_unverified`, `partial` or `unavailable` (with a closed class, `time_budget` among them),
+so missing or expired evidence never reads as a zero count. `ops/excerpts/source_cohort.sql` counts
+the stored excerpts by form, builder and bucket in one `READ ONLY` transaction (120 s a statement,
+10 s a lock), from its own step rather than `detection-sql`'s loop. The
+`excerpt-cohort-<run id>-<attempt>` Actions artifact keeps the counts alone (`logged.json`,
+`stored.txt`), 14 days. The artifact is not private: on this public repository any signed-in GitHub
+user can download it while it is kept, and the Actions log is public too. What the readers write to
+their output files is counts only, with no accession, filing id, URL or message text (#1747's
+contract). A read's error text, which can name the database's user or host or carry whatever the
+reader was reading, reaches neither: a failed read prints its exit code and a closed class
+(`unavailable`, `permission_denied`, `timeout` or `other`; `describe-service` prints the first three
+too, from gcloud's error output or its own time limit, and never `other`). A
+reader that fails outright (no gcloud token or project), or whose gcloud calls hang until
+the step's 30 minutes (they carry no timeout of their own), fails the run before the stored count;
+it writes no receipt then, and the upload step warns. A run stopped before either read starts (the
+pre-flight, the sign-in) keeps no artifact, and its upload step warns. The run needs the Ops identity's Logging read
+access (a denied read leaves its days `unavailable`; CODE RED record 10 records
+`roles/logging.viewer` on that identity and a `logs-probe` reading PERMITTED, access being verified
+per run), and reads `retentionDays` only with `logging.buckets.get` (without it, the oldest-entry
+probe dates expiry alone). Its deploy pre-flight runs before the log read, so the database read
+starts up to half an hour after it: dispatch it when no backend merge is imminent. It retires with
+#1747's readers, when E28 (b) closes.
+
+`logs-probe` reports whether the Ops identity can read the API service's logs:
+`logs-probe: logging.read PERMITTED (N recent entries visible)`, or
+`logs-probe: logging.read DENIED (rc=N)` followed by
+`logs-probe: failure class <class> (gcloud's error text withheld)` (`permission_denied`, `not_found`,
+`unavailable` or `error (gcloud exit N)`, classified as `describe-service` classifies), then the number
+of `company_upsert_conflict` entries in the last seven days when that read succeeds. Then, for each of
+the four lines `main.py` prints as Sentry starts or does not, it names the API service's revisions that
+printed it in the last seven days, with a count from the newest 500 entries per kind:
+`sentry startup (7d) initialized: <revision> x<n> ...`, and likewise `failed`, `dsn-unset` (no
+`SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
+`sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above,
+and the step adds one `::warning::` that names those kinds and the remedy for each class.
+The task worker runs `task_worker_main.py`, which never imports `main.py`: it starts Sentry with the task
+policy but prints none of the four lines (it logs `Sentry error tracking: <status>`), so its revisions appear
+under no kind. After a deploy, the API service's new revision should appear under
+`initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
+would count twice under `sdk-missing`, as `app/routers/users.py` logs the same words. It never prints a
+log line (the failure line can quote an exception) or gcloud's own error text, which names the acting
+principal, and never fails the step.
 
 ### Rollback (when a bad revision is live)
 
@@ -68,7 +365,16 @@ the post-deploy `/health/detailed` check runs, so that check is **post-hoc detec
 prevention**: a DB-unreachable revision is already live serving 503s, and the failing check only
 reddens the CI job (your signal to roll back) — it does not cut traffic back on its own. A revision
 that boots and passes health yet misbehaves at runtime likewise stays live. Cloud Run keeps prior
-revisions, so rolling back is a one-liner (no rebuild):
+revisions, so traffic can return to a compatible prior revision without a rebuild. Choose the target
+against the compatibility floors below before changing traffic.
+
+**Password-hash compatibility floor (E97).** Once a new or changed password has been stored as
+Argon2id (`$argon2id$`), never roll the password reader or its dependencies back before E97. A
+bcrypt-only revision cannot verify those accounts. Use an image that retains E97's scheme-aware
+`password_utils.verify_password` and its Argon2 dependencies, or recover by rolling forward to a
+compatible image. Preserve that reader and its dependencies when reverting the offending change on
+`main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
+bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
@@ -78,8 +384,20 @@ gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --lim
 gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-revisions=REVISION=100
 ```
 
-Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
-`--to-latest` deploy would otherwise route traffic straight back to the bad image).
+Then revert the offending change on `main`, preserving the compatibility floors, so the next CD
+deploy doesn't re-ship it (a plain
+`--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
+E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
+`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back. Never roll back
+past `earningsnerd-backend-00661-zr9`, E245's step 1 (#1808): since step 2 dropped
+`waitlist_signups.email_verified`, an older revision maps the column, and the waitlist's join and
+status routes fail until traffic rolls forward. If an older revision must serve, re-add the column
+first, by hand through the Cloud SQL proxy, since a migration file would deploy and route traffic
+back to the newest revision (`email_verified BOOLEAN NOT NULL DEFAULT FALSE`; every row then reads
+false). Once traffic rolls forward the column stays, the ledger having recorded the drop: delete the
+drop file's `migration_ledger` row and the next deploy drops it again. The drop discarded the
+column's values, which only a database backup keeps
+(`lessons/ops-drop-a-mapped-column-in-two-deploys.md`).
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
@@ -176,6 +494,7 @@ printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_PUBLISHABLE_KEY --data-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_WEBHOOK_SECRET --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_API_KEY        --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_FROM_EMAIL     --data-file=-
+printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_WEBHOOK_SECRET --data-file=-   # the webhook's whsec_ signing secret
 ```
 
 ### 5. Grant the runtime service account access
@@ -199,8 +518,8 @@ gcloud run deploy earningsnerd-backend \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io"
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest \
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
 ### 7. Verify
@@ -240,7 +559,7 @@ SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-co
 # NOTE: app/config.py requires SECRET_KEY and OPENAI_API_KEY at import — the job crashes on startup
 # without them, even though the scan itself makes no AI calls. RESEND_API_KEY is needed to send mail.
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Real-time scan job
 gcloud run jobs create earningsnerd-filing-scan --region=us-west1 \
@@ -281,11 +600,24 @@ gcloud scheduler jobs create http filing-digest-daily --location=us-west1 --sche
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-filing-digest:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 
-# Facts backfill weekly (Mondays 07:00 UTC — after the scan has ingested the week's filings)
-gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="0 7 * * 1" \
+# Facts backfill weekly (Mondays 07:30 UTC — after the scan has ingested the week's filings, and after a
+# first attempt of pregenerate's 06:00 run has ended, so the SEC overlap stays at the cap;
+# docs/OPERATIONS.md "SEC budgets per process"). Move an existing job, then check it:
+# gcloud scheduler jobs update http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1"
+# gcloud scheduler jobs describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"
+gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1" \
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
+
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) goes on **both** the scan job and the
+service: the job's real-time pass stores the Item 1A text (its own `section-extraction` job record;
+`SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter)
+and the service's what-changed endpoint serves the diff. Neither `$ENVV` above nor the service's
+`--update-env-vars` in `ci.yml` sets it, so add it to both when it flips, and add `section-extraction`
+to `JOB_CADENCES`. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
+warms the `filing_section_text` table by hand before the flip, under its own
+`section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
 
 Smoke-test each before trusting the schedule:
 ```bash
@@ -319,7 +651,7 @@ Create them once, with one Cloud Scheduler trigger each:
 CONN=earnings-nerd:us-west1:earningsnerd-db
 SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Daily refresh job
 gcloud run jobs create earningsnerd-earnings-calendar-refresh --region=us-west1 \
@@ -385,6 +717,191 @@ gcloud scheduler jobs create http retention-purge-weekly --location=us-west1 \
 
 CI updates this job's image with the others once it exists; until then the deploy logs
 "not found — create it once per DEPLOYMENT.md. Skipping."
+
+### Private feedback screenshots
+
+Text feedback works independently of image storage. Screenshots require `FEEDBACK_MEDIA_ENABLED=true`
+and `FEEDBACK_MEDIA_BUCKET`; the default is disabled. Disabling new uploads retains private reads and
+cleanup of previously accepted images. CI preserves these operator-owned values and updates the cleanup
+job image on subsequent backend releases when the job exists.
+
+The protected `Ops` workflow has six fixed operations:
+
+| Operation | Effect |
+| --- | --- |
+| `feedback-media-inspect` | Read bucket security, runtime grants, job image/entrypoint, cleanup/probe executions, hourly schedule and alert routing/heartbeat. |
+| `feedback-media-provision-apply` | Create the dedicated buckets, narrow grants, cleanup job/schedule and feature alert policies; run cleanup and a manifest-backed storage probe. |
+| `feedback-media-enable-apply` | Require matching private resources, successful cleanup and audited storage-probe executions within two hours, and verified alert routing/heartbeat, then enable API uploads. |
+| `feedback-media-disable-apply` | Disable new uploads while retaining the configured bucket, reads and cleanup. |
+| `feedback-media-verify-inspect` | Read the isolated verifier's private serving configuration and signed current-image/frontend receipt. |
+| `feedback-media-verify-apply` | Provision the fixed isolated verification lane, run the real migrations and live browser flow, and retain bounded synthetic evidence. |
+
+Each `-apply` requires the repository owner's approval of that exact run in `ops-apply`; agents never
+approve the deployment or modify the environment. All operations use only the reviewed `main` revision,
+the existing WIF identity and fixed resources in `earnings-nerd/us-west1`. Provisioning refuses an
+existing bucket or job whose ownership/security settings differ; it does not weaken a pre-existing
+resource to make a retry pass. A partial apply is inspected before a newly approved retry.
+
+The new buckets are `earnings-nerd-feedback-media-prod` and `earnings-nerd-feedback-media-preview`.
+Both enforce uniform bucket access and public-access prevention, with versioning and soft delete off.
+The SQL-backup bucket is untouched. Objects are not public and no bearer download URLs are issued.
+The custom `earningsnerdFeedbackObjects` role contains only object create/get/delete, bound on these
+buckets to the runtime identity. Inspection rejects any additional direct runtime bucket grant,
+including objectAdmin or a conditional grant. The storage probe also queries the actual runtime
+identity's effective permissions on the production bucket, so an inherited broad role cannot be
+assumed away. It requires object create/get/delete and rejects the other thirteen enumerated bucket/
+object permissions. This is a point-in-time audit of sixteen supported permissions, not proof about
+every future permission or project-level bucket listing. Broader inherited access blocks rollout;
+adding the narrow binding does not remove it. The provisioning identity needs permissions to create those buckets,
+create/read the custom role, set bucket IAM, create/update and run the cleanup job (including execution overrides) and its IAM, and create/update
+its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
+existing notification channel; absent grants fail the apply rather than being worked around.
+
+`earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
+one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.
+`feedback-media-cleanup-hourly` invokes it at `17 * * * *` in `Etc/UTC` using OAuth and a job-scoped
+invoker grant. The extra job raises the configured all-jobs connection budget by one (19 without the
+private worker, 22 with it); it makes no SEC or model calls. Runtime secret references are copied only
+for `DATABASE_URL` and `SECRET_KEY`, never printed or materialized as values.
+
+Screenshots expire after 180 days; account deletion revokes access immediately and schedules removal.
+Cleanup retains object manifests until a conditional delete or confirmed absence succeeds. Inspect the
+`feedback-media-cleanup` job ledger for failed/stale runs and overdue/error counters; a failed or stale
+job is an operational incident, not evidence of erasure. Target active-object removal within 24 hours.
+The operation reuses the existing channel
+`projects/earnings-nerd/notificationChannels/2698479126467110226` only after its exact identity, email
+type and enabled flag are read back. Google's [notification-channel API](https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels)
+can omit the default `VERIFICATION_STATUS_UNSPECIFIED` for channels that do not require verification
+or have a legacy exemption. That default and `VERIFIED` are accepted; explicit `UNVERIFIED`, null
+and unknown statuses are refused before provisioning writes or upload enablement. This readback does
+not prove email delivery. The recipient is never printed, and no channel or new destination is created.
+
+The storage probe runs the cleanup job with execution-scoped `--verify-storage` arguments. It first
+commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact bytes and conditionally
+deletes its generation. Failure leaves durable cleanup evidence. It creates no user or feedback
+report and uses the production bucket; the separate preview bucket is not thereby tested. The probe
+uses its own `feedback-media-storage-probe` ledger name and cannot refresh the scheduled cleanup
+heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest attempt of each mode to have succeeded on the serving
+image; an older success cannot conceal a recent failure.
+
+Two feature-owned Cloud Monitoring policies route to that existing channel. One observes failed
+completed executions of `earningsnerd-feedback-media-cleanup`, including overdue-object failures.
+The other alerts after two hours without the `earningsnerd_feedback_cleanup_success` log counter.
+Only a successful normal cleanup, after its ledger commit, emits that heartbeat; a probe, dry run,
+failed deletion, overdue backlog or failed ledger commit cannot refresh it. Provisioning creates the
+metric before running cleanup and waits up to five minutes for an observed point. Inspection requires
+the exact enabled policy filters, ownership labels and channel, and an observed recent heartbeat;
+configuration drift is refused rather than silently overwritten. The operation does not apply the
+historical general-alert readiness package or release its unrelated holds.
+
+The failure-policy readback accepts an omitted zero `thresholdValue`, the canonical protobuf JSON
+representation of that scalar default. Explicit nonzero or malformed thresholds, missing duration
+and other condition differences remain drift; the approved creation request still specifies zero.
+
+Policy readback proves configured routing, not email delivery. Retain live policy, channel and
+heartbeat receipts, then confirm delivery on an authorized test or a natural incident before claiming
+end-to-end alert delivery. Metric publication and alert delivery can lag the underlying execution.
+
+Before enabling, verify synthetic upload/read/retry/export/deletion against private storage, browser
+behavior in both themes and the decoder's memory budget. Provisioning alone is not that verification.
+The enable operation checks infrastructure prerequisites; the operator must also retain the test and
+preview receipts in the PR. After enable/disable, verify `/health/detailed`, authenticated capabilities,
+and the serving revision. A frontend rollback must keep the backend read/cleanup paths for accepted
+images; never delete the bucket, manifests or migrations as a rollback.
+
+#### Isolated live verification before enabling screenshots
+
+Merge and verify the backend deployment, then merge the screenshot frontend before this operation.
+The reviewed `main` checkout supplies both the browser build and a bounded, direct `python -c`
+verification wrapper (at most 32 KiB) to the **exact immutable image digest serving production**.
+The wrapper is never installed as a production route or added to the backend image. The unchanged
+application handles the browser's requests; only the private verifier has the fixture controls and
+the local notification sink. Email, Stripe, model, analytics and error-reporting credentials are
+absent from this runtime. The sink validates the application's real feedback notifications without
+sending email.
+
+```bash
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-apply
+```
+
+The founder approves this exact run's `ops-apply` deployment in GitHub. It has the same main-only,
+first-attempt, owner-approval and no-overlapping-main-deploy gates as the other apply operations.
+Do not approve it through an agent or run its cloud writes directly. A failed or partial apply is
+inspected before a fresh dispatch and fresh founder approval.
+
+The provisioner addresses only these feature resources:
+
+- Private Cloud Run service `earningsnerd-feedback-verify`, one instance, four concurrent requests,
+  one CPU/1 GiB, and a two-connection database pool without overflow. Four requests allow the browser
+  to exercise the application's two-upload admission limit while a control/busy request can reach it.
+- Identity `earningsnerd-feedback-verify@earnings-nerd.iam.gserviceaccount.com`, project Cloud SQL
+  client access, preview-bucket object create/get/delete, and access only to the two verification
+  secrets. The deployer receives service-account user and OpenID-token creator on this identity,
+  and verification-secret access; the verifier service has an identity-scoped invoker grant.
+- Database and LOGIN role `earningsnerd_feedback_verify` on `earningsnerd-db`, with a fixed
+  purpose/run marker. The role has no superuser, createdb, createrole, replication, bypass-RLS,
+  inherited role memberships, or database ownership. It may connect/create temporary objects in
+  its own database and create objects in that database's public schema. Its connection limit is
+  four. The actual migration runner runs as this restricted schema creator after model bootstrap.
+- Secrets `EARNINGSNERD_FEEDBACK_VERIFY_DATABASE_URL` and
+  `EARNINGSNERD_FEEDBACK_VERIFY_SECRET_KEY`; no production secret is mounted in either preview
+  service or cleanup job. The SQL administrator's existing connection is used only inside the
+  provisioner, through the pinned proxy on localhost port 15432, never exported to `GITHUB_ENV`
+  or passed to the browser process.
+- Existing dedicated bucket `earnings-nerd-feedback-media-preview`. Run media provisioning first.
+  Production objects, database tables and bucket settings are not used for verification fixtures.
+- Cleanup job `earningsnerd-feedback-verify-cleanup` and scheduler
+  `feedback-media-verify-cleanup-hourly` at `41 * * * *` UTC, one task/CPU/database connection,
+  512 MiB, 600-second timeout and one retry. They retain the same test database, bucket and durable
+  manifests after a failed browser run. The preceding run must settle before a new marker replaces
+  its cleanup configuration. Unexpected existing ownership or configuration blocks the operation.
+  Scheduled cleanup skips an unexpired verification lease, so it cannot erase a browser's active
+  fixtures. The protected operation uses execution-scoped `cleanup_now` for its final cleanup.
+  A new apply waits for the prior two-hour lease to expire, even after an early failure or completed
+  run; absence of an active browser is not inferred from a timeout. A changed runtime source also
+  refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
+  through a separately reviewed operation before retrying the new source.
+
+Before creating resources, the provisioner checks actual project IAM capabilities and SQL
+`CREATEDB`/`CREATEROLE`; a denied permission is a blocker, never a reason to widen grants silently.
+It verifies that the test role has no privileges on production application tables, sequences or
+security-definer functions. PostgreSQL's inherited PUBLIC CONNECT cannot be denied to one role
+without editing production ACLs, so this is an object-access check, not a claim that the role cannot
+connect to any other database. Production ACLs remain untouched. The running verifier separately
+audits its actual identity's preview storage permissions, requires no access permission on the two
+production secrets or production media objects, and checks its actual database name/role/marker
+before importing the app. Cloud Run identity, source digests and the two-hour run lease are checked
+as well. An anonymous request to its normally public application health route must receive Cloud
+Run's 403 denial; direct service IAM readback alone would miss inherited public invoker grants.
+
+The runner serves the actual frontend through an HTTPS loopback proxy. The proxy injects an
+audience-bound Cloud Run token server-side and gives the browser neither that token nor the control
+key. The browser exercises real upload, clipboard, private owner/admin reads, other-account denial,
+links, lost-response retry, export, account deletion and cleanup. Runtime evidence also records
+notification validation, metadata stripping, generation-confirmed deletion and measured memory.
+The memory result describes this representative workload; it does not establish a bound for every
+combination of warmed filing traffic.
+
+The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
+bound to the run, schema, current image digest, runtime source, browser suite and committed frontend
+tree. Upload enablement now requires that receipt to be less than two hours old, in addition to the
+production cleanup/probe/monitoring prerequisites. Production request handlers never query the
+verification database. A subsequent backend image or frontend/source change requires fresh live
+verification. Confirm that Vercel serves the receipt's frontend tree and inspect the artifact before
+the separately approved enable operation.
+
+```bash
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-inspect
+```
+
+This inspection creates no resources and needs no founder approval; it reads test-secret material
+only in memory to validate the signed receipt and mints a short-lived audience-bound token for the
+private control read. A missing/expired receipt or denied read is unverified, not a success.
+The seven-day `feedback-verification-<run>-1` artifact accepts only the signed counts/digests JSON
+and seven explicitly named synthetic PNG screenshots (8 MiB each, 64 MiB total). Unknown files,
+symlinks, PNG metadata and oversized evidence are rejected before publication. Cookies, session
+state, traces, videos, HTML, credentials, certificates and provider errors are excluded. Temporary
+credentials live in a separate private directory that is removed when the operation ends.
 
 ### Monthly Cloud SQL logical export
 
@@ -453,9 +970,20 @@ check whether separately managed database routines need their own backup coverag
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
 scheduled run is unaffected. Do not use `gcloud run jobs update --args=…` for one-shot work. The
 backend deploy owns the persistent `earningsnerd-backfill-facts` contract and restores
-`python scripts/backfill_facts.py --only-new` while updating its image. Since the DB is only
-reachable from Cloud Run, execution-scoped arguments are also the way to run any
-`backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
+`python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
+from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
+committed script operations (`repair-ticker-*`, `relabel-fy-*`, `repair-quarterly-*`, `repair-lineage-*`), execution-scoped arguments are the
+way to run a `backend/scripts/*` maintenance script against prod. Every Ops `-apply` operation waits
+for the founder's approval on the `ops-apply` environment before any step runs, writes only in the
+run's first attempt (a retry is a fresh dispatch), and a Claude Code session is refused the approval
+call (`.claude/hooks/ops_approval_guard.py`). The gate binds main's `ops.yml`, not the credential, and
+every apply stops at the workflow's approval check, which finds no approval of `ops-apply` recorded
+for the run, until the founder configures the environment (`ops.yml`'s header lists its limits).
+The founder sets it up once: Settings > Environments > New environment `ops-apply`, with the founder
+as its required reviewer and "Prevent self-review" left off (sessions dispatch through the
+founder's account). Each apply then shows "Review deployments" on its run page, where the founder
+approves it; the check counts only the repository owner's approval, so a reviewer added to the
+environment later cannot approve a production write. `backfill_facts.py --dry-run` is accepted only
 with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
 so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
 false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement
@@ -610,7 +1138,7 @@ otherwise). Create it once, with one Cloud Scheduler trigger:
 CONN=earnings-nerd:us-west1:earningsnerd-db
 SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 gcloud run jobs create earningsnerd-notable-filings --region=us-west1 \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
@@ -641,8 +1169,12 @@ inspector continues to report the actual code default separately from the live p
 
 Merge the activation only after #1002's source-faithful reason labels and responsive card layout
 are released and independently verified. After the activation deployment, verify the migration
-summary, detailed health, live flag, `GET /api/notable_filings?limit=8`, issuer diversity, canonical
-SEC URLs, filing freshness and the homepage after revalidation. The homepage ISR interval is
+summary, detailed health, live flag, `GET /api/notable_filings?limit=6` (the homepage's own request:
+under D-046's rule at most six 10-K and 10-Q filings, one per company), canonical SEC URLs in its
+payload, filing freshness (each `filed_date` today or in the seven days before, in New York) and the
+homepage after revalidation, where the row follows Reporting this week and each line opens its
+company page, prints the company's name as Reporting this week does and states its filing's date
+("filed Oct 20, 2026"). The homepage ISR interval is
 **3,600 seconds**, distinct from the backend's fifteen-minute serve-cache TTL. An API flag change
 does not immediately purge existing homepage HTML. An empty feed is legitimate when fewer than
 three companies qualify; do not infer success or failure from HTTP status alone.
@@ -686,8 +1218,8 @@ script location. Do not run it in CI or as part of the backend gate.
 ### WS-7 SIC backfill prerequisite (founder executes)
 
 `USE_STATEMENT_FINANCIALS` now defaults to true in code; an explicit deployment override still
-wins. Confirm the effective value with the existing `ops.yml` describe-service allow-list before
-claiming production parity. This change neither rewrites old filing facts nor fills missing SIC.
+wins. Confirm the effective value with the `describe-service` allow-list (`ops/describe/service.py`)
+before claiming production parity. This change neither rewrites old filing facts nor fills missing SIC.
 The SIC command goes through the EDGAR service limiter/circuit breaker and is resumable: by
 default it selects only companies with missing SIC and commits batches of 100.
 

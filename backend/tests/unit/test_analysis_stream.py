@@ -370,6 +370,34 @@ class TestStreamTrendNarrative:
         ]
         assert events[-1]["type"] == "error"
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("cached", [False, True], ids=["first run", "with a narrative cached before the guard"])
+    async def test_a_mixed_unit_dataset_is_refused_before_any_model_call_or_cache(self, monkeypatch, cached):
+        # A JPY revenue point beside USD ones refuses the dataset (E102): the stream says so and ends, no model is called,
+        # no narrative is stored, and a narrative cached before the guard is not served.
+        from app.database import SessionLocal
+        from app.models import FinancialFact, TrendAnalysis
+        from app.services.trend_analysis.units import INCOMPATIBLE_UNITS_MESSAGE
+
+        company_id = _seed_company_with_history()
+        if cached:
+            await _drain(company_id, monkeypatch, [_selection()])
+        db = SessionLocal()
+        db.query(FinancialFact).filter_by(company_id=company_id, concept="revenue", fiscal_year=2022).update(
+            {"unit": "JPY"}, synchronize_session=False)
+        db.commit()
+        rows_before = db.query(TrendAnalysis).filter_by(company_id=company_id).count()
+        db.close()
+
+        calls = []
+        events = await _drain(company_id, monkeypatch, ["MUST NOT RUN"], calls=calls)
+        assert events[-1] == {"type": "error", "message": INCOMPATIBLE_UNITS_MESSAGE}
+        assert {event["type"] for event in events[:-1]} <= {"progress"}
+        assert calls == []
+        db = SessionLocal()
+        assert db.query(TrendAnalysis).filter_by(company_id=company_id).count() == rows_before == int(cached)
+        db.close()
+
 
 @pytest.mark.requires_db
 class TestObservationSelectionBoundary:
@@ -574,8 +602,12 @@ class TestStreamRouteMetering:
         from app import dependencies
         from app.routers import analysis as analysis_router
 
+        from app.api_errors import CodedHTTPException, coded_http_exception_handler
+
         app = FastAPI()
         app.include_router(analysis_router.router, prefix="/api/analysis")
+        # main.py's handler, so a coded refusal answers with its code (E31).
+        app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
         pro = SimpleNamespace(id=42, is_pro=True, subscription=None)
         app.dependency_overrides[dependencies._resolve_current_user] = lambda: pro
         app.dependency_overrides[analysis_router.get_current_user] = lambda: pro
@@ -703,6 +735,27 @@ class TestStreamRouteMetering:
         assert metered == []
         assert released == []
 
+    def test_over_cap_429_states_the_ceiling_as_pricing_does(self, monkeypatch):
+        # The narrative card shows this detail as written (analysis-api.ts), so it states the ceiling as
+        # /pricing's fair-use sentence does: the number as fmtCount prints it ("1,000", never "1000"),
+        # counted in what the meter counts, a reader's forced refresh among them (E122, D-050).
+        from app.routers import analysis as analysis_router
+
+        client, _metered, _released = self._client(monkeypatch, [], allowed=False)
+        monkeypatch.setattr(analysis_router, "check_analysis_limit", lambda user, db: (False, 1000, 1000))
+        response = client.post("/api/analysis/TST/stream", json=self.BODY)
+        assert response.status_code == 429
+        # The words unchanged, and the code the reader keys on beside them (E31): the cap, not a rate limit, so no
+        # Retry-After rides with it.
+        assert response.json() == {
+            "detail": (
+                "You've reached this month's fair-use limit of 1,000 analysis generations, regenerations included. "
+                "It resets at the start of next month."
+            ),
+            "code": "pro_fair_use_limit",
+        }
+        assert "retry-after" not in response.headers
+
     def test_reservation_block_429s_after_read_side_admits(self, monkeypatch):
         # The unserialized read admits, the serialized lease refuses (a parallel request took
         # the last unit): the user sees the same 429 and nothing is held afterwards.
@@ -714,8 +767,20 @@ class TestStreamRouteMetering:
         )
         response = client.post("/api/analysis/TST/stream", json=self.BODY)
         assert response.status_code == 429
+        assert response.json()["code"] == "pro_fair_use_limit"
         assert metered == []
         assert released == []
+
+    def test_a_unit_refusal_never_meters_and_gives_the_lease_back(self, monkeypatch):
+        from app.services.trend_analysis.units import INCOMPATIBLE_UNITS_MESSAGE
+
+        events = [{"type": "error", "message": INCOMPATIBLE_UNITS_MESSAGE}]
+        client, metered, released = self._client(monkeypatch, events)
+        response = client.post("/api/analysis/TST/stream", json=self.BODY)
+        assert response.status_code == 200
+        assert INCOMPATIBLE_UNITS_MESSAGE in response.text
+        assert metered == []
+        assert released == ["lease-1"]
 
     def test_pipeline_error_releases_the_lease(self, monkeypatch):
         from app.routers import analysis as analysis_router

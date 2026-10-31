@@ -1,17 +1,23 @@
-"""Shared FilingContentCache write helper.
+"""The FilingContentCache write of the one summary orchestrator's finalize stage.
 
-Both summary-generation paths — the SSE pipeline (``summary_pipeline``) and the background/cron
-path (``summary_generation_service``) — persist the same cache row for a filing: its edgartools
-``sections_payload`` plus the ``critical_excerpt``. The SSE path may also retain an application-built
-bounded ``risk_source_text`` when excerpt extraction was unavailable. They carried a byte-identical upsert block;
-this is the ONE copy so they can't drift while both paths live (the old path is flag-gated until
-the S1 soak completes).
+Finalize (``summary_stages.finalize``, which the SSE endpoint and the background/cron path both reach
+through ``summary_pipeline.stream_filing_summary``) is this helper's only caller. It persists a filing's
+cache row in the commit that writes the summary: the edgartools ``sections_payload``, the
+``critical_excerpt``, and an application-built bounded ``risk_source_text`` when excerpt extraction was
+unavailable.
 
-Excerpt is set only on a fresh row, or on an existing row that has none yet — an existing excerpt
-is never overwritten here. Deliberate excerpt recomputation/overwrite is owned by
-``summary_generation_service.get_or_cache_excerpt`` and is intentionally NOT routed through this
-helper (different semantics). A successful forced summary refresh explicitly replaces its bounded
-Risks source; an ordinary write fills that source only when absent. The caller commits.
+Excerpt is set on a fresh row, or on an existing row that has none yet, except that a forced run
+that writes its summary (``replace_excerpt``) stores the excerpt it was generated from in place of the
+stored one, in the same commit: a stored excerpt is what citation verification, the Risks projection
+and Copilot read the summary against. A forced run that ends with no excerpt (its excerpt thread
+raised, its build returned nothing, or the enrichment join dropped it) keeps the stored one, the same
+filing's text and the grounding it would have reused, unless it was asked to rebuild that excerpt
+(``clear_stale_excerpt``: a forced precompute's ``rebuild_excerpt``, whose stored excerpt an older
+extraction built); that run clears it. A forced run never stores its excerpt before then
+(``get_or_cache_excerpt(persist=False)``). An unforced run's excerpt is cached by
+``summary_generation_service.get_or_cache_excerpt`` when it is built. A successful forced summary
+refresh explicitly replaces its bounded Risks source; an ordinary write fills that source only when
+absent. The caller commits.
 """
 from typing import Any, Optional
 
@@ -29,6 +35,8 @@ def upsert_content_cache(
     sections_payload: Optional[Any],
     risk_source_text: Optional[str] = None,
     replace_risk_source: bool = False,
+    replace_excerpt: bool = False,
+    clear_stale_excerpt: bool = False,
 ) -> None:
     """Attach or refresh application-owned fields on a filing's FilingContentCache row.
 
@@ -47,8 +55,10 @@ def upsert_content_cache(
                 )
             )
         else:
-            if excerpt and not cache.critical_excerpt:
+            if excerpt and (replace_excerpt or not cache.critical_excerpt):
                 cache.critical_excerpt = excerpt
+            elif clear_stale_excerpt and not excerpt:
+                cache.critical_excerpt = None
             if risk_source_text and (replace_risk_source or not cache.risk_source_text):
                 cache.risk_source_text = risk_source_text
             cache.sections_payload = sections_payload

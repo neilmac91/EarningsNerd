@@ -89,7 +89,8 @@ evidence-snap arm decision is the founder's and follows the wrong-snap rate engi
 ## 5. Record
 
 Copy `readout.json` and `readout.md` into `tasks/review-evidence/w3-7/<YYYY-MM-DD>-run-<run_id>/`
-and append the dated ledger entry in `tasks/todo.md` through an ordinary docs PR. This copy is the
+through an ordinary docs PR; add a line to `tasks/todo.md` only if the readout leaves an open
+item (the ledger is archived, AGENTS.md §7). This copy is the
 only durable record of the per-attempt verdicts: the readout links the generation run, whose
 artifact holds unjudged attempts, and a delivery dispatch retains only the bounded readout. Do not
 commit `report.json` (it carries full excerpts) and do not change `baseline_scores.json` or the

@@ -1,0 +1,78 @@
+{
+ "code": {
+  "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+  "service_sha256": "a6fa8ef96500982f33274be08647a2e3440534105e1faab3ed2bd63d1f06af64",
+  "git_head": "89bd1e1277adafb52a4eb31f834ac89369c7b7dd",
+  "git_dirty": false
+ },
+ "runs": [
+  {
+   "run": "36965303868",
+   "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+   "rows": 18,
+   "with_deltas": 18
+  }
+ ],
+ "rows": 18,
+ "replayed": 18,
+ "answer_only": 0,
+ "replay_mismatches": [
+  {
+   "row": "BABA native-revenue-2026 d0 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d1 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d2 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d0 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d1 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d2 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d0 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d2 @36965303868",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  }
+ ],
+ "replay_mismatch_causes": {
+  "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step": 8
+ },
+ "replay_verdict_disagreements": [],
+ "published_by_run": {
+  "rows": 18,
+  "f_would_withhold": 0,
+  "by_surface": {
+   "answer": 0,
+   "reason": 0,
+   "chip": 0
+  }
+ },
+ "withheld_or_errored_by_run": {
+  "rows": 0,
+  "F-withheld": [],
+  "other reason": [],
+  "UNEXPLAINED": []
+ },
+ "not_disclosed_rows": 0,
+ "rows_with_chips": 18,
+ "chips_checked": 54,
+ "rows_with_double_quoted_chips": 0,
+ "chips_with_double_quotes": 0,
+ "failing_chips": 0
+}

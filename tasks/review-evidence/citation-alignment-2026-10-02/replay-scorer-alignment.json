@@ -1,0 +1,402 @@
+{
+  "artifacts": [
+    {
+      "artifact_sha256": "8b3084e7afb2c029d5c9a55b62cfea1bbd4215fa79565cad94755029a392a153",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36777581481",
+      "scored_rows": 18,
+      "source_sha": "956244b23e4d4e545658223bed728005766dd7d6",
+      "text_citations": 3,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 28
+    },
+    {
+      "artifact_sha256": "e5b927f740ec28afe0911380d42e688221f57a641ed2d82675ef1bf920f8bcd0",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36798834277",
+      "scored_rows": 18,
+      "source_sha": "f362485651da4631bbc4179af7fbfb52efdfbafe",
+      "text_citations": 0,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "aecf8ec2f624e2ff8e8a8fdb2fe6871fed7ba1d2ca9f8ae0832300e2a41801ab",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36800236360",
+      "scored_rows": 18,
+      "source_sha": "46e1fc5e03f7f4523b770dd3f2c9b5fe1cfb354b",
+      "text_citations": 3,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "9cb7368ec031f6130493e4994ec5ce2179ac78c9a6bb80bfe1cf456491a25cd1",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36809122540",
+      "scored_rows": 18,
+      "source_sha": "2ec46bec95bb1fa2c1001b7a3596958590397762",
+      "text_citations": 1,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "f385ff74e1a3720d3353688170757a4cc255a6b850d2d357a1764f695ce2e3d5",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36870677818",
+      "scored_rows": 18,
+      "source_sha": "7feb73c7ee4ce2463dc3ee9f409cb04a7c338540",
+      "text_citations": 2,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "aec2800899b8172e25010979d27a253de550b835cc04751ea6291b810c239ed6",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36963789557",
+      "scored_rows": 18,
+      "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+      "text_citations": 0,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "20492c44d20827f3ead3f35407305792f955401bd6b39304a4863f21ca185a0e",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36964503116",
+      "scored_rows": 18,
+      "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+      "text_citations": 0,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 28
+    },
+    {
+      "artifact_sha256": "b161b0f6eac3d003c1c02bd61b2d60f71e42f40cb534422c8f117385c3cd9bba",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36965303868",
+      "scored_rows": 18,
+      "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+      "text_citations": 0,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "2ddebac70cf906912ab57871197fc8ee37a146b1f32fb7a4afac3d04dfeb0488",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36994753645",
+      "scored_rows": 18,
+      "source_sha": "fdbea0fbbe68c2e87475c73c1c89df09817d40c0",
+      "text_citations": 0,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "c1c3a5a0e9539918cb19516b900452dd49b9626bbd2d1c5eb8c17ff644cc15cc",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "36997852891",
+      "scored_rows": 18,
+      "source_sha": "86c8bcb4982fb32ffb5e5d0f3c808f948ebcddba",
+      "text_citations": 1,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "78dd9cfe8b464aa472a3db4aec92cfed192ae3a38cf223f7d687e6985a21245f",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "37000691174",
+      "scored_rows": 18,
+      "source_sha": "736dab2ae847c8e4985edb20df25212266b4216a",
+      "text_citations": 0,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "c8d1b0a32df96a6f866982f53bd2b6912e17ec7cc09faea7a3a3103a1df9299a",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "37003942265",
+      "scored_rows": 17,
+      "source_sha": "f70ea0fdcf888f192815117b42adcfbc7e1e1bdf",
+      "text_citations": 2,
+      "verdict_changes": 0,
+      "withheld_rows": 1,
+      "xbrl_citations": 28
+    },
+    {
+      "artifact_sha256": "d8fdb8c33a9af4f684fe5b6f14fb77a7db36901e8faddb47f8c65ac1f500bafa",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "37004589548",
+      "scored_rows": 14,
+      "source_sha": "50e0c2c7381e8aae75c8769d2184e8ff9071c454",
+      "text_citations": 6,
+      "verdict_changes": 0,
+      "withheld_rows": 4,
+      "xbrl_citations": 23
+    },
+    {
+      "artifact_sha256": "b828598f90e91d17391f179464da4ea0497ef7b43efe088fa49a6d89b6a0d329",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "37005114216",
+      "scored_rows": 18,
+      "source_sha": "f70ea0fdcf888f192815117b42adcfbc7e1e1bdf",
+      "text_citations": 1,
+      "verdict_changes": 0,
+      "withheld_rows": 0,
+      "xbrl_citations": 30
+    },
+    {
+      "artifact_sha256": "327d3aa1e501b94eb0d9f4fbed971a31aa7aed70c60b54b83acc0fde6ecb0bab",
+      "new_unverified": 0,
+      "old_unverified": 0,
+      "product_unverified": 0,
+      "rows": 18,
+      "run_id": "37005546506",
+      "scored_rows": 15,
+      "source_sha": "50e0c2c7381e8aae75c8769d2184e8ff9071c454",
+      "text_citations": 6,
+      "verdict_changes": 0,
+      "withheld_rows": 3,
+      "xbrl_citations": 25
+    }
+  ],
+  "changes": [],
+  "label_scan": {
+    "distinct_quoted_per_branch_predicate": [],
+    "distinct_with_f_marks": [],
+    "distinct_with_main_marks": [],
+    "non_ascii_chars": [
+      "U+00B7",
+      "U+2014"
+    ],
+    "structured_distinct": 10,
+    "structured_labels": {
+      "Financial performance KPIs — Operating results of 2025 compared to 2024": 10,
+      "Item 18 — Consolidated Income Statements": 22,
+      "Item 5 — Operating and Financial Review and Prospects": 14,
+      "Item 8 — Consolidated Statements of Operations": 4,
+      "XBRL · eps_diluted": 90,
+      "XBRL · gross_profit": 90,
+      "XBRL · operating_income": 90,
+      "XBRL · us-gaap:NetIncomeLoss": 74,
+      "XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax": 254,
+      "XBRL · us-gaap:Revenues": 266
+    },
+    "structured_occurrences": 914,
+    "withheld_declared_distinct": 2,
+    "withheld_declared_labels": {
+      "Financial performance KPIs — Operating results of 2025 compared to 2024": 6,
+      "Item 18 — Consolidated Income Statements": 1
+    },
+    "withheld_declared_occurrences": 7
+  },
+  "product_disagreements": [],
+  "reproduction_mismatches": [],
+  "totals": {
+    "artifacts": 15,
+    "new_unverified": 0,
+    "old_unverified": 0,
+    "product_unverified": 0,
+    "scored_rows": 262,
+    "text_citations": 25,
+    "transitions": {
+      "old True -> new True (product True)": 25
+    },
+    "verdict_changes": 0,
+    "withheld_declared_new_product_diffs": 0,
+    "withheld_declared_old_new_diffs": 0,
+    "withheld_declared_text_citations": 7,
+    "withheld_parser_rejections": 1,
+    "withheld_rows": 8,
+    "xbrl_citations": 432
+  },
+  "withheld_rows": [
+    {
+      "declared": [
+        {
+          "excerpt": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6",
+          "n": 1,
+          "new": true,
+          "old": true,
+          "product": true,
+          "section": "Financial performance KPIs — Operating results of 2025 compared to 2024"
+        }
+      ],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "row": "ASML/us-gaap-sales-net-income-2025/r0",
+      "run_id": "37003942265"
+    },
+    {
+      "declared": [],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "note": "parse rejected: Invalid citation declaration",
+      "row": "BABA/native-revenue-2026/r2",
+      "run_id": "37004589548"
+    },
+    {
+      "declared": [
+        {
+          "excerpt": "Net income 7,571.6 26.8 9,609.4 29.4 26.9",
+          "n": 1,
+          "new": true,
+          "old": true,
+          "product": true,
+          "section": "Financial performance KPIs — Operating results of 2025 compared to 2024"
+        }
+      ],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "row": "ASML/us-gaap-sales-net-income-2025/r0",
+      "run_id": "37004589548"
+    },
+    {
+      "declared": [
+        {
+          "excerpt": "Net income 7,571.6 26.8 9,609.4 29.4 26.9",
+          "n": 1,
+          "new": true,
+          "old": true,
+          "product": true,
+          "section": "Financial performance KPIs — Operating results of 2025 compared to 2024"
+        }
+      ],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "row": "ASML/us-gaap-sales-net-income-2025/r1",
+      "run_id": "37004589548"
+    },
+    {
+      "declared": [
+        {
+          "excerpt": "Net income 7,571.6 26.8 9,609.4 29.4 26.9",
+          "n": 1,
+          "new": true,
+          "old": true,
+          "product": true,
+          "section": "Financial performance KPIs — Operating results of 2025 compared to 2024"
+        }
+      ],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "row": "ASML/us-gaap-sales-net-income-2025/r2",
+      "run_id": "37004589548"
+    },
+    {
+      "declared": [
+        {
+          "excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+          "n": 1,
+          "new": true,
+          "old": true,
+          "product": true,
+          "section": "Item 18 — Consolidated Income Statements"
+        }
+      ],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "row": "BABA/viewed-native-revenue-2025/r1",
+      "run_id": "37005546506"
+    },
+    {
+      "declared": [
+        {
+          "excerpt": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6",
+          "n": 1,
+          "new": true,
+          "old": true,
+          "product": true,
+          "section": "Financial performance KPIs — Operating results of 2025 compared to 2024"
+        }
+      ],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "row": "ASML/us-gaap-sales-net-income-2025/r0",
+      "run_id": "37005546506"
+    },
+    {
+      "declared": [
+        {
+          "excerpt": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6",
+          "n": 1,
+          "new": true,
+          "old": true,
+          "product": true,
+          "section": "Financial performance KPIs — Operating results of 2025 compared to 2024"
+        }
+      ],
+      "error": {
+        "stage": "answer_or_score",
+        "type": "ValueError"
+      },
+      "row": "ASML/us-gaap-sales-net-income-2025/r2",
+      "run_id": "37005546506"
+    }
+  ]
+}

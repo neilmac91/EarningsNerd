@@ -541,6 +541,10 @@ backend/tests/unit/test_oauth_linking.py
 | 14 | Generate AI summary before email verified | 403 "Please verify your email first" |
 | 15 | Add Google to existing password account | `oauth_accounts` record created; can log in via Google |
 
+Row 13, like step 5 of the rotation sketch in "Rotation with reuse detection" above, is the plan as written
+(2026-06-12). Since E96 a replay ends the replayed token's chain only, and the account's other sessions stay signed in
+([refresh-chain contract](../audit/contracts/refresh-chain-migration.md)).
+
 ---
 
 ## 3.9 Rollout Strategy
@@ -560,7 +564,7 @@ backend/tests/unit/test_oauth_linking.py
 - [ ] Google OAuth consent screen: verified (submit to Google for production approval)
 - [ ] Apple Developer: domain `earningsnerd.io` verified, Services ID registered, redirect URIs confirmed
 - [ ] Resend: `earningsnerd.io` domain verified for sending; SPF/DKIM configured
-- [ ] Apple email relay: `no-reply@earningsnerd.io` (or chosen from address) registered in Apple Dev Console
+- [ ] Apple email relay: the verified transactional sender (currently `hello@inbound.earningsnerd.io`, with Reply-To `support@earningsnerd.io`) registered in Apple Dev Console
 - [ ] `APPLE_PRIVATE_KEY` calendar reminder set for 5.5 months from key creation date
 - [ ] Auth event monitoring: PostHog dashboard or Sentry alert on auth failure rate > 5%
 - [ ] Run manual test checklist items 1–15

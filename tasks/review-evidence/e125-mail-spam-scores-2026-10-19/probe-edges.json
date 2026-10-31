@@ -1,0 +1,690 @@
+[
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "span written closed, then text",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Pale after a closed span."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "span written closed with a space",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Pale after a closed span."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "bare span written closed",
+  "runs": [
+   {
+    "ground": "#000000",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Words on black."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "duplicate style, white first",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Which style?"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "duplicate style, white last",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "Which style?"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "xmp holding a span",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "<span style=\"color:#ffffff\">In an xmp.</span>"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "textarea holding a span",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "<span style=\"color:#ffffff\">In a textarea.</span>"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "title holding a span",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "<span style=\"color:#ffffff\">In a title.</span>"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "plaintext holding a span",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "<span style=\"color:#ffffff\">In plaintext.</span></body></html>"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "noscript holding a span",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "In a noscript."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "cdata section",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "<span style=\"color:#ffffff\">In CDATA.</span>"
+   },
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "After."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "marked section if",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Revealed."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "upper-case tag and attribute",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Upper case."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "unquoted style",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Unquoted."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "style with an entity",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Entity."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 1,
+  "low_contrast": 0,
+  "name": "colour with important",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "invalid",
+    "invalid": 1,
+    "invisible": 1,
+    "low": 0,
+    "text": "Important."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "colour with spaces around colon",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "Spaced."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "colour in capitals",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Capitals."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "three-digit hex",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Short hex."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "named colour",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Named."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "rgb colour",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "RGB."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "a later color part wins",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "Later wins."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "inherit keeps the parent",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Inherit."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "unclosed span across cells",
+  "runs": [
+   {
+    "ground": "#000000",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "A"
+   },
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "B"
+   },
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "C"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "unclosed td then tr",
+  "runs": [
+   {
+    "ground": "#000000",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "a"
+   },
+   {
+    "ground": "#000000",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Black text, default ink."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "end tag never opened",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "After a stray end."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "body text attribute",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Body text."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "font color",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Font colour."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "font closed by a cell",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "x"
+   },
+   {
+    "ground": "#000000",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "Pale"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "whitespace only run",
+  "runs": []
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "nbsp only run",
+  "runs": []
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "numeric nbsp only run",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "\u00a0"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "zero-width run",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "\u200b"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "text inside a comment",
+  "runs": []
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "conditional comment downlevel",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Shown."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "script holding markup",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "Dark."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "style block holding markup",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "Dark."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "namespaced tag",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "Namespaced."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "basefont with size",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#000000",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "After basefont."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "basefont without size",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "After basefont."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "vertical tab in style",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "VT."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "newline in style",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#ffffff",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "NL."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "near white",
+  "runs": [
+   {
+    "ground": "#ffffff",
+    "ink": "#f4f3ee",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "Near white."
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 1,
+  "name": "distance just under 12",
+  "runs": [
+   {
+    "ground": "#000000",
+    "ink": "#0f0f0f",
+    "invalid": 0,
+    "invisible": 1,
+    "low": 1,
+    "text": "dark grey"
+   }
+  ]
+ },
+ {
+  "invalid_colour": 0,
+  "low_contrast": 0,
+  "name": "distance just over 12",
+  "runs": [
+   {
+    "ground": "#000000",
+    "ink": "#111111",
+    "invalid": 0,
+    "invisible": 0,
+    "low": 0,
+    "text": "dark grey"
+   }
+  ]
+ }
+]

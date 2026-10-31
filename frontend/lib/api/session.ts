@@ -7,7 +7,8 @@
  * whose 401s on protected endpoints are expected and routine — never trigger refresh
  * storms. The flag is advisory only and carries no credential value.
  */
-const SESSION_KEY = 'en_session_active'
+// Exported for the pricing page's pre-paint hint (features/subscriptions/lib/pricingHint.ts), which only reads it.
+export const SESSION_KEY = 'en_session_active'
 
 // In-memory fallback for when localStorage is unavailable (Safari private mode, storage
 // blocked by browser settings). Without it, hasActiveSession() would always be false there
@@ -38,6 +39,7 @@ export function clearSessionActive(): void {
 }
 
 export function hasActiveSession(): boolean {
+  if (loggingOut()) return false
   try {
     if (typeof window !== 'undefined') {
       return window.localStorage.getItem(SESSION_KEY) === '1'
@@ -59,6 +61,40 @@ export const isSessionGenerationCurrent = (generation: number): boolean => gener
 
 export const getExplicitSessionGeneration = (): number => lastExplicitTransitionGeneration
 export const isExplicitSessionGenerationCurrent = (generation: number): boolean => generation === lastExplicitTransitionGeneration
+
+// The explicit generation a logout in this tab is ending, and how many logouts of it are under way (E133). Until they
+// settle, or another login is accepted (which advances the explicit generation), the session reads as inactive here,
+// so no 401 starts a refresh whose answer could set the cookies again after the logout's, and a read's answer (a /me a
+// refresh replays) cannot mark it active again. Another tab's marker, which this tab reads from localStorage, cannot
+// either.
+let loggingOutGeneration: number | null = null
+let logoutsUnderWay = 0
+const loggingOut = (): boolean => loggingOutGeneration === lastExplicitTransitionGeneration
+
+/** A logout is starting: clear the marker, and keep it clear until `endLogout` (see `loggingOut`). */
+export function beginLogout(): number {
+  if (!loggingOut()) {
+    loggingOutGeneration = lastExplicitTransitionGeneration
+    logoutsUnderWay = 0
+  }
+  logoutsUnderWay += 1
+  clearSessionActive()
+  return lastExplicitTransitionGeneration
+}
+
+export function endLogout(generation: number): void {
+  if (loggingOutGeneration !== generation) return
+  logoutsUnderWay -= 1
+  if (logoutsUnderWay <= 0) {
+    loggingOutGeneration = null
+    logoutsUnderWay = 0
+  }
+}
+
+/** A read that confirmed the session (/me) marks it active, except while this tab is logging that session out. */
+export function markSessionConfirmed(): void {
+  if (!loggingOut()) markSessionActive()
+}
 
 export function advanceSessionGeneration(reason: 'explicit' | 'session-loss' = 'explicit'): void {
   sessionGeneration += 1

@@ -77,10 +77,14 @@ Enable payment methods through the Stripe Dashboard rather than hardcoding:
 
 ### Saving Payment Methods
 Use the **SetupIntents API** for saving payment methods:
+For server-side Node.js on Stripe API `2026-09-30.endive` (`stripe-node` 23), use
+[`allowed_payment_method_types`](https://docs.stripe.com/api/setup_intents/create?api-version=2026-09-30.endive&lang=node)
+to filter eligible methods. Incompatible methods are omitted rather than causing an error.
+
 ```javascript
 const setupIntent = await stripe.setupIntents.create({
   customer: 'cus_xxx',
-  payment_method_types: ['card'],
+  allowed_payment_method_types: ['card'],
 });
 ```
 

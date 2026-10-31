@@ -3,11 +3,18 @@ import logging
 import hashlib
 from app.utils.datetimes import utcnow
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ContactSubmission
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
+from app.services import filing_list_service, legal_readiness_service
+from app.services.contact_submission_service import (
+    ContactPersistenceError,
+    persist_contact_submission,
+    sender_plan,
+)
+from app.services.entitlements import Plan
 from app.services.resend_service import ResendError, send_email
 from app.services.turnstile import enforce_turnstile
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit, get_client_ip as _trusted_client_ip
@@ -66,6 +73,10 @@ async def submit_contact_form(
     - Stores the message in the database
     - Sends email notifications to admin and user
     """
+    # New prospect collection stays closed before CAPTCHA, persistence or notifications. Existing
+    # user support and privacy requests remain available through the published role inboxes.
+    if not legal_readiness_service.is_collection_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     # Limiter first (cheap, local), then Turnstile (network) — same order as the waitlist route.
     enforce_rate_limit(request, CONTACT_LIMITER, "contact", error_detail=CONTACT_RATE_LIMIT_DETAIL)
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
@@ -73,23 +84,30 @@ async def submit_contact_form(
     # Hash the client IP for the persisted row (privacy) — never store the raw address.
     hashed_ip = hash_ip_address(get_client_ip(request))
 
-    # Create database entry (store hashed IP for privacy)
-    db_submission = ContactSubmission(
-        name=submission.name,
-        email=submission.email,
-        subject=submission.subject,
-        message=submission.message,
-        status="new",
-        ip_address=hashed_ip,  # Store hashed IP instead of plaintext
-    )
+    def persist() -> tuple[ContactSubmissionResponse, tuple[str, str]]:
+        # One unit in the thread pool: the insert, the response it echoes and the sender's plan for the
+        # team's notice, released before the two mails go out, so neither send holds a pooled connection
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            saved = ContactSubmissionResponse.model_validate(persist_contact_submission(
+                db,
+                name=submission.name,
+                email=submission.email,
+                subject=submission.subject,
+                message=submission.message,
+                ip_address=hashed_ip,
+                logger=logger,
+            ))
+            return saved, _plan_notes(db, submission.email)
+        finally:
+            filing_list_service.release_request_session(db)
 
     try:
-        db.add(db_submission)
-        db.commit()
-        db.refresh(db_submission)
-        logger.info(f"Contact submission created: ID={db_submission.id}")
-    except Exception as e:
-        db.rollback()
+        saved, (plan_tag, plan_line) = await run_in_threadpool(persist)
+    except legal_readiness_service.CollectionUnavailable:
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE) from None
+    except ContactPersistenceError as failure:
+        e = failure.__cause__
         logger.error(f"Database error creating contact submission: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -98,17 +116,35 @@ async def submit_contact_form(
 
     # Send email notifications (async, don't block on failure)
     try:
-        await send_contact_notifications(submission, db_submission.id)
+        await send_contact_notifications(submission, saved.id, plan_line, plan_tag)
     except Exception as e:
         # Log but don't fail the request - submission is already saved
         logger.exception(f"Failed to send contact notification emails: {str(e)}")
 
-    return db_submission
+    return saved
+
+
+def _plan_notes(db: Session, email: str) -> tuple[str, str]:
+    """The team notice's plan for the address the form was given (D-050's priority support, kept by hand): a
+    tag for its subject, so the inbox list shows a member's plan without opening the mail ("" unless an
+    account's plan was read), and a line for its body, which carries the caveat. Best-effort: the submission
+    is saved by now, so a failed read says so rather than failing it."""
+    try:
+        plan = sender_plan(db, email)
+    except Exception:  # noqa: BLE001 - the row is committed; the notice still goes out
+        logger.exception("Could not read the plan of the account that uses a contact form's address")
+        return "", "Not read (the lookup failed)"
+    if plan is None:
+        return "", "No account uses this address"
+    name = "Pro" if plan is Plan.PRO else "Free"
+    return f" ({name})", f"{name} (an account uses this address; the form does not verify it)"
 
 
 async def send_contact_notifications(
     submission: ContactSubmissionCreate,
     submission_id: int,
+    plan_line: str,
+    plan_tag: str,
 ):
     """Send email notifications for contact form submission"""
     # Escape all user-provided data to prevent HTML injection
@@ -118,7 +154,8 @@ async def send_contact_notifications(
     safe_message = html.escape(submission.message)
 
     # Email to admin
-    admin_subject = f"New Contact Form Submission from {safe_name}"
+    # The plan tag stands before the name the sender typed, so no name can fake it ("Bob (Pro)").
+    admin_subject = f"New Contact Form Submission{plan_tag} from {safe_name}"
     admin_html = f"""
     <html>
       <head>
@@ -151,6 +188,10 @@ async def send_contact_notifications(
               <div class="label">Email:</div>
               <div class="value"><a href="mailto:{safe_email}">{safe_email}</a></div>
             </div>
+            <div class="field">
+              <div class="label">Plan:</div>
+              <div class="value">{html.escape(plan_line)}</div>
+            </div>
             {f'<div class="field"><div class="label">Subject:</div><div class="value">{safe_subject}</div></div>' if safe_subject else ''}
             <div class="field">
               <div class="label">Message:</div>
@@ -166,8 +207,9 @@ async def send_contact_notifications(
     </html>
     """
 
-    # Email to user (confirmation)
-    user_subject = "We received your message - EarningsNerd"
+    # Email to user (confirmation). Deliberately does NOT repeat the submitted message: the
+    # recipient address is caller-supplied, so the confirmation carries only our own copy.
+    user_subject = "Message received - EarningsNerd"
     user_html = f"""
     <html>
       <head>
@@ -176,25 +218,22 @@ async def send_contact_notifications(
           .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
           .header {{ background-color: #10B981; color: white; padding: 20px; text-align: center; }}
           .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
-          .message-box {{ background-color: white; padding: 15px; border-left: 4px solid #10B981; margin: 15px 0; white-space: pre-wrap; }}
           .footer {{ text-align: center; margin-top: 20px; font-size: 0.9em; color: #666; }}
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h2>Thank You for Contacting EarningsNerd</h2>
+            <h2>Thanks for contacting EarningsNerd</h2>
           </div>
           <div class="content">
             <p>Hi {safe_name},</p>
-            <p>We&apos;ve received your message and will get back to you as soon as possible, typically within 1-2 business days.</p>
-            <p><strong>Your message:</strong></p>
-            <div class="message-box">{safe_message}</div>
-            <p>If you need immediate assistance or have additional information to add, feel free to reply to this email.</p>
-            <p>Best regards,<br>The EarningsNerd Team</p>
+            <p>Thanks for getting in touch. The aim is to reply within 2 business days.</p>
+            <p>If you have anything to add, just reply to this email.</p>
+            <p>EarningsNerd</p>
           </div>
           <div class="footer">
-            <p>EarningsNerd - AI-Powered SEC Filing Analysis<br>
+            <p>EarningsNerd · AI summaries of SEC filings<br>
             <a href="{settings.FRONTEND_URL}">{settings.FRONTEND_URL}</a></p>
           </div>
         </div>
@@ -205,22 +244,17 @@ async def send_contact_notifications(
     # Send both emails
     # Note: In a production environment with high volume, consider using a job queue
     try:
-        # Send to admin (using environment variable or fallback)
-        from_email = settings.RESEND_FROM_EMAIL
-        if not from_email:
-            logger.warning("RESEND_FROM_EMAIL is not set, skipping admin notification")
+        # The inbox recipient is independent of the verified outbound sender.
+        admin_email = settings.CONTACT_NOTIFICATION_EMAIL
+        if not admin_email:
+            logger.warning("CONTACT_NOTIFICATION_EMAIL is not set, skipping admin notification")
         else:
             try:
-                # safe extraction of email
-                if "<" in from_email and ">" in from_email:
-                    admin_email = from_email.split("<")[-1].rstrip(">")
-                else:
-                    admin_email = from_email
-                
                 await send_email(
                     to=[admin_email],
                     subject=admin_subject,
                     html=admin_html,
+                    reply_to=submission.email,
                 )
                 logger.info(f"Admin notification email sent for submission #{submission_id}")
             except Exception as e:
@@ -236,6 +270,7 @@ async def send_contact_notifications(
             to=[submission.email],
             subject=user_subject,
             html=user_html,
+            reply_to=settings.RESEND_REPLY_TO_EMAIL,
         )
         logger.info(f"User confirmation email sent for submission #{submission_id}")
     except ResendError as e:

@@ -11,9 +11,13 @@ covers the actual success and failure paths.
 
 import uuid
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 
 from main import app
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit
 
@@ -55,13 +59,13 @@ def _unique_email() -> str:
     return f"authtest_{uuid.uuid4().hex[:12]}@example.com"
 
 
-@pytest.fixture(scope="module")
-def registered_user(client):
-    """Register one user for the module (register is rate-limited to 5/min/IP)."""
+@pytest.fixture
+def registered_user(client, collection_ready):
+    """Register a user after the explicit collection-ready fixture (5/min/IP limiter)."""
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={"email": email, "password": VALID_PASSWORD, "full_name": "Auth Test"},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "full_name": "Auth Test"},
     )
     assert resp.status_code == 200, resp.text
     return {"email": email, "password": VALID_PASSWORD}
@@ -74,7 +78,7 @@ def test_register_returns_opaque_message_and_no_session(client):
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={"email": email, "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD},
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -91,7 +95,7 @@ def test_register_creates_account_usable_for_login(client):
     """Even without a session, register creates the account so the chosen password works at login."""
     client.cookies.clear()
     email = _unique_email()
-    reg = client.post("/api/auth/register", json={"email": email, "password": VALID_PASSWORD})
+    reg = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD})
     assert reg.status_code == 200, reg.text
     assert "earningsnerd_refresh_token=" not in reg.headers.get("set-cookie", "")
 
@@ -149,7 +153,7 @@ def test_login_unknown_email_returns_same_401(client):
 def test_login_inactive_account_returns_401_not_403(client):
     """A deactivated account is indistinguishable from a bad credential (generic 401, not 403)."""
     email = _unique_email()
-    reg = client.post("/api/auth/register", json={"email": email, "password": VALID_PASSWORD})
+    reg = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD})
     assert reg.status_code == 200, reg.text
     client.cookies.clear()
 
@@ -200,12 +204,12 @@ def test_register_is_opaque_for_new_and_existing_email(client, registered_user):
     cannot reveal which emails have accounts."""
     new_resp = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD},
     )
     client.cookies.clear()
     existing_resp = client.post(
         "/api/auth/register",
-        json={"email": registered_user["email"], "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": registered_user["email"], "password": VALID_PASSWORD},
     )
     client.cookies.clear()
     assert new_resp.status_code == existing_resp.status_code == 200
@@ -224,7 +228,7 @@ def test_weak_password_rejected(client):
     """Passwords failing the policy are rejected at validation (422)."""
     resp = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": "short"},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": "short"},
     )
     assert resp.status_code == 422
 
@@ -340,7 +344,7 @@ def test_change_password_revokes_existing_sessions(client):
     old_pw, new_pw = VALID_PASSWORD, VALID_PASSWORD + "9z"  # both satisfy the strength policy
 
     assert client.post(
-        "/api/auth/register", json={"email": email, "password": old_pw}
+        "/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": old_pw}
     ).status_code == 200
     client.cookies.clear()
 

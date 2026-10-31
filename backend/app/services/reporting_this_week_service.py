@@ -4,11 +4,14 @@ Now served from the owned `earnings_events` table (strategy §3.7): the week's e
 `anticipation_score` (which carries a mega-cap floor from `CURATED_TICKERS`), replacing the old
 FMP ∩ hardcoded-allowlist intersect. Caching is in-memory only (L1) — Redis is off in production
 (SKIP_REDIS_INIT=true) — since this is a cheap, idempotent DB read. Never raises; degrades to an
-empty result on any failure, so the homepage section can simply omit itself.
+empty result on any failure, so the homepage section can simply omit itself. A failed read is not
+cached, so the next request retries it instead of serving the blank strip for the whole TTL.
+Concurrent cache misses wait on one read rather than each checking out a pooled connection.
 """
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -96,17 +99,34 @@ class ReportingThisWeekService:
         # Caches the FULL matched list (unlimited) so different callers requesting different
         # `limit` values within the same cache window each get correctly sliced results —
         # caching the already-limited response would let a small-limit request poison the
-        # cache for a later, larger-limit request in the same window.
-        self._cache_companies: Optional[List[ReportingCompany]] = None
-        self._cache_timestamp: Optional[datetime] = None
-        self._cache_week: Optional[tuple[date, date, date]] = None
+        # cache for a later, larger-limit request in the same window. Requests read it from
+        # worker threads, so a fill replaces the whole snapshot (its key, fill time and list) in
+        # one assignment: a reader sees one fill or the next, never a mix.
+        self._cache: Optional[tuple[tuple[date, date, date], datetime, List[ReportingCompany]]] = None
+        # Single flight, a thread lock because requests run in the thread pool: concurrent misses
+        # (a fresh instance, ET midnight, a lapsed TTL) queue here and recheck, so one read fills
+        # the cache instead of one pooled connection each. A waiter holds no connection: the
+        # route is public, so its session has run no query yet.
+        self._fill_lock = threading.Lock()
 
-    async def get_reporting_this_week(
+    def _cached(
+        self, key: tuple[date, date, date], now: datetime
+    ) -> Optional[tuple[List[ReportingCompany], datetime]]:
+        """The cached week and its timestamp, if they are for `key` and inside the TTL."""
+        cached = self._cache
+        if cached is not None and cached[0] == key and now - cached[1] < self._cache_ttl:
+            return cached[2], cached[1]
+        return None
+
+    def get_reporting_this_week(
         self, db: Session, *, limit: int = 16, force_refresh: bool = False,
         today: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Return the week's most-anticipated large-caps, ranked. Always returns a dict with a
-        `companies` list (possibly empty) and a `status` field (`ok` | `empty`). Never raises."""
+        `companies` list (possibly empty) and a `status` field (`ok` | `empty`). Never raises.
+
+        Synchronous SQLAlchemy: the route runs it in the thread pool and releases the session in
+        the same unit (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
         # NY-today is resolved locally rather than via earnings_calendar_service.today_eastern():
         # that module imports CURATED_TICKERS from THIS one, and the reverse import would close a
         # cycle its defensive try/except silently swallows — zeroing out curated scoring.
@@ -116,19 +136,20 @@ class ReportingThisWeekService:
 
         # today_ny is part of the cache key so the past-day filter rolls at ET midnight rather
         # than whenever the 6h TTL happens to lapse.
-        if (
-            not force_refresh
-            and self._cache_companies is not None
-            and self._cache_timestamp is not None
-            and self._cache_week == (monday, friday, today_ny)
-            and now - self._cache_timestamp < self._cache_ttl
-        ):
-            companies = self._cache_companies
-        else:
-            companies = self._fetch(db, monday, friday, today_ny)
-            self._cache_companies = companies
-            self._cache_timestamp = now
-            self._cache_week = (monday, friday, today_ny)
+        key = (monday, friday, today_ny)
+        hit = None if force_refresh else self._cached(key, now)
+        if hit is None:
+            with self._fill_lock:
+                now = datetime.now(timezone.utc)
+                hit = None if force_refresh else self._cached(key, now)
+                if hit is None:
+                    fetched = self._fetch(db, monday, friday, today_ny)
+                    if fetched is None:  # a failed read serves this request only; the next retries
+                        hit = ([], now)
+                    else:
+                        self._cache = (key, now, fetched)
+                        hit = (fetched, now)
+        companies, timestamp = hit
 
         status = "ok" if len(companies) >= MIN_COMPANIES else "empty"
         sliced = companies[:limit] if status == "ok" else []
@@ -139,13 +160,16 @@ class ReportingThisWeekService:
             "status": status,
             # isoformat() already carries the +00:00 offset (now that the timestamp is tz-aware);
             # appending "Z" too would malform it.
-            "timestamp": self._cache_timestamp.isoformat(),
+            "timestamp": timestamp.isoformat(),
         }
 
-    def _fetch(self, db: Session, monday: date, friday: date, today: date) -> List[ReportingCompany]:
+    def _fetch(
+        self, db: Session, monday: date, friday: date, today: date
+    ) -> Optional[List[ReportingCompany]]:
         """The week's events, most-anticipated first (the anticipation score already carries the
         CURATED_TICKERS mega-cap floor, so no allowlist intersect is needed). Days already behind
-        us serve facts only — a past-dated estimate is either already reported or was wrong."""
+        us serve facts only — a past-dated estimate is either already reported or was wrong.
+        ``None`` when the read failed, so the caller can tell it from an empty week."""
         try:
             query = db.query(EarningsEvent).filter(
                 EarningsEvent.event_date >= monday,
@@ -162,7 +186,7 @@ class ReportingThisWeekService:
             ).all()
         except Exception as exc:  # never let a query hiccup break the homepage
             logger.warning("Reporting-this-week fetch failed: %s", exc)
-            return []
+            return None
 
         matches: List[ReportingCompany] = []
         for ev in events:

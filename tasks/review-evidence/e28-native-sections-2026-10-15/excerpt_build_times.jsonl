@@ -1,0 +1,4 @@
+{"doc": "JPM", "chars": 12927443, "regex_excerpt_s": 2.85, "regex_chars": 260154, "parse_s": 6.43, "assemble_s": 0.0}
+{"doc": "PLD", "chars": 11507396, "regex_excerpt_s": 2.43, "regex_chars": 260154, "parse_s": 3.29, "assemble_s": 2.43}
+{"doc": "BABA", "chars": 11745281, "regex_excerpt_s": 2.56, "regex_chars": 260154, "parse_s": 3.7, "assemble_s": 2.16}
+{"doc": "TSM", "chars": 10355934, "regex_excerpt_s": 2.35, "regex_chars": 260154, "parse_s": 4.19, "assemble_s": 2.1}

@@ -3,7 +3,6 @@
 /* =============================================================================
    Earnings calendar — hooks (features/calendar/hooks/useCalendar.ts)
    -----------------------------------------------------------------------------
-   - useCalendarRange: the range query (react-query), keyed on from/to.
    - useViewer: session + plan + current alert subscriptions. The FREE cap is a
      visible product surface (strategy §3.7) so the count is loaded eagerly;
      nothing about the PRO cap exists client-side, by design.
@@ -11,33 +10,41 @@
      FREE at-cap enables short-circuit to the upsell (the cap is public and
      deliberate). PRO is NEVER pre-empted: the request is always sent and
      whatever 403 the API returns is rendered verbatim.
+   - useTodayEasternIso: today in New York from the reader's browser alone,
+     null on the server and while the page hydrates, so the prerendered page
+     names no week that could be stale.
 ============================================================================= */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { queryKeys } from '@/lib/queryKeys'
 import {
-  getCalendar,
   getEarningsAlertTickers,
   enableEarningsAlert,
   disableEarningsAlert,
   EarningsAlertError,
   EARNINGS_ALERT_LIMIT_CODE,
-  type CalendarRangeResult,
 } from '../api/calendar-api'
+import { todayEasternIso } from '../lib/dates'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
 export const FREE_ALERT_LIMIT = FREE_EARNINGS_ALERT_LIMIT
 
-export function useCalendarRange(from: string, to: string) {
-  return useQuery<CalendarRangeResult>({
-    queryKey: queryKeys.calendar(from, to),
-    queryFn: () => getCalendar(from, to),
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  })
+/** Nothing to subscribe to: useTodayEasternIso asks only whether it renders in the browser. */
+const noSubscription = () => () => {}
+
+/**
+ * Today as a New York calendar day, from the reader's browser alone: null on the server and while the page hydrates,
+ * then read once. /calendar is prerendered and revalidated hourly, so a today read on the server turns stale when the
+ * New York week turns over, and a heading built from it disagreed with the browser's week (React error 418, which
+ * throws the server's markup away; E136). The page names no week until this answers.
+ */
+export function useTodayEasternIso(): string | null {
+  // False on the server and in the hydrating render; React renders again right after hydrating, with true.
+  const inBrowser = useSyncExternalStore(noSubscription, () => true, () => false)
+  return useMemo(() => (inBrowser ? todayEasternIso() : null), [inBrowser])
 }
 
 export interface CalendarViewer {
@@ -80,7 +87,7 @@ export interface BlockedState {
   ticker: string
   /** For 'error': the API's message, rendered verbatim. */
   message: string
-  /** Bell rect at click time — anchors the popover. */
+  /** Bell rect when the popover opens (after an async failure, if any). */
   anchor: DOMRect
   /** Element to restore focus to on dismiss. */
   trigger: HTMLElement | null
@@ -125,7 +132,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
   }, [optimistic])
 
   const mutation = useMutation({
-    mutationFn: async ({ ticker, enabling }: { ticker: string; enabling: boolean }) => {
+    mutationFn: async ({ ticker, enabling }: { ticker: string; enabling: boolean; trigger: HTMLElement }) => {
       if (enabling) await enableEarningsAlert(ticker)
       else await disableEarningsAlert(ticker)
     },
@@ -140,13 +147,19 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
     onError: (err, vars, _ctx) => {
       // Roll the optimistic flip back before surfacing anything.
       setOptimistic((o) => ({ ...o, [vars.ticker]: !vars.enabling }))
-      const anchor = vars as unknown as { anchor?: DOMRect; trigger?: HTMLElement }
-      const rect = anchor.anchor ?? new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0)
+      // Read at failure: scrolling can move or hide the bell while the request runs. A removed,
+      // hidden or fully offscreen bell has no useful placement; keep its feedback in the viewport.
+      const trigger = vars.trigger.isConnected ? vars.trigger : null
+      const currentRect = trigger?.getBoundingClientRect()
+      const onScreen = currentRect && currentRect.width > 0 && currentRect.height > 0
+        && currentRect.bottom > 0 && currentRect.top < window.innerHeight
+        && currentRect.right > 0 && currentRect.left < window.innerWidth
+      const rect = onScreen ? currentRect : new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0)
       if (err instanceof EarningsAlertError && err.code === EARNINGS_ALERT_LIMIT_CODE) {
-        setBlocked({ kind: 'upsell', ticker: vars.ticker, message: err.message, anchor: rect, trigger: anchor.trigger ?? null })
+        setBlocked({ kind: 'upsell', ticker: vars.ticker, message: err.message, anchor: rect, trigger })
       } else {
         const message = err instanceof Error ? err.message : 'Could not update the alert. Try again.'
-        setBlocked({ kind: 'error', ticker: vars.ticker, message, anchor: rect, trigger: anchor.trigger ?? null })
+        setBlocked({ kind: 'error', ticker: vars.ticker, message, anchor: rect, trigger })
       }
     },
   })
@@ -177,7 +190,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
       }
       setPending((p) => ({ ...p, [ticker]: true }))
       setOptimistic((o) => ({ ...o, [ticker]: enabling }))
-      mutation.mutate({ ticker, enabling, anchor: rect, trigger: el } as never)
+      mutation.mutate({ ticker, enabling, trigger: el })
     },
     [currentCount, isOn, mutation, pending],
   )

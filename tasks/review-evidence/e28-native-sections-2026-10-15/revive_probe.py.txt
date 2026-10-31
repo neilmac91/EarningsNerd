@@ -1,0 +1,23 @@
+"""Run the app's section call once under an unpacked edgartools wheel first on sys.path (PYTHONPATH); the script prints edgar.__version__.
+
+Run under 5.62.0 in both modes, and under 5.61.0 and 5.61.1 as shipped.
+Mode "folderless" patches Filing.homepage_url back to the 5.58.0 form SEC refuses; "as-shipped" leaves the release as published.
+httpx2 INFO lines list every request edgartools made. Live SEC, EDGAR_RATE_LIMIT_PER_SEC=1.
+"""
+import os, sys, time, logging
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+os.environ["EDGAR_IDENTITY"] = "EarningsNerd/1.0 contact@earningsnerd.io"
+os.environ["EDGAR_RATE_LIMIT_PER_SEC"] = "1"
+sys.path.insert(0, "/home/user/EarningsNerd/backend")
+logging.basicConfig(level=logging.WARNING, format="%(name)s %(message)s")
+for n in ("httpx2", "httpx"): logging.getLogger(n).setLevel(logging.INFO)
+import edgar
+from edgar import _filings
+mode = sys.argv[1]
+if mode == "folderless":
+    _filings.Filing.homepage_url = property(lambda self: f"{_filings.SEC_ARCHIVE_URL}/data/{self.cik}/{self.accession_no}-index.html")
+import app.services.edgar.xbrl_sections as xs
+t = time.time()
+out = xs._extract_sections_sync("0000320193", "0000320193-25-000079", "10-K")
+print("edgartools", edgar.__version__, mode, "->", None if out is None else {k: len(v) for k, v in out.items()}, f"{time.time()-t:.1f}s", flush=True)

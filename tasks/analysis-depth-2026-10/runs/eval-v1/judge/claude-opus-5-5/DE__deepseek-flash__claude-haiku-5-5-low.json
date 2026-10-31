@@ -1,0 +1,86 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A has grounding errors. It attributes 12% FY2018 growth to Wirtgen, which the cited passage never mentions. It says production costs were unfavorable when the filing calls them favorable. It compares OCF/NI with an FCF/NI median and calls net debt a net cash position. Draft B's causal claims match their sources. It adds a margin bridge, the FY2022 cash weakness with its cause, and credit-loss risk, and its watch items have concrete thresholds. Draft A's restatement disclosure is a genuine plus."
+   },
+   "cost_usd": 0.133505,
+   "latency_s": 14.553,
+   "input_tokens": 14953,
+   "output_tokens": 978,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"tie\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"Draft A has grounding errors. It attributes 12% FY2018 growth to Wirtgen, which the cited passage never mentions. It says production costs were unfavorable when the filing calls them favorable. It compares OCF/NI with an FCF/NI median and calls net debt a net cash position. Draft B's causal claims match their sources. It adds a margin bridge, the FY2022 cash weakness with its cause, and credit-loss risk, and its watch items have concrete thresholds. Draft A's restatement disclosure is a genuine plus.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B explains the full cycle better, but it cites a truncated passage for the Wirtgen 12% claim that the passage never states. It also attributes the volume drop to 'moderating market conditions', which the passage ties to pricing. It compares OCF/NI against an FCF/NI median. A has minor issues, such as a regional FY2021 passage and a switch between conversion metrics, but its causal claims largely match their sources."
+   },
+   "cost_usd": 0.140985,
+   "latency_s": 17.197,
+   "input_tokens": 14953,
+   "output_tokens": 1352,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"tie\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B explains the full cycle better, but it cites a truncated passage for the Wirtgen 12% claim that the passage never states. It also attributes the volume drop to 'moderating market conditions', which the passage ties to pricing. It compares OCF/NI against an FCF/NI median. A has minor issues, such as a regional FY2021 passage and a switch between conversion metrics, but its causal claims largely match their sources.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.27449
+}

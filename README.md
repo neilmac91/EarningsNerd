@@ -31,7 +31,7 @@ so investors can understand a company in minutes instead of hours.
 ## Tech stack
 
 **Frontend** — Next.js 16 (App Router) · TypeScript · Tailwind CSS + shadcn/ui · React Query ·
-Recharts · PostHog · Sentry. Deployed on **Vercel**.
+visx (the charts' renderer) · PostHog · Sentry. Deployed on **Vercel**.
 
 **Backend** — FastAPI (Python 3.11) · SQLAlchemy 2.0 · PostgreSQL 15 · two-tier cache (in-memory +
 optional Redis). SEC data via **`edgartools`** (XBRL extraction, filing parsing). Deployed on
@@ -100,14 +100,22 @@ Backend deploys to Google Cloud Run automatically via GitHub Actions on push to 
 tests); the frontend deploys to Vercel via its GitHub integration. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
-## Privacy & compliance
+## Privacy
 
-Data export and account-deletion endpoints, cookie consent, and a documented retention policy are
-in place. See [`docs/DATA_COMPLIANCE.md`](./docs/DATA_COMPLIANCE.md).
+The maintained [privacy notice](https://www.earningsnerd.io/privacy) explains data handling and
+available choices. Source review notes are in [`docs/legal/PRIVACY_POLICY.md`](./docs/legal/PRIVACY_POLICY.md).
+
+## Contact
+
+Questions, help and feedback: [support@earningsnerd.io](mailto:support@earningsnerd.io).
+Subscription questions: [billing@earningsnerd.io](mailto:billing@earningsnerd.io).
+Privacy requests: [privacy@earningsnerd.io](mailto:privacy@earningsnerd.io).
+Vulnerability reports: [security@earningsnerd.io](mailto:security@earningsnerd.io).
+See [the email setup guide](docs/email-setup.md) for routing and operations.
 
 ## License
 
-Proprietary — all rights reserved. © 2026 Neil Mac Aogain.
+Proprietary — all rights reserved.
 This software is **not** open source. See [`LICENSE`](./LICENSE). No use, copying, modification, or
 distribution without prior written permission.
 

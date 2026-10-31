@@ -16,10 +16,11 @@ from fastapi.testclient import TestClient
 
 from app.database import SessionLocal
 from app.models import Company
-from app.services import precompute_service
+from app.services import filing_history_service, precompute_service
 from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.edgar.compat import sec_edgar_service
 from main import app
+from tests.support.filings_budgets import unspend_filings_budgets
 
 JPM_CIK = "0000019617"
 
@@ -105,9 +106,14 @@ def test_get_company_filings_reuses_existing_cik_row(client, db, seeded_jpm, mon
     async def fake_primary(cik):
         return "JPM"
 
+    async def fake_history_fetch(*, cik, ticker, efts_client=None):
+        return [], 0, 0  # the unstamped row enqueues the on-visit EFTS history backfill
+
     monkeypatch.setattr(sec_edgar_service, "search_company", fake_search)
     monkeypatch.setattr(sec_edgar_service, "get_filings", fake_get_filings)
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", fake_primary)
+    monkeypatch.setattr(filing_history_service, "_fetch_history_rows", fake_history_fetch)
+    unspend_filings_budgets(monkeypatch)
 
     resp = client.get("/api/filings/company/JPM")
     assert resp.status_code == 200

@@ -32,6 +32,9 @@ venv/
 
 # Build / Logs
 *.log
+# Committed evidence keeps its logs: the E8 export's per-slot run.log files are listed in its
+# sha256 inventory, and `git add` would otherwise drop them silently (test_e8_export_state.py).
+!tasks/review-evidence/**/*.log
 *.pid
 *.seed
 coverage/

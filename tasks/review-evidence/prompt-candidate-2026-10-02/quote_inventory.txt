@@ -1,0 +1,24 @@
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/quote_inventory.py main-37049387017=copilot-37049387017/copilot-eval.json main-37052760996=copilot-37052760996/copilot-eval.json main-37063120532=copilot-37063120532/copilot-eval.json armB-37029156902=copilot-37029156902/copilot-eval.json
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+main-37049387017: rows 18; quoted spans 1; rows with any span 1
+  form x class: double/sub-floor 1
+  table-figure spans: 0 (outside double quotes: 0); non-double spans: 0
+   BABA  viewed-native-revenue-2025     d2 P answer         double     sub-floor    in_source=True  ellipsis=False "Revenue"
+main-37052760996: rows 18; quoted spans 0; rows with any span 0
+  form x class: none
+  table-figure spans: 0 (outside double quotes: 0); non-double spans: 0
+main-37063120532: rows 18; quoted spans 0; rows with any span 0
+  form x class: none
+  table-figure spans: 0 (outside double quotes: 0); non-double spans: 0
+armB-37029156902: rows 18; quoted spans 7; rows with any span 5
+  form x class: double/sub-floor 2, double/table-figure 4, double/verified 1
+  table-figure spans: 4 (outside double quotes: 0); non-double spans: 0
+   BABA  native-revenue-2026            d0 P answer         double     verified     in_source=True  ellipsis=False "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+   BABA  viewed-native-revenue-2025     d1 P answer         double     sub-floor    in_source=True  ellipsis=False "Revenue"
+   BABA  viewed-native-revenue-2025     d2 P answer         double     sub-floor    in_source=True  ellipsis=False "Revenue"
+   ASML  us-gaap-sales-net-income-2025  d1 W withheld-prose double     table-figure in_source=False ellipsis=False "Total net sales 32,667.3"
+   ASML  us-gaap-sales-net-income-2025  d1 W withheld-prose double     table-figure in_source=False ellipsis=False "Net income 9,609.4"
+   ASML  us-gaap-sales-net-income-2025  d2 W withheld-prose double     table-figure in_source=False ellipsis=False "Total net sales 32,667.3"
+   ASML  us-gaap-sales-net-income-2025  d2 W withheld-prose double     table-figure in_source=False ellipsis=False "Net income 9,609.4"
+exit 0

@@ -1,0 +1,82 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "VRTX",
+ "split": "holdout",
+ "claims": 6,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Net income of $2.10 billion in FY2018  was lifted by a one-time $1.56 billion tax benefit from releasing the valuation allowance .",
+   "passages": [
+    {
+     "id": "P52",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net income attributable to Vertex in 2018 included a one-time non-cash benefit from income taxes of $1.56 billion resulting from our release of our valuation allowance. Net income attributable to Vertex decreased in 2019 as compared to 2018 as a result of this one-time tax benefit and increased operating costs and expenses. The increases in operating costs and expenses were primarily due to increased cost of sales due to increased net product revenues and increased research expenses associated with our business development activities. These decreases in our net income in 2019 as compared to 2018 were partially offset by increased net product revenues and increased gains recorded to other income (expense) related to our strategic investments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net income included a one-time $1.56 billion tax benefit from releasing the valuation allowance."
+  },
+  {
+   "sentence": "The FY2024 operating loss of $233 million  reflected $4.6 billion of acquired R&D, including $4.4 billion for Alpine .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our total research and development (\u201cR&D\u201d), and selling, general and administrative (\u201cSG&A\u201d) expenses increased to $5.1 billion in 2024 as compared to $4.3 billion in 2023, primarily due to continued investment to support additional therapies in mid-to-late stage development and increased commercial investments to support launches of our therapies globally. In 2024, total acquired in-process research and development expenses (\u201cAIPR&D\u201d) of $4.6 billion included $4.4 billion related to our acquisition of Alpine Immune Sciences, Inc. (\u201cAlpine\u201d). Cost of sales were 14% of our net product revenues in 2024 as compared to 13% in 2023, with the increase primarily due to costs associated with CASGEVY."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states AIPR&D of $4.6 billion included $4.4 billion for Alpine, contributing to operating loss."
+  },
+  {
+   "sentence": "SG&A rose to 14.6% of revenue  after 19.7% growth , and the FY2024 filing expected further increases in 2025 .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general and administrative expenses increased by 29% in 2024 as compared to 2023, primarily due to increased commercial investments to prepare for the launch of JOURNAVX and support the launch of CASGEVY, and stock-based compensation expense. We expect our selling, general and administrative expenses to continue to increase in 2025 to support these new product launches and additional investments in infrastructure to scale our organization."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports SG&A increase and expected future increases, but not the 14.6% of revenue or 19.7% growth figures."
+  },
+  {
+   "sentence": "FY2024 tax of $784 million  on $249 million of pre-tax income  gave a 315.5% effective rate , attributed to non-deductible Alpine AIPR&D .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our provision for income taxes was $784.1 million for 2024 and $760.2 million for 2023. In 2024, our 315.5% effective tax rate was materially different than the U.S. statutory rate primarily due to the $4.4\u00a0billion of non-deductible AIPR&D resulting from our acquisition of Alpine, which significantly lowered our pre-tax income. The non-deductible AIPR&D was partially offset by a benefit from a research and development tax credit study that was completed in 2024 and excess tax benefits related to stock-based compensation."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes the 315.5% effective tax rate to non-deductible Alpine AIPR&D."
+  },
+  {
+   "sentence": "The filing attributes the $3.6 billion of operating cash flow mainly to $4.2 billion of operating income .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities was $3.6 billion in 2025, primarily due to income from operations of $4.2 billion"
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating cash flow was primarily due to income from operations of $4.2 billion."
+  },
+  {
+   "sentence": "Cash and investments fell 18.2% in FY2024 , mainly because of the Alpine payment and share repurchases .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our total cash, cash equivalents and marketable securities decreased to $11.2 billion as of December 31, 2024 as compared to $13.7 billion as of December 31, 2023 primarily due to cash paid to acquire Alpine and repurchases of our common stock, partially offset by cash flows provided by other operating activities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states decrease in cash and investments primarily due to Alpine payment and share repurchases."
+  }
+ ],
+ "cost_usd": 0.001319
+}

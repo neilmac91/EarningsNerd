@@ -1,0 +1,86 @@
+{
+ "ticker": "VRTX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A has several grounding errors. It backs 'no debt' with an FY2016 debt figure, misreads the working-capital passage as cash, credits the margin rebound to AIPR&D without a source, and claims inventory outgrew revenue 'for several years' on one year of data. Draft B explains the FY2018 tax benefit, SG&A guidance and the FY2024 cash drop, and flags unexplained gaps. Leaked citation placeholders hurt B's clarity."
+   },
+   "cost_usd": 0.117045,
+   "latency_s": 11.437,
+   "input_tokens": 13598,
+   "output_tokens": 697,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"Draft A has several grounding errors. It backs 'no debt' with an FY2016 debt figure, misreads the working-capital passage as cash, credits the margin rebound to AIPR&D without a source, and claims inventory outgrew revenue 'for several years' on one year of data. Draft B explains the FY2018 tax benefit, SG&A guidance and the FY2024 cash drop, and flags unexplained gaps. Leaked citation placeholders hurt B's clarity.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful context: the TRIKAFTA launch behind FY2020, the royalty-driven cost of sales, and the peer FCF median. But it misreads a working-capital passage as cash, labels buybacks-plus-dividends as buybacks, and cites FY2016 debt for 'no debt'. It also asserts AIPR&D explains the residual and claims multi-year inventory outgrowth, neither supported. A stays fully grounded and flags unexplained gaps honestly, though its '[52]'/'[59]' references read awkwardly."
+   },
+   "cost_usd": 0.123085,
+   "latency_s": 14.283,
+   "input_tokens": 13598,
+   "output_tokens": 999,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds useful context: the TRIKAFTA launch behind FY2020, the royalty-driven cost of sales, and the peer FCF median. But it misreads a working-capital passage as cash, labels buybacks-plus-dividends as buybacks, and cites FY2016 debt for 'no debt'. It also asserts AIPR&D explains the residual and claims multi-year inventory outgrowth, neither supported. A stays fully grounded and flags unexplained gaps honestly, though its '[52]'/'[59]' references read awkwardly.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.24013
+}

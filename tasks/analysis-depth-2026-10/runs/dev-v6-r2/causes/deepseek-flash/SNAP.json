@@ -1,0 +1,133 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "SNAP",
+ "split": "dev",
+ "claims": 9,
+ "output_sha256": "e3da7e01698862b9f305563d286315a8435a790da10f2981a9280b8a0add870f",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2017 operating loss of $3,485.6 million reflected a $2.6 billion increase in stock-based compensation tied to the CEO award and IPO-related RSUs .",
+   "passages": [
+    {
+     "id": "P74",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net loss for the year ended December 31, 2017 was $3.4 billion, compared to $514.6 million for the same period in 2016. Adjusted EBITDA loss for the year ended December 31, 2017 was $720.1 million, compared to $459.2 million for the same period in 2016. The increase in net loss for the period was driven by a $2.6 billion increase in stock-based compensation expense primarily related to the CEO award and the recognition of expense related to RSUs with a performance condition satisfied on the effectiveness of the registration statement for our IPO in March 2017. Additionally, the increase in net loss was also driven by $39.9 million for Spectacles inventory-related charges that occurred in the third quarter of 2017. The remaining increase in net loss and the increase in Adjusted EBITDA was driven by an increase in cost of revenue and operating expenses, which more than offset revenue growth during the period. The increase in cost of revenue was primarily related to higher infrastructure costs. The increase in operating expenses was primarily related to increased headcount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P74 attributes the 2017 loss increase to a $2.6B stock-comp rise from the CEO award and IPO-condition RSUs."
+  },
+  {
+   "sentence": "The FY2022 loss widened to $1,395.3 million as cost of revenue and operating expenses rose faster than revenue .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net loss for the year ended December\u00a031, 2022 was $1,429.7 million, compared to $488.0 million for the same period in 2021. Adjusted EBITDA for the year ended December\u00a031, 2022 was $377.6 million, compared to $616.7 million for the same period in 2021. The decrease in Adjusted EBITDA was attributable to increased cost of revenue and overall operating expenses, partially offset by increased revenues."
+    }
+   ],
+   "label": "partial",
+   "reason": "P42 cites higher cost of revenue and opex for the Adjusted EBITDA decline, not explicitly for the net loss widening."
+  },
+  {
+   "sentence": "Advertising revenue grew on a roughly 17% increase in impressions, partly offset by a roughly 10% lower cost per impression, while other revenue rose on subscription growth .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2025 increased $570.0 million compared to the same period in 2024. The increase was driven by a $282.4 million increase in advertising revenue for the year ended December\u00a031, 2025. The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 17% compared to the prior year, largely due to expanded advertising delivery within Sponsored Snaps and Spotlight. The increase in advertising revenue was partially offset by a decrease in the cost per advertising impression of approximately 10%, which is driven by strong growth in impressions delivery. The increase in total revenue was also driven by a $287.6 million increase in other revenue, which is predominantly due to higher subscription revenue from growth in the number of subscribers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P24 states ~17% impression growth, ~10% lower cost per impression, and other revenue up on subscriber growth."
+  },
+  {
+   "sentence": "Sales and marketing fell $42.4 million on the timing of marketing events and lower advertising, and R&D rose $101.9 million on product development headcount .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and marketing expenses for the year ended December\u00a031, 2025 decreased $42.4 million compared to the same period in 2024. The decrease was primarily driven by the timing of marketing events occurring in the prior year, lower advertising and marketing investments, as well as $19.9 million in restructuring charges recognized in 2024. The decrease was partially offset by higher employee compensation due to additional sales and marketing headcount."
+    },
+    {
+     "id": "P23",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Research and development expenses for the year ended December\u00a031, 2025 increased $101.9 million compared to the same period in 2024. The increase was primarily due to investments in product development, including higher employee compensation due to additional research and development headcount. The increase was partially offset by $38.8\u00a0million in restructuring charges recognized in 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 cites timing of marketing events and lower advertising; P23 cites product development investment and R&D headcount."
+  },
+  {
+   "sentence": "Net margin of -7.8% beat operating margin by 1.2pp, helped by $96.7 million of debt-extinguishment gains in other income .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income, net for the year ended December\u00a031, 2025 was $68.9 million, compared to other expense, net of $16.8 million for the same period in 2024. Other income, net for the current year was primarily driven by $96.7 million in gains on extinguishment associated with the repurchases of certain outstanding convertible notes, which is discussed within Note 7 to our consolidated financial statements included elsewhere in this Annual Report on Form 10-K, partially offset by $12.6 million in net losses on strategic investments. Other expense, net in the prior year was primarily the result of $7.4\u00a0million in net losses on strategic investments and a $6.7 million net loss on extinguishment associated with the repurchases of certain outstanding convertible notes in the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 says other income was driven by $96.7M gains on convertible note extinguishment."
+  },
+  {
+   "sentence": "Interest expense rose $100.4 million on the 2033 and 2034 Notes issued in FY2025 .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Interest expense for the year ended December\u00a031, 2025 increased $100.4 million compared to the same period in 2024. The increase was primarily driven by additional interest expense on our senior notes due in 2033 (the \u201c2033 Notes\u201d) and our senior notes due in 2034 (the \u201c2034 Notes\u201d), which were issued in February 2025 and August 2025, respectively."
+    }
+   ],
+   "label": "supported",
+   "reason": "P19 attributes the interest expense increase to the 2033 and 2034 Notes issued in 2025."
+  },
+  {
+   "sentence": "Operating cash flow was lifted by $1.0 billion of stock-based compensation and $163.6 million of D&A, both non-cash .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $656.2 million for the year ended December\u00a031, 2025, compared to net cash provided by operating activities of $413.5 million for the year ended December\u00a031, 2024, resulting primarily from our net loss, adjusted for non-cash items, including stock-based compensation expense of $1.0 billion, depreciation and amortization expense of $163.6 million and gains on debt extinguishment of $96.7 million. Net cash provided by operating activities for the year ended December\u00a031, 2025 was also driven by a $45.9 million increase in accounts payable and a $66.7 million increase in prepaid expenses and other current assets primarily due to the timing of payments, as well as a $31.8 million increase in accounts receivable due to the timing of collections."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 lists stock-based compensation of $1.0B and D&A of $163.6M as non-cash adjustments to operating cash flow."
+  },
+  {
+   "sentence": "Capex is primarily improvements to leased facilities to support team workspaces .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Free Cash Flow was $437.2 million for the year ended December\u00a031, 2025, compared to $218.7 million for the year ended December\u00a031, 2024. Free Cash Flow in all periods was composed of net cash provided by operating activities, resulting primarily from net loss, adjusted for non-cash items and changes in working capital. Free Cash Flow also included purchases of property and equipment of $219.0 million for the year ended December\u00a031, 2025, compared to $194.8\u00a0million for the year ended December\u00a031, 2024. Purchases of property and equipment in both periods are primarily related to improvements to our leased facilities to support our team workspaces. See \u201cNon-GAAP Financial Measures.\u201d"
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 says purchases of property and equipment were mainly leased facility improvements for team workspaces."
+  },
+  {
+   "sentence": "In February 2025 Snap repurchased $1.4 billion of notes and issued $1.50 billion of 2033 Notes, leaving long-term debt at $3,489.9 million .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Note 7. Debt",
+     "text": "In February 2025, we entered into various privately negotiated repurchase transactions with certain holders of the 2026 Notes, 2027 Notes, and 2028 Notes, pursuant to which we repurchased $ 45.3 million in aggregate principal amount of the 2026 Notes, $ 797.4 million in aggregate principal amount of the 2027 Notes, and $ 800.0 million in aggregate principal amount of the 2028 Notes. The total cash repurchase price was $ 1.4 billion, which was $ 190.1 million below the carrying value of the repurchased notes. The February 2025 repurchase transactions were accounted for as both a debt modification and a partial debt extinguishment, which resulted in a $ 66.9 million gain on extinguishment in the first quarter of 2025. The portion accounted for as a debt modification resulted in a $ 128.3 million increase to the carrying value of the 2033 Notes, offset by $ 5.1 million of debt issuance costs carried over from the repurchased notes."
+    },
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Note 7. Debt",
+     "text": "In February 2025, we entered into a purchase agreement with certain counterparties for the sale of $ 1.50 billion principal amount of senior notes due in 2033 (the \u201c2033 Notes\u201d and collectively with the 2034 Notes, the \u201cSenior Notes\u201d) in a private offering to qualified institutional buyers pursuant to Rule 144A under the Securities Act, and outside the United States to non-U.S. persons pursuant to Regulation S under the Securities Act. The 2033 Notes were issued pursuant to an indenture dated February 14, 2025. The proceeds from the issuance of the 2033 Notes, net of $ 26.9 million in debt issuance costs, were $ 1.47 billion and primarily used for the February 2025 repurchase transactions, as discussed below. In connection with the February 2025 repurchase transactions, $ 6.5 million of the debt issuance costs were expensed in the first quarter of 2025, with the remainder to be amortized to interest expense using the effective interest rate method."
+    }
+   ],
+   "label": "partial",
+   "reason": "P1/P2 support the repurchase and the 2033 Notes issuance, but neither links them to the resulting long-term debt balance."
+  }
+ ],
+ "cost_usd": 0.057204,
+ "backend": "claude_cli",
+ "input_tokens": 4909,
+ "cached_input_tokens": 0,
+ "output_tokens": 897
+}

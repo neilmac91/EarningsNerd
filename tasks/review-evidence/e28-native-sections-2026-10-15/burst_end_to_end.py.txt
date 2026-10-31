@@ -1,0 +1,84 @@
+"""Throwaway measurement (never committed): N concurrent summary generations on real large documents."""
+import asyncio, json, logging, os, time
+from copy import deepcopy
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from app.database import engine
+from app.models import Base
+from app.services import summary_generation_service, summary_pipeline
+from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, seed_company_filing, stream_boundaries
+
+DOCS = os.environ["BURST_DOCS"].split(",")
+OUT = os.environ["BURST_OUT"]
+
+
+@pytest.mark.asyncio
+async def test_burst(caplog):
+    caplog.set_level(logging.INFO)
+    Base.metadata.create_all(bind=engine)
+    reset_inflight()
+    specs = []
+    for spec in DOCS:
+        path, form = spec.rsplit(":", 1)
+        with open(path, encoding="utf-8", newline="") as fh:
+            specs.append((os.path.basename(path).split("_")[0], form, fh.read(), seed_company_filing(filing_type=form)))
+    by_id = {fid: html for _, _, html, fid in specs}
+    seen = {}
+
+    async def summarize(text, company, form, **kwargs):
+        seen[company + form + str(len(text))] = kwargs.get("filing_excerpt")
+        return deepcopy(CANONICAL_PAYLOAD)
+
+    from app.database import SessionLocal
+    from app.models import Filing
+    with SessionLocal() as db:
+        by_url = {db.get(Filing, fid).document_url: html for _, _, html, fid in specs}
+
+    async def fetch(url, timeout=None):
+        return by_url[url]
+
+    async def one(name, form, html, fid):
+        t0 = time.perf_counter()
+        events = [e async for e in summary_pipeline.stream_filing_summary(
+            filing_id=fid, current_user=None, user_id=None, telemetry_distinct_id="offline",
+            telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False)]
+        return name, form, fid, round(time.perf_counter() - t0, 2), events[-1]["type"]
+
+    calls = []
+    done_at = []
+    async def capture(*a, **k):
+        calls.append((a[1], len(a[0]), k.get("filing_excerpt")))
+        return deepcopy(CANONICAL_PAYLOAD)
+
+    with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as summarize_mock,             patch.object(summary_pipeline.settings, "USE_EDGARTOOLS_SECTIONS", True),             patch.object(summary_pipeline, "get_or_cache_excerpt", summary_generation_service.get_or_cache_excerpt),             patch.object(summary_pipeline.xbrl_service, "get_filing_sections",
+                         summary_pipeline.xbrl_service.__class__.get_filing_sections.__get__(summary_pipeline.xbrl_service)):
+        summarize_mock.side_effect = capture
+        summary_pipeline.sec_edgar_service.get_filing_document = fetch
+        xbrl_cpu = float(os.environ.get("BURST_XBRL_CPU", "0"))
+        if xbrl_cpu:
+            from app.services.edgar.async_executor import run_in_executor
+
+            def burn():  # a stand-in for filing.xbrl()'s instance parse: pure-Python CPU on the SEC pool
+                end = time.thread_time() + xbrl_cpu
+                n = 0
+                while time.thread_time() < end:
+                    n += sum(i * i for i in range(2000))
+                return {"revenue": [{"value": n % 7, "period": "2025-12-31"}]}
+
+            async def xbrl(*_a, **_k):
+                done_at.append(await run_in_executor(burn) and time.perf_counter())
+                return None
+            summary_pipeline.xbrl_service.get_xbrl_data = xbrl
+        results = await asyncio.gather(*(one(*s) for s in specs))
+    msgs = [r.getMessage() for r in caplog.records]
+    prov = [json.loads(m.split("Excerpt provenance: ", 1)[1]) for m in msgs if m.startswith("Excerpt provenance: ")]
+    out = {"results": results,
+           "excerpts": [{"doc_chars": n, "excerpt_chars": len(x) if x else None} for _, n, x in calls],
+           "seconds": {name: s for name, _, _, s, _ in results},
+           "xbrl_done": len(done_at) if float(os.environ.get("BURST_XBRL_CPU", "0")) else None,  # None: XBRL stubbed
+           "provenance": [(p["source"], p["excerpt_chars"]) for p in prov],
+           "warnings": [m for m in msgs if "Section parse" in m or "Excerpt not built" in m]}
+    open(OUT, "w").write(json.dumps(out, indent=1))
+    reset_inflight()

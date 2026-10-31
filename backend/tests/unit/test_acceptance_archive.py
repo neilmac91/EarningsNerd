@@ -204,19 +204,74 @@ def test_distinct_direct_http_and_embedded_sgml_are_explicitly_bound(tmp_path):
 def test_unbound_populated_sections_cannot_enter_provider(tmp_path, monkeypatch):
     from app.services import summary_pipeline
 
-    root, spec, _, submissions, facts, embedding = _fixture(tmp_path)
+    root, spec, primary, submissions, facts, embedding = _fixture(tmp_path)
     binding = prepare_archive_binding(spec, root, submissions, facts, embedding)
 
-    async def unbound_sections(*_args):
+    async def unbound_sections(*_args, **_kwargs):
         return {"mda": "Unbound text"}
 
     monkeypatch.setattr(summary_pipeline.xbrl_service, "get_filing_sections", unbound_sections)
     with pytest.raises(InvalidMeasurement, match="Archive source violation"):
         with binding.patch_production():
-            with pytest.raises(InvalidMeasurement, match="nonempty sections without frozen"):
+            with pytest.raises(InvalidMeasurement, match="without a parse of the archived primary"):
                 asyncio.run(summary_pipeline.xbrl_service.get_filing_sections(
-                    spec["accession_number"], spec["cik"], spec["filing_type"]
+                    spec["accession_number"], spec["filing_type"], html=primary
                 ))
+
+
+@pytest.mark.parametrize("case,match", [
+    ("other_html", "section input was not the archived primary"),
+    ("other_accession", "different selected filing"),
+    ("other_form", "different selected filing"),
+])
+def test_section_seam_accepts_only_the_archived_primary(tmp_path, case, match):
+    from app.services import summary_pipeline
+
+    root, spec, primary, submissions, facts, embedding = _fixture(tmp_path)
+    binding = prepare_archive_binding(spec, root, submissions, facts, embedding)
+    accession = "0000000002-00-000002" if case == "other_accession" else spec["accession_number"]
+    form = "10-Q" if case == "other_form" else spec["filing_type"]
+    html = primary + "<!-- edited -->" if case == "other_html" else primary
+    with pytest.raises(InvalidMeasurement, match="Archive source violation"):
+        with binding.patch_production():
+            with pytest.raises(InvalidMeasurement, match=match):
+                asyncio.run(summary_pipeline.xbrl_service.get_filing_sections(accession, form, html=html))
+
+
+def test_primary_parse_binds_sections_without_resolving_a_filing(tmp_path, monkeypatch):
+    from app.services import summary_pipeline
+    from app.services.edgar import xbrl_service
+
+    root, spec, primary, submissions, facts, embedding = _fixture(tmp_path)
+    binding = prepare_archive_binding(spec, root, submissions, facts, embedding)
+    parsed = {"mda": "M" * 300, "risk": "R" * 300}
+    monkeypatch.setattr(xbrl_service, "_sections_from_html",
+                        lambda html, form: dict(parsed) if html == primary and form == "10-K" else None)
+    with binding.patch_production():
+        result = asyncio.run(summary_pipeline.xbrl_service.get_filing_sections(
+            spec["accession_number"], spec["filing_type"], html=primary))
+        binding.assert_ready_for_provider()
+    assert result == parsed
+    rows = [row for row in binding.trace if row["path"] == "edgar.get_filing_sections"]
+    assert [row["outcome"] for row in rows] == ["attempted", "returned"]
+    assert {row["input_sha256"] for row in rows} == {spec["source_sha256"]}
+    assert rows[1]["sections"] == ["mda", "risk"]
+    assert not any(row["path"] == "edgar.resolve_filing_by_accession" for row in binding.trace)
+
+
+def test_section_parse_that_resolves_a_filing_is_refused(tmp_path):
+    from app.services.edgar import xbrl_service
+
+    root, spec, _, submissions, facts, embedding = _fixture(tmp_path)
+    binding = prepare_archive_binding(spec, root, submissions, facts, embedding)
+
+    def _sections_from_html():  # the production parser's frame name
+        return xbrl_service.resolve_filing_by_accession("0000000001", spec["accession_number"])
+
+    with pytest.raises(InvalidMeasurement, match="Archive source violation"):
+        with binding.patch_production():
+            with pytest.raises(InvalidMeasurement, match="not resolve a filing"):
+                _sections_from_html()
 
 
 def test_grounding_complete_rejects_skipped_required_channel(tmp_path):

@@ -1,39 +1,26 @@
 'use client'
 
 import { formatCompanyName } from '@/lib/formatCompanyName'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { formatLocalDate } from '@/lib/format'
-import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, CircleNotchIcon, ClockIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
+import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ChartBarIcon, ClockIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
+import AccountLoadFailure from '@/features/auth/components/AccountLoadFailure'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
-import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
+import SummaryStatusBadge, { summaryNextStep, summaryStatusKind } from '@/features/watchlist/components/SummaryStatusBadge'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
-import { Badge, buttonVariants, Card, GuidanceCard } from '@/components/ui'
+import { Badge, buttonVariants, Card, cx, GuidanceCard, MissingValue, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
-
-function useAuthGate() {
-  const router = useRouter()
-  const { data: user, isLoading } = useQuery({
-    queryKey: queryKeys.currentUser(),
-    queryFn: getCurrentUserSafe,
-    retry: false,
-  })
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-    }
-  }, [router, isLoading, user])
-
-  return { isReady: !isLoading, hasUser: Boolean(user) }
-}
+import { useContentIn } from '@/hooks/useContentIn'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 function formatRelative(dateLike?: string | null) {
   if (!dateLike) return 'Unknown'
@@ -42,67 +29,150 @@ function formatRelative(dateLike?: string | null) {
   return `${formatDistanceToNowStrict(date, { addSuffix: true })}`
 }
 
-export default function WatchlistDashboardPage() {
-  const { isReady, hasUser } = useAuthGate()
+/** A pipeline stage key as the start of a sentence: `fetching` reads "Fetching". */
+function sentenceStart(stage: string) {
+  return stage.charAt(0).toUpperCase() + stage.slice(1)
+}
 
-  const { data, isLoading, isError } = useQuery({
+export default function WatchlistDashboardPage() {
+  const router = useRouter()
+
+  // The account read as the dashboard reads it. isPending, not isLoading: a first load paused offline is still loading
+  // the page, not a blank one.
+  const userQuery = useQuery({
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
+    retry: false,
+  })
+  const { data: user, isPending: userPending } = userQuery
+  // A failed read keeps the account card, and a focused Try again in it, mounted through the refetch until data
+  // replaces it.
+  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
+
+  // Only a confirmed guest leaves for /login: never a null still being read, or a read that failed.
+  const guest = isConfirmedGuest(userQuery)
+  useEffect(() => {
+    if (guest) router.push('/login')
+  }, [router, guest])
+
+  const insightsQuery = useQuery({
     queryKey: queryKeys.watchlistInsights(),
     queryFn: getWatchlistInsights,
     retry: false,
-    enabled: hasUser,
+    enabled: Boolean(user),
   })
+  const { data, isLoading } = insightsQuery
+  // A failure keeps the error card, and a focused Retry in it, mounted through the refetch until data
+  // replaces it: read raw, the refetch would put the page back on its bones.
+  const failure = useRetainedFailure(insightsQuery, queryKeys.watchlistInsights())
+  const titleRef = useRef<HTMLHeadingElement>(null)
 
   const insights = useMemo(() => data ?? [], [data])
+  // The list crossfades in when it replaces the bones below; a cached list paints at once.
+  const enterClass = useContentIn((userPending && !userFailure.failed) || (isLoading && !failure.failed))
 
-  if (!isReady || isLoading) {
+  // One header for the skeleton and the loaded page, and the add field in both (it needs no data, so
+  // it is live while the list loads): the flip moves nothing above the list.
+  const header = (
+    <SecondaryHeader
+      titleRef={titleRef}
+      title="Watchlist insights"
+      subtitle="Monitor filings and summary freshness for tracked companies."
+      backHref="/dashboard"
+      backLabel="Back to dashboard"
+      actions={
+        ENABLE_ANALYSIS ? (
+          <Link href="/analysis" className={buttonVariants({ variant: 'primary' })}>
+            <ChartBarIcon className="h-4 w-4" />
+            Analyze trends
+          </Link>
+        ) : undefined
+      }
+    />
+  )
+
+  if ((userPending && !userFailure.failed) || (isLoading && !failure.failed)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        {header}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+          <WatchlistAddSearch />
+          {/* Two insight cards on the list's own track (grid-cols-1 = minmax(0, 1fr)) and in the card's own
+              shape: logo, name and filings line, the two actions, the three facts tiles. Raw bones are
+              aria-hidden: one status names the wait. */}
+          <div role="status" aria-label="Loading your watchlist" className="grid grid-cols-1 gap-6">
+            {[0, 1].map((i) => (
+              <Card key={i} className="p-cap-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-7 w-48" />
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Skeleton className="h-10 w-32 rounded-lg" />
+                    <Skeleton className="h-10 w-44 rounded-lg" />
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {[0, 1, 2].map((j) => (
+                    <Skeleton key={j} className="h-32 rounded-lg" />
+                  ))}
+                </div>
+              </Card>
+            ))}
+            <span className="sr-only">Loading your watchlist…</span>
+          </div>
+        </main>
       </div>
     )
   }
 
-  if (!hasUser) {
+  // The account could not be read (offline, a 5xx) and there is no user to show: neither the page nor a guest to send
+  // to /login. A refetch that fails with the user in hand keeps the page.
+  if (userFailure.failed && !user) {
+    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} title="Unable to load your watchlist" />
+  }
+
+  if (!user) {
     return null
   }
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader
-        title="Watchlist insights"
-        subtitle="Monitor filings and summary freshness for tracked companies."
-        backHref="/dashboard"
-        backLabel="Back to dashboard"
-        actions={
-          ENABLE_ANALYSIS ? (
-            <Link href="/analysis" className={buttonVariants({ variant: 'primary' })}>
-              <SparkleIcon className="h-4 w-4" />
-              Analyze trends
-            </Link>
-          ) : undefined
-        }
-      />
+      {header}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {/* Add-from-search: track a company without visiting its page first. */}
         <WatchlistAddSearch />
 
-        {isError && (
+        {failure.failed && (
           <GuidanceCard
             variant="error"
-            title="Unable to load watchlist insights"
-            description="Please retry in a moment, or confirm you are signed in with an active session."
+            title="Couldn't load your watchlist"
+            headingLevel="h2"
+            description="Try again in a moment."
+            action={
+              <RetryButton failures={[failure]} focusTarget={titleRef} />
+            }
+            className={enterClass}
           />
         )}
 
-        {insights.length === 0 ? (
+        {/* A failed load has no list to call empty: the error card stands alone. */}
+        {failure.failed && insights.length === 0 ? null : insights.length === 0 ? (
           <GuidanceCard
             variant="empty"
             title="No watchlist companies yet"
-            description="Use the search above to track your first company. You'll get an alert here and by email whenever it files with the SEC."
+            headingLevel="h2"
+            description="Use the search above to follow your first company. When it files a form you chose in Filing alerts, we email you and list it under Notifications."
+            className={enterClass}
           />
         ) : (
-          <div className="grid gap-6">
+          // grid-cols-1 (minmax(0, 1fr)): an implicit track would size to the widest card's min-content.
+          <div className={cx('grid grid-cols-1 gap-6', enterClass)}>
             {insights.map((insight: WatchlistInsight) => {
               const latest = insight.latest_filing
               const progressStage = latest?.progress?.stage
@@ -111,14 +181,18 @@ export default function WatchlistDashboardPage() {
               return (
                 // Non-interactive card (nothing on it is clickable as a whole) —
                 // no hover affordance; the buttons inside carry the actions.
-                <Card key={insight.company.id} className="p-6">
+                <Card key={insight.company.id} className="p-cap-6">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
-                      <div className="flex items-center space-x-3">
-                        <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={36} />
-                        <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                          {formatCompanyName(insight.company.name)}
-                        </h2>
+                      {/* Below sm, logo and name fill the first line and the ticker and status badges sit
+                          on the line below, instead of widening the card. One unwrapped row from sm up. */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
+                        <div className="flex min-w-0 basis-full items-center gap-3 sm:basis-auto">
+                          <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={36} />
+                          <h2 className="min-w-0 break-words text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            {formatCompanyName(insight.company.name)}
+                          </h2>
+                        </div>
                         <Badge variant="neutral">{insight.company.ticker}</Badge>
                         {latest && (
                           <SummaryStatusBadge
@@ -127,7 +201,7 @@ export default function WatchlistDashboardPage() {
                           />
                         )}
                       </div>
-                      <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                      <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                         {insight.total_filings} filing{insight.total_filings === 1 ? '' : 's'} on
                         record
                       </p>
@@ -149,7 +223,7 @@ export default function WatchlistDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
                       <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Latest filing</div>
                       {latest ? (
@@ -157,17 +231,19 @@ export default function WatchlistDashboardPage() {
                           <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             {latest.filing_type}
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             <CalendarDotsIcon className="h-4 w-4" />
-                            <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy', '—')}</span>
+                            {/* formatLocalDate gives '' for a date that is missing or does not read, and MissingValue stands in
+                                its place. The filed date's line has no label of its own, so its words name the date. */}
+                            <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy') || <MissingValue label="filing date unavailable" />}</span>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             <ClockIcon className="h-4 w-4" />
-                            <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy', '—')}</span>
+                            <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy') || <MissingValue />}</span>
                           </div>
                         </>
                       ) : (
-                        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+                        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
                           No filings synced yet for this company.
                         </p>
                       )}
@@ -175,22 +251,42 @@ export default function WatchlistDashboardPage() {
 
                     <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
                       <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Summary freshness</div>
-                      {latest && latest.summary_id ? (
+                      {latest && summaryStatusKind(latest.summary_status) === 'placeholder' ? (
+                        // A stored summary the filing page shows no body for (failure filler, the in-progress marker,
+                        // a writer error or nothing) has no freshness to give: the tile says what the card's
+                        // Unavailable chip and its next step say (E221), in their status ink with the glyph, as the
+                        // missing state's line below.
+                        <div className="flex items-center space-x-2 text-sm text-warning-light dark:text-warning-dark">
+                          <WarningCircleIcon className="h-4 w-4" />
+                          <span>This summary isn&apos;t available</span>
+                        </div>
+                      ) : latest && latest.summary_id ? (
                         <>
                           <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Updated {formatRelative(latest.summary_updated_at || latest.summary_created_at)}
                           </div>
-                          <div className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                          <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             Summary ID #{latest.summary_id}
                           </div>
                         </>
+                      ) : latest && summaryStatusKind(latest.summary_status) === 'error' ? (
+                        // A failed run is no work under way: the tile reads as the filing page's stored failure
+                        // does (SummaryDisplay), beside the card's Error chip and next step, with no elapsed count
+                        // (E219). The status ink on a sentence and its glyph, as the missing state's line below.
+                        <div className="flex items-center space-x-2 text-sm text-error-light dark:text-error-dark">
+                          <WarningCircleIcon className="h-4 w-4" />
+                          <span>This summary did not finish</span>
+                        </div>
                       ) : latest && progressStage ? (
                         <>
-                          <div className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark capitalize">
-                            {progressStage} in progress
+                          {/* A run in progress is activity, not a state: its words rest in the ink (DESIGN.md, Semantic
+                              and chart colors). The stage is the pipeline's key (`fetching`, `summarizing`), its first
+                              letter upper-cased in code: `capitalize` upper-cased every word's ("Fetching In Progress"). */}
+                          <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            {sentenceStart(progressStage)} in progress
                           </div>
                           {typeof elapsedSeconds === 'number' && (
-                            <div className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                            <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                               Elapsed {Math.max(0, Math.round(elapsedSeconds))}s
                             </div>
                           )}
@@ -206,15 +302,9 @@ export default function WatchlistDashboardPage() {
                     <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
                       <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Next steps</div>
                       {latest ? (
-                        latest.needs_regeneration ? (
-                          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                            This summary needs regenerating. Open the filing and run it again.
-                          </p>
-                        ) : (
-                          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                            Summary is current. Nothing to do here.
-                          </p>
-                        )
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                          {summaryNextStep(latest.summary_status, latest.needs_regeneration)}
+                        </p>
                       ) : (
                         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           Open the company page to load its filings from SEC EDGAR.

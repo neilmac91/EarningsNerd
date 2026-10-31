@@ -2,11 +2,13 @@
 
 How to run `backend/evals/` for adoption decisions and ongoing regression measurement.
 Live runs need SEC EDGAR network access and provider API keys; CI uses its existing Actions
-secret. Offline scorer/parity tests need neither: `pytest tests/unit/test_eval_*`.
+secret. Offline scorer/parity tests need neither, only `requirements-dev.txt` (pytest.ini runs every
+pytest under pytest-xdist): `pytest tests/unit/test_eval_*`.
 
 The original adoption steps below remain a procedure for future comparisons. Current code
 defaults and deployment overrides are documented in `docs/CONFIGURATION.md`: the quality gate
-and native edgartools sections are already on, structured-output mode remains off, and CI's
+and native edgartools sections (parsed locally from the fetched primary document since E28) are
+already on, structured-output mode remains off, and CI's
 service deployment enables FPI filings and progressive section reveal. Do not infer live state
 from an old rollout example.
 
@@ -44,6 +46,7 @@ normal env loaded.
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt   # pytest-xdist: pytest.ini runs every pytest with `-n auto`
 pip install anthropic          # only for Claude candidates + the LLM judge
 
 # Load your normal backend .env, then add provider keys:
@@ -202,7 +205,10 @@ unavailable for any non-contract judge).
 3. **`gate_fail`** — hard-gate vetoes (fabricated number / hygiene). Must not regress vs baseline.
 4. `schema_valid`, `num_recall`, `num_precision`, `coverage` — deterministic components.
 5. **`judge_pass`** — secondary corroboration (faithfulness/insight); never the deciding number.
-6. `$cost`, `latency(s)` — tie-breakers / feasibility.
+6. `$cost`, `latency(s)` — tie-breakers / feasibility. The baseline's `$cost` prices every generation, retries
+   included, at the pipeline's peak-aware estimate; another candidate's prices its successful final attempts at
+   the per-token prices in `models.py` (Claude's verified, the others unverified placeholders), so the two are not
+   like-for-like (the report says so under its table).
 
 The `.json` has per-filing detail — use it to see which filings dragged a candidate down.
 
@@ -244,8 +250,8 @@ Three pieces:
 | Piece | What it is |
 |---|---|
 | `baseline_scores.json` | The pinned bar to protect — the `baseline` candidate's summary stats from a full verified-set run, committed to git. |
-| `regression_gate.py` | Deterministic per-dimension diff of a fresh `reports/eval_*.json` against the pinned baseline. Exits non-zero on a HARD regression. |
-| `eval-baseline` CI job | Advisory workflow job in `.github/workflows/ci.yml` that runs the live pipeline over the full verified golden set twice per AI-relevant PR, then checks completeness and quality against the pin. |
+| `regression_gate.py` | Deterministic per-dimension diff of a fresh `reports/eval_*.json` against the pinned baseline, plus an absolute check of the attempts' native-section provenance. Exits non-zero on a HARD regression. |
+| `eval-baseline` CI job | Advisory workflow job in `.github/workflows/ci.yml` that runs the live pipeline over the full verified golden set twice per AI-relevant PR, then checks completeness, native-section provenance and quality against the pin. |
 
 ### Running the gate locally
 ```bash
@@ -263,7 +269,8 @@ errors, missing scores, missing/duplicate/unrequested attempts and malformed cou
 gate even when the scored subset has perfect means. Quality means and their thresholds remain
 scored-output measurements; errors are not fabricated zero-quality scores. Historical reports
 without a declared plan cannot establish completeness through this CLI; the statistics-only
-`compare_candidate` API remains available for historical metric comparisons.
+`compare_candidate` API remains available for historical metric comparisons. Operational evidence
+also includes the excerpts' provenance: see "Native-section provenance" below.
 
 **Transient provider faults get one retry (2026-09-08).** An attempt whose failure the production
 client itself classifies as transient (`_is_transient` in `runner.py`: a timeout, connection
@@ -299,10 +306,11 @@ arm any feature. The gate
 **logic** is unit-tested offline (`tests/unit/test_eval_regression_gate.py`) — no network/AI — so it
 runs for free in `backend-tests` on every PR.
 
-### Thresholds (absolute deltas, in `regression_gate.py`)
-Hard tolerances sit comfortably above the baseline's measured run-to-run `aggregate_stdev` so
-ordinary model jitter never trips the gate, while a real drop does. Tuned deliberately
-non-configurable from the report (a candidate must not relax its own gate).
+### Thresholds (in `regression_gate.py`)
+The deltas are absolute against the pin. Hard tolerances sit comfortably above the baseline's
+measured run-to-run `aggregate_stdev` so ordinary model jitter never trips the gate, while a real
+drop does. Tuned deliberately non-configurable from the report (a candidate must not relax its own
+gate). A delta row binds only once the pin records its metric.
 
 | Dimension | Severity | Trips when |
 |---|---|---|
@@ -310,10 +318,43 @@ non-configurable from the report (a candidate must not relax its own gate).
 | `mean_numeric_precision` (labeled-field fidelity) | **HARD** | drops > 0.05 |
 | `mean_coverage` | **HARD** | drops > 0.05 |
 | `mean_numeric_accuracy` (recall) | **HARD** | drops > 0.10 (looser — noisiest on small subsets) |
+| `native_section_share` (10-K/10-Q/20-F attempts whose excerpt came from native sections) | **HARD** / warn | below 0.90 / below 0.95, absolute, read from `results`, not the pin |
 | `pass_rate` | warn | drops > 0.05 |
 | `aggregate_stdev` (consistency) | warn | increases > 0.05 |
 | `schema_valid_rate` | warn | drops > 0.05 |
 | `mean_financial_depth` | warn | drops > 0.10 |
+| `mean_specificity` | warn | drops > 0.10 |
+| `mean_currency_consistency` | warn | drops > 0.05 |
+| `mean_redundancy` | warn | drops > 0.05 |
+| `mean_delta_consistency` | warn | drops > 0.05 |
+| `mean_forward_quote_fidelity` | warn | drops > 0.05 |
+| `mean_citation_fidelity` | warn | drops > 0.05 |
+| `mean_citation_checked` (evidence volume) | warn | drops > 2.0 |
+| `mean_untraceable_dollar_figures` | warn | above 0, absolute advisory |
+
+**Native-section provenance (E28, 2026-10-16).** Each attempt's `coverage_inventory.source` records
+where its excerpt came from: `edgartools` (sections parsed from the fetched primary document) or
+`regex_fallback`. From about 4–7 October 2026 until #1350's backport on 2026-10-16 the section
+source returned nothing (SEC refused edgartools 5.58.0's index URL behind `Filing.obj()`; #1347 then
+moved the source to the fetched document), every 10-K/10-Q/20-F excerpt fell back to regex, citation fidelity read 0.818–0.871 against the pinned 0.9648, and every run passed with a
+WARN (`tasks/review-evidence/e28-native-sections-2026-10-15/README.md`). The gate now counts the
+eligible attempts (10-K, 10-Q, 20-F, amendments included) whose source is `edgartools`. In the
+native state that is 62 of 64 per two-run report: ASML's 20-F has no parsable item headings, so its
+two attempts are expected misses. Below 0.90 is HARD (a collapse, a broken form or three more
+filings), below 0.95 is WARN (one or two more). The floors are calibrated on the full set: a subset
+report (`--forms 20-F`, `--tickers`) that includes ASML can cross them on ASML alone (a healthy
+20-F-only run reads 12 of 14), so judge a subset by its note's non-native list. The check is deterministic, a local parse with no
+model call, which is why it can be HARD. It reads `results`, needs no pinned value and authorized no
+re-pin: the revival restored byte-identical excerpts (sha256 against the 3–4 October reports), so
+the 2026-09-19 pin measures the same inputs again. With `use_edgartools_sections` false in the
+harness, no floor applies: a native excerpt is then HARD (the report contradicts its harness), and
+a pin measured with sections on gives a WARN. A report without any `coverage_inventory`, or with no
+eligible attempt, gets a note, never a finding (unavailable is not measured zero). A scored eligible
+attempt missing its inventory while others carry one is HARD malformed evidence. Section text for
+three golden filings is pinned offline by `tests/unit/test_summary_sections_parity.py`, so an
+edgartools change that moves theirs fails the free `backend-tests` job before any paid run. It reaches
+only the routes those filings take; the golden set's check on a bump is a dispatched `eval-baseline`
+and this share.
 
 **`schema_valid` recognizes both financial_highlights shapes** — the flat canonical
 `[revenue, net_income, eps, key_metrics]` (a bake-off candidate prompted to emit it) **or** the
@@ -365,7 +406,9 @@ A malformed/empty object still fails.
 - **Unchanged hard tolerances.** A `gate_fail_rate` increase greater than **0.005** fails;
   precision/coverage drops greater than **0.05** and recall drops greater than **0.10** fail.
   Two repeats improve measurement granularity, but one hard veto in 52 outputs still exceeds
-  the veto tolerance. WARN-level pass rate and variance remain distinct from hard vetoes.
+  the veto tolerance. WARN-level pass rate and variance remain distinct from hard vetoes. The
+  native-section floor (E28) is the one HARD check added since: it is deterministic, so it cannot
+  fire as model noise.
 - **Judge is off in routine regression CI.** These runs use deterministic scorers. The weekly
   strong-judge workflow and any required authoritative judged comparison have separate evidence
   requirements; their credential/readout prerequisite remains held. A judge-off pass, unavailable
@@ -453,7 +496,21 @@ baseline is unchanged; this validation change does not itself authorize another 
 
 An existing `note` survives re-pinning; `--note "..."` explicitly replaces it. Preserve
 provenance and explain intentional bar changes rather than performing cosmetic re-pins.
-A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a free model run.
+A baseline's `total_cost_usd` is the pipeline's own estimate: each `ai_call` record's
+`estimated_cost_usd`, summed over every generation a result made, retried and failed ones included.
+`cost_unknown_calls` counts the calls with no estimate, which that sum leaves out; the optional
+judge's calls are in neither. The estimate comes from the price table (`app/services/llm_pricing.py`)
+and is peak-aware: inside DeepSeek's peak windows it is `AI_PEAK_PRICE_MULTIPLIER` (2 by default)
+times the off-peak figure, so two runs of the same set differ by when they ran. It is not the bill.
+The provider balance falls by the real charge, but for every caller of the shared key, a debit can
+post after the next reading, and readings are cent-rounded: two readings around one run measure it
+only when nothing else drew in between and its debits have posted
+(`tasks/review-evidence/prompt-candidate-custody-2026-10-08/verification.md`). A candidate's
+`total_cost_usd` is not like-for-like: its successful final attempts at the per-token prices in
+`evals/models.py` (Claude's verified, the others unverified placeholders), with no retries, failed
+attempts, cache split, peak tariff or unpriced count. A report
+written before the estimate was summed shows `total_cost_usd=0` for the baseline: unmetered, not a
+free run.
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
@@ -637,7 +694,10 @@ prompt selection, and the `FilingType` enum.
 ```bash
 python scripts/verify_fpi_extraction.py BABA TSM ASML
 ```
-Each must show its 20-F + 6-K, a non-None `Financials`, and `TwentyF` sections. Then confirm the
+Each must show its 20-F + 6-K and a non-None `Financials`. The script's `20-F.obj()` section line is
+informational and does not reach the summary's section source, which parses the fetched primary
+document (E28); a 20-F's sections are covered offline by `tests/unit/test_summary_sections_parity.py`.
+Then confirm the
 currency-aware path returns the **native** figure (not the USD convenience):
 ```bash
 SKIP_REDIS_INIT=true python -c "import asyncio; from app.services.edgar.xbrl_service import edgar_xbrl_service as s; \
@@ -720,11 +780,12 @@ reused as year labels on gross-profit/net-income figures).
 
 | Layer | Citation kind | Check | On failure |
 |---|---|---|---|
-| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
-| Excerpt verification | text `[n]` | excerpt matches the normalized filing (`verify_excerpt_in_text`) | referenced failed evidence prevents completion; unused failed declarations remain omitted |
+| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | candidate withheld; a referenced excerpt that fails the matcher (of any length), a referenced ID declared twice, or text after a well-formed citation array other than the followups block may privately regenerate once as described below; terminal failures return an application error; no draft prose is published |
+| Excerpt verification | text `[n]` | the WHOLE displayed excerpt is contiguous in the normalized filing (`verify_whole_excerpt_in_text`: only a quote pair wrapping the entire excerpt is stripped, never an inner quoted span; `_MIN_VERIFIABLE_LEN` floor, 24), and the section label contains none of decision F's double quote marks `"`, `＂`, `“`, `”`, `„`, `‟` (`section_label_is_quoted`, which reads F's one `_QUOTE_MARK_RE` definition; labels are published unchecked); the published excerpt is never trimmed or substituted. The eval's CITATION gate (`score_citation_faithfulness`) re-checks every published text citation with this same verifier and label predicate | referenced failed evidence prevents completion; unused failed declarations remain omitted |
 | Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
+| Prose quotations (decision F) | — | `_withhold_unsupported_quotations`: the answer is read as displayed markdown within a small subset that both renderers are assumed to read alike (react-markdown + remark-gfm on screen, markdown-it-py here: paragraphs, headings, thematic breaks, lists, top-level blockquotes and tables, emphasis, code). That agreement is the residual assumption, not exact parity; a quoting answer that uses anything else (link syntax and raw URL, www. and email literals; raw HTML, images, reference definitions, footnotes, deep nesting, runs of three or more emphasis delimiters, any adjacent pair of different `*`, `_`, `~`, a Unicode space (U+00A0, U+2000-U+200A, U+202F, U+205F, U+3000) at a line's edge, ...) fails closed. A URL or address built from character references or escapes (`www&#46;sec.gov`) is linked by the display too but shows the same text, so it is read as text. The not-disclosed reason and every follow-up chip (as published, after the 140-character trim) are displayed as plain text and read as such. On every surface, text that may quote and holds a control character, a line or paragraph separator, a byte-order mark, a bidi control, a right-to-left script, an astral character or a character unassigned in Python's Unicode tables fails closed. In each, every double-quoted span of at least `_MIN_QUOTED_LEN` (8) normalized characters (the founder's decision on PR #1029; citation excerpts keep `_MIN_VERIFIABLE_LEN`, 24), or with an interior ellipsis, must occur contiguously in the normalized filing, and the quote marks must admit exactly one balanced reading within the work bounds. Single quotes, guillemets, other marks and blockquotes are not checked (decided scope), and shorter quoted spans are labels | candidate withheld before any answer, reason or chip is emitted; only the reason code is logged; never repaired; one fresh generation may recover the two source-matching reasons described below |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
-| Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
+| Value adjacency | fact `[Fn]` | a figure in the claim span before the marker — bounded by the previous marker — must match the fact's magnitude and must not state the opposite sign (`_fact_matches_adjacent_number`, readings in `copilot/figures.py`). Magnitude: only a bare figure gets the display-scaling tolerance ("81.46" for $81.46B); a figure with its own scale word (thousand to trillion) or `$`, inside or outside accounting parentheses, reads at face value, so "$1.2 million" on a $1.2B fact fails; a `$` written before a minus sign is not read, so "$-1.2" is a bare figure. Sign, falsification-only: an unsigned negative amount or margin fails when its own clause or the label before it names a profit-type metric, the span holds no sign word and the figure is not used attributively ("net income was $1.2B" on a loss fails; "swung to a $1.2B [F1] loss" keeps); an unsigned negative growth rate fails on a rise stated in its clause; a positive rate fails when written negative ("-15.3%", "(15.3)%"), and a positive growth rate also on a fall stated in its clause. Wording that states neither keeps the marker, positive amounts are not sign-checked, and a span with no figure keeps it; the known false keeps and strips are listed in `_figure_sign_agrees` and `_figure_matches_value`, and the rest under #1377's "Not in this PR" (an en dash is not read as a minus, for one) | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
 | Filing origin | fact `[Fn]` | trusted viewed accession and native reporting currency bind every tool query; each returned fact and derived operand retains origin | unavailable tool result, no verified marker |
 | Currency adjacency | fact `[Fn]` | explicit ISO/symbol and supported textual currency labels, including inline emphasis/code formatting, must match the adjacent fact | occurrence stripped, counted as misplaced |
@@ -733,12 +794,73 @@ reused as year labels on gross-profit/net-income figures).
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
 
+One `quotation_not_in_source` or `elided_quotation` rejection, or a referenced citation failure
+(an excerpt that fails the matcher, whatever its length, or a referenced ID declared twice) with an
+adequate source, every referenced literal declared and quote-free section labels, may privately
+start one fresh generation from the original filing and question. So may one `Unexpected citation
+trailer` rejection: text after a well-formed citation array other than the followups block, such as a note and a
+second array, which copilot-eval withheld on BABA's `viewed-native-revenue-2025` (run 38942183029;
+[evidence](../../tasks/review-evidence/copilot-citation-trailer-retry-2026-10-23/README.md)). A followups line cut
+short (`===FOLLOWU`, as a truncated generation would leave it) is such text too, so it buys the same one
+regeneration; an array that is incomplete, not an array, or holds an invalid declaration keeps its own terminal
+reason whatever follows it. The rejected candidate is never
+repaired, published or added to the replacement prompt. Both generations use the same selected
+source and original 75-second provider deadline;
+their physical usage is accumulated, while successful-answer quota is charged once. The replacement
+passes every existing admission check. A citation rejection combined with a missing or too-short
+source, an undeclared referenced literal or a quoted section label is ineligible for regeneration.
+Until 2026-10-16 an excerpt under the 24-character floor and a twice-declared ID were ineligible too.
+On the sections source production uses, every retained BABA withhold of that day was one of those two,
+so it had no recovery ([evidence](../../tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md)). After a
+decision-F or citation rejection the regeneration's system message
+appends `_EVIDENCE_RETRY_GUIDANCE`; after a citation failure (`_RegenerableEvidenceMismatch`, chosen by
+the owned class, never from candidate text) it also appends `_CITATION_EXCERPT_RETRY_GUIDANCE`, which
+names the table-text shapes that fail and the two that verify: no text citation for a figure that has
+its `[F#]`, or one whole sentence or the whole row exactly as the filing shows it. After a trailer
+rejection (`_RegenerableCitationTrailer`, also chosen by the owned class) it appends nothing: that candidate
+never reached source matching, so the regeneration is a fresh sample whose system message is `SYSTEM_PROMPT`
+unchanged, the composition every first generation runs and is measured on. (A one-array guidance text for it,
+composition `863fb9b91a4e`, was drafted in #1551 and withdrawn unmeasured.) The decision-F
+guidance is unchanged (that retry's bytes move only with `SYSTEM_PROMPT`), and the first generation
+never sees any guidance text.
+Admission checks run in order (envelope, citations, final numbering, decision F) and the first rejection
+decides: an eligible envelope or citation failure regenerates even when a later check would also have rejected that
+candidate, and the replacement passes every check. A second rejection, a first rejection for any other
+reason, provider failure or exhausted budget remains terminal. Prompt guidance prefers cited paraphrases and exact
+contiguous direct quotations, with quote-free displayed followups, refusal reasons and section labels.
+Citation excerpts preserve all source punctuation, including inner quotation marks escaped in JSON.
+
+**Copilot prompt revisions.** Each system-message composition is listed by the first 12 hex digits of
+its SHA-256 (UTF-8), with the source its live measurement used: the first generation's system message
+(`SYSTEM_PROMPT`), and the regeneration's system message after a decision-F rejection, after a
+citation failure and after a trailer rejection. `tests/unit/test_copilot_prompt_revisions.py` keeps the
+same hashes as a list: it fails when the current bytes are not the newest entry, when the table's hashes
+differ from the list, when a row's evidence path does not exist, or when an owned rejection class makes the
+chooser send a retry message that no column hashes. So the PR that edits any of them records the new
+identity and what it was measured on. The history is append-only by review: overwriting or dropping a
+row needs the same edit to the list, which shows as a removed line in that test's diff. A row's
+"Measured on" and "Evidence" cells are not compared and may be completed once its measurement exists.
+The context message, tool schemas and generation options are model-facing too but have no row; a change
+to them is review-checked. #1111's revision was measured only on the regex fallback, because SEC's
+403 had silently removed sections from every eval source, and nothing showed it.
+
+| First generation | Decision-F retry | Citation retry | Trailer retry | Introduced | Measured on | Evidence |
+|---|---|---|---|---|---|---|
+| `a88b6fb1de5b` | — | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | — | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | — | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | — | 2026-10-16, whole-row rule | sections: run 38878772611, 18/18 with no retry (pre-registered); merging also required the merge head's own 18/18 draw (README) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | `c221b7e3c5c2` | #1551, 2026-10-24, trailer retry | sections: byte-identical to the first generation (row above; 1,530 first generations since #1360, step 0 in README) | `tasks/review-evidence/copilot-citation-trailer-retry-2026-10-23/README.md` |
+
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,
 including those from an older backend revision, and treats EOF or timeout without completion as
-an error. Closing the rail cancels only its pending response. Failed or cancelled requests do
-not consume successful-answer quota; physical provider usage remains recorded by the provider
-wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure.
+an error. Closing the rail cancels only its pending response. Terminal failures refund quota.
+Cancellation before provider dispatch consumes no quota; a disconnect after dispatch retains the
+charged unit under the existing router policy. Physical provider usage remains recorded by the provider
+wrapper, including unknown cost. A terminally rejected answerable evaluation attempt remains a
+failure; a recovered question is scored on its fully admitted replacement, with the first
+candidate's rejection retained separately in the trace. The reason code admits nothing.
 
 This boundary prevents publication of known failed referenced evidence. Source matching does
 not establish the meaning, period, entity or cause of the surrounding claim. An explicit empty
@@ -751,7 +873,7 @@ answers retain their optional-followups behavior. The browser validates the corr
 not-disclosed completion shape; it cannot reconstruct a prior server's raw envelope or reverse
 quota that server already charged. Neither path is promoted to financial-quality acceptance. Existing fact-marker removal
 and repair behavior below is unchanged. Rejection logs identify the application-owned reason
-without logging candidate prose; the client receives the same generic error.
+without logging candidate prose; a terminal rejection gives the client the same generic error.
 
 Output-format step 3 of `SYSTEM_PROMPT` distinguishes the two citation namespaces explicitly:
 the JSON array contains only positive-integer filing-text IDs, never tool `F#` objects. An answer
@@ -759,7 +881,12 @@ using only tool markers supplies an explicit empty array. The retained `2dae5338
 violated this format with string `F1`/`F2` declarations and remains a failed attempt. The earlier
 `097b2fdb` MSFT failure lacks its raw candidate and precise rejection reason; it is not assigned
 the same cause. This clarification changes no other financial instruction, model, source
-selection, scorer, baseline or acceptance criterion. It still requires the fresh aggregate
+selection, scorer, baseline or acceptance criterion. Since 2026-10-16 step 3 also makes a table figure's
+excerpt its whole row (row label through last cell; never a lone figure, header or partial row) and asks for
+every excerpt to be copied exactly as the supplied text shows it, never joining or splitting what the text
+separates or joins. Extraction can insert a line break inside a token (`US$1.00=RMB\n7.2567`) or drop a space
+(`Total net sales416,161`), and the matcher collapses whitespace but never deletes or adds it
+([evidence](../../tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md)). It still requires the fresh aggregate
 prompt-change gate below; syntax admission does not establish the semantic truth of an answer
 or a not-disclosed assertion.
 
@@ -772,7 +899,7 @@ tool-call history. `count_uncited_figures` stays advisory and is never consulted
 
 **Duration is the binding proof. Newly ingested facts now carry it; rows written earlier do not,
 and still abstain.** The annual form and the `FY` label are one signal, not two: `facts_service.
-_fiscal_period` derives `FY` from the form. The companyfacts fallback in `edgar/xbrl_service.py`
+_fiscal_period` derives `FY` from the form. The companyfacts fallback in `edgar/xbrl_companyfacts.py`
 only *ranks* the durations sharing a period end, so a lone three-month point ending on the fiscal
 year end is kept and still reaches the fact table labelled `FY`, passing `_valid_fact_provenance`.
 Certifying on the label would put a verified chip on a possibly-quarterly figure, so a fact whose
@@ -803,7 +930,7 @@ prompt change with its own evidence requirements.
 `tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`
 drives that whole transformation through production code.
 
-**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py tests/unit/test_copilot_citation_repair.py tests/unit/test_copilot_paired_claims.py -q`
+**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py tests/unit/test_copilot_citation_repair.py tests/unit/test_copilot_paired_claims.py tests/unit/test_copilot_prose_quotations.py -q`
 — covers the resolver's strip/keep behavior and the eval scorers (including `score_fact_marker_adjacency`,
 which re-runs the SAME production matcher + window rule over the final answer, so a resolver
 regression can't hide from the harness).
@@ -811,9 +938,13 @@ regression can't hide from the harness).
 **Complete live acceptance (same-repository PR, explicit Ready for review opt-in):**
 `copilot-eval.yml` stays skipped while the PR is draft. After the full offline gate and three
 independent review lenses, the orchestrator marks it ready. The dedicated workflow responds to
-`ready_for_review` and subsequent non-draft pushes; existing summary CI does not claim an automatic
-restart on that event. Acceptance still requires its separate full summary artifact against the
-sole unchanged baseline.
+`ready_for_review` and subsequent non-draft pushes, but only for a pull request whose diff matches
+its `paths:` filter: the eval's import closure, its runtime data and the workflow itself, gated by
+`tests/unit/test_copilot_eval_paths.py`. A pull request whose files all fall outside the filter
+(routers, tests, scripts and migrations, for example) never starts it and needs no copilot-eval
+artifact. Existing summary CI does not claim an automatic restart on that event. Where the
+workflow runs, acceptance still requires its separate full summary artifact against the sole
+unchanged baseline.
 
 The workflow prepares six verified accessions/five issuers in a new file-backed SQLite database
 using only `copilot_sources.json` identities and the production SEC/excerpt/fact paths. It records
@@ -822,6 +953,59 @@ BABA accessions coexist, so a same-valued newer comparative cannot impersonate t
 Only after successful source preparation does the runner receive the existing Actions generator
 credential and run all six vetted numeric questions three times (18 attempts). Original unverified
 qualitative/refusal questions remain unchanged under `pending_cases`; they are not silently certified.
+
+**Source preflight (E80).** Each golden case declares the excerpt source its preparation must record
+(`excerpt_source`): native, with the canonical sections (`financials`, `mda`, `risk`) the filing
+supplies whole, or a fallback this RUNBOOK documents for that filing, with the builder's reason. A
+section is whole from the length at which the native assembler reads it as the filing's own text:
+5,000 characters of financials and 3,000 of MD&A, under which it backfills a dense window of the
+document, and 200 for any section, under which it skips it (`copilot_runner.NATIVE_SECTION_FLOORS`,
+held to the assembler by `tests/unit/test_copilot_gate.py`). A native declaration that leaves a
+section out, and every fallback, says why in its `basis`. A native declaration is a floor, not an
+exact set: a section it leaves out that a later parser supplies whole does not refuse the draw (the
+excerpt is then richer, as production's is), but its `basis` and the sizes below go stale until the
+declaration is updated. AAPL, TSLA and MSFT declare all three. BABA's FY2026 20-F parses Item 18 to
+761 characters, so it declares `mda` and `risk`; FY2025's financial statements parse to 847
+characters and Item 5 to 2,219, so it declares `risk` alone
+(`tasks/review-evidence/e28-native-sections-2026-10-15/copilot_sources_parity.txt`). ASML's 20-F
+declares the one fallback, `sections_not_supplied`: at 24.9 million characters it is over the
+section parser's 16-million-character cap, and parsed it yielded no sections either ("Gotchas"). A
+10-Q whose Part II has no Risk Factors item would declare `financials` and `mda`, with that basis.
+
+The preparation keeps the excerpt builder's own record of each excerpt (`excerpt_provenance`,
+E80-C1). Before any provider call, `copilot_runner.validate_preparation` refuses a source whose
+record is missing or holds no valid section coverage; names a filing, document, section mapping or
+excerpt other than the ones prepared, or an excerpt other than the one the run hands the Copilot
+from the prepared database; records another outcome, source or fallback reason than its case
+declares; or supplies a declared section under its floor, or not at all. A source parsed natively
+where its case declares a fallback is refused too, so a parser change that reaches ASML updates its
+declaration and this paragraph in the same change. A refusal names the first refused source and
+what differs (the fields, each short section and its length, or the recorded and the declared
+source, outcome and reason), never a hash or text. The source check prints it as its "Source
+refused" error and in `source-check.log`; the runner, if it refuses, writes it in its report.
+`preparation.json`, retained with them, keeps every source's record. The preflight reads the prepared database's excerpts with the standard
+library's `sqlite3`, read-only, by plain SQL over `filings` and `filing_content_cache`: it runs
+before any setting loads, so the ORM is not yet there; `tests/unit/test_copilot_bootstrap.py`'s real
+preparation ties the query to the schema.
+
+An SEC outage does not reach the preflight: the bootstrap fetches each filing before the runner
+starts, so an outage fails "Prepare actual SEC sources in a new scratch database", the runner step
+never starts, the draw gate (`backend/scripts/copilot_eval_draw_gate.py`) counts no draw, and a
+re-run draws once SEC answers. A refusal follows a preparation that completed on another source than
+the one its case declares: a section parse that timed out (30 s, 40 s for a 20-F) or failed, an
+edgartools, parser or assembler change, or a document SEC now serves differently. A refused source
+spends no draw either (the founder's decision of 31 October 2026, E80 option (c)). The preparation
+step's last act is the source check, `python -m evals.copilot_source_check`. It runs the same
+preflight, with no provider call and no credential. A refusal fails "Prepare actual SEC sources in a
+new scratch database" with a "Source refused" error that names what differs. An outage fails the
+bootstrap first and never reaches the check. The runner step is then skipped, and the draw gate
+counts no draw. A re-run draws once the declared source prepares again. A refusal the pull request
+itself causes, a parser change for one, refuses on every re-run, at no provider cost, until a push.
+The bootstrap stays blind to the golden set; the check reads the golden cases only once the
+preparation is written. The runner keeps its own call before any provider call. So a check skipped
+or removed refuses there instead, at the cost of the head's draw: the check fails closed.
+`tests/unit/test_copilot_source_check.py` pins both placements, and that the check refuses what the
+runner's preflight (`validate_preparation`) refuses.
 
 The runner requires exactly one valid terminal completion per attempt, all planned identities,
 zero execution errors and no trust/accuracy veto. Valid refusal completions preserve the production
@@ -846,6 +1030,79 @@ claimed to be a full native HTTP conversation transcript or native finish-reason
 sanitized provider telemetry. Unknown cost is not free. Source-preparation failure means zero
 provider calls and requires diagnosis. No live acceptance result is claimed by implementation or
 offline tests. The first weekly strong-judge readout and evidence-snap activation remain held.
+
+**Publication-withhold reason (diagnostic only).** When the service terminally withholds an answer at the
+publication boundary, the client receives only the shared generic error. Every candidate rejection logs the
+application-owned reason. For each attempt the runner records that reason from the `copilot_service`
+log through a logger filter scoped to the attempt (service log output unchanged; attempts run one at
+a time; a record logged under any other attempt's context is ignored), in
+`tool_trace.withheld_reasons`. Each physical generation also retains its own messages, options,
+candidate deltas, provider-control types, tool results and withheld reasons in
+`tool_trace.generation_attempts`; the aggregate fields remain for compatibility. A recovered question
+retains the rejected generation's evidence and is scored on its admitted replacement. A terminal
+admission failure copies that final generation's last reason to `error.withheld_reason`; a provider
+failure on the replacement does not inherit an earlier candidate's rejection reason. Decision F
+reasons start with `Unsupported prose quotation:` (for example `Unsupported prose quotation:
+quotation_not_in_source`); every other reason, such as `Invalid citation declaration` or `Unverified
+or ambiguous referenced citation` (whole-excerpt or section-label check), is not F.
+`validate_report` names that row's failure `publication withheld: <reason>` instead of
+`operationally incomplete attempt`, the `copilot-eval.md` verdict column shows the same label, and
+the workflow appends `copilot-eval.md` to the job summary, so the reason is readable on the run page
+without the artifact. The row stays an execution error: `summary.errors`, `failures` being
+non-empty, `accepted`, thresholds and the exit code are unchanged, and an uncaptured reason leaves
+the generic label, never a pass. The scorer, thresholds and locked stream contract tests are unchanged.
+
+**Triage rule for a red copilot-eval run** (founder approval, 2026-10-02 13:10Z: "Go with your
+recommendation on all open points"; recorded in `tasks/pr-disposition-2026-09-30.md`, log entry
+13:10Z. Widened on 2026-10-09 from decision-F reasons to every named publication withhold, under the
+founder's delegation of the open decisions: `tasks/decisions-2026-10-09-design-followups.md`,
+decision D. From 3 to 9 October, after #1052 began verifying whole citation excerpts, 16 runs went
+red on PRs that change no Copilot code. 13 of them carried `Unverified or ambiguous referenced
+citation`, which the F-only rule left blocking. In all 17 such rows the model had cited table or KPI
+cells as an elided or short excerpt: 15 on one BABA question, 2 on one ASML question.) A red
+copilot-eval run may be recorded as not caused by a PR only when ALL hold:
+(1) every errored row carries a named publication-withhold reason (`publication withheld: <reason>`
+in the report): a decision-F prose-quotation reason, or any other reason the service logs at the
+publication boundary, such as `Unverified or ambiguous referenced citation` or `Invalid citation
+declaration`. A provider failure, a timeout or the generic `operationally incomplete attempt` label
+is not one;
+(2) the PR changes no Copilot model-facing bytes (system prompt, tool schema and tool results, context
+building including source selection and extraction, generation options), no publication-boundary
+logic (citation parsing and verification, decision F, the private regeneration) and no Copilot eval
+harness (runner, scorers, golden set and sources, `copilot-eval.yml`), beyond a behaviour-preserving
+refactor proven offline;
+(3) offline replay of each such row's retained generations under main's code reproduces the run: the
+replay tool exits 0 with 0 UNEXPLAINED, and each such row is classified with its recorded reason
+("other reason" whose `other_reason` equals the row's `tool_trace.withheld_reasons`, or
+"F-withheld" with the row's decision-F code). A row the replay does not reproduce is UNEXPLAINED, and
+blocks;
+(4) every other row passes;
+(5) the PR records the red run, the attribution and this rule in a comment.
+Any other failure blocks as before. A PR that changes this rule does not apply it to its own run. The
+run is never drawn again to obtain a green result outside a predeclared protocol. `copilot-eval.yml`
+draws once per head commit. A re-run attempt, a draft-to-ready toggle or a reopen on a head that
+already drew reports that draw's verdict before it spends, and draws nothing
+(`backend/scripts/copilot_eval_draw_gate.py`, `tests/unit/test_copilot_eval_rerun_refusal.py`).
+Nothing exempts a head, since anything that can change after a draw, such as the PR body, could buy
+another draw once the result is known. A draw that was cancelled (a toggle or a new run mid-draw
+cancels it) or is still running counts as the head's draw, and not as a green one. A new draw comes
+from a new push. A push made only to draw again, changing nothing under `backend/` or `.github/`, is
+a re-draw too, forbidden outside a predeclared protocol; the gate keys on the head commit and does not
+catch it (follow-up 11 in `tasks/decisions-2026-10-09-design-followups.md`, the founder's call). A
+predeclared protocol that needs several draws of the same code gives each draw its own head, a commit
+that changes only its evidence folder, and says so in its preregistration. This does not change
+accepted, error counting, thresholds or exit codes.
+Condition (1) is read off each errored row in the per-row verdict column of `copilot-eval.md` (the
+`Failures:` line lists each label only once); the replay tool for (3) is
+`tasks/review-evidence/copilot-eval-triage-2026-10-09/f_attribution.py`. It replays each generation
+from `tool_trace.generation_attempts` and enforces decision F, as production does. Its predecessor
+(`tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py`,
+kept unchanged for the records that pin it) predates #1111's second generation and exits 3 on any
+report that holds a recovered row. A report recorded before the 2026-10-16 eligibility change whose
+withheld row's first generation was under the floor or twice-declared replays as UNEXPLAINED under
+later code, because the replay asks for a second generation the run never recorded. So does a report
+recorded on a head without #1551's trailer retry whose withheld row's first generation ended in
+`Unexpected citation trailer`. That fails closed: the PR merges main and draws on its new head.
 
 **Gating rule — two different standards (July 2026, learned the hard way):**
 - **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes
@@ -924,12 +1181,12 @@ A future `trends_golden_set.json` + scorer (validating selected IDs, rendered ob
 |---|---|
 | EDGAR 403 / empty filings | Valid SEC User-Agent in env; respect ~10 req/s |
 | Small-cap `verified:false` after build | Fill `ground_truth` manually from the filing |
-| Cost surprise | `--limit` + fewer `--runs`; fix `models.py` price placeholders |
+| Cost surprise | `--limit` + fewer `--runs`; a candidate's prices are in `models.py` (the non-Claude ones are unverified placeholders; fix them there); the baseline's are the pipeline's own (`app/services/llm_pricing.py`) |
 | `anthropic` ImportError / no key | `pip install anthropic`; judge/Claude degrade to a FAIL-with-error row, not a crash |
 | Wrong ground truth | Spot-check against the filing — it silently corrupts every score |
 | FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |
 | FPI metric missing (double-tagged) | Filer tags the same line twice (statement + rounded) → dropped as ambiguous; hand-fill ground truth from the statement value |
-| Huge 20-F section parse very slow (e.g. ASML >120s) | `get_filing_sections` caps at 40s and returns None → pipeline falls back to the fast dense-window extractor (lower precision, still usable). Expected, not a failure; don't raise the cap (it would block generation for minutes). |
+| Huge document section parse slow or skipped (e.g. ASML's 24.9 MB 20-F) | The section parse is local CPU work on the fetched document: documents over 16,000,000 characters are skipped, and `get_filing_sections` bounds the parse at 30 s (40 s for a 20-F, counting time queued behind another parse; the pipeline and the eval runner both await that bound). Either returns None and the excerpt falls back to the dense-window extractor (lower precision, still usable). ASML's 20-F yields no sections even when parsed, so its two attempts are the expected misses in the native-section share. Don't raise the bounds: the parse runs on the API process. |
 
 ### September parity measurement: component omission
 
@@ -942,7 +1199,13 @@ reported totals from no-total banks, and existing deterministic summary assembly
 available component rows using aligned XBRL periods/currencies. It replaces model
 component rows, including their incompatible commentary/evidence, without inventing
 verbatim quotes. Reports retain the actual `xbrl_grounding` used for each result so
-future failures can distinguish extraction absence from generation omissions.
+future failures can distinguish extraction absence from generation omissions. Since E184
+each fact a standardized series takes from the filing's XBRL (and each operand ROE and ROA
+copy) also records `accn`, the filing that recorded it. The judge and the bake-off
+candidates never read it (`runner._model_metrics` drops it, as it drops
+`financial_classification`), nor does the baseline, whose production prompt picks its
+fields one by one. A comparison of retained groundings across that change drops `accn`
+first.
 
 This failed measurement was not pinned. The sole authoritative three-run measurement
 subsequently ran on source `f5b46ba96b3023f93554087e431937ed9daba3c4`, including deployed
@@ -1056,7 +1319,10 @@ add `incurred_provider_usage` with `incurred_usage_attempts` as its result-row d
 
 Token totals are sums of known provider counters, not full billed spend. `unknown_calls` counts
 calls with no known usage fields; partially reported fields can also leave token totals incomplete.
-Missing counters remain null. Older reports without incurred evidence remain unavailable in the
+Missing counters remain null. Each usage row also carries `estimated_cost_known_usd`, the sum of its
+calls' known estimates, and `estimated_cost_unknown_calls`, the calls without one; a baseline
+result's `cost_usd` is its incurred known sum, and a usage row written before these fields counts all its
+calls as unknown. Older reports without incurred evidence remain unavailable in the
 new summary fields; their final-attempt totals cannot reconstruct failed-generation costs. No
 baseline or historical report is rewritten by this correction.
 
@@ -1217,7 +1483,8 @@ version-2 count without re-judging its retained `report.json`.
 
 Acceptance bar for a grounding candidate (from the assessment): the negative controls move from a
 false explanation to abstention (no G4/G5 failure), no new G2/G3 failure, and the deterministic
-regression gate unchanged. A better mean dimension score is not the bar. Before the first use as a
+regression gate unchanged. Judge only an artifact whose gate note reads 62 of 64 native-section
+excerpts on the full set (no `native_section_share` finding); one built on regex excerpts measures a different model input. A better mean dimension score is not the bar. Before the first use as a
 gate, hand-check about five verdicts: the judge's own accuracy on causal claims is unmeasured.
 
 ## Attribution-verifier claim context candidate — September 19, 2026

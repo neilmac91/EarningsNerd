@@ -9,7 +9,7 @@ from app.utils.datetimes import utcnow
 # FREE_TIER_SUMMARY_LIMIT now lives in entitlements (single source of truth); re-exported here
 # (redundant alias = intentional re-export) so existing
 # `from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT` keeps working.
-from app.services.entitlements import get_entitlements
+from app.services.entitlements import ANALYSIS_MONTHLY_CAP, PRO_SUMMARY_MONTHLY_CAP, get_entitlements
 from app.services.entitlements import FREE_TIER_SUMMARY_LIMIT as FREE_TIER_SUMMARY_LIMIT
 from app.config import settings
 
@@ -26,7 +26,9 @@ def get_user_usage_count(user_id: int, month: str, db: Session) -> int:
     
     return usage.summary_count if usage else 0
 
-def _increment_monthly_counter(user_id: int, month: str, db: Session, column: InstrumentedAttribute) -> None:
+def _increment_monthly_counter(
+    user_id: int, month: str, db: Session, column: InstrumentedAttribute, *, commit: bool = True,
+) -> None:
     """Increment one selected historical bucket; serialize only first-row creation.
 
     All current writers use this protocol. It neither repairs old duplicates nor protects
@@ -63,31 +65,29 @@ def _increment_monthly_counter(user_id: int, month: str, db: Session, column: In
         {column: func.coalesce(column, 0) + 1, UserUsage.updated_at: datetime.now(timezone.utc)},
         synchronize_session=False,
     )
-    db.commit()
+    if commit:
+        db.commit()
 
 
-def increment_user_usage(user_id: int, month: str, db: Session):
+def increment_user_usage(user_id: int, month: str, db: Session, *, commit: bool = True):
     """Increment the monthly summary counter at the existing completion call sites."""
-    _increment_monthly_counter(user_id, month, db, UserUsage.summary_count)
+    _increment_monthly_counter(user_id, month, db, UserUsage.summary_count, commit=commit)
 
 def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]]:
     """Check if user can generate more summaries. Returns (can_generate, current_count, limit).
 
     Free tier is a visible billing cap. Pro is billing-unlimited (``monthly_summary_limit is None``)
-    but still subject to an INVISIBLE fair-use ceiling (``PRO_SUMMARY_MONTHLY_CAP``) that bounds
-    runaway spend from a compromised/scripted account — same philosophy as ``check_qa_limit``. On a
-    Pro block the returned ``limit`` is the fair-use cap; the caller renders a generic message (not
-    an upsell) so the ceiling stays invisible.
+    under Pro's fair-use ceiling (``PRO_SUMMARY_MONTHLY_CAP``, which the pricing page states), a
+    bound on runaway spend from a compromised or scripted account, as ``check_qa_limit``'s is. On a
+    Pro block the returned ``limit`` is the ceiling, and the caller answers with its fair-use
+    message, never an upsell.
     """
     month = get_current_month()
     limit = get_entitlements(user).monthly_summary_limit
     if limit is None:
-        cap = settings.PRO_SUMMARY_MONTHLY_CAP
-        if not cap:  # 0/None disables the ceiling → truly unlimited
-            return True, 0, None
         current_count = get_user_usage_count(user.id, month, db)
-        if current_count >= cap:
-            return False, current_count, cap
+        if current_count >= PRO_SUMMARY_MONTHLY_CAP:
+            return False, current_count, PRO_SUMMARY_MONTHLY_CAP
         return True, current_count, None
 
     current_count = get_user_usage_count(user.id, month, db)
@@ -117,6 +117,7 @@ def _set_transaction_lock_timeout(db: Session) -> None:
 
 def _reserve_use(
     user: User, db: Session, *, kind: str, month: str, limit: int, completed_count: Callable[[Session], int],
+    commit: bool = True,
 ) -> tuple[bool, int, Optional[str]]:
     """The one serialized admission decision every metered feature shares (E07b).
 
@@ -145,38 +146,41 @@ def _reserve_use(
     ).scalar() or 0
     completed = completed_count(db)
     if completed + active >= limit:
-        db.rollback()
+        if commit:
+            db.rollback()
         return False, completed, None
     token = uuid4().hex
     db.add(UsageReservation(
         user_id=user.id, month=month, kind=kind, token=token,
         expires_at=now + timedelta(seconds=settings.USAGE_RESERVATION_TTL_SECONDS), created_at=now,
     ))
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return True, completed, token
 
 
-def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[int], Optional[str]]:
+def reserve_summary_use(
+    user: User, db: Session, *, commit: bool = True,
+) -> tuple[bool, int, Optional[int], Optional[str]]:
     """Admit one summary generation and hold its quota unit under a short lease (E07b).
 
     ``check_usage_limit`` is a plain read, so concurrent requests could all pass the cap and
     each complete; this is the serialized decision (see ``_reserve_use``). Returns
     ``(admitted, completed_count, limit, token)`` with the same limit semantics as
-    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block; truly
-    unlimited Pro returns no token). The caller converts or releases the token. No historical
-    duplicate repair; Redis is not involved.
+    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block). The caller
+    converts or releases the token. No historical duplicate repair; Redis is not involved.
     """
     limit = get_entitlements(user).monthly_summary_limit
     unlimited = limit is None
     if unlimited:
-        cap = settings.PRO_SUMMARY_MONTHLY_CAP
-        if not cap:
-            return True, 0, None, None
-        limit = cap
+        limit = PRO_SUMMARY_MONTHLY_CAP
     month = get_current_month()
     admitted, completed, token = _reserve_use(
         user, db, kind=SUMMARY_RESERVATION_KIND, month=month, limit=limit,
         completed_count=lambda session: get_user_usage_count(user.id, month, session),
+        **({"commit": False} if not commit else {}),
     )
     if not admitted:
         return False, completed, limit, None
@@ -216,7 +220,7 @@ def reserve_qa_taste_use(user: User, db: Session) -> tuple[bool, int, int, Optio
 def reserve_analysis_use(user: User, db: Session) -> tuple[bool, int, int, Optional[str]]:
     """Admit one fresh Multi-Period Analysis generation under the monthly fair-use cap (E07b
     slice 2). Returns ``(admitted, completed_count, cap, token)``."""
-    cap = settings.ANALYSIS_MONTHLY_CAP
+    cap = ANALYSIS_MONTHLY_CAP
     month = get_current_month()
     admitted, completed, token = _reserve_use(
         user, db, kind=ANALYSIS_RESERVATION_KIND, month=month, limit=cap,
@@ -231,7 +235,7 @@ def convert_reservation(token: Optional[str], db: Session) -> Optional[str]:
     Not committed: the caller increments that month's counter in the same transaction, so a
     generation admitted just before a UTC month rollover is charged to the month whose quota
     admitted it, never to the new month (whose admissions do not see the old lease). ``None``
-    when nothing was reserved (unlimited Pro) or the lease already expired and was swept.
+    when nothing was reserved or the lease already expired and was swept.
     """
     if not token:
         return None
@@ -251,6 +255,47 @@ def release_reservation(token: Optional[str], db: Session) -> None:
     db.commit()
 
 
+def _refund_monthly_counter(
+    user_id: int, month: str, db: Session, column: InstrumentedAttribute, *, commit: bool = True,
+) -> None:
+    """Give one counted unit back on the bucket ``_increment_monthly_counter`` selected (floor 0).
+
+    A generation is counted when its provider call starts; this is the inverse for the cases that
+    did not serve the user (a provider-side failure, or a partial verdict under the quality gate).
+    SQL arithmetic with a ``> 0`` guard, so a concurrent increment is never lost and the counter
+    never goes negative; a missing bucket is a no-op. Commits.
+    """
+    _set_transaction_lock_timeout(db)
+    selected = db.query(UserUsage.id).filter(UserUsage.user_id == user_id, UserUsage.month == month).first()
+    if selected is None:
+        return
+    db.query(UserUsage).filter(UserUsage.id == selected.id, column > 0).update(
+        {column: column - 1, UserUsage.updated_at: datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
+    if commit:
+        db.commit()
+
+
+def refund_summary_use(user_id: int, month: str, db: Session, *, commit: bool = True) -> None:
+    """Give back one summary unit counted in ``month`` when the provider call started."""
+    _refund_monthly_counter(user_id, month, db, UserUsage.summary_count, commit=commit)
+
+
+def refund_qa_use(user_id: int, month: str, db: Session) -> None:
+    """Give back one Pro Copilot unit counted in ``month`` when the provider stream started."""
+    _refund_monthly_counter(user_id, month, db, UserUsage.qa_count)
+
+
+def refund_copilot_free_taste(user_id: int, db: Session) -> None:
+    """Give back one lifetime free-taste unit (floor 0; atomic SQL decrement; commits)."""
+    db.query(User).filter(User.id == user_id, User.copilot_free_taste_used > 0).update(
+        {User.copilot_free_taste_used: User.copilot_free_taste_used - 1},
+        synchronize_session=False,
+    )
+    db.commit()
+
+
 def get_user_qa_count(user_id: int, month: str, db: Session) -> int:
     """Get user's Copilot Q&A question count for the given month."""
     usage = db.query(UserUsage).filter(
@@ -262,7 +307,8 @@ def get_user_qa_count(user_id: int, month: str, db: Session) -> int:
 
 
 def increment_user_qa(user_id: int, month: str, db: Session) -> None:
-    """Increment the monthly Copilot counter at the existing completion call site."""
+    """Increment the monthly Copilot counter; the ask-stream route calls it as the provider request
+    is issued (the lease converted in the same commit), not on completion."""
     _increment_monthly_counter(user_id, month, db, UserUsage.qa_count)
 
 
@@ -270,7 +316,8 @@ def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
     """Increment a Free user's *lifetime* Copilot free-taste counter (roadmap 2.2).
 
     Lifetime (lives on ``users``), so it's keyed only by user — unlike the monthly ``qa_count`` on
-    ``user_usage``. Metered after a successful answer; Pro users never reach this path.
+    ``user_usage``. Metered as the provider request is issued (a provider-side failure refunds it);
+    Pro users never reach this path.
 
     Atomic DB-level increment (not read-modify-write) so concurrent questions — a double-click or
     parallel requests — cannot lose a completed-answer increment. Admission is serialized
@@ -319,7 +366,7 @@ def check_analysis_limit(user: User, db: Session) -> tuple[bool, int, int]:
     soft limit (``ANALYSIS_MONTHLY_CAP``) behind the ``can_analyze_trends`` entitlement — cached
     re-serves are never metered, so this only bounds fresh AI generations.
     """
-    cap = settings.ANALYSIS_MONTHLY_CAP
+    cap = ANALYSIS_MONTHLY_CAP
     month = get_current_month()
     current_count = get_user_analysis_count(user.id, month, db)
     return current_count < cap, current_count, cap

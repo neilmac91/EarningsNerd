@@ -1,0 +1,649 @@
+{
+ "code": {
+  "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+  "service_sha256": "adbe6f292a9a8d9b5a46a01074fa1e00369964b4ded5d955cdcea7f849c11aed",
+  "git_head": "b424e8d9a6fb6fa592c0846311558c890db56681",
+  "git_dirty": false
+ },
+ "runs": [
+  {
+   "run": "99999999999",
+   "file_sha256": "09c88493b2faf02e68a3d631fdaf576cfd65c8ee18a1aa45a2f9b52676cff327",
+   "source_sha": "synthetic",
+   "tool_code": {
+    "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+    "service_sha256": "adbe6f292a9a8d9b5a46a01074fa1e00369964b4ded5d955cdcea7f849c11aed",
+    "git_head": "b424e8d9a6fb6fa592c0846311558c890db56681",
+    "git_dirty": false
+   },
+   "rows": 7,
+   "with_deltas": 7
+  }
+ ],
+ "rows": [
+  {
+   "run": "99999999999",
+   "row": "SYN synthetic-1 d0",
+   "run_outcome": "withheld or errored",
+   "run_error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000000000-26-000001",
+    "chars": 87,
+    "sha256": "72b2f78fb5f374ab7e2943d3b66e3d525b77af8c71e6073e6f465b39fe92d01a"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "The filing says \"Invented text missing from the source\" [1].",
+    "reason": null,
+    "followups_envelope": "[\"What changed in margins?\", \"What are the risks?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "error"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "The filing says \"Invented text missing from the source\" [1].",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What are the risks?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "The filing says \"Invented text missing from the source\" [1].",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What are the risks?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "replay (the run published nothing)",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "The filing says \"Invented text missing from the source\" [1].",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "withheld_by_f": true,
+   "classification": "F-withheld"
+  },
+  {
+   "run": "99999999999",
+   "row": "SYN synthetic-2 d0",
+   "run_outcome": "withheld or errored",
+   "run_error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000000000-26-000001",
+    "chars": 87,
+    "sha256": "72b2f78fb5f374ab7e2943d3b66e3d525b77af8c71e6073e6f465b39fe92d01a"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Net income for 2025 amounted to 9,609.4 million [1].",
+    "reason": null,
+    "followups_envelope": null
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [
+    "Missing citation envelope"
+   ],
+   "terminal": {
+    "replay": "error",
+    "retained": "error"
+   },
+   "check_reached": false,
+   "replay_surfaces": [],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [],
+   "verdict_source": "replay (the run published nothing)",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false,
+   "classification": "other reason",
+   "other_reason": [
+    "Missing citation envelope"
+   ]
+  },
+  {
+   "run": "99999999999",
+   "row": "SYN synthetic-3 d0",
+   "run_outcome": "withheld or errored",
+   "run_error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000000000-26-000001",
+    "chars": 87,
+    "sha256": "72b2f78fb5f374ab7e2943d3b66e3d525b77af8c71e6073e6f465b39fe92d01a"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Net income for 2025 amounted to 9,609.4 million [1].",
+    "reason": null,
+    "followups_envelope": null
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "error"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Net income for 2025 amounted to 9,609.4 million [1].",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Net income for 2025 amounted to 9,609.4 million [1].",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "replay (the run published nothing)",
+   "replay_agrees": true,
+   "mismatch_cause": "UNEXPLAINED",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false,
+   "classification": "UNEXPLAINED",
+   "unexplained_because": "the replay publishes with no F reason"
+  },
+  {
+   "run": "99999999999",
+   "row": "SYN synthetic-4 d0",
+   "run_outcome": "withheld or errored",
+   "run_error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000000000-26-000001",
+    "chars": 87,
+    "sha256": "72b2f78fb5f374ab7e2943d3b66e3d525b77af8c71e6073e6f465b39fe92d01a"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "",
+    "reason": "Segment margins are not broken out; the filing only says \"Invented text missing from the source\".",
+    "followups_envelope": "[\"What changed in margins?\", \"What are the risks?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "error"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "reason",
+     "index": null,
+     "text": "Segment margins are not broken out; the filing only says \"Invented text missing from the source\".",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What are the risks?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "reason",
+     "index": null,
+     "text": "Segment margins are not broken out; the filing only says \"Invented text missing from the source\".",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What are the risks?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "replay (the run published nothing)",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [
+    {
+     "surface": "reason",
+     "index": null,
+     "text": "Segment margins are not broken out; the filing only says \"Invented text missing from the source\".",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "withheld_by_f": true,
+   "classification": "F-withheld"
+  },
+  {
+   "run": "99999999999",
+   "row": "SYN synthetic-5 d0",
+   "run_outcome": "withheld or errored",
+   "run_error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000000000-26-000001",
+    "chars": 87,
+    "sha256": "72b2f78fb5f374ab7e2943d3b66e3d525b77af8c71e6073e6f465b39fe92d01a"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "",
+    "reason": "Segment margins are not broken out.",
+    "followups_envelope": "[\"What changed in margins?\", \"Why does the filing say \\\"Invented text missing from the source\\\"?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "error"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "reason",
+     "index": null,
+     "text": "Segment margins are not broken out.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "reason",
+     "index": null,
+     "text": "Segment margins are not broken out.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "verdict_source": "replay (the run published nothing)",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 1,
+   "failed": [
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "withheld_by_f": true,
+   "classification": "F-withheld"
+  },
+  {
+   "run": "99999999999",
+   "row": "SYN synthetic-6 d0",
+   "run_outcome": "withheld or errored",
+   "run_error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000000000-26-000001",
+    "chars": 87,
+    "sha256": "72b2f78fb5f374ab7e2943d3b66e3d525b77af8c71e6073e6f465b39fe92d01a"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Net income for 2025 amounted to 9,609.4 million [1].",
+    "reason": null,
+    "followups_envelope": "[\"Why does the filing say \\\"Invented text missing from the source\\\"?\", \"What are the risks?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "error"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Net income for 2025 amounted to 9,609.4 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What are the risks?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Net income for 2025 amounted to 9,609.4 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What are the risks?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "replay (the run published nothing)",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 1,
+   "failed": [
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "withheld_by_f": true,
+   "classification": "F-withheld"
+  },
+  {
+   "run": "99999999999",
+   "row": "SYN synthetic-7 d0",
+   "run_outcome": "withheld or errored",
+   "run_error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000000000-26-000001",
+    "chars": 87,
+    "sha256": "72b2f78fb5f374ab7e2943d3b66e3d525b77af8c71e6073e6f465b39fe92d01a"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Net sales for the fiscal year ended September 27, 2025 were $416,161 million.",
+    "reason": null,
+    "followups_envelope": "[\"What changed in margins?\", \"Why does the filing say \\\"Invented text missing from the source\\\"?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "error"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Net sales for the fiscal year ended September 27, 2025 were $416,161 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Net sales for the fiscal year ended September 27, 2025 were $416,161 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "What changed in margins?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "verdict_source": "replay (the run published nothing)",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 1,
+   "failed": [
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "Why does the filing say \"Invented text missing from the source\"?",
+     "reasons": [
+      "quotation_not_in_source"
+     ]
+    }
+   ],
+   "withheld_by_f": true,
+   "classification": "UNEXPLAINED",
+   "unexplained_because": "the replay made a repair lookup the trace does not serve, so its verdict is not attributed"
+  }
+ ],
+ "summary": {
+  "code": {
+   "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+   "service_sha256": "adbe6f292a9a8d9b5a46a01074fa1e00369964b4ded5d955cdcea7f849c11aed",
+   "git_head": "b424e8d9a6fb6fa592c0846311558c890db56681",
+   "git_dirty": false
+  },
+  "runs": [
+   {
+    "run": "99999999999",
+    "source_sha": "synthetic",
+    "rows": 7,
+    "with_deltas": 7
+   }
+  ],
+  "rows": 7,
+  "replayed": 7,
+  "answer_only": 0,
+  "replay_mismatches": [
+   {
+    "row": "SYN synthetic-3 d0 @99999999999",
+    "cause": "UNEXPLAINED"
+   }
+  ],
+  "replay_mismatch_causes": {
+   "UNEXPLAINED": 1
+  },
+  "replay_verdict_disagreements": [],
+  "published_by_run": {
+   "rows": 0,
+   "f_would_withhold": 0,
+   "by_surface": {
+    "answer": 0,
+    "reason": 0,
+    "chip": 0
+   }
+  },
+  "withheld_or_errored_by_run": {
+   "rows": 7,
+   "F-withheld": [
+    "SYN synthetic-1 d0 @99999999999",
+    "SYN synthetic-4 d0 @99999999999",
+    "SYN synthetic-5 d0 @99999999999",
+    "SYN synthetic-6 d0 @99999999999"
+   ],
+   "other reason": [
+    "SYN synthetic-2 d0 @99999999999"
+   ],
+   "UNEXPLAINED": [
+    "SYN synthetic-3 d0 @99999999999",
+    "SYN synthetic-7 d0 @99999999999"
+   ]
+  },
+  "not_disclosed_rows": 2,
+  "rows_with_chips": 5,
+  "chips_checked": 10,
+  "rows_with_double_quoted_chips": 3,
+  "chips_with_double_quotes": 3,
+  "failing_chips": 3
+ }
+}

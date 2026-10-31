@@ -1,0 +1,24 @@
+[
+  {
+    "version": "2.15.0",
+    "checks": {
+      "valid": "accepted",
+      "padded_payload_valid_signature": "rejected",
+      "junk_payload": "rejected",
+      "wrong_signature": "rejected",
+      "padding_in_middle": "rejected",
+      "excess_padding": "rejected"
+    }
+  },
+  {
+    "version": "2.15.1",
+    "checks": {
+      "valid": "accepted",
+      "padded_payload_valid_signature": "accepted",
+      "junk_payload": "rejected",
+      "wrong_signature": "rejected",
+      "padding_in_middle": "rejected",
+      "excess_padding": "rejected"
+    }
+  }
+]

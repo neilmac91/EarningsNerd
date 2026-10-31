@@ -1,0 +1,84 @@
+{
+  "dispatch_id": "COO-REPORT-ROUTE-03",
+  "recorded_at": "2026-10-05T17:12:34.712066+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "COO",
+  "wave": "R3 (reporting groups G1–G3)",
+  "lane": "beta operations",
+  "role_label": "coo-report-route-proposal-01",
+  "requested_model": "inherited (claude-fable-5-1)",
+  "repository_read_scope": {
+    "commit": "branch claude/vigilant-goodall-633yx3 at 52eaa6d3",
+    "mode": "read-only; no git writes; no network; no PostHog or other connector call; no customer query; no production read"
+  },
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md (new file)"
+  ],
+  "allowed_inputs": [
+    {
+      "label": "COO first deliverable (G1–G5 definitions, C1)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md",
+      "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+      "bytes": 15184
+    },
+    {
+      "label": "COO operating-envelope disposition revision 1 (§5 G1–G5 carried)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md",
+      "sha256": "d30bdd50125ae304ad5c4fd1c6559326d3767c0f17c1ca7ec41d895ab6fc13be",
+      "bytes": 40291
+    },
+    {
+      "label": "COO disposition update 01",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md",
+      "sha256": "07ebaaf3f1433460a6b78738314152ba00b7caeba0bbbcf447e0374cf959fdeb",
+      "bytes": 37570
+    },
+    {
+      "label": "Decision record 07 (PostHog query-route evidence; B62)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-07.md",
+      "sha256": "d4468a18e04f9f9ff6c4939cef526e33ea40f78e0feca5786346531ad7147bd0",
+      "bytes": 6247
+    },
+    {
+      "label": "Masterplan review (section 3B beta reporting paragraph)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/reference/MASTERPLAN-REVIEW.md",
+      "sha256": "0c946f93c801bbb98836aab9c11b789d7748d88bf8894f3fbf57d0370399c710",
+      "bytes": 21877
+    },
+    {
+      "label": "Decision record 02 (D5 records privacy)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-02.md",
+      "sha256": "4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b",
+      "bytes": 21885
+    },
+    {
+      "label": "PostHog probe response (invented literals; 193 bytes)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/posthog-probe/execute-sql-response-20261005.json",
+      "sha256": "c9c1961ec63b04f26842b9878fe18c77e7e36b397e420a26dc35c5df0cff9b0b",
+      "bytes": 193
+    }
+  ],
+  "required_content": [
+    "Identity, inputs with hashes, observation date, authority (COO owns G1–G5 closure; CEO/founder decide any substitute reporting contract — MASTERPLAN-REVIEW §3B: no substitute contract is silently approved)",
+    "Side-by-side: the blocked batch-export contract (G1 HTTP 403 HogQL batch exports not enabled; G2 file receipt; G3 file-contract review) versus a query-based readout contract over the official PostHog MCP execute-sql route (evidence: record 07 — project 117863 confirmed, one invented-literal row returned, 193-byte response SHA-256 c9c1961e…; constraints stated in record 07: 100-row default cap, 500-row maximum, LIMIT/OFFSET pagination, no file parts)",
+    "The proposed query-route contract in the same shape as G2/G3: exact retained query text, parameters and UTC half-open window; pagination completeness rule (how a complete result set is proven with LIMIT/OFFSET and a count query; what counts as incomplete); result retention (rows and hashes, denominators and exclusions preserved, unknowns kept unknown); operator identity rule (an executive context never runs a customer query; which role runs the readout and how its identity is registered); independent review (what G3 checks for query files); privacy (record 02 D5: no customer rows in the public repository)",
+    "What the route does and does not settle for G1 (access decision still required for the adopted route), G2 (the invented-literal probe is done for the query route; the first customer-data query stays unauthorised until entry gates), G3 (review target changes from file parts to query receipts), G4 and G5 (unchanged)",
+    "Risks and open questions with owners (rate/row caps, MCP availability in scheduled runs, auditability versus a batch export, whether the ticket 76581 route stays open in parallel)",
+    "A decision table for the CEO/founder: adopt query route / keep waiting for batch export / both; with the concrete next step per option and no recommendation of spend",
+    "Return contract: counts unchanged (3/30 dossiers, 0/2 readouts, 5 reporting groups + 1 capacity decision), 0 calls/spend/reservations/mutations, no customer query, next owner"
+  ],
+  "entry_condition": "Record 07 evidence exists on the branch (commit 52eaa6d3).",
+  "stop_conditions": [
+    "any PostHog or network call",
+    "any customer or participant data",
+    "any invitation, flag, pricing, registration, load or production action",
+    "any invented number (participant count, threshold, budget)",
+    "hash mismatch or missing input"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false
+  },
+  "one_writer_for_output_paths": true
+}

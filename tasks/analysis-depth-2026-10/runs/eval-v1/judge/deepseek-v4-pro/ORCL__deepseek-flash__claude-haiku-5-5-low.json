@@ -1,0 +1,86 @@
+{
+ "ticker": "ORCL",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better coverage of red flags and watch items, and clearer separation of facts from judgments. Draft B has some unsupported claims and less precise grounding. A's use of specific thresholds and peer comparisons adds value."
+   },
+   "cost_usd": 0.005447,
+   "latency_s": 3.781,
+   "input_tokens": 10367,
+   "output_tokens": 120,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better coverage of red flags and watch items, and clearer separation of facts from judgments. Draft B has some unsupported claims and less precise grounding. A's use of specific thresholds and peer comparisons adds value.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides more granular segment and geographic detail, explains margin drivers with specific cost lines, and includes off-balance-sheet commitments. Its claims are well-supported by cited passages. Draft A is solid but less deep and misses the lease commitments. B's extra depth and coverage outweigh minor clarity differences."
+   },
+   "cost_usd": 0.00547,
+   "latency_s": 2.945,
+   "input_tokens": 10367,
+   "output_tokens": 132,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B provides more granular segment and geographic detail, explains margin drivers with specific cost lines, and includes off-balance-sheet commitments. Its claims are well-supported by cited passages. Draft A is solid but less deep and misses the lease commitments. B's extra depth and coverage outweigh minor clarity differences.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.010917
+}

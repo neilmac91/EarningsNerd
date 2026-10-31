@@ -37,7 +37,11 @@ from typing import Any, Dict, Optional
 
 from rapidfuzz import fuzz
 
-from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match
+from app.services.provenance_service import (
+    _MIN_VERIFIABLE_LEN,
+    normalize_for_match,
+    strip_wrapping_quotes,
+)
 from app.services.summary_sections import _strip_inline_markdown
 
 # Unverified quotes at/above this partial_ratio (on normalized text) are "near misses" — the model
@@ -47,25 +51,12 @@ from app.services.summary_sections import _strip_inline_markdown
 # tuning (T4 follow-up); a fabrication-dominated one wants the gate armed.
 NEAR_MISS_SCORE = 92.0
 
-_QUOTE_MARKS_OPEN = "\"'“‘"
-_QUOTE_MARKS_CLOSE = "\"'”’"
-
-
-def _strip_wrapping_quotes(text: str) -> str:
-    """Strip ONE pair of quote marks only when they wrap the ENTIRE value. Never extracts inner
-    spans — the needle must stay the whole quote so fabricated text around a real quoted fragment
-    can neither verify nor duck under the length floor."""
-    t = text.strip()
-    if len(t) >= 2 and t[0] in _QUOTE_MARKS_OPEN and t[-1] in _QUOTE_MARKS_CLOSE:
-        return t[1:-1].strip()
-    return t
-
 
 def _needle(text: str) -> str:
     """The normalized match key for a quote value: full-wrap strip → inline-markdown strip (the
     renderer displays the stripped form, so a verbatim phrase the model wrapped in ``**``/``_``
     must not read as drift) → the shared normalization."""
-    return normalize_for_match(_strip_inline_markdown(_strip_wrapping_quotes(text)))
+    return normalize_for_match(_strip_inline_markdown(strip_wrapping_quotes(text)))
 
 
 def gate_forward_quotes(

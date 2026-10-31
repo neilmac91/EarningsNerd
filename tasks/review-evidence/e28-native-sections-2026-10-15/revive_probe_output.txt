@@ -1,0 +1,19 @@
+# edgartools 5.62.0, with homepage_url patched to the folderless 5.58.0 form, then as shipped
+httpx2 HTTP Request: GET https://data.sec.gov/submissions/CIK0000320193.json "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+edgartools 5.62.0 folderless -> {'risk': 68163, 'mda': 18238, 'financials': 62223} 1.8s
+httpx2 HTTP Request: GET https://data.sec.gov/submissions/CIK0000320193.json "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+edgartools 5.62.0 as-shipped -> {'risk': 68163, 'mda': 18238, 'financials': 62223} 1.5s
+
+# edgartools 5.61.0 and 5.61.1 as shipped (run 2026-10-15): the foldered index page answers 200, then the primary document is downloaded
+httpx2 HTTP Request: GET https://data.sec.gov/submissions/CIK0000320193.json "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079-index.html "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm "HTTP/1.1 200 OK"
+edgartools 5.61.0 as-shipped -> {'risk': 68163, 'mda': 18238, 'financials': 62223} 3.3s
+httpx2 HTTP Request: GET https://data.sec.gov/submissions/CIK0000320193.json "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079-index.html "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm "HTTP/1.1 200 OK"
+edgartools 5.61.1 as-shipped -> {'risk': 68163, 'mda': 18238, 'financials': 62223} 1.4s

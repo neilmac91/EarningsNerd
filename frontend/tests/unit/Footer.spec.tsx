@@ -38,6 +38,15 @@ describe('Footer product links', () => {
     h.enableCalendar = false
   })
 
+  it('carries the Logo.dev attribution link the free plan requires, in the form its attribution page gives', async () => {
+    // A commercial site on Logo.dev's Community plan shows `<a href="https://logo.dev">Logos provided by
+    // Logo.dev</a>` on a public page; the footer is on every public page. Dropping or rewording it would
+    // pass every other gate and break a licence condition silently.
+    const { getByRole } = await renderFooter()
+    const link = getByRole('link', { name: 'Logos provided by Logo.dev' })
+    expect(link).toHaveAttribute('href', 'https://logo.dev')
+  })
+
   it('never links to the hidden full-text search product', async () => {
     // Even with both flags on, the footer must not resurrect the /search product.
     h.enableAnalysis = true

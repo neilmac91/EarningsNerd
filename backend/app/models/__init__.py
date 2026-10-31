@@ -13,14 +13,19 @@ from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
 from app.models.earnings import EarningsEvent, EarningsAlertLog
 from app.models.financial_fact import FinancialFact
+from app.models.financial_fact_revision import FinancialFactRevision
 from app.models.notable_filing import NotableFiling
 from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, FeedbackSubmission, FeedbackAttachment
 from app.models.job_run import JobRun
 from app.models.billing_payment import BillingPayment
 from app.models.usage_reservation import UsageReservation
 from app.models.notification_delivery import DeliveryBatch, DeliveryItem
+from app.models.filing_section_text import FilingSectionText
+from app.models.section_review import SectionReview
+from app.models.account_agreement import AccountAgreement
+from app.models.summary_job import SummaryJob, SummaryPreparationBudget
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +71,7 @@ class User(Base):
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
+    account_agreements = relationship("AccountAgreement", back_populates="user", cascade="all, delete-orphan")
     # 1:1 billing state. The webhook keeps both this row and the `is_pro` mirror in sync.
     subscription = relationship(
         "Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
@@ -112,7 +118,7 @@ class OAuthAccount(Base):
 
 
 class OAuthState(Base):
-    """Short-lived state+nonce for OAuth flows that can't use SameSite cookies (Apple form_post).
+    """Single-use Google/Apple state, with nonce and optional explicit signup agreement evidence.
 
     ``expires_at`` is stored as naive UTC to match the ``datetime.utcnow()`` convention used by
     RefreshToken — a tz-aware column compared against a naive value (or vice versa) raises
@@ -127,6 +133,15 @@ class OAuthState(Base):
     state = Column(String(64), unique=True, nullable=False)
     nonce = Column(String(64), nullable=False)
     expires_at = Column(DateTime, nullable=False)
+    # SHA-256 hash of a closed-beta invite carried through a social sign-in (auth.google_login /
+    # apple_login store it through services/oauth_account_service.py; the callback validates and
+    # redeems it when it creates the account).
+    # NULL for a plain sign-in. Additive: self-healed by database.ensure_additive_columns.
+    invite_code_hash = Column(String(64), nullable=True)
+    # Only an explicit signup confirmation populates these; legacy/login state has no assent.
+    agreement_terms_version = Column(String(32), nullable=True)
+    agreement_eligibility_version = Column(String(32), nullable=True)
+    agreement_accepted_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class LoginAttempt(Base):
@@ -163,9 +178,9 @@ class Company(Base):
     # or when a newer Filing row exists. Stamped even for unsupported (IFRS-only) filers so we
     # don't refetch them hourly.
     facts_synced_at = Column(DateTime(timezone=True), nullable=True)
-    # When this company's deep filing history (10-K/10-Q since 2001) was backfilled from EFTS
-    # (P1-6). Null = never; the on-visit enqueue backfills once and stamps this so it never
-    # re-walks the company.
+    # When this company's deep filing history (10-K/10-Q since 2001, and 20-F/40-F behind
+    # ENABLE_FPI_FILINGS) was backfilled from EFTS (P1-6). Null = never; the on-visit enqueue
+    # backfills once and stamps this so it never re-walks the company.
     history_backfilled_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -185,7 +200,8 @@ class Watchlist(Base):
     last_alerted_at = Column(DateTime(timezone=True), nullable=True)
     # Per-company earnings-day alert opt-in (strategy §3.7). Distinct from the filing-alert prefs:
     # watchlists stay unlimited, but the per-plan cap on how many companies may have this ON is
-    # enforced at toggle time (entitlements.earnings_alert_limit — Free 3 / Pro 100).
+    # enforced at toggle time and again at send time, where a downgrade's surplus is skipped
+    # (entitlements.earnings_alert_limit — Free 3 / Pro 100; earnings_alert_service).
     earnings_alert = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -299,7 +315,7 @@ class UserUsage(Base):
     # "Ask this Filing" Copilot (A2) monthly question count, metered separately from summaries.
     qa_count = Column(Integer, default=0, nullable=False)
     # Multi-Period Analysis monthly generation count (fresh AI narratives only — cached re-serves
-    # are free). Fair-use cap: settings.ANALYSIS_MONTHLY_CAP.
+    # are free). Fair-use cap: entitlements.ANALYSIS_MONTHLY_CAP.
     analysis_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -341,11 +357,13 @@ class FilingContentCache(Base):
 
 
 __all__ = [
+    "AccountAgreement",
     "Base",
     "Company",
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "FilingSectionText",
     "InviteCode",
     "LoginAttempt",
     "NotificationLog",
@@ -353,9 +371,12 @@ __all__ = [
     "OAuthAccount",
     "OAuthState",
     "SavedSummary",
+    "SectionReview",
     "StripeEvent",
     "Subscription",
     "Summary",
+    "SummaryJob",
+    "SummaryPreparationBudget",
     "SummaryGenerationProgress",
     "TrendAnalysis",
     "User",

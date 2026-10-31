@@ -1,0 +1,106 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "MSFT",
+ "split": "dev",
+ "claims": 8,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Net income fell 35.0% in FY2018 as the effective tax rate reached 54.6%, which the filing ties to the net charge from enacting the TCJA .",
+   "passages": [
+    {
+     "id": "P61",
+     "filing": "FY2019 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our effective tax rate for fiscal years 2019 and 2018 was 10% and 55%, respectively. The decrease in our effective tax rate for fiscal year 2019 compared to fiscal year 2018 was primarily due to the net charge related to the enactment of the TCJA in the second quarter of fiscal year 2018 and a $2.6 billion net income tax benefit in the fourth quarter of fiscal year 2019 related to intangible property transfers. Our effective tax rate was lower than the U.S. federal statutory rate, primarily due to the tax benefit related to intangible property transfers, and earnings taxed at lower rates in foreign jurisdictions resulting from producing and distributing our products and services through our foreign regional operations centers in Ireland, Singapore, and Puerto Rico."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states FY2018 effective tax rate 55% due to TCJA net charge."
+  },
+  {
+   "sentence": "FY2026 revenue growth of 17.8% was the fastest in the window after FY2022, driven by growth in Microsoft Cloud .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue increased $50.1 billion or 18% driven by growth in Microsoft Cloud. Intelligent Cloud revenue increased driven by Azure. Productivity and Business Processes revenue increased driven by Microsoft 365 Commercial cloud. More Personal Computing revenue decreased driven by XBOX (formerly Gaming), offset in part by growth in Search advertising."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue increased 18% driven by Microsoft Cloud growth."
+  },
+  {
+   "sentence": "Server products and cloud services added 11.0pp to growth because Azure and other cloud services revenue grew 41% on demand across the platform .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Server products and cloud services revenue increased $31.0 billion or 31% driven by Azure and other cloud services. Azure and other cloud services revenue grew 41% driven by demand for services across the platform with continued growth across all workloads. Server products revenue increased 1% primarily driven by higher purchases of licenses running in multi-cloud environments, offset in part by continued customer shift to cloud."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states Azure and other cloud services grew 41% on demand across platform."
+  },
+  {
+   "sentence": "XBOX revenue fell 7.1%, which the filing attributes to declines in both content and services and hardware .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022XBOX revenue decreased $1.7 billion or 7% driven by declines in XBOX content and services and XBOX hardware. XBOX content and services revenue decreased 5% on a prior year comparable that benefited from strong first-party content performance, offset in part by growth in XBOX Game Pass. XBOX hardware revenue decreased 29% driven by lower volume of consoles sold."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states XBOX revenue decreased 7% driven by declines in content/services and hardware."
+  },
+  {
+   "sentence": "Gross margin slipped to 67.9%, as Intelligent Cloud margin percentage fell on AI infrastructure investment and the mix shift to Azure .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Gross margin increased $13.8 billion or 21% driven by growth in Azure. Gross margin percentage decreased driven by the continued investments in AI infrastructure as well as sales mix shift to Azure, offset in part by efficiency gains in Azure."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states gross margin percentage decreased due to AI infrastructure investments and Azure mix shift."
+  },
+  {
+   "sentence": "Net margin rose 4.2pp against 1.2pp for operating margin, as other income reached $10.7 billion, including $6.5 billion of OpenAI net gains, mainly a dilution gain .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income (expense), net included $6.5 billion of net gains and $4.8 billion of net losses for fiscal years 2026 and 2025, respectively, from investments in OpenAI, primarily net recognized gains (losses) on our equity method investment reflected in Other, net. The net gains recorded for fiscal year 2026 primarily relate to the dilution gain from the OpenAI Recapitalization."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states other income included $6.5B OpenAI net gains, primarily dilution gain."
+  },
+  {
+   "sentence": "The largest operating margin gain was 4.6pp in FY2021, when the change in estimated useful lives of server and network equipment lifted Intelligent Cloud gross margin .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin increased $9.7 billion or 29% driven by growth in Azure and the change in estimated useful lives of our server and network equipment. Gross margin percentage increased with the change in estimated useful lives of our server and network equipment. Excluding this impact, gross margin percentage was relatively unchanged driven by gross margin percentage improvement in Azure, offset in part by sales mix shift to Azure."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states gross margin increased due to Azure growth and change in useful lives."
+  },
+  {
+   "sentence": "Free cash flow margin fell to 20.2%, the window low, as additions to property and equipment rose $51.4 billion .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash from operations increased $46.8 billion to $182.9 billion for fiscal year 2026, primarily due to an increase in cash received from customers and a decrease in cash used to pay income taxes, offset in part by an increase in cash paid to suppliers. Cash used in financing increased $847 million to $52.5 billion for fiscal year 2026, primarily due to a $6.0 billion decrease in cash used for repayments of debt, offset in part by a $3.9 billion increase in common stock repurchases and a $2.4 billion increase in dividends paid. Cash used in investing increased $66.9 billion to $139.5 billion for fiscal year 2026, primarily due to a $51.4 billion increase in additions to property and equipment and a $22.2 billion increase in cash used in other investing primarily to facilitate the purchase of components, offset in part by a $4.2 billion decrease in cash used in the acquisition of companies, net of cash acquired and divestitures, and purchases of intangible and other assets and a $2.4 billion decrease in cash used in net investment purchases, sales, and maturities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash used in investing increased due to $51.4B increase in property/equipment additions."
+  }
+ ],
+ "cost_usd": 0.001639
+}

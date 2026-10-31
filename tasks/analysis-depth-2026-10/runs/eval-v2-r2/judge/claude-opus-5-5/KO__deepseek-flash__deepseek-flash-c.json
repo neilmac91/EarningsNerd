@@ -1,0 +1,106 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "1f5b685b42c30fba29d7cf0651f07619bdb6577a7721f1b38883e8581ff52e7f",
+ "y_sha256": "1ece0cd3b332fad32e8ad064465bd0021ba7f0fbecbba0c4ef656060702c7efa",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A's balance-sheet section rests on a broken series. Long-term debt is missing after FY2023, so its $8.8bn net cash, top peer rank and 'leverage immaterial' call are wrong. It also gives an uncited pandemic cause for FY2020. Draft B discloses that debt gap, labels its interpretation as analysis and stays grounded. Its FY2017 refranchising link is only loosely supported. A explains more causes (FY2024 margin drop, SG&A, FY2025 cash flow), but grounding decides."
+   },
+   "cost_usd": 0.139317,
+   "latency_s": 11.226,
+   "backend": "claude_cli",
+   "input_tokens": 16407,
+   "cached_input_tokens": 727,
+   "output_tokens": 687,
+   "reasoning_tokens": 435,
+   "meta": {
+    "duration_api_ms": 7129,
+    "cache_creation_input_tokens": 15678,
+    "list_cost_usd": 0.076605
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A's balance-sheet section rests on a broken series. Long-term debt is missing after FY2023, so its $8.8bn net cash, top peer rank and 'leverage immaterial' call are wrong. It also gives an uncited pandemic cause for FY2020. Draft B discloses that debt gap, labels its interpretation as analysis and stays grounded. Its FY2017 refranchising link is only loosely supported. A explains more causes (FY2024 margin drop, SG&A, FY2025 cash flow), but grounding decides.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B has richer segment, gross-margin and FY2024 margin analysis. But its balance-sheet section relies on a data artifact: $8.8bn net cash, peer-leading rank and 'leverage immaterial' ignore the flagged absence of long-term debt after FY2023. B also cites no source for the pandemic channel cause or the refranchising attribution. A states the debt gap, keeps analysis labelled, and its causal claims trace to cited passages. Grounding decides it."
+   },
+   "cost_usd": 0.141237,
+   "latency_s": 11.777,
+   "backend": "claude_cli",
+   "input_tokens": 16407,
+   "cached_input_tokens": 727,
+   "output_tokens": 783,
+   "reasoning_tokens": 545,
+   "meta": {
+    "duration_api_ms": 8125,
+    "cache_creation_input_tokens": 15678,
+    "list_cost_usd": 0.078525
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"B has richer segment, gross-margin and FY2024 margin analysis. But its balance-sheet section relies on a data artifact: $8.8bn net cash, peer-leading rank and 'leverage immaterial' ignore the flagged absence of long-term debt after FY2023. B also cites no source for the pandemic channel cause or the refranchising attribution. A states the debt gap, keeps analysis labelled, and its causal claims trace to cited passages. Grounding decides it.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.280554
+}

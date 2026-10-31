@@ -99,10 +99,11 @@ def record_failure(db: Session, email: str) -> None:
 def clear_failures(db: Session, email: str) -> None:
     """Drop any lockout state for ``email`` after a successful login.
 
-    The DELETE runs in the caller's transaction and is deliberately NOT committed here: ``login``
-    commits it together with ``last_login_at`` in a single round-trip, so the lockout reset and the
-    login timestamp land atomically (two separate commits could half-apply if the server crashed
-    between them, and cost an extra round-trip on every successful login)."""
+    The DELETE runs in the caller's transaction and is deliberately NOT committed here:
+    ``auth_account_service.record_password_login`` commits it together with ``last_login_at`` in a
+    single round-trip, so the lockout reset and the login timestamp land atomically (two separate
+    commits could half-apply if the server crashed between them, and cost an extra round-trip on
+    every successful login)."""
     db.query(LoginAttempt).filter(
         LoginAttempt.email_hash == _email_hash(email)
     ).delete(synchronize_session=False)

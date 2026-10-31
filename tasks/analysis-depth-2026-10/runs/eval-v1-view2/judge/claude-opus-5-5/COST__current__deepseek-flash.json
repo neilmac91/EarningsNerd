@@ -1,0 +1,86 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Draft A is fully sourced but only restates table values and claims no red flags. Draft B explains growth drivers, margins, cash conversion and peer standing, but has grounding errors. 'IEEPA tariff refunds' is absent from its cited passage. It attributes the FY2026 cash-flow causes to a generic passage. One watch item, 'recover toward 0.99x from 1.02x', is contradictory. Units are dropped ('$126', '$370'). Its supported depth narrowly outweighs these errors."
+   },
+   "cost_usd": 0.114813,
+   "latency_s": 15.77,
+   "input_tokens": 12064,
+   "output_tokens": 1199,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Draft A is fully sourced but only restates table values and claims no red flags. Draft B explains growth drivers, margins, cash conversion and peer standing, but has grounding errors. 'IEEPA tariff refunds' is absent from its cited passage. It attributes the FY2026 cash-flow causes to a generic passage. One watch item, 'recover toward 0.99x from 1.02x', is contradictory. Units are dropped ('$126', '$370'). Its supported depth narrowly outweighs these errors.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "A explains what drove growth, using comparable-sales, segment, membership and peer evidence, but has real grounding faults. The IEEPA tariff-refund claim is not in its cited passage. The FY2026 cash-flow cause is unsupported by a truncated quote. '$126' and '$370' drop the millions units. Its FCF-conversion red flag and watch item contradict each other. B is fully grounded but only restates table values and misses flags. A narrowly wins."
+   },
+   "cost_usd": 0.109469,
+   "latency_s": 14.837,
+   "input_tokens": 12066,
+   "output_tokens": 931,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"A explains what drove growth, using comparable-sales, segment, membership and peer evidence, but has real grounding faults. The IEEPA tariff-refund claim is not in its cited passage. The FY2026 cash-flow cause is unsupported by a truncated quote. '$126' and '$370' drop the millions units. Its FCF-conversion red flag and watch item contradict each other. B is fully grounded but only restates table values and misses flags. A narrowly wins.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.224282
+}

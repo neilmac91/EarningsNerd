@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 from contextlib import aclosing
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
+from dataclasses import dataclass
 from uuid import UUID
 import asyncio
 import json
@@ -17,6 +18,8 @@ from starlette.types import Receive, Scope, Send
 from app.services.posthog_client import capture_copilot_inference
 
 from app.config import settings
+from app.api_errors import CodedHTTPException
+from app.error_codes import ErrorCode, sse_error
 from app.database import get_db, SessionLocal
 from app.models import (
     Filing,
@@ -26,44 +29,64 @@ from app.models import (
 )
 from app.routers.auth import get_current_user, get_current_user_optional
 from app.dependencies import copilot_taste_exhausted_detail, require_copilot_or_taste
+from app.services import filing_list_service, summary_job_store, summary_jobs
+from app.services.request_work import run_owned_sync
+from app.services.summary_job_progress import durable_progress_answer
 from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
-from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.rate_limiter import ActiveStreamLimiter, RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
+    LIFETIME_SCOPE,
     check_qa_limit,
     convert_reservation,
     get_current_month,
     increment_user_copilot_free_taste,
     increment_user_qa,
+    refund_copilot_free_taste,
+    refund_qa_use,
     release_reservation,
     reserve_qa_taste_use,
     reserve_qa_use,
 )
-from app.services.copilot_service import answer_filing_question, snapshot_filing
+from app.services.copilot_service import PROVIDER_STARTED_STAGE, answer_filing_question, snapshot_filing
+from app.services.ai.provider_requests import provider_start_signal
 from app.services.summary_generation_service import (
-    mark_stale_progress_as_error,
-    progress_as_dict,
+    progress_poll_answer,
 )
+from app.services.summary_placeholders import is_summary_ready
 from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.summary_pipeline import (
-    stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
+    GenerationUserSnapshot, stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
 )
-from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
-from app.services.change_report_service import build_change_report
+from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview, standardized_xbrl
+from app.services.change_report_service import change_report_for_filing
+from app.services.filing_section_service import section_changes_access
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+# Both burst limiters are keyed on the account alone (``include_client_ip=False``): keying on
+# (IP, user) would let one account presenting several client IPs multiply its allowance.
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
+# Bound cheap replay/join handshakes separately. Only the actual generation leader spends
+# SUMMARY_LIMITER; retries and readers joining another run must not exhaust that work budget.
+SUMMARY_REQUEST_LIMITER = RateLimiter(limit=60, window_seconds=60)
+# Followers wait before the generation semaphore; bound their live HTTP occupancy too.
+# This is per process, not a fleet-wide account limit. Ready replay and GET stay available.
+SUMMARY_STREAM_LIMITER = ActiveStreamLimiter(limit=4)
 # Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
-# burst than summaries while still throttling abuse (per IP, sliding window).
+# burst than summaries while still throttling abuse (per user, sliding window).
 ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 
 class SummaryStreamResponse(StreamingResponse):
     """Close the owned iterator even when disconnect occurs during ASGI send."""
 
-    def __init__(self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence) -> None:
+    def __init__(
+        self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence,
+        release_stream_slot: Optional[Callable[[], None]] = None,
+    ) -> None:
         self.evidence = evidence
+        self.release_stream_slot = release_stream_slot
         self.owned_stream = evidence.wrap_stream(content)
         super().__init__(
             self.owned_stream, media_type="text/event-stream",
@@ -87,7 +110,25 @@ class SummaryStreamResponse(StreamingResponse):
                 try:
                     await self.owned_stream.aclose()
                 finally:
-                    self.evidence.finish("cancelled")
+                    try:
+                        self.evidence.finish("cancelled")
+                    finally:
+                        if self.release_stream_slot is not None:
+                            self.release_stream_slot()
+
+
+@dataclass(frozen=True)
+class _StreamAdmission:
+    """What the generate stream's admission unit read before it released the request's session: the replay's
+    response, or the inputs of a generation."""
+
+    replay: Optional[dict] = None
+    filing_type: Optional[str] = None
+    ticker: Optional[str] = None
+    generation_user: Optional[GenerationUserSnapshot] = None
+    refresh_unready: bool = False
+    refresh_xbrl: bool = False
+    had_summary: bool = False
 
 
 class AskRequest(BaseModel):
@@ -142,35 +183,30 @@ async def get_summary_progress(
     filing_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get progress status for summary generation"""
-    # Check if summary already exists
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if summary:
-        # Summary exists, return completed status
-        return {
-            "stage": "completed",
-            "elapsedSeconds": 0
-        }
+    """Get progress status for summary generation.
 
-    progress = (
-        db.query(SummaryGenerationProgress)
-        .filter(SummaryGenerationProgress.filing_id == filing_id)
-        .first()
-    )
-    if progress:
-        # Surface orphaned/stalled generations as a retryable error instead of an
-        # eternal "generating" state if the background task died without finishing.
-        if mark_stale_progress_as_error(progress):
-            db.commit()
-        return progress_as_dict(progress)
+    The lookups, the stalled-row write and the session release are one unit off the event loop, so
+    the pooled connection is back before the route yields to the dependency's finalizer
+    (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+    """
+    def progress_for_reader() -> dict[str, Any]:
+        try:
+            if settings.SUMMARY_DURABLE_GENERATION_ENABLED and settings.DURABLE_TASKS_ENABLED:
+                durable = durable_progress_answer(db, filing_id)
+                if durable is not None:
+                    return durable
+            return progress_poll_answer(db, filing_id)
+        finally:
+            filing_list_service.release_request_session(db)
 
-    return {"stage": "pending", "elapsedSeconds": 0}
+    return await run_in_threadpool(progress_for_reader)
 
 @router.post("/filing/{filing_id}/generate-stream")
 async def generate_summary_stream(
     filing_id: int,
     request: Request,
     force: bool = False,
+    retry_failed: bool = False,
     entry_point: Optional[str] = None,
     ph_id: Optional[str] = None,
     analytics_consent: bool = False,
@@ -188,8 +224,11 @@ async def generate_summary_stream(
     generation requires an account.
 
     Args:
-        force: If True, delete existing summary and regenerate from scratch.
-               Use this for "Regenerate Analysis" functionality.
+        force: If True, regenerate a stored summary in place ("Regenerate Analysis"; Pro-only
+               while the stored summary is one the filing page shows). A stored row the page
+               cannot show is regenerated in place for any caller, with or without force.
+        retry_failed: An explicit Retry action may reopen a failed durable job after its cooldown.
+            A page-load or transport reconnect only observes it; this never bypasses admission.
         entry_point: Where the visitor entered the funnel (forwarded by the
                      frontend for activation analytics, e.g. "homepage").
         ph_id: Legacy client hint, accepted for compatibility but never used as account identity.
@@ -204,103 +243,265 @@ async def generate_summary_stream(
         transport_attempt=transport_attempt, entry_point=entry_point,
     )
     evidence.start()
+    release_stream_slot = None
+    durable_enabled = settings.SUMMARY_DURABLE_GENERATION_ENABLED and settings.DURABLE_TASKS_ENABLED
     try:
-        client_host = request.client.host if request.client else "unknown"
-        logger.info(f"[stream:{filing_id}] Incoming stream request from {current_user.id} (IP: {client_host}, force={force})")
-
-        rate_limit_key = f"summary:{current_user.id}"
-
-        enforce_rate_limit(
-            request,
-            SUMMARY_LIMITER,
-            rate_limit_key,
-            error_detail="Too many summary requests. Please try again shortly.",
-        )
-
-        # Eagerly load content_cache and company relationship to avoid detached session issues
-        filing = db.query(Filing).options(
-            joinedload(Filing.content_cache),
-            joinedload(Filing.company)
-        ).filter(Filing.id == filing_id).first()
-
-        if not filing:
-            raise HTTPException(status_code=404, detail="Filing not found")
-
-        # Check if summary already exists
-        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-        if summary:
-            if force:
-                # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
-                # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
-                # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
-                # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
-                # inside `if summary`: when no summary exists yet, force is a harmless no-op, so a
-                # failed-generation retry stays open to Free users.
-                if not is_pro_user(current_user):
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Regenerating an analysis is a Pro feature.",
-                    )
-                # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
-                # existing summary row rather than delete+insert, so the summaries.id — and any
-                # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
-                # both destroy the bookmark and raise an FK violation on any bookmarked summary in
-                # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
-                # the stored summary. We still clear XBRL + progress so regeneration re-fetches fresh data.
-                logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
-
-                if filing.xbrl_data is not None:
-                    filing.xbrl_data = None
-                    logger.info(f"[stream:{filing_id}] Cleared XBRL data for regeneration")
-
-                # Clear progress record
-                progress = db.query(SummaryGenerationProgress).filter(
-                    SummaryGenerationProgress.filing_id == filing_id
-                ).first()
-                if progress:
-                    db.delete(progress)
-
-                db.commit()
-            else:
-                # Capture the response before closing the dependency's read transaction.
-                payload = {
-                    'type': 'complete',
-                    'summary': source_safe_business_overview(summary, filing),
-                    'summary_id': summary.id,
-                }
-                db.close()
-
-                evidence.delivery_path = "router_cache"
-
-                async def existing_summary():
-                    evidence.observe_terminal(payload)
-                    yield f"data: {json.dumps(payload)}\n\n"
-                return SummaryStreamResponse(existing_summary(), evidence)
-
+        # The admission's unit releases the request's session, which detaches the user: read its id first.
         user_id = current_user.id
+        logger.info("[stream:%s] Incoming stream request request_id=%s force=%s",
+                    filing_id, evidence.properties["request_id"], force)
+
+        try:
+            enforce_rate_limit(
+                request,
+                SUMMARY_REQUEST_LIMITER,
+                f"summary:{user_id}",
+                error_detail="Too many summary requests. Try again shortly.",
+                include_client_ip=False,
+            )
+        except HTTPException as exc:
+            raise CodedHTTPException(
+                ErrorCode.SUMMARY_RATE_LIMITED, exc.detail,
+                headers=exc.headers,
+            ) from exc
+
+        def admit_generation() -> Optional[dict]:
+            # Called after the pipeline's atomic local leader claim and cache rechecks, before
+            # quota reservation, a generation slot or SEC work. A failed leader's successor must
+            # pass this gate too; the client cannot label itself a free retry or a follower.
+            key = f"summary:{user_id}"
+            if SUMMARY_LIMITER.allow(key):
+                return None
+            evidence.reason = ErrorCode.SUMMARY_RATE_LIMITED.value
+            return sse_error(
+                "Too many summary requests. Try again shortly.", ErrorCode.SUMMARY_RATE_LIMITED,
+                retry_after_seconds=SUMMARY_LIMITER.retry_after(key) or SUMMARY_LIMITER.window_seconds,
+                request_id=evidence.properties["request_id"],
+            )
+
+        def admit() -> _StreamAdmission:
+            """The admission's session work and the session's release, as one unit off the event loop
+            (lessons/ops-release-cached-filing-reads-before-yield.md): the filing and summary reads, the
+            served body (its Risks projected over the filing's own text), the readiness and Pro checks, the
+            progress clear and the generation snapshot, in the route's order. Its 404 and 403 leave it
+            after the release."""
+            try:
+                # Eagerly load content_cache and company relationship to avoid detached session issues
+                filing = db.query(Filing).options(
+                    joinedload(Filing.content_cache),
+                    joinedload(Filing.company)
+                ).filter(Filing.id == filing_id).first()
+
+                if not filing:
+                    raise HTTPException(status_code=404, detail="Filing not found")
+
+                # Check if summary already exists
+                summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+                refresh_unready = False
+                cleared_for_regeneration = False
+                refresh_xbrl = False
+                if summary:
+                    # The body this route would replay, judged by the filing page's readiness rule
+                    # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
+                    # error, an empty body, an earlier pipeline's in-progress marker) is not one: replaying
+                    # it hands back the failure card, or a page that never leaves "generating".
+                    served_overview = source_safe_business_overview(summary, filing)
+                    stored_raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
+                    refresh_unready = not is_summary_ready(served_overview, stored_raw.get("writer_error"))
+                    if refresh_unready:
+                        # Such a row counts as a missing summary: any signed-in user regenerates it, with
+                        # or without force, metered as a fresh generation, and nothing is cleared here. The
+                        # pipeline updates the row in place (force_regenerate below) and re-checks it once
+                        # it owns the generation (replace_unready_only). A row another request makes ready
+                        # in between is served or kept, along with the XBRL and progress that request wrote.
+                        logger.info(f"[stream:{filing_id}] Stored summary is not ready (failure or stale marker) - regenerating in place")
+                    elif force:
+                        # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403;
+                        # anyone unauthenticated already got 401 at the endpoint) — otherwise it's a
+                        # denial-of-wallet / "wipe a popular filing for everyone" vector. Resolved via the
+                        # entitlements SSoT (not the is_pro mirror) so a lagging mirror can't wrongly
+                        # grant/deny it. NB this gate sits inside `if summary`, past a row the page cannot
+                        # show: when no summary the page shows exists yet, force waives nothing, so a
+                        # failed-generation retry stays open to Free users. The pipeline then serves or
+                        # keeps any summary another request saves meanwhile (replace_unready_only below).
+                        if not is_pro_user(current_user):
+                            # Coded (E31): the plan card, never a Retry.
+                            raise CodedHTTPException(
+                                ErrorCode.PLAN_REQUIRED, detail="Regenerating a summary is a Pro feature."
+                            )
+                        # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
+                        # existing summary row rather than delete+insert, so the summaries.id — and any
+                        # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here
+                        # would both destroy the bookmark and raise an FK violation on any bookmarked
+                        # summary in Postgres. Keep-better applies: a fresh run that comes back below the
+                        # stored tier keeps the stored summary. The run re-fetches XBRL (refresh_xbrl
+                        # below) and replaces the stored snapshot only with XBRL that arrives; it is not
+                        # cleared here, so a run the pipeline refuses, or one that ends early, keeps the
+                        # snapshot the kept summary's source verification reads.
+                        logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
+                        refresh_xbrl = True
+
+                        # Clear progress record, so the run's row starts a fresh clock. Harmless before
+                        # admission: no reader shows the progress row while the summary exists (it is kept).
+                        # One DELETE with no read before it: off the loop two forces of one filing clear it at
+                        # once, and a read, then a delete, left the second deleting a row already gone.
+                        if not durable_enabled:
+                            db.query(SummaryGenerationProgress).filter(
+                                SummaryGenerationProgress.filing_id == filing_id
+                            ).delete(synchronize_session=False)
+
+                        # Committed below, once the stream's inputs are read: the commit expires the user
+                        # and the filing, and a read of either after it would refresh its row.
+                        cleared_for_regeneration = not durable_enabled
+                    else:
+                        # The replay's response, captured before the release.
+                        return _StreamAdmission(replay={
+                            'type': 'complete',
+                            'summary': served_overview,
+                            'summary_id': summary.id,
+                        })
+
+                # Copy loaded identity inputs without lazy SQL before the release. Missing subscription
+                # inputs resolve in a separate worker-owned transaction after it; neither the request
+                # session nor any ORM object crosses into that worker or the stream.
+                admission = _StreamAdmission(
+                    replay=None,
+                    filing_type=filing.filing_type,
+                    ticker=filing.company.ticker if filing.company else None,
+                    generation_user=snapshot_generation_user(current_user, user_id),
+                    refresh_unready=refresh_unready,
+                    refresh_xbrl=refresh_xbrl,
+                    had_summary=summary is not None,
+                )
+                if cleared_for_regeneration:
+                    db.commit()
+                return admission
+            finally:
+                filing_list_service.release_request_session(db)
+
+        admission = await run_in_threadpool(admit)
+        if admission.replay is not None:
+            payload = admission.replay
+            evidence.delivery_path = "router_cache"
+
+            async def existing_summary():
+                evidence.observe_terminal(payload)
+                yield f"data: {json.dumps(payload)}\n\n"
+            return SummaryStreamResponse(existing_summary(), evidence)
+
+        if settings.SUMMARY_DURABLE_GENERATION_ENABLED and not settings.DURABLE_TASKS_ENABLED:
+            # A half-enabled deployment must not bypass durable ownership with a legacy writer.
+            raise CodedHTTPException(ErrorCode.GENERATION_PAUSED, "Summary preparation is temporarily unavailable.")
+
+        release_stream_slot = SUMMARY_STREAM_LIMITER.try_acquire(f"summary:{user_id}")
+        if release_stream_slot is None:
+            raise CodedHTTPException(
+                ErrorCode.SUMMARY_RATE_LIMITED,
+                "Too many summary requests. Try again shortly.",
+                headers={"Retry-After": "5"},
+            )
+
+        if durable_enabled:
+            def admit_durable_generation() -> None:
+                refusal = admit_generation()
+                if refusal:
+                    raise CodedHTTPException(
+                        ErrorCode.SUMMARY_RATE_LIMITED, refusal["message"],
+                        headers={"Retry-After": str(refusal["retry_after_seconds"])},
+                    )
+
+            try:
+                view = await run_owned_sync(
+                    summary_job_store.ensure_job, filing_id, user_id, force=force,
+                    retry_failed=retry_failed, admit_new=admit_durable_generation,
+                )
+            except summary_job_store.SummaryJobUnavailable as exc:
+                aliases = {
+                    "summary_account_required": ErrorCode.AUTH_REQUIRED,
+                    "summary_refresh_requires_pro": ErrorCode.PLAN_REQUIRED,
+                    "summary_retry_wait": ErrorCode.SUMMARY_RATE_LIMITED,
+                    "summary_pending_limit": ErrorCode.SUMMARY_RATE_LIMITED,
+                    "free_allowance_exhausted": ErrorCode.FREE_ALLOWANCE_EXHAUSTED,
+                    "pro_fair_use_limit": ErrorCode.PRO_FAIR_USE_LIMIT,
+                    "summary_unavailable": ErrorCode.GENERATION_PAUSED,
+                }
+                headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else None
+                if exc.code in aliases:
+                    raise CodedHTTPException(aliases[exc.code], str(exc), headers=headers) from exc
+                if exc.code == "filing_not_found":
+                    raise HTTPException(status_code=404, detail="Filing not found") from exc
+                if exc.code == "summary_account_unavailable":
+                    raise HTTPException(status_code=403, detail="This account is inactive. Contact support with any questions.") from exc
+                raise HTTPException(status_code=503, detail="Summary preparation is unavailable. Try again shortly.", headers=headers) from exc
+
+            evidence.delivery_path = "durable_created" if view.created else "durable_join"
+            evidence.properties["generation_ownership"] = "durable_worker"
+            # Every request may repair the same unacknowledged outbox intent using its stable task key.
+            # A failed handoff never falls through to the request-owned provider pipeline.
+            if view.job_id and view.status in {"queued", "retry_wait"} and view.last_dispatched_at is None:
+                try:
+                    await summary_jobs.dispatch_job(view.job_id, view.generation)
+                    refreshed = await run_owned_sync(summary_job_store.read_job, view.job_id, view.generation)
+                    if refreshed is None or (refreshed.status in {"queued", "retry_wait"} and refreshed.last_dispatched_at is None):
+                        raise RuntimeError("Summary dispatch has not been acknowledged")
+                    view = refreshed
+                except Exception as exc:
+                    logger.warning("[stream:%s] Durable dispatch unavailable exception_class=%s", filing_id, type(exc).__name__)
+                    raise HTTPException(
+                        status_code=503, detail="Summary preparation could not start. Try again shortly.",
+                        headers={"Retry-After": "5"},
+                    ) from exc
+
+            async def durable_events():
+                # Request evidence measures only this observer. Closing it cannot revoke the job lease.
+                evidence.reason = "observer_disconnected"
+                deadline = asyncio.get_running_loop().time() + min(settings.STREAM_TIMEOUT, 240)
+                try:
+                    async with aclosing(summary_jobs.observe_job(view)) as events:
+                        while True:
+                            remaining = deadline - asyncio.get_running_loop().time()
+                            if remaining <= 0:
+                                raise TimeoutError
+                            try:
+                                # Only the iterator wait is cancelled at the deadline. A timeout context
+                                # spanning yield would cancel Starlette's send and swallow our final frame.
+                                event = await asyncio.wait_for(anext(events), timeout=remaining)
+                            except StopAsyncIteration:
+                                break
+                            if event.get("type") in {"complete", "partial", "error"}:
+                                evidence.reason = event.get("code") if event["type"] == "error" else None
+                            evidence.observe_terminal(event)
+                            yield to_sse(event)
+                except TimeoutError:
+                    evidence.reason = "observer_timeout"
+                    evidence.finish("timed_out")
+                    yield to_sse({
+                        "type": "error", "message": "The summary is still preparing. Try again to reconnect.",
+                        "retry_after_seconds": 5, "request_id": evidence.properties["request_id"],
+                    })
+
+            response = SummaryStreamResponse(durable_events(), evidence, release_stream_slot)
+            release_stream_slot = None
+            return response
+
         logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
         # Only the authenticated account owns server event identity. Client ph_id is not authority.
-        telemetry_distinct_id = str(current_user.id)
+        telemetry_distinct_id = str(user_id)
         telemetry_entry_point = (entry_point or "")[:64] or None
         telemetry_ctx = {
             "filing_id": filing_id,
-            "filing_type": filing.filing_type,
-            "ticker": filing.company.ticker if filing.company else None,
+            "filing_type": admission.filing_type,
+            "ticker": admission.ticker,
             "user_type": "authenticated",
             "forced": force,
-            "account_id_at_event": str(current_user.id),
+            "account_id_at_event": str(user_id),
             "identity_evidence": "server_authenticated",
             "analytics_consent_at_event": True,
             "request_id": evidence.properties["request_id"],
         }
-
-        # Copy loaded identity inputs without lazy SQL, then release the request connection.
-        # Resolve missing subscription inputs in a separate worker-owned transaction; neither
-        # the request session nor any ORM object crosses into that worker or the stream.
-        generation_user = snapshot_generation_user(current_user, user_id)
-        db.close()
-        generation_user = await run_in_threadpool(load_generation_user, generation_user)
+        generation_user = await run_in_threadpool(load_generation_user, admission.generation_user)
+        refresh_unready, refresh_xbrl = admission.refresh_unready, admission.refresh_xbrl
 
         async def event_stream():
             evidence.delivery_path = "pipeline"
@@ -312,14 +513,24 @@ async def generate_summary_stream(
                 telemetry_entry_point=telemetry_entry_point,
                 telemetry_ctx=telemetry_ctx,
                 emit_funnel_telemetry=analytics_consent,
-                force_regenerate=force,
+                force_regenerate=force or refresh_unready,
+                # Admitted with no row the page shows (an unready row, or force with no row at all): the
+                # pipeline re-checks the row, so one another request has since saved and made ready is
+                # served or kept, never regenerated or replaced under the waived Pro gate.
+                replace_unready_only=refresh_unready or (force and not admission.had_summary),
+                refresh_xbrl=refresh_xbrl,
                 request_evidence=evidence,
+                admit_generation=admit_generation,
             )) as events:
                 async for event in events:
                     evidence.observe_terminal(event)
                     yield to_sse(event)
 
-        return SummaryStreamResponse(event_stream(), evidence)
+        response = SummaryStreamResponse(event_stream(), evidence, release_stream_slot)
+        # Transfer ownership only after construction succeeds. The ASGI response releases the
+        # lease even if response.start fails before our generator's finally could run.
+        release_stream_slot = None
+        return response
     except HTTPException as exc:
         evidence.reason = f"http_{exc.status_code}"
         evidence.finish("rejected")
@@ -331,31 +542,50 @@ async def generate_summary_stream(
         evidence.reason = "route_error"
         evidence.finish("error")
         raise
+    finally:
+        if release_stream_slot is not None:
+            release_stream_slot()
 
 
-def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> bool:
-    """Meter one answered Copilot question in a fresh DB session (best-effort).
+def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> Optional[str]:
+    """Meter one Copilot question in a fresh DB session (best-effort) as its provider stream starts.
 
     Free users (``is_free_taste``) decrement their lifetime free-taste allowance; Pro users
     increment the monthly fair-use ``qa_count``. The admission lease (``token``) is converted in
     the same commit, so a unit is never both held and counted. Called from inside the SSE
     generator, which runs after the request's DB session may already be gone (see
     ``snapshot_filing``), so it opens its own short-lived session. A metering failure must never
-    break the answer stream, so errors are swallowed (and logged); returns whether the lease was
-    converted, so the caller can release it otherwise.
+    break the answer stream, so errors are swallowed (and logged). Returns the scope the unit was
+    counted in (the admitted month, or ``LIFETIME_SCOPE`` for free taste) so a provider-side
+    failure can refund it, or ``None`` when nothing was counted (the caller releases the lease).
     """
     db = SessionLocal()
     try:
         if is_free_taste:
             convert_reservation(token, db)  # lifetime scope: the returned scope is not a month
             increment_user_copilot_free_taste(user_id, db)
-        else:
-            month = convert_reservation(token, db) or get_current_month()
-            increment_user_qa(user_id, month, db)
-        return True
+            return LIFETIME_SCOPE
+        month = convert_reservation(token, db) or get_current_month()
+        increment_user_qa(user_id, month, db)
+        return month
     except Exception:  # noqa: BLE001 — metering must not break the answer stream
         logger.warning("Failed to meter Copilot QA for user %s", user_id, exc_info=True)
-        return False
+        return None
+    finally:
+        db.close()
+
+
+def _refund_qa_best_effort(user_id: int, is_free_taste: bool, scope: str) -> None:
+    """Give back the unit ``_meter_qa_best_effort`` counted in ``scope`` (fresh session; best-effort).
+    Only for a provider-side failure after the stream started — never for a client disconnect."""
+    db = SessionLocal()
+    try:
+        if is_free_taste:
+            refund_copilot_free_taste(user_id, db)
+        else:
+            refund_qa_use(user_id, scope, db)
+    except Exception:  # noqa: BLE001 — never mask the stream outcome
+        logger.warning("Could not refund a Copilot unit for user %s", user_id, exc_info=True)
     finally:
         db.close()
 
@@ -429,90 +659,172 @@ async def ask_filing_stream(
     answer with source-match labels and ``#:~:text=`` deep links. Known failed referenced evidence
     yields an error without draft prose. Excluded from the timeout middleware by the ``*stream*``
     name rule. Metering: Pro counts against the monthly fair-use cap; Free decrements the lifetime
-    free-taste counter — both only on a successful answer.
+    free-taste counter — both when the provider stream starts, refunded on a provider-side failure
+    and never on a client disconnect (see ``event_stream``).
+
+    The filing read, its snapshot and the admission are one unit in the thread pool, which releases
+    the request session before the stream starts: the dependency's finalizer runs only once the
+    stream ends (``lessons/ops-release-cached-filing-reads-before-yield.md``).
     """
     enforce_rate_limit(
         request,
         ASK_LIMITER,
         f"ask:{current_user.id}",
-        error_detail="Too many questions. Please try again shortly.",
+        error_detail="Too many questions. Try again shortly.",
+        include_client_ip=False,
     )
-
-    filing = db.query(Filing).options(
-        joinedload(Filing.content_cache),
-        joinedload(Filing.company),
-    ).filter(Filing.id == filing_id).first()
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
-
-    # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
-    # this request's session may be gone, so it must never touch the ORM (mirrors
-    # generate_summary_stream's eager value capture). Done before the admission below commits,
-    # so nothing is re-selected from expired instances while a lease is already held.
-    filing_ctx = snapshot_filing(filing)
     user_id = current_user.id
 
-    # Free users reach here on their lifetime free-taste allowance (gated upstream by
-    # require_copilot_or_taste); they meter the lifetime counter, not the monthly cap. The monthly
-    # fair-use cap is a Pro-only protection against runaway volume.
-    is_free_taste = not get_entitlements(current_user).copilot
-    if is_free_taste:
-        # The gate above is a plain read; concurrent questions could all pass it. The serialized
-        # admission holds one unit of the LIFETIME allowance under a lease until the answer
-        # completes (converted) or fails (released).
-        admitted, _used, allowance, token = reserve_qa_taste_use(current_user, db)
-        if not admitted:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=copilot_taste_exhausted_detail(allowance))
-    else:
-        allowed, count, cap = check_qa_limit(current_user, db)
-        if allowed:
-            allowed, count, cap, token = reserve_qa_use(current_user, db)  # serialized decision
-        if not allowed:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"You've reached this month's fair-use limit of {cap} Copilot questions. "
-                    "It resets at the start of next month."
-                ),
-            )
+    def admit() -> tuple[Any, bool, Optional[str]]:
+        """The filing's snapshot, the plan and the admission's lease, with the release in its ``finally``.
+        The admission waits for the account's ``users`` row lock (up to ``USAGE_COUNTER_LOCK_TIMEOUT_MS``)
+        in this thread, not on the event loop; a refusal raises after the release."""
+        try:
+            filing = db.query(Filing).options(
+                joinedload(Filing.content_cache),
+                joinedload(Filing.company),
+            ).filter(Filing.id == filing_id).first()
+            if not filing:
+                raise HTTPException(status_code=404, detail="Filing not found")
+
+            # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
+            # this request's session is released, so it must never touch the ORM (mirrors
+            # generate_summary_stream's eager value capture). Done before the admission below commits,
+            # so nothing is re-selected from expired instances while a lease is already held.
+            filing_ctx = snapshot_filing(filing)
+
+            # Free users reach here on their lifetime free-taste allowance (gated upstream by
+            # require_copilot_or_taste); they meter the lifetime counter, not the monthly cap. The monthly
+            # fair-use cap is a Pro-only protection against runaway volume.
+            is_free_taste = not get_entitlements(current_user).copilot
+            if is_free_taste:
+                # The gate above is a plain read; concurrent questions could all pass it. The serialized
+                # admission holds one unit of the LIFETIME allowance under a lease until the answer
+                # completes (converted) or fails (released).
+                admitted, _used, allowance, token = reserve_qa_taste_use(current_user, db)
+                if not admitted:
+                    # E31's code follows the words' own case, as require_copilot_or_taste's does (the contract's §3):
+                    # a spent free allowance, or none at all, which is the plan's gate.
+                    raise CodedHTTPException(
+                        ErrorCode.FREE_ALLOWANCE_EXHAUSTED if allowance else ErrorCode.PLAN_REQUIRED,
+                        detail=copilot_taste_exhausted_detail(allowance),
+                    )
+            else:
+                allowed, count, cap = check_qa_limit(current_user, db)
+                if allowed:
+                    allowed, count, cap, token = reserve_qa_use(current_user, db)  # serialized decision
+                if not allowed:
+                    # Coded (E31): the plan card with no upgrade button and no Retry. The burst limiter's 429 above stays
+                    # uncoded, a plain rate limit the reader may retry.
+                    raise CodedHTTPException(
+                        ErrorCode.PRO_FAIR_USE_LIMIT,
+                        detail=(
+                            f"You've reached this month's fair-use limit of {cap:,} questions. "
+                            "It resets at the start of next month."
+                        ),
+                    )
+            return filing_ctx, is_free_taste, token
+        finally:
+            filing_list_service.release_request_session(db)
+
+    filing_ctx, is_free_taste, token = await run_in_threadpool(admit)
     held = {"token": token}  # the admission lease, until converted by metering or released
 
     async def event_stream():
-        # Meter on the first successful completion only: a failed/aborted generation (an ``error``
-        # event, or a client disconnect before completion) must NOT burn the user's fair-use quota.
-        # The not-disclosed path still emits ``complete`` (the model did its job), so it counts.
-        metered = False
+        # Metering point: the unit is counted when the provider request is ISSUED. The request
+        # dispatcher fires the provider-start signal immediately before the first provider call,
+        # and that signal starts the metering write right here, in this task, before the prose
+        # holdback or a tool round can delay the first chunk. The ``progress`` event with stage
+        # ``PROVIDER_STARTED_STAGE`` (or a terminal event) starts it too, for a stand-in service
+        # that never signals. Neither the ``reading`` progress that precedes the model call nor
+        # completion meters. The provider bill accrues from the request, so a client disconnect
+        # after that point keeps the unit (the cancellation path never refunds; ``finally`` settles
+        # the write the signal started); a disconnect or failure before it leaves the lease held,
+        # and ``finally`` releases it. A provider-side failure after the start (an ``error`` event,
+        # or the generator raising) refunds it: the client cannot induce either, and no answer prose
+        # was delivered.
+        charge: dict[str, Optional[asyncio.Future]] = {"future": None}  # the in-flight metering write
+        metered = False  # the metering write's outcome has been adopted (once)
+        charged: Optional[str] = None  # scope the unit was counted in, until settled by `complete` or refunded
+
+        def begin_charge() -> None:
+            """Start the metering write (at most once). Offloaded to a worker thread (fresh
+            SessionLocal) so it never blocks the event loop mid-stream; it cannot be cancelled, so
+            it is kept as a future that ``settle_charge`` adopts whatever happens to this task."""
+            if charge["future"] is None and held["token"] is not None:
+                charge["future"] = asyncio.ensure_future(
+                    run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste, held["token"])
+                )
+
+        async def settle_charge(*, in_finally: bool) -> None:
+            """Adopt what the metering write committed: the scope it counted in (the lease is then
+            converted) or None (a metering failure leaves the lease held for release)."""
+            nonlocal metered, charged
+            future = charge["future"]
+            if future is None or metered:
+                return
+            if in_finally:
+                if not future.done():
+                    await asyncio.wait({future})
+            else:
+                await asyncio.shield(future)  # a cancellation here abandons the await, not the write
+            if future.cancelled() or future.exception() is not None:
+                return
+            metered = True
+            charged = future.result()
+            if charged is not None:
+                held["token"] = None
+
         try:
-            async for event in answer_filing_question(
-                filing=filing_ctx,
-                question=body.question,
-                history=body.history,
-            ):
-                if not metered and event.get("type") == "complete":
-                    # Offload the synchronous DB write to a worker thread so it never blocks the
-                    # event loop mid-stream (it opens its own fresh SessionLocal, so it's
-                    # thread-safe). Free users decrement the lifetime free-taste counter; Pro the
-                    # monthly fair-use count; either converts the lease in the same commit.
-                    if await run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste, held["token"]):
-                        held["token"] = None
-                    metered = True
-                    # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the
-                    # complete event; cost is estimated here. Non-blocking + best-effort.
-                    _emit_copilot_cost_best_effort(
-                        user_id,
-                        filing_id,
-                        getattr(getattr(filing_ctx, "company", None), "ticker", None),
-                        event,
-                        is_free_taste,
+            with provider_start_signal(begin_charge):  # armed in this task: the service runs here
+                async for event in answer_filing_question(
+                    filing=filing_ctx,
+                    question=body.question,
+                    history=body.history,
+                ):
+                    kind = event.get("type")
+                    provider_started = (
+                        (kind == "progress" and event.get("stage") == PROVIDER_STARTED_STAGE)
+                        or kind in ("complete", "not_disclosed")
                     )
-                yield to_sse(event)
+                    if not metered and (provider_started or charge["future"] is not None):
+                        begin_charge()
+                        await settle_charge(in_finally=False)
+                    if kind == "complete":
+                        charged = None  # settled: the answer was served
+                        # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the
+                        # complete event; cost is estimated here. Non-blocking + best-effort.
+                        _emit_copilot_cost_best_effort(
+                            user_id,
+                            filing_id,
+                            getattr(getattr(filing_ctx, "company", None), "ticker", None),
+                            event,
+                            is_free_taste,
+                        )
+                    elif kind == "error" and charged is not None:
+                        await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
+                        charged = None
+                    yield to_sse(event)
+        except Exception:
+            # An escaping ordinary failure may precede the first post-signal event. Adopt the
+            # pending charge before refunding it; cancellation must not interrupt that settlement.
+            # CancelledError is a BaseException and skips this handler: disconnects stay charged.
+            with anyio.CancelScope(shield=True):
+                await settle_charge(in_finally=True)
+                if charged is not None:
+                    await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
+                    charged = None
+            raise
         finally:
-            # Anything still held here was neither converted nor released (error, disconnect,
-            # metering failure): give the unit back now rather than after the lease TTL. On a
-            # client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks),
-            # and an unshielded await here would be cancelled before the release ran.
-            if held["token"] is not None:
-                with anyio.CancelScope(shield=True):
+            # On a client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks),
+            # so everything here runs shielded. First adopt a metering write the signal started
+            # that the loop never reached (the request was issued: the unit is owed, no lease is
+            # left to release). A lease still held after that was never converted (error before the
+            # provider started, metering failure, disconnect before the request): give the unit back
+            # now rather than after the lease TTL.
+            with anyio.CancelScope(shield=True):
+                await settle_charge(in_finally=True)
+                if held["token"] is not None:
                     await run_in_threadpool(_release_reservation_best_effort, held["token"])
 
     return StreamingResponse(
@@ -532,57 +844,96 @@ async def get_summary(filing_id: int, db: Session = Depends(get_db)):
     Risk factors are enriched with Trace-to-Source provenance (a deep link to the original SEC
     filing plus an honest verified/cited label) at serialization time, so every existing summary
     gains provenance without a migration or regeneration.
+
+    The lookups, the enrichment (CPU work over the cached filing text) and the session release are
+    one unit off the event loop, so the pooled connection is back before the route yields to the
+    dependency's finalizer (``lessons/ops-release-cached-filing-reads-before-yield.md``).
     """
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-
-    if not summary:
-        # Return empty summary instead of 404 to allow frontend to trigger generation
-        return {
-            "id": 0,
-            "filing_id": filing_id,
-            "business_overview": None,
-            "financial_highlights": None,
-            "risk_factors": None,
-            "management_discussion": None,
-            "key_changes": None,
-            "raw_summary": None
-        }
-
-    # Load the filing (with its cached content) to verify excerpts and build EDGAR deep links.
-    filing = (
-        db.query(Filing)
-        .options(joinedload(Filing.content_cache))
-        .filter(Filing.id == filing_id)
-        .first()
-    )
-
-    # SEC-verified XBRL values, used to mark financial metrics as "verified". Best-effort: any
-    # extraction issue must never break the summary response.
-    xbrl_standardized = None
-    if filing is not None and getattr(filing, "xbrl_data", None):
+    def summary_for_reader() -> dict[str, Any]:
         try:
-            from app.services.edgar.compat import xbrl_service
-            xbrl_standardized = xbrl_service.extract_standardized_metrics(filing.xbrl_data)
-        except Exception:
-            logger.warning(
-                f"[summary:{filing_id}] XBRL standardization for provenance failed; continuing",
-                exc_info=True,
+            summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+
+            if not summary:
+                # Return empty summary instead of 404 to allow frontend to trigger generation
+                return {
+                    "id": 0,
+                    "filing_id": filing_id,
+                    "business_overview": None,
+                    "financial_highlights": None,
+                    "risk_factors": None,
+                    "management_discussion": None,
+                    "key_changes": None,
+                    "raw_summary": None
+                }
+
+            # Load the filing (with its cached content) to verify excerpts and build EDGAR deep links.
+            filing = (
+                db.query(Filing)
+                .options(joinedload(Filing.content_cache))
+                .filter(Filing.id == filing_id)
+                .first()
             )
 
-    return enrich_summary_provenance(summary, filing, xbrl_standardized)
+            # The filing's own XBRL, which the financial rows are checked against (best-effort, as
+            # the PDF/CSV exports read it too: provenance_service.standardized_xbrl).
+            return enrich_summary_provenance(summary, filing, standardized_xbrl(filing))
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(summary_for_reader)
 
 @router.get("/filing/{filing_id}/what-changed")
-async def get_what_changed(filing_id: int, db: Session = Depends(get_db)):
+async def get_what_changed(
+    filing_id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
     """Deterministic period-over-period change report for a filing vs its prior same-form filing.
 
-    Reports financial-metric deltas, new/resolved risk factors, and management's key-changes
-    narrative. DB-only, no LLM — cheap to serve. Returns ``has_changes: false`` when there's no
-    prior filing to compare against.
+    Reports financial-metric deltas and, behind ENABLE_SECTION_CHANGES, the Item 1A wording diff
+    (``section_changes``: a teaser for anonymous and Free readers, the full list for Pro). DB-only,
+    no LLM — cheap to serve. Returns ``has_changes: false`` when there's no prior filing to compare
+    against. The viewer's access, the lookup, the report and the session release are one unit off
+    the event loop: resolving the access reads the viewer's subscription row (a lazy load the auth
+    dependency does not make), the wording diff is CPU work (about 150 ms on the largest pair), and
+    the pooled connection is back before the route yields to the dependency's finalizer.
     """
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    def report_for_viewer():
+        return change_report_for_filing(db, filing_id, section_access=section_changes_access(current_user))
+
+    report = await run_in_threadpool(report_for_viewer)
+    if report is None:
         raise HTTPException(status_code=404, detail="Filing not found")
-    return build_change_report(db, filing)
+    return report
+
+
+def _summary_and_filing_for_export(
+    db: Session, current_user: User, filing_id: int, refusal: str
+) -> tuple[Summary, Filing]:
+    """An export's unit: the plan check (its subscription read), the summary and filing lookups and the
+    release, in the thread pool, so no connection waits through the render after it (E171). The rows come
+    back detached with what an export reads loaded: their columns, and the filing's content cache and
+    company. ``refusal`` is the 403's detail for a plan without exports."""
+    try:
+        # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
+        if not get_entitlements(current_user).can_export:
+            raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail=refusal)  # E31
+
+        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+        if not summary:
+            raise HTTPException(status_code=404, detail="Summary not found")
+
+        filing = (
+            db.query(Filing)
+            .options(joinedload(Filing.content_cache), joinedload(Filing.company))
+            .filter(Filing.id == filing_id)
+            .first()
+        )
+        if not filing:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        return summary, filing
+    finally:
+        filing_list_service.release_request_session(db)
 
 
 @router.get("/filing/{filing_id}/export/pdf")
@@ -595,25 +946,12 @@ async def export_summary_pdf(
 
     # Require authentication for exports
     if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
+        raise CodedHTTPException(ErrorCode.AUTH_REQUIRED, detail="Authentication required")  # E31
 
-    # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
-    if not get_entitlements(current_user).can_export:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="PDF export is a Pro feature. Upgrade to Pro to access this feature."
-        )
-
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if not summary:
-        raise HTTPException(status_code=404, detail="Summary not found")
-
-    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    summary, filing = await run_in_threadpool(
+        _summary_and_filing_for_export, db, current_user, filing_id,
+        "PDF export is a Pro feature. Upgrade to Pro to access this feature.",
+    )
 
     try:
         pdf_bytes = await export_service.export_pdf(summary, filing)
@@ -628,7 +966,7 @@ async def export_summary_pdf(
         logger.error(f"PDF export failed for filing {filing_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate PDF. Please try again later."
+            detail="We could not generate the PDF. Try again later."
         )
 
 @router.get("/filing/{filing_id}/export/csv")
@@ -641,28 +979,16 @@ async def export_summary_csv(
 
     # Require authentication for exports
     if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
+        raise CodedHTTPException(ErrorCode.AUTH_REQUIRED, detail="Authentication required")  # E31
 
-    # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
-    if not get_entitlements(current_user).can_export:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="CSV export is a Pro feature. Upgrade to Pro to access this feature."
-        )
-
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if not summary:
-        raise HTTPException(status_code=404, detail="Summary not found")
-
-    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    summary, filing = await run_in_threadpool(
+        _summary_and_filing_for_export, db, current_user, filing_id,
+        "CSV export is a Pro feature. Upgrade to Pro to access this feature.",
+    )
 
     try:
-        csv_content = export_service.generate_csv(summary, filing)
+        # Off the loop: projecting the filing's text takes over a second on a cache holding only raw HTML.
+        csv_content = await asyncio.to_thread(export_service.generate_csv, summary, filing)
         return Response(
             content=csv_content,
             media_type="text/csv",
@@ -674,5 +1000,5 @@ async def export_summary_csv(
         logger.error(f"CSV export failed for filing {filing_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate CSV. Please try again later."
+            detail="We could not generate the CSV. Try again later."
         )

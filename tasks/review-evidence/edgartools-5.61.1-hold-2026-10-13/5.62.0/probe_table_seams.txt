@@ -1,0 +1,8 @@
+The three prose/table seams the 5.59.1 evidence found glued; `between` is the text separating the prose from the table header.
+
+5.58.0 part_i_item_2: 'with the SEC.' + '2026 Guidance' -> between=['\n\n']
+5.62.0 part_i_item_2: 'with the SEC.' + '2026 Guidance' -> between=['']
+5.58.0 part_i_item_1: '(in millions):' + 'First Quarter 2025' -> between=['\n\n', '\n\n']
+5.62.0 part_i_item_1: '(in millions):' + 'First Quarter 2025' -> between=['', '\n\n']
+5.58.0 part_i_item_1: 'were as follows (in millions):' + 'December 31, 2025' -> between=['\n\n', '\n\n']
+5.62.0 part_i_item_1: 'were as follows (in millions):' + 'December 31, 2025' -> between=['', '\n\n']

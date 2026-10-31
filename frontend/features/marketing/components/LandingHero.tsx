@@ -1,11 +1,14 @@
 import CompanySearch from '@/features/companies/components/CompanySearch'
+import FormCodeText from '@/features/marketing/components/FormCodeText'
 import HeroExample from '@/features/marketing/components/HeroExample'
 import HeroHeadline from '@/features/marketing/components/HeroHeadline'
 import MarketingCta from '@/features/marketing/components/MarketingCta'
 import QuickAccessBar from '@/features/marketing/components/QuickAccessBar'
+import TrustStrip from '@/features/marketing/components/TrustStrip'
 import { ArrowRightIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
-import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
+import type { AccessMode } from '@/features/marketing/lib/access'
+import PublicAccessLine from './PublicAccessLine'
 import type { ExampleData } from '@/lib/serverApi'
 
 /**
@@ -13,6 +16,12 @@ import type { ExampleData } from '@/lib/serverApi'
  * with the access line beneath it, the company search as the secondary action, and the live
  * example summary card. The example card renders at EVERY width (its content is a superset of the
  * retired compact mobile card), so mobile sees the same evidence as desktop.
+ *
+ * The design critique (2026-10, artboard 1d) asks for "Find filings" as the one primary action. It
+ * stays secondary while access is invite-only: a search can end at a filing whose summary needs an
+ * account most visitors cannot create, while the live example is a path every visitor can finish
+ * (decision B in tasks/decisions-2026-10-09-design-followups.md). Revisit when access opens to the
+ * public.
  */
 export default function LandingHero({
   example,
@@ -21,17 +30,16 @@ export default function LandingHero({
   example: ExampleData | null
   accessMode: AccessMode
 }) {
-  const access = ACCESS_COPY[accessMode]
   return (
     <section aria-labelledby="hero-h" className="bg-background-light dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-24 lg:pt-20">
-        <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
+        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="min-w-0">
             <HeroHeadline />
+            {/* Each form code is one unbroken run (FormCodeText): under 200% text the line broke "10-Ks" at its
+                hyphen at 390px and "10-Qs" at 1440px (tests/e2e/reflow-200.spec.ts). */}
             <p className="mt-5 max-w-[560px] text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark sm:text-lg">
-              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Nine-part
-              summaries use selected filing text and available XBRL data, with source labels where a
-              match is found.
+              <FormCodeText text="AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s filed data where they can be, and quotes against the filing’s own text." />
             </p>
 
             <div className="mt-7 flex flex-col items-start gap-2.5">
@@ -39,7 +47,7 @@ export default function LandingHero({
                 See a live example
                 <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
               </MarketingCta>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{access.line}</p>
+              <PublicAccessLine accessMode={accessMode} />
             </div>
 
             {/* Company search: the secondary action, so it keeps the "/" shortcut but never
@@ -61,6 +69,7 @@ export default function LandingHero({
             <HeroExample example={example} />
           </div>
         </div>
+        <TrustStrip />
       </div>
     </section>
   )

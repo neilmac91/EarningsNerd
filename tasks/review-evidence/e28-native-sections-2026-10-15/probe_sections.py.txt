@@ -1,0 +1,41 @@
+"""E28 probe: run the app's own _extract_sections_sync step by step on real filings, 1 req/s-ish."""
+import os, sys, time, traceback, logging
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+os.environ.setdefault("OPENAI_API_KEY", "x"); os.environ.setdefault("STRIPE_SECRET_KEY", "x"); os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "x")
+sys.path.insert(0, "/home/user/EarningsNerd/backend")
+logging.basicConfig(level=logging.INFO, format="%(name)s %(levelname)s %(message)s")
+from app.services.edgar import xbrl_sections
+from app.services.edgar.client import resolve_filing_by_accession
+
+CASES = [  # (cik, accession, form) from the eval golden set
+    ("0000320193", "0000320193-25-000079", "10-K"),   # AAPL
+]
+for cik, acc, form in CASES:
+    print(f"\n===== {form} {acc} cik {cik}")
+    t = time.time()
+    try:
+        company, filings = resolve_filing_by_accession(cik, acc)
+        print("resolved filings:", len(filings) if filings is not None else None, type(filings).__name__)
+        if filings:
+            f = filings[0]
+            print("filing:", f.form, f.accession_no, getattr(f, "filing_date", None))
+            try:
+                print("primary doc url:", getattr(f, "document", None) and getattr(f.document, "url", None))
+            except Exception as e:
+                print("document attr error:", type(e).__name__, e)
+            try:
+                obj = f.obj()
+                print("obj():", type(obj).__name__ if obj is not None else None)
+                if obj is not None and form == "10-K":
+                    for label in ("Item 1A", "Item 7", "Item 8"):
+                        try:
+                            txt = obj[label]; print(f"  {label}:", len(txt) if txt else txt)
+                        except Exception as e:
+                            print(f"  {label}: {type(e).__name__}: {e}")
+            except Exception as e:
+                print("obj() raised:", type(e).__name__, e); traceback.print_exc(limit=6)
+        out = xbrl_sections._extract_sections_sync(cik, acc, form)
+        print("_extract_sections_sync ->", None if out is None else {k: len(v) for k, v in out.items()})
+    except Exception as e:
+        print("probe raised:", type(e).__name__, e); traceback.print_exc(limit=8)
+    print(f"elapsed {time.time() - t:.1f}s"); time.sleep(2)

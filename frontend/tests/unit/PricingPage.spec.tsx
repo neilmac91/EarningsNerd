@@ -1,24 +1,44 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import PricingPage from '@/app/pricing/page'
+import PricingLayout from '@/app/pricing/layout'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
+import { ANALYSIS_LINES, proFairUseLine } from '@/lib/planLimits'
+import { PRICING_PLAN_KEY } from '@/features/subscriptions/lib/pricingHint'
 
 const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
 const mockGetUsage = vi.fn<[], Promise<Usage>>()
 const mockGetCurrentUserSafe = vi.fn()
+const mockGetRegistrationConfig = vi.fn()
 const mockCreateCheckoutSession = vi.fn()
-// Controls the pricing A/B arm per test (roadmap 2.3). Default (undefined) = the $39 control.
+// A stale pricing flag must never change the approved offer.
 const mockUseFeatureFlagVariantKey = vi.fn<[], string | boolean | undefined>()
 const mockCheckoutStarted = vi.fn()
 const mockPricingViewed = vi.fn()
 const mockPush = vi.fn()
 const mockSearchParams = new URLSearchParams()
-const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+// router.replace moves the address as the real router does, so the next render reads what is left.
+const mockReplace = vi.fn((href: string) => {
+  Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
+  new URLSearchParams(href.split('?')[1] ?? '').forEach((value, key) => mockSearchParams.set(key, value))
+})
+// The flags ship off: the plan lists leave out the lines they decide (lib/planLimits.ts shipped).
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
+// The homepage-to-pricing offer cases assume released collection/checkout. The public readiness
+// transition and hold cases render the real provider in publicAccess.spec.tsx.
+vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
+  const { ACCESS_COPY } = await import('@/features/marketing/lib/access')
+  const { legalReady } = await import('./fixtures/legalReady')
+  return {
+    usePublicAccess: (mode: keyof typeof ACCESS_COPY) => ACCESS_COPY[mode],
+    usePublicReadiness: () => ({ readiness: legalReady, loading: false }),
+  }
+})
 // Test-only capture of the real onClick each card Button was rendered with, keyed by
 // `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
 // account is unresolved), so each card's actual handler can be exercised independently of
@@ -37,8 +57,12 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: () => mockGetCurrentUserSafe(),
 }))
 
+vi.mock('@/features/marketing/api/access-api', () => ({
+  getRegistrationConfig: () => mockGetRegistrationConfig(),
+}))
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
+  useRouter: () => ({ push: mockPush, refresh: vi.fn(), replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
 }))
 
@@ -90,6 +114,10 @@ const baseSub: SubscriptionStatus = {
 
 const baseUsage: Usage = { summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-06' }
 
+// The billing switch is named by the cycle it turns on, its visible "Yearly" label (the literal
+// offer is pinned in this file).
+const BILLING_SWITCH = { name: 'Yearly (save 20%)' }
+
 describe('PricingPage', () => {
   beforeEach(() => {
     mockGetSubscriptionStatus.mockReset()
@@ -100,17 +128,112 @@ describe('PricingPage', () => {
     mockCheckoutStarted.mockReset()
     mockPricingViewed.mockReset()
     mockPush.mockReset()
+    mockReplace.mockClear()
+    mockGetRegistrationConfig.mockReset()
+    mockGetRegistrationConfig.mockResolvedValue({ mode: 'public', beta_promo_enabled: false })
     Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
     flags.ENABLE_PRO_TRIAL = false
+    flags.ENABLE_ANALYSIS = false
+    flags.ENABLE_FPI_FILINGS = false
     localStorage.clear()
+    delete document.documentElement.dataset.pricingHint
     capturedOnClick.clear()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
     mockGetUsage.mockResolvedValue(baseUsage)
     mockCreateCheckoutSession.mockResolvedValue({ url: '' }) // falsy url → no navigation in onSuccess
-    mockUseFeatureFlagVariantKey.mockReturnValue(undefined) // default arm = $39 control
+    mockUseFeatureFlagVariantKey.mockReturnValue(undefined)
   })
 
-  it('treats a trialing user as current-plan: disabled "Current Plan (trial)" + no billing toggle', async () => {
+  // Stripe's cancel_url carries only ?canceled=true: no session id and no charge outcome. The notice says
+  // the visitor came back from checkout and what the subscription query says, nothing about payment.
+  describe('returning from a cancelled checkout (?canceled=true)', () => {
+    const RETURNED = 'You returned from checkout'
+
+    it('a Free account is invited to choose a plan, and the flag is dropped from the address', async () => {
+      mockSearchParams.set('canceled', 'true')
+      mockSearchParams.set('billing', 'monthly')
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+      const { unmount } = renderPricing()
+
+      expect(await screen.findByText('You can choose a plan below.')).toBeInTheDocument()
+      expect(screen.getByText(RETURNED)).toBeInTheDocument()
+      expect(screen.queryByText(/charged/i)).not.toBeInTheDocument()
+      expect(screen.queryByText('Your plan is Pro.')).not.toBeInTheDocument()
+      // Other params are kept; only the return flag goes.
+      expect(mockReplace).toHaveBeenCalledWith('/pricing?billing=monthly', { scroll: false })
+      expect(mockSearchParams.toString()).toBe('billing=monthly')
+
+      // A second visit to the address left behind (a reload, a history entry) says nothing. A later visit
+      // comes in a later task than the unmount, never in the same commit.
+      unmount()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      renderPricing()
+      await screen.findByRole('button', { name: /^current plan$/i })
+      expect(screen.queryByText(RETURNED)).not.toBeInTheDocument()
+    })
+
+    // Any parent that swaps its element type (here a Fragment for a component) remounts the page in that commit;
+    // the flag already left the address, and the notice stays.
+    it('keeps the notice when a parent swaps its element type and the page remounts in that commit', async () => {
+      mockSearchParams.set('canceled', 'true')
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const Provider = ({ children }: { children: React.ReactNode }) => <>{children}</>
+      const tree = (consented: boolean) => (
+        <QueryClientProvider client={queryClient}>
+          {consented ? <Provider><PricingPage /></Provider> : <><PricingPage /></>}
+        </QueryClientProvider>
+      )
+      const { rerender } = render(tree(false))
+      const before = await screen.findByText('You can choose a plan below.')
+      expect(mockSearchParams.has('canceled')).toBe(false)
+
+      rerender(tree(true))
+      const after = await screen.findByText('You can choose a plan below.')
+      // A new node: the page remounted, and the notice came with it.
+      expect(after).not.toBe(before)
+      expect(screen.getByText(RETURNED)).toBeInTheDocument()
+    })
+
+    it('an account already on Pro is told its plan is Pro, with no invitation to choose', async () => {
+      mockSearchParams.set('canceled', 'true')
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, status: 'active', plan: 'pro', stripe_customer_id: 'cus_123' })
+      renderPricing()
+
+      expect(await screen.findByText('Your plan is Pro.')).toBeInTheDocument()
+      expect(screen.getByText(RETURNED)).toBeInTheDocument()
+      expect(screen.queryByText('You can choose a plan below.')).not.toBeInTheDocument()
+      expect(screen.queryByText(/charged/i)).not.toBeInTheDocument()
+      expect(mockReplace).toHaveBeenCalledWith('/pricing', { scroll: false })
+    })
+
+    it('says nothing about the plan while the subscription query is pending', async () => {
+      mockSearchParams.set('canceled', 'true')
+      let resolveSubscription!: (value: SubscriptionStatus) => void
+      mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>((resolve) => { resolveSubscription = resolve }))
+      renderPricing()
+
+      await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(1))
+      // The title alone: no description names a plan the query has not answered yet.
+      expect((await screen.findByText(RETURNED)).closest('[role="status"]')).toHaveTextContent(/^You returned from checkout$/)
+      expect(screen.queryByText('You can choose a plan below.')).not.toBeInTheDocument()
+      expect(screen.queryByText('Your plan is Pro.')).not.toBeInTheDocument()
+
+      // Once it answers, the plan joins the notice.
+      resolveSubscription({ ...baseSub })
+      expect(await screen.findByText('You can choose a plan below.')).toBeInTheDocument()
+    })
+
+    it('says nothing about a checkout without the flag', async () => {
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+      renderPricing()
+      await screen.findByRole('button', { name: /^current plan$/i })
+      expect(screen.queryByText(RETURNED)).not.toBeInTheDocument()
+      expect(mockReplace).not.toHaveBeenCalled()
+    })
+  })
+
+  it('treats a trialing user as current-plan: disabled "Current plan (trial)" + no billing toggle', async () => {
     // INVERTED from the original reverse-trial pin (staff review, PR #619): a card-required
     // Stripe trial IS a live subscription that auto-charges at trial end, so an enabled buy CTA
     // here invited a SECOND checkout — double-billing plus a webhook hazard when the orphaned
@@ -130,7 +253,7 @@ describe('PricingPage', () => {
     // Plan changes for a live trial go through the billing portal, not a second checkout —
     // the cycle toggle would only move a button the user can't press.
     await waitFor(() =>
-      expect(screen.queryByRole('switch', { name: /billing cycle/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument()
     )
   })
 
@@ -146,13 +269,13 @@ describe('PricingPage', () => {
     expect(upgrade).toBeEnabled()
     expect(screen.queryByRole('button', { name: /current plan \(trial\)/i })).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /current plan/i })).toHaveLength(1)
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toBeInTheDocument()
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
     fireEvent.click(upgrade)
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
-    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 240, 'yearly')
   })
 
-  it('treats a paid (active, non-trial) subscriber as Current Plan with no toggle', async () => {
+  it('treats a paid (active, non-trial) subscriber as Current plan with no toggle', async () => {
     mockGetSubscriptionStatus.mockResolvedValue({
       ...baseSub,
       is_pro: true,
@@ -164,19 +287,59 @@ describe('PricingPage', () => {
     renderPricing()
 
     // Toggle removal is the subscription-driven change; wait for it so we don't assert mid-load
-    // (the Free card renders its own disabled "Current Plan" before the subscription resolves).
+    // (the Free card renders its own disabled "Current plan" before the subscription resolves).
     await waitFor(() =>
-      expect(screen.queryByRole('switch', { name: /billing cycle/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument()
     )
     // A paid subscriber has nothing to buy — no enabled upgrade/subscribe CTA anywhere.
     expect(screen.queryByRole('button', { name: /subscribe to pro|upgrade to pro/i })).not.toBeInTheDocument()
-    // "Current Plan" appears exactly once (the Pro card) — never on the Free card too.
+    // "Current plan" appears exactly once (the Pro card) — never on the Free card too.
     const currentPlanButtons = screen.getAllByRole('button', { name: /current plan/i })
     expect(currentPlanButtons).toHaveLength(1)
     expect(currentPlanButtons[0]).toBeDisabled()
-    // The Free card is not the user's plan, so it stays the disabled "Get Started Free".
-    const freeButton = screen.getByRole('button', { name: /get started free/i })
+    // The Free card is not the user's plan, and a Pro account is offered no call to action for it: its
+    // disabled button names the plan, never the guest's "Create a free account" or "Request an invite".
+    const freeButton = screen.getByRole('button', { name: /^free plan$/i })
     expect(freeButton).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /create a free account|request an invite/i })).not.toBeInTheDocument()
+  })
+
+  // Until the subscription read answers, the identity read names the plan (E227): a Pro identity holds no billing
+  // switch, so a Pro account's plans hold still as the read answers. Where the users row's mirror lags, the read's
+  // answer decides when it lands.
+  it.each([
+    ['a paid subscription', { is_pro: true, status: 'active', plan: 'pro' }, /^current plan$/i, false],
+    ['a trialing subscription', { is_pro: true, status: 'trialing', plan: 'pro' }, /current plan \(trial\)/i, false],
+    ['a Free answer to a lagging mirror', { is_pro: false, status: null, plan: 'free' }, /^current plan$/i, true],
+  ] as const)('a Pro identity holds no billing switch while the subscription read is in flight: %s', async (_, answer, current, switchAfter) => {
+    let answerSubscription: (value: SubscriptionStatus) => void = () => {}
+    mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>((resolve) => { answerSubscription = resolve }))
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: true })
+    renderPricing()
+    // The subscription read starts only once the identity has answered.
+    await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(1))
+    expect(screen.getAllByRole('button', { name: 'Checking your plan…' })).toHaveLength(2)
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+
+    answerSubscription({ ...baseSub, ...answer })
+    await screen.findByRole('button', { name: current })
+    if (switchAfter) expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
+    else expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+  })
+
+  it('a Pro identity holds no billing switch through a failed subscription read; a Free identity keeps it', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: true })
+    mockGetSubscriptionStatus.mockRejectedValue(new Error('Subscription is unavailable'))
+    const pro = renderPricing()
+    await screen.findByText('Subscription is unavailable')
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    pro.unmount()
+
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: false })
+    mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>(() => {}))
+    renderPricing()
+    await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
   })
 
   it('never leaves the Free card stuck on "Processing…"', async () => {
@@ -184,48 +347,49 @@ describe('PricingPage', () => {
 
     renderPricing()
 
-    // Free card shows the authenticated "Current Plan" label, not a perpetual spinner.
+    // Free card shows the authenticated "Current plan" label, not a perpetual spinner.
     await screen.findByText(/current plan/i)
     expect(screen.queryByText(/processing/i)).not.toBeInTheDocument()
   })
 
-  // --- Fake-door $39-vs-$29 price test (roadmap 2.3) ---
-
-  it('control arm (flag unset) shows the $32.50/mo anchor', async () => {
-    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
-    renderPricing()
-
-    // Default billing cycle is yearly; the card now shows the effective MONTHLY cost.
-    // Control $390/yr → $32.50/mo. The $29 arm's $24.17/mo must not appear.
-    expect(await screen.findByText('$32.50')).toBeInTheDocument()
-    expect(screen.queryByText('$24.17')).not.toBeInTheDocument()
-  })
-
-  it('price_29 arm lowers the displayed anchor to $24.17/mo', async () => {
+  it('keeps the approved offer aligned across pricing, homepage and JSON-LD despite a stale price flag', async () => {
     mockUseFeatureFlagVariantKey.mockReturnValue('price_29')
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
-    renderPricing()
+    const pricing = renderPricing()
+    const page = within(pricing.container)
+    const landing = render(<PricingSection accessMode="public" showBeta={false} />)
+    const home = within(landing.container)
+    const layout = render(<PricingLayout><div /></PricingLayout>)
+    const structuredData = JSON.parse(layout.container.querySelector('script[type="application/ld+json"]')!.textContent!)
 
-    // $290/yr → $24.17/mo.
-    expect(await screen.findByText('$24.17')).toBeInTheDocument()
-    expect(screen.queryByText('$32.50')).not.toBeInTheDocument()
-  })
+    // Both surfaces open on annual: the $20 per month headline, charged $240 once a year.
+    expect(page.getByText('$20')).toBeInTheDocument()
+    expect(page.getByText('/month')).toBeInTheDocument()
+    expect(page.getByText('Billed annually at $240, saving $60 a year.')).toBeInTheDocument()
+    expect(page.getByText('(save 20%)')).toBeInTheDocument()
+    expect(home.getByText('$20')).toBeInTheDocument()
+    expect(home.getByText('per month')).toBeInTheDocument()
+    expect(home.getByText('Billed annually at $240, saving $60 a year.')).toBeInTheDocument()
+    expect(home.getByText('· save 20%')).toBeInTheDocument()
+    expect(structuredData.offers).toEqual([
+      expect.objectContaining({ name: 'Pro (monthly)', price: 25, priceCurrency: 'USD' }),
+      expect.objectContaining({ name: 'Pro (annual)', price: 240, priceCurrency: 'USD' }),
+    ])
 
-  it('checkout_started carries the arm price + variant when Upgrade is clicked', async () => {
-    mockUseFeatureFlagVariantKey.mockReturnValue('price_29')
-    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
-    renderPricing()
+    // Monthly is $25 on both.
+    fireEvent.click(home.getByRole('radio', { name: /monthly/i }))
+    expect(home.getByText('$25')).toBeInTheDocument()
+    expect(home.getByText('Billed monthly. Or $20 a month, billed annually at $240.')).toBeInTheDocument()
+    fireEvent.click(page.getByRole('switch', BILLING_SWITCH))
+    expect(page.getByText('$25')).toBeInTheDocument()
+    expect(page.getByText('Billed monthly')).toBeInTheDocument()
+    expect(mockUseFeatureFlagVariantKey).not.toHaveBeenCalled()
 
-    // Wait until auth resolves (the Free card flips to "Current Plan") — otherwise the click is
-    // treated as a guest and redirects to /register instead of starting checkout.
-    await screen.findByRole('button', { name: /current plan/i })
-    fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
-
-    // ('pro', yearly price for the $29 arm = 290, billing cycle, variant key)
-    await waitFor(() =>
-      expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 290, 'yearly', 'price_29'),
-    )
-    expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly')
+    // Wait until auth resolves (the Free card flips to "Current plan") before checkout.
+    await page.findByRole('button', { name: /current plan/i })
+    fireEvent.click(page.getByRole('button', { name: /upgrade to pro/i }))
+    await waitFor(() => expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 25, 'monthly'))
+    expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_monthly')
   })
 
   // --- Honest account states (billing-state-honesty): absent account data is not a decision ---
@@ -262,17 +426,19 @@ describe('PricingPage', () => {
 
     expect(await screen.findByText(/couldn't check your account/i)).toBeInTheDocument()
     expect(screen.getByText('network down')).toBeInTheDocument()
+    // Nor a usage card: a failed identity read holds nothing, whatever the pre-paint mark said (E228).
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
     const unavailable = screen.getAllByRole('button', { name: /plan unavailable/i })
     expect(unavailable).toHaveLength(2)
     unavailable.forEach((button) => expect(button).toBeDisabled())
-    expect(screen.queryByRole('button', { name: /current plan|get started free/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /current plan|create free account/i })).not.toBeInTheDocument()
     invokeCard('free', 'Plan unavailable')
     invokeCard('pro', 'Plan unavailable')
     await Promise.resolve()
     noCheckoutSideEffects()
 
     // Retry resolves the identity and the ordinary Free view follows.
-    fireEvent.click(screen.getByRole('button', { name: /retry account check/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByRole('button', { name: /^current plan$/i })
     expect(screen.queryByText(/couldn't check your account/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upgrade to pro/i })).toBeEnabled()
@@ -296,7 +462,7 @@ describe('PricingPage', () => {
     // Positive control through the same captured handler: resolved Free may check out.
     invokeCard('pro', 'Upgrade to Pro')
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
-    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 240, 'yearly')
   })
 
   it('a failed initial subscription read offers retry and keeps checkout unavailable; usage failure alone blocks nothing', async () => {
@@ -314,8 +480,12 @@ describe('PricingPage', () => {
     await Promise.resolve()
     noCheckoutSideEffects()
 
-    fireEvent.click(screen.getByRole('button', { name: /retry subscription/i }))
+    // One Retry serves both reads (each Retry reads "Try again", D-032): its press retries every read that failed.
+    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1)
+    expect(mockGetUsage).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByRole('button', { name: /^current plan$/i })
+    expect(mockGetUsage).toHaveBeenCalledTimes(2)
     // Usage is still failing; the plan decision does not depend on it.
     expect(screen.getByText(/couldn't load all pricing details/i)).toBeInTheDocument()
     const upgrade = screen.getByRole('button', { name: /upgrade to pro/i })
@@ -336,7 +506,7 @@ describe('PricingPage', () => {
     expect(current).toHaveLength(1)
     if (isPro) {
       expect(screen.queryByRole('button', { name: /upgrade to pro/i })).not.toBeInTheDocument()
-      invokeCard('pro', 'Current Plan')
+      invokeCard('pro', 'Current plan')
       await Promise.resolve()
       noCheckoutSideEffects()
     } else {
@@ -345,31 +515,59 @@ describe('PricingPage', () => {
       await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
     }
 
-    fireEvent.click(screen.getByRole('button', { name: /retry subscription/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(screen.queryByText(/couldn't refresh your plan details/i)).not.toBeInTheDocument())
     expect(screen.getAllByRole('button', { name: /current plan/i })).toHaveLength(1)
+  })
+
+  it('a guest under the invite gate is offered an invite, never a signup /register would reject', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    mockGetRegistrationConfig.mockResolvedValue({ mode: 'invite_only', beta_promo_enabled: true })
+    renderPricing()
+
+    const free = await screen.findByRole('button', { name: /request an invite/i })
+    expect(free).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /create a free account/i })).not.toBeInTheDocument()
+    fireEvent.click(free)
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/waitlist'))
+  })
+
+  // E58 (D-046, D-050): the plan cards keep "Unlimited", and the FAQ says what bounds it, in the one sentence
+  // lib/planLimits.ts builds from the mirrored caps (summaryPlanClaims.spec.ts holds it to that one source): both
+  // ceilings while the analysis flag ships Multi-Period Analysis, the summary ceiling alone while not.
+  it.each([
+    ['off', false],
+    ['on', true],
+  ])('the FAQ states the Pro fair-use ceilings in its one sentence, with the analysis flag %s', async (_state, analysis) => {
+    flags.ENABLE_ANALYSIS = analysis
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    renderPricing()
+    const sentence = analysis ? ANALYSIS_LINES.fairUse.text : ANALYSIS_LINES.fairUse.off
+    expect(proFairUseLine()).toBe(sentence)
+    const answer = await screen.findByText(sentence)
+    expect(answer.previousElementSibling).toHaveTextContent('What does “Unlimited” mean on Pro?')
   })
 
   it('a confirmed guest keeps registration routing on both cards', async () => {
     mockGetCurrentUserSafe.mockResolvedValue(null)
     renderPricing()
 
-    const free = await screen.findByRole('button', { name: /get started free/i })
+    const free = await screen.findByRole('button', { name: /create a free account/i })
     expect(free).toBeEnabled()
     fireEvent.click(free)
-    expect(mockPush).toHaveBeenCalledWith('/register')
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/register'))
     fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
-    expect(mockPush).toHaveBeenCalledWith('/register?redirect=%2Fpricing%3Fbilling%3Dyearly')
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/register?redirect=%2Fpricing%3Fbilling%3Dyearly'))
     expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
     expect(mockCheckoutStarted).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['monthly', 'monthly', 39],
-    ['yearly', 'yearly', 390],
-    ['annual', 'yearly', 390],
-    ['https://example.com', 'yearly', 390],
-    [null, 'yearly', 390],
+    ['monthly', 'monthly', 25],
+    ['yearly', 'yearly', 240],
+    ['annual', 'yearly', 240],
+    ['https://example.com', 'yearly', 240],
+    [null, 'yearly', 240],
   ] as const)('incoming billing=%s records the resolved cycle and checks out %s', async (requested, cycle, price) => {
     if (requested !== null) mockSearchParams.set('billing', requested)
     flags.ENABLE_PRO_TRIAL = true
@@ -378,12 +576,12 @@ describe('PricingPage', () => {
 
     const label = cycle === 'monthly' ? 'Start 7-day free trial' : 'Upgrade to Pro'
     const checkout = await screen.findByRole('button', { name: label })
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(cycle === 'yearly'))
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toHaveAttribute('aria-checked', String(cycle === 'yearly'))
     expect(mockPricingViewed.mock.calls).toEqual([[cycle]])
     if (cycle === 'yearly') expect(screen.queryByRole('button', { name: /start 7-day/i })).not.toBeInTheDocument()
     fireEvent.click(checkout)
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith(`price_pro_${cycle}`))
-    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', price, cycle, 'control')
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', price, cycle)
   })
 
   it('keeps a later manual cycle choice instead of reapplying the incoming trial link', async () => {
@@ -393,12 +591,12 @@ describe('PricingPage', () => {
     renderPricing()
 
     await screen.findByRole('button', { name: 'Start 7-day free trial' })
-    fireEvent.click(screen.getByRole('switch', { name: /billing cycle/i }))
+    fireEvent.click(screen.getByRole('switch', BILLING_SWITCH))
     const checkout = await screen.findByRole('button', { name: 'Upgrade to Pro' })
-    expect(screen.getByText('$32.50')).toBeInTheDocument()
+    expect(screen.getByText('$20')).toBeInTheDocument()
     fireEvent.click(checkout)
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
-    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 240, 'yearly')
     expect(mockPricingViewed.mock.calls).toEqual([['monthly']])
   })
 
@@ -409,6 +607,7 @@ describe('PricingPage', () => {
     renderPricing()
 
     fireEvent.click(await screen.findByRole('button', { name: cycle === 'monthly' ? 'Start 7-day free trial' : 'Upgrade to Pro' }))
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1))
     const registration = new URL(mockPush.mock.calls[0][0], 'https://www.earningsnerd.io')
     expect(registration.pathname).toBe('/register')
     expect(registration.searchParams.get('redirect')).toBe(`/pricing?billing=${cycle}`)
@@ -416,6 +615,18 @@ describe('PricingPage', () => {
     expect(consumePostAuthRedirect()).toBeNull()
     expect(mockCreateCheckoutSession).not.toHaveBeenCalled()
     expect(mockCheckoutStarted).not.toHaveBeenCalled()
+  })
+
+  it("labels a beta member's struck-through regular price for screen readers", async () => {
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'beta@example.com', is_beta: true })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    renderPricing()
+
+    // The strike is visual only: the struck price carries a hidden label, read before it.
+    const regular = await screen.findByText('$20/mo')
+    expect(regular).toHaveClass('line-through')
+    expect(within(regular).getByText('Regular price')).toHaveClass('sr-only')
+    expect(regular).toHaveTextContent(/^Regular price \$20\/mo$/)
   })
 
   it('a monthly trial link keeps beta checkout separate from trial eligibility', async () => {
@@ -430,11 +641,17 @@ describe('PricingPage', () => {
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_monthly'))
   })
 
-  it.each([true, false])('the actual homepage link preserves its offer at guest pricing (beta=%s)', async (showBeta) => {
+  it.each([
+    ['a beta member', true, false],
+    ['a guest on the default annual plan', false, false],
+    ['a guest choosing the monthly trial', false, true],
+  ] as const)('the actual homepage link preserves its offer at guest pricing for %s', async (_case, showBeta, pickMonthly) => {
     flags.ENABLE_PRO_TRIAL = true
     mockGetCurrentUserSafe.mockResolvedValue(null)
     const landing = render(<PricingSection accessMode={showBeta ? 'invite' : 'public'} showBeta={showBeta} />)
-    const label = showBeta ? 'Upgrade to Pro' : 'Start 7-day free trial'
+    // The landing opens on annual; the trial is the monthly plan's offer.
+    if (pickMonthly) fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    const label = pickMonthly ? 'Start 7-day free trial' : 'Upgrade to Pro'
     const href = screen.getByRole('link', { name: label }).getAttribute('href')!
     landing.unmount()
 
@@ -444,14 +661,202 @@ describe('PricingPage', () => {
     destination.searchParams.forEach((value, key) => mockSearchParams.set(key, value))
     renderPricing()
     expect(await screen.findByRole('button', { name: label })).toBeEnabled()
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(showBeta))
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toHaveAttribute('aria-checked', String(!pickMonthly))
     const trialNote = 'First 7 days free · cancel anytime, no charge'
-    if (showBeta) {
+    if (pickMonthly) {
+      expect(screen.getByText(trialNote)).toBeInTheDocument()
+    } else {
       expect(screen.queryByRole('button', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
       expect(screen.queryByText(trialNote)).not.toBeInTheDocument()
-    } else {
-      expect(screen.getByText(trialNote)).toBeInTheDocument()
     }
-    expect(mockPricingViewed.mock.calls).toEqual([[showBeta ? 'yearly' : 'monthly']])
+    expect(mockPricingViewed.mock.calls).toEqual([[pickMonthly ? 'monthly' : 'yearly']])
   })
+
+  // Multi-Period Analysis ships behind ENABLE_ANALYSIS (its route 404s while the flag is off), and the
+  // Excel export is its workbook, so the Pro plan lists both only while it ships (audit pub/F06; the
+  // landing half is in analysis-route-hidden.spec.tsx).
+  it.each([false, true])('lists Multi-Period Analysis and Excel on the Pro plan only while the flag ships them (flag %s)', async (on) => {
+    flags.ENABLE_ANALYSIS = on
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    const { container } = renderPricing()
+    await screen.findByRole('button', { name: /current plan/i })
+    expect(screen.getByText('Ask this Filing, with cited passages you can check')).toBeInTheDocument()
+    if (on) {
+      expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
+      expect(screen.getByText('PDF, CSV and Excel exports')).toBeInTheDocument()
+    } else {
+      expect(container).not.toHaveTextContent(/multi-period|excel/i)
+      expect(screen.getByText('PDF and CSV exports')).toBeInTheDocument()
+    }
+  })
+
+  // The Product JSON-LD (app/pricing/layout.tsx) sells what the Pro lists sell, so its description
+  // names multi-period analysis only while the flag ships the route.
+  it.each([false, true])('names multi-period analysis in the Product JSON-LD only while the flag ships it (flag %s)', (on) => {
+    flags.ENABLE_ANALYSIS = on
+    const layout = render(<PricingLayout><div /></PricingLayout>)
+    const { description } = JSON.parse(layout.container.querySelector('script[type="application/ld+json"]')!.textContent!)
+    // The rest of the description reads either way, so neither case passes on an empty one. Filing Q&A has a
+    // sentence of its own, outside the list "Unlimited" heads (planLimitsLockstep.spec.ts).
+    expect(description).toContain('alerts, and exports. Pro also includes filing Q&A.')
+    if (on) expect(description).toContain('multi-period analysis')
+    else expect(description).not.toMatch(/multi-period/i)
+  })
+
+  // The Free plan names 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS
+  // (the deploy sets the API's flag on, its code default is off; tasks/todo.md F39), and never the
+  // "Supported" hedge.
+  it.each([true, false])('names the filing forms on the Free plan without a hedge, 20-F only while the FPI flag ships it (flag %s)', async (on) => {
+    flags.ENABLE_FPI_FILINGS = on
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    const { container } = renderPricing()
+    await screen.findByRole('button', { name: /current plan/i })
+    expect(screen.getByText(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR')).toBeInTheDocument()
+    if (!on) expect(container).not.toHaveTextContent('20-F')
+    expect(container).not.toHaveTextContent(/Supported/i)
+  })
+
+  // The usage box states the account's own numbers, so it lifts as a card and takes no status tint: it was an info
+  // tint with a blue meter, and now draws the dashboard's meter, the shared UsageMeter (E196). A Free account's meter
+  // is a progress bar named with its count, in warning ink at 80% of the limit; a Pro account's box has none.
+  it.each([
+    ['a Free account at 4 of 5', { summaries_used: 4, summaries_limit: 5, is_pro: false }, '4 / 5 summaries used this month', true],
+    ['a Pro account', { summaries_used: 12, summaries_limit: null, is_pro: true }, '12 / ∞ summaries used this month', false],
+  ] as const)('draws the usage box as a card with the shared usage meter: %s', async (_, usage, line, meter) => {
+    mockGetUsage.mockResolvedValue({ ...baseUsage, ...usage })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: usage.is_pro })
+    renderPricing()
+    const box = (await screen.findByText(line)).parentElement!
+    expect(box).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    expect(box.outerHTML).not.toMatch(/(?:bg|border)-info-/)
+    expect(within(box).getByText('Current usage')).toBeInTheDocument()
+    if (meter) {
+      const bar = within(box).getByRole('progressbar', { name: '4 of 5 summaries used this month' })
+      expect(bar).toHaveAttribute('aria-valuenow', '4')
+      expect(bar).toHaveAttribute('aria-valuemax', '5')
+      expect(bar.firstElementChild).toHaveClass('bg-warning-light', 'dark:bg-warning-dark')
+    } else {
+      expect(within(box).queryByRole('progressbar')).not.toBeInTheDocument()
+    }
+  })
+
+  // While a signed-in reader's usage read is in flight the box holds its place at the plan the identity read names
+  // (E226): the card and its label show, still copies keep the count line's lines and, for a Free account, the
+  // meter's, hidden from assistive technology, and the card says it is busy. The answered card replaces it.
+  it.each([
+    ['a Free account', false, '0 / 5 summaries used this month', { summaries_used: 4, summaries_limit: 5 }, '4 / 5 summaries used this month'],
+    ['a Pro account', true, '0 / ∞ summaries used this month', { summaries_used: 12, summaries_limit: null }, '12 / ∞ summaries used this month'],
+  ] as const)('holds the usage box while the usage read is in flight: %s', async (_, isPro, copy, usage, line) => {
+    let answerUsage: (value: Usage) => void = () => {}
+    mockGetUsage.mockReturnValue(new Promise<Usage>((resolve) => { answerUsage = resolve }))
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: isPro })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: isPro })
+    renderPricing()
+    // The card at the plan the identity's answer names: before it, the same card waits on the pre-paint mark (E228).
+    const held = (await screen.findByText(copy)).parentElement!
+    expect(held).toHaveAttribute('aria-busy', 'true')
+    expect(held).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    const still = within(held).getByText(copy)
+    expect(still).toHaveClass('invisible')
+    expect(still).toHaveAttribute('aria-hidden', 'true')
+    expect(held.querySelectorAll('.invisible')).toHaveLength(isPro ? 1 : 2)
+    expect(within(held).queryByRole('progressbar')).not.toBeInTheDocument()
+
+    answerUsage({ ...baseUsage, ...usage, is_pro: isPro })
+    const box = (await screen.findByText(line)).parentElement!
+    // A new card, not the held one updated: its meter mounts at its value rather than running up from empty.
+    expect(box).not.toBe(held)
+    expect(box).not.toHaveAttribute('aria-busy')
+    expect(box.querySelectorAll('.invisible')).toHaveLength(0)
+    expect(screen.queryByText(copy)).not.toBeInTheDocument()
+  })
+
+  // A guest has no usage to hold, and a failed usage read holds nothing: the retry notice says what failed. A Retry
+  // puts the failed read back to pending, and the box holds nothing through it either, so the plans do not move down
+  // and back up while the retry runs (the review of #1715).
+  it('holds no usage box for a guest or after the usage read fails, a Retry included', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    const guest = renderPricing()
+    // A confirmed guest, offered an account: until the identity answers, the card waits on the pre-paint mark (E228).
+    await screen.findByRole('button', { name: /create a free account/i })
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+    guest.unmount()
+
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    mockGetUsage.mockRejectedValue(new Error('Usage is unavailable'))
+    renderPricing()
+    await screen.findByText('Usage is unavailable')
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+
+    let answerUsage: (value: Usage) => void = () => {}
+    mockGetUsage.mockReturnValue(new Promise<Usage>((resolve) => { answerUsage = resolve }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(mockGetUsage).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('Usage is unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+
+    answerUsage({ ...baseUsage, summaries_used: 4, summaries_limit: 5, is_pro: false })
+    await screen.findByText('4 / 5 summaries used this month')
+    expect(screen.queryByText('Usage is unavailable')).not.toBeInTheDocument()
+  })
+
+  // A cold load paints before any read answers (E228). Until the identity read answers, the held card renders with the
+  // static page, shown only under the mark a script set before the first paint from a returning reader's session flag
+  // and last plan (features/subscriptions/lib/pricingHint.ts): a Pro mark leaves out the count's limit and the meter,
+  // and hides the billing switch. The identity's answer keeps the same card, now at the plan it names, and records
+  // that plan, and the document's mark, for the next load.
+  it.each([
+    ['a Free account', false, '0 / 5 summaries used this month'],
+    ['a Pro account', true, '0 / ∞ summaries used this month'],
+  ] as const)('before the identity read answers, the held card and the switch follow the pre-paint mark: %s', async (_, isPro, copy) => {
+    let answerIdentity: (user: unknown) => void = () => {}
+    mockGetCurrentUserSafe.mockReturnValue(new Promise((resolve) => { answerIdentity = resolve }))
+    mockGetSubscriptionStatus.mockReturnValue(new Promise(() => {}))
+    mockGetUsage.mockReturnValue(new Promise(() => {}))
+    renderPricing()
+
+    const hinted = (await screen.findByText('Current usage')).parentElement!
+    expect(hinted).toHaveAttribute('aria-busy', 'true')
+    expect(hinted).toHaveClass('hidden', '[[data-pricing-hint]_&]:block')
+    expect(within(hinted).getByText('5')).toHaveClass('[[data-pricing-hint=pro]_&]:hidden')
+    expect(within(hinted).getByText('∞')).toHaveClass('hidden', '[[data-pricing-hint=pro]_&]:inline')
+    expect(hinted.lastElementChild).toHaveClass('invisible', '[[data-pricing-hint=pro]_&]:hidden')
+    expect(screen.getByRole('switch', BILLING_SWITCH).parentElement).toHaveClass('[[data-pricing-hint=pro]_&]:hidden')
+
+    answerIdentity({ id: 1, email: 'u@example.com', is_pro: isPro })
+    const held = (await screen.findByText(copy)).parentElement!
+    expect(held).toBe(hinted)
+    expect(held).not.toHaveClass('hidden')
+    expect(held.className).not.toContain('data-pricing-hint')
+    expect(held.querySelectorAll('.invisible')).toHaveLength(isPro ? 1 : 2)
+    if (isPro) expect(screen.queryByRole('switch', BILLING_SWITCH)).not.toBeInTheDocument()
+    else expect(screen.getByRole('switch', BILLING_SWITCH).parentElement!.className).not.toContain('data-pricing-hint')
+    expect(localStorage.getItem(PRICING_PLAN_KEY)).toBe(isPro ? 'pro' : 'free')
+    expect(document.documentElement.dataset.pricingHint).toBe(isPro ? 'pro' : 'free')
+  })
+
+  // A guest's answer, the mark's wrong case (a session that lapsed without a logout), drops the waiting card and
+  // clears the recorded plan and the document's mark, so the plans hold no card on the next load either.
+  it("a guest's answer drops the card waiting on the mark and clears the mark for the next load", async () => {
+    localStorage.setItem(PRICING_PLAN_KEY, 'free')
+    document.documentElement.dataset.pricingHint = 'free'
+    let answerIdentity: (user: unknown) => void = () => {}
+    mockGetCurrentUserSafe.mockReturnValue(new Promise((resolve) => { answerIdentity = resolve }))
+    renderPricing()
+
+    const hinted = (await screen.findByText('Current usage')).parentElement!
+    answerIdentity(null)
+    await screen.findByRole('button', { name: /create a free account/i })
+    expect(hinted).not.toBeInTheDocument()
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+    expect(localStorage.getItem(PRICING_PLAN_KEY)).toBeNull()
+    expect(document.documentElement.dataset.pricingHint).toBeUndefined()
+  })
+})
+
+// These cases exercise the form after release; legalReadiness.spec.tsx holds the closed and stale gates.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
 })

@@ -8,9 +8,13 @@ invite_codes table and users.is_beta column come from Base.metadata.create_all â
 import uuid
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 
 from main import app
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit
 
@@ -61,7 +65,7 @@ def test_public_mode_ignores_invite(client):
     """Default (public) registration is unchanged â€” no invite required."""
     resp = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD},
     )
     assert resp.status_code == 200, resp.text
     client.cookies.clear()
@@ -72,13 +76,13 @@ def test_invite_only_rejects_missing_and_bad_invites(client, invite_only):
     """Invite-only mode blocks public signup and rejects an unknown token (403)."""
     no_code = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD},
     )
     assert no_code.status_code == 403, no_code.text
 
     bad_code = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD, "invite_code": "garbage"},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD, "invite_code": "garbage"},
     )
     assert bad_code.status_code == 403, bad_code.text
 
@@ -92,7 +96,7 @@ def test_valid_invite_registers_sets_is_beta_and_is_single_use(client, invite_on
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={"email": email, "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert resp.status_code == 200, resp.text
     client.cookies.clear()
@@ -109,7 +113,7 @@ def test_valid_invite_registers_sets_is_beta_and_is_single_use(client, invite_on
     # Single-use: the same token can't be redeemed again.
     reuse = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert reuse.status_code == 403, reuse.text
 
@@ -121,13 +125,51 @@ def test_email_bound_invite_requires_matching_email(client, invite_only):
 
     wrong = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert wrong.status_code == 403, wrong.text
 
     ok = client.post(
         "/api/auth/register",
-        json={"email": bound, "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": bound, "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert ok.status_code == 200, ok.text
     client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_invite_revoked_while_registering_creates_no_account(client, invite_only, monkeypatch):
+    """E201: the invite validates, then an admin revokes it while the password is checked against breaches. The revoke
+    wins: the registration answers opaquely, as a lost redemption race does, and creates no account."""
+    from app.database import SessionLocal
+    from app.models import User, InviteCode
+    from app.routers import auth as auth_module
+    from app.services import invite_service
+
+    invite_id, raw = _mint_invite(email=None)
+    email = _unique_email()
+
+    async def revoked_meanwhile(_password: str) -> bool:
+        db = SessionLocal()
+        try:
+            invite_service.revoke_invite(db, invite_id)
+        finally:
+            db.close()
+        return False
+
+    monkeypatch.setattr(auth_module, "is_password_pwned", revoked_meanwhile)
+    resp = client.post(
+        "/api/auth/register",
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "invite_code": raw},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == auth_module._REGISTER_OPAQUE
+    client.cookies.clear()
+
+    db = SessionLocal()
+    try:
+        assert db.query(User).filter(User.email == email).first() is None
+        invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+        assert invite.is_revoked is True and invite.used_at is None and invite.user_id is None
+    finally:
+        db.close()

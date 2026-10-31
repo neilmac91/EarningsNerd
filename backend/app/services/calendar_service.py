@@ -21,8 +21,11 @@ from app.services.earnings_calendar_service import today_eastern
 logger = logging.getLogger(__name__)
 
 
-async def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14) -> list[dict]:
-    """Return upcoming earnings events for the user's watched tickers, soonest first."""
+def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14) -> list[dict]:
+    """Return upcoming earnings events for the user's watched tickers, soonest first.
+
+    Sync: the dashboard route calls it in the thread pool, so its queries check out no connection on
+    the event loop."""
     rows = (
         db.query(Company.ticker, Company.name)
         .join(Watchlist, Watchlist.company_id == Company.id)

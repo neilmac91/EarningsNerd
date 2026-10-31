@@ -1,0 +1,99 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 7,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2024's decline reflected lower shipment volumes, as rising grain stocks, lower commodity prices and elevated interest rates weighed on agriculture demand .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states rising grain stocks, lower commodity prices, elevated interest rates contributed to lower shipment volumes for agriculture."
+  },
+  {
+   "sentence": "The FY2021 step up of 23.9% came from higher shipment volumes, sales mix and price realization .",
+   "passages": [
+    {
+     "id": "P43",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales and revenues increased in 2021 due mostly to higher shipment volumes / sales mix and price realization. The growth in operating profit was due primarily to increased shipment volumes / sales mix and price realization, partially offset by higher production costs. Results in 2020 were negatively impacted by impairment charges and employee-separation expenses."
+    },
+    {
+     "id": "P42",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The net sales and revenue increase in 2021 compared to 2020 was primarily the result of higher shipment volumes / sales mix, price realization, and the favorable effects of currency translation. Operating profit improvement was largely due to higher shipment volumes / sales mix and price realization, partially offset by increased production costs. Results in 2020 were negatively impacted by impairment charges and employee-separation costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages state net sales increase due to higher shipment volumes/sales mix and price realization."
+  },
+  {
+   "sentence": "The filing ties this to a 30% volume drop in the U.S. and Canada, partly offset by a 22% rise in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states sales volumes decreased 30% in U.S. and Canada, partially offset by 22% increase in Brazil."
+  },
+  {
+   "sentence": "The filing cites lower volumes and production inefficiencies raising manufacturing overhead, partly offset by lower material and profit-sharing costs .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production costs were favorable in 2024 due to lower material and employee profit-sharing incentives costs, partially offset by higher manufacturing overhead costs driven by lower volumes and production inefficiencies."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher manufacturing overhead driven by lower volumes and production inefficiencies, partially offset by lower material and profit-sharing costs."
+  },
+  {
+   "sentence": "The largest move was FY2021's 6.1pp gain, with SG&A adding 2.1pp and R&D 1.0pp as price realization and absent 2020 separation charges cut costs .",
+   "passages": [
+    {
+     "id": "P45",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The cost of sales to net sales ratio decreased compared to 2020 mainly due to price realization and the impact of impairments and employee-separation expenses recorded in 2020 (see Note 5). Finance and interest income reduced slightly in 2021 due to lower average interest rates, largely offset by a higher average credit portfolio. Other income increased primarily due to operating lease disposition gains. Research and development expenses were lower in 2021 largely due to employee-separation expenses incurred in 2020 (see Note 5) and organizational efficiencies. Selling, administrative and general expenses decreased mostly due to employee-separation expenses recorded in 2020 (see Note 5) and a lower provision for credit losses, partially offset by higher incentive compensation. Interest expense decreased in 2021 due to lower average borrowing rates. Other operating expenses were lower compared to 2020 largely due to lower retirement benefit costs, reduced depreciation of equipment on operating leases, and the impact of operating lease impairments recorded in 2020 (see Note 5)."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports price realization and absent 2020 separation charges reducing costs, but does not quantify SG&A 2.1pp or R&D 1.0pp."
+  },
+  {
+   "sentence": "Operating cash flow of $7.46 billion came from earnings adjusted for non-cash provisions and lower receivables, partly offset by an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash inflows driven by net income adjusted for non-cash provisions and decrease in receivables, partially offset by OPEB contribution."
+  },
+  {
+   "sentence": "Provision for credit losses was $296 million in FY2025 against -$16 million in FY2023, and the allowance rose on elevated agriculture and turf delinquencies .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2025, the allowance for credit losses increased, primarily due to higher expected losses on agriculture and turf customer accounts as a result of elevated delinquencies and a decline in market conditions."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports allowance increased due to elevated delinquencies, but does not mention provision amounts or comparison to FY2023."
+  }
+ ],
+ "cost_usd": 0.001506
+}

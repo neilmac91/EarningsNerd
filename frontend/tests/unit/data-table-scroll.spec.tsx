@@ -1,0 +1,191 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { DataTable, type Column } from '@/components/ui'
+
+type Row = Record<string, unknown> & { id: string }
+const columns: Column<Row>[] = [
+  { key: 'metric', header: 'Metric', rowHeader: true, render: () => 'Revenue' },
+  ...Array.from({ length: 12 }, (_, index) => ({ key: String(index), header: `Q${index}`, render: () => <button type="button">Source {index}</button> })),
+]
+const rows: Row[] = [{ id: 'r' }]
+let resizes: Set<() => void>
+const resize = () => [...resizes].forEach(callback => callback())
+let viewport: number
+let periods: number
+let periodWidth: number
+let metricWidth: number
+
+beforeEach(() => {
+  viewport = 316
+  periods = 12
+  periodWidth = 68
+  metricWidth = 104
+  resizes = new Set()
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(private callback: () => void) { resizes.add(callback) }
+    observe() {}
+    unobserve() {}
+    disconnect() { resizes.delete(this.callback) }
+  })
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) { return viewport })
+  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+    return Math.max(viewport, metricWidth + periodWidth * periods + Number.parseFloat(this.style.paddingInlineEnd || '0'))
+  })
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    const width = this.tagName === 'TH' ? (this === this.parentElement?.firstElementChild ? metricWidth : periodWidth) : viewport
+    return { x: 0, y: 0, top: 0, bottom: 24, left: 0, right: width, width, height: 24, toJSON: () => ({}) }
+  })
+})
+
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+function Table({ snap = true, newest = false }: { snap?: boolean; newest?: boolean }) {
+  return <DataTable columns={columns} rows={rows} rowKey={(row) => row.id}
+    layout="fixed" colWidths={['6.5rem', ...Array(12).fill('4.25rem')]}
+    stickyFirstColumn snapColumns={snap} scrollRegion={{ label: 'Quarterly metrics', hint: newest ? '← Earlier quarters' : 'Use arrows to scroll', startAtEndOnMobile: newest }} />
+}
+
+describe('DataTable opt-in column scrolling', () => {
+  it('pads whole-column stops, unsticks narrow labels, and preserves a period after text resize', () => {
+    render(<Table />)
+    const region = screen.getByRole('region', { name: 'Quarterly metrics' })
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region).toHaveAccessibleDescription('Use arrows to scroll')
+    expect(region.style.paddingInlineEnd).toBe('8px')
+    expect(region.style.scrollPaddingInlineStart).toBe('104px')
+    expect((region.scrollWidth - region.clientWidth) % periodWidth).toBe(0)
+    fireEvent.keyDown(region, { key: 'ArrowRight' })
+    expect(region.scrollLeft).toBe(68)
+    periodWidth = 136
+    metricWidth = 208
+    // Chromium can re-snap and emit scroll before ResizeObserver runs. That
+    // new pixel offset must not be interpreted using the previous 68px stops.
+    region.scrollLeft = 136
+    fireEvent.scroll(region)
+    act(() => resize())
+    expect(region.style.scrollPaddingInlineStart).toBe('0px')
+    expect(screen.getByRole('rowheader')).not.toHaveClass('sticky')
+    expect(screen.getByRole('columnheader', { name: 'Metric' })).toHaveClass('snap-start')
+    expect((region.scrollWidth - region.clientWidth - metricWidth) % periodWidth).toBe(0)
+    expect(region.scrollLeft).toBe(344)
+    const padding = region.style.paddingInlineEnd
+    act(() => resize())
+    expect(region.style.paddingInlineEnd).toBe(padding)
+    expect(region.scrollLeft).toBe(344)
+    fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
+    fireEvent.keyDown(region, { key: 'ArrowRight' })
+    expect(region.scrollLeft).toBe(metricWidth)
+  })
+
+  it('moves by measured columns with arrows/Home/End without stealing child keys', () => {
+    render(<Table />)
+    const region = screen.getByRole('region')
+    fireEvent.keyDown(region, { key: 'ArrowRight' })
+    expect(region.scrollLeft).toBe(68)
+    for (const key of ['ArrowLeft', 'Home', 'End', 'PageUp', 'PageDown']) {
+      expect(fireEvent.keyDown(screen.getByRole('button', { name: 'Source 1' }), { key })).toBe(true)
+      expect(region.scrollLeft).toBe(68)
+    }
+    for (const modifier of ['altKey', 'ctrlKey', 'metaKey']) {
+      expect(fireEvent.keyDown(region, { key: 'Home', [modifier]: true })).toBe(true)
+      expect(region.scrollLeft).toBe(68)
+    }
+    fireEvent.keyDown(region, { key: 'End' })
+    expect(region.scrollLeft).toBe(612)
+    fireEvent.keyDown(region, { key: 'ArrowLeft' })
+    expect(region.scrollLeft).toBe(544)
+    fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
+    expect(fireEvent.keyDown(region, { key: 'PageDown' })).toBe(false)
+    expect(region.scrollLeft).toBe(272)
+    expect(fireEvent.keyDown(region, { key: 'PageUp' })).toBe(false)
+    expect(region.scrollLeft).toBe(0)
+  })
+
+  it('cleans up owned geometry when snapping is disabled and leaves plain tables opt-in', () => {
+    const { rerender } = render(<Table />)
+    rerender(<Table snap={false} />)
+    const region = screen.getByRole('region')
+    expect(region.style.paddingInlineEnd).toBe('')
+    expect(region.style.scrollPaddingInlineStart).toBe('')
+    viewport = 2000
+    act(() => resize())
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    expect(region).not.toHaveAttribute('aria-label')
+    expect(region).not.toHaveAttribute('tabindex')
+    rerender(<DataTable columns={[{ key: 'id', header: 'ID' }]} rows={rows} rowKey={(row) => row.id} />)
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    expect(screen.queryByRole('rowheader')).not.toBeInTheDocument()
+    expect(screen.getByRole('table').querySelector('colgroup')).toBeNull()
+    expect(screen.getByRole('cell', { name: 'r' })).toBeInTheDocument()
+  })
+
+  it('starts phones at the newest column once, then preserves the reader’s position on resize', () => {
+    const media = window.matchMedia('(max-width: 767px)')
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true })
+    render(<Table newest />)
+    const region = screen.getByRole('region')
+    expect(region.scrollLeft).toBe(612)
+    expect(region).toHaveAccessibleDescription('← Earlier quarters')
+    region.scrollLeft = 0
+    fireEvent.scroll(region)
+    expect(region).not.toHaveAttribute('aria-describedby')
+    expect(screen.getByText('← Earlier quarters')).toHaveAttribute('aria-hidden', 'true')
+    region.scrollLeft = 68
+    fireEvent.scroll(region)
+    expect(region).toHaveAccessibleDescription('← Earlier quarters')
+    act(() => resize())
+    expect(region.scrollLeft).toBe(68)
+    vi.mocked(window.matchMedia).mockReturnValue({ ...media, matches: false })
+    act(() => resize())
+    expect(screen.queryByText('← Earlier quarters')).not.toBeInTheDocument()
+    expect(region).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('ends a short overflow on the period’s own stop, never inside the unstuck label (E185)', () => {
+    // One period under enlarged text at 390px: the 208px label and a 136px period overflow a 292px region by 52px,
+    // less than the label, so the range ends where the period starts, past the whole label.
+    const media = window.matchMedia('(max-width: 767px)')
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true })
+    viewport = 292
+    metricWidth = 208
+    periodWidth = 136
+    periods = 1
+    render(<DataTable columns={columns.slice(0, 2)} rows={rows} rowKey={(row) => row.id} layout="fixed" colWidths={['6.5rem', '4.25rem']}
+      stickyFirstColumn snapColumns scrollRegion={{ label: 'One year', hint: '← Metric names', startAtEndOnMobile: true }} />)
+    const region = screen.getByRole('region', { name: 'One year' })
+    expect(screen.getByRole('rowheader')).not.toHaveClass('sticky')
+    expect(region.style.paddingInlineEnd).toBe('156px')
+    expect(region.scrollWidth - region.clientWidth).toBe(metricWidth)
+    expect(region.scrollLeft).toBe(metricWidth)
+    fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
+    fireEvent.keyDown(region, { key: 'ArrowRight' })
+    expect(region.scrollLeft).toBe(metricWidth)
+  })
+
+  it('rings the named region in both themes while it is a Tab stop (E64)', () => {
+    // The ring scan reads the pages, the feature modules they reach and the primitives the chrome renders, not
+    // DataTable, which spreads useOverflowRegion's props on its own box, so this case holds the region's ring.
+    render(<Table />)
+    const region = screen.getByRole('region', { name: 'Quarterly metrics' })
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region).toHaveClass('focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark')
+  })
+
+  it('scrolls a focused source clear of the sticky row header', () => {
+    render(<Table />)
+    const region = screen.getByRole('region')
+    const source = screen.getByRole('button', { name: 'Source 1' })
+    const cell = source.closest('td')!
+    const original = cell.getBoundingClientRect()
+    cell.getBoundingClientRect = () => {
+      const left = 50 + 204 - region.scrollLeft
+      return { ...original, left, right: left + 68, width: 68 }
+    }
+    region.scrollLeft = 204
+    fireEvent.focus(source)
+    expect(region.scrollLeft).toBe(136)
+  })
+})

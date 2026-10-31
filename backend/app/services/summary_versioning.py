@@ -117,7 +117,21 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   before this owner as stale; it does not authorize an automatic historical regeneration or
 #   drain, and existing cached summaries remain an explicit rollout limitation until a separately
 #   bounded refresh is verified. Not an adoption of the q/r prompt candidates.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-09-s"
+# summary-2026-09-t: deterministic content revision — the code-rendered §4 returns line names each
+#   derived ratio by its formula with that point's own selected numerator scope ("(numerator scope
+#   unestablished)" when unknown), dates its comparator ("prior at DATE"), abstains from an undated
+#   prior, and each derived ratio point keeps custody of its own numerator/denominator operands.
+#   Prompt text, grounding block and Copilot-facing bytes, schema, flags and baseline pins
+#   unchanged; taxonomy remains v2. q and r stay reserved; this is not an adoption of the q/r prompt
+#   candidates. The stamp marks older rows stale without authorizing any regeneration or drain.
+# summary-2026-09-u: deterministic content revision — the code-rendered §4 returns line omits a
+#   derived ratio whose current point is not net income's current period (the derivation skipped a
+#   zero/negative or missing denominator at the report date, promoting an older point that the
+#   undated current clause would present as this period's); the aligned sibling ratio still
+#   renders. Prompt text, grounding block and Copilot-facing bytes, schema, flags and baseline pins
+#   unchanged; taxonomy remains v2. q and r stay reserved. The stamp marks older rows stale without
+#   authorizing any regeneration or drain.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-09-u"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

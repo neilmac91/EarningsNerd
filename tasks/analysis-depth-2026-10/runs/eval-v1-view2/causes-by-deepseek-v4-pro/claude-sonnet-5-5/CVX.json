@@ -1,0 +1,82 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "CVX",
+ "split": "holdout",
+ "claims": 6,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2022 surge came from higher upstream realizations and downstream margins, which lifted pre-tax income by $28.0 billion, and net income reached $35.5 billion .",
+   "passages": [
+    {
+     "id": "P57",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in income tax expense in 2022 of $8.1 billion is due to the increase in total income before tax for the company of $28.0 billion. The increase in income before taxes for the company is primarily the result of higher upstream realizations and downstream margins."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher upstream realizations and downstream margins caused $28.0B pre-tax income increase."
+  },
+  {
+   "sentence": "US Upstream revenue rose 34.0% to 10.6% of the total, adding 2.5pp, as oil-equivalent production rose 16 percent on the Hess acquisition and Permian growth .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net oil-equivalent production was up 259,000 barrels per day, or 16 percent, primarily due to the acquisition of Hess and higher production in the Permian Basin and the Gulf of America."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports 16% production increase from Hess and Permian, but not revenue share or percentage change."
+  },
+  {
+   "sentence": "Total revenue fell 4.6% in FY2025 mainly on lower crude oil and refined product prices .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased in 2025 mainly due to lower crude oil and refined product prices, partially offset by higher crude oil and refined product sales volumes and higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states lower crude oil and refined product prices mainly caused revenue decrease."
+  },
+  {
+   "sentence": "Net margin fell 2.5pp as pre-tax income dropped $7.8 billion on higher upstream depreciation, depletion and amortization, lower realizations and higher operating costs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The decrease in income tax expense in 2025 of $2.5 billion was primarily due to the decrease in total income before tax for the company of $7.8 billion, along with the absence of the tax impacts of the asset sales in Canada. The decrease in income before taxes for the company was primarily the result of higher upstream depreciation, depletion and amortization, lower upstream realizations, unfavorable foreign exchange impacts, and higher operating costs, partially offset by higher upstream sales volumes and higher downstream margins."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher DD&A, lower realizations, and higher operating costs caused pre-tax income decrease."
+  },
+  {
+   "sentence": "Depreciation and amortization rose to 10.7% of revenue from 8.5%, on higher production and higher rates .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation, depletion and amortization expenses increased in 2025 primarily due to higher production and higher rates."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher production and higher rates caused DD&A increase."
+  },
+  {
+   "sentence": "Operating cash flow rose 7.8% as higher TCO distributions and contributions from legacy Hess assets more than offset lower commodity prices .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash, Cash Equivalents and Marketable Securities Total balances were $6.3 billion and $6.8 billion at December\u00a031, 2025 and 2024, respectively. The company holds its cash with a diverse group of major financial institutions and has processes and safeguards in place designed to manage its cash balances and mitigate the risk of loss. Cash provided by operating activities in 2025 was $33.9 billion, compared to $31.5 billion in 2024, primarily as higher cash distributions from TCO and contributions from legacy Hess assets more than offset the impact of lower commodity prices. Between January and March 2025, Chevron purchased 15.38 million shares of Hess common stock in open market transactions for approximately $2.2 billion. Cash provided by operating activities was net of contributions to employee pension plans of approximately $588 million in 2025 and $844 million in 2024. Capital expenditures totaled $17.3 billion in 2025 compared to $16.4 billion in 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher TCO distributions and Hess contributions offset lower commodity prices."
+  }
+ ],
+ "cost_usd": 0.001166
+}

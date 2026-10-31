@@ -1,0 +1,1789 @@
+{
+ "pr": "neilmac91/EarningsNerd#1551",
+ "composition_under_test": "863fb9b91a4e (trailer retry)",
+ "h_code": "d4d9c5105fe81a9234c770c8e397d682e7a790c9 (app code; worktree /home/user/wt/copilot-trailer)",
+ "first_generation_composition": "c221b7e3c5c2",
+ "window": {
+  "start": "2026-10-16T18:54:49Z",
+  "end": "2026-10-23T23:53:45Z",
+  "start_reason": "PR #1360's merged_at (gh api repos/neilmac91/EarningsNerd/pulls/1360 --jq .merged_at); runs listed with created>=start on every branch and event; end = when the run and artifact listing was taken",
+  "earliest_run_created": "2026-10-16T19:09:51Z",
+  "latest_run_created": "2026-10-23T23:36:33Z"
+ },
+ "runs_listed": 181,
+ "runs_with_artifact": 89,
+ "reports_read": 78,
+ "reports_used": 76,
+ "reports_excluded": [
+  "38952864427: no first generation under c221b7e3c5c2 (first-generation compositions: {'d46ef28f000a': 18})",
+  "38952867673: no first generation under c221b7e3c5c2 (first-generation compositions: {'d46ef28f000a': 18})",
+  "38965324292: no artifact (run conclusion: skipped)",
+  "39036486090: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39111598419: no artifact (run conclusion: skipped)",
+  "39111601792: no artifact (run conclusion: skipped)",
+  "39111603104: no artifact (run conclusion: skipped)",
+  "39111606898: no artifact (run conclusion: skipped)",
+  "39167189124: no artifact (run conclusion: skipped)",
+  "39169838992: no artifact (run conclusion: skipped)",
+  "39184347236: no artifact (run conclusion: skipped)",
+  "39215970314: no artifact (run conclusion: skipped)",
+  "39218154656: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39218177006: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39228693559: no artifact (run conclusion: skipped)",
+  "39229480428: no artifact (run conclusion: skipped)",
+  "39231378064: no artifact (run conclusion: skipped)",
+  "39232669981: no artifact (run conclusion: skipped)",
+  "39236682116: no artifact (run conclusion: skipped)",
+  "39242990527: no artifact (run conclusion: skipped)",
+  "39243393643: no artifact (run conclusion: skipped)",
+  "39256510052: no artifact (run conclusion: skipped)",
+  "39272922209: no artifact (run conclusion: skipped)",
+  "39273454202: no artifact (run conclusion: skipped)",
+  "39279947919: no artifact (run conclusion: skipped)",
+  "39286903684: no artifact (run conclusion: skipped)",
+  "39287248851: no artifact (run conclusion: skipped)",
+  "39290905342: no artifact (run conclusion: skipped)",
+  "39297085484: no artifact (run conclusion: skipped)",
+  "39309538815: no artifact (run conclusion: skipped)",
+  "39357535552: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39357622009: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39358868999: no artifact (run conclusion: skipped)",
+  "39358914737: no artifact (run conclusion: skipped)",
+  "39363578267: no artifact (run conclusion: skipped)",
+  "39364970961: no artifact (run conclusion: skipped)",
+  "39366723205: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39368252262: no artifact (run conclusion: skipped)",
+  "39384836671: no artifact (run conclusion: skipped)",
+  "39433147705: no artifact (run conclusion: skipped)",
+  "39474398710: no artifact (run conclusion: skipped)",
+  "39476208773: no artifact (run conclusion: skipped)",
+  "39478962121: no artifact (run conclusion: skipped)",
+  "39480368721: no artifact (run conclusion: skipped)",
+  "39496204059: no artifact (run conclusion: skipped)",
+  "39502443974: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39502494143: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39504562912: no artifact (run conclusion: skipped)",
+  "39513877119: no artifact (run conclusion: skipped)",
+  "39517841603: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39536810096: no artifact (run conclusion: skipped)",
+  "39540607876: no artifact (run conclusion: skipped)",
+  "39543086236: no artifact (run conclusion: skipped)",
+  "39549981637: no artifact (run conclusion: skipped)",
+  "39586884496: no artifact (run conclusion: skipped)",
+  "39685805574: no artifact (run conclusion: skipped)",
+  "39714644199: no artifact (run conclusion: skipped)",
+  "39748441482: no artifact (run conclusion: skipped)",
+  "39750499060: no artifact (run conclusion: skipped)",
+  "39752317486: no artifact (run conclusion: skipped)",
+  "39756275388: no artifact (run conclusion: skipped)",
+  "39757394035: no artifact (run conclusion: skipped)",
+  "39788360311: no artifact (run conclusion: skipped)",
+  "39791755528: no artifact (run conclusion: skipped)",
+  "39796912995: no artifact (run conclusion: skipped)",
+  "39804924063: no artifact (run conclusion: skipped)",
+  "39809617798: no artifact (run conclusion: skipped)",
+  "39848486627: no artifact (run conclusion: skipped)",
+  "39859644524: no artifact (run conclusion: skipped)",
+  "39870929180: no artifact (run conclusion: skipped)",
+  "39880346858: no artifact (run conclusion: skipped)",
+  "39883469357: no artifact (run conclusion: skipped)",
+  "39908567364: no artifact (run conclusion: skipped)",
+  "39908884434: no artifact (run conclusion: success; its \"Draw once per head\" step did not draw because run 39908572064 already drew on the same head 29eb1e5b)",
+  "39912245803: no artifact (run conclusion: skipped)",
+  "39919509043: no artifact (run conclusion: success; its \"Draw once per head\" step did not draw because run 39919163272 already drew on the same head a4c9eea0)",
+  "39960826312: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "39975388799: no artifact (run conclusion: skipped)",
+  "39987110111: no artifact (run conclusion: skipped)",
+  "39995916359: no artifact (run conclusion: skipped)",
+  "39997043630: no artifact (run conclusion: skipped)",
+  "39998209855: copilot-eval.json has no result rows; failures: preflight failed: generator credential unavailable",
+  "40000361780: no artifact (run conclusion: skipped)",
+  "40004162438: no artifact (run conclusion: skipped)",
+  "40020407621: no artifact (run conclusion: skipped)",
+  "40020879632: no artifact (run conclusion: success; its \"Draw once per head\" step did not draw because run 40020451508 already drew on the same head c0fc4bec)",
+  "40022682514: no artifact (run conclusion: skipped)",
+  "40025627867: no artifact (run conclusion: skipped)",
+  "40027041558: no artifact (run conclusion: skipped)",
+  "40027556379: no artifact (run conclusion: skipped)",
+  "40028966431: no artifact (run conclusion: skipped)",
+  "40034227130: no artifact (run conclusion: skipped)",
+  "40035012235: no artifact (run conclusion: skipped)",
+  "40035186870: no artifact (run conclusion: skipped)",
+  "40035273032: no artifact (run conclusion: skipped)",
+  "40035457692: no artifact (run conclusion: skipped)",
+  "40035629963: no artifact (run conclusion: skipped)",
+  "40035733900: no artifact (run conclusion: skipped)",
+  "40035743783: no artifact (run conclusion: skipped)",
+  "40035787132: no artifact (run conclusion: skipped)",
+  "40036080731: no artifact (run conclusion: skipped)",
+  "40037436634: no artifact (run conclusion: skipped)",
+  "40038566958: no artifact (run conclusion: skipped)",
+  "40040355196: no artifact (run conclusion: skipped)",
+  "40040499943: no artifact (run conclusion: success; its \"Draw once per head\" step did not draw because run 40034239108 already drew on the same head 905ff455)"
+ ],
+ "first_generations_c221_recorded": 1368,
+ "first_generations_c221": 1368,
+ "first_generations_c221_not_evaluable": {},
+ "first_generations_other_compositions": {
+  "d46ef28f000a": 36
+ },
+ "rejected_total": 35,
+ "p0_pooled": 0.025585,
+ "rejected_by_reason_pooled": {
+  "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 33,
+  "Unverified or ambiguous referenced citation [collision]": 1,
+  "Unverified or ambiguous referenced citation [mismatch]": 1
+ },
+ "rejected_by_chooser_under_H_pooled": {
+  "retry_citation": 2,
+  "retry_quotation": 33
+ },
+ "per_question": [
+  {
+   "question": "AAPL / 0000320193-25-000079 / sales-gross-profit-2025",
+   "n": 228,
+   "rejected": 34,
+   "p0": 0.149123,
+   "by_reason": {
+    "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 33,
+    "Unverified or ambiguous referenced citation [collision]": 1
+   },
+   "by_chooser_under_H": {
+    "retry_citation": 1,
+    "retry_quotation": 33
+   },
+   "rejected_then_recovered_by_retry_in_run": 32,
+   "source_text_shas": {
+    "dfa1fbf6509b": 228
+   },
+   "reports": 76
+  },
+  {
+   "question": "ASML / 0001628280-26-011378 / us-gaap-sales-net-income-2025",
+   "n": 228,
+   "rejected": 0,
+   "p0": 0.0,
+   "by_reason": {},
+   "by_chooser_under_H": {},
+   "rejected_then_recovered_by_retry_in_run": 0,
+   "source_text_shas": {
+    "3d5c91eb152d": 228
+   },
+   "reports": 76
+  },
+  {
+   "question": "BABA / 0000950170-25-090161 / viewed-native-revenue-2025",
+   "n": 228,
+   "rejected": 0,
+   "p0": 0.0,
+   "by_reason": {},
+   "by_chooser_under_H": {},
+   "rejected_then_recovered_by_retry_in_run": 0,
+   "source_text_shas": {
+    "be4499769327": 228
+   },
+   "reports": 76
+  },
+  {
+   "question": "BABA / 0001193125-26-231755 / native-revenue-2026",
+   "n": 228,
+   "rejected": 0,
+   "p0": 0.0,
+   "by_reason": {},
+   "by_chooser_under_H": {},
+   "rejected_then_recovered_by_retry_in_run": 0,
+   "source_text_shas": {
+    "5387d3a77820": 228
+   },
+   "reports": 76
+  },
+  {
+   "question": "MSFT / 0000950170-25-100235 / sales-diluted-eps-2025",
+   "n": 228,
+   "rejected": 0,
+   "p0": 0.0,
+   "by_reason": {},
+   "by_chooser_under_H": {},
+   "rejected_then_recovered_by_retry_in_run": 0,
+   "source_text_shas": {
+    "1a68ae488350": 228
+   },
+   "reports": 76
+  },
+  {
+   "question": "TSLA / 0001628280-25-003063 / sales-operating-income-2024",
+   "n": 228,
+   "rejected": 1,
+   "p0": 0.004386,
+   "by_reason": {
+    "Unverified or ambiguous referenced citation [mismatch]": 1
+   },
+   "by_chooser_under_H": {
+    "retry_citation": 1
+   },
+   "rejected_then_recovered_by_retry_in_run": 1,
+   "source_text_shas": {
+    "c672b174e4fc": 228
+   },
+   "reports": 76
+  }
+ ],
+ "trailer_count": 0,
+ "trailer_rows": [],
+ "replay_vs_recorded": {
+  "published|-|agrees=True": 1333,
+  "rejected|recorded|agrees=True": 33,
+  "rejected|replay|agrees=True": 2
+ },
+ "replay_vs_recorded_disagreements": [],
+ "reports_with_c221_heads_copilot_path_equal_to_H_base": 30,
+ "reports_with_c221_heads_differing_from_H_only_in_PR_files": 30,
+ "by_head_copilot_path_difference_from_H_base": {
+  "-": {
+   "reports": 30,
+   "n": 540,
+   "rejected": 18,
+   "by_reason": {
+    "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 16,
+    "Unverified or ambiguous referenced citation [collision]": 1,
+    "Unverified or ambiguous referenced citation [mismatch]": 1
+   }
+  },
+  "ai/copilot_chat.py": {
+   "reports": 24,
+   "n": 432,
+   "rejected": 10,
+   "by_reason": {
+    "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 10
+   }
+  },
+  "ai/copilot_chat.py,ai/extraction.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py": {
+   "reports": 2,
+   "n": 36,
+   "rejected": 0,
+   "by_reason": {}
+  },
+  "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py": {
+   "reports": 1,
+   "n": 18,
+   "rejected": 0,
+   "by_reason": {}
+  },
+  "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py": {
+   "reports": 14,
+   "n": 252,
+   "rejected": 4,
+   "by_reason": {
+    "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 4
+   }
+  },
+  "ai/copilot_chat.py,ai/markdown_render.py,copilot/prompt.py,copilot_service.py,copilot_tools.py": {
+   "reports": 1,
+   "n": 18,
+   "rejected": 1,
+   "by_reason": {
+    "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 1
+   }
+  },
+  "ai/copilot_chat.py,ai/markdown_render.py,copilot_service.py,copilot_tools.py": {
+   "reports": 2,
+   "n": 36,
+   "rejected": 1,
+   "by_reason": {
+    "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 1
+   }
+  },
+  "ai/copilot_chat.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py": {
+   "reports": 2,
+   "n": 36,
+   "rejected": 1,
+   "by_reason": {
+    "Unsupported prose quotation: quotation_not_in_source (recorded, post-verify)": 1
+   }
+  }
+ },
+ "quotation_check_preresolution_vs_recorded": {
+  "agree|H passes": 1333,
+  "agree|H rejects": 33
+ },
+ "rejected_then_recovered_by_retry_in_run_total": 33,
+ "method": "Step 0, read-only (GitHub REST via gh; no provider call, no push, no comment, no dispatch). (1) Runs: every copilot-eval.yml run created at or after PR #1360's merged_at (2026-10-16T18:54:49Z), any branch or event, listed with created=>=<merged_at> and manual page= pagination (gh --paginate follows a numeric-ID Link URL the proxy refuses): 181 runs, listing taken 2026-10-23T23:53:45Z. (2) Artifacts: each run's artifact list (89 runs had one, one artifact each, none expired). Each zip was downloaded into its own directory artifacts/<run_id>/, its member list and sha256 recorded, only copilot-eval.json, copilot-eval.md, preparation.json, preparation.log and runner.log extracted, and the zip deleted; nothing from an artifact was executed, and Python read them only with -I from scripts in tools/. prescan.py excluded reports with no result rows (11 credential-less preflight stubs) and checked duplicates by the precedent's (timestamp, source_sha, summary) identity (none among real reports). (3) Composition: sha256 of the UTF-8 bytes of the first generation's system message (tool_trace.generation_attempts[0].initial_messages[0].content, role system), first 12 hex, the same bytes and prefix test_copilot_prompt_revisions.py's _prefix hashes for the first generation (prompt.SYSTEM_PROMPT; H's SYSTEM_PROMPT hashes to c221b7e3c5c2). Only first generations hashing to c221b7e3c5c2 count; 2 reports (36 first generations) were d46ef28f000a and are excluded. (4) Classification: the precedent classify_corpus.py was copied to tools/classify_corpus_h.py, adapted (classifier_changes), and run as python -I classify_corpus_h.py /home/user/wt/copilot-trailer/backend (H's code, app code = PR head d4d9c510) over the 78 usable reports, producing step0-generations.jsonl (one record per generation). (5) Definition of rejected: a c221b7e3c5c2 first generation is rejected when H's production path would withhold it, i.e. raise any _UnpublishableAnswer subclass at the first generation (a citation mismatch included), regardless of what the retry later did. H's verdict is replayed offline through H's own code for every stage that needs no database: _SentinelScanner fed the recorded candidate deltas one by one, _admit_not_disclosed, the missing-envelope check, _parse_citations, citation-group expansion and _verify_citations. For a candidate that passes _verify_citations, the remaining stages (claim repair and marker resolution, which need the run's prepared database, the final-citation check, and decision F's quotation check on the resolved answer) are taken from the reason the run itself recorded for that generation; as a cross-check H's _withhold_unsupported_quotations was run on the answer before resolution and reproduced the recorded outcome on all 1,366 such first generations (33 rejected, 1,333 passed), and no run recorded a resolution-stage reason. n per question = c221b7e3c5c2 first generations that reached the chooser (provider-error or no-verdict generations would be set aside; there were none). (6) Reason labels: the exception's reason string as production raises it; a _verify_citations failure carries the classifier's sub-labels in brackets (missing, collision, quoted_label, short, elided, mismatch); a reason taken from the run is marked '(recorded, post-verify)'. by_chooser_under_H records what H's _retry_guidance would do with the rejection (retry_citation, retry_trailer, retry_quotation, terminal). (7) trailer_count = c221b7e3c5c2 first generations whose H reason is 'Unexpected citation trailer' (_RegenerableCitationTrailer). Independent check: every one of the 1,368 c221b7e3c5c2 first-generation candidates contains exactly one ===CITATIONS=== sentinel and one FOLLOWUPS sentinel. (8) Head code: for each run head, the blob SHAs of backend/app/services/copilot/*.py, ai/*.py, copilot_service.py, citation_markers.py, provenance_service.py and copilot_tools.py (contents API) were compared with H and with H's main base b3d3cb11 (head-code-diff.tsv, head-listings/). (9) summarize_step0.py wrote step0-summary.json and step0-summary.md; p0 = rejected / n.",
+ "classifier_changes": "tools/classify_corpus_h.py vs the precedent tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/classify_corpus.py (sha256 42d102d4...71c8, copied unchanged as tools/classify_corpus.orig.py); full unified diff in tools/classify_corpus_h.diff. Changes: (a) imports _RegenerableCitationTrailer (an ImportError would mean the backend is not H's), copilot_service and prompt; (b) the scanner is fed the recorded candidate deltas one at a time, skipping empty ones, as the service does, instead of the joined candidate; (c) a not-disclosed candidate is run through the service's own _admit_not_disclosed instead of being returned unchecked; (d) a parse failure records its class (parse_class: _RegenerableCitationTrailer vs _UnpublishableAnswer); (e) new h_* fields give H's first-generation verdict (h_status, h_rejected, h_reason, h_label, h_class, h_chooser from H's _retry_guidance, h_source replay or recorded, recorded_agrees), using the run's recorded reason only after the candidate passes _verify_citations, and flagging any recorded pre-verify reason that H's replay does not reproduce (none occurred); (f) a diagnostic quotation_preresolve field runs H's _withhold_unsupported_quotations on the answer before resolution (never used as the verdict); (g) generations() keeps the deltas, checks the first message's role is system, and flags provider errors (an error control means the service never reached admission); (h) duplicates are reported by path and the record's report field is the full path, since every artifact's report is named copilot-eval.json; (i) an empty stream with a recorded reason is labeled 'Missing citation envelope', and one without a recorded reason is left without a verdict. The precedent's existing fields (mode, stage, parse_error, verify, failing_reasons, per_ref, system_sha, ...) are computed as before.",
+ "caveats": [
+  "First-generation rate, not a user-visible failure rate: 33 of the 35 rejected first generations were published by the run's own one retry (AAPL 32 of 34, TSLA 1 of 1). They are still counted as rejections, per the definition.",
+  "No report comes from H itself. PR #1551's two copilot-eval runs (40035787132 on d4d9c510, 40035743783 on 925b0799) were skipped and have no artifact. H's verdict is replayed on candidates drawn by 76 other heads. Their first-generation system bytes equal H's (c221b7e3c5c2), and H's diff touches only the parse order, the trailer class and the retry composition. So H gives the same first-generation verdict as the run's code on every candidate here, and replay and record agreed on all 1,368. The candidates themselves, though, came from each head's own context message and tool code.",
+  "Mixed head code. Compared with H's main base b3d3cb11, the Copilot-path files of 30 used reports are identical (540 first generations, 18 rejected). 24 differ only in ai/copilot_chat.py, a lookup-thread pool or a comment, not admission (432, 10 rejected). 22 differ in prompt.py's non-system parts, claim_repair, fact_guards, figures, copilot_service or copilot_tools on older bases, 2 of them also in envelope and exceptions (396, 7 rejected). Those 7 are recorded quotation reasons, whose resolved-answer input passed through that head's claim repair. quotations.py, resolution.py, citation_markers.py and provenance_service.py are identical on every head.",
+  "Post-verify verdicts come from the record. Claim repair and marker resolution need each run's database and were not replayed. The 33 quotation rejections are the runs' recorded reasons, which H's quotation check reproduced on the answer before resolution. A resolution-stage difference between a head and H could change a verdict without showing here.",
+  "Rejections are concentrated and mostly outside the PR's class. 34 of 35 are AAPL sales-gross-profit-2025, 33 of them decision-F 'Unsupported prose quotation: quotation_not_in_source', which H retries with the unchanged 34d01dadbac0 composition. The other two are citation mismatches: AAPL collision and TSLA mismatch, retried with bf240eb01f4c. None is a trailer.",
+  "Natural trailer count is 0 of 1,368. The window therefore gives no base rate for the trailer class beyond an upper bound: about 0.22% at 95% (exact binomial, 0 events). The PR's motivating trailer is BABA viewed-native-revenue-2025 run_index 2 in run 38942183029. It was created before #1360 merged, under first-generation composition d46ef28f000a, so it lies outside this window and composition.",
+  "Sources are not mixed. Each question's prepared source text hashed identically in all 76 reports: AAPL dfa1fbf6509b, TSLA c672b174e4fc, MSFT 1a68ae488350, BABA FY2026 5387d3a77820, BABA FY2025 be4499769327, ASML 3d5c91eb152d. These are the hashes the 2026-10-16 record lists for #1347's sources; ASML is the regex fallback by design.",
+  "Draws are not independent. Each report holds 3 draws per question from one run and time window, and many heads are successive commits of the same PR branches (34 branches; claude/brave-edison-rvsfqz alone supplies 24 of the 76 reports). Provider-side drift over the week (model, cache, load) is uncontrolled. Treat p0 as a pooled descriptive rate, not a per-draw probability with an i.i.d. interval.",
+  "Coverage limits. Runs created after the listing (2026-10-23T23:53:45Z) are excluded. 92 listed runs had no artifact: 88 skipped, plus 4 successful runs whose draw-once-per-head step found an earlier draw on the same head. 11 artifacts were credential-less preflight stubs with no rows. 2 reports were excluded for their d46ef28f000a first generations: runs 38952864427 and 38952867673, whose heads still carried the first-generation prompt from before #1360 (d46ef28f000a)."
+ ],
+ "output_files": [
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/step0-artifacts.txt",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/step0-generations.jsonl",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/step0-summary.json",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/step0-summary.md",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/step0-notes.json",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/runs-listed.tsv",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/run-artifacts.tsv",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/exclusions.tsv",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/prescan.tsv",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/head-code-diff.tsv",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/window.json",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/tools/classify_corpus_h.py",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/tools/classify_corpus_h.diff",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/tools/classify_corpus.orig.py",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/tools/summarize_step0.py",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/tools/prescan.py",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/tools/fetch_artifacts.sh",
+  "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/step0/tools/head_code_diff.sh"
+ ],
+ "reports": [
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-16T20:55:42Z",
+   "head_sha": "27720ddc30c643c6a9a15f74a08eaf7a258d3efb",
+   "branch": "claude/brave-bohr-hai5vi-backend-waitlist-referral",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12075061266",
+   "artifact_created": "2026-10-16T20:57:55Z",
+   "run_id": "38965756248",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-16T21:11:10Z",
+   "head_sha": "cbe69a871d2b1f557233da36b64c467d50aae111",
+   "branch": "claude/brave-bohr-hai5vi-backend-waitlist-referral",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12075157903",
+   "artifact_created": "2026-10-16T21:13:41Z",
+   "run_id": "38967586264",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-17T02:44:42Z",
+   "head_sha": "b591767b3958e44e7614f39296520b38aa1a75b2",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12087300943",
+   "artifact_created": "2026-10-17T02:47:12Z",
+   "run_id": "38996116300",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-17T02:57:53Z",
+   "head_sha": "283ac4539bdaf8198900ec73bfda9a8509233175",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12087381800",
+   "artifact_created": "2026-10-17T03:00:16Z",
+   "run_id": "38996948195",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-17T06:24:32Z",
+   "head_sha": "5827b311426b17bded9dae6c91fec7d938501c6a",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12092696262",
+   "artifact_created": "2026-10-17T06:26:51Z",
+   "run_id": "39009794916",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-17T07:41:23Z",
+   "head_sha": "4fda37d142f02a1859dc8825b0671b023d902f27",
+   "branch": "claude/brave-carson-t0fuo6-subscriptions",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12093643605",
+   "artifact_created": "2026-10-17T07:43:44Z",
+   "run_id": "39014565771",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/extraction.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/extraction.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-17T07:41:24Z",
+   "head_sha": "5be42e3c2e64d7e0edd9fe0176721300683407e7",
+   "branch": "claude/brave-carson-t0fuo6-naive-now",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12093884098",
+   "artifact_created": "2026-10-17T07:43:21Z",
+   "run_id": "39014567097",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/extraction.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/extraction.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-17T08:25:41Z",
+   "head_sha": "f0f1a16f792e9434fb5f16372c15f0668f928b53",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12095540971",
+   "artifact_created": "2026-10-17T08:28:02Z",
+   "run_id": "39017320097",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-17T13:00:51Z",
+   "head_sha": "b1bd294204cc5b7e7381d63e309c54b7ee49d60c",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12101203499",
+   "artifact_created": "2026-10-17T13:03:16Z",
+   "run_id": "39034818173",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T08:28:47Z",
+   "head_sha": "404f2a78d083e5225f4301f502c07406ac5dbd90",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-companyfacts-currency",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12130289360",
+   "artifact_created": "2026-10-18T08:31:04Z",
+   "run_id": "39111594030",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 2
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T08:28:50Z",
+   "head_sha": "a63fe6415a065a313dc20c429e02973fa17ac27a",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-ticker-exact",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12130573231",
+   "artifact_created": "2026-10-18T08:31:11Z",
+   "run_id": "39111597825",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T08:28:58Z",
+   "head_sha": "9f933c018b6f92524b6d87b8f5ed2ab622d72cf6",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-copilot-sign-scale",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12130339227",
+   "artifact_created": "2026-10-18T08:31:37Z",
+   "run_id": "39111604963",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T08:29:07Z",
+   "head_sha": "e5d429311e9b93704fc648c4240e48a7bdcfb144",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-filing-types-flood",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12130503916",
+   "artifact_created": "2026-10-18T08:34:16Z",
+   "run_id": "39111614017",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "failure",
+   "created_at": "2026-10-18T08:29:08Z",
+   "head_sha": "d8262f69890d63a92571e68eecff972963dffc16",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-fallback-currency",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12130454009",
+   "artifact_created": "2026-10-18T08:33:44Z",
+   "run_id": "39111615335",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T08:29:10Z",
+   "head_sha": "a23f43b355c6b59d8b76e2616128942283ad7aef",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-copilot-pool",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12130058487",
+   "artifact_created": "2026-10-18T08:34:21Z",
+   "run_id": "39111617549",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T08:29:12Z",
+   "head_sha": "de6aba427e43a0495003da45b7a9e08aa951c76b",
+   "branch": "claude/brave-carson-t0fuo6-webhooks",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12129809963",
+   "artifact_created": "2026-10-18T08:31:56Z",
+   "run_id": "39111618970",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T08:59:03Z",
+   "head_sha": "e4184d4fe96a4ff3a24c61027bdfb103e1d6418f",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-filing-types-flood",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12131342718",
+   "artifact_created": "2026-10-18T09:01:27Z",
+   "run_id": "39113538673",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T09:03:03Z",
+   "head_sha": "50efe71de56e7b783da978f7696ccd2833d1a943",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-fallback-currency",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12131013163",
+   "artifact_created": "2026-10-18T09:05:05Z",
+   "run_id": "39113811742",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T09:12:35Z",
+   "head_sha": "70ce25dd1bc09769cc2542b98b200c14a3164ac2",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-fy-labels",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12130969198",
+   "artifact_created": "2026-10-18T09:14:58Z",
+   "run_id": "39114430703",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T09:28:20Z",
+   "head_sha": "5bda46f2fb120004c34883882be69247f5000ff9",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-filing-types-flood",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12132645386",
+   "artifact_created": "2026-10-18T09:30:24Z",
+   "run_id": "39115459994",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T09:33:04Z",
+   "head_sha": "7d6073d4f75d981f8989e670b3edc7e576e12fc5",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-fy-labels",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12132565535",
+   "artifact_created": "2026-10-18T09:35:22Z",
+   "run_id": "39115777955",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T09:49:37Z",
+   "head_sha": "c0ae1b6ab19b82b82e16201eacf630a9cbbdd12a",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-filing-types-flood",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12132966664",
+   "artifact_created": "2026-10-18T09:52:00Z",
+   "run_id": "39116860557",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/envelope.py,copilot/exceptions.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py,ai/markdown_render.py,copilot/claim_repair.py,copilot/fact_guards.py,copilot/figures.py,copilot/prompt.py,copilot_service.py,copilot_tools.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T15:42:22Z",
+   "head_sha": "9e597ee6afcb22f353066e8ee55868b06c211fdf",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12141692338",
+   "artifact_created": "2026-10-18T15:44:43Z",
+   "run_id": "39141686346",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T16:22:39Z",
+   "head_sha": "f2438e7295e6f1541c7d23371d929b7351834e27",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12143510022",
+   "artifact_created": "2026-10-18T16:25:01Z",
+   "run_id": "39144714052",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T20:30:01Z",
+   "head_sha": "3209759251e10ff9a30f5fd764116352646877a5",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12149721802",
+   "artifact_created": "2026-10-18T20:32:15Z",
+   "run_id": "39163572955",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T21:17:45Z",
+   "head_sha": "21f5cb7b285e20c591ca99165bd401e565ed394c",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12151441678",
+   "artifact_created": "2026-10-18T21:20:01Z",
+   "run_id": "39167196797",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-18T21:53:55Z",
+   "head_sha": "724c84d40e881839d3680fdc541c555ad02818df",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12152476203",
+   "artifact_created": "2026-10-18T21:56:09Z",
+   "run_id": "39169847084",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "failure",
+   "created_at": "2026-10-19T01:15:52Z",
+   "head_sha": "db25f77c613634c0e0c5d71b707e17c5bc9ff17b",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12157471853",
+   "artifact_created": "2026-10-19T01:18:19Z",
+   "run_id": "39184560227",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 2
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T06:56:04Z",
+   "head_sha": "fd6342295a92df5aa430a91c1aad2e0536b0ea04",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12167818596",
+   "artifact_created": "2026-10-19T06:58:29Z",
+   "run_id": "39212801098",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T07:26:17Z",
+   "head_sha": "029809961611a979ac515016b810e57dbff78799",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12170001019",
+   "artifact_created": "2026-10-19T07:28:43Z",
+   "run_id": "39215977290",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T10:20:08Z",
+   "head_sha": "032540daaee9cd6ffbd3d9c9d1ff712d7b5302b4",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12179447530",
+   "artifact_created": "2026-10-19T10:22:11Z",
+   "run_id": "39236713958",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T10:43:38Z",
+   "head_sha": "7a180459c5d355760fc9cd18eab804e66b53ee62",
+   "branch": "claude/adoring-hamilton-y8iuak",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12180661605",
+   "artifact_created": "2026-10-19T10:45:42Z",
+   "run_id": "39239502693",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T12:14:59Z",
+   "head_sha": "b597192856a5d963e0bc48e23464eb0175050abb",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12185716459",
+   "artifact_created": "2026-10-19T12:17:25Z",
+   "run_id": "39250576331",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T12:30:59Z",
+   "head_sha": "c0ea0231dcc1cc879db79e18b4c4e14f5c451ce4",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12185684285",
+   "artifact_created": "2026-10-19T12:33:13Z",
+   "run_id": "39252660306",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T15:42:03Z",
+   "head_sha": "4daa512409e58d4ce2ba1a37e63ddc5402e05a43",
+   "branch": "claude/dazzling-dijkstra-sz12lm-filing-forms",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12198687756",
+   "artifact_created": "2026-10-19T15:44:30Z",
+   "run_id": "39279970566",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T16:51:24Z",
+   "head_sha": "44d2a4b3bcfeddd991f74e2007be5de39d16a2d1",
+   "branch": "claude/dazzling-dijkstra-sz12lm",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12203229834",
+   "artifact_created": "2026-10-19T16:53:39Z",
+   "run_id": "39289071800",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T17:00:17Z",
+   "head_sha": "00e68ebc3619518d8fbccb1f314c679073efff7e",
+   "branch": "claude/dazzling-dijkstra-sz12lm",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12204878611",
+   "artifact_created": "2026-10-19T17:02:51Z",
+   "run_id": "39290374017",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T17:28:46Z",
+   "head_sha": "5b5a61a42f018f98bf55df15b4859b0eb7908b0b",
+   "branch": "claude/dazzling-dijkstra-sz12lm-deps-backend",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12207152198",
+   "artifact_created": "2026-10-19T17:31:09Z",
+   "run_id": "39294462890",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T18:08:47Z",
+   "head_sha": "6dfa4dbc55dfe9f14f06ef30675b237873a6a05c",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12211731273",
+   "artifact_created": "2026-10-19T18:11:06Z",
+   "run_id": "39300085039",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-19T20:21:19Z",
+   "head_sha": "dd5dfab9406e1ec90677196e65dc5f044ceeecf0",
+   "branch": "claude/stoic-wright-6jeujo-database-url-advice",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12219342989",
+   "artifact_created": "2026-10-19T20:24:18Z",
+   "run_id": "39318606213",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T02:43:17Z",
+   "head_sha": "40cf6eb60f24fb6e6ca7fb49fb49b59810a6be46",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12236724441",
+   "artifact_created": "2026-10-20T02:45:38Z",
+   "run_id": "39360440834",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T03:26:36Z",
+   "head_sha": "a31ff9ab49296786f8bc7086f8c5f9581cff2d36",
+   "branch": "claude/stoic-dirac-m2s18k-deps-1416",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12238976926",
+   "artifact_created": "2026-10-20T03:28:58Z",
+   "run_id": "39364311316",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T03:35:17Z",
+   "head_sha": "7e680992cb3977b86f4d9b00c81c41d461d8d7b7",
+   "branch": "claude/dazzling-dijkstra-sz12lm-deps-backend-2",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12238564111",
+   "artifact_created": "2026-10-20T03:37:23Z",
+   "run_id": "39365081177",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T07:39:31Z",
+   "head_sha": "6a7f9963594722d41d3c204fad06937e35559d09",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12248501240",
+   "artifact_created": "2026-10-20T07:41:58Z",
+   "run_id": "39387956594",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T07:50:54Z",
+   "head_sha": "ccf3e49219ea54261392f9d77351ea890851b50f",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12248558402",
+   "artifact_created": "2026-10-20T07:53:27Z",
+   "run_id": "39389244242",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T14:33:35Z",
+   "head_sha": "0263d3687f3d80c199b4ee9549efdcd3ae5bff58",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12273596036",
+   "artifact_created": "2026-10-20T14:36:09Z",
+   "run_id": "39440327177",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T20:29:30Z",
+   "head_sha": "0fce9f8b63d1160391b9815b25929b4307b303d6",
+   "branch": "claude/brave-bohr-hai5vi-csv-closing",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12296676898",
+   "artifact_created": "2026-10-20T20:31:53Z",
+   "run_id": "39492410355",
+   "copilot_path_code": {
+    "differs_from_H": "ai/copilot_chat.py,copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "ai/copilot_chat.py"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T21:04:07Z",
+   "head_sha": "a24cff5e9bac4cd99303984f8639a2b8781d63fc",
+   "branch": "codex/wave3-contact-persistence",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12297748377",
+   "artifact_created": "2026-10-20T21:06:11Z",
+   "run_id": "39497318447",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T22:25:54Z",
+   "head_sha": "93efeea1912b0c932baa840acf4261ad7862cce2",
+   "branch": "claude/brave-bohr-hai5vi-notable-serve",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12304088424",
+   "artifact_created": "2026-10-20T22:28:13Z",
+   "run_id": "39508051451",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-20T23:38:41Z",
+   "head_sha": "719cd069c78fa8ff69336637ee570b7788dfaa58",
+   "branch": "claude/dazzling-dijkstra-sz12lm-deps-certifi-pillow",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12308118013",
+   "artifact_created": "2026-10-20T23:40:47Z",
+   "run_id": "39516359203",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 2
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-21T04:45:45Z",
+   "head_sha": "7c8f4e84a8fea139c0cf5b779987fdd75ac71227",
+   "branch": "claude/dazzling-dijkstra-sz12lm-e137b",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12321313814",
+   "artifact_created": "2026-10-21T04:48:07Z",
+   "run_id": "39545809987",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T04:04:56Z",
+   "head_sha": "87ad5fe66ebb5316b5a6dec68f0c3641be6156fc",
+   "branch": "claude/brave-bohr-hai5vi-backend-copy-low",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12401250501",
+   "artifact_created": "2026-10-22T04:07:15Z",
+   "run_id": "39720359493",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T08:40:28Z",
+   "head_sha": "0f3832ca5a276e3410c80bba273e74298504179c",
+   "branch": "claude/brave-bohr-hai5vi-backend-copy-low",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12412737435",
+   "artifact_created": "2026-10-22T08:42:50Z",
+   "run_id": "39749501935",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T09:30:20Z",
+   "head_sha": "c14e9c53c0c469fd27465bb11261d97f557532d1",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12415583529",
+   "artifact_created": "2026-10-22T09:32:45Z",
+   "run_id": "39755933385",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T09:41:31Z",
+   "head_sha": "f3c72a8e1f2208f55bcb0037952784989e1159cc",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12417085242",
+   "artifact_created": "2026-10-22T09:43:46Z",
+   "run_id": "39757373067",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T09:59:41Z",
+   "head_sha": "6c1e2c295beb47d177edc4e89de5cdf95ec06ee6",
+   "branch": "claude/brave-bohr-hai5vi-oauth-register-row",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12416619026",
+   "artifact_created": "2026-10-22T10:02:09Z",
+   "run_id": "39759691422",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T14:04:01Z",
+   "head_sha": "706ddea85f8d0b9af48352800d6ec2de4dfd5deb",
+   "branch": "codex/wave3-c5-consistency",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12431597634",
+   "artifact_created": "2026-10-22T14:06:27Z",
+   "run_id": "39792489624",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T14:40:38Z",
+   "head_sha": "4235a7cba1263d94c94ca019ad3f7c5781f5f16c",
+   "branch": "claude/brave-bohr-hai5vi-oauth-register-row",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12434821185",
+   "artifact_created": "2026-10-22T14:43:25Z",
+   "run_id": "39797754570",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T15:25:49Z",
+   "head_sha": "91896005e6160b395c9e06d8d6cccb0709055c1a",
+   "branch": "codex/wave3-c5-consistency",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12436593203",
+   "artifact_created": "2026-10-22T15:28:28Z",
+   "run_id": "39804751914",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T15:53:12Z",
+   "head_sha": "d17d95b6f4e0edabe10335a0d6a802173655c459",
+   "branch": "claude/brave-bohr-hai5vi-fact-source-documents",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12439171754",
+   "artifact_created": "2026-10-22T15:55:41Z",
+   "run_id": "39809012579",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T16:08:49Z",
+   "head_sha": "98bcb407026e876bc1a54334c9a935dc51213042",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12440731925",
+   "artifact_created": "2026-10-22T16:11:22Z",
+   "run_id": "39811447280",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 2
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T20:46:54Z",
+   "head_sha": "4730c230dc6da71c7c079cf10a16ec5703fcb316",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12457642584",
+   "artifact_created": "2026-10-22T20:49:24Z",
+   "run_id": "39851792594",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-22T23:09:35Z",
+   "head_sha": "595eaff8a00344be5adb470cad360b20ce69809d",
+   "branch": "claude/determined-dirac-a6dv0l",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12465488876",
+   "artifact_created": "2026-10-22T23:12:05Z",
+   "run_id": "39869929890",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T00:09:59Z",
+   "head_sha": "263b95776e77cbc691d3fabab83f18ed0322f682",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12467909641",
+   "artifact_created": "2026-10-23T00:12:31Z",
+   "run_id": "39876442037",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T05:56:42Z",
+   "head_sha": "29eb1e5b8e99471aabceb8c8c5a4250f3e6e7002",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12482355622",
+   "artifact_created": "2026-10-23T05:59:05Z",
+   "run_id": "39908572064",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T07:38:54Z",
+   "head_sha": "a4c9eea02d5d9297446299bfeed048e26e0fa3a3",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12487030826",
+   "artifact_created": "2026-10-23T07:41:19Z",
+   "run_id": "39919163272",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T15:28:45Z",
+   "head_sha": "368cf44bf0db7ca609fefebcee4cee396f68badf",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12512402844",
+   "artifact_created": "2026-10-23T15:31:22Z",
+   "run_id": "39978600676",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T17:27:50Z",
+   "head_sha": "8d7ab40e56799fd43ec2eb681f01b94ee11273cf",
+   "branch": "claude/dazzling-dijkstra-sz12lm-otel-1451",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12519273685",
+   "artifact_created": "2026-10-23T17:30:16Z",
+   "run_id": "39995262881",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T20:35:53Z",
+   "head_sha": "c0fc4bec55280d1fccc30d7766a5a2972b5b6a41",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12531060042",
+   "artifact_created": "2026-10-23T20:38:14Z",
+   "run_id": "40020451508",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T21:08:54Z",
+   "head_sha": "e9f41822e3fa6327602e7411c7b509ed2cf69d87",
+   "branch": "claude/brave-edison-rvsfqz",
+   "event": "pull_request",
+   "prs": "1550",
+   "attempt": "1",
+   "artifact_id": "12532590936",
+   "artifact_created": "2026-10-23T21:11:11Z",
+   "run_id": "40024609139",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T21:16:31Z",
+   "head_sha": "c3c5496baf6bd95ac2a60a458e1e1fd0483a4c39",
+   "branch": "codex/wave3-email-setup",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12532004366",
+   "artifact_created": "2026-10-23T21:18:56Z",
+   "run_id": "40025552843",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T21:52:23Z",
+   "head_sha": "5a610a4e75309997359eb80e020919bb2d8cc434",
+   "branch": "codex/wave3-email-setup",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12534910940",
+   "artifact_created": "2026-10-23T21:54:58Z",
+   "run_id": "40029849096",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T22:32:11Z",
+   "head_sha": "905ff4558e5374ccf3f4d4a9feaf22140719ce03",
+   "branch": "claude/dazzling-dijkstra-sz12lm-f60-account-mail",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12536741217",
+   "artifact_created": "2026-10-23T22:34:24Z",
+   "run_id": "40034239108",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T22:53:31Z",
+   "head_sha": "427f20f2c0ca6b3b08e92a4e1bb702d83ee0a95e",
+   "branch": "codex/wave3-email-setup",
+   "event": "pull_request",
+   "prs": "",
+   "attempt": "1",
+   "artifact_id": "12537107448",
+   "artifact_created": "2026-10-23T22:56:01Z",
+   "run_id": "40036446152",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 0
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T23:09:25Z",
+   "head_sha": "c3f028f657ab9d8f5e8f20a6e8f8802cf5b23c5f",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-companyfacts-year-naming",
+   "event": "pull_request",
+   "prs": "1549",
+   "attempt": "1",
+   "artifact_id": "12537882865",
+   "artifact_created": "2026-10-23T23:11:59Z",
+   "run_id": "40038024069",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 2
+  },
+  {
+   "conclusion": "success",
+   "created_at": "2026-10-23T23:36:33Z",
+   "head_sha": "f094e7ff5dfb6dc02b4dd60df29043d2be37ec6c",
+   "branch": "claude/implementation-launch-prompt-ofvuc1-filings-limiter",
+   "event": "pull_request",
+   "prs": "1546",
+   "attempt": "1",
+   "artifact_id": "12538822340",
+   "artifact_created": "2026-10-23T23:38:34Z",
+   "run_id": "40040628228",
+   "copilot_path_code": {
+    "differs_from_H": "copilot/envelope.py,copilot/exceptions.py,copilot/prompt.py,copilot_service.py",
+    "differs_from_H_base_b3d3cb11": "-"
+   },
+   "c221_first_generations": 18,
+   "c221_evaluable": 18,
+   "c221_rejected": 1
+  }
+ ]
+}

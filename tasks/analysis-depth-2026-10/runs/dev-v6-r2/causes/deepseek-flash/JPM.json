@@ -1,0 +1,104 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 7,
+ "output_sha256": "ff8b5b59cf5b4421f3d9fcd5db8441873ad0e32418f2fc85aaa2698e0c9ef21b",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2023 step change came from higher rates lifting net interest income, which rose 33.8% that year , with deposit margin expansion on higher rates cited across the payments and commercial businesses .",
+   "passages": [
+    {
+     "id": "P37",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Payments revenue was $9.3 billion, up 22%, driven by deposit margin expansion on higher rates and fees, partially offset by the higher level of client credits that reduce such fees and lower average deposits. The net impact of equity investments was flat reflecting net markdowns in both periods, including the impact of an impairment in the current year."
+    },
+    {
+     "id": "P50",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net revenue was $11.5 billion, up 15%. Net interest income was $8.2 billion, up 35%, driven by deposit margin expansion on higher rates and growth in loans, predominantly offset by the impact of higher funding costs and lower deposits."
+    }
+   ],
+   "label": "partial",
+   "reason": "P37 cites FY2023 deposit margin expansion for Payments only. P50 is a FY2022 segment. No passage gives firm-wide FY2023 NII cause."
+  },
+  {
+   "sentence": "FY2025's slowdown reflects deposit margin compression and lower rates, which offset higher Markets net interest income and revolving Card balances .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P28 says deposit margin compression and lower rates largely offset higher Markets NII and Card revolving balances."
+  },
+  {
+   "sentence": "Loan growth of $121.1 billion was predominantly driven by higher CIB loans, primarily in Markets, and higher securities-based lending in AWM on client demand .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2025, loans increased by $121.1\u00a0billion, predominantly driven by higher loans in CIB, primarily in Markets, and higher securities-based lending in AWM, both associated with higher client demand. Lending-related commitments increased by $64.5\u00a0billion, predominantly driven by higher commitments in CIB, including held-for-sale commitments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes loan growth to CIB Markets loans and AWM securities-based lending on higher client demand."
+  },
+  {
+   "sentence": "Noninterest expense rose to $95.6 billion on higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing investment .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense, including higher revenue-related compensation and growth in the number of employees. The increase in expense was also driven by higher brokerage expense and distribution fees, higher auto lease depreciation, and continued investments in technology and marketing, as well as higher occupancy expense. These factors were partially offset by FDIC special assessment accrual releases of $763 million compared with an increase of $725 million in the prior year, as well as the absence of a $1.0 billion contribution of Visa shares to the JPMorgan Chase Foundation recorded in the second quarter of 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P26 lists compensation, brokerage and distribution fees, auto lease depreciation, and technology and marketing investments."
+  },
+  {
+   "sentence": "The higher provision reflected net increases in the loan and commitment portfolios, credit-quality changes on client-specific exposures and estimated losses on borrower fraud in secured lending facilities .",
+   "passages": [
+    {
+     "id": "P15",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The provision for credit losses was $2.6 billion, driven by net increases in the loan and lending-related commitment portfolios, net changes in credit quality of client-specific exposures, an update to loss assumptions on certain leveraged loans, and estimated losses related to borrower fraud in certain secured lending facilities, partially offset by the impact of changes in the Firm's weighted-average macroeconomic outlook. Net charge-offs were $1.5 billion and the net addition to the allowance for credit losses was $1.1 billion."
+    }
+   ],
+   "label": "supported",
+   "reason": "P15 cites portfolio growth, client-specific credit quality changes and borrower fraud losses in secured lending facilities."
+  },
+  {
+   "sentence": "The outflow resulted from higher trading assets, higher securities borrowed, net loan originations and purchases, and higher other assets, partly offset by net income .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "P21 lists trading assets, securities borrowed, loan originations/purchases and other assets, partially offset by net income."
+  },
+  {
+   "sentence": "Nonaccrual loan exposure increased $273 million, driven by downgrades in Technology, Media & Telecommunications, Utilities, Central Government and Oil & Gas .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The following table presents the change in the nonaccrual loan portfolio for the years ended December\u00a031, 2025 and 2024. Since December\u00a031, 2024, nonaccrual loan exposure increased by $273 million, driven by certain exposures in Technology, Media & Telecommunications, Utilities, Central Government, and Oil & Gas, in each case primarily resulting from downgrades, largely offset by certain exposures in Healthcare and Consumer & Retail, in each case primarily resulting from charge-off activity, upgrades, and loan sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 attributes the $273 million increase to downgrades in TMT, Utilities, Central Government and Oil & Gas."
+  }
+ ],
+ "cost_usd": 0.04274,
+ "backend": "claude_cli",
+ "input_tokens": 3376,
+ "cached_input_tokens": 0,
+ "output_tokens": 787
+}

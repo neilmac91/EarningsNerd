@@ -7,12 +7,13 @@ ephemeral (logging, metrics, elapsed math) or is written to / compared against a
 
 DELIBERATE EXCEPTION — do NOT route these through `utcnow()`: the three naive `DateTime`
 columns `OAuthState.expires_at` and `RefreshToken.expires_at`/`revoked_at` store naive UTC on
-purpose and are written/compared with the stdlib `datetime.utcnow()` in `routers/auth.py` and
-`services/refresh_token_service.py`. Mixing an aware value with those naive columns raises
+purpose and are written/compared with the stdlib `datetime.utcnow()` in `services/oauth_account_service.py`
+and `services/refresh_token_service.py`. Mixing an aware value with those naive columns raises
 "can't compare offset-naive and offset-aware datetimes" (Postgres returns tz-aware, SQLite
 returns naive). Keep both the column and its comparisons naive — see those models' docstrings.
-The retention purge (`services/retention_service.py`) compares them with a naive projection of
-the aware instant (`now.replace(tzinfo=None)`), never with a new `datetime.utcnow()` call.
+The retention purge (`services/retention_service.py`) and the refresh token owner's read
+(`refresh_token_service.live_token_owner`) compare them with a naive projection of the aware
+instant (`now.replace(tzinfo=None)`), never with a new `datetime.utcnow()` call.
 """
 from datetime import datetime, timezone
 
@@ -42,3 +43,19 @@ def ensure_utc(dt: datetime) -> datetime:
     convention the code base writes).
     """
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def utc_from_iso(value: str) -> datetime:
+    """Parse an ISO 8601 date or date-time string as an aware UTC datetime.
+
+    SEC listings give bare dates (``2026-01-15``), which ``datetime.fromisoformat`` returns naive.
+    PostgreSQL reads a naive value bound to a ``DateTime(timezone=True)`` column in the session's
+    ``TimeZone``, so it is stored as UTC midnight only while that setting is UTC. A naive value is
+    taken to be UTC, as in ``ensure_utc``; an aware one is converted. Raises ``ValueError`` for
+    anything it cannot read as one, ``None`` and an offset with no UTC equivalent included, so a
+    caller that skips a malformed row on ``ValueError`` skips those too.
+    """
+    try:
+        return ensure_utc(datetime.fromisoformat(value)).astimezone(timezone.utc)
+    except (TypeError, OverflowError) as exc:
+        raise ValueError(f"not an ISO 8601 date: {value!r}") from exc

@@ -1,0 +1,173 @@
+{
+  "normalized_source": "for the fiscal year ending january 31, 2027 (\"fiscal 2027\"), we project capital expenditures will be approximately $25 billion to $27 billion. revenue increased to $391.0 billion in fiscal 2024. \"supply chain\" constraints persisted through \"q3\". item 1a - risk factors: the company's results may fluctuate. total net sales 416,161 391,035 383,285",
+  "shapes": [
+    {
+      "shape": "fiscal-2027 inner short quoted span",
+      "excerpt": "For the fiscal year ending January 31, 2027 (\"fiscal 2027\"), we project capital expenditures",
+      "section": "Item 7",
+      "old": false,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "straight single-quote wrapped",
+      "excerpt": "'Revenue increased to $391.0 billion in fiscal 2024.'",
+      "section": "Item 7",
+      "old": false,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "curly single-quote wrapped",
+      "excerpt": "‘Revenue increased to $391.0 billion in fiscal 2024.’",
+      "section": "Item 7",
+      "old": false,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "mixed wrapper open \" close '",
+      "excerpt": "\"Revenue increased to $391.0 billion in fiscal 2024.'",
+      "section": "Item 7",
+      "old": false,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "double-quote wrapped (control)",
+      "excerpt": "\"Revenue increased to $391.0 billion in fiscal 2024.\"",
+      "section": "Item 7",
+      "old": true,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "outer wrap + interior quotes, all in source",
+      "excerpt": "\"Supply chain\" constraints persisted through \"Q3\"",
+      "section": "Item 1A",
+      "old": false,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "#1052 shape: invented prefix + real quoted span",
+      "excerpt": "We said \"Revenue increased to $391.0 billion in fiscal 2024.\"",
+      "section": "Item 7",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "invented suffix after real quoted span",
+      "excerpt": "\"Revenue increased to $391.0 billion in fiscal 2024.\" Margins doubled.",
+      "section": "Item 7",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "plain verbatim with whitespace drift",
+      "excerpt": "Total net sales 416,161 391,035 383,285",
+      "section": "Item 8",
+      "old": true,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "23-char needle inside wrapper (floor)",
+      "excerpt": "\"increased to $391.0 bil\"",
+      "section": "Item 7",
+      "old": false,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "verbatim excerpt, label with U+0022",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 \"MD&A\"",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "verbatim excerpt, label with U+FF02",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 ＂MD&A＂",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "verbatim excerpt, label with U+201C",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 “MD&A“",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "verbatim excerpt, label with U+201D",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 ”MD&A”",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "verbatim excerpt, label with U+201E",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 „MD&A„",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "verbatim excerpt, label with U+201F",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 ‟MD&A‟",
+      "old": true,
+      "new": false,
+      "product": false
+    },
+    {
+      "shape": "verbatim excerpt, label with U+2018 (F's decided limit)",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 ‘MD&A‘",
+      "old": true,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "verbatim excerpt, label with U+00AB (F's decided limit)",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 «MD&A«",
+      "old": true,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "verbatim excerpt, label with U+2033 (F's decided limit)",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 ″MD&A″",
+      "old": true,
+      "new": true,
+      "product": true
+    },
+    {
+      "shape": "verbatim excerpt, label with &quot; (displayed literally)",
+      "excerpt": "Revenue increased to $391.0 billion in fiscal 2024.",
+      "section": "Item 7 &quot;MD&A&quot;",
+      "old": true,
+      "new": true,
+      "product": true
+    }
+  ],
+  "fuzz": {
+    "cases": 200000,
+    "seed": 1052,
+    "new_vs_product_mismatches": 0,
+    "mismatch_examples": [],
+    "old_false_new_true": 11469,
+    "old_true_new_false": 25730
+  }
+}

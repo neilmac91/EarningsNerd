@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import logging
-import re
 from typing import Dict
 
 logger = logging.getLogger(__name__)
@@ -12,7 +11,6 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class PromptTemplate:
     system: str
-    user: str
     raw: str
 
 
@@ -46,29 +44,13 @@ _STRUCTURED_PROMPT_FILES = {
 }
 
 
-def _split_prompt(markdown: str) -> tuple[str, str]:
-    markers = [
-        r"^##\s+Output Template.*$",
-        r"^##\s+📍\s+PHASE 4: OUTPUT FORMAT.*$",
-        r"^##\s+Output Format.*$",
-    ]
-    for marker in markers:
-        match = re.search(marker, markdown, flags=re.MULTILINE)
-        if match:
-            system = markdown[: match.start()].strip()
-            user = markdown[match.start() :].strip()
-            return system, user
-    return markdown.strip(), ""
-
-
 def _load_prompts() -> Dict[str, PromptTemplate]:
     prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
     loaded: Dict[str, PromptTemplate] = {}
     for filing_type, filename in {**_PROMPT_FILES, **{f"6-K:{k}": v for k, v in _SIXK_VARIANT_FILES.items()}}.items():
         prompt_path = prompts_dir / filename
         raw = prompt_path.read_text(encoding="utf-8")
-        system, user = _split_prompt(raw)
-        loaded[filing_type] = PromptTemplate(system=system, user=user, raw=raw)
+        loaded[filing_type] = PromptTemplate(system=raw.strip(), raw=raw)
     return loaded
 
 
@@ -116,16 +98,15 @@ def get_prompt(filing_type: str, sixk_class: str | None = None) -> PromptTemplat
 
 
 def get_named_prompt(name: str) -> PromptTemplate:
-    """Load a prompt file by name (e.g. ``"trends-analyst-agent"``), split on the same Output
-    Format markers as the filing-type prompts. For prompts that aren't keyed by filing type —
+    """Load a whole prompt file by name (e.g. ``"trends-analyst-agent"``).
+    For prompts that aren't keyed by filing type —
     the filing-type map above must not be overloaded with non-filing keys. Cached per name."""
     cached = _NAMED_PROMPTS.get(name)
     if cached is not None:
         return cached
     prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
     raw = (prompts_dir / f"{name}.md").read_text(encoding="utf-8")
-    system, user = _split_prompt(raw)
-    template = PromptTemplate(system=system, user=user, raw=raw)
+    template = PromptTemplate(system=raw.strip(), raw=raw)
     _NAMED_PROMPTS[name] = template
     return template
 

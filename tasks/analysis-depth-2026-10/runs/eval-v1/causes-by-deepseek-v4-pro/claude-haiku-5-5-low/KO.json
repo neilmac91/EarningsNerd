@@ -1,0 +1,94 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "KO",
+ "split": "holdout",
+ "claims": 7,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The filing attributes the FY2025 operating income increase mainly to lower other operating charges, which lapped the prior-year fairlife remeasurement .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states lower other operating charges due to prior year fairlife remeasurement primarily drove operating income increase."
+  },
+  {
+   "sentence": "The filing cites 1% concentrate sales volume growth and favorable pricing as drivers of the FY2025 operating income gain .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists 1% concentrate sales volume growth and favorable pricing as drivers of operating income increase."
+  },
+  {
+   "sentence": "Corporate's operating loss narrowed to $1.82 billion from $5.26 billion, which the filing attributes to lower other operating charges .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate\u2019s operating loss for the years ended December\u00a031, 2025 and 2024 was $1,816 million and $5,263 million, respectively. Operating loss in 2025 decreased primarily as a result of lower other operating charges due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, lower commodity costs, lower marketing expenses and lower contributions to The Coca-Cola Foundation. Refer to Note\u00a018 of Notes to Consolidated Financial Statements for additional information on the fairlife contingent consideration."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes Corporate's operating loss decrease primarily to lower other operating charges."
+  },
+  {
+   "sentence": "Gross margin rose to 61.6%  on favorable pricing and the prior-year refranchising, partly offset by currency and commodity costs .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross profit margin increased to 61.6% in 2025 from 61.1% in 2024. This increase was primarily due to the impact of favorable pricing initiatives and the impact of the prior year refranchising of our bottling operations in the Philippines, Bangladesh and certain territories in India, partially offset by the unfavorable impact of foreign currency exchange rate fluctuations and higher commodity costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes gross margin increase to favorable pricing and prior year refranchising, partially offset by currency and commodity costs."
+  },
+  {
+   "sentence": "Other income fell to $1.07 billion in FY2025  from $1.99 billion in FY2024 , when refranchising gains were booked .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2024, other income (loss) \u2014 net was income of $1,992 million. The Company recorded a gain of $595 million related to the refranchising of our bottling operations in the Philippines and recognized a gain of $506 million related to the sale of our ownership interest in an equity method investee in Thailand. The Company also recognized a gain of $338 million related to the sale of a portion of our ownership interest in Coke Consolidated, a gain of $303 million related to the refranchising of our bottling operations in certain territories in India, and a net gain of $290\u00a0million related to realized and unrealized gains and losses on equity securities and trading debt securities as well as realized gains and losses on available-for-sale debt securities. Additionally, the Company recognized dividend income of $205\u00a0million and net income of $76\u00a0million related to the non-service cost components of net periodic benefit cost, of which $21\u00a0million was due to pension and other postretirement benefit plan settlement gains."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage shows 2024 other income included refranchising gains, implying decline in 2025 when not repeated."
+  },
+  {
+   "sentence": "The filing credits the FY2025 operating cash rise of 8.9%  to lower tax payments and working-capital timing .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2025 and 2024 was $7,408\u00a0million and $6,805\u00a0million, respectively, an increase of $603\u00a0million, or 9%. This increase was primarily driven by strong cash operating results, lower tax payments, the timing of changes in working capital and lower contributions to The Coca-Cola Foundation compared to the prior year. These items were partially offset by the prior year benefit of the trade accounts receivable factoring program and higher transfers of surplus non-U.S. plan assets from pension trusts to general assets of the Company in the prior year. The increase was also partially offset by unfavorable hedging activity, higher marketing payments, tax deposits related to Israel and Vietnam, and higher net interest payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes operating cash increase to lower tax payments and timing of working capital changes."
+  },
+  {
+   "sentence": "The FY2024 operating cash drop of 41.3%  followed the IRS Tax Litigation Deposit .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2024 and 2023 was $6,805\u00a0million and $11,599\u00a0million, respectively, a decrease of $4,794\u00a0million, or 41%. This decrease was primarily driven by the $6.0 billion IRS Tax Litigation Deposit, an unfavorable impact due to foreign currency exchange rate fluctuations, higher other tax payments, increased charitable donations, and the reduced operating cash flows resulting from the refranchising of our bottling operations. The decrease was also impacted by additional annual incentive payments in the current year due to improved business performance in the prior year. These items were partially offset by strong cash operating results, the transfer of surplus international plan assets from pension trusts to general assets of the Company, payments in the prior year resulting from the buildup of inventory to manage potential supply chain disruptions, increased dividend payments from our equity method investees, and $167\u00a0million of the $275\u00a0million milestone payment for fairlife in the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes FY2024 operating cash decrease primarily to IRS Tax Litigation Deposit."
+  }
+ ],
+ "cost_usd": 0.001635
+}

@@ -1,0 +1,133 @@
+[
+ {
+  "artifact": "analysis/skeptic1021/r36754723895/copilot-eval.json",
+  "summary": {
+   "expected": 18,
+   "completed": 18,
+   "scored": 18,
+   "errors": 0,
+   "passed": 18,
+   "pass_rate": 1.0
+  },
+  "answers": 18,
+  "rows_without_source_text": [],
+  "composed_quote_rows": [],
+  "grounding_escalations": {
+   "uncited_answer_rows": [],
+   "uncited_figure_rows": [
+    {
+     "ticker": "MSFT",
+     "question_id": "sales-diluted-eps-2025",
+     "run_index": 0,
+     "passed": true,
+     "figure_count": 3,
+     "uncited_figures": 1,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 2
+    },
+    {
+     "ticker": "MSFT",
+     "question_id": "sales-diluted-eps-2025",
+     "run_index": 1,
+     "passed": true,
+     "figure_count": 3,
+     "uncited_figures": 1,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 2
+    },
+    {
+     "ticker": "MSFT",
+     "question_id": "sales-diluted-eps-2025",
+     "run_index": 2,
+     "passed": true,
+     "figure_count": 3,
+     "uncited_figures": 1,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 2
+    }
+   ],
+   "tool_less_rows": [
+    {
+     "ticker": "BABA",
+     "question_id": "native-revenue-2026",
+     "run_index": 0,
+     "passed": true,
+     "figure_count": 1,
+     "uncited_figures": 0,
+     "citations": 1,
+     "verified_citations": 1,
+     "tool_results": 0
+    },
+    {
+     "ticker": "BABA",
+     "question_id": "native-revenue-2026",
+     "run_index": 1,
+     "passed": true,
+     "figure_count": 1,
+     "uncited_figures": 0,
+     "citations": 1,
+     "verified_citations": 1,
+     "tool_results": 0
+    },
+    {
+     "ticker": "BABA",
+     "question_id": "native-revenue-2026",
+     "run_index": 2,
+     "passed": true,
+     "figure_count": 1,
+     "uncited_figures": 0,
+     "citations": 1,
+     "verified_citations": 1,
+     "tool_results": 0
+    },
+    {
+     "ticker": "BABA",
+     "question_id": "viewed-native-revenue-2025",
+     "run_index": 0,
+     "passed": true,
+     "figure_count": 1,
+     "uncited_figures": 0,
+     "citations": 1,
+     "verified_citations": 1,
+     "tool_results": 0
+    },
+    {
+     "ticker": "BABA",
+     "question_id": "viewed-native-revenue-2025",
+     "run_index": 2,
+     "passed": true,
+     "figure_count": 1,
+     "uncited_figures": 0,
+     "citations": 1,
+     "verified_citations": 1,
+     "tool_results": 0
+    },
+    {
+     "ticker": "ASML",
+     "question_id": "us-gaap-sales-net-income-2025",
+     "run_index": 0,
+     "passed": true,
+     "figure_count": 2,
+     "uncited_figures": 0,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 0
+    },
+    {
+     "ticker": "ASML",
+     "question_id": "us-gaap-sales-net-income-2025",
+     "run_index": 1,
+     "passed": true,
+     "figure_count": 2,
+     "uncited_figures": 0,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 0
+    }
+   ]
+  }
+ }
+]

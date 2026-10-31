@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 type NumericInput = number | string | null | undefined
 
@@ -112,6 +112,50 @@ export const fmtScale = (value: NumericInput, options?: { digits?: number }): st
   return formatter.format(num)
 }
 
+/**
+ * A share count, scaled ("1.2M"). A count is a magnitude, so the sign is dropped by default; a net
+ * figure passes `signed`, which keeps its direction as "+" or "−" (U+2212), never colour alone.
+ */
+export const fmtShares = (value: NumericInput, options?: { digits?: number; signed?: boolean }): string => {
+  const num = parseNumeric(value)
+  if (num === null) {
+    return ''
+  }
+  const magnitude = fmtScale(Math.abs(num), { digits: options?.digits ?? 1 })
+  if (!options?.signed || num === 0) {
+    return magnitude
+  }
+  return `${num > 0 ? '+' : '\u2212'}${magnitude}`
+}
+
+/**
+ * A data label stored in sentence case as a sentence reads it past its start (E34; the analysis report's notes, "net
+ * income is calculated from filed figures"): the label's first segment, a run up to whitespace, '-' or
+ * '/', takes a lower-case first letter unless it is an acronym. A segment with no lower-case letter is one, '&' and '.'
+ * sitting inside a segment ('EPS', 'R&D', 'U.S.'), and so is one with a capital after its first letter ('YoY'). So
+ * 'Net income' reads 'net income', 'Long-term debt' 'long-term debt' and 'Diluted EPS' 'diluted EPS', while
+ * 'EPS', 'U.S. revenue' and 'YoY growth' stay as written.
+ */
+export const inSentence = (label: string): string =>
+  label.replace(/^[^\s/-]+/, (segment) =>
+    !/[a-z]/.test(segment) || /[A-Za-z].*[A-Z]/.test(segment) ? segment : segment.charAt(0).toLowerCase() + segment.slice(1),
+  )
+
+/**
+ * The glyphs past ASCII that the data face, Geist Mono, draws at its one 0.6em advance: the no-break space Intl puts
+ * after a currency code, ¢ £ ¤ ¥ € in its latin file and ₪ ₱ ₴ ₹ ₽ in latin-ext, as a production build serves them,
+ * and the × a chart's ratio axis prints ("0.87×", in the latin file). No
+ * file draws ₩ or ₫, though latin-ext's range claims both (chief design read the six files on #1652). next/font fetches
+ * the faces at build, so tests/e2e/analysis-layout.spec.ts measures each glyph in the built face: a font that drops one
+ * fails there. The trend charts' prefix (moneyPrefix), fmtCurrency and the KPI strip's width all read this one list.
+ */
+export const DATA_FACE_GLYPHS = '\u00a0¢£¤¥€₪₱₴₹₽×'
+/** The glyphs a currency's en-US sign holds that Geist Mono lacks: KRW's ₩, VND's ₫ and the narrow no-break space in
+ *  XOF's "F CFA". The e2e's control: none of them measures at the face's advance. */
+export const DATA_FACE_MISSING = '\u202f₩₫'
+/** Whether the data face draws a glyph: printable ASCII or one of DATA_FACE_GLYPHS. */
+export const dataFaceDraws = (glyph: string): boolean => (glyph >= ' ' && glyph <= '~') || DATA_FACE_GLYPHS.includes(glyph)
+
 export const fmtCurrency = (
   value: NumericInput,
   options?: { currency?: string; digits?: number; compact?: boolean }
@@ -124,15 +168,62 @@ export const fmtCurrency = (
   const currency = options?.currency ?? 'USD'
   const digits = options?.digits ?? (Math.abs(num) < 1 ? 2 : 1)
   const compact = options?.compact ?? Math.abs(num) >= 1000
+  // A sign the data face lacks would paint in the fallback face, so its currency prints by code, as the trend
+  // charts' moneyPrefix does (E203): "KRW 300.9T", not "₩300.9T".
+  const symbol = currencySymbol(currency)
 
   const formatter = getFormatter({
     style: 'currency',
     currency,
+    currencyDisplay: symbol && ![...symbol].every(dataFaceDraws) ? 'code' : 'symbol',
     notation: compact ? 'compact' : 'standard',
     maximumFractionDigits: digits,
     minimumFractionDigits: digits > 0 ? Math.min(digits, 2) : 0,
   })
   return formatter.format(num)
+}
+
+const COMPACT_SCALE: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }
+
+/**
+ * The frames of a count-up toward `final`, held in the unit `final` prints in ("CHF 0.0B" … "CHF 22.8B"), so no
+ * frame is wider than the value it ends on, as hooks/useCountUp asks of its format. Compact notation on every frame
+ * changes unit on the way ("CHF 999.9M" before "CHF 22.8B"), a glyph wider than the final value the KPI strip sizes
+ * its cards for. The last frame is fmtCurrency(final, { compact: true }) exactly. The guarantee covers a count from
+ * zero, which is why KpiStrip keys each tile by its value: a tween from a larger value would pass wider frames.
+ */
+export const compactCurrencyCountUp = (final: number, currency = 'USD'): ((value: number) => string) => {
+  const last = fmtCurrency(final, { compact: true, currency })
+  const digits = Math.abs(final) < 1 ? 2 : 1
+  const unit = getFormatter({
+    style: 'currency', currency, notation: 'compact', maximumFractionDigits: digits, minimumFractionDigits: digits,
+  }).formatToParts(final).find((part) => part.type === 'compact')?.value ?? ''
+  const scale = COMPACT_SCALE[unit] ?? 1
+  return (value) => value === final ? last : `${fmtCurrency(value / scale, { currency, digits, compact: false })}${unit}`
+}
+
+// The engine's ISO 4217 list, where it has one (ES2022), so a well-formed code no currency has ("ABC") prints no
+// symbol; without it, a code Intl knows nothing of prints as itself.
+const ISO_CURRENCIES = (() => {
+  const supported = (Intl as { supportedValuesOf?: (key: 'currency') => string[] }).supportedValuesOf
+  return typeof supported === 'function' ? new Set(supported('currency')) : null
+})()
+
+/**
+ * The en-US symbol of an ISO 4217 currency code: "$" for USD, "¥" for JPY, "CA$" for CAD, "CHF" for
+ * a currency the locale writes by its code. Anything that is not such a code (an XBRL unit such as
+ * "shares", a missing unit, "XXX" for no currency) gives null: that amount shows with no symbol, never
+ * as dollars (lessons/frontend-xbrl-amounts-carry-their-own-currency.md).
+ */
+export const currencySymbol = (code: string | null | undefined): string | null => {
+  if (!code || !/^[A-Z]{3}$/.test(code) || (ISO_CURRENCIES && !ISO_CURRENCIES.has(code))) return null
+  try {
+    const parts = getFormatter({ style: 'currency', currency: code, currencyDisplay: 'symbol' }).formatToParts(0)
+    const symbol = parts.find((part) => part.type === 'currency')?.value ?? null
+    return symbol === '¤' ? null : symbol // the generic sign: no currency to name
+  } catch {
+    return null
+  }
 }
 
 export const fmtPercent = (
@@ -178,6 +269,17 @@ export const fmtPercentPoints = (value: NumericInput, options?: { digits?: numbe
   const formatted = formatter.format(num)
   return num > 0 ? `+${formatted}pp` : `${formatted}pp`
 }
+
+/**
+ * A count with en-US grouping ("12,480"). Every figure in the product reads in one locale whatever the
+ * viewer's browser says, so a bare `toLocaleString()` is banned outside this file
+ * (earningsnerd/locale-pinned-numbers in eslint.designRules.mjs).
+ */
+export const fmtCount = (value: number): string => getFormatter({ maximumFractionDigits: 0 }).format(value)
+
+/** A plain decimal with en-US grouping: at least `minDigits` and at most `maxDigits` fraction digits. */
+export const fmtDecimal = (value: number, options: { minDigits?: number; maxDigits: number }): string =>
+  getFormatter({ minimumFractionDigits: options.minDigits ?? 0, maximumFractionDigits: options.maxDigits }).format(value)
 
 /**
  * Sanitize a string for safe use in download filenames.
@@ -236,4 +338,23 @@ export const formatLocalDate = (
     return fallback
   }
   return format(date, pattern)
+}
+
+/**
+ * Format an INSTANT (a full ISO timestamp with its offset, such as Stripe's `trial_end` or
+ * `current_period_end`) as the day it falls on in the viewer's own time zone: the counterpart of
+ * formatLocalDate, which keeps a calendar-day value's own day. 2026-10-21T01:05:33Z falls on Oct 20 in
+ * New York, so a trial that ends then ends on Oct 20 for a reader there. parseISO rejects a rolled-over
+ * day or month, so an unreadable value renders the fallback, as formatLocalDate's does.
+ */
+export const formatInstant = (
+  value: string | null | undefined,
+  pattern: string,
+  fallback = '',
+): string => {
+  if (!value) return fallback
+  // Bound first: format(parseISO(x)) is the shape the date lint flags, and this helper is the path
+  // that lint's message gives a genuine timestamp.
+  const instant = parseISO(value)
+  return Number.isNaN(instant.getTime()) ? fallback : format(instant, pattern)
 }

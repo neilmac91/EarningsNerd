@@ -2,7 +2,11 @@ import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
-import type { Summary } from '@/features/summaries/api/summaries-api'
+import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
+import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
+import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
+import { formatMetricValue } from '@/features/summaries/lib/metricValue'
+import { fmtScale } from '@/lib/format'
 
 /**
  * Server-side data for the public pages (ISR). The homepage helpers return null on any
@@ -43,6 +47,12 @@ export interface ExampleMetric {
   deltaPercent?: number | null
 }
 
+/** A risk excerpt the server located in the filing text, with its link into the document. */
+export interface ExampleEvidence {
+  excerpt: string
+  url: string | null
+}
+
 export interface ExampleData {
   filingId: number
   ticker: string
@@ -53,6 +63,8 @@ export interface ExampleData {
   excerpt: string
   qualityTier: string | null
   metrics: ExampleMetric[]
+  /** The hero's one evidence row; null when the summary has no located excerpt. */
+  evidence?: ExampleEvidence | null
 }
 
 interface FilingPayload {
@@ -60,6 +72,7 @@ interface FilingPayload {
   filing_type: string
   filing_date: string
   sec_url: string
+  document_url?: string | null
   company?: { ticker: string; name: string }
 }
 
@@ -74,7 +87,11 @@ interface SummaryPayload {
       }> | null
     } | null
   } | null
-  raw_summary?: { quality?: { tier?: string } } | null
+  raw_summary?: {
+    quality?: { tier?: string }
+    risk_source_context_version?: number
+    sections?: { risks?: unknown; risk_factors?: unknown } | null
+  } | null
 }
 
 /** First ~2 sentences of the summary, markdown stripped, for the hero excerpt. */
@@ -96,21 +113,64 @@ export const toExcerpt = (markdown: string): string => {
 
 const METRIC_MATCHERS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'Revenue', pattern: /revenue|net sales/i },
-  { label: 'Net Income', pattern: /net income/i },
-  { label: 'Diluted EPS', pattern: /eps|earnings per share/i },
+  { label: 'Net income', pattern: /net income/i },
+  // The tile says diluted, so only a row that says diluted EPS fills it (chief design on #1876): a basic or a bare "EPS"
+  // row leaves the hero its other two figures rather than putting another figure under this name.
+  { label: 'EPS (diluted)', pattern: /^(?=.*\bdiluted\b)(?=.*\b(?:eps|earnings per share)\b)/i },
 ]
+
+// Each tile names the filing's GAAP figure, so a row marked adjusted or non-GAAP ("Adjusted diluted EPS", "Non-GAAP net
+// income") fills none of them (chief design's review of #1877): the tile takes the GAAP row, or the hero shows the others.
+const NON_GAAP = /\b(?:adjusted|non[\s‐‑-]?gaap)\b/i
+
+// A figure the server wrote whole from the filing's data, as a replaced figure is ("$133,050,000,000", "EUR
+// 30,600,000,000": backend/app/schemas/summary.py _format_xbrl_value, provenance_service._swap_in_filed_figures).
+const FILED_FIGURE = /^(\$|[A-Z]{3} )(-?)(\d{1,3}(?:,\d{3})+)$/
+
+/** A hero figure: one the server wrote whole is compacted, its currency kept: a dollar figure as the table shows it
+ *  ("$133.1B"), and one in another currency by its code ("EUR 30.6B"; the table shows that one whole). The summary's own
+ *  figures ("$416.2B", "€32.7B") read as written. */
+export const heroFigure = (value: string): string => {
+  const match = FILED_FIGURE.exec(value.trim())
+  if (!match) return value
+  const [, prefix, sign, digits] = match
+  return prefix === '$' ? formatMetricValue(value) : `${sign ? '-' : ''}${prefix}${fmtScale(digits)}`
+}
 
 const pickMetrics = (summary: SummaryPayload): ExampleMetric[] => {
   const facts = summary.financial_highlights?.normalized?.metrics ?? []
   const picked: ExampleMetric[] = []
   for (const { label, pattern } of METRIC_MATCHERS) {
     // Defensive: the payload is external — tolerate null entries in the array.
-    const fact = facts.find((f) => f?.metric && pattern.test(f.metric) && f.currentPeriod)
+    const fact = facts.find((f) => f?.metric && !NON_GAAP.test(f.metric) && pattern.test(f.metric) && f.currentPeriod)
     if (fact?.currentPeriod) {
-      picked.push({ label, value: fact.currentPeriod, deltaPercent: fact.deltaPercent })
+      picked.push({ label, value: heroFigure(fact.currentPeriod), deltaPercent: fact.deltaPercent })
     }
   }
   return picked.length >= 2 ? picked : []
+}
+
+/**
+ * The first risk excerpt the server projected from the filing and located in its text: the source
+ * owner (risk_source_context_version 1) marks it source_verified. A v2 summary keeps its risks under
+ * `sections.risks`, a v1 or unstamped one under `sections.risk_factors` (provenance_service), and
+ * both are read, as SummaryBlocks reads them. The payload is external, so the shape is checked here;
+ * a URL that is not https is dropped rather than linked.
+ */
+export const pickEvidence = (summary: SummaryPayload): ExampleEvidence | null => {
+  const raw = summary.raw_summary
+  const sections = raw?.risk_source_context_version === 1 ? raw.sections : null
+  const risks = sections?.risks ?? sections?.risk_factors
+  if (!Array.isArray(risks)) return null
+  for (const risk of risks) {
+    if (!risk || typeof risk !== 'object') continue
+    const { source_verified: verified, supporting_evidence: text, source_url: url } = risk as Record<string, unknown>
+    const excerpt = typeof text === 'string' ? text.trim() : ''
+    if (verified === true && excerpt) {
+      return { excerpt, url: typeof url === 'string' && /^https:\/\//.test(url) ? url : null }
+    }
+  }
+  return null
 }
 
 /**
@@ -128,6 +188,8 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
 
   const excerpt = toExcerpt(summary.business_overview)
   if (!excerpt) return null
+  const secUrl = originalDocumentUrl(filing)
+  if (!secUrl) return null
 
   return {
     filingId: filing.id,
@@ -135,10 +197,11 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
     companyName: filing.company.name,
     filingType: filing.filing_type,
     filingDate: filing.filing_date,
-    secUrl: filing.sec_url,
+    secUrl,
     excerpt,
     qualityTier: summary.raw_summary?.quality?.tier ?? null,
     metrics: pickMetrics(summary),
+    evidence: pickEvidence(summary),
   }
 }
 
@@ -158,19 +221,25 @@ export interface NotableFilingsResponse {
   timestamp: string
 }
 
-/** Market-wide notable filings (EDGAR-native). Server-rendered only — the section self-omits
- * when the list is empty, so there is no client query. Mounted on `/` again (W3-10); renders
- * nothing until NOTABLE_FILINGS_ENABLED is on, because the API answers 200 with an empty list.
+/** The landing's Notable filings row (features/filings/components/NotableFilings.tsx). Server-rendered only: the
+ * section omits itself when the list is empty, so there is no client query. The backend's query serves D-046's rule
+ * (F3, E90): the past week's 10-K and 10-Q filings from companies that hold a summary the filing page shows, newest
+ * first, one per company, at most six (backend/app/services/notable_filings_service.py). It answers 200 with an empty
+ * list while NOTABLE_FILINGS_ENABLED is off, in a week with fewer than three such companies, and on any failure of
+ * its own; a failed read here is null. Both render nothing.
+ *
+ * It asks for six, the rule's cap and the route's default. The backend serves six to any larger limit too, so the
+ * request says what the row can show rather than a number it would never be served.
  *
  * Revalidate is 3600, NOT the backend's 15-min serve-cache TTL, for two independent reasons.
  * First, `/` declares no route-level `revalidate`, so Next takes the MINIMUM over its fetches:
- * a 900 here would silently cut the whole homepage from 3600 to 900. Measured, not assumed —
+ * a 900 here would silently cut the whole homepage from 3600 to 900. Measured, not assumed:
  * `/`'s `initialRevalidateSeconds` in `.next/prerender-manifest.json` reads 900 with this at 900
  * and 3600 with it at 3600. Second, the data only moves twice a day: `notable-filings-scan` runs
  * 08:30 and 18:30 America/New_York (docs/DEPLOYMENT.md §12), so sub-hourly polling buys no
- * freshness at any flag state. Do not "restore" 900 when the section goes live. */
+ * freshness at any flag state. Do not "restore" 900. */
 export const fetchNotableFilings = (): Promise<NotableFilingsResponse | null> =>
-  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 3600)
+  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=6', 3600)
 
 export interface ReportingCompany {
   ticker: string
@@ -253,15 +322,23 @@ export const fetchFilingSummaryServer = async (
 }
 
 /**
- * Whether a summary carries real, displayable content (vs the legacy "Generating summary"
- * placeholder). Keep in sync with `hasSummaryContent` in
- * features/summaries/hooks/useSummaryGeneration.ts: this server-side twin drives the
- * noindex decision on filing pages, so index/noindex must match what visitors actually see.
+ * The filing's change report (DB-only, no AI), read on the server so the summary's What changed
+ * section is in the first HTML: inserted after a client fetch, it pushed every later section down
+ * and renumbered the table of contents. Revalidates with the summary.
+ */
+export const fetchWhatChangedServer = (filingId: number): Promise<ServerFetchResult<ChangeReport>> =>
+  fetchJsonResult<ChangeReport>(`/api/summaries/filing/${filingId}/what-changed`, 3600)
+
+/**
+ * Whether the filing page shows this summary's body: the one readiness rule (isSummaryReady), so
+ * placeholder filler and a stored failure, which the page shows as its error card, are not. It drives
+ * the filing page's noindex and description, so index/noindex and the snippet match what visitors
+ * actually see: a failure row stays out of the index and never lends its text ("requires OpenAI API
+ * key") to the description. The hero example skips such a summary too.
  */
 export const summaryHasDisplayableContent = <T extends { business_overview?: string | null }>(
   summary: T | null | undefined,
-): summary is T & { business_overview: string } =>
-  !!(summary?.business_overview && !summary.business_overview.includes('Generating summary'))
+): summary is T & { business_overview: string } => isSummaryReady(summary)
 
 // --- Signup gate (landing page access line) ---------------------------------------------------
 

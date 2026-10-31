@@ -4,11 +4,64 @@ or when the pull request body records an explicit override with a reason.
 
 This is the rule-12 machine gate for ``lessons/ops-a-review-you-triggered-is-a-review-you-wait-for.md``.
 Codex publishes no check run of its own; the only machine-observable record of a review is its
-"Codex Review Summary" issue comment, whose table row names the reviewed commit (short SHA) and a
-status (Running / Completed / Failed). This script polls that comment for the head under test and
+"Codex Review Summary" issue comment. F58 also requires its full-SHA machine state to be completed
+with unresolved findings false. Trusted GitHub ready events and bot-authored edit history prove the
+ready mark's own running/completed cycle; a draft-era completion cannot pass the ready check. A later
+manual review may supersede a completed ready cycle on a different head, including fixes to its
+findings. On the same head the ready cycle must itself be clean. The newest human review request
+must be covered, even before the bot publishes Running. Missing history, malformed state and API errors
+never pass. The bot exposes no run id, so the history is replayed: a completion pairs with the open start of
+its head and trigger, never with one begun while another of them was open, and any start still open blocks
+the pass until it completes or is an hour old, when it counts as abandoned (F58 call 1). This script polls
+that comment for the head under test and
 publishes its verdict through the ``review-gate`` job of ``.github/workflows/review-gate.yml``.
 Requiring that check in a ruleset on ``main`` (a founder decision) makes the rule binding; a
 required status check needs no approver, so it cannot lock a solo-administrator repository.
+
+Closing keywords: the gate fails, draft or not and override or not, while the pull request's title,
+body or any of its commit messages puts a closing keyword (close, fix or resolve in any form) before an
+issue or pull request reference. GitHub closes what such a keyword names when the pull request merges
+into the default branch, a pull request included: on 2026-10-09 #1136's body named #1156 that way, and
+#1156 was left closed, unmerged, by that merge (``lessons/ops-closing-keywords-close-what-they-name.md``).
+Editing the title or body re-runs the gate; a commit message is reworded on the branch. A deliberate
+close is done by hand after the merge. The check reads text as GitHub renders it (Markdown escapes
+dropped, HTML entities decoded) and fails closed: it also matches forms GitHub does not document (no
+space, Markdown marks or a line break between keyword and reference, ``GH-N``, issue and pull URLs),
+and it fails a pull request listing 250 commits, the most GitHub lists, whose later messages it cannot
+read. A squash message typed at merge is outside any pull-request check.
+
+Open rows (E218): the gate fails, draft or not and override or not, while the pull request changes a file that an
+open row of ``tasks/todo.md`` leaves to its next change, until its title, body or a commit message names each such
+row by its id. A row leaves a path to its next change when a segment of its owner (the parenthetical after its id and
+disposition, split at its semicolons) names a next change ("next writer of", "the next functional change to", "the
+next PR that changes") and the path in backticks: an owner ``(next writer of `routers/auth.py`, high tier; ...)``
+owns each changed file whose path holds ``routers/auth.py`` as whole segments, and a directory such as
+``summary_stages`` owns every file under it. E92 left a voice pass to "the next functional change to
+`summary_stages`", and four pull requests changed it without naming E92 before #1671 carried it. The gate checks the
+naming alone: whether the pull request carries the row or says why not, what the owner asks of a change
+("functional"), and an owner that names no path stay review-checked
+(``lessons/ops-read-the-rows-a-change-owns-before-you-make-it.md``). The rows are the base branch's as the gate runs,
+read from the checkout the workflow makes: a row the pull request adds binds the next change, a row it deletes still
+binds it, and a row that lands on the base after a pull request's last run binds it from its next run (a push, an
+edit or a re-run). A renamed file counts under both its paths. GitHub lists at most 3,000 of a pull request's files,
+and the gate reads them once per head; at that cap the rest are unread, so every open row that leaves a path counts
+until the pull request names it.
+
+Dropped columns (E245): the gate fails, draft or not and override or not, while a migration the pull request adds or
+changes under ``backend/migrations/`` drops a column that the base branch's models map. ``deploy-backend`` applies a
+merge's migrations before its task worker, service and job images run the merge's code, so the code serving while
+they run is the base's, and a column it maps must outlive the deploy that stops mapping it: one pull request stops
+mapping it, and a later one drops it once that one's deploy is green (``lessons/ops-drop-a-mapped-column-in-two-deploys.md``).
+Each such migration is read at the head through the API, comments aside: every ``DROP [COLUMN] [IF EXISTS] name`` in
+an ``ALTER TABLE`` statement. The base's models are read from the checkout by their source: each name assigned a
+``Column`` or ``mapped_column`` call in a class body that sets ``__tablename__``, under the name the call gives.
+Names compare folded to lower case. A drop the gate cannot attribute to a table (one built in dynamic SQL) and a
+migration it cannot read at the head fail the pull request closed, and the log says which; models it cannot read
+fail one whose migrations drop a column. Comments are stripped without regard to string literals, so a ``--`` or
+``/*`` inside a string can hide what follows it on its line or in its comment; no migration here writes one. The
+gate reads the base as the pull request would merge into it, so whether the deploy that stopped mapping the column
+is green before the drop merges stays review-checked (AGENTS.md §6), and so do a renamed column, a dropped table and a
+changed type, which break the serving code too.
 
 Override: a line ``Review override: <reason>`` (at least ten characters of reason) in the pull
 request body passes the gate with the reason echoed into the job log. That is the rule's own
@@ -18,6 +71,15 @@ the review service is unavailable.
 After pushing commits that address findings, comment ``@codex review`` right away: a push alone
 re-triggers nothing here, and the gate waits for a review of the new head. If the review finishes
 after the gate timed out, re-run the failed job (``gh run rerun <run-id> --failed``).
+
+Drafts: the gate fails while the pull request is a draft, and marking it ready starts the wait. It
+reads the draft flag from the pull request as it is now, never from the event that started the
+run. A job skipped by its ``if`` reports success, which a required check counts as passing, and an
+event can still describe a draft after the pull request was marked ready: one update that edits the
+body and marks it ready fires both events, and on #1315 the draft one ran second, cancelled the
+ready run before it could wait, and skipped. So the workflow never skips this job on a pull-request
+event, and the job passes only on a completed review of the head or a recorded override. A re-run
+keeps the workflow definition its run started with, so that holds for runs created after the change.
 
 The workflow runs on ``pull_request_target`` and checks out the BASE branch, so a pull request can
 edit neither its own gate script nor the workflow definition; and a reviewed short SHA counts only
@@ -31,13 +93,19 @@ Stdlib only: this runs before any dependency install.
 """
 from __future__ import annotations
 
+import ast
+import base64
+import html
 import json
 import os
 import re
 import sys
 import time
+import urllib.parse
 import urllib.request
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Callable, Collection, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Union
 
 SUMMARY_MARKER = "codex-pull-request-review-summary"
 # The exact GitHub App identity that publishes the summary (login, account type and immutable id,
@@ -46,6 +114,35 @@ SUMMARY_MARKER = "codex-pull-request-review-summary"
 CODEX_BOT = {"login": "chatgpt-codex-connector[bot]", "type": "Bot", "id": 199175422}
 OVERRIDE = re.compile(r"^\s*Review override:\s*(?P<reason>\S.{9,})\s*$", re.IGNORECASE | re.MULTILINE)
 ROW = re.compile(r"\*\*Code Review\*\*\s*\|\s*(?P<status>[^|]*?)\s*\|\s*`(?P<commit>[0-9a-f]{7,40})`", re.IGNORECASE)
+# A closing keyword, then a reference: GitHub documents the keyword in any case with an optional colon,
+# then ``#N`` or ``OWNER/REPO#N``. Between the two this also allows no space, line breaks and Markdown
+# marks (``_`` included, so the keyword's edges are letters and digits, not ``\b``), and it takes ``GH-N``
+# and github.com issue or pull URLs, so an undocumented form fails closed. ``(`` and ``;`` stay out: "fix
+# (#665)" on #674 and "fix; #1285" on #1306 closed nothing at the merge. A tag stays out too: Dependabot's
+# release notes put a keyword before an HTML link to an upstream issue (``<a href=...>#233</a>``), which
+# names nothing here. The owner starts with a letter or digit, as GitHub requires, so a path such as
+# ``fix-notes/README.md#1-intro`` is not one; owner and repository are bounded (GitHub allows 39 and 100
+# characters), which also keeps a run such as ``fix-fix-fix-...`` linear.
+CLOSING = re.compile(
+    r"(?<![^\W_])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)(?![^\W_])[\s:*_`~>\[<]*"
+    r"(?:(?:[^\W_][\w.-]{0,99}/[\w.-]{1,100})?#\d+|GH-\d+"
+    r"|https?://(?:www\.)?github\.com/[\w.-]{1,100}/[\w.-]{1,100}/(?:issues|pull)/\d+)",
+    re.IGNORECASE)
+# GitHub reads the rendered text: a backslash escape (``\#12``) and an HTML entity (``&#35;12``, ``&nbsp;``)
+# render as the character they stand for, so both are undone before matching.
+ESCAPE = re.compile(r"\\(?=[^\w\s])")
+MAX_PAGES = 10  # bounded reads; incomplete evidence never passes
+STATE_MARKER = re.compile(r"<!--\s*codex-review-state:v1\s+(.*?)\s*-->", re.DOTALL)
+CYCLE_ROW = re.compile(
+    r"\*\*Code Review\*\*\s*\|\s*(?P<status>[^|]+)\|\s*`(?P<commit>[0-9a-f]{7,40})`\s*\|\s*(?P<trigger>[^|]+)\|",
+    re.IGNORECASE,
+)
+COMMIT_LIST_CAP = 250  # GitHub's pull-request commits endpoint lists at most 250 commits
+# F58 call 1 (the founder, 2026-10-23: "Call 1 approved"): a review start still open this long counts as
+# abandoned. All 242 single Codex runs on PRs 1380-1486 finished within 21 minutes, and 34 of 35 superseded
+# runs never finished (review 6341504879), so a run open for the hour is taken to be hung: from then on it
+# no longer blocks the gate, and a completion is never paired with it.
+ABANDON_AFTER = timedelta(minutes=60)
 
 Verdict = Tuple[str, str]  # ("pass" | "wait" | "fail", message)
 
@@ -71,51 +168,629 @@ def override_reason(body: Optional[str]) -> Optional[str]:
     return match.group("reason").strip() if match else None
 
 
+def closing_references(texts: Iterable[Tuple[str, Optional[str]]]) -> List[str]:
+    """Every closing reference in the (where, text) pairs, read as rendered, as ``where: "keyword #N"``."""
+    return [f'{where}: "{" ".join(match.group(0).split())}"'
+            for where, text in texts for match in CLOSING.finditer(html.unescape(ESCAPE.sub("", text or "")))]
+
+
+# E218: an open row of tasks/todo.md opens with its id, an em dash and its disposition, then its owner in
+# parentheses: "E121 <dash> DO (next writer of `routers/auth.py`, high tier; ...)". The file has also marked the id with
+# a colon, an en dash or a hyphen, written the disposition in other cases or with a clause ("Do, high tier (") and put
+# the id in bold, and each such head is read. A segment of the owner, split at semicolons outside code spans and nested
+# parentheses, that names a next change ("next writer of", "the next functional change to", "the next PR that
+# changes") names in backticks the paths that change owns. A segment that names none ("high tier for
+# `internal.py`", "at the next deploy of `x`") binds nothing, and neither does the row's text after its owner; a
+# "next" inside a code span (`the next writer of X`) is the span's. At most four words come before the owner.
+OPEN_ROW = re.compile(r"- \[ \] \**(?P<row>[A-Z]+\d+)\**\s*(?:[\u2014\u2013:-]\s*)?(?:[A-Za-z][A-Za-z,-]*\s+){0,4}\(")
+NEXT_CHANGE = re.compile(r"\bnext\s+(?:[\w'-]+\s+){0,3}?(?:writers?|changes?|prs?|pull\s+requests?)\b", re.IGNORECASE)
+CODE_SPAN = re.compile(r"`([^`]+)`")
+# The base branch's open items: the workflow checks out the base, and runs this script from its root.
+TODO = Path(__file__).resolve().parents[2] / "tasks" / "todo.md"
+# GitHub's pull-request files endpoint lists at most 3,000 files, 30 pages of 100.
+FILE_LIST_CAP = 3000
+
+
+class OwnedRow(NamedTuple):
+    row: str                # the row's id, such as E121
+    paths: Tuple[str, ...]  # the paths its owner leaves to their next change, such as routers/auth.py
+
+
+def _owner_segments(text: str) -> List[str]:
+    """The owner's segments. ``text`` starts just inside its parenthesis and the owner ends at the one that closes
+    it, or at the line's end; a code span hides parentheses and semicolons."""
+    segments: List[str] = []
+    current: List[str] = []
+    depth, code = 0, False
+    for char in text:
+        if char == "`":
+            code = not code
+        elif not code and char == "(":
+            depth += 1
+        elif not code and char == ")":
+            if not depth:
+                break
+            depth -= 1
+        elif not code and not depth and char == ";":
+            segments.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    segments.append("".join(current))
+    return segments
+
+
+def _owner_path(span: str) -> str:
+    """A path from the owner as the gate matches it: a line reference (``x.py:86``), a leading ``./`` or ``/``,
+    and a trailing ``/`` or ``/**`` dropped, so a directory owns everything under it."""
+    path = re.sub(r":\d+(?:-\d+)?$", "", span.strip())
+    path = re.sub(r"(?:/\*{1,2})+$", "", path).rstrip("/")
+    return path[2:] if path.startswith("./") else path.lstrip("/")
+
+
+def owned_rows(todo: str) -> List[OwnedRow]:
+    """Every open row whose owner leaves a path to its next change, with the paths it names, in file order."""
+    rows = []
+    for line in todo.splitlines():
+        match = OPEN_ROW.match(line)
+        if not match:
+            continue
+        segments = [segment for segment in _owner_segments(line[match.end():])
+                    if NEXT_CHANGE.search(CODE_SPAN.sub(" ", segment))]
+        paths = tuple(dict.fromkeys(
+            path for segment in segments for path in map(_owner_path, CODE_SPAN.findall(segment)) if path))
+        if paths:
+            rows.append(OwnedRow(match.group("row"), paths))
+    return rows
+
+
+def _owns(path: str, filename: str) -> bool:
+    """Whether ``filename`` is ``path`` or lies under it, matched on whole segments anywhere in its path, so
+    ``routers/auth.py`` owns backend/app/routers/auth.py and not routers/oauth.py, and a bare directory name owns
+    every file under a directory of that name."""
+    want, have = path.split("/"), filename.split("/")
+    return any(have[start:start + len(want)] == want for start in range(len(have) - len(want) + 1))
+
+
+def unnamed_rows(rows: Iterable[OwnedRow], files: Iterable[str], texts: Iterable[Optional[str]],
+                 complete: bool = True) -> List[Tuple[OwnedRow, List[str]]]:
+    """Each row that no text names by its id and that owns a changed file, with the files it owns. With the file
+    list incomplete, every row no text names counts, since an unlisted file may be one it owns."""
+    changed, read = list(files), [text or "" for text in texts]
+    found = []
+    for owned in rows:
+        mine = [name for name in changed if any(_owns(path, name) for path in owned.paths)]
+        named = re.compile(rf"(?<![A-Za-z0-9]){re.escape(owned.row)}(?![A-Za-z0-9])")
+        if (mine or not complete) and not any(named.search(text) for text in read):
+            found.append((owned, mine))
+    return found
+
+
+# The base branch's models, from the checkout the workflow makes, as TODO is.
+MODELS = Path(__file__).resolve().parents[1] / "app" / "models"
+MIGRATION_DIR = "backend/migrations/"
+SQL_COMMENT = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
+# ``ALTER TABLE [IF EXISTS] [ONLY] [schema.]table`` and the rest of its statement, to its semicolon.
+ALTER_TABLE = re.compile(r'\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(?:"?\w+"?\s*\.\s*)?"?(?P<table>\w+)"?'
+                         r"(?P<body>[^;]*)", re.IGNORECASE)
+# A column the statement drops. After COLUMN, ``DROP COLUMN [IF EXISTS] name`` names it, whatever the name; without
+# COLUMN, ``DROP [IF EXISTS] name`` drops a column unless the word after DROP is CONSTRAINT, DEFAULT, NOT (NULL),
+# IDENTITY or EXPRESSION, which drop something else.
+DROP = re.compile(r'\bDROP\s+(?:COLUMN\s+(?:IF\s+EXISTS\s+)?"?(?P<column>\w+)"?'
+                  r'|(?:IF\s+EXISTS\s+)?(?!(?:CONSTRAINT|DEFAULT|NOT|IDENTITY|EXPRESSION|COLUMN)\b)"?(?P<bare>\w+)"?)',
+                  re.IGNORECASE)
+DROP_COLUMN = re.compile(r"\bDROP\s+COLUMN\b", re.IGNORECASE)
+ALTER_TABLE_WORDS = re.compile(r"\bALTER\s+TABLE\b", re.IGNORECASE)
+DROP_WORD = re.compile(r"\bDROP\b", re.IGNORECASE)
+COLUMN_CALLS = ("Column", "mapped_column")
+Drop = Tuple[str, str, str]  # (migration file, table, column)
+
+
+def dropped_columns(sql: str) -> List[Tuple[str, str]]:
+    """Each ``(table, column)`` a migration's SQL drops, names folded to lower case, comments aside. A drop the gate
+    cannot attribute to a table, such as one built in dynamic SQL (a DROP COLUMN outside an ALTER TABLE statement it
+    reads, or an ALTER TABLE on a table it cannot read whose statement drops something), raises ValueError, so the
+    gate fails closed rather than miss it."""
+    text = SQL_COMMENT.sub(" ", sql)
+    found: List[Tuple[str, str]] = []
+    bodies: List[Tuple[int, int]] = []
+    for statement in ALTER_TABLE.finditer(text):
+        bodies.append(statement.span("body"))
+        found.extend((statement.group("table").lower(), (drop.group("column") or drop.group("bare")).lower())
+                     for drop in DROP.finditer(statement.group("body")))
+    if any(not any(start <= match.start() < end for start, end in bodies) for match in DROP_COLUMN.finditer(text)):
+        raise ValueError("a DROP COLUMN outside an ALTER TABLE statement the gate reads")
+    read = {match.start() for match in ALTER_TABLE.finditer(text)}
+    if any(match.start() not in read and DROP_WORD.search(text[match.end():].split(";", 1)[0])
+           for match in ALTER_TABLE_WORDS.finditer(text)):
+        raise ValueError("an ALTER TABLE on a table the gate cannot read, whose statement drops something")
+    return found
+
+
+def _called(func: ast.expr) -> str:
+    """The name a call reaches its function by: ``Column`` for ``Column(...)`` and ``sa.Column(...)``."""
+    return func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
+
+
+def mapped_columns(sources: Iterable[str]) -> Set[Tuple[str, str]]:
+    """Each ``(table, column)`` the models in ``sources`` (Python source) map, names folded to lower case: in a class
+    body that sets ``__tablename__`` to a string, each name assigned a ``Column(...)`` or ``mapped_column(...)`` call,
+    under the name the call gives (a string first argument, or ``name=``) or else its own. A class that assigns a
+    column but sets no string ``__tablename__`` (a mixin, or a computed name), and a column assigned in another form
+    (wrapped in ``deferred(...)``, or several to one statement), raise ValueError: the gate cannot tell what the base
+    maps, so it fails closed."""
+    mapped: Set[Tuple[str, str]] = set()
+    for source in sources:
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            table: Optional[str] = None
+            columns: List[str] = []
+            for statement in node.body:
+                if isinstance(statement, ast.Assign):
+                    targets, value = statement.targets, statement.value
+                elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+                    targets, value = [statement.target], statement.value
+                else:
+                    continue
+                names = [target.id for target in targets if isinstance(target, ast.Name)]
+                if "__tablename__" in names:
+                    if not (isinstance(value, ast.Constant) and isinstance(value.value, str)):
+                        raise ValueError(f"class {node.name} sets __tablename__ to something other than a string")
+                    table = value.value
+                elif any(isinstance(inner, ast.Call) and _called(inner.func) in COLUMN_CALLS for inner in ast.walk(value)):
+                    if not (isinstance(value, ast.Call) and _called(value.func) in COLUMN_CALLS and len(names) == 1):
+                        raise ValueError(f"class {node.name} assigns a column in a form the gate cannot read")
+                    given = [arg.value for arg in value.args[:1]
+                             if isinstance(arg, ast.Constant) and isinstance(arg.value, str)]
+                    given += [keyword.value.value for keyword in value.keywords if keyword.arg == "name"
+                              and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str)]
+                    columns.append((given or names)[0])
+            if columns and table is None:
+                raise ValueError(f"class {node.name} assigns a column but names no table")
+            if table is not None:
+                mapped.update((table.lower(), column.lower()) for column in columns)
+    return mapped
+
+
+def read_mapped_columns(models: Path) -> Set[Tuple[str, str]]:
+    """The columns the models under ``models`` map. It raises when they cannot be read: no model file
+    (FileNotFoundError), one that is unreadable or does not parse, or a class ``mapped_columns`` cannot read."""
+    sources = [path.read_text(encoding="utf-8") for path in sorted(models.glob("*.py"))]
+    if not sources:
+        raise FileNotFoundError(f"no model file under {models}")
+    return mapped_columns(sources)
+
+
 Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in the repository, or None
 
 
-def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
-           pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None) -> Verdict:
-    """Pure decision over the pull request's comments, body and commit list for one head SHA.
+class EvidenceError(ValueError):
+    """Missing or contradictory evidence must not become a successful check."""
 
-    Codex names the reviewed commit by a short SHA. It identifies the head only when the
-    repository resolves that prefix to exactly the head (so a force-pushed reviewed commit that
-    is still an object in the repository keeps a minted lookalike ambiguous) AND no other commit
-    of the pull request shares it."""
+
+class SnapshotChanged(EvidenceError):
+    """A concurrent PR update requires a fresh poll, not mixed evidence."""
+
+
+def _timestamp(value: Any) -> datetime:
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z", value):
+        raise EvidenceError("missing or malformed GitHub/review timestamp")
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise EvidenceError("invalid GitHub/review timestamp") from exc
+
+
+def _unique_object(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise EvidenceError("duplicate key in Codex state")
+        result[key] = value
+    return result
+
+
+class Unreadable(NamedTuple):
+    """A summary version with no readable code state (a version from before the machine marker, or a
+    malformed one), at its edit time. It may hide a review start, so while it is younger than
+    ``ABANDON_AFTER`` no completion pairs past it and the gate waits; older, it is history."""
+    at: datetime
+
+
+class Review(NamedTuple):
+    head: str
+    short: str
+    status: str
+    unresolved: Optional[bool]
+    at: datetime
+    trigger: str
+
+    def cycle_state(self) -> tuple:
+        # Findings can be resolved without running the review again. Security-review edits also
+        # repeat this code state; neither is a new start or completion.
+        return self.head, self.status, self.at, self.trigger
+
+
+def _review(body: str) -> Review:
+    decoded = html.unescape(body)
+    markers = STATE_MARKER.findall(decoded)
+    rows = list(CYCLE_ROW.finditer(decoded))
+    if len(markers) != 1 or len(rows) != 1:
+        raise EvidenceError("expected one Codex code-state marker and one review row")
+    try:
+        code = json.loads(markers[0], object_pairs_hook=_unique_object)["code_review"]
+        head, status, unresolved = code["commit_sha"], code["status"], code["has_unresolved_findings"]
+    except (KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise EvidenceError("malformed Codex code state") from exc
+    if not isinstance(head, str) or not re.fullmatch(r"[0-9a-f]{40}", head):
+        raise EvidenceError("Codex state must name a full head SHA")
+    if status not in ("running", "completed", "failed", "error"):
+        raise EvidenceError("unknown Codex code status")
+    if unresolved is not None and type(unresolved) is not bool:
+        raise EvidenceError("unresolved-findings state is not a boolean")
+    if status == "completed" and type(unresolved) is not bool:
+        raise EvidenceError("completed review has no unresolved-findings verdict")
+    row = rows[0]
+    statuses = re.findall(r"\*\*(Running|Completed|Failed|Error)\*\*", row["status"], re.IGNORECASE)
+    times = re.findall(r'<relative-time\s+datetime="([^"]+)"', row["status"])
+    if len(statuses) != 1 or statuses[0].lower() != status or len(times) != 1:
+        raise EvidenceError("Codex row and machine status disagree or lack a review time")
+    short = row["commit"].lower()
+    if not head.startswith(short):
+        raise EvidenceError("Codex row and machine head disagree")
+    trigger = row["trigger"].strip()
+    if trigger not in ("PR opened", "Draft marked ready", "Manual request"):
+        raise EvidenceError("unknown Codex review trigger")
+    return Review(head, short, status, unresolved, _timestamp(times[0]), trigger)
+
+
+Entry = Union["Review", Unreadable]  # one summary version, newest first in a history
+
+
+def _history(comment: Dict[str, Any]) -> List[Entry]:
+    history = comment.get("review_history")
+    if not isinstance(history, list) or not history:
+        raise EvidenceError("Codex summary edit history is unavailable")
+    if html.unescape(str(history[0].get("diff", ""))) != html.unescape(str(comment.get("body", ""))):
+        raise EvidenceError("latest summary history disagrees with the current REST comment; retry the read")
+    states: List[Entry] = []
+    previous = datetime.max.replace(tzinfo=timezone.utc)
+    for item in history:
+        editor = item.get("editor") or {}
+        if (editor.get("login") != "chatgpt-codex-connector" or editor.get("__typename") != "Bot"
+                or editor.get("databaseId") != CODEX_BOT["id"]):
+            raise EvidenceError("summary history has an untrusted or missing editor")
+        edited = _timestamp(item.get("editedAt"))
+        if edited > previous:
+            raise EvidenceError("summary history is not newest first")
+        previous = edited
+        try:
+            states.append(_review(item.get("diff") or ""))
+        except EvidenceError:
+            # An old pre-marker version is irrelevant once it is past the abandonment age; younger,
+            # it may hide a start (``_replay``).
+            states.append(Unreadable(edited))
+    return states
+
+
+class Replay(NamedTuple):
+    starts: Dict[int, Review]   # completion index (newest-first) -> the start it is paired with
+    open: List[Entry]           # starts no completion closed, and unreadable versions, oldest first
+    overlapping: List[Review]   # starts begun while a rival was open; no completion ever pairs with them
+
+
+def _open_at(entry: Entry, moment: datetime) -> bool:
+    """Whether a start, or an unreadable version that may hide one, still counts at ``moment``: it is under the
+    abandonment age then (F58 call 1). One stamped after ``moment`` counts too, so clock skew never hides it."""
+    return moment - entry.at < ABANDON_AFTER
+
+
+def _replay(states: List[Entry]) -> Replay:
+    """Replay the summary history oldest first (F58 call 1; B1 in review 6341504879). The summary shows only
+    the newest review and carries no run id, so a start is a version reading Running and a completion one
+    reading Completed, Failed or Error; a version repeating any earlier code state (a security-review edit,
+    a finding resolved) is that start or completion again, not a new one. A start stays open until a
+    completion closes it or it is an hour old, when it counts as abandoned.
+
+    A start that begins while another start of its head and trigger is open, or while an unreadable version
+    that may hide one is under the hour, overlaps it: a later completion could be either run's, so none ever
+    pairs with the overlapping start, which stays open and holds the gate until its hour is up. That is the
+    machine gate (rule 12) for "no ready mark or review request while a review runs". So at most one open
+    start of a head and trigger can take a completion, and it does; an earlier completion that took the
+    older start when the newer finished first leaves no start the newer run's could wrongly claim. An
+    unreadable version under the hour at a completion may hide its start, so that completion pairs with
+    nothing. What the replay cannot tell apart is a run that completes an hour or more after it began,
+    while a later run of its head and trigger, begun once that hour was up, is still going: the late
+    completion pairs with the later start, which then counts as closed, so a run begun after it (a fresh
+    transition or request after that completion) does not overlap it either, and the later run's own
+    completion pairs with the newest start. Either way the gate can pass while a review is still going.
+    The gate accepts that risk, which call 1's abandonment age brings with it: no run in PRs 1380-1486
+    took more than 21 minutes, and none is known to have completed after its hour."""
+    starts: Dict[int, Review] = {}
+    pending: List[Entry] = []
+    overlapping: List[Review] = []
+    # Every code state seen so far; a completion's maps to the start it closed. A version repeating one of
+    # them, adjacent or not, is a re-render of that start or completion, never a new run.
+    seen: Dict[tuple, Optional[Review]] = {}
+    for index in range(len(states) - 1, -1, -1):
+        state = states[index]
+        if isinstance(state, Unreadable):
+            pending.append(state)
+            continue
+        key = state.cycle_state()
+        if key in seen:
+            if seen[key] is not None:
+                starts[index] = seen[key]
+            continue
+        seen[key] = None
+        live = [entry for entry in pending if _open_at(entry, state.at)]
+        hidden = any(isinstance(entry, Unreadable) for entry in live)
+        rivals = [entry for entry in live if isinstance(entry, Review)
+                  and entry.head == state.head and entry.trigger == state.trigger]
+        if state.status == "running":
+            if hidden or rivals:
+                overlapping.append(state)
+            pending.append(state)
+            continue
+        if hidden:
+            continue  # a hidden start may own this completion; it pairs with nothing
+        match = next((entry for entry in rivals if entry.at <= state.at and entry not in overlapping), None)
+        if match is not None:
+            pending.remove(match)
+            starts[index] = seen[key] = match
+    return Replay(starts, pending, overlapping)
+
+
+def _overlapped(replay: Replay, review: Review) -> bool:
+    return any(start.cycle_state() == review.cycle_state() for start in replay.overlapping)
+
+
+# The one way out once a completion cannot be placed: a review that starts with nothing else open pairs.
+FRESH_TRANSITION = ("make one fresh draft-to-ready transition, its two steps a few seconds apart, with no manual "
+                    "request, and let that review complete; reserve copilot-eval first when its paths match")
+
+
+def _cycle_start(states: List[Entry], index: int) -> Review:
+    completed = states[index]
+    if not isinstance(completed, Review) or completed.status != "completed":
+        raise EvidenceError("review completion is missing")
+    start = _replay(states).starts.get(index)
+    if start is None:
+        raise EvidenceError("review completion has no start to pair with: its running state is missing, names "
+                            "another head or trigger, began while another review of its head and trigger was "
+                            "open, is an hour or more before it, or sits within the hour after an unreadable "
+                            f"summary version. No later poll can pair it; with no review open, {FRESH_TRANSITION}")
+    return start
+
+
+def _abandoned_from(entry: Entry) -> str:
+    """The first whole second at which ``entry`` counts as abandoned."""
+    moment = entry.at + ABANDON_AFTER
+    if moment.microsecond:
+        moment = moment.replace(microsecond=0) + timedelta(seconds=1)
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _require_no_live_start(states: List[Entry], now: datetime) -> None:
+    """Pass only with no review still running: a start no completion closed blocks until the abandonment
+    age, and so does an unreadable version that may hide one (F58 call 1)."""
+    replay = _replay(states)
+    for entry in reversed(replay.open):
+        if _open_at(entry, now):
+            if isinstance(entry, Unreadable):
+                raise EvidenceError(f"an unreadable summary version from {entry.at:%H:%M:%S}Z may hide a running "
+                                    f"review; it stops counting at {_abandoned_from(entry)}")
+            if _overlapped(replay, entry):
+                raise EvidenceError(f"a Codex review of {entry.short} ({entry.trigger}) started at {entry.at:%H:%M:%S}Z "
+                                    "while another review that may share its head and trigger was open, so no "
+                                    f"completion can count for it; it holds the gate until {_abandoned_from(entry)}, "
+                                    f"and then {FRESH_TRANSITION}")
+            raise EvidenceError(f"a Codex review of {entry.short} ({entry.trigger}) started at {entry.at:%H:%M:%S}Z "
+                                f"has not completed; it counts as abandoned from {_abandoned_from(entry)}")
+
+
+def _review_evidence(head: str, comments: List[Dict[str, Any]], created_at: Optional[str],
+                     timeline: Optional[List[Dict[str, Any]]]) -> Tuple[Review, List[Entry], Optional[datetime]]:
+    summaries = [c for c in comments if is_codex_bot(c.get("user")) and SUMMARY_MARKER in str(c.get("body") or "")]
+    if not summaries:
+        raise EvidenceError(f"no Codex review summary yet for {head[:7]}")
+    # Do not search older comments for a passing result after a new canonical summary was posted.
+    latest = max(summaries, key=lambda c: (_timestamp(c.get("created_at")), c.get("id", 0)))
+    current = _review(latest.get("body") or "")
+    states = _history(latest)
+    created = _timestamp(created_at)
+    if timeline is None:
+        raise EvidenceError("complete ready-for-review timeline is unavailable")
+    ready = [_timestamp(e.get("created_at")) for e in timeline if e.get("event") == "ready_for_review"]
+    drafts = [_timestamp(e.get("created_at")) for e in timeline if e.get("event") == "convert_to_draft"]
+    anchor = max(ready) if ready else created
+    if anchor < created or (drafts and max(drafts) >= anchor):
+        raise EvidenceError("ready timeline disagrees with the live non-draft state")
+    return current, states, max(ready) if ready else None
+
+
+def _latest_request(comments: List[Dict[str, Any]], anchor: datetime) -> Optional[datetime]:
+    requests = []
+    for comment in comments:
+        if ((comment.get("user") or {}).get("type") == "User"
+                and re.match(r"^@codex review(?:\s|$)", str(comment.get("body") or ""))):
+            created = _timestamp(comment.get("created_at"))
+            if created >= anchor:
+                requests.append((created, comment))
+    if not requests:
+        return None
+    created, latest = max(requests, key=lambda item: (item[0], item[1].get("id", 0)))
+    # A newer unedited command supersedes an older edited request. Only the request this cycle
+    # must answer needs creation-time evidence; an edit never proves the command existed then.
+    if latest.get("updated_at") != latest.get("created_at"):
+        raise EvidenceError("edited review request cannot establish a creation-time trigger")
+    return created
+
+
+def _after_github_second(start: datetime, event: datetime) -> bool:
+    """REST creation/event timestamps expose only the second containing the event. A bot start
+    anywhere in that second, even with fractional precision, may precede it. Only the next whole
+    second or later proves the start followed this request, ready mark or PR creation."""
+    return start >= event.replace(microsecond=0) + timedelta(seconds=1)
+
+
+def _prove_cycles(current: Review, states: List[Entry], ready: Optional[datetime],
+                  created: datetime, request: Optional[datetime], now: datetime) -> None:
+    _require_no_live_start(states, now)
+    start = _cycle_start(states, 0)
+    anchor = ready or created
+    if not _after_github_second(start.at, anchor):
+        raise EvidenceError(f"review start does not provably follow the current ready/creation second (its completion "
+                            f"pairs with the review started at {start.at:%H:%M:%S}Z); with no review open, "
+                            f"{FRESH_TRANSITION}")
+    if request is not None and (current.trigger != "Manual request" or not _after_github_second(start.at, request)):
+        raise EvidenceError("latest manual @codex review request has not completed its own cycle")
+    if current.trigger == "Manual request" and request is None:
+        raise EvidenceError("manual review has no matching human @codex review request")
+    if ready is None:
+        if current.trigger not in ("PR opened", "Manual request"):
+            raise EvidenceError("ready-trigger review has no trusted ready event")
+        return
+    if current.trigger == "Draft marked ready":
+        return
+    if current.trigger != "Manual request":
+        raise EvidenceError("the ready mark's own review has not completed")
+    for index, state in enumerate(states):
+        if (isinstance(state, Review) and state.trigger == "Draft marked ready" and state.status == "completed"
+                and state.at >= ready):
+            ready_start = _cycle_start(states, index)
+            if not _after_github_second(ready_start.at, ready) or state.at > start.at:
+                raise EvidenceError("ready cycle did not complete before the later manual review started")
+            if state.head == current.head and state.unresolved is not False:
+                raise EvidenceError("same-head manual review cannot replace unresolved ready-cycle findings")
+            # A different-head clean review can fix findings from the completed ready cycle.
+            return
+    raise EvidenceError("no completed cycle for the latest ready mark; a manual review cannot replace it")
+
+
+def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
+           pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None, *,
+           pr_draft: Optional[bool], pr_title: Optional[str] = None,
+           pr_commit_messages: Iterable[Tuple[str, str]] = (), pr_files: Iterable[str] = (),
+           pr_files_complete: bool = True, open_rows: Iterable[OwnedRow] = (),
+           pr_created_at: Optional[str] = None, pr_timeline: Optional[List[Dict[str, Any]]] = None,
+           pr_head: Optional[str] = None, now: Optional[datetime] = None, pr_drops: Iterable[Drop] = (),
+           mapped: Optional[Collection[Tuple[str, str]]] = None) -> Verdict:
+    """Pure decision over the pull request's comments, title, body, commits (SHAs and messages), changed
+    files, the columns its migrations drop and live draft flag for one head SHA, and the base branch's open rows and
+    mapped columns (``mapped``, None when its models could not be read).
+
+    A closing keyword before a reference in the title, the body or a commit message fails first,
+    draft or not and override or not: the merge would close what it names. So does a commit list at
+    GitHub's cap, whose later messages are unread, and so does a changed file that an open row leaves
+    to its next change while no title, body or commit message names the row (E218); with the file list
+    at GitHub's cap, every open row that leaves a path counts until it is named. So does a migration that drops a
+    column the base's models map, and one that drops any column while those models are unreadable (E245). A draft fails,
+    override or not, and so does a draft
+    flag the API did not report as a boolean (None): the check passes only for a pull request that
+    can merge. Codex names the reviewed
+    commit by a short SHA. It identifies the head only when the repository resolves that prefix to
+    exactly the head (so a force-pushed reviewed commit that is still an object in the repository
+    keeps a minted lookalike ambiguous) AND no other commit of the pull request shares it."""
     head = (head_sha or "").lower()
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         return "fail", f"review-gate: invalid head SHA {head_sha!r}"
+    messages = list(pr_commit_messages)
+    references = closing_references([("title", pr_title), ("body", pr_body)]
+                                    + [(f"commit {str(sha)[:7]}", message) for sha, message in messages])
+    if references:
+        return "fail", ("review-gate: a closing keyword names an issue or pull request, and the merge would close it: "
+                        + "; ".join(references) + ". Reword each so no form of close, fix or resolve sits right before "
+                        "the reference (\"addressed in #N\", or the reference first: \"#N carries the fix\"), in the "
+                        "title or body (the edit re-runs this check) or by rewording the commit on the branch; close "
+                        "anything you mean to close by hand after the merge")
+    commits = [str(sha).lower() for sha in (pr_commits or [])]
+    if len(commits) >= COMMIT_LIST_CAP:
+        return "fail", (f"review-gate: the pull request lists {len(commits)} commits, the most GitHub lists, so the "
+                        "messages of any later commits are unread; squash the branch to fewer commits")
+    unnamed = unnamed_rows(open_rows, pr_files, [pr_title, pr_body] + [message for _, message in messages],
+                           complete=pr_files_complete)
+    if unnamed:
+        owned = []
+        for row, mine in unnamed:
+            # A file's name is the pull request's own text: escaped, a newline in it cannot start a log line that
+            # the runner would read as a workflow command.
+            shown = (", ".join(name.encode("unicode_escape").decode("ascii") for name in mine[:3]) or "no listed file"
+                     ) + (f" and {len(mine) - 3} more" if len(mine) > 3 else "")
+            owned.append(f"{row.row} (its owner names {', '.join(f'`{path}`' for path in row.paths)}) owns {shown}")
+        lead = ("this pull request changes files that open rows of tasks/todo.md leave to their next change, and its "
+                "title, body and commit messages do not name each such row: ")
+        if not pr_files_complete:
+            lead = (f"this pull request lists {FILE_LIST_CAP:,} changed files, the most GitHub lists, so the rest are "
+                    "unread and any open rows of tasks/todo.md that leave a path to their next change may own one; its "
+                    "title, body and commit messages do not name each such row: ")
+        return "fail", ("review-gate: " + lead + "; ".join(owned) + ". Read each row, then carry it in this pull "
+                        "request or say in the body why not, naming the row; an edit of the title or body re-runs "
+                        "this check (lessons/ops-read-the-rows-a-change-owns-before-you-make-it.md)")
+    drops = list(pr_drops)
+    if drops and mapped is None:
+        return "fail", ("review-gate: this pull request's migrations drop columns, and the base branch's models could not "
+                        "be read to tell whether the code serving maps them; failing closed")
+    still = [(name, table, column) for name, table, column in drops if mapped is not None and (table, column) in mapped]
+    if still:
+        # A file's name is the pull request's own text, escaped as the open rows' are; the names come from \w+.
+        listed = "; ".join(f"{name.encode('unicode_escape').decode('ascii')} drops {table}.{column}"
+                           for name, table, column in still)
+        return "fail", ("review-gate: " + listed + ", which the base branch's models still map. deploy-backend applies "
+                        "a merge's migrations before its code serves, so the code serving until this pull request's "
+                        "deploy finishes maps the column, and its reads and inserts of the table would fail. Stop "
+                        "mapping the column in one pull request, with a database default if it is NOT NULL, and drop it "
+                        "in a later one once that one's deploy-backend job is green "
+                        "(lessons/ops-drop-a-mapped-column-in-two-deploys.md)")
+    if pr_draft is None:
+        return "fail", "review-gate: the pull request's draft flag could not be read; failing closed"
+    if pr_draft:
+        return "fail", ("review-gate: the pull request is a draft; this check fails until it is marked ready, "
+                        f"which starts the wait for the Codex review of {head[:7]}")
+    if not isinstance(pr_head, str) or not re.fullmatch(r"[0-9a-f]{40}", pr_head):
+        return "fail", "review-gate: live pull-request head is unavailable; failing closed"
+    if pr_head != head:
+        return "fail", "review-gate: this job's head is stale; wait for the gate on the live pull-request head"
     reason = override_reason(pr_body)
     if reason:
         return "pass", f"review-gate: override recorded in the pull request body: {reason}"
-    known = {str(sha).lower() for sha in (pr_commits or [])} | {head}
-    latest_other: Optional[str] = None
-    for comment in comments:
-        body = str((comment or {}).get("body") or "")
-        if not is_codex_bot((comment or {}).get("user")) or SUMMARY_MARKER not in body:
-            continue
-        for row in parse_summary(body):
-            matches = {sha for sha in known if sha.startswith(row["commit"])}
-            if head in matches and len(matches) > 1:
-                return "wait", (f"review-gate: reviewed commit {row['commit']} is ambiguous within this pull request "
-                                f"({len(matches)} commits share the prefix); comment `@codex review` for {head[:12]}")
-            if head in matches and resolve is not None:
-                resolved = resolve(row["commit"])
-                if resolved is None or resolved.lower() != head:
-                    return "wait", (f"review-gate: reviewed commit {row['commit']} does not resolve uniquely to this head "
-                                    f"in the repository; comment `@codex review` for {head[:12]}")
-            if head in matches:
-                status = row["status"].lower()
-                if "completed" in status:
-                    return "pass", f"review-gate: Codex review completed for {row['commit']}"
-                if "failed" in status or "error" in status:
-                    return "fail", f"review-gate: Codex review {row['status']} for {row['commit']}; re-request with @codex review or record an override"
-                return "wait", f"review-gate: Codex review {row['status']} for {row['commit']}"
-            latest_other = row["commit"]
-    if latest_other:
-        return "wait", (f"review-gate: the latest Codex review is for {latest_other}, not this head {head[:7]}; "
-                        "comment `@codex review` (a push does not re-trigger a review) or record an override")
-    return "wait", f"review-gate: no Codex review summary yet for {head[:7]}"
+    known = set(commits) | {head}
+    comments = list(comments)
+    try:
+        current, states, ready = _review_evidence(head, comments, pr_created_at, pr_timeline)
+        if current.head != head:
+            return "wait", (f"review-gate: the latest Codex review is for {current.short}, not this head {head[:7]}; "
+                            "comment `@codex review` or record an override")
+        matches = {sha for sha in known if sha.startswith(current.short)}
+        if len(matches) > 1:
+            return "wait", f"review-gate: reviewed commit {current.short} is ambiguous within this pull request"
+        if resolve is not None and resolve(current.short) != head:
+            return "wait", f"review-gate: reviewed commit {current.short} does not resolve uniquely to this head"
+        if current.status in ("failed", "error"):
+            return "fail", "review-gate: Codex review failed; re-request @codex review or record an override"
+        if current.unresolved is True:
+            return "fail", "review-gate: current-head Codex review has unresolved findings"
+        moment = now or datetime.now(timezone.utc)
+        if current.status != "completed":
+            if not _open_at(current, moment):
+                return "wait", (f"review-gate: the Codex review of {current.short} has shown Running since "
+                                f"{current.at:%H:%M:%S}Z, past the one-hour abandonment age, so it counts as abandoned "
+                                f"(F58 call 1); {FRESH_TRANSITION}")
+            if _overlapped(_replay(states), current):
+                return "wait", (f"review-gate: Codex review {current.status} for {current.short} since "
+                                f"{current.at:%H:%M:%S}Z, begun while another review that may share its head and trigger "
+                                f"was open, so its completion cannot count; it holds the gate until "
+                                f"{_abandoned_from(current)}, and then {FRESH_TRANSITION}")
+            return "wait", (f"review-gate: Codex review {current.status} for {current.short} since "
+                            f"{current.at:%H:%M:%S}Z; if it never completes it counts as abandoned from "
+                            f"{_abandoned_from(current)}")
+        created = _timestamp(pr_created_at)
+        request = _latest_request(comments, ready or created)
+        _prove_cycles(current, states, ready, created, request, moment)
+    except EvidenceError as exc:
+        return "wait", f"review-gate: {exc}; waiting for complete trusted review evidence"
+    return "pass", f"review-gate: current-head Codex cycle completed with no unresolved findings for {current.short}"
 
 
 def _github(path: str, token: str) -> Any:
@@ -128,26 +803,171 @@ def _github(path: str, token: str) -> Any:
         return json.loads(response.read().decode("utf-8"))
 
 
-def _paged(path: str, token: str) -> List[Any]:
+def _listed(path: str, token: str, pages: int) -> Tuple[List[Any], bool]:
+    """Up to ``pages`` pages of 100 of a listing, and whether the listing ended within them."""
     items: List[Any] = []
-    page = 1
-    while True:
+    for page in range(1, pages + 1):
         batch = _github(f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}", token)
+        if not isinstance(batch, list):
+            raise EvidenceError("GitHub pagination did not return a list")
         items.extend(batch)
         if len(batch) < 100:
-            break
-        page += 1
+            return items, True
+    return items, False
+
+
+def _paged(path: str, token: str) -> List[Any]:
+    items, complete = _listed(path, token, MAX_PAGES)
+    if not complete:
+        raise EvidenceError("GitHub pagination limit reached; evidence is incomplete")
     return items
 
 
-State = Tuple[List[Dict[str, Any]], Optional[str], List[str]]
+def _graphql(query: str, variables: Dict[str, Any], token: str) -> Any:
+    request = urllib.request.Request(
+        "https://api.github.com/graphql", data=json.dumps({"query": query, "variables": variables}).encode("utf-8"),
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                 "User-Agent": "earningsnerd-review-gate"}, method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - fixed GitHub HTTPS endpoint
+        result = json.loads(response.read().decode("utf-8"))
+    if result.get("errors"):
+        raise EvidenceError("GitHub could not read the summary edit history")
+    return result.get("data")
 
 
-def fetch_state(repo: str, number: str, token: str) -> State:
+def _fetch_history(node_id: str, token: str) -> List[Dict[str, Any]]:
+    query = """query($id: ID!, $after: String) {
+      node(id: $id) { ... on IssueComment {
+        userContentEdits(first: 100, after: $after) {
+          nodes { editedAt diff editor { login __typename ... on Bot { databaseId } } }
+          pageInfo { hasNextPage endCursor }
+        }
+      } }
+    }"""
+    edits: List[Dict[str, Any]] = []
+    cursor = None
+    for _ in range(MAX_PAGES):
+        data = _graphql(query, {"id": node_id, "after": cursor}, token)
+        try:
+            connection = data["node"]["userContentEdits"]
+            nodes, page = connection["nodes"], connection["pageInfo"]
+            if not isinstance(nodes, list) or type(page["hasNextPage"]) is not bool:
+                raise EvidenceError("malformed summary history page")
+            edits.extend(nodes)
+            if not page["hasNextPage"]:
+                return edits
+            following = page["endCursor"]
+            if not isinstance(following, str) or not following or following == cursor:
+                raise EvidenceError("summary history pagination did not advance")
+            cursor = following
+        except (KeyError, TypeError) as exc:
+            raise EvidenceError("summary history is unavailable") from exc
+    raise EvidenceError("summary history pagination limit reached; evidence is incomplete")
+
+
+class State(NamedTuple):
+    comments: List[Dict[str, Any]]
+    body: Optional[str]
+    commits: List[str]
+    draft: Optional[bool]
+    title: Optional[str] = None
+    commit_messages: Tuple[Tuple[str, str], ...] = ()
+    created_at: Optional[str] = None
+    timeline: Optional[List[Dict[str, Any]]] = None
+    head: Optional[str] = None
+    files: Tuple[str, ...] = ()
+    files_complete: bool = True
+    drops: Tuple[Drop, ...] = ()
+
+
+def _changed_files(items: List[Any]) -> Tuple[str, ...]:
+    """Every path the pull request changes, a renamed file's previous path included. An entry without a path
+    fails closed."""
+    names: List[str] = []
+    for item in items:
+        filename = item.get("filename") if isinstance(item, dict) else None
+        if not isinstance(filename, str) or not filename:
+            raise EvidenceError("the pull request's file list has an entry without a path")
+        names.append(filename)
+        if "previous_filename" in item:
+            previous = item["previous_filename"]
+            if not isinstance(previous, str) or not previous:
+                raise EvidenceError("the pull request's file list has a renamed file without its previous path")
+            names.append(previous)
+    return tuple(names)
+
+
+def _migration_drops(repo: str, head: Any, items: List[Any], token: str) -> Tuple[Drop, ...]:
+    """Each column a migration the pull request adds or changes drops, the migration read at the head; a removed
+    one is not read. A migration that cannot be read, or whose drops cannot be, fails closed."""
+    drops: List[Drop] = []
+    for item in items:
+        name = item["filename"]  # _changed_files has checked each entry's path
+        if not (name.startswith(MIGRATION_DIR) and name.endswith(".sql")) or item.get("status") == "removed":
+            continue
+        if not (isinstance(head, str) and re.fullmatch(r"[0-9a-f]{40}", head)):
+            raise EvidenceError("the pull request's head is unreadable, so its migrations cannot be read")
+        content = _github(f"repos/{repo}/contents/{urllib.parse.quote(name)}?ref={head}", token)
+        encoded = content.get("content") if isinstance(content, dict) and content.get("encoding") == "base64" else None
+        if not isinstance(encoded, str):
+            raise EvidenceError(f"the migration {name!r} could not be read at the head")
+        try:
+            sql = base64.b64decode(encoded).decode("utf-8")
+            drops.extend((name, table, column) for table, column in dropped_columns(sql))
+        except ValueError as exc:  # a bad base64 payload, UTF-8 that does not decode, an unread DROP COLUMN
+            raise EvidenceError(f"the migration {name!r} cannot be read for the columns it drops ({exc})") from None
+    return tuple(drops)
+
+
+# A head's changed files, whether GitHub listed them all, and the columns its migrations drop.
+FileList = Tuple[Tuple[str, ...], bool, Tuple[Drop, ...]]
+
+
+def fetch_state(repo: str, number: str, token: str, file_lists: Optional[Dict[str, FileList]] = None) -> State:
+    """Comments, body, commits, changed files, the columns its migrations drop, draft flag and title, all read now.
+    The draft flag is None unless the API reports a boolean, which ``decide`` fails closed. The changed files and the
+    drops are a function of the head, so ``file_lists`` keeps them by head across polls: a 2,000-file list is 20
+    calls, once."""
     comments = _paged(f"repos/{repo}/issues/{number}/comments", token)
     pull = _github(f"repos/{repo}/pulls/{number}", token)
-    commits = [str(item.get("sha", "")).lower() for item in _paged(f"repos/{repo}/pulls/{number}/commits", token)]
-    return comments, pull.get("body"), commits
+    items = _paged(f"repos/{repo}/pulls/{number}/commits", token)
+    commits = [str(item.get("sha", "")).lower() for item in items]
+    messages = tuple((sha, str((item.get("commit") or {}).get("message") or "")) for sha, item in zip(commits, items))
+    head = (pull.get("head") or {}).get("sha")
+    if file_lists is not None and isinstance(head, str) and head in file_lists:
+        files, files_complete, drops = file_lists[head]
+    else:
+        items, files_complete = _listed(f"repos/{repo}/pulls/{number}/files", token, FILE_LIST_CAP // 100)
+        files = _changed_files(items)
+        drops = _migration_drops(repo, head, items, token)
+    draft = pull.get("draft")
+    # Old guards and the explicit override remain usable even when review evidence is unavailable.
+    timeline = None
+    if draft is False and not override_reason(pull.get("body")):
+        timeline = _paged(f"repos/{repo}/issues/{number}/timeline", token)
+        summaries = [c for c in comments if is_codex_bot(c.get("user")) and SUMMARY_MARKER in str(c.get("body") or "")]
+        if summaries:
+            latest = max(summaries, key=lambda c: (_timestamp(c.get("created_at")), c.get("id", 0)))
+            if not latest.get("node_id"):
+                raise EvidenceError("current summary has no GitHub node id")
+            latest["review_history"] = _fetch_history(latest["node_id"], token)
+    # History and the timeline take separate calls. Refresh the comments so a manual request
+    # posted during those reads is a barrier too; never attach one comment's history to another.
+    histories = {c["id"]: c["review_history"] for c in comments if "review_history" in c}
+    fresh_comments = _paged(f"repos/{repo}/issues/{number}/comments", token)
+    for comment in fresh_comments:
+        if comment.get("id") in histories:
+            comment["review_history"] = histories[comment["id"]]
+    final_pull = _github(f"repos/{repo}/pulls/{number}", token)
+    fields = ("draft", "created_at", "title", "body", "updated_at")
+    if (head != (final_pull.get("head") or {}).get("sha")
+            or any(pull.get(key) != final_pull.get(key) for key in fields)):
+        raise SnapshotChanged("pull request changed during the evidence read; polling a fresh snapshot")
+    if file_lists is not None and isinstance(head, str):
+        file_lists[head] = (files, files_complete, drops)  # kept only once the head held through the whole read
+    return State(fresh_comments, pull.get("body"), commits, draft if isinstance(draft, bool) else None,
+                 pull.get("title"), messages, pull.get("created_at"), timeline, head, files, files_complete, drops)
 
 
 def repository_resolver(repo: str, token: str) -> Resolver:
@@ -166,7 +986,9 @@ def repository_resolver(repo: str, token: str) -> Resolver:
 
 def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State]] = None,
          resolve: Optional[Resolver] = None,
-         sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> int:
+         sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic,
+         wall: Callable[[], datetime] = lambda: datetime.now(timezone.utc), todo: Path = TODO,
+         models: Path = MODELS) -> int:
     env = os.environ
     head = env.get("REVIEW_GATE_HEAD", "")
     timeout = float(env.get("REVIEW_GATE_TIMEOUT_MINUTES", "20")) * 60
@@ -176,21 +998,58 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         if not (repo and number and token):
             print("review-gate: REVIEW_GATE_REPO, REVIEW_GATE_PR and GITHUB_TOKEN are required")
             return 1
-        fetch = lambda: fetch_state(repo, number, token)  # noqa: E731
+        file_lists: Dict[str, FileList] = {}
+        fetch = lambda: fetch_state(repo, number, token, file_lists)  # noqa: E731
         resolve = resolve or repository_resolver(repo, token)
+    try:
+        rows = owned_rows(todo.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"review-gate: the base branch's tasks/todo.md is unreadable ({type(exc).__name__}); failing closed",
+              flush=True)
+        return 1
+    mapped: Optional[Set[Tuple[str, str]]]
+    try:
+        mapped = read_mapped_columns(models)
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+        # Only a pull request whose migrations drop a column needs them, and decide fails that one closed.
+        mapped = None
+        reason = f"{type(exc).__name__}: {exc}".encode("unicode_escape").decode("ascii")
+        print(f"review-gate: the base branch's models are unreadable ({reason}); a pull request whose migrations drop a "
+              "column fails closed", flush=True)
     started = clock()
     while True:
-        comments, body, commits = fetch()
-        verdict, message = decide(head, comments, body, commits, resolve)
-        print(message)
+        try:
+            state = State(*fetch())
+        except SnapshotChanged as exc:
+            verdict, message = "wait", f"review-gate: {exc}"
+        except EvidenceError as exc:
+            # The gate's own words, which name what it could not read (a migration's name among them, escaped).
+            reason = str(exc).encode("unicode_escape").decode("ascii")
+            print(f"review-gate: failed to read trusted GitHub evidence: {reason}; failing closed", flush=True)
+            return 1
+        except Exception as exc:  # noqa: BLE001 - API failures never publish success; retries are F57, not F58
+            print(f"review-gate: failed to read trusted GitHub evidence: {type(exc).__name__}", flush=True)
+            return 1
+        else:
+            verdict, message = decide(head, state.comments, state.body, state.commits, resolve, pr_draft=state.draft,
+                                      pr_title=state.title, pr_commit_messages=state.commit_messages,
+                                      pr_files=state.files, pr_files_complete=state.files_complete, open_rows=rows,
+                                      pr_created_at=state.created_at, pr_timeline=state.timeline, pr_head=state.head,
+                                      now=wall(), pr_drops=state.drops, mapped=mapped)
+        print(message, flush=True)
         if verdict == "pass":
             return 0
         if verdict == "fail":
             return 1
         if clock() - started >= timeout:
-            print(f"review-gate: timed out after {timeout / 60:g} minutes waiting for a completed Codex review of "
-                  f"{head[:7]}. Comment `@codex review`, wait for it to complete, then re-run this job; or add a "
-                  "`Review override: <reason>` line to the pull request body.")
+            print(f"review-gate: timed out after {timeout / 60:g} minutes waiting for trusted, clean review evidence "
+                  f"for {head[:7]}. Read the preceding reason. Let pending reviews settle (a review open an hour counts as "
+                  "abandoned), then re-run this job. "
+                  "For an unreviewed new head, request @codex review and wait; do not add a manual request at a "
+                  "ready mark, which already triggers its own review. If that ready cycle is missing or its history "
+                  "was lost, let pending reviews settle or turn an hour old before a fresh draft-to-ready transition. Normal fix pushes "
+                  "stay ready. If the review service is unavailable, record the substitute review in a "
+                  "`Review override: <reason>` line under the repository's override rule.", flush=True)
             return 1
         sleep(poll)
 

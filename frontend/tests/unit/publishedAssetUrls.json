@@ -1,0 +1,15 @@
+{
+  "origin": "https://www.earningsnerd.io",
+  "paths": [
+    {
+      "url": "/assets/earningsnerd-appicon.png",
+      "sha256": "8b4018f64120e085a8267aa65b91d9862f044a65e19a884760872f522d695761",
+      "use": "The app tile in the transactional mail header (backend/app/services/email_service.py, _wrap_html; the markup is docs/brand/templates/email-header.html's)."
+    },
+    {
+      "url": "/assets/earningsnerd-mark-sage.png",
+      "sha256": "0556990f3e0484b4690891d39c1d9565a3a5513d1593a4df17327ab302d4691d",
+      "use": "The bare sage mark's raster, the Excel export's bytes: first offered as the mail header's mark, kept at its URL since the header took the tile (D-035), though no mail references it."
+    }
+  ]
+}

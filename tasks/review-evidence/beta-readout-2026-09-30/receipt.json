@@ -1,0 +1,58 @@
+{
+  "kind": "live_literal_projection_and_released_consumer_evidence",
+  "date": "2026-09-30",
+  "provider_response_scope": "Three invented literal rows, no events/persons table access",
+  "consumer_sha256": "a9e089cd1d45672833c49cb222c6cdaab52fe9bafbb2a3dddb5c82ae9b82272e",
+  "consumer_release": "c3cf07e3b3035c8443d0ff3a4420eddfa6ed74cd",
+  "consumer_exit_code": 0,
+  "consumer_invocations": 1,
+  "source_tool_envelope_sha256": "dd609441608a4849ad167b97ef32357a4b9f5f14a30c8200db4355305cab5a28",
+  "source_tool_envelope_private": true,
+  "transformations": [
+    "Parsed the retained connector envelope and selected its actual results object, preserving all columns/rows/raw property strings and absent metadata.",
+    "Serialized that object as sorted, indented JSON; no pagination fields, rows, type coercion or repairs added.",
+    "Retained provider-returned query exactly, without the operator input file trailing newline.",
+    "Invoked the unchanged released consumer once using these exact three input files."
+  ],
+  "observed": {
+    "columns": 21,
+    "rows": 3,
+    "views": 1,
+    "paired_complete_requests": 1,
+    "duration_ms": 1000,
+    "diagnostics": [],
+    "conflicting_event_uuids": []
+  },
+  "export_complete_observed": false,
+  "response_hasMore_present": false,
+  "response_offset_present": false,
+  "response_warnings_present": false,
+  "saved_insight_metadata_not_promoted": true,
+  "ui_row_count_not_promoted": true,
+  "production_predicate_or_roster_verified": false,
+  "customer_capture_or_consent_verified": false,
+  "beta_admission": false,
+  "model_calls": 0,
+  "files": [
+    {
+      "path": "literal-projection.hogql",
+      "bytes": 2923,
+      "sha256": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4"
+    },
+    {
+      "path": "provider-response.json",
+      "bytes": 1839,
+      "sha256": "975d48819b360e4da249d1bb6b90d9ddefbc79b168c731a25f64f8d6563f9ac3"
+    },
+    {
+      "path": "parameters.json",
+      "bytes": 159,
+      "sha256": "6a64e5f39d9bee9fd211e276a437274cd4a041df2531a10e1478d4f152d8eca8"
+    },
+    {
+      "path": "readout.json",
+      "bytes": 2430,
+      "sha256": "086be5e51d29646a92eae14dab628c057a8f665c1fa0154adc4643a299cdfb7e"
+    }
+  ]
+}

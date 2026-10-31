@@ -6,9 +6,10 @@ import { ArrowSquareOutIcon, CheckCircleIcon } from '@/lib/icons'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { useFilingViewer } from './FilingViewerContext'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
+import { useEvidencePopoverKeys } from './useEvidencePopoverKeys'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
-// malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
+// malicious/unexpected scheme (e.g. javascript:) reaching the href: the backend builds these from
 // SEC URLs, but the excerpt portion is model-influenced, so we validate before linking. Defined in
 // this leaf component (and re-imported by CopilotMessage/FilingViewer) to avoid a circular import.
 export const isHttpUrl = (url: string | null): url is string =>
@@ -21,6 +22,8 @@ interface CitationChipProps {
 interface PopoverPos {
   left: number
   top: number
+  host: Element
+  restoreActionFocus: boolean
 }
 
 const CLOSE_DELAY_MS = 120
@@ -31,7 +34,7 @@ const CLOSE_DELAY_MS = 120
  * Clicking highlights the passage in the in-app filing viewer when one is mounted (see
  * FilingViewerContext); otherwise it degrades to a SEC-jump anchor (`#:~:text=` deep link). The
  * hover/focus popover (verbatim excerpt + verified/cited + "open original") is rendered through a
- * **portal** with fixed positioning so it can't be clipped by the rail's scroll container — and so
+ * **portal** with fixed positioning so it can't be clipped by the rail's scroll container, and so
  * its links are genuinely clickable. A short close delay bridges the gap from chip to popover.
  */
 export default function CitationChip({ citation }: CitationChipProps) {
@@ -45,6 +48,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
   const popoverRef = useRef<HTMLSpanElement | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pos, setPos] = useState<PopoverPos | null>(null)
+  const linkRef = useRef<HTMLAnchorElement | null>(null)
 
   const clearCloseTimer = () => {
     if (closeTimer.current) {
@@ -58,9 +62,16 @@ export default function CitationChip({ citation }: CitationChipProps) {
     const el = triggerRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
+    const host = el.closest('[aria-modal="true"]') ?? document.body
+    const card = popoverRef.current
     // The layout effect measures and places the card before paint. Its initial coordinates
     // only mount the portal; they do not assume a fixed height for variable source content.
-    setPos({ left: r.left + r.width / 2, top: r.bottom + 8 })
+    setPos({
+      left: r.left + r.width / 2,
+      top: r.bottom + 8,
+      host,
+      restoreActionFocus: !!card && card.parentElement !== host && card.contains(document.activeElement),
+    })
   }, [])
 
   useLayoutEffect(() => {
@@ -74,7 +85,8 @@ export default function CitationChip({ citation }: CitationChipProps) {
     const aboveSpace = Math.max(0, anchor.top - gap - margin)
     const belowSpace = Math.max(0, window.innerHeight - margin - anchor.bottom - gap)
     // Keep the trigger reachable: viewport clamping alone can put a tall portal over it.
-    // Prefer a full card above, then below; otherwise scroll within the larger side.
+    // Prefer a full card above, then below; otherwise cap the card to the larger side, where its
+    // excerpt gives way first (it scrolls) so the source label and "Open original" stay in view.
     const placeAbove = bounds.height <= aboveSpace ||
       (bounds.height > belowSpace && aboveSpace >= belowSpace)
     card.style.maxHeight = `${placeAbove ? aboveSpace : belowSpace}px`
@@ -87,6 +99,12 @@ export default function CitationChip({ citation }: CitationChipProps) {
     card.style.left = `${left}px`
   }, [pos, excerpt, header, verified, viewer])
 
+  // Rehosting replaces the portal's DOM nodes. Restore its focused action once for that move,
+  // separately from placement so an unrelated viewer update cannot take focus back later.
+  useLayoutEffect(() => {
+    if (pos?.restoreActionFocus) linkRef.current?.focus({ preventScroll: true })
+  }, [pos])
+
   const scheduleClose = useCallback(() => {
     clearCloseTimer()
     closeTimer.current = setTimeout(() => setPos(null), CLOSE_DELAY_MS)
@@ -95,33 +113,71 @@ export default function CitationChip({ citation }: CitationChipProps) {
   // Clean up a pending close timer on unmount.
   useEffect(() => () => clearCloseTimer(), [])
 
-  // A fixed popover would detach from its chip on scroll/resize → just close it. Scroll doesn't
-  // bubble, so capture to catch scrolling in any ancestor (e.g. the rail's scroll container).
-  // Scrolling the portal itself or its excerpt must keep its content/actions reachable.
+  // A fixed popover would detach from its chip on scroll/resize. A hover popover just closes; one
+  // the keyboard owns (the chip focused, or focus inside the popover) re-anchors instead: focusing
+  // a chip the rail has to scroll into view used to close the popover the focus had just opened, so
+  // Tab could never reach "Open original" (EN-01). Scroll doesn't bubble, so capture to catch
+  // scrolling in any ancestor (e.g. the rail's scroll container). Scrolling the portal itself or its
+  // excerpt must keep its content/actions reachable.
   useEffect(() => {
     if (!pos) return
-    const dismiss = (event: Event) => {
+    const onMove = (event: Event) => {
       if (event.type === 'scroll' && event.target instanceof Node && popoverRef.current?.contains(event.target)) return
-      setPos(null)
+      const active = document.activeElement
+      const keyboardOwned = active === triggerRef.current || !!popoverRef.current?.contains(active)
+      if (keyboardOwned) openPopover()
+      else setPos(null)
     }
-    window.addEventListener('scroll', dismiss, { capture: true, passive: true })
-    window.addEventListener('resize', dismiss, { passive: true })
+    window.addEventListener('scroll', onMove, { capture: true, passive: true })
+    window.addEventListener('resize', onMove, { passive: true })
+    // The pane's media-query update can commit after the resize handler. Follow its committed
+    // modality too, so a card cannot remain in the old stacking context across lg.
+    const pane = triggerRef.current?.closest('[role="dialog"], [role="complementary"]')
+    const syncHost = () => {
+      const trigger = triggerRef.current
+      const card = popoverRef.current
+      if (!trigger || !card || card.parentElement === (trigger.closest('[aria-modal="true"]') ?? document.body)) return
+      // Dismissal also removes aria-modal: never rehost a hidden pane's card over the page.
+      if (trigger.getClientRects().length === 0) setPos(null)
+      else openPopover()
+    }
+    const observer = new MutationObserver(syncHost)
+    if (pane) {
+      observer.observe(pane, { attributes: true, attributeFilter: ['aria-modal'] })
+      syncHost()
+    }
     return () => {
-      window.removeEventListener('scroll', dismiss, { capture: true })
-      window.removeEventListener('resize', dismiss)
+      window.removeEventListener('scroll', onMove, { capture: true })
+      window.removeEventListener('resize', onMove)
+      observer.disconnect()
     }
-  }, [pos])
+  }, [pos, openPopover])
 
-  // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]):
+  // Keyboard contract shared with SourceTrace (EN-01): Tab from the chip reaches "Open original", Tab
+  // past it resumes the page after the chip, Shift+Tab returns to the chip, Escape closes the card (and
+  // returns focus to the chip when it was inside the card).
+  const closePopover = useCallback(() => setPos(null), [])
+  const keys = useEvidencePopoverKeys({
+    open: pos !== null,
+    triggerRef,
+    popoverRef,
+    actionRef: linkRef,
+    close: closePopover,
+    holdOpen: clearCloseTimer,
+    ownsEscape: true,
+  })
+
+  // Figure chips (the server's fact payload, isXbrlCitation) read as hard data, distinct from passage chips:
   // the same bordered brand-tint chip (the v2.2 marker treatment), with the mono/tabular register
-  // marking figures. Inline markers fall under the WCAG 2.5.8 inline-target exception (18px).
+  // marking figures. Inline markers fall under the WCAG 2.5.8 inline-target exception (18px). The
+  // in-text marker is 12px, never smaller than the provenance chip (tests/unit/dataXsAllowlist.spec.ts).
   const isFact = isXbrlCitation(citation)
   const chipBase =
-    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-data text-[10px] font-semibold leading-none align-baseline transition-colors ' +
+    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-data text-xs font-semibold leading-none align-baseline transition-colors ' +
     'border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 ' +
     'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark ' +
     'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
-  // chipBase is already mono (font-data); .tnum adds only the tabular flag —
+  // chipBase is already mono (font-data); .tnum adds only the tabular flag:
   // the DS spelling for data surfaces that already carry the data face.
   const chipClass = isFact ? `${chipBase} tnum` : chipBase
 
@@ -136,11 +192,14 @@ export default function CitationChip({ citation }: CitationChipProps) {
     onMouseLeave: scheduleClose,
     onFocus: openPopover,
     onBlur: scheduleClose,
+    onKeyDown: keys.onTriggerKeyDown,
   }
 
   let trigger: React.ReactNode
   if (viewer) {
-    // In-app highlight is the primary action when the filing viewer is mounted.
+    // In-app highlight is the primary action when the filing viewer is mounted. The chip sits inside
+    // the pane it switches to the Filing tab, so it records no opener: closing the pane returns focus
+    // to whatever opened it, and the workspace hands focus to the Filing tab meanwhile.
     trigger = (
       <button type="button" {...triggerHandlers} onClick={() => viewer.requestHighlight(citation)}>
         {marker}
@@ -153,7 +212,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
       </a>
     )
   } else {
-    // No viewer and no usable URL: a non-navigating button — the popover is still reachable.
+    // No viewer and no usable URL: a non-navigating button, and the popover is still reachable.
     trigger = (
       <button type="button" {...triggerHandlers}>
         {marker}
@@ -174,46 +233,50 @@ export default function CitationChip({ citation }: CitationChipProps) {
             onMouseLeave={scheduleClose}
             onFocus={clearCloseTimer}
             onBlur={scheduleClose}
+            onKeyDown={keys.onPopoverKeyDown}
             style={{ position: 'fixed', left: pos.left, top: pos.top, transform: 'translateX(-50%)',
               maxWidth: Math.max(0, window.innerWidth - 16), maxHeight: Math.max(0, window.innerHeight - 16),
               overflowY: 'auto' }}
-            className="z-[60] block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+            className="z-overlay flex w-64 flex-col rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
-            <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark break-words">
+            <span className="block shrink-0 text-data-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark break-words">
               {header}
             </span>
-            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-brand-border dark:border-brand-border-dark pl-2 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark break-words">
+            <span className="mt-1.5 block max-h-40 min-h-0 overflow-y-auto border-l-2 border-brand-border dark:border-brand-border-dark pl-2 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark break-words">
               {excerpt}
             </span>
             {verified ? (
-              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
+              <span className="mt-2 flex shrink-0 items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
                 <CheckCircleIcon className="h-3 w-3 shrink-0" />
                 {citationVerificationLabel(citation)}
               </span>
             ) : (
-              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="mt-2 flex shrink-0 items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
-                Cited
+                {citationVerificationLabel(citation)}
               </span>
             )}
             {verified && (
-              <span className="mt-1.5 block text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="mt-1.5 block shrink-0 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {SOURCE_MATCH_SCOPE}
               </span>
             )}
             {viewer && isHttpUrl(fragment_url) && (
               <a
+                ref={linkRef}
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark"
+                className="mt-2 flex shrink-0 items-center gap-1 rounded-lg text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Open original
               </a>
             )}
           </span>,
-          document.body,
+          // A mobile sheet owns a modal stacking context above body-level popovers. Keep the
+          // card in that context, outside the answer scroller; desktop cards still use body.
+          pos.host,
         )
       : null
 

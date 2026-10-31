@@ -1,0 +1,666 @@
+{
+ "code_binding": {
+  "git_head": "a8a2d5a7d86e8a4dc12f79766f109c63db9574dd",
+  "provenance_service_sha256": "b7af6468e21e8fcccdf10760a057259d09dba26a440fe1f0aa32e4f94b5e01ef",
+  "copilot_service_sha256": "008ca6382c9a924d150f0b267a13da72930dfcd286b73004669c5a4caef4e065",
+  "provenance_service_path": "/home/user/wt/cite-fix/backend/app/services/provenance_service.py",
+  "helpers": [
+   "normalize_for_match",
+   "extract_quoted_span",
+   "verify_excerpt_in_text",
+   "verify_whole_excerpt_in_text",
+   "copilot_service._verify_citations"
+  ],
+  "min_verifiable_len": 24
+ },
+ "runs": [
+  {
+   "run": "36777581481",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36777581481/copilot-eval.json",
+   "artifact_sha256": "8b3084e7afb2c029d5c9a55b62cfea1bbd4215fa79565cad94755029a392a153",
+   "timestamp": "2026-09-30T21:11:06.330703+00:00",
+   "source_sha": "956244b23e4d4e545658223bed728005766dd7d6",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 31,
+   "xbrl_citations": 28,
+   "text_citations": 3,
+   "text_verified_true": 3,
+   "affected": 0,
+   "boundary": {
+    "full_contiguous": 3
+   },
+   "section_ref": {
+    "plain_label": 3
+   },
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [
+    {
+     "row": 12,
+     "id": "BABA viewed-native-revenue-2025 d0",
+     "accession": "0000950170-25-090161",
+     "source_sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3",
+     "excerpt_check": {
+      "n": 2,
+      "displayed_excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "verified_span": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 45,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Item 18 — Consolidated Income Statements",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": false,
+      "kind": "plain_label"
+     }
+    },
+    {
+     "row": 13,
+     "id": "BABA viewed-native-revenue-2025 d1",
+     "accession": "0000950170-25-090161",
+     "source_sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3",
+     "excerpt_check": {
+      "n": 2,
+      "displayed_excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "verified_span": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 45,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Item 18 — Consolidated Income Statements",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": false,
+      "kind": "plain_label"
+     }
+    },
+    {
+     "row": 14,
+     "id": "BABA viewed-native-revenue-2025 d2",
+     "accession": "0000950170-25-090161",
+     "source_sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3",
+     "excerpt_check": {
+      "n": 2,
+      "displayed_excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "verified_span": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 45,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Item 18 — Consolidated Income Statements",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": false,
+      "kind": "plain_label"
+     }
+    }
+   ],
+   "affected_rows": [],
+   "rows_without_source": []
+  },
+  {
+   "run": "36798834277",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36798834277/copilot-eval.json",
+   "artifact_sha256": "e5b927f740ec28afe0911380d42e688221f57a641ed2d82675ef1bf920f8bcd0",
+   "timestamp": "2026-10-01T01:00:02.638918+00:00",
+   "source_sha": "f362485651da4631bbc4179af7fbfb52efdfbafe",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 30,
+   "xbrl_citations": 30,
+   "text_citations": 0,
+   "text_verified_true": 0,
+   "affected": 0,
+   "boundary": {},
+   "section_ref": {},
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [],
+   "affected_rows": [],
+   "rows_without_source": []
+  },
+  {
+   "run": "36800236360",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36800236360/copilot-eval.json",
+   "artifact_sha256": "aecf8ec2f624e2ff8e8a8fdb2fe6871fed7ba1d2ca9f8ae0832300e2a41801ab",
+   "timestamp": "2026-10-01T01:17:23.829252+00:00",
+   "source_sha": "46e1fc5e03f7f4523b770dd3f2c9b5fe1cfb354b",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 33,
+   "xbrl_citations": 30,
+   "text_citations": 3,
+   "text_verified_true": 3,
+   "affected": 0,
+   "boundary": {
+    "full_contiguous": 3
+   },
+   "section_ref": {
+    "plain_label": 3
+   },
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [
+    {
+     "row": 10,
+     "id": "BABA native-revenue-2026 d1",
+     "accession": "0001193125-26-231755",
+     "source_sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d",
+     "excerpt_check": {
+      "n": 2,
+      "displayed_excerpt": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+      "verified_span": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=further%20increased%20by%203%25%20to%20RMB1%2C023%2C670%20million%20%28US%24148%2C401%20million%29%20in",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=further%20increased%20by%203%25%20to%20RMB1%2C023%2C670%20million%20%28US%24148%2C401%20million%29%20in",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 88,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Item 5 — Operating and Financial Review and Prospects",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": true,
+      "kind": "plain_label"
+     }
+    },
+    {
+     "row": 11,
+     "id": "BABA native-revenue-2026 d2",
+     "accession": "0001193125-26-231755",
+     "source_sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d",
+     "excerpt_check": {
+      "n": 2,
+      "displayed_excerpt": "Consolidated revenue 941,168 996,347 1,023,670 148,401",
+      "verified_span": "Consolidated revenue 941,168 996,347 1,023,670 148,401",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Consolidated%20revenue%20941%2C168%20996%2C347%201%2C023%2C670%20148%2C401",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Consolidated%20revenue%20941%2C168%20996%2C347%201%2C023%2C670%20148%2C401",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 54,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Item 5 — Operating and Financial Review and Prospects",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": true,
+      "kind": "plain_label"
+     }
+    },
+    {
+     "row": 15,
+     "id": "ASML us-gaap-sales-net-income-2025 d0",
+     "accession": "0001628280-26-011378",
+     "source_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+     "excerpt_check": {
+      "n": 3,
+      "displayed_excerpt": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6",
+      "verified_span": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Total%20net%20sales%2028%2C262.9%20100.0%2032%2C667.3%20100.0%2015.6",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Total%20net%20sales%2028%2C262.9%20100.0%2032%2C667.3%20100.0%2015.6",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 50,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Financial performance KPIs — Operating results of 2025 compared to 2024",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": false,
+      "kind": "plain_label"
+     }
+    }
+   ],
+   "affected_rows": [],
+   "rows_without_source": []
+  },
+  {
+   "run": "36809122540",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36809122540/copilot-eval.json",
+   "artifact_sha256": "9cb7368ec031f6130493e4994ec5ce2179ac78c9a6bb80bfe1cf456491a25cd1",
+   "timestamp": "2026-10-01T03:10:06.664760+00:00",
+   "source_sha": "2ec46bec95bb1fa2c1001b7a3596958590397762",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 31,
+   "xbrl_citations": 30,
+   "text_citations": 1,
+   "text_verified_true": 1,
+   "affected": 0,
+   "boundary": {
+    "full_contiguous": 1
+   },
+   "section_ref": {
+    "plain_label": 1
+   },
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [
+    {
+     "row": 14,
+     "id": "BABA viewed-native-revenue-2025 d2",
+     "accession": "0000950170-25-090161",
+     "source_sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3",
+     "excerpt_check": {
+      "n": 2,
+      "displayed_excerpt": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "verified_span": "Revenue 5, 24 868,687 941,168 996,347 137,300",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Revenue%205%2C%2024%20868%2C687%20941%2C168%20996%2C347%20137%2C300",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 45,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Item 18 — Consolidated Income Statements",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": false,
+      "kind": "plain_label"
+     }
+    }
+   ],
+   "affected_rows": [],
+   "rows_without_source": []
+  },
+  {
+   "run": "36870677818",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36870677818/copilot-eval.json",
+   "artifact_sha256": "f385ff74e1a3720d3353688170757a4cc255a6b850d2d357a1764f695ce2e3d5",
+   "timestamp": "2026-10-01T13:43:53.150878+00:00",
+   "source_sha": "7feb73c7ee4ce2463dc3ee9f409cb04a7c338540",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 32,
+   "xbrl_citations": 30,
+   "text_citations": 2,
+   "text_verified_true": 2,
+   "affected": 0,
+   "boundary": {
+    "full_contiguous": 2
+   },
+   "section_ref": {
+    "plain_label": 2
+   },
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [
+    {
+     "row": 2,
+     "id": "AAPL sales-gross-profit-2025 d2",
+     "accession": "0000320193-25-000079",
+     "source_sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c",
+     "excerpt_check": {
+      "n": 3,
+      "displayed_excerpt": "Total net sales416,161 391,035 383,285",
+      "verified_span": "Total net sales416,161 391,035 383,285",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Total%20net%20sales416%2C161%20391%2C035%20383%2C285",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Total%20net%20sales416%2C161%20391%2C035%20383%2C285",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 38,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Item 8 — Consolidated Statements of Operations",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": false,
+      "kind": "plain_label"
+     }
+    },
+    {
+     "row": 15,
+     "id": "ASML us-gaap-sales-net-income-2025 d0",
+     "accession": "0001628280-26-011378",
+     "source_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+     "excerpt_check": {
+      "n": 3,
+      "displayed_excerpt": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6",
+      "verified_span": "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6",
+      "has_inner_quoted_span": false,
+      "published_verified": true,
+      "prod_verify_excerpt_in_text": true,
+      "new_verify_whole_excerpt_in_text": true,
+      "new_copilot_verified": true,
+      "new_copilot_excerpt_bytes_unchanged": true,
+      "new_copilot_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Total%20net%20sales%2028%2C262.9%20100.0%2032%2C667.3%20100.0%2015.6",
+      "main_fragment_url": "https://www.sec.gov/Archives/edgar/data/0/0/doc.htm#:~:text=Total%20net%20sales%2028%2C262.9%20100.0%2032%2C667.3%20100.0%2015.6",
+      "full_excerpt_contiguous": true,
+      "full_excerpt_contiguous_after_wrapping_quote_strip": true,
+      "quoted_span_contiguous": true,
+      "full_excerpt_normalized_len": 50,
+      "boundary": "full_contiguous",
+      "affected": false
+     },
+     "section_ref_check": {
+      "section_ref": "Financial performance KPIs — Operating results of 2025 compared to 2024",
+      "has_quoted_span": false,
+      "has_any_double_quote_char": false,
+      "whole_label_contiguous": false,
+      "kind": "plain_label"
+     }
+    }
+   ],
+   "affected_rows": [],
+   "rows_without_source": []
+  },
+  {
+   "run": "36963789557",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36963789557/copilot-eval.json",
+   "artifact_sha256": "aec2800899b8172e25010979d27a253de550b835cc04751ea6291b810c239ed6",
+   "timestamp": "2026-10-02T04:17:34.848610+00:00",
+   "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 30,
+   "xbrl_citations": 30,
+   "text_citations": 0,
+   "text_verified_true": 0,
+   "affected": 0,
+   "boundary": {},
+   "section_ref": {},
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [],
+   "affected_rows": [],
+   "rows_without_source": []
+  },
+  {
+   "run": "36964503116",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36964503116/copilot-eval.json",
+   "artifact_sha256": "20492c44d20827f3ead3f35407305792f955401bd6b39304a4863f21ca185a0e",
+   "timestamp": "2026-10-02T04:27:32.950565+00:00",
+   "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 28,
+   "xbrl_citations": 28,
+   "text_citations": 0,
+   "text_verified_true": 0,
+   "affected": 0,
+   "boundary": {},
+   "section_ref": {},
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [],
+   "affected_rows": [],
+   "rows_without_source": []
+  },
+  {
+   "run": "36965303868",
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/copilot-36965303868/copilot-eval.json",
+   "artifact_sha256": "b161b0f6eac3d003c1c02bd61b2d60f71e42f40cb534422c8f117385c3cd9bba",
+   "timestamp": "2026-10-02T04:38:18.561530+00:00",
+   "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+   "requested_model": "deepseek-flash",
+   "accepted": true,
+   "rows": 18,
+   "citations": 30,
+   "xbrl_citations": 30,
+   "text_citations": 0,
+   "text_verified_true": 0,
+   "affected": 0,
+   "boundary": {},
+   "section_ref": {},
+   "source_bindings": {
+    "0000320193-25-000079": [
+     "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+    ],
+    "0001628280-25-003063": [
+     "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+    ],
+    "0000950170-25-100235": [
+     "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+    ],
+    "0001193125-26-231755": [
+     "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+    ],
+    "0000950170-25-090161": [
+     "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+    ],
+    "0001628280-26-011378": [
+     "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+    ]
+   },
+   "text_citation_rows": [],
+   "affected_rows": [],
+   "rows_without_source": []
+  }
+ ],
+ "totals": {
+  "rows": 144,
+  "citations": 245,
+  "xbrl_citations": 236,
+  "text_citations": 9,
+  "text_verified_true": 9,
+  "affected": 0,
+  "boundary": {
+   "full_contiguous": 9
+  },
+  "text_prod_verify_excerpt_in_text_true": 9,
+  "text_new_whole_true": 9,
+  "text_new_copilot_verified_true": 9,
+  "text_new_copilot_excerpt_bytes_unchanged": 9,
+  "text_verdict_changes": [],
+  "text_fragment_url_unchanged": 9,
+  "section_refs_with_quoted_span": 0,
+  "section_refs_quoted_span_absent": 0,
+  "section_refs_with_any_quote_char": 0
+ }
+}

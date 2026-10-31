@@ -1,0 +1,86 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A misreads its sources. It blames the FY2021 margin trough on a Mountain Valley Pipeline impairment that its own passage places in 2020. It also cites capex, which is not in the data, and ties the multi-year EPS decline to FY2025 share growth. Draft B flags the 2020 stock-split break and admits the FY2023 margin jump and free cash flow are unexplained. It adds a peer margin comparison and labels its analysis. Both cite an $89m figure their passage lacks."
+   },
+   "cost_usd": 0.123625,
+   "latency_s": 15.854,
+   "input_tokens": 14018,
+   "output_tokens": 858,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A misreads its sources. It blames the FY2021 margin trough on a Mountain Valley Pipeline impairment that its own passage places in 2020. It also cites capex, which is not in the data, and ties the multi-year EPS decline to FY2025 share growth. Draft B flags the 2020 stock-split break and admits the FY2023 margin jump and free cash flow are unexplained. It adds a peer margin comparison and labels its analysis. Both cite an $89m figure their passage lacks.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B misreads its own sources on the key FY2021 inflection. The Mountain Valley Pipeline impairment was a 2020 charge, and the FY2021 passage says its absence lifted 2021 results. B also links opex growth to incremental margin with a faulty 'so'. Both drafts cite truncated passages for the $585m and $89m figures, and A's stock-split claim is unsourced. Still, A labels its analysis, admits the FY2023 move is unexplained and flags the per-share break. B adds more depth (NEER, debt-vs-equity CAGR, the restatement caveat)."
+   },
+   "cost_usd": 0.133373,
+   "latency_s": 18.706,
+   "input_tokens": 14014,
+   "output_tokens": 1347,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B misreads its own sources on the key FY2021 inflection. The Mountain Valley Pipeline impairment was a 2020 charge, and the FY2021 passage says its absence lifted 2021 results. B also links opex growth to incremental margin with a faulty 'so'. Both drafts cite truncated passages for the $585m and $89m figures, and A's stock-split claim is unsourced. Still, A labels its analysis, admits the FY2023 move is unexplained and flags the per-share break. B adds more depth (NEER, debt-vs-equity CAGR, the restatement caveat).\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.256998
+}

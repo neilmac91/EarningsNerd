@@ -1,12 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import CompanySearch from '@/features/companies/components/CompanySearch'
+import { getCompany } from '@/features/companies/api/companies-api'
+import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
+import { formatCompanyName } from '@/lib/formatCompanyName'
+import { ActivityLine, Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { ApiError } from '@/lib/api/client'
@@ -31,9 +35,15 @@ import { exportFilename } from '@/features/analysis/lib/chartExport'
 import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
-import NarrativePane, { type NarrativeState } from './NarrativePane'
-import PeriodPicker, { defaultRange, type PeriodRange } from './PeriodPicker'
+import NarrativePane, { NOT_ENOUGH_HISTORY, NOT_ENOUGH_HISTORY_NEXT, runStageWords, type NarrativeState } from './NarrativePane'
+import PeriodPicker, { defaultRange, optionsFor, type PeriodRange } from './PeriodPicker'
+import ResultsHeader from './ResultsHeader'
 import TrendCharts from './TrendCharts'
+import DataNotes from './DataNotes'
+import { DataNotesProvider } from './DataNotesContext'
+import { ANALYSIS_DISCLOSURE } from '@/features/analysis/lib/provenance'
+import { ANALYSIS_MAX_ANNUAL_PERIODS, ANALYSIS_MAX_QUARTERLY_PERIODS } from '@/lib/planLimits'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 /**
  * Multi-Period Analysis — the Pro flagship page.
@@ -44,9 +54,48 @@ import TrendCharts from './TrendCharts'
  * instantly, then the AI narrative streams in with source-linked citations. Free users get the full
  * picker plus the PeekLocked sample instead of live results (zero AI cost, maximum clarity about
  * what Pro unlocks).
+ *
+ * `?ticker=` (the homepage's "Try it on Apple" links to /analysis?ticker=AAPL) preselects that
+ * company and nothing more: a run costs AI, so only the user's "Run analysis" starts one.
  */
+/**
+ * Reports the page's ticker-shaped `?ticker=` (or null), and again whenever it changes: the App Router
+ * keeps this page mounted across a search-param-only navigation (the Header's and Footer's /analysis
+ * links, or a link to another `?ticker=`). It renders nothing inside its own Suspense boundary, since
+ * useSearchParams() on a statically rendered page suspends to the nearest one, and so the page's
+ * server HTML keeps everything else.
+ */
+function LinkedTicker({ onChange }: { onChange: (ticker: string | null) => void }) {
+  const linked = tickerShaped(useSearchParams()?.get('ticker'))
+  useEffect(() => {
+    onChange(linked)
+  }, [linked, onChange])
+  return null
+}
+
+function exportErrorMessage(error: unknown, format: 'PDF' | 'Excel'): string {
+  // Blob responses do not preserve JSON detail in the shared axios interceptor. Status 409
+  // still identifies an out-of-date source snapshot and must give a useful recovery action.
+  if (error instanceof ApiError && error.status === 409) return 'This report is out of date. Run analysis again before exporting.'
+  return error instanceof ApiError ? error.detail : `${format} export failed. Please try again.`
+}
+
 export default function AnalysisPageClient() {
-  const [ticker, setTicker] = useState<string | null>(null)
+  // The linked ticker comes from LinkedTicker, after hydration. A malformed value is never sent; a
+  // ticker-shaped one is resolved through the company API before the page trusts it, so an unknown
+  // ticker leaves the empty picker.
+  const [linkedTicker, setLinkedTicker] = useState<string | null>(null)
+  const lastLink = useRef<string | null | undefined>(undefined)
+  const { data: linkedCompany } = useQuery({
+    queryKey: queryKeys.analysisCompany(linkedTicker ?? ''),
+    queryFn: () => getCompany(linkedTicker as string),
+    enabled: !!linkedTicker,
+    retry: false,
+    staleTime: 10 * 60 * 1000,
+  })
+  // The user's own pick always wins, including one made while the link resolves.
+  const [pickedTicker, setPickedTicker] = useState<string | null>(null)
+  const ticker = pickedTicker ?? (linkedCompany?.ticker ? linkedCompany.ticker.toUpperCase() : null)
   const [mode, setMode] = useState<AnalysisMode>('annual')
   const [range, setRange] = useState<PeriodRange | null>(null)
   const [dataset, setDataset] = useState<AnalysisDataset | null>(null)
@@ -54,7 +103,35 @@ export default function AnalysisPageClient() {
   const [running, setRunning] = useState(false)
   const [narrative, setNarrative] = useState<NarrativeState>({ status: 'idle', text: '' })
   const abortRef = useRef<AbortController | null>(null)
+  const companyHeadingRef = useRef<HTMLDivElement>(null)
+  const resultsHeaderId = useId()
+  const rangeOwnerRef = useRef<{ ticker: string | null; mode: AnalysisMode } | null>(null)
   const queryClient = useQueryClient()
+
+  // The run's status line, sr-only, beside Run analysis before any run. The pane's words sit in no live region, and a
+  // status region announces text added to it, never text it was created with, so this line says the run: the first
+  // stage's words as it starts (Run analysis or Refresh analysis), "Writing…" at the turn, and at the end "Analysis
+  // ready." or, for a range without enough history, the card's notice whole. An error empties it, since an alert says
+  // what went wrong (the card's, or the page's when the figures cannot be built), and so does a reset.
+  const [statusLine, setStatusLine] = useState('')
+  // A run's first words, set a frame after the line empties: an ending or a reset before then drops them.
+  const statusFrame = useRef<number | null>(null)
+  const sayStatus = useCallback((words: string) => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+    statusFrame.current = null
+    setStatusLine(words)
+  }, [])
+  // The line empties first, so a screen reader hears the first words for every run, the same words included.
+  const sayRunStarted = useCallback(() => {
+    sayStatus('')
+    statusFrame.current = requestAnimationFrame(() => {
+      statusFrame.current = null
+      setStatusLine(runStageWords('assembling'))
+    })
+  }, [sayStatus])
+  useEffect(() => () => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+  }, [])
 
   // Tri-state auth: undefined = resolving, null = guest, object = signed in (Header's contract).
   // Keys come from the F1 registry so this page shares the Header's auth/subscription cache and can
@@ -69,11 +146,7 @@ export default function AnalysisPageClient() {
   const isPro = !!subscription?.is_pro
   const authResolved = user !== undefined
 
-  const {
-    data: coverage,
-    isLoading: coverageLoading,
-    error: coverageError,
-  } = useQuery<AnalysisCoverage>({
+  const coverageQuery = useQuery<AnalysisCoverage>({
     queryKey: queryKeys.analysisCoverage(ticker),
     queryFn: () => getAnalysisCoverage(ticker as string),
     enabled: !!ticker && !!user,
@@ -83,14 +156,23 @@ export default function AnalysisPageClient() {
     retry: (failureCount, err) =>
       err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
   })
+  const coverageFailure = useRetainedFailure(coverageQuery, queryKeys.analysisCoverage(ticker))
+  const { data: coverage } = coverageQuery
 
-  // New coverage / mode → reset the range to the newest window and clear stale results.
+  // A refresh keeps a valid choice for this company/mode; a new selection starts at the newest window.
   useEffect(() => {
     if (coverage) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync selection to freshly-loaded coverage (external data), not derivable at render time
-      setRange(defaultRange(coverage, mode))
+      const sameSelection = rangeOwnerRef.current?.ticker === ticker && rangeOwnerRef.current.mode === mode
+      rangeOwnerRef.current = { ticker, mode }
+      setRange((previous) => {
+        const options = optionsFor(coverage, mode)
+        const start = options.findIndex((option) => option.key === previous?.start && !option.disabled)
+        const end = options.findIndex((option) => option.key === previous?.end && !option.disabled)
+        if (sameSelection && start >= 0 && end >= start && end - start < coverage.limits[mode]) return previous
+        return defaultRange(coverage, mode)
+      })
     }
-  }, [coverage, mode])
+  }, [coverage, mode, ticker])
 
   const resetResults = useCallback(() => {
     abortRef.current?.abort()
@@ -99,20 +181,40 @@ export default function AnalysisPageClient() {
     setDatasetError(null)
     setNarrative({ status: 'idle', text: '' })
     setRunning(false)
-  }, [])
+    sayStatus('')
+  }, [sayStatus])
+
+  // The first report is the link the page opened with. A later, different one is a navigation that kept
+  // the page mounted, so the page starts over from it: no pick, no results, the new link (or none), as
+  // a reload of that URL would show.
+  const followLink = useCallback(
+    (next: string | null) => {
+      if (lastLink.current !== undefined && lastLink.current !== next) {
+        resetResults()
+        setMode('annual')
+        setPickedTicker(null)
+      }
+      lastLink.current = next
+      setLinkedTicker(next)
+    },
+    [resetResults]
+  )
 
   const selectCompany = useCallback(
     (nextTicker: string) => {
       resetResults()
       setMode('annual')
-      setTicker(nextTicker.toUpperCase())
+      setPickedTicker(nextTicker.toUpperCase())
     },
     [resetResults]
   )
 
   const startNarrative = useCallback(
-    (force: boolean) => {
+    (force: boolean, report = dataset) => {
       if (!ticker || !range) return
+      // A forced run is Refresh analysis, a run of its own; Run analysis said its first words at the press.
+      if (force) sayRunStarted()
+      const expectedSnapshot = report?.snapshot_id
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -124,28 +226,43 @@ export default function AnalysisPageClient() {
         { mode, start_period: range.start, end_period: range.end, force },
         {
           onProgress: (stage) => {
-            if (isCurrent()) setNarrative((s) => (s.status === 'streaming' ? { ...s, stage } : s))
+            if (!isCurrent()) return
+            setNarrative((s) => (s.status === 'streaming' ? { ...s, stage } : s))
+            // The same words again (a retry's "verifying" still reads "Writing…") change nothing, so nothing is heard.
+            sayStatus(runStageWords(stage))
           },
           onToken: (text) => {
-            if (isCurrent()) setNarrative((s) => ({ ...s, status: 'streaming', text: s.text + text }))
+            // Keep commentary private until its completed snapshot matches the displayed figures.
+            if (isCurrent() && !expectedSnapshot) setNarrative((s) => ({ ...s, status: 'streaming', text: s.text + text }))
           },
           onComplete: (completion) => {
             if (!isCurrent()) return
+            // Only an analysis carries commentary, and with it the snapshot it was written over. A completion with too
+            // little history carries neither (the stream's contract), so it ends the run as it is.
+            if (expectedSnapshot && completion.kind === 'analysis' && completion.snapshot_id !== expectedSnapshot) {
+              setNarrative({ status: 'error', text: '', error: 'Source data changed while this analysis was running. Run analysis again to refresh the figures and commentary together.' })
+              setRunning(false)
+              sayStatus('')
+              return
+            }
             setNarrative({ status: 'done', text: completion.narrative, completion })
             setRunning(false)
-            // A fresh generation consumed quota — keep the settings usage meter honest.
-            if (!completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
+            sayStatus(completion.kind === 'not_enough_data' ? `${NOT_ENOUGH_HISTORY} ${NOT_ENOUGH_HISTORY_NEXT}` : 'Analysis ready.')
+            // A fresh generation consumed quota — keep the settings usage meter honest. Only an analysis is metered.
+            if (completion.kind === 'analysis' && !completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
           },
-          onError: (message) => {
+          onError: (message, code) => {
             if (!isCurrent()) return
-            setNarrative({ status: 'error', text: '', error: message })
+            setNarrative({ status: 'error', text: '', error: message, errorCode: code })
             setRunning(false)
+            sayStatus('')
           },
         },
-        controller.signal
+        controller.signal,
+        report ?? undefined,
       )
     },
-    [ticker, range, mode, queryClient]
+    [ticker, range, mode, queryClient, dataset, sayStatus, sayRunStarted]
   )
 
   const run = useCallback(async () => {
@@ -159,6 +276,7 @@ export default function AnalysisPageClient() {
     setRunning(true)
     setDatasetError(null)
     setNarrative({ status: 'idle', text: '' })
+    sayRunStarted()
     analytics.analysisRun({ ticker, mode, start: range.start, end: range.end })
     try {
       const result = await getAnalysisDataset(ticker, {
@@ -168,7 +286,7 @@ export default function AnalysisPageClient() {
       }, controller.signal)
       if (!isCurrent()) return
       setDataset(result)
-      startNarrative(false)
+      startNarrative(false, result)
     } catch (err) {
       if (!isCurrent()) return
       setRunning(false)
@@ -176,8 +294,9 @@ export default function AnalysisPageClient() {
       setDatasetError(
         err instanceof ApiError ? err.detail : 'Could not build the dataset. Please try again.'
       )
+      sayStatus('')
     }
-  }, [ticker, range, mode, running, startNarrative])
+  }, [ticker, range, mode, running, startNarrative, sayRunStarted, sayStatus])
 
   // Cancel either phase of the request on unmount.
   useEffect(() => () => abortRef.current?.abort(), [])
@@ -188,7 +307,7 @@ export default function AnalysisPageClient() {
     const analysisId = narrative.completion?.analysis_id
     if (analysisId == null || !ticker) return
     setDatasetError(null)
-    void exportAnalysisPdf(analysisId)
+    void exportAnalysisPdf(analysisId, narrative.completion?.snapshot_id)
       .then((blob) => {
         downloadBlob(blob, `${ticker}_multi_period_analysis.pdf`)
         analytics.exportGenerated({
@@ -200,9 +319,9 @@ export default function AnalysisPageClient() {
         })
       })
       .catch((err) =>
-        setDatasetError(err instanceof ApiError ? err.detail : 'PDF export failed. Please try again.')
+        setDatasetError(exportErrorMessage(err, 'PDF'))
       )
-  }, [narrative.completion?.analysis_id, ticker, dataset?.mode, dataset?.period_key])
+  }, [narrative.completion?.analysis_id, narrative.completion?.snapshot_id, ticker, dataset?.mode, dataset?.period_key])
 
   // Excel replaces the old client-side CSV (owner decision D1). The request range comes from the
   // DATASET on screen — not the picker state, which the user may have changed since running —
@@ -217,6 +336,7 @@ export default function AnalysisPageClient() {
       mode: dataset.mode,
       start_period: dataset.periods[0].key,
       end_period: dataset.periods[dataset.periods.length - 1].key,
+      ...(dataset.snapshot_id ? { snapshot_id: dataset.snapshot_id } : {}),
     })
       .then((blob) => {
         downloadBlob(blob, exportFilename(dataset, `${dataset.mode}-metrics`, 'xlsx'))
@@ -230,40 +350,54 @@ export default function AnalysisPageClient() {
       })
       // Surface the server detail (e.g. the rate limiter's "retry in a minute") over a generic line.
       .catch((err) =>
-        setDatasetError(err instanceof ApiError ? err.detail : 'Excel export failed. Please try again.')
+        setDatasetError(exportErrorMessage(err, 'Excel'))
       )
       .finally(() => setExportingXlsx(false))
   }, [dataset, exportingXlsx])
 
   const unsupported = coverage && !coverage.supported
-  const paywalled = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
+  // A refresh that fails keeps the last answer on screen. A sync's answer shows the history line, never periods, so its
+  // failure is a failed load; and only the picker shows periods, so only its failure says it kept them.
+  const coverageSettled = !!coverage && !coverage.syncing
+  const periodsShown = coverageSettled && !unsupported
+  // The coverage line names the company as the rest of the app does, in its display casing (EDGAR serves the
+  // conformed name, often in capitals); the ticker stands in until the coverage read lands.
+  const companyName = formatCompanyName(coverage?.company_name) || ticker
+  // The narrative card already states the error once. Only the 403 "Pro feature" case adds a way to
+  // the plans; the fair-use 429 is a Pro user's monthly cap, so it gets no "See plans" and no repeat.
+  const proRequired = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '', narrative.errorCode)
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    // The page's one <main> landmark (the root layout's #main is a non-landmark skip-link target).
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 [@container(max-width:13em)]:px-2">
+      <Suspense fallback={null}>
+        <LinkedTicker onChange={followLink} />
+      </Suspense>
       <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Multi-Period Analysis
           </h1>
           <Badge variant="pro">Pro</Badge>
         </div>
         <p className="max-w-2xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Pick a company and up to 10 fiscal years or 12 quarters. Growth, margins, cash, and
-          balance sheet, plus an AI narrative with cited figures checked against SEC XBRL and
-          source warnings shown for review.
+          Pick a company and up to {ANALYSIS_MAX_ANNUAL_PERIODS} fiscal years or {ANALYSIS_MAX_QUARTERLY_PERIODS} quarters. Growth, margins, cash, and
+          balance sheet, plus AI-assisted commentary with sources and calculation methods.
         </p>
       </header>
 
-      <Card className="p-5">
+      {/* The control level (coherence §4.4): an input area is not content, so the form is a panel and a hairline with
+          no lift, under the results' cards rather than over them. */}
+      <Card elevation="none" className="p-cap-5 [@container(max-width:13em)]:px-1.5" data-analysis-controls>
         <div className="mb-1 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
           Company
         </div>
         <CompanySearch onSelect={selectCompany} />
         {ticker && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            <CompanyLogo ticker={ticker} name={coverage?.company_name || ticker} size={20} />
+          <div ref={companyHeadingRef} tabIndex={-1} className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark outline-none">
+            <CompanyLogo decorative ticker={ticker} name={companyName} size={20} />
             <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
-              {coverage?.company_name || ticker}
+              {companyName}
             </span>
             <span className="tnum font-data">{ticker}</span>
           </div>
@@ -272,12 +406,12 @@ export default function AnalysisPageClient() {
         {/* Signed-out: the picker needs auth for real coverage — invite sign-in, show the sample below. */}
         {ticker && authResolved && !user && (
           <Notice
-            variant="info"
+            variant="neutral"
             className="mt-4"
             title={
               <>
-                <Link href="/login" className="font-semibold underline">
-                  Sign in
+                <Link href="/login" className="font-semibold rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                  Log in
                 </Link>{' '}
                 to see which periods are available for {ticker}.
               </>
@@ -287,25 +421,30 @@ export default function AnalysisPageClient() {
 
         {ticker && !!user && (
           <div className="mt-4">
-            {coverageLoading && !coverage ? (
-              <div role="status" aria-label="Loading available periods">
-                <Skeleton className="h-16 w-full rounded-lg" />
-                <span className="sr-only">Loading…</span>
-              </div>
-            ) : coverageError ? (
+            {coverageFailure.failed && (
               <Notice
                 variant="error"
-                title={
-                  coverageError instanceof ApiError
-                    ? coverageError.detail
-                    : 'Could not load available periods. Please try again.'
-                }
+                className="mb-4"
+                title={coverageSettled ? 'Could not refresh available periods.' : 'Could not load available periods.'}
+                description={periodsShown ? 'Showing the last loaded periods.' : undefined}
+                action={<RetryButton failures={[coverageFailure]} focusTarget={companyHeadingRef} size="sm" />}
               />
-            ) : coverage?.syncing ? (
-              <Notice
-                variant="info"
-                title={`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
-              />
+            )}
+            {!coverageSettled ? (
+              // One status region until the coverage answer settles: a status region announces text added to it, never text it
+              // was created with, so the history fetch is heard because its words land in the region the load already
+              // was, a failed read on the way included (the region stays, empty, beside the error Notice). The fetch is
+              // activity, never a Notice (DESIGN_SYSTEM.md §4 › Activity line).
+              <div role="status" aria-label={coverageQuery.isPending && !coverageFailure.failed ? 'Loading available periods' : undefined}>
+                {coverageFailure.failed ? null : coverageQuery.isPending ? (
+                  <>
+                    <Skeleton className="h-16 w-full rounded-lg" />
+                    <span className="sr-only">Loading…</span>
+                  </>
+                ) : coverage?.syncing ? (
+                  <ActivityLine>{`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}</ActivityLine>
+                ) : null}
+              </div>
             ) : unsupported ? (
               <Notice
                 variant="info"
@@ -337,6 +476,7 @@ export default function AnalysisPageClient() {
                     <Button onClick={run} loading={running} disabled={!range || running}>
                       Run analysis
                     </Button>
+                    <p role="status" className="sr-only">{statusLine}</p>
                   </div>
                 )}
               </div>
@@ -349,12 +489,12 @@ export default function AnalysisPageClient() {
       {authResolved && (!user || (subscription && !isPro)) && <AnalysisTeaser forTicker={ticker || undefined} />}
 
       {isPro && datasetError && <Notice variant="error" title={datasetError} />}
-      {isPro && paywalled && (
+      {isPro && proRequired && (
         <Notice
-          variant="info"
+          variant="neutral"
           title={narrative.error}
           description={
-            <Link href="/pricing" className="font-semibold underline">
+            <Link href="/pricing" className="font-semibold rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
               See plans
             </Link>
           }
@@ -362,35 +502,39 @@ export default function AnalysisPageClient() {
       )}
 
       {isPro && dataset && (
-        <div className="flex flex-col gap-4">
-          <KpiStrip dataset={dataset} />
-          <TrendCharts dataset={dataset} exportEnabled />
-          <NarrativePane
-            state={narrative}
-            onRefresh={() => startNarrative(true)}
-            refreshDisabled={narrative.status === 'streaming'}
-            onExport={exportPdf}
-          />
-          <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
-          <AiDisclaimer lead={false}>
-            Cited figures are checked against SEC XBRL (companyfacts), and source warnings are
-            shown for review. Growth rates, margins and ratios are computed server-side. † =
-            computed Q4.
-          </AiDisclaimer>
-        </div>
+        <DataNotesProvider dataset={dataset}>
+          {/* The run's results, named by their header (coherence §4.4): content modules 16px apart on a phone and 24px
+              from sm; the header sits 12px over the KPI strip, so the two read as one block. */}
+          <section aria-labelledby={resultsHeaderId} className="flex flex-col gap-4 sm:gap-6" data-analysis-results>
+            <div className="flex flex-col gap-3">
+              <ResultsHeader id={resultsHeaderId} dataset={dataset} />
+              <KpiStrip dataset={dataset} />
+            </div>
+            <TrendCharts dataset={dataset} exportEnabled />
+            <NarrativePane
+              state={narrative}
+              onRefresh={() => startNarrative(true)}
+              refreshDisabled={narrative.status === 'streaming'}
+              onExport={exportPdf}
+            />
+            {/* The data notes are the table's fine print (D-061), 8px under its card, not a module's gap away. */}
+            <div className="flex flex-col gap-2">
+              <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
+              <DataNotes dataset={dataset} />
+            </div>
+          </section>
+        </DataNotesProvider>
       )}
 
       {/* Legal one-liner: outside every result/Pro gate so guests, free users viewing the sample,
           and Pro users all see it (drafted in the audit's legal review; pending counsel polish). */}
       <AiDisclaimer lead={false}>
-        This analysis is AI-generated, for informational purposes only, and is not investment
-        advice or a recommendation; past performance does not predict future results. Verify
-        against the original filings on SEC EDGAR. See our{' '}
-        <Link href="/terms" className="underline">
+        {ANALYSIS_DISCLOSURE} See our{' '}
+        <Link href="/terms" className="rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
           Terms
         </Link>
         .
       </AiDisclaimer>
-    </div>
+    </main>
   )
 }

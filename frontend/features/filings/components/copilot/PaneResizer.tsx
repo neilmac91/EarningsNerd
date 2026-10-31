@@ -40,7 +40,7 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
   // `stop` removes its own 'pointerup' listener, so it needs a stable reference to itself. Hold it in
   // a ref so the self-removal reads the same identity that was registered, without referencing the
   // binding before it's declared. `onPointerMove` is stable (empty deps), so `stop` is stable too and
-  // the listener identities match across the drag — behavior is unchanged.
+  // the listener identities match across the drag: behavior is unchanged.
   const stopRef = useRef<() => void>(() => {})
   const stop = useCallback(() => {
     if (!dragging.current) return
@@ -89,18 +89,22 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
     }
   }
 
+  // The divider runs the pane's full height, from under the site header to the viewport's foot, so an
+  // outer ring would lose its ends: a keyboard focus draws the inset brand ring inside its 8px strip
+  // (DESIGN_SYSTEM.md §4 Focus ring, a clipped region), as the pane's reader does, in place of the
+  // browser's own outline, around the line that turns sage.
   return (
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize Copilot panel"
+      aria-label="Resize source pane"
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={Math.round(width)}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
-      className={`group z-10 cursor-col-resize touch-none ${className}`}
+      className={`group z-10 cursor-col-resize touch-none focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:focus-visible:shadow-ring-brand-inset-dark ${className}`}
     >
       <div className="mx-auto h-full w-px bg-white/10 transition-colors group-hover:bg-brand-strong/60 dark:group-hover:bg-brand-strong-dark/60 group-focus-visible:bg-brand-strong dark:group-focus-visible:bg-brand-strong-dark" />
     </div>

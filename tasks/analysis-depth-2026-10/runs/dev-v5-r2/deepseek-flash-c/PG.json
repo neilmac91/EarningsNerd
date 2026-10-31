@@ -1,0 +1,2892 @@
+{
+ "ticker": "PG",
+ "arm": "deepseek-flash-c",
+ "family": "deepseek",
+ "model": "deepseek-flash",
+ "split": "dev",
+ "profile": "operating",
+ "window": "FY2017..FY2026",
+ "snapshot_id": "6355bda770ea19d6aca538a97372a49cd1d6f88a0fce4a4db97ff77fe76db9c7",
+ "prompt_sha256": "05f799a8cdcc892d0843a5987d9d8333cc1c81a02571d18d71a12a619ce0b33e",
+ "packs": "packs-v2",
+ "pack_sha256": "01132f70a1e790d34758a38e9ed2276f580448c4cbdf57a4dfa042f28305f0fd",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 37425,
+   "cached_input_tokens": 2432,
+   "output_tokens": 1834,
+   "reasoning_tokens": 0,
+   "latency_s": 9.723,
+   "cost_usd": 0.006357,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 39259
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue compounded at 3.3% a year from $65.1 billion in FY2017 to $87.0 billion in FY2026 [F1][F10][F201].\"},\n    {\"type\": \"cause\", \"text\": \"FY2019 was the break: operating income fell 58.9% to $5.5 billion as an $8.3 billion impairment charge, including $6.8 billion of Shave Care goodwill, hit the year [F13][D97][X109][X112][P62].\"},\n    {\"type\": \"cause\", \"text\": \"FY2020 reversed it, with operating income up 186.2% to $15.7 billion, $8.3 billion of the increase from the base-period impairment charge [F14][D148][P71].\"},\n    {\"type\": \"comparison\", \"text\": \"Since then the shape is steady rather than cyclical: operating margin has held between 22.1% and 24.3% in every year from FY2022 to FY2026 [F26][F27][F28][F29][F30].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The US was the growth engine over the window, rising from 40.8% of revenue in FY2018 to 47.9% in FY2026 [D512][D534].\"},\n    {\"type\": \"comparison\", \"text\": \"In FY2026 the US added just 0.1pp of the 3.3% revenue growth while Non-US added 3.1pp on 6.1% growth [D536][D457][D511][D510].\"},\n    {\"type\": \"cause\", \"text\": \"FY2026 net sales rose 3% on favorable foreign exchange of 2% and pricing of 1%, with unit volume and mix unchanged [P26].\"},\n    {\"type\": \"comparison\", \"text\": \"Beauty led the latest year, contributing 1.3pp on 7.1% growth, and Fabric & Home Care added 0.8pp on 2.4% growth [D603][D602][D543][D542].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating costs grew 2.1pp faster than revenue in FY2026, at 5.3% cost of revenue growth and 5.5% SG&A growth [D482][D472][D474].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"FY2026 operating margin of 22.7% sat just above the 22.1% window median but 1.6pp below the FY2025 high of 24.3% [F30][D648][F29][D470].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2026 decline came from a 1.0pp cost-of-revenue effect and a 0.6pp SG&A effect, as gross margin fell on unfavorable category mix and marketing spending rose [D483][D485][P25][P5].\"},\n    {\"type\": \"comparison\", \"text\": \"Net margin of 18.4% sat 4.3pp below the 22.7% operating margin, with other non-operating income of $1.1 billion and a 20.8% tax rate partly closing the gap [F50][F30][D693][X108][D443].\"},\n    {\"type\": \"cause\", \"text\": \"That other income rose $922 million, driven by the prior-year Argentina translation charge and the Glad joint venture dissolution gain [P24].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"FY2026 operating cash flow of $19.6 billion was 1.22x net income, against a 1.25x window median, and free cash flow of $15.1 billion was 0.94x [F80][F40][D444][D683][F100][D445].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow margin of 17.4% was in line with the 17.2% median, and capex at 5.1% of revenue was 1.40x D&A [D441][D654][D440][D446].\"},\n    {\"type\": \"cause\", \"text\": \"Operating cash flow rose 10% as net earnings plus non-cash items generated about $19.5 billion, while inventories consumed $641 million and payables generated $919 million [P3].\"},\n    {\"type\": \"cause\", \"text\": \"Investing used $4.6 billion, primarily capital expenditures and hedge settlements, partly offset by Glad proceeds [P2].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].\"},\n    {\"type\": \"comparison\", \"text\": \"Cash of $9.9 billion against $34.1 billion of debt leaves a 0.68x current ratio, below 1.0x and near the 0.63x window low [F140][D449][F180][D661].\"},\n    {\"type\": \"comparison\", \"text\": \"FY2026 buybacks of $5.0 billion and dividends of $10.2 billion were 100.7% of free cash flow, and the diluted share count fell 1.3% [X134][X144][D453][D476].\"},\n    {\"type\": \"judgement\", \"text\": \"Payout at roughly free cash flow with debt roughly flat means the buyback is funded at the margin by balance-sheet capacity rather than surplus cash [D453][D478].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"The current ratio has been below 1.0x in every year of the window and stood at 0.68x in FY2026 [F180][F171][F172].\"},\n    {\"type\": \"judgement\", \"text\": \"For a staples manufacturer with steady $19.6 billion operating cash flow, a sub-1.0x current ratio reflects working-capital structure rather than a liquidity strain [F80].\"},\n    {\"type\": \"fact\", \"text\": \"Buybacks plus dividends exceeded free cash flow in FY2025 at 116.6% and FY2026 at 100.7% [D402][D453].\"},\n    {\"type\": \"judgement\", \"text\": \"Two years of payouts at or above free cash flow, with net debt of $24.2 billion, leaves little room if capex keeps rising [D450].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Whether operating margin in the FY2027 10-K holds above the 22.1% window median or slips toward the 8.1% FY2019 low would confirm or reverse the FY2026 cost pressure [D648][D646].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether capex stays above the FY2026 5.1% of revenue or falls back toward the 3.7% FY2021 level will show if the investment cycle is peaking [D440][D182].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether buybacks plus dividends fall back below the 100.7% FY2026 share of free cash flow would signal a shift toward debt reduction [D453].\"}\n  ]}\n]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 39455,
+   "cached_input_tokens": 37376,
+   "output_tokens": 144,
+   "reasoning_tokens": 0,
+   "latency_s": 3.345,
+   "cost_usd": 0.00051,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 39599
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"balance_sheet\", \"original\": \"The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].\", \"type\": \"comparison\", \"text\": \"The company carries net debt of $24.2 billion, or 27.8% of revenue on the pack's net-cash basis, against a 32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 76880,
+  "cached_input_tokens": 39808,
+  "output_tokens": 1978,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 13.068,
+ "cost_usd": 0.006867,
+ "generation_ok": true,
+ "pipeline": "v2",
+ "nonce": "6794d1f02b93",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 3.3% a year from $65.1 billion in FY2017 to $87.0 billion in FY2026 [F1][F10][F201]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2019 was the break: operating income fell 58.9% to $5.5 billion as an $8.3 billion impairment charge, including $6.8 billion of Shave Care goodwill, hit the year [F13][D97][X109][X112][P62]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2020 reversed it, with operating income up 186.2% to $15.7 billion, $8.3 billion of the increase from the base-period impairment charge [F14][D148][P71]."
+     },
+     {
+      "type": "comparison",
+      "text": "Since then the shape is steady rather than cyclical: operating margin has held between 22.1% and 24.3% in every year from FY2022 to FY2026 [F26][F27][F28][F29][F30]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The US was the growth engine over the window, rising from 40.8% of revenue in FY2018 to 47.9% in FY2026 [D512][D534]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2026 the US added just 0.1pp of the 3.3% revenue growth while Non-US added 3.1pp on 6.1% growth [D536][D457][D511][D510]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026 net sales rose 3% on favorable foreign exchange of 2% and pricing of 1%, with unit volume and mix unchanged [P26]."
+     },
+     {
+      "type": "comparison",
+      "text": "Beauty led the latest year, contributing 1.3pp on 7.1% growth, and Fabric & Home Care added 0.8pp on 2.4% growth [D603][D602][D543][D542]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 2.1pp faster than revenue in FY2026, at 5.3% cost of revenue growth and 5.5% SG&A growth [D482][D472][D474]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2026 operating margin of 22.7% sat just above the 22.1% window median but 1.6pp below the FY2025 high of 24.3% [F30][D648][F29][D470]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2026 decline came from a 1.0pp cost-of-revenue effect and a 0.6pp SG&A effect, as gross margin fell on unfavorable category mix and marketing spending rose [D483][D485][P25][P5]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin of 18.4% sat 4.3pp below the 22.7% operating margin, with other non-operating income of $1.1 billion and a 20.8% tax rate partly closing the gap [F50][F30][D693][X108][D443]."
+     },
+     {
+      "type": "cause",
+      "text": "That other income rose $922 million, driven by the prior-year Argentina translation charge and the Glad joint venture dissolution gain [P24]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2026 operating cash flow of $19.6 billion was 1.22x net income, against a 1.25x window median, and free cash flow of $15.1 billion was 0.94x [F80][F40][D444][D683][F100][D445]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin of 17.4% was in line with the 17.2% median, and capex at 5.1% of revenue was 1.40x D&A [D441][D654][D440][D446]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow rose 10% as net earnings plus non-cash items generated about $19.5 billion, while inventories consumed $641 million and payables generated $919 million [P3]."
+     },
+     {
+      "type": "cause",
+      "text": "Investing used $4.6 billion, primarily capital expenditures and hedge settlements, partly offset by Glad proceeds [P2]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The company carries net debt of $24.2 billion, or 27.8% of revenue on the pack's net-cash basis, against a 32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cash of $9.9 billion against $34.1 billion of debt leaves a 0.68x current ratio, below 1.0x and near the 0.63x window low [F140][D449][F180][D661]."
+     },
+     {
+      "type": "comparison",
+      "text": "FY2026 buybacks of $5.0 billion and dividends of $10.2 billion were 100.7% of free cash flow, and the diluted share count fell 1.3% [X134][X144][D453][D476]."
+     },
+     {
+      "type": "judgement",
+      "text": "Payout at roughly free cash flow with debt roughly flat means the buyback is funded at the margin by balance-sheet capacity rather than surplus cash [D453][D478]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "The current ratio has been below 1.0x in every year of the window and stood at 0.68x in FY2026 [F180][F171][F172]."
+     },
+     {
+      "type": "judgement",
+      "text": "For a staples manufacturer with steady $19.6 billion operating cash flow, a sub-1.0x current ratio reflects working-capital structure rather than a liquidity strain [F80]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks plus dividends exceeded free cash flow in FY2025 at 116.6% and FY2026 at 100.7% [D402][D453]."
+     },
+     {
+      "type": "judgement",
+      "text": "Two years of payouts at or above free cash flow, with net debt of $24.2 billion, leaves little room if capex keeps rising [D450]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether operating margin in the FY2027 10-K holds above the 22.1% window median or slips toward the 8.1% FY2019 low would confirm or reverse the FY2026 cost pressure [D648][D646]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether capex stays above the FY2026 5.1% of revenue or falls back toward the 3.7% FY2021 level will show if the investment cycle is peaking [D440][D182]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether buybacks plus dividends fall back below the 100.7% FY2026 share of free cash flow would signal a shift toward debt reduction [D453]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 649,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 28,
+  "sentence_types": {
+   "fact": 3,
+   "cause": 7,
+   "comparison": 15,
+   "judgement": 3
+  },
+  "claims": 78,
+  "verified": 78,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "balance_sheet",
+    "sentence": "The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-27.8%' net cash's minus sign printed under 'net debt' [D451]"
+   },
+   {
+    "section": "balance_sheet",
+    "sentence": "The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-32.3%' net cash's minus sign printed under 'net debt' [D695]"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 3.3% a year from $65.1 billion in FY2017 to $87.0 billion in FY2026 [F1][F10][F201].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F201"
+    ],
+    "claims": [
+     {
+      "claim": "3.3%",
+      "value": 3.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F201"
+      ]
+     },
+     {
+      "claim": "$65.1 billion",
+      "value": 65.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$87.0 billion",
+      "value": 87.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2019 was the break: operating income fell 58.9% to $5.5 billion as an $8.3 billion impairment charge, including $6.8 billion of Shave Care goodwill, hit the year [F13][D97][X109][X112][P62].",
+    "type": "cause",
+    "citations": [
+     "F13",
+     "D97",
+     "X109",
+     "X112",
+     "P62"
+    ],
+    "claims": [
+     {
+      "claim": "58.9%",
+      "value": 58.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D97"
+      ]
+     },
+     {
+      "claim": "$5.5 billion",
+      "value": 5.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F13"
+      ]
+     },
+     {
+      "claim": "$8.3 billion",
+      "value": 8.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X112"
+      ]
+     },
+     {
+      "claim": "$6.8 billion",
+      "value": 6.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X109"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2020 reversed it, with operating income up 186.2% to $15.7 billion, $8.3 billion of the increase from the base-period impairment charge [F14][D148][P71].",
+    "type": "cause",
+    "citations": [
+     "F14",
+     "D148",
+     "P71"
+    ],
+    "claims": [
+     {
+      "claim": "186.2%",
+      "value": 186.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D148"
+      ]
+     },
+     {
+      "claim": "$15.7 billion",
+      "value": 15.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F14"
+      ]
+     },
+     {
+      "claim": "$8.3 billion",
+      "value": 8.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P71",
+      "ids": [
+       "P71"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Since then the shape is steady rather than cyclical: operating margin has held between 22.1% and 24.3% in every year from FY2022 to FY2026 [F26][F27][F28][F29][F30].",
+    "type": "comparison",
+    "citations": [
+     "F26",
+     "F27",
+     "F28",
+     "F29",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "22.1%",
+      "value": 22.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F27"
+      ]
+     },
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F29"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The US was the growth engine over the window, rising from 40.8% of revenue in FY2018 to 47.9% in FY2026 [D512][D534].",
+    "type": "comparison",
+    "citations": [
+     "D512",
+     "D534"
+    ],
+    "claims": [
+     {
+      "claim": "40.8%",
+      "value": 40.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D512"
+      ]
+     },
+     {
+      "claim": "47.9%",
+      "value": 47.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D534"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "In FY2026 the US added just 0.1pp of the 3.3% revenue growth while Non-US added 3.1pp on 6.1% growth [D536][D457][D511][D510].",
+    "type": "comparison",
+    "citations": [
+     "D536",
+     "D457",
+     "D511",
+     "D510"
+    ],
+    "claims": [
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D536"
+      ]
+     },
+     {
+      "claim": "3.3%",
+      "value": 3.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D457"
+      ]
+     },
+     {
+      "claim": "3.1pp",
+      "value": 3.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D511"
+      ]
+     },
+     {
+      "claim": "6.1%",
+      "value": 6.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D510"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FY2026 net sales rose 3% on favorable foreign exchange of 2% and pricing of 1%, with unit volume and mix unchanged [P26].",
+    "type": "cause",
+    "citations": [
+     "P26"
+    ],
+    "claims": [
+     {
+      "claim": "3%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     },
+     {
+      "claim": "2%",
+      "value": 2.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     },
+     {
+      "claim": "1%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Beauty led the latest year, contributing 1.3pp on 7.1% growth, and Fabric & Home Care added 0.8pp on 2.4% growth [D603][D602][D543][D542].",
+    "type": "comparison",
+    "citations": [
+     "D603",
+     "D602",
+     "D543",
+     "D542"
+    ],
+    "claims": [
+     {
+      "claim": "1.3pp",
+      "value": 1.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D603"
+      ]
+     },
+     {
+      "claim": "7.1%",
+      "value": 7.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D602"
+      ]
+     },
+     {
+      "claim": "0.8pp",
+      "value": 0.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D543"
+      ]
+     },
+     {
+      "claim": "2.4%",
+      "value": 2.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D542"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs grew 2.1pp faster than revenue in FY2026, at 5.3% cost of revenue growth and 5.5% SG&A growth [D482][D472][D474].",
+    "type": "comparison",
+    "citations": [
+     "D482",
+     "D472",
+     "D474"
+    ],
+    "claims": [
+     {
+      "claim": "2.1pp",
+      "value": 2.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "reversed D482",
+      "ids": [
+       "D482"
+      ]
+     },
+     {
+      "claim": "5.3%",
+      "value": 5.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D472"
+      ]
+     },
+     {
+      "claim": "5.5%",
+      "value": 5.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D474"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2026 operating margin of 22.7% sat just above the 22.1% window median but 1.6pp below the FY2025 high of 24.3% [F30][D648][F29][D470].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D648",
+     "F29",
+     "D470"
+    ],
+    "claims": [
+     {
+      "claim": "22.7%",
+      "value": 22.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "22.1%",
+      "value": 22.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D648"
+      ]
+     },
+     {
+      "claim": "1.6pp",
+      "value": 1.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     },
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F29"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2026 decline came from a 1.0pp cost-of-revenue effect and a 0.6pp SG&A effect, as gross margin fell on unfavorable category mix and marketing spending rose [D483][D485][P25][P5].",
+    "type": "cause",
+    "citations": [
+     "D483",
+     "D485",
+     "P25",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "1.0pp",
+      "value": 1.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     },
+     {
+      "claim": "0.6pp",
+      "value": 0.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D485"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of 18.4% sat 4.3pp below the 22.7% operating margin, with other non-operating income of $1.1 billion and a 20.8% tax rate partly closing the gap [F50][F30][D693][X108][D443].",
+    "type": "comparison",
+    "citations": [
+     "F50",
+     "F30",
+     "D693",
+     "X108",
+     "D443"
+    ],
+    "claims": [
+     {
+      "claim": "18.4%",
+      "value": 18.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "4.3pp",
+      "value": 4.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D693"
+      ]
+     },
+     {
+      "claim": "22.7%",
+      "value": 22.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "$1.1 billion",
+      "value": 1.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X108"
+      ]
+     },
+     {
+      "claim": "20.8%",
+      "value": 20.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D443"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "That other income rose $922 million, driven by the prior-year Argentina translation charge and the Glad joint venture dissolution gain [P24].",
+    "type": "cause",
+    "citations": [
+     "P24"
+    ],
+    "claims": [
+     {
+      "claim": "$922 million",
+      "value": 922.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P24",
+      "ids": [
+       "P24"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "FY2026 operating cash flow of $19.6 billion was 1.22x net income, against a 1.25x window median, and free cash flow of $15.1 billion was 0.94x [F80][F40][D444][D683][F100][D445].",
+    "type": "comparison",
+    "citations": [
+     "F80",
+     "F40",
+     "D444",
+     "D683",
+     "F100",
+     "D445"
+    ],
+    "claims": [
+     {
+      "claim": "$19.6 billion",
+      "value": 19.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     },
+     {
+      "claim": "1.22x",
+      "value": 1.22,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "1.25x",
+      "value": 1.25,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D683"
+      ]
+     },
+     {
+      "claim": "$15.1 billion",
+      "value": 15.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "0.94x",
+      "value": 0.94,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin of 17.4% was in line with the 17.2% median, and capex at 5.1% of revenue was 1.40x D&A [D441][D654][D440][D446].",
+    "type": "comparison",
+    "citations": [
+     "D441",
+     "D654",
+     "D440",
+     "D446"
+    ],
+    "claims": [
+     {
+      "claim": "17.4%",
+      "value": 17.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D441"
+      ]
+     },
+     {
+      "claim": "17.2%",
+      "value": 17.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D654"
+      ]
+     },
+     {
+      "claim": "5.1%",
+      "value": 5.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "1.40x",
+      "value": 1.4,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D446"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow rose 10% as net earnings plus non-cash items generated about $19.5 billion, while inventories consumed $641 million and payables generated $919 million [P3].",
+    "type": "cause",
+    "citations": [
+     "P3"
+    ],
+    "claims": [
+     {
+      "claim": "10%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     },
+     {
+      "claim": "$19.5 billion",
+      "value": 19.5,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     },
+     {
+      "claim": "$641 million",
+      "value": 641.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     },
+     {
+      "claim": "$919 million",
+      "value": 919.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Investing used $4.6 billion, primarily capital expenditures and hedge settlements, partly offset by Glad proceeds [P2].",
+    "type": "cause",
+    "citations": [
+     "P2"
+    ],
+    "claims": [
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P2",
+      "ids": [
+       "P2"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].",
+    "type": "comparison",
+    "citations": [
+     "D450",
+     "D451",
+     "D695",
+     "D694"
+    ],
+    "claims": [
+     {
+      "claim": "$24.2 billion",
+      "value": 24.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D450"
+      ]
+     },
+     {
+      "claim": "-27.8%",
+      "value": -27.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D451"
+      ]
+     },
+     {
+      "claim": "-32.3%",
+      "value": -32.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D695"
+      ]
+     },
+     {
+      "claim": "67th percentile",
+      "value": 67.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D694"
+      ]
+     }
+    ],
+    "failures": [
+     "backstop R2a: '-27.8%' net cash's minus sign printed under 'net debt' [D451]",
+     "backstop R2a: '-32.3%' net cash's minus sign printed under 'net debt' [D695]"
+    ]
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Cash of $9.9 billion against $34.1 billion of debt leaves a 0.68x current ratio, below 1.0x and near the 0.63x window low [F140][D449][F180][D661].",
+    "type": "comparison",
+    "citations": [
+     "F140",
+     "D449",
+     "F180",
+     "D661"
+    ],
+    "claims": [
+     {
+      "claim": "$9.9 billion",
+      "value": 9.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F140"
+      ]
+     },
+     {
+      "claim": "$34.1 billion",
+      "value": 34.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D449"
+      ]
+     },
+     {
+      "claim": "0.68x",
+      "value": 0.68,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "0.63x",
+      "value": 0.63,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D661"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "FY2026 buybacks of $5.0 billion and dividends of $10.2 billion were 100.7% of free cash flow, and the diluted share count fell 1.3% [X134][X144][D453][D476].",
+    "type": "comparison",
+    "citations": [
+     "X134",
+     "X144",
+     "D453",
+     "D476"
+    ],
+    "claims": [
+     {
+      "claim": "$5.0 billion",
+      "value": 5.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X134"
+      ]
+     },
+     {
+      "claim": "$10.2 billion",
+      "value": 10.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X144"
+      ]
+     },
+     {
+      "claim": "100.7%",
+      "value": 100.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D453"
+      ]
+     },
+     {
+      "claim": "1.3%",
+      "value": 1.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D476"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Payout at roughly free cash flow with debt roughly flat means the buyback is funded at the margin by balance-sheet capacity rather than surplus cash [D453][D478].",
+    "type": "judgement",
+    "citations": [
+     "D453",
+     "D478"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The current ratio has been below 1.0x in every year of the window and stood at 0.68x in FY2026 [F180][F171][F172].",
+    "type": "fact",
+    "citations": [
+     "F180",
+     "F171",
+     "F172"
+    ],
+    "claims": [
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "0.68x",
+      "value": 0.68,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "For a staples manufacturer with steady $19.6 billion operating cash flow, a sub-1.0x current ratio reflects working-capital structure rather than a liquidity strain [F80].",
+    "type": "judgement",
+    "citations": [
+     "F80"
+    ],
+    "claims": [
+     {
+      "claim": "$19.6 billion",
+      "value": 19.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Buybacks plus dividends exceeded free cash flow in FY2025 at 116.6% and FY2026 at 100.7% [D402][D453].",
+    "type": "fact",
+    "citations": [
+     "D402",
+     "D453"
+    ],
+    "claims": [
+     {
+      "claim": "116.6%",
+      "value": 116.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D402"
+      ]
+     },
+     {
+      "claim": "100.7%",
+      "value": 100.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D453"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Two years of payouts at or above free cash flow, with net debt of $24.2 billion, leaves little room if capex keeps rising [D450].",
+    "type": "judgement",
+    "citations": [
+     "D450"
+    ],
+    "claims": [
+     {
+      "claim": "$24.2 billion",
+      "value": 24.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D450"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether operating margin in the FY2027 10-K holds above the 22.1% window median or slips toward the 8.1% FY2019 low would confirm or reverse the FY2026 cost pressure [D648][D646].",
+    "type": "comparison",
+    "citations": [
+     "D648",
+     "D646"
+    ],
+    "claims": [
+     {
+      "claim": "22.1%",
+      "value": 22.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D648"
+      ]
+     },
+     {
+      "claim": "8.1%",
+      "value": 8.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D646"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether capex stays above the FY2026 5.1% of revenue or falls back toward the 3.7% FY2021 level will show if the investment cycle is peaking [D440][D182].",
+    "type": "comparison",
+    "citations": [
+     "D440",
+     "D182"
+    ],
+    "claims": [
+     {
+      "claim": "5.1%",
+      "value": 5.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "3.7%",
+      "value": 3.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D182"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether buybacks plus dividends fall back below the 100.7% FY2026 share of free cash flow would signal a shift toward debt reduction [D453].",
+    "type": "comparison",
+    "citations": [
+     "D453"
+    ],
+    "claims": [
+     {
+      "claim": "100.7%",
+      "value": 100.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D453"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 2
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 28,
+  "sentence_types": {
+   "fact": 3,
+   "cause": 7,
+   "comparison": 15,
+   "judgement": 3
+  },
+  "claims": 78,
+  "verified": 78,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 3.3% a year from $65.1 billion in FY2017 to $87.0 billion in FY2026 [F1][F10][F201].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F201"
+    ],
+    "claims": [
+     {
+      "claim": "3.3%",
+      "value": 3.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F201"
+      ]
+     },
+     {
+      "claim": "$65.1 billion",
+      "value": 65.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$87.0 billion",
+      "value": 87.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2019 was the break: operating income fell 58.9% to $5.5 billion as an $8.3 billion impairment charge, including $6.8 billion of Shave Care goodwill, hit the year [F13][D97][X109][X112][P62].",
+    "type": "cause",
+    "citations": [
+     "F13",
+     "D97",
+     "X109",
+     "X112",
+     "P62"
+    ],
+    "claims": [
+     {
+      "claim": "58.9%",
+      "value": 58.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D97"
+      ]
+     },
+     {
+      "claim": "$5.5 billion",
+      "value": 5.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F13"
+      ]
+     },
+     {
+      "claim": "$8.3 billion",
+      "value": 8.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X112"
+      ]
+     },
+     {
+      "claim": "$6.8 billion",
+      "value": 6.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X109"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2020 reversed it, with operating income up 186.2% to $15.7 billion, $8.3 billion of the increase from the base-period impairment charge [F14][D148][P71].",
+    "type": "cause",
+    "citations": [
+     "F14",
+     "D148",
+     "P71"
+    ],
+    "claims": [
+     {
+      "claim": "186.2%",
+      "value": 186.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D148"
+      ]
+     },
+     {
+      "claim": "$15.7 billion",
+      "value": 15.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F14"
+      ]
+     },
+     {
+      "claim": "$8.3 billion",
+      "value": 8.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P71",
+      "ids": [
+       "P71"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Since then the shape is steady rather than cyclical: operating margin has held between 22.1% and 24.3% in every year from FY2022 to FY2026 [F26][F27][F28][F29][F30].",
+    "type": "comparison",
+    "citations": [
+     "F26",
+     "F27",
+     "F28",
+     "F29",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "22.1%",
+      "value": 22.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F27"
+      ]
+     },
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F29"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The US was the growth engine over the window, rising from 40.8% of revenue in FY2018 to 47.9% in FY2026 [D512][D534].",
+    "type": "comparison",
+    "citations": [
+     "D512",
+     "D534"
+    ],
+    "claims": [
+     {
+      "claim": "40.8%",
+      "value": 40.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D512"
+      ]
+     },
+     {
+      "claim": "47.9%",
+      "value": 47.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D534"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "In FY2026 the US added just 0.1pp of the 3.3% revenue growth while Non-US added 3.1pp on 6.1% growth [D536][D457][D511][D510].",
+    "type": "comparison",
+    "citations": [
+     "D536",
+     "D457",
+     "D511",
+     "D510"
+    ],
+    "claims": [
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D536"
+      ]
+     },
+     {
+      "claim": "3.3%",
+      "value": 3.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D457"
+      ]
+     },
+     {
+      "claim": "3.1pp",
+      "value": 3.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D511"
+      ]
+     },
+     {
+      "claim": "6.1%",
+      "value": 6.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D510"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FY2026 net sales rose 3% on favorable foreign exchange of 2% and pricing of 1%, with unit volume and mix unchanged [P26].",
+    "type": "cause",
+    "citations": [
+     "P26"
+    ],
+    "claims": [
+     {
+      "claim": "3%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     },
+     {
+      "claim": "2%",
+      "value": 2.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     },
+     {
+      "claim": "1%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P26",
+      "ids": [
+       "P26"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Beauty led the latest year, contributing 1.3pp on 7.1% growth, and Fabric & Home Care added 0.8pp on 2.4% growth [D603][D602][D543][D542].",
+    "type": "comparison",
+    "citations": [
+     "D603",
+     "D602",
+     "D543",
+     "D542"
+    ],
+    "claims": [
+     {
+      "claim": "1.3pp",
+      "value": 1.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D603"
+      ]
+     },
+     {
+      "claim": "7.1%",
+      "value": 7.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D602"
+      ]
+     },
+     {
+      "claim": "0.8pp",
+      "value": 0.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D543"
+      ]
+     },
+     {
+      "claim": "2.4%",
+      "value": 2.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D542"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs grew 2.1pp faster than revenue in FY2026, at 5.3% cost of revenue growth and 5.5% SG&A growth [D482][D472][D474].",
+    "type": "comparison",
+    "citations": [
+     "D482",
+     "D472",
+     "D474"
+    ],
+    "claims": [
+     {
+      "claim": "2.1pp",
+      "value": 2.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "reversed D482",
+      "ids": [
+       "D482"
+      ]
+     },
+     {
+      "claim": "5.3%",
+      "value": 5.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D472"
+      ]
+     },
+     {
+      "claim": "5.5%",
+      "value": 5.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D474"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2026 operating margin of 22.7% sat just above the 22.1% window median but 1.6pp below the FY2025 high of 24.3% [F30][D648][F29][D470].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D648",
+     "F29",
+     "D470"
+    ],
+    "claims": [
+     {
+      "claim": "22.7%",
+      "value": 22.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "22.1%",
+      "value": 22.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D648"
+      ]
+     },
+     {
+      "claim": "1.6pp",
+      "value": 1.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     },
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F29"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2026 decline came from a 1.0pp cost-of-revenue effect and a 0.6pp SG&A effect, as gross margin fell on unfavorable category mix and marketing spending rose [D483][D485][P25][P5].",
+    "type": "cause",
+    "citations": [
+     "D483",
+     "D485",
+     "P25",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "1.0pp",
+      "value": 1.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     },
+     {
+      "claim": "0.6pp",
+      "value": 0.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D485"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of 18.4% sat 4.3pp below the 22.7% operating margin, with other non-operating income of $1.1 billion and a 20.8% tax rate partly closing the gap [F50][F30][D693][X108][D443].",
+    "type": "comparison",
+    "citations": [
+     "F50",
+     "F30",
+     "D693",
+     "X108",
+     "D443"
+    ],
+    "claims": [
+     {
+      "claim": "18.4%",
+      "value": 18.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "4.3pp",
+      "value": 4.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D693"
+      ]
+     },
+     {
+      "claim": "22.7%",
+      "value": 22.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "$1.1 billion",
+      "value": 1.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X108"
+      ]
+     },
+     {
+      "claim": "20.8%",
+      "value": 20.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D443"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "That other income rose $922 million, driven by the prior-year Argentina translation charge and the Glad joint venture dissolution gain [P24].",
+    "type": "cause",
+    "citations": [
+     "P24"
+    ],
+    "claims": [
+     {
+      "claim": "$922 million",
+      "value": 922.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P24",
+      "ids": [
+       "P24"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "FY2026 operating cash flow of $19.6 billion was 1.22x net income, against a 1.25x window median, and free cash flow of $15.1 billion was 0.94x [F80][F40][D444][D683][F100][D445].",
+    "type": "comparison",
+    "citations": [
+     "F80",
+     "F40",
+     "D444",
+     "D683",
+     "F100",
+     "D445"
+    ],
+    "claims": [
+     {
+      "claim": "$19.6 billion",
+      "value": 19.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     },
+     {
+      "claim": "1.22x",
+      "value": 1.22,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "1.25x",
+      "value": 1.25,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D683"
+      ]
+     },
+     {
+      "claim": "$15.1 billion",
+      "value": 15.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "0.94x",
+      "value": 0.94,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin of 17.4% was in line with the 17.2% median, and capex at 5.1% of revenue was 1.40x D&A [D441][D654][D440][D446].",
+    "type": "comparison",
+    "citations": [
+     "D441",
+     "D654",
+     "D440",
+     "D446"
+    ],
+    "claims": [
+     {
+      "claim": "17.4%",
+      "value": 17.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D441"
+      ]
+     },
+     {
+      "claim": "17.2%",
+      "value": 17.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D654"
+      ]
+     },
+     {
+      "claim": "5.1%",
+      "value": 5.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "1.40x",
+      "value": 1.4,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D446"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow rose 10% as net earnings plus non-cash items generated about $19.5 billion, while inventories consumed $641 million and payables generated $919 million [P3].",
+    "type": "cause",
+    "citations": [
+     "P3"
+    ],
+    "claims": [
+     {
+      "claim": "10%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     },
+     {
+      "claim": "$19.5 billion",
+      "value": 19.5,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     },
+     {
+      "claim": "$641 million",
+      "value": 641.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     },
+     {
+      "claim": "$919 million",
+      "value": 919.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Investing used $4.6 billion, primarily capital expenditures and hedge settlements, partly offset by Glad proceeds [P2].",
+    "type": "cause",
+    "citations": [
+     "P2"
+    ],
+    "claims": [
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P2",
+      "ids": [
+       "P2"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "The company carries net debt of $24.2 billion, or 27.8% of revenue on the pack's net-cash basis, against a 32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].",
+    "type": "comparison",
+    "citations": [
+     "D450",
+     "D451",
+     "D695",
+     "D694"
+    ],
+    "claims": [
+     {
+      "claim": "$24.2 billion",
+      "value": 24.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D450"
+      ]
+     },
+     {
+      "claim": "27.8%",
+      "value": 27.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D451"
+      ]
+     },
+     {
+      "claim": "32.3%",
+      "value": 32.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D695"
+      ]
+     },
+     {
+      "claim": "67th percentile",
+      "value": 67.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D694"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Cash of $9.9 billion against $34.1 billion of debt leaves a 0.68x current ratio, below 1.0x and near the 0.63x window low [F140][D449][F180][D661].",
+    "type": "comparison",
+    "citations": [
+     "F140",
+     "D449",
+     "F180",
+     "D661"
+    ],
+    "claims": [
+     {
+      "claim": "$9.9 billion",
+      "value": 9.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F140"
+      ]
+     },
+     {
+      "claim": "$34.1 billion",
+      "value": 34.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D449"
+      ]
+     },
+     {
+      "claim": "0.68x",
+      "value": 0.68,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "0.63x",
+      "value": 0.63,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D661"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "FY2026 buybacks of $5.0 billion and dividends of $10.2 billion were 100.7% of free cash flow, and the diluted share count fell 1.3% [X134][X144][D453][D476].",
+    "type": "comparison",
+    "citations": [
+     "X134",
+     "X144",
+     "D453",
+     "D476"
+    ],
+    "claims": [
+     {
+      "claim": "$5.0 billion",
+      "value": 5.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X134"
+      ]
+     },
+     {
+      "claim": "$10.2 billion",
+      "value": 10.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X144"
+      ]
+     },
+     {
+      "claim": "100.7%",
+      "value": 100.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D453"
+      ]
+     },
+     {
+      "claim": "1.3%",
+      "value": 1.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D476"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Payout at roughly free cash flow with debt roughly flat means the buyback is funded at the margin by balance-sheet capacity rather than surplus cash [D453][D478].",
+    "type": "judgement",
+    "citations": [
+     "D453",
+     "D478"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The current ratio has been below 1.0x in every year of the window and stood at 0.68x in FY2026 [F180][F171][F172].",
+    "type": "fact",
+    "citations": [
+     "F180",
+     "F171",
+     "F172"
+    ],
+    "claims": [
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "0.68x",
+      "value": 0.68,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "For a staples manufacturer with steady $19.6 billion operating cash flow, a sub-1.0x current ratio reflects working-capital structure rather than a liquidity strain [F80].",
+    "type": "judgement",
+    "citations": [
+     "F80"
+    ],
+    "claims": [
+     {
+      "claim": "$19.6 billion",
+      "value": 19.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Buybacks plus dividends exceeded free cash flow in FY2025 at 116.6% and FY2026 at 100.7% [D402][D453].",
+    "type": "fact",
+    "citations": [
+     "D402",
+     "D453"
+    ],
+    "claims": [
+     {
+      "claim": "116.6%",
+      "value": 116.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D402"
+      ]
+     },
+     {
+      "claim": "100.7%",
+      "value": 100.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D453"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Two years of payouts at or above free cash flow, with net debt of $24.2 billion, leaves little room if capex keeps rising [D450].",
+    "type": "judgement",
+    "citations": [
+     "D450"
+    ],
+    "claims": [
+     {
+      "claim": "$24.2 billion",
+      "value": 24.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D450"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether operating margin in the FY2027 10-K holds above the 22.1% window median or slips toward the 8.1% FY2019 low would confirm or reverse the FY2026 cost pressure [D648][D646].",
+    "type": "comparison",
+    "citations": [
+     "D648",
+     "D646"
+    ],
+    "claims": [
+     {
+      "claim": "22.1%",
+      "value": 22.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D648"
+      ]
+     },
+     {
+      "claim": "8.1%",
+      "value": 8.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D646"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether capex stays above the FY2026 5.1% of revenue or falls back toward the 3.7% FY2021 level will show if the investment cycle is peaking [D440][D182].",
+    "type": "comparison",
+    "citations": [
+     "D440",
+     "D182"
+    ],
+    "claims": [
+     {
+      "claim": "5.1%",
+      "value": 5.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "3.7%",
+      "value": 3.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D182"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether buybacks plus dividends fall back below the 100.7% FY2026 share of free cash flow would signal a shift toward debt reduction [D453].",
+    "type": "comparison",
+    "citations": [
+     "D453"
+    ],
+    "claims": [
+     {
+      "claim": "100.7%",
+      "value": 100.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D453"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 78,
+  "verified": 78,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "balance_sheet",
+    "sentence": "The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-27.8%' net cash's minus sign printed under 'net debt' [D451]"
+   },
+   {
+    "section": "balance_sheet",
+    "sentence": "The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-32.3%' net cash's minus sign printed under 'net debt' [D695]"
+   }
+  ],
+  "backstop_failures": 2
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 3.3% a year from $65.1 billion in FY2017 to $87.0 billion in FY2026 [F1][F10][F201]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2019 was the break: operating income fell 58.9% to $5.5 billion as an $8.3 billion impairment charge, including $6.8 billion of Shave Care goodwill, hit the year [F13][D97][X109][X112][P62]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2020 reversed it, with operating income up 186.2% to $15.7 billion, $8.3 billion of the increase from the base-period impairment charge [F14][D148][P71]."
+     },
+     {
+      "type": "comparison",
+      "text": "Since then the shape is steady rather than cyclical: operating margin has held between 22.1% and 24.3% in every year from FY2022 to FY2026 [F26][F27][F28][F29][F30]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The US was the growth engine over the window, rising from 40.8% of revenue in FY2018 to 47.9% in FY2026 [D512][D534]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2026 the US added just 0.1pp of the 3.3% revenue growth while Non-US added 3.1pp on 6.1% growth [D536][D457][D511][D510]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026 net sales rose 3% on favorable foreign exchange of 2% and pricing of 1%, with unit volume and mix unchanged [P26]."
+     },
+     {
+      "type": "comparison",
+      "text": "Beauty led the latest year, contributing 1.3pp on 7.1% growth, and Fabric & Home Care added 0.8pp on 2.4% growth [D603][D602][D543][D542]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 2.1pp faster than revenue in FY2026, at 5.3% cost of revenue growth and 5.5% SG&A growth [D482][D472][D474]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2026 operating margin of 22.7% sat just above the 22.1% window median but 1.6pp below the FY2025 high of 24.3% [F30][D648][F29][D470]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2026 decline came from a 1.0pp cost-of-revenue effect and a 0.6pp SG&A effect, as gross margin fell on unfavorable category mix and marketing spending rose [D483][D485][P25][P5]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin of 18.4% sat 4.3pp below the 22.7% operating margin, with other non-operating income of $1.1 billion and a 20.8% tax rate partly closing the gap [F50][F30][D693][X108][D443]."
+     },
+     {
+      "type": "cause",
+      "text": "That other income rose $922 million, driven by the prior-year Argentina translation charge and the Glad joint venture dissolution gain [P24]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2026 operating cash flow of $19.6 billion was 1.22x net income, against a 1.25x window median, and free cash flow of $15.1 billion was 0.94x [F80][F40][D444][D683][F100][D445]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin of 17.4% was in line with the 17.2% median, and capex at 5.1% of revenue was 1.40x D&A [D441][D654][D440][D446]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow rose 10% as net earnings plus non-cash items generated about $19.5 billion, while inventories consumed $641 million and payables generated $919 million [P3]."
+     },
+     {
+      "type": "cause",
+      "text": "Investing used $4.6 billion, primarily capital expenditures and hedge settlements, partly offset by Glad proceeds [P2]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The company carries net debt of $24.2 billion, or -27.8% of revenue, against a -32.3% peer median and a 67th percentile among three peers [D450][D451][D695][D694]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cash of $9.9 billion against $34.1 billion of debt leaves a 0.68x current ratio, below 1.0x and near the 0.63x window low [F140][D449][F180][D661]."
+     },
+     {
+      "type": "comparison",
+      "text": "FY2026 buybacks of $5.0 billion and dividends of $10.2 billion were 100.7% of free cash flow, and the diluted share count fell 1.3% [X134][X144][D453][D476]."
+     },
+     {
+      "type": "judgement",
+      "text": "Payout at roughly free cash flow with debt roughly flat means the buyback is funded at the margin by balance-sheet capacity rather than surplus cash [D453][D478]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "The current ratio has been below 1.0x in every year of the window and stood at 0.68x in FY2026 [F180][F171][F172]."
+     },
+     {
+      "type": "judgement",
+      "text": "For a staples manufacturer with steady $19.6 billion operating cash flow, a sub-1.0x current ratio reflects working-capital structure rather than a liquidity strain [F80]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks plus dividends exceeded free cash flow in FY2025 at 116.6% and FY2026 at 100.7% [D402][D453]."
+     },
+     {
+      "type": "judgement",
+      "text": "Two years of payouts at or above free cash flow, with net debt of $24.2 billion, leaves little room if capex keeps rising [D450]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether operating margin in the FY2027 10-K holds above the 22.1% window median or slips toward the 8.1% FY2019 low would confirm or reverse the FY2026 cost pressure [D648][D646]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether capex stays above the FY2026 5.1% of revenue or falls back toward the 3.7% FY2021 level will show if the investment cycle is peaking [D440][D182]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether buybacks plus dividends fall back below the 100.7% FY2026 share of free cash flow would signal a shift toward debt reduction [D453]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch"
+}

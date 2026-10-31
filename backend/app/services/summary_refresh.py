@@ -3,7 +3,8 @@
 One SQL encoding of ``summary_versioning.is_stale`` (pinned against it by
 ``tests/unit/test_admin_refresh_stale.py``), one breakdown for dry runs, and one drain loop that
 regenerates stale rows IN PLACE through the ONE orchestrator with ``force_regenerate=True``
-(``summaries.id`` and bookmarks survive; the pipeline's keep-better gate refuses downgrades).
+(``summaries.id`` and bookmarks survive; the pipeline's keep-better gate refuses to downgrade a summary
+the filing page shows, and always replaces a stored row it cannot show).
 """
 from __future__ import annotations
 

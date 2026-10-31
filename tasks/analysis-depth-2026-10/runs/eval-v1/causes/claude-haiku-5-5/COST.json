@@ -1,0 +1,104 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "COST",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Management attributed FY2021 net sales growth to comparable sales up 16% and new warehouses , with higher gasoline prices also adding to sales .",
+   "passages": [
+    {
+     "id": "P56",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $28,832 or 18% during 2021. The improvement was attributable to an increase in comparable sales of 16%, and sales at new warehouses opened in 2020 and 2021. While sales in all core merchandise categories increased, sales were particularly strong in non-foods. Sales increases were also strong in our warehouse ancillary and other businesses, predominantly e-commerce and gasoline. Certain merchandise categories were impacted by inflation higher than what we have experienced in recent years."
+    },
+    {
+     "id": "P55",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Changes in foreign currencies relative to the U.S. dollar positively impacted net sales by approximately $2,759, or 169 basis points, compared to 2020, attributable to our Canadian and Other International operations. Changes in gasoline prices positively impacted net sales by $1,636, or 100 basis points, compared to 2020, due to a 12% increase in the average price per gallon. The volume of gasoline sold increased approximately 10%, positively impacting net sales by $1,469, or 90 basis points."
+    }
+   ],
+   "label": "supported",
+   "reason": "P56 attributes growth to comparable sales and new warehouses; P55 notes higher gasoline prices added to sales."
+  },
+  {
+   "sentence": "Net sales rose 10% on comparable sales up 8%, driven by 5% higher average ticket and 3% higher shopping frequency .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $27,335 or 10% during 2026. The improvement was primarily attributable to an increase in comparable sales of $22,457 or 8%. Comparable sales were positively impacted by increases of 5% in average ticket and 3% in shopping frequency. The remaining increase in net sales was driven by sales at the 25 net new warehouses opened since the end of 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 states net sales increased 10%, comparable sales 8%, driven by 5% ticket and 3% frequency."
+  },
+  {
+   "sentence": "Warehouse ancillary and other businesses contributed most in FY2022 at 7.6pp , where management said growth was strongest in gasoline, business centers and travel .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $30,678 or 16% during 2022. The improvement was attributable to an increase in comparable sales of 14%, and sales at new warehouses opened in 2021 and 2022. Sales increased $15,830 in core merchandise categories and $14,848 in warehouse ancillary and other businesses. The rate of increase was strongest in our gasoline, business centers, and travel businesses. Sales continued to be impacted by inflation, higher than what we experienced in previous fiscal years."
+    }
+   ],
+   "label": "supported",
+   "reason": "P42 says rate of increase was strongest in gasoline, business centers, and travel businesses."
+  },
+  {
+   "sentence": "The largest move was FY2022, when cost of revenue cut 0.7pp  as gross margin fell 65 basis points on core-category declines and a LIFO charge .",
+   "passages": [
+    {
+     "id": "P40",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total gross margin percentage decreased 65 basis points compared to 2021. Excluding the impact of gasoline price inflation on net sales, gross margin was 10.94%, a decrease of 19 basis points. This was primarily due to a 33 basis-point decrease in core merchandise categories, predominantly driven by decreases in fresh foods and foods and sundries, and 19 basis points due to a LIFO charge for higher merchandise costs. Gross margin was also negatively impacted by one basis point due to increased 2% rewards. Warehouse ancillary and other businesses positively impacted gross margin by 29 basis points, predominantly gasoline, partially offset by e-commerce. Gross margin was positively impacted by five basis points due to the net impact of ceasing incremental wages related to COVID-19 and the negative impact of a one-time charge related to granting our employees one additional day of paid time off. Changes in foreign currencies relative to the U.S. dollar negatively impacted gross margin by approximately $176, compared to 2021, primarily attributable to our Other International Operations."
+    }
+   ],
+   "label": "supported",
+   "reason": "P40 states gross margin decreased 65 bps due to core-category declines and LIFO charge."
+  },
+  {
+   "sentence": "SG&A added back 0.7pp  as its ratio of sales fell 77 basis points, largely from leveraging increased sales .",
+   "passages": [
+    {
+     "id": "P38",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "SG&A expenses as a percentage of net sales decreased 77 basis points compared to 2021. SG&A expenses as a percentage of net sales excluding the impact of gasoline price inflation was 9.26%, a decrease of 39 basis points. Warehouse operations and other businesses were lower by 17 basis points, largely attributable to leveraging increased sales. This includes the impact of the starting wage increase we instituted in October 2021, as well the increased wages and benefits that were effective on March 14, 2022, and July 4, 2022. SG&A expenses was benefited by a net of 16 basis points due to the positive impact of ceasing incremental wages related to COVID-19, partially offset by higher write-offs of certain information technology assets, and expenses related to granting our employees one additional day of paid time off. Central operating costs were lower by five basis points, and stock compensation expense was lower by one basis point. Changes in foreign currencies relative to the U.S."
+    }
+   ],
+   "label": "supported",
+   "reason": "P38 says SG&A ratio decreased 77 bps, largely attributable to leveraging increased sales."
+  },
+  {
+   "sentence": "Operating cash flow rose 18.6% in FY2026 , which management linked to higher operating income and lower net inventory investment .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cash flow provided by operations is primarily from net sales and membership fees. Cash flow used in operations generally consists of payments to merchandise suppliers, warehouse operating costs, including wages and employee benefits, utilities, credit and debit card processing fees, and operating leases. Cash used in operations also includes payments for income taxes. Changes in our net investment in merchandise inventories (the difference between merchandise inventories and accounts payable) is impacted by several factors, including inventory levels and turnover, payment terms with suppliers, and early payments to obtain discounts. Net cash provided by operating activities totaled $15,817 in 2026, compared to $13,335 in 2025. The increase was primarily due to higher operating income, as well as reduced net investment in merchandise inventories. The latter was a result of faster inventory turns and improved payment terms with suppliers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 states operating cash flow increase was primarily due to higher operating income and reduced inventory investment."
+  },
+  {
+   "sentence": "Tariff refunds flatter the latest year: $184 million was received in FY2026 , and part was invested in member price cuts , against a 3.9% operating margin .",
+   "passages": [
+    {
+     "id": "P15",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "We applied the gain contingency model, in accordance with Accounting Standards Codification (ASC) 450-30, \u201cGain Contingencies,\u201d recognizing recoveries in our consolidated statements of operations only as they were realized. During 2026, we began filing for refunds and received $184, made up of $174 in refunds, recorded as a reduction to merchandise costs, and $10 recorded as interest income. A portion of these refunds was invested in reducing prices for members. Subsequent to 2026, we received $155 in additional refunds and we intend to continue to invest the majority of the refunds in increased value for the member. For a small percentage of transactions where corrections are required, refunds may be delayed as the government continues to implement the IEEPA refund process."
+    },
+    {
+     "id": "P15",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "We applied the gain contingency model, in accordance with Accounting Standards Codification (ASC) 450-30, \u201cGain Contingencies,\u201d recognizing recoveries in our consolidated statements of operations only as they were realized. During 2026, we began filing for refunds and received $184, made up of $174 in refunds, recorded as a reduction to merchandise costs, and $10 recorded as interest income. A portion of these refunds was invested in reducing prices for members. Subsequent to 2026, we received $155 in additional refunds and we intend to continue to invest the majority of the refunds in increased value for the member. For a small percentage of transactions where corrections are required, refunds may be delayed as the government continues to implement the IEEPA refund process."
+    }
+   ],
+   "label": "supported",
+   "reason": "P15 confirms $184 million refunds received in FY2026, part invested in price cuts."
+  }
+ ],
+ "cost_usd": 0.001893
+}

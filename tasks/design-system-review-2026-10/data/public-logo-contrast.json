@@ -1,0 +1,32 @@
+[
+  {
+    "theme": "light",
+    "logoRGB": [
+      0,
+      0,
+      0
+    ],
+    "renderedCircleRGB": [
+      216,
+      221,
+      214
+    ],
+    "blackContrast": 15.23,
+    "method": "Most common black logo pixel versus second-most-common surrounding solid circle pixel in 36px production crop. Decorative logo is named by adjacent company label, so this is known craft issue rather than text WCAG failure."
+  },
+  {
+    "theme": "dark",
+    "logoRGB": [
+      0,
+      0,
+      0
+    ],
+    "renderedCircleRGB": [
+      28,
+      41,
+      49
+    ],
+    "blackContrast": 1.41,
+    "method": "Most common black logo pixel versus second-most-common surrounding solid circle pixel in 36px production crop. Decorative logo is named by adjacent company label, so this is known craft issue rather than text WCAG failure."
+  }
+]

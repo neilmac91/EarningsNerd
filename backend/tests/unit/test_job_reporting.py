@@ -89,7 +89,7 @@ def test_last_success_is_independent_of_latest_attempt_and_missing_jobs(sessions
         report = {r["job"]: r for r in jobs.job_health(db, now=now)}
     assert set(report) == {"pregenerate", "filing-scan", "filing-digest", "backfill-facts",
                            "earnings-calendar-refresh", "earnings-day-alerts", "notable-filings",
-                           "data-quality-report", "retention-purge"}
+                           "data-quality-report", "retention-purge", "feedback-media-cleanup"}
     assert report["filing-scan"]["stale"] and report["filing-scan"]["latest_status"] == "failed"
     assert report["filing-scan"]["last_success"] == jobs.iso_z(now-timedelta(hours=3))
     assert report["notable-filings"]["latest_status"] == "never_observed"
@@ -195,6 +195,7 @@ def facts_job_sessions(tmp_path, monkeypatch):
 def test_facts_job_returns_read_lease_preserving_real_work(facts_job_sessions, monkeypatch, available, expire):
     from scripts import backfill_facts
     from app.services import facts_service
+    from app.services.facts import jobs
     from tests.unit.test_facts_service import _COMPANYFACTS
 
     factory, engine = facts_job_sessions
@@ -239,7 +240,7 @@ def test_facts_job_returns_read_lease_preserving_real_work(facts_job_sessions, m
         return original_process(db, filing, **kwargs)
 
     monkeypatch.setattr(facts_service, "backfill_facts", run_service)
-    monkeypatch.setattr(facts_service, "process_filing_facts", process)
+    monkeypatch.setattr(jobs, "process_filing_facts", process)
     monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", fetch)
     backfill_facts._main(only_unprocessed=True, limit=2)
     assert order == ["LEASE-0", "LEASE-1"] and fetches == ["81001"]
@@ -545,9 +546,9 @@ def test_report_script_emits_new_sections_and_uses_separate_identity(sessions, m
 
 def test_ops_describe_statement_default_matches_settings():
     from app.config import Settings
-    workflow = Path(__file__).resolve().parents[3] / ".github/workflows/ops.yml"
+    readback = Path(__file__).resolve().parents[3] / "ops/describe/service.py"  # what describe-service runs
     default = Settings.model_fields["USE_STATEMENT_FINANCIALS"].default
-    assert f"Settings default applies ({default})" in workflow.read_text()
+    assert f"Settings default applies ({default})" in readback.read_text()
 
 
 def test_notable_midpagination_failure_is_not_success():

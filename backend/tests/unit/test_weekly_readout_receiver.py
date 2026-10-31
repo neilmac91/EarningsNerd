@@ -54,8 +54,8 @@ def test_real_cli_receives_complete_negative_judgments_without_sending(receiver,
     assert "universe_coverage" in report and "job_health" in report
     send.assert_not_awaited()
     html, text = email_service.render_data_quality_report(report)
-    assert "negative judgments · 2" in html and "negative judgments: 2" in text
-    assert "deterministic vetoes · 1" in html and "deterministic vetoes: 1" in text
+    assert "negative judgments · 2" in html and "negative judgments · 2" in text
+    assert "deterministic vetoes · 1" in html and "deterministic vetoes · 1" in text
     for rendered in (html, text):
         assert "No weekly readout supplied" not in rendered
         assert "deterministic vetoes" in rendered
@@ -81,16 +81,21 @@ def test_missing_invalid_or_oversize_readout_keeps_operational_report_visible(re
     send.assert_not_awaited()
 
 
-def test_email_receiver_preserves_readout_and_escapes_visible_and_hidden_text(receiver):
+def test_email_receiver_preserves_readout_escapes_the_page_and_sends_the_text_part_as_typed(receiver, monkeypatch):
     _, send = receiver
     reason = '<script>alert("unsafe")</script>'
     readout = unavailable_readout(reason)
+    rendered = []
+    render = email_service.render_data_quality_report
+    monkeypatch.setattr(email_service, "render_data_quality_report", lambda report: rendered.append(render(report)) or rendered[-1])
     asyncio.run(data_quality_report._main(dry_run=False, weekly_readout_b64=encode_readout(readout)))
     send.assert_awaited_once()
-    html = send.await_args.kwargs["html"]
-    visible, hidden = html.split('<pre style="display:none">')
-    for part in (visible, hidden):
-        assert "<script>" not in part
-        assert "&lt;script&gt;" in part
-        assert "unavailable" in part
+    page, text = send.await_args.kwargs["html"], send.await_args.kwargs["text"]
+    # The report goes as email_service renders it, its page and text part unchanged, so every rule
+    # tests/unit/test_mail_rendered_addresses.py holds the render to holds the mail sent (SENDERS).
+    assert rendered == [(page, text)]
+    assert "<script>" not in page and "&lt;script&gt;" in page and "unavailable" in page
+    assert "<pre" not in page  # no hidden copy of the text: it goes as the mail's text part (E110)
+    # A text part is plain text, never read as markup, so it carries the reason as the readout gave it.
+    assert reason in text and "unavailable" in text
     assert send.await_args.kwargs["subject"] == "EarningsNerd data-quality report"

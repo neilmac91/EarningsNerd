@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { forgotPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { CircleNotchIcon, EnvelopeSimpleOpenIcon } from '@/lib/icons'
+import { EnvelopeSimpleOpenIcon } from '@/lib/icons'
+import AddressText from '@/features/auth/components/AddressText'
 import AuthShell from '@/features/auth/components/AuthShell'
 import { Button, Input, Notice } from '@/components/ui'
 
@@ -16,6 +17,7 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setError('')
     setLoading(true)
     try {
@@ -64,19 +66,8 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 font-semibold active:scale-[0.99]"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                  Sending…
-                </span>
-              ) : (
-                'Send reset link'
-              )}
+            <Button type="submit" loading={loading} loadingText="Sending…" className="w-full">
+              Send reset link
             </Button>
           </form>
         </>
@@ -90,16 +81,19 @@ export default function ForgotPasswordPage() {
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Check your email
           </h1>
+          {/* An address has no break opportunity, so under 200% text it ran past the column and the page scrolled
+              sideways; it breaks after its @ (AddressText), as the support address below does, and break-words
+              breaks a part only where it is longer than the line. */}
           <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             If an account exists for{' '}
-            <span className="font-medium text-text-primary-light dark:text-text-primary-dark">{email}</span>, a
+            <span className="break-words font-medium text-text-primary-light dark:text-text-primary-dark"><AddressText address={email} /></span>, a
             password reset link is on its way. It expires in 1 hour.
           </p>
         </div>
       )}
 
       <p className="mt-8 text-center text-sm">
-        <Link href="/login" className="text-text-secondary-light hover:underline dark:text-text-secondary-dark">
+        <Link href="/login" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-text-secondary-light hover:underline dark:text-text-secondary-dark">
           Back to login
         </Link>
       </p>

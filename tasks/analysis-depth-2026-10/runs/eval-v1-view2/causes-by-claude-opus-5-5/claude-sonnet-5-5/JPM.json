@@ -1,0 +1,94 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The cited passages explain this only for the Corporate segment, where net revenue rose to $8.0 billion on higher net interest income due to higher rates .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net revenue was $8.0 billion, compared with $80 million in the prior year, predominantly driven by higher net interest income due to higher rates, partially offset by the impact of lower Firmwide average deposit balances."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes the rise to $8.0 billion net revenue to higher net interest income due to higher rates."
+  },
+  {
+   "sentence": "Noninterest revenue rose 2.4% to $87.0 billion in FY2025 on higher Markets revenue, largely offset by the absence of the $7.9 billion Visa share gain recorded in 2024 .",
+   "passages": [
+    {
+     "id": "P27",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Noninterest revenue (\u201cNIR\u201d) was $87.0 billion, up 2%, reflecting higher Markets noninterest revenue, higher asset management fees in AWM and CCB, higher auto operating lease income, lower net investment securities losses in Treasury and CIO, higher Payments fees, higher investment banking fees, and a $588 million First Republic-related gain recorded in the first quarter of 2025. These increases were predominantly offset by the absence of the $7.9 billion net gain related to Visa shares recorded in the second quarter of 2024, as well as lower card income in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage cites higher Markets noninterest revenue among increases, predominantly offset by the absent $7.9 billion Visa gain."
+  },
+  {
+   "sentence": "Net interest income grew 3.1% to $95.4 billion, driven by Markets net interest income and Card Services revolving balances, largely offset by deposit margin compression .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage names Markets NII and Card Services revolving balances as drivers, largely offset by deposit margin compression."
+  },
+  {
+   "sentence": "Noninterest expense reached $95.6 billion, driven by higher compensation, including revenue-related pay and headcount growth .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense, including higher revenue-related compensation and growth in the number of employees. The increase in expense was also driven by higher brokerage expense and distribution fees, higher auto lease depreciation, and continued investments in technology and marketing, as well as higher occupancy expense. These factors were partially offset by FDIC special assessment accrual releases of $763 million compared with an increase of $725 million in the prior year, as well as the absence of a $1.0 billion contribution of Visa shares to the JPMorgan Chase Foundation recorded in the second quarter of 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states expense was driven by higher compensation, including revenue-related compensation and employee growth."
+  },
+  {
+   "sentence": "The credit-loss provision rose to 7.8% of revenue from 6.0%, including a $2.2 billion allowance addition tied to the Apple Card transaction .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The provision for credit losses was $11.5 billion. Net charge-offs were $8.2 billion, up $319 million, primarily driven by Card Services, reflecting loan growth. The net addition to the allowance for credit losses of $3.2 billion which was driven by $2.2 billion related to the Apple Card transaction, loan growth in Card Services and the impact of changes in the Firm's weighted-average macroeconomic outlook, partially offset by reduced borrower uncertainty."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states the allowance addition included $2.2 billion related to the Apple Card transaction."
+  },
+  {
+   "sentence": "Cash used in operations reflected higher trading assets, securities borrowed and loans held-for-sale, which are balance-sheet activity rather than weaker earnings .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes cash used to trading assets, securities borrowed and loans held-for-sale, with net income an offset."
+  },
+  {
+   "sentence": "Cash and equivalents fell to $343 billion from $469 billion, driven by Markets activities, higher securities and higher loans .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash and due from banks and deposits with banks decreased driven by Markets activities in CIB, higher investment securities, higher loans and cash deployment in Treasury and CIO, largely offset by the impact of higher deposits and higher long-term debt."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes the cash decrease to Markets activities, higher investment securities and higher loans."
+  }
+ ],
+ "cost_usd": 0.043636
+}

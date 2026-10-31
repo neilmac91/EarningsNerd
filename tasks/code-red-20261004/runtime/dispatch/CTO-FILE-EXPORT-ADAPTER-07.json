@@ -1,0 +1,117 @@
+{
+ "recorded_at": "2026-10-05T21:34:07.976419+00:00",
+ "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+ "lane": "beta operations",
+ "requested_model": "inherited (claude-fable-5-1)",
+ "authority": "Founder 2026-10-05 ~21:15Z: 'go with COO recommendations. please proceed with the next stage of implementation' — D1 (O2 founder-operated with a founder-side verification script), D2 (G1 text recorded), D3 (founder-side private store, repository hashes only), D4 (no second export; one offline consumer dry run on the three-row part once D5 is authored), D5 (Option A thin adapter; released consumer byte-unchanged). G3 review 01 recorded rendering ACCEPT and consumer-as-is REJECT on the actual part, which is the condition for authoring the adapter. Nothing here authorizes a customer-data export, a new export of any kind, a PostHog charge, a production or CI change, or any statement that cohort reporting, beta admission or capacity is complete or admitted.",
+ "repository_read_scope": {
+  "commit": "branch claude/vigilant-goodall-633yx3 at ad915c44 (main c780228a; PR #1099 pending merge)",
+  "mode": "read-only repository; no git writes; no edits under /home/user/EarningsNerd; NO network, connector, PostHog or HTTP call; no package install; stdlib only; nothing under tasks/readiness-2026-09-21/acceptance/ or /root/.claude/uploads/; outputs staged outside the repository and placed by the chief"
+ },
+ "spend": {
+  "reservation_usd": "0.000000",
+  "deepseek_calls_authorized": 0,
+  "ledger_written": false,
+  "posthog_charge_authorized": false
+ },
+ "one_writer_for_output_paths": true,
+ "dispatch_id": "CTO-FILE-EXPORT-ADAPTER-07",
+ "officer": "CTO",
+ "wave": "R3 (G3/D5: file-export → v1 consumer adapter, Option A)",
+ "role_label": "cto-file-export-adapter-writer-01",
+ "measurable_output": [
+  "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/adapter/staging/file_export_to_v1.py (new module; pure functions + CLI; stdlib only)",
+  "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/adapter/staging/fixture_check.py (the released file extended with check_file_export_adapter() and --adapter-only; check_v1_readout and --v1-only byte-for-byte unchanged in behaviour and output)",
+  "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/adapter/staging/ADAPTER-NOTES.md (what was built, how it maps to contract §2.3 Option A, test results, hashes, deviations)"
+ ],
+ "allowed_inputs": [
+  {
+   "label": "Readout contract revision 3 (file-download route) — §2.0 lifecycle and step-8 completeness rule, §2.3 Option A adapter spec, §3 operator legs",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/coo-file-route-rev3/staging/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md",
+   "sha256": "ad599074e6f27149b6bfb736fccdb45014d1bdc411a2b087165a23d09e9b16dd",
+   "bytes": 47321
+  },
+  {
+   "label": "Founder decisions D1–D5 with recommended answers (adopted by the founder 2026-10-05 ~21:15Z)",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/coo-file-route-rev3/staging/FOUNDER-DECISIONS-FILE-ROUTE.md",
+   "sha256": "7bfe1e63c0b56ffac9bced4161df747ed711e162274e1788571980f854fa906c",
+   "bytes": 14894
+  },
+  {
+   "label": "Released consumer (byte-unchanged; expects columns/results/hasMore)",
+   "path": "tasks/readiness-2026-09-21/beta/readout_v1.py",
+   "sha256": "a9e089cd1d45672833c49cb222c6cdaab52fe9bafbb2a3dddb5c82ae9b82272e",
+   "bytes": 15092
+  },
+  {
+   "label": "Released fixture check (to be extended for the adapter only)",
+   "path": "tasks/readiness-2026-09-21/beta/fixture_check.py",
+   "sha256": "a8aa46d1829f5720dbb29e63ada8d85fb4a1011af989c306cf380d73bfc1add8",
+   "bytes": 28307
+  },
+  {
+   "label": "Released v1 export query shape",
+   "path": "tasks/readiness-2026-09-21/beta/posthog-v1-export.hogql",
+   "sha256": "fa060fe65a078f90d4836d2f60361ff36def4fdf0da34f0eb24b3dbdf0bf47ef",
+   "bytes": 2612
+  },
+  {
+   "label": "Actual capability-test export part (invented literals; three rows)",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/g3/parts/posthog-hogql-01a10d89-1ee8-0000-3e2c-9000712c9502-01a10d89-3a26-0000-56f3-e1f6c4004610.jsonl",
+   "sha256": "67bc4e91db4f1bdc31dd4ffc290efd1864d4babdd6c33bd1e45bfb3fa413c6a5",
+   "bytes": 2092
+  },
+  {
+   "label": "Operator verification record for that part",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/g3/parts/VERIFICATION.json",
+   "sha256": "e5f5c2db2ce12fe7a2a44fcbe899874b8b8088171bc279034dd24364de4ae664",
+   "bytes": 16233
+  },
+  {
+   "label": "G3 independent file-input contract review 01 (rendering accept; consumer-as-is reject; order findings)",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/g3/G3-FILE-INPUT-CONTRACT-REVIEW-01.md",
+   "sha256": "eb21a01378e3364ac8bb7012a14ef4a914bf215085fa65a5bff4f1ea375570e6",
+   "bytes": 18313
+  },
+  {
+   "label": "Export capability run record (exact request shapes as sent to count-rows/create/retrieve; run id; file id)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/export-capability-run.json",
+   "sha256": "328dbd442a7d562ee9cf139a9b03716b6aed1065a4d211c04bcf5050b19a403e",
+   "bytes": 31051
+  },
+  {
+   "label": "September 30 synthetic parameters (for the D4 offline dry run)",
+   "path": "tasks/review-evidence/beta-readout-2026-09-30/parameters.json",
+   "sha256": "6a64e5f39d9bee9fd211e276a437274cd4a041df2531a10e1478d4f152d8eca8",
+   "bytes": 159
+  },
+  {
+   "label": "September 30 consumer output (comparison baseline for D4)",
+   "path": "tasks/review-evidence/beta-readout-2026-09-30/readout.json",
+   "sha256": "086be5e51d29646a92eae14dab628c057a8f665c1fa0154adc4643a299cdfb7e",
+   "bytes": 2430
+  },
+  {
+   "label": "Exact literal-only query the capability export ran",
+   "path": "tasks/review-evidence/beta-readout-2026-09-30/literal-projection.hogql",
+   "sha256": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4",
+   "bytes": 2923
+  }
+ ],
+ "procedure": [
+  "verify every input hash before reading",
+  "implement contract §2.3 Option A exactly: v1_response_from_parts(parts: list[bytes]) -> dict returning ONLY {'columns': COLUMNS, 'results': [...]}; a companion parse_record(parts) -> dict with parts/lines/rows counts, per-part bom/cr/trailing-newline facts and key_order_matched_rows; file_export_completeness(run_record, parts, n_before, n_after) -> dict implementing §2.0 step 8 with failing_rules listed (zero rows complete only with an explicit source-availability record; n_after None → incomplete 'n_after not observed'); a CLI writing the v1 response and the completeness record with O_EXCL 0o600 and a 16 MiB per-part bound",
+  "no hasMore/offset/warnings/error ever set; no type coercion; no concatenation across runs; BOM → ValueError; key-set mismatch → ValueError; trailing single empty line ignored; CR bytes recorded (not stripped)",
+  "extend fixture_check.py with check_file_export_adapter() (two-part synthetic fixture with shuffled key order; BOM rejection; key-set mismatch rejection; string timestamp_s passes through uncoerced and the consumer diagnoses it; completeness true/false/zero-row cases; CLI round trip and no-overwrite; adapter output fed to build_readout equals build_readout on the equivalent direct response) and an --adapter-only flag; do not change check_v1_readout",
+  "run python3 fixture_check.py --adapter-only and --v1-only from the staging dir (copy readout_v1.py and posthog-v1-export.hogql beside them unmodified) and record both outputs",
+  "run ruff check if available (do not install); python3 -m py_compile",
+  "write ADAPTER-NOTES.md; report sha256/bytes of each staged file, every file read, deviations"
+ ],
+ "stop_conditions": [
+  "any network/connector/HTTP call",
+  "any edit to readout_v1.py or any repository file",
+  "hash mismatch or missing input",
+  "any coercion, manufactured hasMore, or concatenation across runs",
+  "any statement that cohort reporting, beta admission or capacity is complete or admitted"
+ ]
+}

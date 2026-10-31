@@ -1,0 +1,68 @@
+"""E125: tokenizer edges of SpamAssassin's HTML parser that a port must model or refuse (offline, one page each)."""
+import json
+import subprocess
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+W = "color:#ffffff"
+CASES = {
+    "span written closed, then text": f'<span style="{W}"/>Pale after a closed span.',
+    "span written closed with a space": f'<span style="{W}" />Pale after a closed span.',
+    "bare span written closed": '<div style="background-color:#000000"><span/>Words on black.</div>',
+    "duplicate style, white first": f'<span style="{W}" style="color:#000000">Which style?</span>',
+    "duplicate style, white last": f'<span style="color:#000000" style="{W}">Which style?</span>',
+    "xmp holding a span": f'<xmp><span style="{W}">In an xmp.</span></xmp>',
+    "textarea holding a span": f'<textarea><span style="{W}">In a textarea.</span></textarea>',
+    "title holding a span": f'<title><span style="{W}">In a title.</span></title>',
+    "plaintext holding a span": f'<plaintext><span style="{W}">In plaintext.</span>',
+    "noscript holding a span": f'<noscript><span style="{W}">In a noscript.</span></noscript>',
+    "cdata section": f'<![CDATA[<span style="{W}">In CDATA.</span>]]>After.',
+    "marked section if": f'<![if !mso]><span style="{W}">Revealed.</span><![endif]>',
+    "upper-case tag and attribute": f'<SPAN STYLE="{W}">Upper case.</SPAN>',
+    "unquoted style": '<span style=color:#ffffff>Unquoted.</span>',
+    "style with an entity": '<span style="color:&#35;ffffff">Entity.</span>',
+    "colour with important": '<span style="color:#ffffff !important">Important.</span>',
+    "colour with spaces around colon": '<span style="color : #ffffff">Spaced.</span>',
+    "colour in capitals": '<span style="COLOR:#FFFFFF">Capitals.</span>',
+    "three-digit hex": '<span style="color:#fff">Short hex.</span>',
+    "named colour": '<span style="color:white">Named.</span>',
+    "rgb colour": '<span style="color:rgb(255,255,255)">RGB.</span>',
+    "a later color part wins": '<span style="color:#ffffff;color:#000000">Later wins.</span>',
+    "inherit keeps the parent": '<span style="color:#ffffff"><span style="color:inherit">Inherit.</span></span>',
+    "unclosed span across cells": f'<table><tr><td style="background-color:#000000"><span style="color:#ffffff">A</span></td><td><span style="{W}">B<td>C</td></tr></table>',
+    "unclosed td then tr": '<table style="background-color:#000000"><tr><td><span style="color:#ffffff">a</span><tr><td>Black text, default ink.</td></tr></table>',
+    "end tag never opened": '</span><span style="color:#ffffff">After a stray end.</span>',
+    "body text attribute": '</head><body text="#ffffff">Body text.',
+    "font color": '<font color="#ffffff">Font colour.</font>',
+    "font closed by a cell": '<table><tr><td><font color="#ffffff">x</font></td></tr></table><table><tr><td style="background-color:#000000"><font color="#ffffff">Pale</td></tr></table>',
+    "whitespace only run": '<span style="color:#ffffff">   </span>',
+    "nbsp only run": '<span style="color:#ffffff">&nbsp;&nbsp;</span>',
+    "numeric nbsp only run": '<span style="color:#ffffff">&#160;</span>',
+    "zero-width run": '<span style="color:#ffffff">&#8203;</span>',
+    "text inside a comment": '<!-- <span style="color:#ffffff">x</span> -->',
+    "conditional comment downlevel": '<!--[if !mso]><!--><span style="color:#ffffff">Shown.</span><!--<![endif]-->',
+    "script holding markup": '<script><span style="color:#ffffff">x</span></script>Dark.',
+    "style block holding markup": '<style>.x{}</style><span style="color:#000000">Dark.</span>',
+    "namespaced tag": '<o:p style="color:#ffffff">Namespaced.</o:p>',
+    "basefont with size": '<basefont size="3" color="#ffffff">After basefont.',
+    "basefont without size": '<basefont color="#ffffff">After basefont.',
+    "vertical tab in style": '<span style="\x0bcolor:#ffffff">VT.</span>',
+    "newline in style": '<span style="\ncolor:#ffffff">NL.</span>',
+    "near white": '<span style="color:#f4f3ee">Near white.</span>',
+    "distance just under 12": '<div style="background-color:#000000"><span style="color:#0f0f0f">dark grey</span></div>',
+    "distance just over 12": '<div style="background-color:#000000"><span style="color:#111111">dark grey</span></div>',
+}
+
+
+def page(fragment: str) -> str:
+    head = "<!doctype html><html><head>"
+    return head + (fragment if fragment.startswith("</head>") else "</head><body>" + fragment) + "</body></html>"
+
+
+cases = [{"name": name, "page": page(fragment)} for name, fragment in CASES.items()]
+out = subprocess.run(["perl", str(HERE / "sa_html.pl")], input=json.dumps(cases).encode(), capture_output=True, check=True)
+rows = [json.loads(line) for line in out.stdout.decode().split("\n") if line]  # newlines alone: a text the parser reads may hold a line separator, where splitlines() would split
+for row in rows:
+    runs = "; ".join(f"{r['text'][:28]!r} {r['ink']}/{r['ground']}{' LOW' if r['low'] else ''}" for r in row["runs"])
+    print(f"{'LOW' if row['low_contrast'] else '   '} {'INV' if row['invalid_colour'] else '   '} {row['name']}: {runs}")
+(HERE / "edges-results.json").write_text(json.dumps(rows, indent=1) + "\n")

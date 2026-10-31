@@ -1,0 +1,534 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "DUK",
+ "split": "holdout",
+ "auditor": "claude-opus-5-5",
+ "cost_usd": 0.13562,
+ "items": [
+  {
+   "sentence": "Revenue compounded at 3.8% a year from $22.7 billion in FY2016 to $31.7 billion in FY2025 .",
+   "claim": "3.8%",
+   "match": "cited: F198 = Revenue CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Revenue CAGR FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "Revenue compounded at 3.8% a year from $22.7 billion in FY2016 to $31.7 billion in FY2025 .",
+   "claim": "$22.7 billion",
+   "match": "cited: F1 = Revenue, FY2016",
+   "label": "consistent",
+   "reason": "FY2016 revenue matches."
+  },
+  {
+   "sentence": "Revenue compounded at 3.8% a year from $22.7 billion in FY2016 to $31.7 billion in FY2025 .",
+   "claim": "$31.7 billion",
+   "match": "cited: F9 = Revenue, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 revenue matches."
+  },
+  {
+   "sentence": "Operating income grew faster at 5.8% a year , and net income faster still at 9.7% .",
+   "claim": "5.8%",
+   "match": "cited: F199 = Operating income CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Operating income CAGR over the window matches."
+  },
+  {
+   "sentence": "Operating income grew faster at 5.8% a year , and net income faster still at 9.7% .",
+   "claim": "9.7%",
+   "match": "cited: F200 = Net income CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net income CAGR over the window matches."
+  },
+  {
+   "sentence": "Operating income fell 19.9% in FY2020, cutting operating margin 3.8pp to 19.7%, on impairment charges from the coal ash CCR settlement and COVID-19 volume losses .",
+   "claim": "19.9%",
+   "match": "cited: D156 = Operating income growth, FY2020",
+   "label": "consistent",
+   "reason": "FY2020 operating income growth, stated as a fall."
+  },
+  {
+   "sentence": "Operating income fell 19.9% in FY2020, cutting operating margin 3.8pp to 19.7%, on impairment charges from the coal ash CCR settlement and COVID-19 volume losses .",
+   "claim": "3.8pp",
+   "match": "cited: D168 = Operating margin change, FY2020",
+   "label": "consistent",
+   "reason": "FY2020 operating margin change matches."
+  },
+  {
+   "sentence": "Operating income fell 19.9% in FY2020, cutting operating margin 3.8pp to 19.7%, on impairment charges from the coal ash CCR settlement and COVID-19 volume losses .",
+   "claim": "19.7%",
+   "match": "cited: F23 = Operating margin, FY2020",
+   "label": "consistent",
+   "reason": "FY2020 operating margin matches."
+  },
+  {
+   "sentence": "Net income rose 59.2% to $4.52 billion in FY2024, primarily because the prior year carried higher impairments on the Commercial Renewables sale .",
+   "claim": "59.2%",
+   "match": "cited: D320 = Net income growth, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 net income growth matches."
+  },
+  {
+   "sentence": "Net income rose 59.2% to $4.52 billion in FY2024, primarily because the prior year carried higher impairments on the Commercial Renewables sale .",
+   "claim": "$4.52 billion",
+   "match": "cited: F37 = Net income, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 net income matches."
+  },
+  {
+   "sentence": "Electric Utilities and Infrastructure supplied 3.6pp of FY2025's 5.6% revenue growth and made up 90.9% of revenue .",
+   "claim": "3.6pp",
+   "match": "cited: D543 = Electric Utilities and Infrastructure (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Segment contribution to FY2025 revenue growth matches."
+  },
+  {
+   "sentence": "Electric Utilities and Infrastructure supplied 3.6pp of FY2025's 5.6% revenue growth and made up 90.9% of revenue .",
+   "claim": "5.6%",
+   "match": "cited: D358 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth matches."
+  },
+  {
+   "sentence": "Electric Utilities and Infrastructure supplied 3.6pp of FY2025's 5.6% revenue growth and made up 90.9% of revenue .",
+   "claim": "90.9%",
+   "match": "cited: D541 = Electric Utilities and Infrastructure (segment) share of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Segment share of FY2025 revenue matches."
+  },
+  {
+   "sentence": "Residential electric added 2.8pp, and Gas Utilities and Infrastructure added 2.0pp as Piedmont Natural Gas revenue rose 32.1% .",
+   "claim": "2.8pp",
+   "match": "cited: D776 = Residential \u2014 Electric Utilitiesand Infrastructure, Electricity Us Regulated (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Residential electric contribution to FY2025 growth matches."
+  },
+  {
+   "sentence": "Residential electric added 2.8pp, and Gas Utilities and Infrastructure added 2.0pp as Piedmont Natural Gas revenue rose 32.1% .",
+   "claim": "2.0pp",
+   "match": "cited: D566 = Gas Utilities and Infrastructure (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Gas segment contribution to FY2025 growth matches."
+  },
+  {
+   "sentence": "Residential electric added 2.8pp, and Gas Utilities and Infrastructure added 2.0pp as Piedmont Natural Gas revenue rose 32.1% .",
+   "claim": "32.1%",
+   "match": "cited: D517 = Piedmont \u2014 Piedmont Natural Gas (other) growth, FY2025",
+   "label": "consistent",
+   "reason": "Piedmont FY2025 growth, stated as revenue rise."
+  },
+  {
+   "sentence": "Operating income grew 8.8% against 5.6% revenue growth in FY2025, an incremental operating margin of 41.4% .",
+   "claim": "8.8%",
+   "match": "cited: D359 = Operating income growth, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating income growth matches."
+  },
+  {
+   "sentence": "Operating income grew 8.8% against 5.6% revenue growth in FY2025, an incremental operating margin of 41.4% .",
+   "claim": "5.6%",
+   "match": "cited: D358 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth matches."
+  },
+  {
+   "sentence": "Operating income grew 8.8% against 5.6% revenue growth in FY2025, an incremental operating margin of 41.4% .",
+   "claim": "41.4%",
+   "match": "cited: D378 = Incremental operating margin (change in operating income / change in revenue), FY2025",
+   "label": "consistent",
+   "reason": "FY2025 incremental operating margin matches."
+  },
+  {
+   "sentence": "Diluted shares rose from 691.0 million to 777.0 million, so EPS compounded at 8.2% against 9.7% for net income .",
+   "claim": "691.0 million",
+   "match": "cited: X106 = Diluted weighted-average shares, FY2016",
+   "label": "consistent",
+   "reason": "FY2016 diluted shares match."
+  },
+  {
+   "sentence": "Diluted shares rose from 691.0 million to 777.0 million, so EPS compounded at 8.2% against 9.7% for net income .",
+   "claim": "777.0 million",
+   "match": "cited: X115 = Diluted weighted-average shares, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 diluted shares match."
+  },
+  {
+   "sentence": "Diluted shares rose from 691.0 million to 777.0 million, so EPS compounded at 8.2% against 9.7% for net income .",
+   "claim": "8.2%",
+   "match": "cited: F201 = EPS (basic) CAGR, FY2016..FY2025",
+   "label": "mismatch",
+   "reason": "Sentence ties EPS to diluted shares; the cited value is basic EPS CAGR."
+  },
+  {
+   "sentence": "Diluted shares rose from 691.0 million to 777.0 million, so EPS compounded at 8.2% against 9.7% for net income .",
+   "claim": "9.7%",
+   "match": "cited: F200 = Net income CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net income CAGR matches."
+  },
+  {
+   "sentence": "FY2025 operating margin of 27.2% is the window high, above the 22.9% median and the 19.7% low .",
+   "claim": "27.2%",
+   "match": "cited: F28 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating margin matches."
+  },
+  {
+   "sentence": "FY2025 operating margin of 27.2% is the window high, above the 22.9% median and the 19.7% low .",
+   "claim": "22.9%",
+   "match": "cited: D933 = Operating margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Window median operating margin matches."
+  },
+  {
+   "sentence": "FY2025 operating margin of 27.2% is the window high, above the 22.9% median and the 19.7% low .",
+   "claim": "19.7%",
+   "match": "cited: D931 = Operating margin window low (FY2020), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Window low operating margin matches."
+  },
+  {
+   "sentence": "That sits at the 75th percentile of four utility peers, whose median operating margin is 25.7% .",
+   "claim": "75th percentile",
+   "match": "cited: D949 = Operating margin: percentile vs utilities peers (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer percentile for operating margin matches."
+  },
+  {
+   "sentence": "That sits at the 75th percentile of four utility peers, whose median operating margin is 25.7% .",
+   "claim": "25.7%",
+   "match": "cited: D950 = Operating margin: utilities peer median (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer median operating margin matches."
+  },
+  {
+   "sentence": "Operating expenses grew 5.3% against revenue growth of 5.6%, which lifted operating margin 0.8pp in FY2025 .",
+   "claim": "5.3%",
+   "match": "cited: D372 = Operating expenses growth, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating expense growth matches."
+  },
+  {
+   "sentence": "Operating expenses grew 5.3% against revenue growth of 5.6%, which lifted operating margin 0.8pp in FY2025 .",
+   "claim": "5.6%",
+   "match": "cited: D358 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth matches."
+  },
+  {
+   "sentence": "Operating expenses grew 5.3% against revenue growth of 5.6%, which lifted operating margin 0.8pp in FY2025 .",
+   "claim": "0.8pp",
+   "match": "cited: D370 = Operating margin change, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating margin change matches."
+  },
+  {
+   "sentence": "Depreciation and amortization rose to 24.3% of revenue in FY2025 from 21.4% in FY2024 .",
+   "claim": "24.3%",
+   "match": "cited: D341 = D&A % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 D&A as % of revenue matches."
+  },
+  {
+   "sentence": "Depreciation and amortization rose to 24.3% of revenue in FY2025 from 21.4% in FY2024 .",
+   "claim": "21.4%",
+   "match": "cited: D303 = D&A % of revenue, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 D&A as % of revenue matches."
+  },
+  {
+   "sentence": "Interest expense reached $3.38 billion in FY2024, primarily on higher debt balances and interest rates .",
+   "claim": "$3.38 billion",
+   "match": "cited: X62 = Interest expense, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 interest expense matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $12.3 billion was 2.48x net income, yet capex of $14.0 billion left free cash flow at -$1.69 billion .",
+   "claim": "$12.3 billion",
+   "match": "cited: F77 = Operating cash flow, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 operating cash flow matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $12.3 billion was 2.48x net income, yet capex of $14.0 billion left free cash flow at -$1.69 billion .",
+   "claim": "2.48x",
+   "match": "cited: D346 = Operating cash flow / net income, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 OCF to net income ratio matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $12.3 billion was 2.48x net income, yet capex of $14.0 billion left free cash flow at -$1.69 billion .",
+   "claim": "$14.0 billion",
+   "match": "cited: F87 = Capital expenditures, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 capex matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $12.3 billion was 2.48x net income, yet capex of $14.0 billion left free cash flow at -$1.69 billion .",
+   "claim": "-$1.69 billion",
+   "match": "cited: F97 = Free cash flow, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow matches."
+  },
+  {
+   "sentence": "Capex ran at 44.2% of revenue and 1.82x D&A, and free cash flow margin of -5.3% compares with a -5.8% window median .",
+   "claim": "44.2%",
+   "match": "cited: D342 = Capex % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 capex as % of revenue matches."
+  },
+  {
+   "sentence": "Capex ran at 44.2% of revenue and 1.82x D&A, and free cash flow margin of -5.3% compares with a -5.8% window median .",
+   "claim": "1.82x",
+   "match": "cited: D348 = Capex / D&A, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 capex to D&A ratio matches."
+  },
+  {
+   "sentence": "Capex ran at 44.2% of revenue and 1.82x D&A, and free cash flow margin of -5.3% compares with a -5.8% window median .",
+   "claim": "-5.3%",
+   "match": "cited: D343 = Free cash flow margin, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 FCF margin matches."
+  },
+  {
+   "sentence": "Capex ran at 44.2% of revenue and 1.82x D&A, and free cash flow margin of -5.3% compares with a -5.8% window median .",
+   "claim": "-5.8%",
+   "match": "cited: D939 = Free cash flow margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Window median FCF margin matches."
+  },
+  {
+   "sentence": "FY2022 free cash flow of -$5.44 billion followed undercollected fuel costs, financed by increased borrowings .",
+   "claim": "-$5.44 billion",
+   "match": "cited: F94 = Free cash flow, FY2022",
+   "label": "consistent",
+   "reason": "FY2022 free cash flow matches."
+  },
+  {
+   "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+   "claim": "$89.6 billion",
+   "match": "cited: D352 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net debt is negative net cash; FY2025 value matches."
+  },
+  {
+   "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+   "claim": "$84.0 billion",
+   "match": "cited: D314 = Net cash (cash and investments less debt), FY2024",
+   "label": "consistent",
+   "reason": "Net debt is negative net cash; FY2024 value matches."
+  },
+  {
+   "sentence": "Net cash was -282.3% of revenue, at the 25th percentile of four utility peers whose median is -228.4% .",
+   "claim": "-282.3%",
+   "match": "cited: D353 = Net cash % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 net cash as % of revenue matches."
+  },
+  {
+   "sentence": "Net cash was -282.3% of revenue, at the 25th percentile of four utility peers whose median is -228.4% .",
+   "claim": "25th percentile",
+   "match": "cited: D953 = Net cash % of revenue: percentile vs utilities peers (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer percentile for net cash % matches."
+  },
+  {
+   "sentence": "Net cash was -282.3% of revenue, at the 25th percentile of four utility peers whose median is -228.4% .",
+   "claim": "-228.4%",
+   "match": "cited: D954 = Net cash % of revenue: utilities peer median (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer median for net cash % matches."
+  },
+  {
+   "sentence": "Debt issued of $11.9 billion was more than double the $5.65 billion repaid in FY2025, and diluted shares rose 0.6% .",
+   "claim": "$11.9 billion",
+   "match": "cited: X133 = Debt issued, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 debt issued matches."
+  },
+  {
+   "sentence": "Debt issued of $11.9 billion was more than double the $5.65 billion repaid in FY2025, and diluted shares rose 0.6% .",
+   "claim": "$5.65 billion",
+   "match": "cited: X143 = Debt repaid, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 debt repaid matches."
+  },
+  {
+   "sentence": "Debt issued of $11.9 billion was more than double the $5.65 billion repaid in FY2025, and diluted shares rose 0.6% .",
+   "claim": "0.6%",
+   "match": "cited: D374 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 diluted share count change matches."
+  },
+  {
+   "sentence": "Return on average equity of 9.7% is at the 0th percentile of four peers, against a 12.6% median .",
+   "claim": "9.7%",
+   "match": "cited: D357 = Return on average equity, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 return on average equity matches."
+  },
+  {
+   "sentence": "Return on average equity of 9.7% is at the 0th percentile of four peers, against a 12.6% median .",
+   "claim": "0th percentile",
+   "match": "cited: D955 = Return on average equity: percentile vs utilities peers (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer percentile for ROE matches."
+  },
+  {
+   "sentence": "Return on average equity of 9.7% is at the 0th percentile of four peers, against a 12.6% median .",
+   "claim": "12.6%",
+   "match": "cited: D956 = Return on average equity: utilities peer median (n=4), FY2025",
+   "label": "consistent",
+   "reason": "Peer median ROE matches."
+  },
+  {
+   "sentence": "Liquidity is thin: the current ratio was 0.55x against a window low of 0.53x, and cash of $245 million covers 0.1 years of burn .",
+   "claim": "0.55x",
+   "match": "cited: F177 = Current ratio, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 current ratio matches."
+  },
+  {
+   "sentence": "Liquidity is thin: the current ratio was 0.55x against a window low of 0.53x, and cash of $245 million covers 0.1 years of burn .",
+   "claim": "0.53x",
+   "match": "cited: D943 = Current ratio window low (FY2020), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Window low current ratio matches."
+  },
+  {
+   "sentence": "Liquidity is thin: the current ratio was 0.55x against a window low of 0.53x, and cash of $245 million covers 0.1 years of burn .",
+   "claim": "$245 million",
+   "match": "cited: F137 = Cash & equivalents, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 cash and equivalents matches."
+  },
+  {
+   "sentence": "Liquidity is thin: the current ratio was 0.55x against a window low of 0.53x, and cash of $245 million covers 0.1 years of burn .",
+   "claim": "0.1 years",
+   "match": "cited: D356 = Years of burn covered by cash and investments, FY2025",
+   "label": "consistent",
+   "reason": "Years of burn covered by cash, FY2025, matches."
+  },
+  {
+   "sentence": "Current portion of debt rose to $7.10 billion from $4.35 billion, so continued access to debt markets matters for this ratio .",
+   "claim": "$7.10 billion",
+   "match": "cited: X160 = Current portion of debt, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 current portion of debt matches."
+  },
+  {
+   "sentence": "Current portion of debt rose to $7.10 billion from $4.35 billion, so continued access to debt markets matters for this ratio .",
+   "claim": "$4.35 billion",
+   "match": "cited: X159 = Current portion of debt, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 current portion of debt matches."
+  },
+  {
+   "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+   "claim": "$50.0 billion",
+   "match": "cited: D14 = Net cash (cash and investments less debt), FY2016",
+   "label": "consistent",
+   "reason": "FY2016 net debt, as negative net cash, matches."
+  },
+  {
+   "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+   "claim": "$89.6 billion",
+   "match": "cited: D352 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "FY2025 net debt, as negative net cash, matches."
+  },
+  {
+   "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+   "claim": "$1.92 billion",
+   "match": "cited: X54 = Interest expense, FY2016",
+   "label": "consistent",
+   "reason": "FY2016 interest expense matches."
+  },
+  {
+   "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+   "claim": "$3.63 billion",
+   "match": "cited: X63 = Interest expense, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 interest expense matches."
+  },
+  {
+   "sentence": "Free cash flow was -0.34x net income in FY2025, against a -0.62x window median, and only FY2024 came near breakeven at 0.01x .",
+   "claim": "-0.34x",
+   "match": "cited: D347 = Free cash flow / net income, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 FCF to net income ratio matches."
+  },
+  {
+   "sentence": "Free cash flow was -0.34x net income in FY2025, against a -0.62x window median, and only FY2024 came near breakeven at 0.01x .",
+   "claim": "-0.62x",
+   "match": "cited: D942 = Free cash flow / net income window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Window median FCF to net income matches."
+  },
+  {
+   "sentence": "Free cash flow was -0.34x net income in FY2025, against a -0.62x window median, and only FY2024 came near breakeven at 0.01x .",
+   "claim": "0.01x",
+   "match": "cited: D309 = Free cash flow / net income, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 FCF to net income matches."
+  },
+  {
+   "sentence": "Receivables fell to $16 million in FY2025 from $1.89 billion, implying 0 days of sales outstanding, and the cited filings do not explain it, so working-capital comparisons across that break are unreliable .",
+   "claim": "$16 million",
+   "match": "cited: X190 = Accounts receivable, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 receivables match."
+  },
+  {
+   "sentence": "Receivables fell to $16 million in FY2025 from $1.89 billion, implying 0 days of sales outstanding, and the cited filings do not explain it, so working-capital comparisons across that break are unreliable .",
+   "claim": "$1.89 billion",
+   "match": "cited: X189 = Accounts receivable, FY2024",
+   "label": "consistent",
+   "reason": "FY2024 receivables match."
+  },
+  {
+   "sentence": "Receivables fell to $16 million in FY2025 from $1.89 billion, implying 0 days of sales outstanding, and the cited filings do not explain it, so working-capital comparisons across that break are unreliable .",
+   "claim": "0 days",
+   "match": "cited: D354 = Days sales outstanding (year-end receivables), FY2025",
+   "label": "consistent",
+   "reason": "FY2025 days sales outstanding matches."
+  },
+  {
+   "sentence": "A current ratio below the window low of 0.53x, from 0.55x now, would confirm the liquidity strain in the FY2026 10-K .",
+   "claim": "0.53x",
+   "match": "cited: D943 = Current ratio window low (FY2020), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Window low current ratio matches."
+  },
+  {
+   "sentence": "A current ratio below the window low of 0.53x, from 0.55x now, would confirm the liquidity strain in the FY2026 10-K .",
+   "claim": "0.55x",
+   "match": "cited: F177 = Current ratio, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 current ratio matches."
+  },
+  {
+   "sentence": "Revenue growth minus operating-cost growth turning negative from +0.3pp would reverse the operating leverage story in the FY2026 10-K .",
+   "claim": "0.3pp",
+   "match": "cited: D379 = Revenue growth minus operating-cost growth, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth minus cost growth matches."
+  },
+  {
+   "sentence": "A free cash flow margin above the window high of 0.2%, from -5.3%, would show capex funded internally in the FY2026 10-K .",
+   "claim": "0.2%",
+   "match": "cited: D938 = Free cash flow margin window high (FY2024), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Window high FCF margin matches."
+  },
+  {
+   "sentence": "A free cash flow margin above the window high of 0.2%, from -5.3%, would show capex funded internally in the FY2026 10-K .",
+   "claim": "-5.3%",
+   "match": "cited: D343 = Free cash flow margin, FY2025",
+   "label": "consistent",
+   "reason": "FY2025 FCF margin matches."
+  }
+ ]
+}

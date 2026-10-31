@@ -1,0 +1,108 @@
+"""E125: score each way of answering URI_COUNT_ODD on the 40 production-shaped mails, in the local rspamd 4.2.2.
+
+Usage: python score_options.py <dump.json> <tile.png> <out.json>
+
+The dump is ../e110/rx/render_prod.py's output for main's backend. Each option is the MIME message Resend would be
+handed: "current" is multipart/alternative [text, html]; the three "inline" layouts carry the tile as an image part
+(src="cid:..."), nested as nodemailer lays it out (alternative [text, related [html, image]]), at the top (related
+[alternative, image]) or under multipart/mixed; "text_tile_url" writes the tile's URL into the text part;
+"header_home_link" wraps the header's tile in a link to the site; "text_site_line" ends the text part with the site's
+address. Offline measurement only: nothing is sent.
+"""
+import json
+import sys
+import urllib.request
+from email.message import EmailMessage
+from email.policy import SMTP
+
+dump = json.load(open(sys.argv[1]))
+tile = open(sys.argv[2], "rb").read()
+out_path = sys.argv[3]
+SITE = "https://www.earningsnerd.io"
+TILE_URL = f"{SITE}/assets/earningsnerd-appicon.png"
+CID = "earningsnerd-tile"
+import os
+DKIM = os.environ.get("E125_DKIM") == "1"
+
+
+def headers(msg: EmailMessage, case: dict) -> None:
+    msg["From"] = "EarningsNerd <alerts@earningsnerd.io>"
+    msg["To"] = ", ".join(case.get("to") or ["ops@earningsnerd.io"])
+    msg["Subject"] = case.get("subject") or "EarningsNerd"
+    msg["Message-ID"] = "<e125-measure@earningsnerd.io>"
+    msg["Date"] = "Mon, 19 Oct 2026 08:00:00 +0000"
+    if DKIM:
+        # Resend signs every mail it sends (a verified domain's DKIM key); a filter that reads only whether a
+        # signature exists sees one. Its value here verifies nowhere: the same on every option.
+        msg["DKIM-Signature"] = ("v=1; a=rsa-sha256; c=relaxed/relaxed; d=earningsnerd.io; s=resend; "
+                                 "h=from:to:subject:date:message-id; bh=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=; "
+                                 "b=dGVzdA==")
+
+
+def alternative(text: str, html: str) -> EmailMessage:
+    msg = EmailMessage(policy=SMTP)
+    msg.set_content(text, charset="utf-8", cte="quoted-printable")
+    msg.add_alternative(html, subtype="html", charset="utf-8", cte="quoted-printable")
+    return msg
+
+
+def build(option: str, case: dict) -> bytes:
+    text, html = case["text"], case["html"]
+    assert html.count(f'src="{TILE_URL}"') == 1, "the header carries the tile once"
+    cid_html = html.replace(f'src="{TILE_URL}"', f'src="cid:{CID}"')
+    if option == "current":
+        msg = alternative(text, html)
+    elif option == "inline_nested":
+        msg = alternative(text, cid_html)
+        msg.get_payload()[1].add_related(tile, maintype="image", subtype="png", cid=f"<{CID}>",
+                                         disposition="inline", filename="earningsnerd-appicon.png")
+    elif option in ("inline_related_top", "inline_mixed_top"):
+        msg = EmailMessage(policy=SMTP)
+        msg.set_type("multipart/related" if option == "inline_related_top" else "multipart/mixed")
+        msg.attach(alternative(text, cid_html))
+        image = EmailMessage(policy=SMTP)
+        image.set_content(tile, maintype="image", subtype="png", cid=f"<{CID}>", disposition="inline",
+                          filename="earningsnerd-appicon.png")
+        msg.attach(image)
+    elif option == "text_tile_url":
+        msg = alternative(f"EarningsNerd ({TILE_URL})\n\n{text}", html)
+    elif option == "header_home_link":
+        img = html[html.index(f'<img src="{TILE_URL}"'):]
+        img = img[:img.index(">") + 1]
+        msg = alternative(text, html.replace(img, f'<a href="{SITE}/" style="text-decoration:none;">{img}</a>'))
+    elif option == "text_site_line":
+        msg = alternative(f"{text.rstrip()}\n\nEarningsNerd: {SITE}\n", html)
+    else:
+        raise ValueError(option)
+    headers(msg, case)
+    return msg.as_bytes()
+
+
+def scan(raw: bytes) -> dict:
+    request = urllib.request.Request("http://127.0.0.1:11333/checkv2", data=raw, method="POST",
+                                     headers={"IP": "203.0.113.7", "From": "alerts@earningsnerd.io",
+                                              "Helo": "mail.earningsnerd.io"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
+OPTIONS = ("current", "inline_nested", "inline_related_top", "inline_mixed_top", "text_tile_url", "header_home_link",
+           "text_site_line")
+out = {}
+for option in OPTIONS:
+    out[option] = {}
+    for name, case in dump.items():
+        if not (isinstance(case, dict) and "html" in case and case.get("text") is not None):
+            continue
+        raw = build(option, case)
+        result = scan(raw)
+        symbols = result.get("symbols", {})
+        out[option][name] = {
+            "score": round(result.get("score", 0.0), 3), "bytes": len(raw),
+            "symbols": {k: [round(v.get("score", 0.0), 3), v.get("options", [])] for k, v in sorted(symbols.items())},
+        }
+json.dump(out, open(out_path, "w"), indent=1, ensure_ascii=False)
+for option in OPTIONS:
+    rows = out[option]
+    fired = [n for n, r in rows.items() if "URI_COUNT_ODD" in r["symbols"]]
+    print(f"{option:20s} mails={len(rows)} URI_COUNT_ODD fires on {len(fired)}")

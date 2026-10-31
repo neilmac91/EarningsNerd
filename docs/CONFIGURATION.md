@@ -11,6 +11,17 @@ except the pre-Settings infra-bootstrap constants in `database.py`, `redis_servi
 `edgar/config.py`)
 and `frontend/lib/featureFlags.ts`. Production uses a mix of Cloud Run environment overrides and Google Secret
 Manager mounts (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+A settings validation error names the failing field and the reason but withholds the value (`REGISTRATION_MODE`'s
+own message quotes its value; it holds no secret). A settings object prints no value; `scripts/deploy_check.py` and
+`scripts/smoke_resend.py` print a secret's presence and length only; a malformed `DATABASE_URL` or `REDIS_URL` is
+reported by its error's type, never the parser's message, which can quote the password. Sentry receives no frame's
+local variables, and the `X-Internal-Token` header, every outbound request's query string, the credential keys of a
+request body, each secret setting's whole value and each connection URL's password (8 characters or more; the limits
+are in the lesson) reach it as `[Filtered]` (another placeholder if a weak secret overlaps that one), wherever an
+error, a transaction, a log or a metric holds them
+(`app/utils/telemetry_bootstrap.py`). The rules,
+their gates and the echoes not yet gated: `lessons/ops-never-echo-environment-values.md`. To debug a value, read it
+from its source (Secret Manager, `backend/.env`).
 
 > Moved out of CLAUDE.md in the July 2026 refactor (Wave 3 / M3) — this file is now the
 > canonical env reference; keep it in sync with `config.py` when adding fields.
@@ -42,14 +53,16 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 
 | Setting | Declared default | Purpose / override guidance |
 |---|---|---|
-| `DATABASE_URL` | `"sqlite:///./earningsnerd.db"` | Local SQLite fallback; production refuses SQLite and requires a Postgres/Cloud SQL connection string. |
+| `DATABASE_URL` | `"sqlite:///./earningsnerd.db"` | Local SQLite fallback; production refuses SQLite and requires a Postgres/Cloud SQL connection string. A URL holding more than one `@` stops startup. The app decodes a percent-encoded user name or password, but the deploy's migration step (`ci.yml`) and the Ops workflow's Cloud SQL proxy step (`ops.yml`) split the URL at its first `@` and first `:` and hand both to `psql` undecoded, so an encoded one (an `@` written `%40`, as an IAM user's name would need) fails there: keep both to characters that need no encoding, as the hex password `docs/DEPLOYMENT.md` generates does. |
 | `REDIS_URL` | `"redis://localhost:6379"` | Local Redis endpoint. Production uses the L1 in-memory cache (ADR-0004). |
 | `SKIP_REDIS_INIT` | `false` | Skip Redis initialization; true in hermetic tests and Redis-off deployments. |
 | `SEC_EDGAR_BASE_URL` | `"https://data.sec.gov"` | SEC submissions/companyfacts API origin; calls must use the EDGAR service layer. |
-| `SEC_USER_AGENT` | `"EarningsNerd/1.0 (contact@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
-| `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process SEC request ceiling; SEC traffic from other processes also counts at the IP. |
+| `SEC_USER_AGENT` | `"EarningsNerd/1.0 (support@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
+| `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process rate of the app's own SEC token bucket (capacity equals rate). SEC's 10 req/s applies per user across every process, so production pins `1` on the API service, every job and the task worker (`ci.yml`); edgartools' separate limiter is `EDGAR_RATE_LIMIT_PER_SEC` (see below the table). |
 | `SEC_MAX_RETRIES` | `5` | EDGAR retry limit. |
 | `SEC_BASE_BACKOFF_SECONDS` | `1.0` | Initial EDGAR retry backoff, seconds. |
+| `SEC_DISTRIBUTED_LIMIT_ENABLED` | `false` | Optional PostgreSQL fleet SEC request admission, fixed 125 ms minimum spacing plus shared 429/503 Retry-After cooldown. Covers existing app HTTPX clients and the version-checked EdgarTools manager/SGML fallback. Activation requires every SEC process on this code, old executions drained and one extra DB connection per process budgeted; see OPERATIONS. No socket-dispatch guarantee. |
+| `SEC_DISTRIBUTED_WAIT_SECONDS` | `10.0` | Maximum coordinator/local-adapter wait per admission, finite and >0, at most 30 s. An outer deadline can cancel an async wait earlier; it cannot terminate an already-running synchronous Edgar worker. Missing state, DB errors or exhausted wait fail closed before a new SEC send. |
 | `COMPANYFACTS_SYNC_TTL_HOURS` | `24` | Companyfacts freshness, hours; a newer Filing can force a refresh earlier. |
 | `SEC_EFTS_BASE_URL` | `"https://efts.sec.gov/LATEST/search-index"` | SEC full-text search endpoint. |
 | `SEC_EFTS_TIMEOUT_SECONDS` | `8.0` | Full-text search request timeout, seconds. |
@@ -62,26 +75,57 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STRIPE_SECRET_KEY` | `""` | Stripe server credential; match test/live mode to environment. |
 | `STRIPE_PUBLISHABLE_KEY` | `""` | Backend validation of Stripe publishable/secret mode consistency; frontend has its own public variable. |
 | `STRIPE_WEBHOOK_SECRET` | `""` | Stripe webhook signature secret. |
-| `STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS` | `2.0` | Dedicated current-subscription read connect limit; finite, > 0 and ≤ 10 seconds. |
-| `STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS` | `3.0` | Dedicated current-subscription read inactivity limit; finite, > 0 and ≤ 10 seconds. |
-| `STRIPE_PRICE_MONTHLY_ID` | `""` | Monthly checkout price ID; empty default makes configured checkout validation fail. |
-| `STRIPE_PRICE_YEARLY_ID` | `""` | Yearly checkout price ID; empty default makes configured checkout validation fail. |
+| `STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS` | `2.0` | Dedicated exact-ID Stripe read (current subscription, invoice, serving Price) connect limit; finite, > 0 and ≤ 10 seconds. |
+| `STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS` | `3.0` | Dedicated exact-ID Stripe read (current subscription, invoice, serving Price) inactivity limit; finite, > 0 and ≤ 10 seconds. |
+| `STRIPE_PRICE_MONTHLY_ID` | `""` | Monthly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a month at the advertised `PRO_PRICING.monthly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first; its [machine checks](PRICING_OFFER.md#machine-checks) compare the bound amount with the page). |
+| `STRIPE_PRICE_YEARLY_ID` | `""` | Yearly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a year at the advertised `PRO_PRICING.yearly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first; its [machine checks](PRICING_OFFER.md#machine-checks) compare the bound amount with the page). |
 | `STRIPE_BETA_PROMO_CODE_ID` | `""` | Stripe Promotion Code ID for eligible beta invites; unset disables the discount. |
 | `PRO_TRIAL_DAYS` | `0` | Card-required monthly trial; 0 disables; validated 0–30. Enable only with the matching frontend flag after the Stripe checklist. |
 | `REVERSE_TRIAL_ENABLED` | `false` | Retired no-card signup trial; keep off. Cannot coexist with a positive PRO_TRIAL_DAYS. |
 | `REVERSE_TRIAL_DAYS` | `7` | Duration of the retired reverse trial, days. |
-| `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration; CI explicitly sets invite_only on the service. |
+| `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration, enforced on `/api/auth/register` and on the Google/Apple callbacks (an invited social sign-up sends the invite in the body of `POST /api/auth/google|apple/start`, never in a URL); CI explicitly sets invite_only on the service. |
 | `INVITE_EXPIRY_HOURS` | `168` | Invite token lifetime, hours. |
+| `LEGAL_COLLECTION_ENABLED` | `false` | Opt-in for new registration, waitlist and general-contact collection; also requires a complete, explicitly published operator notice. Does not enable checkout or promotion. See [LEGAL_READINESS.md](LEGAL_READINESS.md). |
+| `LEGAL_OPERATOR_PUBLISHED` | `false` | Explicit authorization to return complete operator notice fields from `/api/legal/readiness` for display on the legal pages. Draft values remain withheld while false. |
+| `LEGAL_OPERATOR_NAME` | `""` | Verified legal operator name for the public notice; no personal default. |
+| `LEGAL_OPERATOR_POSTAL_ADDRESS` | `""` | Verified public postal address; multiline text supported. |
+| `LEGAL_OPERATOR_COUNTRY` | `""` | Operator country for the public notice. |
+| `LEGAL_OPERATOR_EMAIL` | `""` | Reachable legal-contact address; validated as an email before the notice can be published. |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
+| `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work, internal jobs and the account mail of forgot-password and resend-verification (F60). Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
+| `SUMMARY_DURABLE_GENERATION_ENABLED` | `false` | Opt-in exact-filing summary jobs with PostgreSQL ownership, durable billing receipts and private Cloud Tasks workers. Requires `DURABLE_TASKS_ENABLED`, applied schema and verified recovery. Disabling selects legacy generation; use the admission pause before draining/rollback. |
+| `SUMMARY_NEW_JOBS_PAUSED` | `false` | Stop new summary jobs, refreshes and failed-job restarts before quota/budget admission, including legacy new generation. Ready reads, active joins, existing durable workers and recovery continue. Coordinate this pause across all admitting revisions before changing ownership modes. |
+| `SUMMARY_JOB_FAILED_RETRY_SECONDS` | `60` | Minimum explicit-retry cooldown after a failed durable job, seconds (15–3600); a longer source cooldown remains authoritative. |
+| `SUMMARY_JOB_MAX_PENDING_PER_ACCOUNT` | `3` | Maximum shared jobs one account may have queued, running or waiting to retry (1–20); admission serializes across instances. |
+| `SUMMARY_JOB_MAX_ATTEMPTS` | `4` | Maximum automatic generation attempts per admitted job (1–8), including recovered worker leases. |
+| `SUMMARY_JOB_LEASE_SECONDS` | `90` | Durable worker ownership lease, seconds (30–300); renewals run every one third of this duration. |
+| `SUMMARY_JOB_RECOVERY_SECONDS` | `300` | Age of an acknowledged dispatch before bounded recovery may rotate its task identity, seconds (60–1800). This threshold does not configure a scheduler or guarantee recovery latency. |
+| `SUMMARY_JOB_MAX_AGE_SECONDS` | `3600` | Maximum age of an admitted job for automatic attempts, seconds (300–86400). Verify recovery cadence and queue delay fit this horizon before enabling. |
+| `SUMMARY_PREWARM_MAX_PER_DAY` | `0` | Fleet-wide UTC-day admission cap for system-funded summary preparation (0–200). Zero disables it; failures never replenish admissions. This bounds jobs/attempts, not same-day dollars or provider-internal request count. |
+| `SUMMARY_PREWARM_MAX_PER_SCAN` | `0` | Maximum distinct eligible notified filings considered for preparation in one scan (0–20); zero disables preparation. The separate daily cap and durable flags must also permit it. |
+
+| `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |
+| `TASKS_LOCATION` | `"us-west1"` | Queue region; co-locate with the API and worker. |
+| `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |
+| `TASKS_WORKER_URL` | `""` | Exact HTTPS run.app origin of the private worker, also its expected OIDC audience. |
+| `TASKS_INVOKER_EMAIL` | `""` | Dedicated task service account whose verified email is accepted by the worker. |
+| `TASKS_WORKER_PROCESS` | `false` | Enable only on the private task-only service; permits isolated child execution. |
+| `TASKS_WORK_TIMEOUT_SECONDS` | `480` | Hard child work deadline, greater than zero and at most 480 seconds; child is killed and reaped before HTTP completion on timeout or disconnect. |
 | `POSTHOG_API_KEY` | `""` | Server-side PostHog credential. |
 | `POSTHOG_HOST` | `"https://us.i.posthog.com"` | Server-side PostHog ingestion origin. |
-| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. |
+| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. Events carry stack frames, source lines, messages and breadcrumbs, not local variables (`_sentry_options` in `app/utils/telemetry_bootstrap.py`, the API's), and the value scrubber's hooks, one per channel (`before_send`, `before_send_transaction`, `before_send_log`, `before_send_metric`), withhold each secret setting's whole value (8 characters or more) and each connection URL's password wherever an error, a transaction, a log or a metric holds them, in any text and in the repr of any other value (a log record's `extra` with Sentry logs on). Never set the SDK's `data_collection` option: it disables the event scrubber and turns local variables back on. Never set `trace_lifecycle`: span streaming sends request headers as span attributes, which neither scrubber reads. Never set `max_value_length`: the serializer, which runs before `before_send` and `before_send_transaction`, would cut a string inside a secret. Never set `profile_session_sample_rate` or `profile_lifecycle`: continuous profiling sends profile chunks, which no hook sees. The task worker and a failed task child start Sentry with `_task_sentry_options` (the API's options and hooks, and before them an allowlist): their events carry an exception's type, module and frames, its logger, release, environment, trace ids and task kind, never its message, a log line's text, breadcrumbs, the request, `extra` or the user, and they send no transactions, logs or metrics. The worker needs the same `SENTRY_DSN` bound to report anything. |
 | `SENTRY_RELEASE` | `""` | Release tag; CI supplies the Git SHA; empty allows SDK detection. |
 | `RESEND_API_KEY` | `""` | Outbound email credential; required for sending. |
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
 | `RESEND_FROM_EMAIL` | `"EarningsNerd <hello@inbound.earningsnerd.io>"` | Sender on a Resend-verified domain; complete surrounding quotes are normalized away. |
+| `RESEND_REPLY_TO_EMAIL` | `"support@earningsnerd.io"` | Reply destination for direct transactional mail; defaults to the shared public role config. Durable deliveries freeze this optional value at selection; existing batches keep their stored value or header omission across retries and configuration changes. |
+| `CONTACT_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for contact-form notifications, independent of the sending address. |
+| `FEEDBACK_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for beta-feedback notifications, independent of the sending address. |
+| `FEEDBACK_MEDIA_ENABLED` | `false` | Accept new screenshot submissions only after private storage, cleanup and alert verification; disabling keeps existing authorized reads and cleanup available. |
+| `FEEDBACK_MEDIA_BUCKET` | `""` | Private GCS bucket for screenshot objects; use separate production and preview buckets with their corresponding isolated database/runtime. Empty disables storage access. |
+| `FEEDBACK_MEDIA_RETENTION_DAYS` | `180` | Screenshot lifetime from creation, recorded on each manifest; account deletion revokes access immediately and queues earlier removal. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
-| `FRONTEND_URL` | `"https://earningsnerd.io"` | Public frontend origin used in email links. |
+| `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 308 to www): sent mail keeps the whole address. Settings removes the whitespace around it and any trailing slashes at load, so every link appends its path to one canonical origin, and refuses a value left empty. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |
 | `SECRET_KEY` | `required` | Required in every environment; at least 32 characters, known placeholders rejected. Prefer 64+ random characters. |
 | `IP_HASH_SALT` | `""` | IP-hash pepper; call sites fall back to SECRET_KEY when empty. |
@@ -124,7 +168,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_SUMMARY_THINKING_MAX_TOKENS` | `24000` | Output ceiling for the thinking-mode summary arm (reasoning tokens count toward it). |
 | `AI_SECTION_RECOVERY_MODEL` | `""` | Section-recovery override; empty falls back through AI_FAST_MODEL to AI_DEFAULT_MODEL. |
 | `USE_STRUCTURED_OUTPUT` | `false` | Structured Phase-A response format; off pending eval bake-off. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
-| `USE_EDGARTOOLS_SECTIONS` | `true` | Prefer native section extraction with legacy/thin-section fallback. |
+| `USE_EDGARTOOLS_SECTIONS` | `true` | Parse the 10-K, 10-Q and 20-F summary sections locally from the primary document the pipeline already fetched (edgartools' HTML parser in `edgar/xbrl_sections.py`; no SEC request), with the legacy regex/dense-window excerpt as the fallback when sections are empty or thin, the document is over 16,000,000 characters, or the parse fails or runs past its 30 s bound (40 s for a 20-F, counting time queued behind another parse). `false` is the regex-only rollback. The cap is an input change against the `obj()` path, which parsed any size within 30 s (40 s for a 20-F); no golden document over it has sections, and the `Section parse skipped` log counts the rest. From early October 2026 (between CI's reports of 4 and 7 October) until #1350's backport (deployed 2026-10-16) the source called `Filing.obj()`, which SEC's 403 on edgartools 5.58.0's index URL disabled, so each excerpt first built in that window is a regex excerpt and stays one until its stored excerpt is cleared or a forced precompute replaces its summary, which stores the excerpt that run rebuilt (`tasks/review-evidence/e28-native-sections-2026-10-15/`). |
 | `AI_QUALITY_GATE` | `true` | Partial summaries persist but do not consume monthly quota. |
 | `AI_FIGURE_TRACE_GATE` | `false` | Untraceable dollar figures tier summaries partial when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `AI_FORWARD_QUOTE_GATE` | `false` | Drop forward quotes not verbatim in the filing when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
@@ -132,13 +176,16 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_ATTRIBUTION_VERIFY` | `false` | One extra bounded model call per generation **whose gate flagged a clause** (about a quarter of them), deciding per clause whether the filing states that driver; same provider and cheap model as section recovery. This is the spend switch as well as the correctness one: verdicts are recorded in the audit for calibration whether or not the gate is armed, and any failure leaves the summary untouched. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `AI_EVIDENCE_SNAP` | `false` | Replace unverifiable evidence with matched filing sentences when armed; off keeps advisory audits. **Armed in production since 2026-09-15** (founder decision after the first complete strong-judge readout, D5): the `ci.yml` service and pregenerate deploy env pin `true`; the code default stays `false` for local/dev. |
 | `EVIDENCE_SNAP_MIN_SCORE` | `72.0` | Figure-bearing evidence similarity floor; no-figure evidence uses the separate in-module floor of 88. |
-| `ENABLE_FPI_FILINGS` | `false` | Page-scoped 20-F/6-K/40-F discovery; CI explicitly enables it on the service. Other job form sets are separate. |
+| `ENABLE_FPI_FILINGS` | `false` | 20-F/6-K/40-F discovery, read in whichever process runs the code that reads it. Among its readers: the company page's listing (`latest_filing_service`, 20-F, 6-K and 40-F); the filing scan (`filing_scan_service._scan_form_types`, 20-F, 6-K and 40-F), which the scheduled `earningsnerd-filing-scan` job runs, as do the task worker (the durable `/internal/jobs/filing-scan` path) and the service (its non-durable trigger); the dashboard feed (`dashboard_feed_service`, 20-F and 40-F); and precompute (`precompute_service`, 20-F). CI sets it true on the service, the task worker and the pregenerate job, but not on the scan job, so the scheduled scan fetches 10-K/10-Q/8-K only until it is set there (E33-H1). The history backfill also walks 20-F and 40-F in the same EFTS query (not their amendments, not 6-K), as the company list serves them, reading the flag in the process that runs the walk: the service and the task worker carry it in their deploy maps, and the Ops `backfill-filing-history` jobs-channel fallback sets it on its `earningsnerd-backfill-facts` execution (`ops.yml`), whose job map does not (gate: `tests/unit/test_filing_history_service.py`). A walk with it off, such as a local `scripts/backfill_filing_history.py`, lists 10-K/10-Q only, says so in its `History backfill` log line (`forms`) and still stamps the company, after which no visit walks it again; `migrations/20261023_rewalk_foreign_issuer_history.sql` cleared the stamps the 10-K/10-Q-only walk had left on foreign issuers. |
+| `ENABLE_INSIDER_ACTIVITY` | `false` | Serves `GET /api/companies/{ticker}/insiders`; off, it answers 404. A cold load is a live edgartools fan-out (about two SEC requests per Form 4 for up to 60 Form 4s, so about 120) that the deploy-pinned 1 req/s budget cannot carry; the deploy pins it `false`, so leave it off with the frontend's `NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY` until a budget-aware insider scan lands (CODE RED record 17). |
+| `ENABLE_SECTION_CHANGES` | `false` | "What changed" wording diff; set it on every process that reads it when it flips: the `earningsnerd-backend` service, the job images (the `earningsnerd-filing-scan` job extracts and writes the real-time alert line, the `earningsnerd-filing-digest` job the digest line) and the task worker, which runs the scan and the digest on the durable path (no `ci.yml` env map carries it; `tests/unit/test_section_changes_flag_placement.py` fails a flip that misses one of the three maps, spells the flag outside them, or forgets the `JOB_CADENCES` entry; a shell-sourced value such as `${ENABLE_SECTION_CHANGES}` counts as possibly on, so the cadence is due with it). On the `earningsnerd-filing-scan` job, the hourly real-time pass also stores Item 1A text for the watched cohort's 10-K/10-Q filings (one SEC request each, serial through the shared limiter; `filing_section_text`); on the `earningsnerd-backend` service, `GET /api/summaries/filing/{id}/what-changed` serves the paragraph-paired diff against the prior same-form filing as `section_changes` (Free and anonymous readers get the counts and the first `section_changes_items` items, 3; Pro the full list; `entitlements.py`), the dashboard feed carries each card's wording-change counts, a Pro reader's labels and receipt are served under `/api/summaries/filing/{id}/wording-review` (`section_reviews`), and a Pro recipient's new-filing alert and daily digest carry the "Risk factor wording: N paragraphs changed" line when the filing's comparison is cached at selection time (the real-time pass usually precedes the extraction batch, so the digest carries it more often). Off: nothing is fetched or stored, the block is `null`, the review endpoints answer `unavailable`/409 and no alert carries the line. `scripts/extract_sections.py` backfills a cohort regardless of the flag. At the flip, add `section-extraction` to `JOB_CADENCES` so `job_health` watches the batch. |
+| `SECTION_EXTRACTION_BATCH_LIMIT` | `25` | Filings extracted per scan run, one SEC request each (up to three attempts). The 2026-10 corpus averaged 2.7 s per filing for fetch plus parse (7.7 s for the largest 10-K), so 25 takes about a minute; a document that times out on every attempt costs about three minutes on its own. One parse of the largest 10-K peaks near 370 MB inside the job's 1 GiB. |
+| `SECTION_TEXT_MAX_CHARS` | `400000` | Section texts longer than this are recorded as `oversize` without their text (the longest Item 1A in the 2026-10 corpus was 161k characters). |
 | `CALENDAR_INDEX_FILTER_ENABLED` | `false` | Restrict public calendar serve/ingest to committed index universe; watchlist exceptions remain; missing/short universe fails open. Settings default stays false. Founder-approved intentional service override is true; pregenerate is false, both explicit in `ci.yml`. This does not activate the Calendar UI. |
 | `NOTABLE_FILINGS_ENABLED` | `false` | Serving gate only; scan job populates independently. Code default stays false; the [bounded September 28 rollout](../tasks/notable-rollout-2026-09-28.md) pins true in service and pregenerate deployment settings after the corrected labels release. This adds no model generation. |
 | `NOTABLE_FILINGS_SCAN_DAYS` | `2` | Scheduled scan trailing window, days; manual seed --days overrides it. |
 | `RICHER_FINANCIALS_ENABLED` | `true` | Expanded cash-flow and working-capital facts; false restores legacy concept set. |
 | `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
-| `PRO_SUMMARY_MONTHLY_CAP` | `300` | Invisible Pro anti-abuse ceiling for fresh generations per month; 0 disables; billing remains unlimited. |
 | `STARTUP_SCHEMA_DEADLINE_SECONDS` | `60` | Deadline for each schema step the serving container runs at startup (`create_all`, additive columns); 1 through 600 s. A step that exceeds it fails the start (Cloud Run keeps the last healthy revision) instead of hanging until the platform's startup timeout. Additive-column ALTERs also wait at most 5 s for their table lock on PostgreSQL. |
 | `USAGE_COUNTER_LOCK_TIMEOUT_MS` | `3000` | PostgreSQL transaction-local lock waits for monthly counter writes; whole milliseconds from 1 through 10000. Does not bound total transaction/network duration. |
 | `DELIVERY_CLAIM_TTL_SECONDS` | `60` | E11b-1: how long a worker's preparation claim on a delivery batch (`earningsnerd_delivery_batches`, status `claimed`) lasts before another worker may reclaim it; 1 through 600. |
@@ -156,7 +203,6 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `COPILOT_HISTORY_TURNS` | `6` | Prior conversation turns retained for follow-ups. |
 | `COPILOT_HISTORY_MAX_ITEMS` | `50` | Maximum accepted history array length. |
 | `COPILOT_HISTORY_ITEM_CHAR_CAP` | `8000` | Maximum characters per history item. |
-| `ANALYSIS_MONTHLY_CAP` | `100` | Monthly fresh analysis narrative cap; cached re-serves are free. |
 | `ANALYSIS_MAX_TOKENS` | `3200` | Maximum analysis narrative completion tokens. |
 | `ANALYSIS_MAX_ANNUAL_PERIODS` | `10` | Maximum annual periods selectable. |
 | `ANALYSIS_MAX_QUARTERLY_PERIODS` | `12` | Maximum quarterly periods selectable. |
@@ -167,6 +213,28 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STREAM_HEARTBEAT_INTERVAL` | `3` | SSE heartbeat cadence, seconds. |
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
+
+**Pro's summary and analysis ceilings (not Settings fields).** `PRO_SUMMARY_MONTHLY_CAP` (300 summary
+generations a month) and `ANALYSIS_MONTHLY_CAP` (1,000 analysis generations a month) are constants in
+`backend/app/services/entitlements.py` (D-050). A process environment variable of either name changes nothing;
+a `backend/.env` line with either name makes Settings fail at import (it forbids unknown keys), so delete it.
+Pro's Copilot ceiling stays the setting `COPILOT_MONTHLY_QUESTION_CAP`, which the usage response states. Each
+bounds one Pro account's generations in a calendar month (UTC), regenerations included, while billing stays
+unlimited. A summary run takes a unit when its provider request is issued and gives it back if it fails or
+comes back partial under `AI_QUALITY_GATE`; reading a stored summary takes none. An analysis run takes a unit
+when its fresh narrative completes, a reader's forced refresh among them; a cached re-serve takes none, nor does
+a regeneration the system starts after new facts or a prompt change once its result is stored. The /pricing FAQ
+and the filing page's limit card state them through `frontend/lib/planLimits.ts` (the analysis one while
+`NEXT_PUBLIC_ENABLE_ANALYSIS` is on). `planLimitsLockstep.spec.ts` holds that mirror to the constants, and fails
+if `config.py` binds either name to a setting again (a field of that name in any case, or an alias).
+
+**Library-read SEC budget (not a Settings field).** edgartools paces its own EDGAR HTTP (submissions,
+filing objects, XBRL) with a second process-global limiter, a sliding window read once at import:
+`EDGAR_RATE_LIMIT_PER_SEC` (library default `9`; `edgar/httpclient.py` in the pinned release). The app
+wraps that traffic in `sec_rate_limiter` only in the SIC lookup (`app/services/edgar/company_sic.py`), so a
+process's configured SEC ceiling is at most the sum of both. Production pins both to `1` on the API service,
+every job and the task worker (`.github/workflows/ci.yml`; gate
+`backend/tests/unit/test_sec_process_budgets.py`); leave it unset locally.
 
 Current-bound-ID subscription created/updated reconciliation makes one Stripe read with zero SDK
 retries and a dedicated transport closed after every outcome. These connect/read inactivity limits
@@ -190,7 +258,7 @@ AI_FAST_MODEL=                                # Optional cheaper model for low-r
 AI_SECTION_RECOVERY_MODEL=                    # Optional override for section recovery (falls back to AI_FAST_MODEL)
 RECOVERY_MAX_CONCURRENCY=3                    # Max concurrent calls for section recovery
 USE_STRUCTURED_OUTPUT=false                   # Phase-A structured extraction (JSON response_format)
-USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex)
+USE_EDGARTOOLS_SECTIONS=true                  # Parse sections locally from the fetched primary document (vs regex fallback); no SEC call
 AI_QUALITY_GATE=true                          # Partial summaries don't consume user quota
 AI_FIGURE_TRACE_GATE=false                    # T3.2 number-diff gate: when on, an untraceable DOLLAR figure in summary prose tiers "partial". Default off (advisory: list attached to the verdict for measurement, never affects tier) until the corpus FP rate is measured
 AI_ATTRIBUTION_GATE=false                     # #805 path step 4: drop unstated causal clauses when on; advisory audit when off
@@ -198,7 +266,11 @@ AI_ATTRIBUTION_VERIFY=false                   # #805 path step 5: one bounded mo
 AI_FORWARD_QUOTE_GATE=false                   # T5.4 forward-quote hard gate: when on, a §5 quote not locatable verbatim in the filing text is DROPPED at generation time (content repair — never tiers). Default off (advisory: audit + greppable forward_quote_unverified counter always emitted) until the fleet FP rate is measured
 AI_EVIDENCE_SNAP=false                        # Evidence auto-snap (post-#631): when on, non-verifying P&L-takeaway/footnote supporting_evidence is REPLACED at generation time by the best-matching REAL excerpt sentence (which then earns the Verified badge). Code default off (advisory: audit + greppable evidence_snap counter always emitted, recording original + candidate per would-snap); production deploys pin true since 2026-09-15 (founder decision after the first complete strong-judge readout)
 EVIDENCE_SNAP_MIN_SCORE=72.0                  # Snap floor for FIGURE-BEARING evidence (rapidfuzz max(token_set, partial) on normalized text; the shared non-year-figure guard supplies the precision). No-figure evidence uses a stricter in-module floor (88)
-ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) filings: list 20-F/6-K/40-F on the company page (page-scoped; default off — see tasks/archive/fpi-support-roadmap.md)
+ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) filings: 20-F/6-K/40-F on the company page and in the filing scan, 20-F/40-F in the dashboard feed, read per process (default off — see tasks/archive/fpi-support-roadmap.md)
+ENABLE_INSIDER_ACTIVITY=false                 # Insider (Form 4) endpoint; off = 404. Pairs with NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY; leave off until the insider scan fits the 1 req/s SEC pin
+ENABLE_SECTION_CHANGES=false                  # "What changed" Item 1A wording diff; set on the service, the job images and the task worker together (the gate test_section_changes_flag_placement.py reads the three maps); off = nothing fetched, block null
+SECTION_EXTRACTION_BATCH_LIMIT=25             # Filings extracted per scan run (one SEC request each, up to three attempts; about 2.7 s per filing)
+SECTION_TEXT_MAX_CHARS=400000                 # Longer section texts are recorded as oversize without their text
 NOTABLE_FILINGS_ENABLED=false                 # Local default; production serving pin is true under tasks/notable-rollout-2026-09-28.md (scan populates independently)
 NOTABLE_FILINGS_SCAN_DAYS=2                   # Trailing window (days) per scheduled notable-filings scan; seed run overrides via --days
 
@@ -217,7 +289,8 @@ TURNSTILE_SECRET_KEY=...          # Cloudflare Turnstile bot defense (no-op/dark
 INTERNAL_JOB_TOKEN=...            # Shared secret for /internal/jobs/* (endpoints 503 when unset)
 
 # Multi-Period Analysis (Pro flagship)
-ANALYSIS_MONTHLY_CAP=100          # Fair-use cap on fresh AI narratives/month (cached re-serves free)
+# Removed 2026-10-29 (delete from any local .env — Settings forbids unknown keys and fails at import):
+# ANALYSIS_MONTHLY_CAP and PRO_SUMMARY_MONTHLY_CAP, now entitlements.py constants (D-050, above).
 ANALYSIS_MAX_TOKENS=3200
 ANALYSIS_MAX_ANNUAL_PERIODS=10
 ANALYSIS_MAX_QUARTERLY_PERIODS=12
@@ -248,7 +321,7 @@ REVERSE_TRIAL_DAYS=7
 RESEND_API_KEY=...
 RESEND_FROM_EMAIL=...             # Must be on a Resend-verified domain (else emails silently drop)
 RESEND_WEBHOOK_SECRET=...         # Svix signing secret for the Resend webhook
-FRONTEND_URL=https://earningsnerd.io  # Used in email links (verification, reset)
+FRONTEND_URL=https://www.earningsnerd.io  # Mail links, sign-in redirects, the mail header's tile
 
 # Analytics & Monitoring
 POSTHOG_API_KEY=...
@@ -290,8 +363,9 @@ NEXT_PUBLIC_LOGO_DEV_TOKEN=...                     # Logo.dev publishable token 
 NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
 NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned EDGAR+Alpha Vantage engine; FMP no longer used)
-NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
+NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel (needs backend ENABLE_INSIDER_ACTIVITY=true; keep both off, see above)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
+NEXT_PUBLIC_ENABLE_FPI_FILINGS=true|false          # The plan cards name 20-F filings and Filing alerts offers its 20-F and 6-K rows (off: hidden, stored values kept); set WITH the backend ENABLE_FPI_FILINGS (the API deploy sets it true; the filing-scan job, whose own value decides whether it fetches 20-F and 6-K filings, is not set by the deploy, so its live value is unverified)
 NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```

@@ -1,0 +1,44 @@
+{
+ "code_binding": {
+  "git_head": "a8a2d5a7d86e8a4dc12f79766f109c63db9574dd",
+  "provenance_service_sha256": "b7af6468e21e8fcccdf10760a057259d09dba26a440fe1f0aa32e4f94b5e01ef",
+  "copilot_service_sha256": "008ca6382c9a924d150f0b267a13da72930dfcd286b73004669c5a4caef4e065",
+  "provenance_service_path": "/home/user/wt/cite-fix/backend/app/services/provenance_service.py",
+  "helpers": [
+   "normalize_for_match",
+   "extract_quoted_span",
+   "verify_excerpt_in_text",
+   "verify_whole_excerpt_in_text",
+   "copilot_service._verify_citations"
+  ],
+  "min_verifiable_len": 24
+ },
+ "totals": {
+  "rows": 144,
+  "citations": 245,
+  "xbrl_citations": 236,
+  "text_citations": 9,
+  "text_verified_true": 9,
+  "affected": 0,
+  "boundary": {
+   "full_contiguous": 9
+  },
+  "text_prod_verify_excerpt_in_text_true": 9,
+  "text_new_whole_true": 9,
+  "text_new_copilot_verified_true": 9,
+  "text_new_copilot_excerpt_bytes_unchanged": 9,
+  "text_verdict_changes": [],
+  "text_fragment_url_unchanged": 9,
+  "section_refs_with_quoted_span": 0,
+  "section_refs_quoted_span_absent": 0,
+  "section_refs_with_any_quote_char": 0
+ }
+}
+36777581481 {'rows': 18, 'citations': 31, 'xbrl_citations': 28, 'text_citations': 3, 'text_verified_true': 3, 'affected': 0, 'boundary': {'full_contiguous': 3}, 'section_ref': {'plain_label': 3}} no_source: 0
+36798834277 {'rows': 18, 'citations': 30, 'xbrl_citations': 30, 'text_citations': 0, 'text_verified_true': 0, 'affected': 0, 'boundary': {}, 'section_ref': {}} no_source: 0
+36800236360 {'rows': 18, 'citations': 33, 'xbrl_citations': 30, 'text_citations': 3, 'text_verified_true': 3, 'affected': 0, 'boundary': {'full_contiguous': 3}, 'section_ref': {'plain_label': 3}} no_source: 0
+36809122540 {'rows': 18, 'citations': 31, 'xbrl_citations': 30, 'text_citations': 1, 'text_verified_true': 1, 'affected': 0, 'boundary': {'full_contiguous': 1}, 'section_ref': {'plain_label': 1}} no_source: 0
+36870677818 {'rows': 18, 'citations': 32, 'xbrl_citations': 30, 'text_citations': 2, 'text_verified_true': 2, 'affected': 0, 'boundary': {'full_contiguous': 2}, 'section_ref': {'plain_label': 2}} no_source: 0
+36963789557 {'rows': 18, 'citations': 30, 'xbrl_citations': 30, 'text_citations': 0, 'text_verified_true': 0, 'affected': 0, 'boundary': {}, 'section_ref': {}} no_source: 0
+36964503116 {'rows': 18, 'citations': 28, 'xbrl_citations': 28, 'text_citations': 0, 'text_verified_true': 0, 'affected': 0, 'boundary': {}, 'section_ref': {}} no_source: 0
+36965303868 {'rows': 18, 'citations': 30, 'xbrl_citations': 30, 'text_citations': 0, 'text_verified_true': 0, 'affected': 0, 'boundary': {}, 'section_ref': {}} no_source: 0

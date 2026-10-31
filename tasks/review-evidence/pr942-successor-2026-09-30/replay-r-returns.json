@@ -1,0 +1,4068 @@
+{
+ "purpose": "Offline, provider-free replay of every retained candidate-r output through main c13b069a and the successor renderer; lists every changed rendered line with source checks against the retained standardized XBRL operands.",
+ "source": {
+  "ci_run": 36324847604,
+  "artifact_id": 10933338099,
+  "artifact_zip_sha256": "977c86eec309a283ce6125d349d0a691284d7eac2b25612df515069f4fdcc5a2",
+  "report": "eval_20260927T141938Z.json",
+  "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+  "artifact_expires_at": "2026-10-11T14:19:39Z",
+  "measured_head": "47d040aa53e89d2e1fa78c26ee688d5a49338133",
+  "synthetic_merge": "f6f3cf6fa4862f9a66b111e33146f645ceda57fa"
+ },
+ "renderers": {
+  "main": "c13b069a2f817d06fc7e7c76ea3d71d8bf8522ce (git archive, not a worktree)",
+  "successor": "438fd37a (committed, clean tree)"
+ },
+ "method": "For each of the 70 results: build_xbrl_narrative_section(xbrl_grounding) and _apply_structured_fallbacks(deepcopy(raw_sections), {}, xbrl_grounding) then render_sections + sections_to_markdown, under each renderer. No model or network call.",
+ "counts": {
+  "results": 70,
+  "grounding_block_identical_main_vs_successor": 70,
+  "grounding_block_changed": 0,
+  "returns_lines_changed": 64,
+  "results_without_returns_line": [
+   "ASML 6-K run0",
+   "ASML 6-K run1",
+   "SE 6-K run0",
+   "SE 6-K run1",
+   "PDD 6-K run0",
+   "PDD 6-K run1"
+  ],
+  "other_section_fields_changed": 0,
+  "markdown_lines_changed_outside_returns_line": 0,
+  "successor_line_equals_retained_r_line": 70,
+  "lines_by_numerator_scope": {
+   "attributable to the parent": 56,
+   "including noncontrolling interests": 8
+  },
+  "lines_with_dated_prior_successor": 52,
+  "lines_with_prior_main": 52,
+  "ratio_clauses_checked": 126,
+  "clauses_value_recomputed_from_operands": 126,
+  "clauses_scope_label_matches_numerator_concept": 126,
+  "clauses_operand_periods_match": 126,
+  "clauses_numerator_unestablished": 0,
+  "clauses_with_prior_point": 92,
+  "prior_clauses_rendered_dated": 90,
+  "prior_clauses_dropped_out_of_band_same_as_main": 2,
+  "prior_clauses_dropped_undated": 0,
+  "prior_gap_days": {
+   "365": 80,
+   "91": 2,
+   "364": 8
+  },
+  "prior_numerator_is_ni_prior": 92,
+  "prior_basis_notes": 0,
+  "numerator_denominator_concepts": {
+   "us-gaap:NetIncomeLoss | us-gaap:StockholdersEquity": 52,
+   "us-gaap:NetIncomeLoss | us-gaap:Assets": 56,
+   "us-gaap:ProfitLoss | us-gaap:StockholdersEquity": 4,
+   "us-gaap:ProfitLoss | us-gaap:Assets": 4,
+   "us-gaap:NetIncomeLoss | us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest": 2,
+   "ifrs-full:ProfitLoss | ifrs-full:Equity": 4,
+   "ifrs-full:ProfitLoss | ifrs-full:Assets": 4
+  }
+ },
+ "changed_lines": [
+  {
+   "key": "PLD 10-K run0",
+   "main": "Return on equity was 6.3% (prior 6.9%) (period net income / period-end equity, not annualized); return on assets 3.4% (prior 3.9%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 6.3% (prior at 2024-12-31: 6.9%); period net income attributable to the parent / period-end assets, not annualized: 3.4% (prior at 2024-12-31: 3.9%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 6.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 6.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 3.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 3.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "PLD 10-K run1",
+   "main": "Return on equity was 6.3% (prior 6.9%) (period net income / period-end equity, not annualized); return on assets 3.4% (prior 3.9%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 6.3% (prior at 2024-12-31: 6.9%); period net income attributable to the parent / period-end assets, not annualized: 3.4% (prior at 2024-12-31: 3.9%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 6.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 6.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 3.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 3.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "NEE 10-Q run0",
+   "main": "Return on equity was 5.5% (period net income / period-end equity, not annualized); return on assets 1.4% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 5.5%; period net income attributable to the parent / period-end assets, not annualized: 1.4%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 5.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 1.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "NEE 10-Q run1",
+   "main": "Return on equity was 5.5% (period net income / period-end equity, not annualized); return on assets 1.4% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 5.5%; period net income attributable to the parent / period-end assets, not annualized: 1.4%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 5.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 1.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "PGR 10-K run0",
+   "main": "Return on equity was 37.3% (prior 33.1%) (period net income / period-end equity, not annualized); return on assets 9.2% (prior 8.0%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 37.3% (prior at 2024-12-31: 33.1%); period net income attributable to the parent / period-end assets, not annualized: 9.2% (prior at 2024-12-31: 8.0%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 37.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 33.1,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 9.2,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 8.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "PGR 10-K run1",
+   "main": "Return on equity was 37.3% (prior 33.1%) (period net income / period-end equity, not annualized); return on assets 9.2% (prior 8.0%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 37.3% (prior at 2024-12-31: 33.1%); period net income attributable to the parent / period-end assets, not annualized: 9.2% (prior at 2024-12-31: 8.0%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 37.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 33.1,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 9.2,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 8.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "FIGS 10-Q run0",
+   "main": "Return on equity was 6.4% (prior 1.5%) (period net income / period-end equity, not annualized); return on assets 4.9% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 6.4% (prior at 2026-03-31: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 4.9%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 6.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2026-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "prior_value_recomputed": 1.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 91,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 4.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "FIGS 10-Q run1",
+   "main": "Return on equity was 6.4% (prior 1.5%) (period net income / period-end equity, not annualized); return on assets 4.9% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 6.4% (prior at 2026-03-31: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 4.9%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 6.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2026-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "prior_value_recomputed": 1.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 91,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-04-01",
+      "2026-06-30"
+     ],
+     "current_value_recomputed": 4.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "GPRO 10-K run0",
+   "main": "Return on equity was -122.1% (period net income / period-end equity, not annualized); return on assets -21.8% (prior -79.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -122.1%; period net income attributable to the parent / period-end assets, not annualized: -21.8% (prior at 2024-12-31: -79.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -122.1,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -285.0,
+     "prior_in_band": false,
+     "prior_rendered": false,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -21.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -79.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "GPRO 10-K run1",
+   "main": "Return on equity was -122.1% (period net income / period-end equity, not annualized); return on assets -21.8% (prior -79.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -122.1%; period net income attributable to the parent / period-end assets, not annualized: -21.8% (prior at 2024-12-31: -79.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -122.1,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -285.0,
+     "prior_in_band": false,
+     "prior_rendered": false,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -21.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -79.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "AAPL 10-K run0",
+   "main": "Return on equity was 151.9% (prior 164.6%) (period net income / period-end equity, not annualized); return on assets 31.2% (prior 25.7%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 151.9% (prior at 2024-09-28: 164.6%); period net income attributable to the parent / period-end assets, not annualized: 31.2% (prior at 2024-09-28: 25.7%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-09-27",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2024-09-29",
+      "2025-09-27"
+     ],
+     "current_value_recomputed": 151.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-09-28",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-10-01",
+      "2024-09-28"
+     ],
+     "prior_value_recomputed": 164.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-09-27",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2024-09-29",
+      "2025-09-27"
+     ],
+     "current_value_recomputed": 31.2,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-09-28",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-10-01",
+      "2024-09-28"
+     ],
+     "prior_value_recomputed": 25.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "AAPL 10-K run1",
+   "main": "Return on equity was 151.9% (prior 164.6%) (period net income / period-end equity, not annualized); return on assets 31.2% (prior 25.7%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 151.9% (prior at 2024-09-28: 164.6%); period net income attributable to the parent / period-end assets, not annualized: 31.2% (prior at 2024-09-28: 25.7%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-09-27",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2024-09-29",
+      "2025-09-27"
+     ],
+     "current_value_recomputed": 151.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-09-28",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-10-01",
+      "2024-09-28"
+     ],
+     "prior_value_recomputed": 164.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-09-27",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2024-09-29",
+      "2025-09-27"
+     ],
+     "current_value_recomputed": 31.2,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-09-28",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-10-01",
+      "2024-09-28"
+     ],
+     "prior_value_recomputed": 25.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "MSFT 10-K run0",
+   "main": "Return on equity was 29.6% (prior 32.8%) (period net income / period-end equity, not annualized); return on assets 16.5% (prior 17.2%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 29.6% (prior at 2024-06-30: 32.8%); period net income attributable to the parent / period-end assets, not annualized: 16.5% (prior at 2024-06-30: 17.2%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2024-07-01",
+      "2025-06-30"
+     ],
+     "current_value_recomputed": 29.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-06-30",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-07-01",
+      "2024-06-30"
+     ],
+     "prior_value_recomputed": 32.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2024-07-01",
+      "2025-06-30"
+     ],
+     "current_value_recomputed": 16.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-06-30",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-07-01",
+      "2024-06-30"
+     ],
+     "prior_value_recomputed": 17.2,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "MSFT 10-K run1",
+   "main": "Return on equity was 29.6% (prior 32.8%) (period net income / period-end equity, not annualized); return on assets 16.5% (prior 17.2%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 29.6% (prior at 2024-06-30: 32.8%); period net income attributable to the parent / period-end assets, not annualized: 16.5% (prior at 2024-06-30: 17.2%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2024-07-01",
+      "2025-06-30"
+     ],
+     "current_value_recomputed": 29.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-06-30",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-07-01",
+      "2024-06-30"
+     ],
+     "prior_value_recomputed": 32.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-06-30",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2024-07-01",
+      "2025-06-30"
+     ],
+     "current_value_recomputed": 16.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-06-30",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2023-07-01",
+      "2024-06-30"
+     ],
+     "prior_value_recomputed": 17.2,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "NVDA 10-Q run0",
+   "main": "Return on equity was 29.8% (prior 22.4%) (period net income / period-end equity, not annualized); return on assets 22.5% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 29.8% (prior at 2025-04-27: 22.4%); period net income attributable to the parent / period-end assets, not annualized: 22.5%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-04-26",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-26",
+      "2026-04-26"
+     ],
+     "current_value_recomputed": 29.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-04-27",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2025-01-27",
+      "2025-04-27"
+     ],
+     "prior_value_recomputed": 22.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-04-26",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-26",
+      "2026-04-26"
+     ],
+     "current_value_recomputed": 22.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "NVDA 10-Q run1",
+   "main": "Return on equity was 29.8% (prior 22.4%) (period net income / period-end equity, not annualized); return on assets 22.5% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 29.8% (prior at 2025-04-27: 22.4%); period net income attributable to the parent / period-end assets, not annualized: 22.5%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-04-26",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-26",
+      "2026-04-26"
+     ],
+     "current_value_recomputed": 29.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-04-27",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2025-01-27",
+      "2025-04-27"
+     ],
+     "prior_value_recomputed": 22.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-04-26",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-26",
+      "2026-04-26"
+     ],
+     "current_value_recomputed": 22.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "JPM 10-K run0",
+   "main": "Return on equity was 15.7% (prior 17.0%) (period net income / period-end equity, not annualized); return on assets 1.3% (prior 1.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 15.7% (prior at 2024-12-31: 17.0%); period net income attributable to the parent / period-end assets, not annualized: 1.3% (prior at 2024-12-31: 1.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 15.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 17.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 1.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 1.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "JPM 10-K run1",
+   "main": "Return on equity was 15.7% (prior 17.0%) (period net income / period-end equity, not annualized); return on assets 1.3% (prior 1.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 15.7% (prior at 2024-12-31: 17.0%); period net income attributable to the parent / period-end assets, not annualized: 1.3% (prior at 2024-12-31: 1.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 15.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 17.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 1.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 1.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "KO 10-Q run0",
+   "main": "Return on equity was 11.7% (period net income / period-end equity, not annualized); return on assets 3.8% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 11.7%; period net income attributable to the parent / period-end assets, not annualized: 3.8%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-04-03",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-04-03"
+     ],
+     "current_value_recomputed": 11.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-04-03",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-04-03"
+     ],
+     "current_value_recomputed": 3.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "KO 10-Q run1",
+   "main": "Return on equity was 11.7% (period net income / period-end equity, not annualized); return on assets 3.8% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 11.7%; period net income attributable to the parent / period-end assets, not annualized: 3.8%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-04-03",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-04-03"
+     ],
+     "current_value_recomputed": 11.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-04-03",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-04-03"
+     ],
+     "current_value_recomputed": 3.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "TSLA 10-K run0",
+   "main": "Return on equity was 4.6% (prior 9.7%) (period net income / period-end equity, not annualized); return on assets 2.8% (prior 5.8%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 4.6% (prior at 2024-12-31: 9.7%); period net income attributable to the parent / period-end assets, not annualized: 2.8% (prior at 2024-12-31: 5.8%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 4.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 9.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 2.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 5.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "TSLA 10-K run1",
+   "main": "Return on equity was 4.6% (prior 9.7%) (period net income / period-end equity, not annualized); return on assets 2.8% (prior 5.8%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 4.6% (prior at 2024-12-31: 9.7%); period net income attributable to the parent / period-end assets, not annualized: 2.8% (prior at 2024-12-31: 5.8%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 4.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 9.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 2.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 5.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "AMZN 10-K run0",
+   "main": "Return on equity was 18.9% (prior 20.7%) (period net income / period-end equity, not annualized); return on assets 9.5% (prior 9.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 18.9% (prior at 2024-12-31: 20.7%); period net income attributable to the parent / period-end assets, not annualized: 9.5% (prior at 2024-12-31: 9.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 18.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 20.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 9.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 9.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "AMZN 10-K run1",
+   "main": "Return on equity was 18.9% (prior 20.7%) (period net income / period-end equity, not annualized); return on assets 9.5% (prior 9.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 18.9% (prior at 2024-12-31: 20.7%); period net income attributable to the parent / period-end assets, not annualized: 9.5% (prior at 2024-12-31: 9.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 18.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 20.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 9.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 9.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "BRK.B 10-K run0",
+   "main": "Return on equity was 9.3% (prior 13.7%) (period net income / period-end equity, not annualized); return on assets 5.5% (prior 7.7%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 9.3% (prior at 2024-12-31: 13.7%); period net income attributable to the parent / period-end assets, not annualized: 5.5% (prior at 2024-12-31: 7.7%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 9.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 13.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 5.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 7.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "BRK.B 10-K run1",
+   "main": "Return on equity was 9.3% (prior 13.7%) (period net income / period-end equity, not annualized); return on assets 5.5% (prior 7.7%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 9.3% (prior at 2024-12-31: 13.7%); period net income attributable to the parent / period-end assets, not annualized: 5.5% (prior at 2024-12-31: 7.7%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 9.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 13.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 5.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 7.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "XOM 10-K run0",
+   "main": "Return on equity was 11.1% (prior 12.8%) (period net income / period-end equity, not annualized); return on assets 6.4% (prior 7.4%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 11.1% (prior at 2024-12-31: 12.8%); period net income attributable to the parent / period-end assets, not annualized: 6.4% (prior at 2024-12-31: 7.4%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 11.1,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 12.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 6.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 7.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "XOM 10-K run1",
+   "main": "Return on equity was 11.1% (prior 12.8%) (period net income / period-end equity, not annualized); return on assets 6.4% (prior 7.4%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 11.1% (prior at 2024-12-31: 12.8%); period net income attributable to the parent / period-end assets, not annualized: 6.4% (prior at 2024-12-31: 7.4%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 11.1,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 12.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 6.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 7.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "PFE 10-Q run0",
+   "main": "Return on equity was 3.0% (period net income / period-end equity, not annualized); return on assets 1.3% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 3.0%; period net income attributable to the parent / period-end assets, not annualized: 1.3%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-29",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-29"
+     ],
+     "current_value_recomputed": 3.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-29",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-29"
+     ],
+     "current_value_recomputed": 1.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "PFE 10-Q run1",
+   "main": "Return on equity was 3.0% (period net income / period-end equity, not annualized); return on assets 1.3% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 3.0%; period net income attributable to the parent / period-end assets, not annualized: 1.3%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-29",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-29"
+     ],
+     "current_value_recomputed": 3.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-29",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-29"
+     ],
+     "current_value_recomputed": 1.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "F 10-Q run0",
+   "main": "Return on equity was 6.8% (period net income / period-end equity, not annualized); return on assets 0.9% (prior 0.2%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 6.8%; period net income including noncontrolling interests / period-end assets, not annualized: 0.9% (prior at 2025-03-31: 0.2%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 6.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 0.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:ProfitLoss",
+     "prior_numerator_duration": [
+      "2025-01-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 0.2,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "F 10-Q run1",
+   "main": "Return on equity was 6.8% (period net income / period-end equity, not annualized); return on assets 0.9% (prior 0.2%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 6.8%; period net income including noncontrolling interests / period-end assets, not annualized: 0.9% (prior at 2025-03-31: 0.2%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 6.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 0.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:ProfitLoss",
+     "prior_numerator_duration": [
+      "2025-01-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 0.2,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "WMT 10-K run0",
+   "main": "Return on equity was 22.0% (prior 21.4%) (period net income / period-end equity, not annualized); return on assets 7.7% (prior 7.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 22.0% (prior at 2025-01-31: 21.4%); period net income attributable to the parent / period-end assets, not annualized: 7.7% (prior at 2025-01-31: 7.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-01-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-02-01",
+      "2026-01-31"
+     ],
+     "current_value_recomputed": 22.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-01-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-02-01",
+      "2025-01-31"
+     ],
+     "prior_value_recomputed": 21.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-01-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-02-01",
+      "2026-01-31"
+     ],
+     "current_value_recomputed": 7.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-01-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-02-01",
+      "2025-01-31"
+     ],
+     "prior_value_recomputed": 7.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "WMT 10-K run1",
+   "main": "Return on equity was 22.0% (prior 21.4%) (period net income / period-end equity, not annualized); return on assets 7.7% (prior 7.5%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 22.0% (prior at 2025-01-31: 21.4%); period net income attributable to the parent / period-end assets, not annualized: 7.7% (prior at 2025-01-31: 7.5%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-01-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-02-01",
+      "2026-01-31"
+     ],
+     "current_value_recomputed": 22.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-01-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-02-01",
+      "2025-01-31"
+     ],
+     "prior_value_recomputed": 21.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-01-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-02-01",
+      "2026-01-31"
+     ],
+     "current_value_recomputed": 7.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-01-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-02-01",
+      "2025-01-31"
+     ],
+     "prior_value_recomputed": 7.5,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "COST 10-Q run0",
+   "main": "Return on equity was 6.5% (prior 7.0%) (period net income / period-end equity, not annualized); return on assets 2.5% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 6.5% (prior at 2025-05-11: 7.0%); period net income attributable to the parent / period-end assets, not annualized: 2.5%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-05-10",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-02-16",
+      "2026-05-10"
+     ],
+     "current_value_recomputed": 6.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-05-11",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2025-02-17",
+      "2025-05-11"
+     ],
+     "prior_value_recomputed": 7.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-05-10",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-02-16",
+      "2026-05-10"
+     ],
+     "current_value_recomputed": 2.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "COST 10-Q run1",
+   "main": "Return on equity was 6.5% (prior 7.0%) (period net income / period-end equity, not annualized); return on assets 2.5% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 6.5% (prior at 2025-05-11: 7.0%); period net income attributable to the parent / period-end assets, not annualized: 2.5%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-05-10",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-02-16",
+      "2026-05-10"
+     ],
+     "current_value_recomputed": 6.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-05-11",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2025-02-17",
+      "2025-05-11"
+     ],
+     "prior_value_recomputed": 7.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 364,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-05-10",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-02-16",
+      "2026-05-10"
+     ],
+     "current_value_recomputed": 2.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "BA 10-K run0",
+   "main": "Return on equity was 41.0% (period net income / period-end equity, not annualized); return on assets 1.3% (prior -7.6%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 41.0%; period net income attributable to the parent / period-end assets, not annualized: 1.3% (prior at 2024-12-31: -7.6%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 41.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 1.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -7.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "BA 10-K run1",
+   "main": "Return on equity was 41.0% (period net income / period-end equity, not annualized); return on assets 1.3% (prior -7.6%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 41.0%; period net income attributable to the parent / period-end assets, not annualized: 1.3% (prior at 2024-12-31: -7.6%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 41.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 1.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -7.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "INTC 10-Q run0",
+   "main": "Return on equity was -3.3% (period net income / period-end equity, not annualized); return on assets -1.8% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -3.3%; period net income attributable to the parent / period-end assets, not annualized: -1.8%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-28",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-12-28",
+      "2026-03-28"
+     ],
+     "current_value_recomputed": -3.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-28",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-12-28",
+      "2026-03-28"
+     ],
+     "current_value_recomputed": -1.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "INTC 10-Q run1",
+   "main": "Return on equity was -3.3% (period net income / period-end equity, not annualized); return on assets -1.8% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -3.3%; period net income attributable to the parent / period-end assets, not annualized: -1.8%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-28",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-12-28",
+      "2026-03-28"
+     ],
+     "current_value_recomputed": -3.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-28",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-12-28",
+      "2026-03-28"
+     ],
+     "current_value_recomputed": -1.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "PLTR 10-Q run0",
+   "main": "Return on equity was 10.3% (period net income / period-end equity, not annualized); return on assets 8.5% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 10.3%; period net income attributable to the parent / period-end assets, not annualized: 8.5%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 10.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 8.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "PLTR 10-Q run1",
+   "main": "Return on equity was 10.3% (period net income / period-end equity, not annualized); return on assets 8.5% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 10.3%; period net income attributable to the parent / period-end assets, not annualized: 8.5%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 10.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 8.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "RIVN 10-K run0",
+   "main": "Return on equity was -79.4% (prior -72.3%) (period net income / period-end equity, not annualized); return on assets -24.5% (prior -30.8%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -79.4% (prior at 2024-12-31: -72.3%); period net income attributable to the parent / period-end assets, not annualized: -24.5% (prior at 2024-12-31: -30.8%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -79.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -72.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -24.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -30.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "RIVN 10-K run1",
+   "main": "Return on equity was -79.4% (prior -72.3%) (period net income / period-end equity, not annualized); return on assets -24.5% (prior -30.8%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -79.4% (prior at 2024-12-31: -72.3%); period net income attributable to the parent / period-end assets, not annualized: -24.5% (prior at 2024-12-31: -30.8%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -79.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -72.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": -24.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": -30.8,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "COIN 10-Q run0",
+   "main": "Return on equity was -2.9% (prior 0.6%) (period net income / period-end equity, not annualized); return on assets -1.4% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -2.9% (prior at 2025-03-31: 0.6%); period net income attributable to the parent / period-end assets, not annualized: -1.4%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": -2.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2025-01-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 0.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": -1.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "COIN 10-Q run1",
+   "main": "Return on equity was -2.9% (prior 0.6%) (period net income / period-end equity, not annualized); return on assets -1.4% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: -2.9% (prior at 2025-03-31: 0.6%); period net income attributable to the parent / period-end assets, not annualized: -1.4%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": -2.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2025-01-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 0.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": -1.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "BYND 10-Q run0",
+   "main": "Return on assets -4.9% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end assets, not annualized: -4.9%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-28",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-28"
+     ],
+     "current_value_recomputed": -4.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "BYND 10-Q run1",
+   "main": "Return on assets -4.9% (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end assets, not annualized: -4.9%.",
+   "source_checks": [
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-28",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2026-01-01",
+      "2026-03-28"
+     ],
+     "current_value_recomputed": -4.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": null,
+     "prior_numerator_tag": null,
+     "prior_numerator_duration": null,
+     "prior_value_recomputed": null,
+     "prior_in_band": null,
+     "prior_rendered": null,
+     "prior_operand_periods_match": null,
+     "prior_numerator_is_sibling_ni_prior": null,
+     "gap_days": null,
+     "prior_basis_note": null
+    }
+   ]
+  },
+  {
+   "key": "BABA 20-F run0",
+   "main": "Return on equity was 9.8% (prior 12.9%) (period net income / period-end equity, not annualized); return on assets 5.4% (prior 7.2%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 9.8% (prior at 2025-03-31: 12.9%); period net income attributable to the parent / period-end assets, not annualized: 5.4% (prior at 2025-03-31: 7.2%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-04-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 9.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-04-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 12.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-04-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 5.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-04-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 7.2,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "BABA 20-F run1",
+   "main": "Return on equity was 9.8% (prior 12.9%) (period net income / period-end equity, not annualized); return on assets 5.4% (prior 7.2%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 9.8% (prior at 2025-03-31: 12.9%); period net income attributable to the parent / period-end assets, not annualized: 5.4% (prior at 2025-03-31: 7.2%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-04-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 9.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-04-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 12.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2026-03-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-04-01",
+      "2026-03-31"
+     ],
+     "current_value_recomputed": 5.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2025-03-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-04-01",
+      "2025-03-31"
+     ],
+     "prior_value_recomputed": 7.2,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "ASML 20-F run0",
+   "main": "Return on equity was 49.0% (prior 41.0%) (period net income / period-end equity, not annualized); return on assets 19.0% (prior 15.6%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 49.0% (prior at 2024-12-31: 41.0%); period net income attributable to the parent / period-end assets, not annualized: 19.0% (prior at 2024-12-31: 15.6%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 49.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 41.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 19.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 15.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "ASML 20-F run1",
+   "main": "Return on equity was 49.0% (prior 41.0%) (period net income / period-end equity, not annualized); return on assets 19.0% (prior 15.6%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 49.0% (prior at 2024-12-31: 41.0%); period net income attributable to the parent / period-end assets, not annualized: 19.0% (prior at 2024-12-31: 15.6%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 49.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 41.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 19.0,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 15.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "TSM 20-F run0",
+   "main": "Return on equity was 31.4% (prior 27.0%) (period net income / period-end equity, not annualized); return on assets 21.4% (prior 17.3%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 31.4% (prior at 2024-12-31: 27.0%); period net income including noncontrolling interests / period-end assets, not annualized: 21.4% (prior at 2024-12-31: 17.3%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Equity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 31.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 27.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 21.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 17.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "TSM 20-F run1",
+   "main": "Return on equity was 31.4% (prior 27.0%) (period net income / period-end equity, not annualized); return on assets 21.4% (prior 17.3%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 31.4% (prior at 2024-12-31: 27.0%); period net income including noncontrolling interests / period-end assets, not annualized: 21.4% (prior at 2024-12-31: 17.3%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Equity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 31.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 27.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 21.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 17.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "JD 20-F run0",
+   "main": "Return on equity was 10.3% (prior 18.7%) (period net income / period-end equity, not annualized); return on assets 3.3% (prior 6.4%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 10.3% (prior at 2024-12-31: 18.7%); period net income including noncontrolling interests / period-end assets, not annualized: 3.3% (prior at 2024-12-31: 6.4%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 10.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 18.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 3.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 6.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "JD 20-F run1",
+   "main": "Return on equity was 10.3% (prior 18.7%) (period net income / period-end equity, not annualized); return on assets 3.3% (prior 6.4%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 10.3% (prior at 2024-12-31: 18.7%); period net income including noncontrolling interests / period-end assets, not annualized: 3.3% (prior at 2024-12-31: 6.4%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 10.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 18.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:ProfitLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 3.3,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 6.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "SE 20-F run0",
+   "main": "Return on equity was 12.6% (prior 5.3%) (period net income / period-end equity, not annualized); return on assets 5.4% (prior 2.0%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 12.6% (prior at 2024-12-31: 5.3%); period net income attributable to the parent / period-end assets, not annualized: 5.4% (prior at 2024-12-31: 2.0%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 12.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 5.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 5.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 2.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "SE 20-F run1",
+   "main": "Return on equity was 12.6% (prior 5.3%) (period net income / period-end equity, not annualized); return on assets 5.4% (prior 2.0%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 12.6% (prior at 2024-12-31: 5.3%); period net income attributable to the parent / period-end assets, not annualized: 5.4% (prior at 2024-12-31: 2.0%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 12.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 5.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 5.4,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 2.0,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "NVO 20-F run0",
+   "main": "Return on equity was 52.8% (prior 70.4%) (period net income / period-end equity, not annualized); return on assets 18.9% (prior 21.7%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 52.8% (prior at 2024-12-31: 70.4%); period net income including noncontrolling interests / period-end assets, not annualized: 18.9% (prior at 2024-12-31: 21.7%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Equity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 52.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 70.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 18.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 21.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "NVO 20-F run1",
+   "main": "Return on equity was 52.8% (prior 70.4%) (period net income / period-end equity, not annualized); return on assets 18.9% (prior 21.7%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income including noncontrolling interests / period-end equity, not annualized: 52.8% (prior at 2024-12-31: 70.4%); period net income including noncontrolling interests / period-end assets, not annualized: 18.9% (prior at 2024-12-31: 21.7%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Equity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 52.8,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 70.4,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "ifrs-full:ProfitLoss",
+     "denominator_tag": "ifrs-full:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 18.9,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "including noncontrolling interests",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "ifrs-full:ProfitLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 21.7,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "PDD 20-F run0",
+   "main": "Return on equity was 23.7% (prior 35.9%) (period net income / period-end equity, not annualized); return on assets 15.5% (prior 22.3%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 23.7% (prior at 2024-12-31: 35.9%); period net income attributable to the parent / period-end assets, not annualized: 15.5% (prior at 2024-12-31: 22.3%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 23.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 35.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 15.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 22.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "PDD 20-F run1",
+   "main": "Return on equity was 23.7% (prior 35.9%) (period net income / period-end equity, not annualized); return on assets 15.5% (prior 22.3%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 23.7% (prior at 2024-12-31: 35.9%); period net income attributable to the parent / period-end assets, not annualized: 15.5% (prior at 2024-12-31: 22.3%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 23.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 35.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 15.5,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 22.3,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "MELI 10-K run0",
+   "main": "Return on equity was 29.6% (prior 43.9%) (period net income / period-end equity, not annualized); return on assets 4.7% (prior 7.6%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 29.6% (prior at 2024-12-31: 43.9%); period net income attributable to the parent / period-end assets, not annualized: 4.7% (prior at 2024-12-31: 7.6%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 29.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 43.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 4.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 7.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  },
+  {
+   "key": "MELI 10-K run1",
+   "main": "Return on equity was 29.6% (prior 43.9%) (period net income / period-end equity, not annualized); return on assets 4.7% (prior 7.6%) (period net income / period-end assets, not annualized).",
+   "successor": "Period net income attributable to the parent / period-end equity, not annualized: 29.6% (prior at 2024-12-31: 43.9%); period net income attributable to the parent / period-end assets, not annualized: 4.7% (prior at 2024-12-31: 7.6%).",
+   "source_checks": [
+    {
+     "ratio": "return_on_equity",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:StockholdersEquity",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 29.6,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 43.9,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    },
+    {
+     "ratio": "return_on_assets",
+     "current_period": "2025-12-31",
+     "numerator_tag": "us-gaap:NetIncomeLoss",
+     "denominator_tag": "us-gaap:Assets",
+     "numerator_duration": [
+      "2025-01-01",
+      "2025-12-31"
+     ],
+     "current_value_recomputed": 4.7,
+     "current_value_rendered_ok": true,
+     "operand_periods_match": true,
+     "scope": "attributable to the parent",
+     "scope_label_present": true,
+     "numerator_is_sibling_ni_current": true,
+     "prior_period": "2024-12-31",
+     "prior_numerator_tag": "us-gaap:NetIncomeLoss",
+     "prior_numerator_duration": [
+      "2024-01-01",
+      "2024-12-31"
+     ],
+     "prior_value_recomputed": 7.6,
+     "prior_in_band": true,
+     "prior_rendered": true,
+     "prior_operand_periods_match": true,
+     "prior_numerator_is_sibling_ni_prior": true,
+     "gap_days": 365,
+     "prior_basis_note": false
+    }
+   ]
+  }
+ ]
+}

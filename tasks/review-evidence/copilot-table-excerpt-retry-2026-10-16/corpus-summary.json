@@ -1,0 +1,497 @@
+{
+ "reports": 192,
+ "rows": 3456,
+ "generations": 3544,
+ "first_generation_behaviour": {
+  "AAPL|sales-gross-profit-2025|1052-to-1111|other|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "AAPL|sales-gross-profit-2025|1052-to-1111|other|sys=cd4f254f8c6a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "AAPL|sales-gross-profit-2025|1052-to-1111|other|sys=d46ef28f000a": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "AAPL|sales-gross-profit-2025|1052-to-1111|sections|sys=a22fb4cd5472": {
+   "rows": 9,
+   "uses_text_citation": 1,
+   "verify_ok": 9,
+   "row_published": 8
+  },
+  "AAPL|sales-gross-profit-2025|1052-to-1111|sections|sys=a88b6fb1de5b": {
+   "rows": 90,
+   "uses_text_citation": 0,
+   "verify_ok": 90,
+   "row_published": 90
+  },
+  "AAPL|sales-gross-profit-2025|post-1111|other|sys=d46ef28f000a": {
+   "rows": 387,
+   "uses_text_citation": 0,
+   "verify_ok": 387,
+   "row_published": 387
+  },
+  "AAPL|sales-gross-profit-2025|post-1111|sections|sys=d46ef28f000a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "AAPL|sales-gross-profit-2025|pre-1052|sections|sys=164570555f40": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "AAPL|sales-gross-profit-2025|pre-1052|sections|sys=93dc656594da": {
+   "rows": 6,
+   "uses_text_citation": 1,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "AAPL|sales-gross-profit-2025|pre-1052|sections|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "ASML|us-gaap-sales-net-income-2025|1052-to-1111|other|sys=a22fb4cd5472": {
+   "rows": 9,
+   "uses_text_citation": 9,
+   "verify_ok": 9,
+   "row_published": 9
+  },
+  "ASML|us-gaap-sales-net-income-2025|1052-to-1111|other|sys=a88b6fb1de5b": {
+   "rows": 123,
+   "uses_text_citation": 7,
+   "verify_ok": 123,
+   "row_published": 119
+  },
+  "ASML|us-gaap-sales-net-income-2025|1052-to-1111|other|sys=cd4f254f8c6a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "ASML|us-gaap-sales-net-income-2025|1052-to-1111|other|sys=d46ef28f000a": {
+   "rows": 6,
+   "uses_text_citation": 4,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "ASML|us-gaap-sales-net-income-2025|post-1111|other|sys=d46ef28f000a": {
+   "rows": 390,
+   "uses_text_citation": 289,
+   "verify_ok": 387,
+   "row_published": 388,
+   "verify_terminal": 2,
+   "reason_short": 2,
+   "verify_regenerable": 1,
+   "reason_elided": 1
+  },
+  "ASML|us-gaap-sales-net-income-2025|pre-1052|other|sys=164570555f40": {
+   "rows": 6,
+   "uses_text_citation": 5,
+   "verify_ok": 6,
+   "row_published": 3
+  },
+  "ASML|us-gaap-sales-net-income-2025|pre-1052|other|sys=93dc656594da": {
+   "rows": 6,
+   "uses_text_citation": 6,
+   "verify_ok": 6,
+   "row_published": 1
+  },
+  "ASML|us-gaap-sales-net-income-2025|pre-1052|other|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 3,
+   "verify_ok": 33,
+   "row_published": 32
+  },
+  "BABA|native-revenue-2026|1052-to-1111|other|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "BABA|native-revenue-2026|1052-to-1111|other|sys=cd4f254f8c6a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "BABA|native-revenue-2026|1052-to-1111|other|sys=d46ef28f000a": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "BABA|native-revenue-2026|1052-to-1111|sections|sys=a22fb4cd5472": {
+   "rows": 9,
+   "uses_text_citation": 1,
+   "verify_ok": 9,
+   "row_published": 9
+  },
+  "BABA|native-revenue-2026|1052-to-1111|sections|sys=a88b6fb1de5b": {
+   "rows": 90,
+   "uses_text_citation": 2,
+   "verify_ok": 90,
+   "row_published": 90
+  },
+  "BABA|native-revenue-2026|post-1111|other|sys=d46ef28f000a": {
+   "rows": 387,
+   "uses_text_citation": 0,
+   "verify_ok": 387,
+   "row_published": 387
+  },
+  "BABA|native-revenue-2026|post-1111|sections|sys=d46ef28f000a": {
+   "rows": 3,
+   "uses_text_citation": 2,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "BABA|native-revenue-2026|pre-1052|sections|sys=164570555f40": {
+   "rows": 6,
+   "uses_text_citation": 6,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "BABA|native-revenue-2026|pre-1052|sections|sys=93dc656594da": {
+   "rows": 6,
+   "uses_text_citation": 5,
+   "verify_ok": 5,
+   "row_published": 5,
+   "stage_parse": 1
+  },
+  "BABA|native-revenue-2026|pre-1052|sections|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "BABA|viewed-native-revenue-2025|1052-to-1111|other|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 12,
+   "verify_regenerable": 9,
+   "reason_elided": 9,
+   "row_published": 24,
+   "verify_ok": 24
+  },
+  "BABA|viewed-native-revenue-2025|1052-to-1111|other|sys=cd4f254f8c6a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "BABA|viewed-native-revenue-2025|1052-to-1111|other|sys=d46ef28f000a": {
+   "rows": 6,
+   "uses_text_citation": 1,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "BABA|viewed-native-revenue-2025|1052-to-1111|sections|sys=a22fb4cd5472": {
+   "rows": 9,
+   "uses_text_citation": 3,
+   "verify_ok": 9,
+   "row_published": 9
+  },
+  "BABA|viewed-native-revenue-2025|1052-to-1111|sections|sys=a88b6fb1de5b": {
+   "rows": 90,
+   "uses_text_citation": 8,
+   "verify_ok": 89,
+   "row_published": 88,
+   "verify_terminal": 1,
+   "reason_short": 1
+  },
+  "BABA|viewed-native-revenue-2025|post-1111|other|sys=d46ef28f000a": {
+   "rows": 387,
+   "uses_text_citation": 157,
+   "verify_ok": 294,
+   "row_published": 360,
+   "verify_regenerable": 87,
+   "reason_elided": 84,
+   "reason_mismatch": 3,
+   "verify_terminal": 5,
+   "reason_short": 5,
+   "stage_parse": 1
+  },
+  "BABA|viewed-native-revenue-2025|post-1111|sections|sys=d46ef28f000a": {
+   "rows": 3,
+   "uses_text_citation": 3,
+   "verify_terminal": 3,
+   "reason_collision": 2,
+   "reason_short": 3,
+   "row_published": 0
+  },
+  "BABA|viewed-native-revenue-2025|pre-1052|sections|sys=164570555f40": {
+   "rows": 6,
+   "uses_text_citation": 5,
+   "verify_ok": 6,
+   "row_published": 5
+  },
+  "BABA|viewed-native-revenue-2025|pre-1052|sections|sys=93dc656594da": {
+   "rows": 6,
+   "uses_text_citation": 6,
+   "verify_ok": 6,
+   "row_published": 5
+  },
+  "BABA|viewed-native-revenue-2025|pre-1052|sections|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 4,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "MSFT|sales-diluted-eps-2025|1052-to-1111|other|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "MSFT|sales-diluted-eps-2025|1052-to-1111|other|sys=cd4f254f8c6a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "MSFT|sales-diluted-eps-2025|1052-to-1111|other|sys=d46ef28f000a": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "MSFT|sales-diluted-eps-2025|1052-to-1111|sections|sys=a22fb4cd5472": {
+   "rows": 9,
+   "uses_text_citation": 0,
+   "verify_ok": 9,
+   "row_published": 9
+  },
+  "MSFT|sales-diluted-eps-2025|1052-to-1111|sections|sys=a88b6fb1de5b": {
+   "rows": 90,
+   "uses_text_citation": 0,
+   "verify_ok": 90,
+   "row_published": 90
+  },
+  "MSFT|sales-diluted-eps-2025|post-1111|other|sys=d46ef28f000a": {
+   "rows": 387,
+   "uses_text_citation": 0,
+   "verify_ok": 387,
+   "row_published": 387
+  },
+  "MSFT|sales-diluted-eps-2025|post-1111|sections|sys=d46ef28f000a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "MSFT|sales-diluted-eps-2025|pre-1052|sections|sys=164570555f40": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "MSFT|sales-diluted-eps-2025|pre-1052|sections|sys=93dc656594da": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "MSFT|sales-diluted-eps-2025|pre-1052|sections|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "TSLA|sales-operating-income-2024|1052-to-1111|other|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  },
+  "TSLA|sales-operating-income-2024|1052-to-1111|other|sys=cd4f254f8c6a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "TSLA|sales-operating-income-2024|1052-to-1111|other|sys=d46ef28f000a": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "TSLA|sales-operating-income-2024|1052-to-1111|sections|sys=a22fb4cd5472": {
+   "rows": 9,
+   "uses_text_citation": 0,
+   "verify_ok": 9,
+   "row_published": 9
+  },
+  "TSLA|sales-operating-income-2024|1052-to-1111|sections|sys=a88b6fb1de5b": {
+   "rows": 90,
+   "uses_text_citation": 0,
+   "verify_ok": 90,
+   "row_published": 90
+  },
+  "TSLA|sales-operating-income-2024|post-1111|other|sys=d46ef28f000a": {
+   "rows": 387,
+   "uses_text_citation": 0,
+   "verify_ok": 387,
+   "row_published": 387
+  },
+  "TSLA|sales-operating-income-2024|post-1111|sections|sys=d46ef28f000a": {
+   "rows": 3,
+   "uses_text_citation": 0,
+   "verify_ok": 3,
+   "row_published": 3
+  },
+  "TSLA|sales-operating-income-2024|pre-1052|sections|sys=164570555f40": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "TSLA|sales-operating-income-2024|pre-1052|sections|sys=93dc656594da": {
+   "rows": 6,
+   "uses_text_citation": 0,
+   "verify_ok": 6,
+   "row_published": 6
+  },
+  "TSLA|sales-operating-income-2024|pre-1052|sections|sys=a88b6fb1de5b": {
+   "rows": 33,
+   "uses_text_citation": 0,
+   "verify_ok": 33,
+   "row_published": 33
+  }
+ },
+ "verify_failures": [
+  {
+   "verdict": "regenerable",
+   "reasons": "elided",
+   "generation": "first-gen",
+   "count": 94
+  },
+  {
+   "verdict": "regenerable",
+   "reasons": "elided",
+   "generation": "retry-gen",
+   "count": 20
+  },
+  {
+   "verdict": "terminal",
+   "reasons": "short",
+   "generation": "first-gen",
+   "count": 9
+  },
+  {
+   "verdict": "regenerable",
+   "reasons": "mismatch",
+   "generation": "first-gen",
+   "count": 3
+  },
+  {
+   "verdict": "terminal",
+   "reasons": "collision+short",
+   "generation": "first-gen",
+   "count": 2
+  },
+  {
+   "verdict": "terminal",
+   "reasons": "short",
+   "generation": "retry-gen",
+   "count": 1
+  }
+ ],
+ "retry_outcomes": [
+  {
+   "ticker": "BABA",
+   "first_reasons": "elided",
+   "second_verdict": "ok",
+   "second_reasons": "",
+   "count": 63
+  },
+  {
+   "ticker": "BABA",
+   "first_reasons": "elided",
+   "second_verdict": "regenerable",
+   "second_reasons": "elided",
+   "count": 20
+  },
+  {
+   "ticker": "BABA",
+   "first_reasons": "mismatch",
+   "second_verdict": "ok",
+   "second_reasons": "",
+   "count": 3
+  },
+  {
+   "ticker": "ASML",
+   "first_reasons": "elided",
+   "second_verdict": "ok",
+   "second_reasons": "",
+   "count": 1
+  },
+  {
+   "ticker": "BABA",
+   "first_reasons": "elided",
+   "second_verdict": "terminal",
+   "second_reasons": "short",
+   "count": 1
+  }
+ ],
+ "post1111_first_gen_failures": {
+  "BABA|other|elided|recovered": 63,
+  "BABA|other|elided|withheld": 21,
+  "BABA|other|short|withheld": 5,
+  "BABA|other|mismatch|recovered": 3,
+  "ASML|other|short|withheld": 2,
+  "BABA|sections|collision+short|withheld": 2,
+  "ASML|other|elided|recovered": 1,
+  "BABA|sections|short|withheld": 1
+ },
+ "post1111_withheld_rows_eligible_for_one_retry_by_rule": {
+  "+collision|other": 21,
+  "+collision|sections": 0,
+  "+short|other": 28,
+  "+short|sections": 1,
+  "+short+collision|other": 28,
+  "+short+collision|sections": 3,
+  "+short+collision+missing|other": 28,
+  "+short+collision+missing|sections": 3,
+  "current|other": 21,
+  "current|sections": 0
+ },
+ "alternatives": {
+  "failed": 129,
+  "has_unreferenced_verified_declaration": 1,
+  "collision_with_one_verified_declaration": 1
+ },
+ "failed_retry_shapes": [
+  {
+   "ticker": "BABA",
+   "first": "elided",
+   "second": "elided",
+   "relation": "identical excerpt",
+   "count": 11
+  },
+  {
+   "ticker": "BABA",
+   "first": "elided",
+   "second": "elided",
+   "relation": "shorter excerpt",
+   "count": 9
+  },
+  {
+   "ticker": "BABA",
+   "first": "elided",
+   "second": "short",
+   "relation": "shorter excerpt",
+   "count": 1
+  }
+ ]
+}

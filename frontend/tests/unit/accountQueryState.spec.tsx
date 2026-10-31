@@ -9,12 +9,14 @@ import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
 import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { ACCOUNT_QUERY_FAMILIES, logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, getExplicitSessionGeneration, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
 import ProfileForm from '@/features/settings/components/ProfileForm'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
+import NotificationBell from '@/features/notifications/components/NotificationBell'
+import * as notificationsApi from '@/features/notifications/api/notifications-api'
 
 const { identify } = vi.hoisted(() => ({ identify: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ analytics: { identify } }))
@@ -55,9 +57,30 @@ afterEach(() => {
   disposers.splice(0).forEach((dispose) => dispose())
   clients.splice(0).forEach((client) => client.clear())
   api.defaults.adapter = originalAdapter
+  vi.restoreAllMocks()
 })
 
 describe('account snapshots follow the resolved identity', () => {
+  it('a late mark-seen receipt cannot replace the next account’s notification list', async () => {
+    const client = newClient()
+    const first = { items: [], unread_count: 1 }
+    const second = { items: [], unread_count: 2 }
+    const receipt = deferred<notificationsApi.NotificationList>()
+    vi.spyOn(notificationsApi, 'getNotifications').mockResolvedValue(first)
+    vi.spyOn(notificationsApi, 'markNotificationsSeen').mockReturnValue(receipt.promise)
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    client.setQueryData(queryKeys.notifications(), first)
+    const view = render(<QueryClientProvider client={client}><NotificationBell /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications (1 unread)' }))
+    await waitFor(() => expect(notificationsApi.markNotificationsSeen).toHaveBeenCalledTimes(1))
+    view.unmount()
+    resetAccountQueries(client)
+    client.setQueryData(queryKeys.currentUser(), makeUser(2))
+    client.setQueryData(queryKeys.notifications(), second)
+    await act(async () => receipt.resolve({ items: [], unread_count: 0 }))
+    expect(client.getQueryData(queryKeys.notifications())).toEqual(second)
+  })
+
   it.each(['guest-first', 'login-first'])('guest /me cannot invalidate a successful password login (%s)', async (order) => {
     const client = newClient()
     disposers.push(subscribeAccountQueryReset(client))
@@ -110,23 +133,34 @@ describe('account snapshots follow the resolved identity', () => {
     markSessionActive()
     const credential = deferred<unknown>()
     const logoutDone = deferred<unknown>()
-    vi.mocked(refreshAccessToken).mockRejectedValue({ response: { status: 401 } })
+    const refreshAnswer = deferred<void>()
+    let logoutRequests = 0
+    vi.mocked(refreshAccessToken).mockImplementation(() => refreshAnswer.promise)
     api.defaults.adapter = async (config) => {
       if (config.url === '/api/auth/login') return response(config, await credential.promise)
-      if (config.url === '/api/auth/logout') return response(config, await logoutDone.promise)
+      if (config.url === '/api/auth/logout') {
+        logoutRequests += 1
+        return response(config, await logoutDone.promise)
+      }
       throw Object.assign(new Error('expired A'), { config, response: { status: 401, data: { detail: 'Expired access' } } })
     }
     const explicitGeneration = getExplicitSessionGeneration()
-    const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
-    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
+    // The old identity's refresh is in flight when the login starts, and the login waits for its answer (E29 (4)): a
+    // refresh asked for once the login is under way would wait for the login's answer, so none could fail beside it.
     const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }).catch((error) => error)
     await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(1))
+    const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
+    // The logout starts while that refresh is in flight and waits for its answer (E133); the refresh's 401 then
+    // lands as a passive loss while the logout is under way, and the logout must still send its request.
+    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
+    refreshAnswer.reject({ response: { status: 401 } })
     await oldIdentity
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
     expect(getExplicitSessionGeneration()).toBe(explicitGeneration)
     if (pendingLogout) {
       logoutDone.resolve({ ok: true })
       await pendingLogout
+      expect(logoutRequests).toBe(1)
       expect(getExplicitSessionGeneration()).not.toBe(explicitGeneration)
     }
     credential.resolve({ ok: true })
@@ -197,6 +231,8 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
 
     const requestError = new Error('current logout failed')
+    // A failed logout reads /me before it settles (logoutAndResetAccount); offline, that read cannot tell either.
+    api.defaults.adapter = async () => { throw new Error('offline') }
     const current = new MutationObserver(client, {
       mutationFn: () => logoutAndResetAccount(client, async () => {
         if (!succeeded) throw requestError
@@ -207,7 +243,8 @@ describe('account snapshots follow the resolved identity', () => {
     expect(continued).toHaveBeenCalledWith(succeeded)
     expect(navigate).toHaveBeenCalledTimes(1)
     expect(clearAnalytics).toHaveBeenCalledTimes(succeeded ? 1 : 0)
-    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    // A logout that did not take, and whose /me read could not tell, puts back the identity it reset.
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(succeeded ? null : makeUser(2))
   })
 
   it('a late unmounted profile mutation cannot publish A while the canonical B refetch waits', async () => {
@@ -339,18 +376,143 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.subscription.byUser(2))).toBeUndefined()
   })
 
-  it('resets both families even when the ordinary logout request fails', async () => {
+  it('resets the account families, the wording reviews included, even when the ordinary logout request fails', async () => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
     client.setQueryData(queryKeys.subscription.byUser(1), { is_pro: true })
     client.setQueryData(queryKeys.usage.byUser(1), { summaries_used: 9 })
+    client.setQueryData(queryKeys.wordingReview.byFiling(42), { status: 'ok', labels: { a1: 'reviewed' } })
     markSessionActive()
     api.defaults.adapter = async () => { throw new Error('offline logout') }
     await expect(logoutAndResetAccount(client, logout)).rejects.toThrow('offline logout')
-    expect(hasActiveSession()).toBe(false)
-    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    // Its /me read failed too, so nothing says the session ended: the flag and the identity stay as the logout found them.
+    expect(hasActiveSession()).toBe(true)
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(1))
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.subscription.all() })).toHaveLength(0)
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.usage.all() })).toHaveLength(0)
+    // The previous account's labels and receipts never show to the next account in this tab.
+    expect(client.getQueryCache().findAll({ queryKey: queryKeys.wordingReview.all() })).toHaveLength(0)
+  })
+
+  it("a /me naming another reader than this tab showed drops the previous reader's snapshots, and no render pairs the new reader with them (E29 (3))", async () => {
+    const client = newClient()
+    // The watch starts from the reader the cache already holds.
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    disposers.push(subscribeAccountQueryReset(client))
+    const owned = [queryKeys.watchlist(), queryKeys.notifications(), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(7)]
+    for (const key of owned) client.setQueryData(key, { owner: 1 })
+    client.setQueryData(queryKeys.company('AAPL'), { shared: true })
+    const seen: string[] = []
+    function Pair() {
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: list } = useQuery({ queryKey: queryKeys.watchlist(), queryFn: () => new Promise<never>(() => {}), enabled: false })
+      seen.push(`${user?.id ?? null}:${(list as { owner?: number } | undefined)?.owner ?? null}`)
+      return null
+    }
+    render(<QueryClientProvider client={client}><Pair /></QueryClientProvider>)
+    const before = getSessionGeneration()
+    const explicit = getExplicitSessionGeneration()
+    // Another tab signed in as the second account; this tab's next /me (the Header's focus read) names it.
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    // TanStack tells the observers on a later tick: wait for the render that shows the new reader alone, then check
+    // that none before it paired the new reader with the previous one's list.
+    await waitFor(() => expect(seen.at(-1)).toBe('2:null'))
+    expect(seen).toContain('1:1')
+    expect(seen).not.toContain('2:1')
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
+    expect(client.getQueryData(queryKeys.company('AAPL'))).toEqual({ shared: true })
+    // One move, so the first reader's answers still in flight write nothing (E29 (1)), and of the session generation
+    // alone, so a login under way in this tab keeps its own.
+    expect(getSessionGeneration()).toBe(before + 1)
+    expect(getExplicitSessionGeneration()).toBe(explicit)
+  })
+
+  it('a read of the same reader again, a reset between two readers, and a stopped watch drop nothing more (E29 (3))', async () => {
+    const client = newClient()
+    disposers.push(subscribeAccountQueryReset(client))
+    api.defaults.adapter = async (config) => response(config, makeUser(1))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+    client.setQueryData(queryKeys.watchlist(), { owner: 1 })
+    // The same reader read again (the Header's focus read): its snapshots stay.
+    const start = getSessionGeneration()
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 1 })
+    expect(getSessionGeneration()).toBe(start)
+    // A login in this tab resets between the two readers, publishing null: the reset is the one move, and the new
+    // reader's own snapshots stay when its /me lands.
+    acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+    expect(getSessionGeneration()).toBe(start + 1)
+    client.setQueryData(queryKeys.watchlist(), { owner: 2 })
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 2 })
+    expect(getSessionGeneration()).toBe(start + 1)
+    // Stopped (the providers' cleanup), the watch drops nothing when another reader is named.
+    disposers.splice(0).forEach((dispose) => dispose())
+    api.defaults.adapter = async (config) => response(config, makeUser(3))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 2 })
+    expect(getSessionGeneration()).toBe(start + 1)
+  })
+
+  it("a /me that answers no one after another tab logged out drops the previous reader's snapshots, and no render shows a guest or the next reader beside them (E29 (3))", async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    disposers.push(subscribeAccountQueryReset(client))
+    client.setQueryData(queryKeys.earningsAlertTickers(), ['AAPL'])
+    const seen: string[] = []
+    function Bells() {
+      // As the calendar reads them: a guest's read is disabled, and a disabled read still returns what the cache holds.
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: tickers } = useQuery({ queryKey: queryKeys.earningsAlertTickers(), queryFn: () => new Promise<never>(() => {}), enabled: !!user })
+      seen.push(`${user?.id ?? null}:${(tickers as string[] | undefined)?.join() ?? null}`)
+      return null
+    }
+    render(<QueryClientProvider client={client}><Bells /></QueryClientProvider>)
+    const start = getSessionGeneration()
+    // Another tab logged out, clearing the shared session marker: this tab's /me 401 reads as a guest's, with no
+    // refresh and no lost session, so nothing resets.
+    api.defaults.adapter = async (config) => {
+      throw Object.assign(new Error('guest'), { config, response: { status: 401, data: { detail: 'Not authenticated' } } })
+    }
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    await waitFor(() => expect(seen.at(-1)).toBe('null:null'))
+    expect(getSessionGeneration()).toBe(start + 1)
+    // That tab then signed in as another account, and this tab's next /me names it: the families are already empty.
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    await waitFor(() => expect(seen.at(-1)).toBe('2:null'))
+    expect(seen).toContain('1:AAPL')
+    expect(seen.filter((pair) => pair.endsWith(':AAPL') && pair !== '1:AAPL')).toEqual([])
+    expect(getSessionGeneration()).toBe(start + 1)
+  })
+
+  it('an account change removes every account-owned snapshot and keeps the shared ones', async () => {
+    const client = newClient()
+    // One entry in each account-owned family; most keys name no reader, so the next account would read them.
+    const owned = [
+      queryKeys.subscription.byUser(1), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(42),
+      queryKeys.whatChanged.byViewer(7, 1),
+      queryKeys.whatChanged.byViewer(7, null), // the anonymous entry, which a reader whose /me failed reads with their session
+      queryKeys.savedSummaries(), queryKeys.savedSummaryStatus(5, 1), queryKeys.watchlist(), queryKeys.watchlistInsights(),
+      queryKeys.earningsAlertTickers(), queryKeys.dashboardFeed(), queryKeys.dashboardCalendar(), queryKeys.notifications(),
+      queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(),
+      queryKeys.adminFeedback.list({ status: 'new' }),
+    ]
+    const shared = [
+      queryKeys.company('AAPL'), queryKeys.summary(7), queryKeys.filing(7), queryKeys.registrationConfig(),
+    ]
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    for (const key of [...owned, ...shared]) client.setQueryData(key, { owner: 1 })
+    markSessionActive()
+    api.defaults.adapter = async (config) => response(config, {})
+    await logoutAndResetAccount(client, logout)
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
+    expect(shared.filter((key) => client.getQueryData(key) === undefined)).toEqual([])
   })
 })
 
@@ -363,6 +525,41 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('account query ownership structural gate', () => {
+  const accountOwned = [
+    'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
+    'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
+    'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback', 'feedback',
+  ]
+
+  it('every query family is classified, and an account change removes exactly the account-owned ones', () => {
+    // A new family in lib/queryKeys.ts fails here until it is placed. An account-owned one joins
+    // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
+    const identity = ['currentUser'] // the reset publishes null for it
+    const shared = [
+      'registrationConfig', 'turnstileScript', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
+      'analysisCoverage', 'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary',
+      'summaryProgress', 'company', 'companyFilings', 'companies',
+    ]
+    const classified = [...accountOwned, ...identity, ...shared]
+    expect(new Set(classified).size).toBe(classified.length)
+    expect([...classified].sort()).toEqual(Object.keys(queryKeys).sort())
+    type Factory = (...args: unknown[]) => readonly unknown[]
+    // The first element of every key a family builds: its one factory, or each member of an object family.
+    const prefixesOf = (name: string) => {
+      const entry = (queryKeys as unknown as Record<string, Factory | Record<string, Factory>>)[name]
+      const factories = typeof entry === 'function' ? [entry] : Object.values(entry)
+      return new Set(factories.map((factory) => factory(...Array<unknown>(factory.length).fill('x'))[0]))
+    }
+    // An owned family's members share one prefix, so removing it removes them all; a member under a
+    // prefix of its own (a re-split like the copilot usage key F1 merged) would outlive the account.
+    expect(accountOwned.filter((name) => prefixesOf(name).size !== 1)).toEqual([])
+    const ownedPrefixes = new Set(accountOwned.flatMap((name) => [...prefixesOf(name)]))
+    expect(new Set(ACCOUNT_QUERY_FAMILIES.map((key) => key[0]))).toEqual(ownedPrefixes)
+    expect(ACCOUNT_QUERY_FAMILIES.every((key) => key.length === 1)).toBe(true) // whole families, by prefix
+    // No other family builds a key under an owned prefix, or the reset would remove it too.
+    expect([...identity, ...shared].filter((name) => [...prefixesOf(name)].some((prefix) => ownedPrefixes.has(prefix)))).toEqual([])
+  })
+
   it('the canonical fetcher is the only positive current-user publisher', () => {
     const errors: string[] = []
     const identityWrites: string[] = []
@@ -380,8 +577,14 @@ describe('account query ownership structural gate', () => {
           if (!key.startsWith('queryKeys.')) errors.push(`${relative}: indirect cache writer ${key}`)
           if (key.includes('currentUser')) {
             identityWrites.push(relative)
-            if (relative !== 'features/auth/lib/accountQueryState.ts' || node.arguments[1]?.kind !== ts.SyntaxKind.NullKeyword) {
-              errors.push(`${relative}: only the reset owner may directly publish null identity`)
+            // The reset owner publishes null, and puts back the snapshot its own reset took (restoreIdentity: a logout
+            // whose request failed, while no transition has followed its reset).
+            let owner: ts.Node | undefined = node.parent
+            while (owner && !ts.isFunctionDeclaration(owner)) owner = owner.parent
+            const restores = owner !== undefined && ts.isFunctionDeclaration(owner) && owner.name?.text === 'restoreIdentity' &&
+              node.arguments[1]?.getText(source) === 'shown.data'
+            if (relative !== 'features/auth/lib/accountQueryState.ts' || (node.arguments[1]?.kind !== ts.SyntaxKind.NullKeyword && !restores)) {
+              errors.push(`${relative}: only the reset owner may directly publish null identity, or restore its own snapshot`)
             }
           }
         }
@@ -401,8 +604,74 @@ describe('account query ownership structural gate', () => {
       visit(source)
     }
     expect(errors).toEqual([])
-    expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts'])
-    expect(allWrites).toHaveLength(5) // current user null, watchlist x2, notification x2.
+    expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts', 'features/auth/lib/accountQueryState.ts'])
+    // current user null and its restore, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
+    // wording review x3 (the label applied as it is pressed, its rollback, the server's state),
+    // public filing-summary recovery x2 (persisted completion and interrupted-reader recovery).
+    expect(allWrites.filter((write) => write === 'features/summaries/hooks/useSummaryGeneration.ts:queryKeys.summary(filingId)')).toHaveLength(2)
+    expect(allWrites).toHaveLength(12)
+  })
+
+  it('every write into an account-owned family checks the session generation first, with no await after the check (E29)', () => {
+    // The reset removes the account families before the next account reads them, so a write that lands after it (a
+    // mutation's answer, or code after an await) would start that account's snapshot with this one's data. Each write
+    // is fenced in the function that makes it: an isSessionGenerationCurrent check (the write returns early when it
+    // fails) or assertSessionGeneration, with no await between the fence and the write, since an await can span a
+    // transition; an await in the write's receiver or arguments, or a `for await` loop, is one too. That the check's result guards
+    // the write is review-checked, and the gate reads source order, not control flow: a loop that awaits after its write,
+    // before its next turn, is outside its reach. The late answers themselves: tests/unit/lateMutationAnswers.spec.tsx and
+    // the mark-seen case above.
+    const fences = ['isSessionGenerationCurrent', 'assertSessionGeneration']
+    // Writes left unfenced, each at its count, so a second write beside an exempt one is not exempt by accident.
+    const exempt: Record<string, number> = {
+      // The saved-summary Delete: its updater returns nothing once the reset has removed the family, and otherwise keeps
+      // every row but the one it deleted, by that row's own id, so it cannot carry one account's rows into another's.
+      'app/dashboard/page.tsx:savedSummaries': 1,
+    }
+    const unfenced: string[] = []
+    const exemptions: Record<string, number> = {}
+    const waits = (inner: ts.Node) => ts.isAwaitExpression(inner) || (ts.isForOfStatement(inner) && inner.awaitModifier !== undefined)
+    /** An await in `inner` outside any function nested in it. */
+    const holdsWait = (inner: ts.Node): boolean =>
+      !ts.isFunctionLike(inner) && (waits(inner) || ts.forEachChild(inner, holdsWait) === true)
+    for (const file of ['app', 'components', 'features', 'hooks', 'lib'].flatMap((dir) => sourceFiles(path.join(frontend, dir)))) {
+      const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+      const relative = path.relative(frontend, file)
+      function visit(node: ts.Node) {
+        if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+          && ['setQueryData', 'setQueriesData'].includes(node.expression.name.text)) {
+          const key = node.arguments[0]?.getText(source) ?? ''
+          const family = /^queryKeys\.(\w+)/.exec(key)?.[1]
+          const site = `${relative}:${family}`
+          if (family && accountOwned.includes(family) && site in exempt) exemptions[site] = (exemptions[site] ?? 0) + 1
+          else if (family && accountOwned.includes(family)) {
+            // The function that makes the write; a function nested in it (the updater) runs inside the write.
+            let owner: ts.Node | undefined = node.parent
+            while (owner && !ts.isFunctionLike(owner)) owner = owner.parent
+            const write = node.getStart(source)
+            let fence = -1
+            let wait = -1
+            const scan = (inner: ts.Node): void => {
+              if (inner.getStart(source) >= write || (inner !== owner && ts.isFunctionLike(inner))) return
+              if (waits(inner)) wait = Math.max(wait, inner.getStart(source))
+              if (ts.isCallExpression(inner) && ts.isIdentifier(inner.expression) && fences.includes(inner.expression.text)) {
+                fence = Math.max(fence, inner.getStart(source))
+              }
+              ts.forEachChild(inner, scan)
+            }
+            if (owner) scan(owner)
+            // The write's receiver and arguments are evaluated before it, so an await among them comes after any fence ahead of it.
+            if (fence < 0 || wait > fence || [node.expression.expression, ...node.arguments].some(holdsWait)) {
+              unfenced.push(`${relative}:${source.getLineAndCharacterOfPosition(write).line + 1} ${key}`)
+            }
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+    }
+    expect(unfenced).toEqual([])
+    expect(exemptions).toEqual(exempt)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {
@@ -430,31 +699,14 @@ describe('account query ownership structural gate', () => {
       visit(source)
     }
     expect(errors).toEqual([])
-    expect(owners.size).toBe(12) // Deliberately inventory new consumers alongside the key owner.
+    expect(owners.size).toBe(11) // Deliberately inventory new consumers alongside the key owner (SubscriptionGate, deleted unused, was the twelfth).
   })
 
   it('ordinary transitions use the shared owner, and completion invalidates both scoped families', () => {
     for (const file of ['components/Header.tsx', 'features/auth/components/UserMenu.tsx', 'app/dashboard/page.tsx']) {
       const source = readFileSync(path.join(frontend, file), 'utf8')
-      expect(source, file).toContain('logoutAndResetAccount(queryClient, logout,')
-      const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-      const callbacks: ts.ArrowFunction[] = []
-      const find = (node: ts.Node) => {
-        if (ts.isCallExpression(node) && node.expression.getText(ast) === 'logoutAndResetAccount') {
-          const callback = node.arguments[2]
-          if (callback && ts.isArrowFunction(callback)) callbacks.push(callback)
-        }
-        ts.forEachChild(node, find)
-      }
-      find(ast)
-      expect(callbacks).toHaveLength(1)
-      expect(callbacks[0].modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword) ?? false).toBe(false)
-      expect(callbacks[0].body.getText(ast)).toContain('router.push(')
-      expect(callbacks[0].body.getText(ast)).toContain('router.refresh()')
-      if (file === 'app/dashboard/page.tsx') {
-        expect(callbacks[0].body.getText(ast)).toContain('if (!succeeded) return')
-        expect(callbacks[0].body.getText(ast)).toContain('analytics.logout()')
-      }
+      // Which files call logoutAndResetAccount, each call's continuation, and what runs whatever the logout's outcome:
+      // tests/unit/logoutCallSitesGate.spec.ts.
       expect(source, file).not.toMatch(/invalidateQueries\(\{ queryKey: queryKeys\.currentUser\(\)/)
     }
     const login = readFileSync(path.join(frontend, 'app/login/page.tsx'), 'utf8')

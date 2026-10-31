@@ -1,0 +1,75 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 5,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2023 stall coincided with an 8.0pp gross margin drop to 56.9% , which the 10-K traces to $2.17 billion of inventory provisions .",
+   "passages": [
+    {
+     "id": "P35",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin was 56.9% and 64.9% for fiscal years 2023 and 2022, respectively. The decrease in fiscal year 2023 was primarily due to $2.17 billion of inventory provisions in fiscal year 2023, which consists of approximately $1.04 billion for inventory on hand and approximately $1.13 billion for inventory purchase obligations in excess of our current demand projections."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states gross margin decrease primarily due to $2.17B inventory provisions."
+  },
+  {
+   "sentence": "The filing attributes Data Center growth to Blackwell demand, with computing up 59% and networking up 142% .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    },
+    {
+     "id": "P10",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2026 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Our Blackwell architectures represented the majority of our Data Center revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes computing growth to Blackwell demand and networking growth to NVLink, Ethernet, InfiniBand."
+  },
+  {
+   "sentence": "Operating expenses rose 40.7% on employee growth, compensation and compute infrastructure costs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating expenses for fiscal year 2026 were up 41% from a year ago, driven by higher compensation and benefits expenses due to employee growth and compute and infrastructure costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating expenses up 41% driven by employee growth, compensation, compute and infrastructure costs."
+  },
+  {
+   "sentence": "In FY2023 operating cash flow fell 38.1% , which the filing ties to the $1.35 billion Arm termination cost .",
+   "passages": [
+    {
+     "id": "P29",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities decreased in fiscal year 2023 compared to fiscal year 2022, primarily due to a decrease in net income adjusted for certain non-cash items, such as the Arm acquisition termination cost of $1.35 billion, and higher tax payments, partially offset by changes in working capital. Changes in working capital were primarily driven by lower accounts receivable due to strong collections partially offset by timing of supplier payments and inventory deliveries."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage ties operating cash flow decrease to Arm termination cost and higher tax payments."
+  },
+  {
+   "sentence": "Other income rose from $2.57 billion  to $11.1 billion , mainly from unrealized gains on equity holdings, including Intel .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income, net primarily consists of realized or unrealized gains and losses from investments in non-marketable equity securities, publicly-held equity securities, and the impact of changes in foreign currency rates. The change in Other income, net, compared to fiscal year 2025, was primarily driven by unrealized gains in non-marketable and publicly-held equity securities, including gains from our previously announced investment in Intel\u2019s common stock. Refer to Note 7 and 8 of the Notes to the Consolidated Financial Statements in Part\u00a0IV, Item\u00a015 of this Annual Report on Form\u00a010-K for additional information regarding our non-marketable equity securities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states other income change driven by unrealized gains including Intel investment."
+  }
+ ],
+ "cost_usd": 0.001034
+}

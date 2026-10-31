@@ -1,0 +1,462 @@
+[
+  {
+    "label": "feedback-light-1440",
+    "fields": [
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "label": "Feedback message",
+        "placeholder": "What's working, what's broken, or what you'd love to see…",
+        "box": {
+          "x": 553,
+          "y": 428.45025634765625,
+          "w": 334,
+          "h": 98
+        },
+        "padding": "8px 12px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgba(255, 255, 255, 0.7)",
+        "borderColor": "rgb(79, 122, 99)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "rgb(255, 255, 255) 0px 0px 0px 0px, rgb(37, 99, 235) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px"
+      }
+    ]
+  },
+  {
+    "label": "settings-light-1440",
+    "fields": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "label": null,
+        "placeholder": "Your name",
+        "box": {
+          "x": 329,
+          "y": 402,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 329,
+          "y": 1279.59375,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 329,
+          "y": 1361.59375,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 329,
+          "y": 1443.59375,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      }
+    ]
+  },
+  {
+    "label": "feedback-light-390",
+    "fields": [
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "label": "Feedback message",
+        "placeholder": "What's working, what's broken, or what you'd love to see…",
+        "box": {
+          "x": 41,
+          "y": 400.92767333984375,
+          "w": 308,
+          "h": 98
+        },
+        "padding": "8px 12px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgba(255, 255, 255, 0.7)",
+        "borderColor": "rgb(79, 122, 99)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "rgb(255, 255, 255) 0px 0px 0px 0px, rgb(37, 99, 235) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px"
+      }
+    ]
+  },
+  {
+    "label": "settings-light-390",
+    "fields": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "label": null,
+        "placeholder": "Your name",
+        "box": {
+          "x": 41,
+          "y": 410,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 41,
+          "y": 1363.59375,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 41,
+          "y": 1445.59375,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 41,
+          "y": 1527.59375,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(26, 26, 23)",
+        "background": "rgb(255, 255, 255)",
+        "borderColor": "rgb(229, 231, 235)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      }
+    ]
+  },
+  {
+    "label": "feedback-dark-1440",
+    "fields": [
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "label": "Feedback message",
+        "placeholder": "What's working, what's broken, or what you'd love to see…",
+        "box": {
+          "x": 553,
+          "y": 428.671142578125,
+          "w": 334,
+          "h": 98
+        },
+        "padding": "8px 12px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(127, 178, 149)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "rgb(255, 255, 255) 0px 0px 0px 0px, rgb(37, 99, 235) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px"
+      }
+    ]
+  },
+  {
+    "label": "settings-dark-1440",
+    "fields": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "label": null,
+        "placeholder": "Your name",
+        "box": {
+          "x": 329,
+          "y": 402,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 329,
+          "y": 1279.59375,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 329,
+          "y": 1361.59375,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 329,
+          "y": 1443.59375,
+          "w": 448,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      }
+    ]
+  },
+  {
+    "label": "feedback-dark-390",
+    "fields": [
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "label": "Feedback message",
+        "placeholder": "What's working, what's broken, or what you'd love to see…",
+        "box": {
+          "x": 41,
+          "y": 400.9276123046875,
+          "w": 308,
+          "h": 98
+        },
+        "padding": "8px 12px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(127, 178, 149)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "rgb(255, 255, 255) 0px 0px 0px 0px, rgb(37, 99, 235) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px"
+      }
+    ]
+  },
+  {
+    "label": "settings-dark-390",
+    "fields": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "label": null,
+        "placeholder": "Your name",
+        "box": {
+          "x": 41,
+          "y": 410,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 41,
+          "y": 1363.59375,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 41,
+          "y": 1445.59375,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      },
+      {
+        "tag": "INPUT",
+        "type": "password",
+        "label": null,
+        "placeholder": null,
+        "box": {
+          "x": 41,
+          "y": 1527.59375,
+          "w": 308,
+          "h": 42
+        },
+        "padding": "10px 14px",
+        "color": "rgb(215, 218, 220)",
+        "background": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgb(55, 65, 81)",
+        "borderWidth": "1px",
+        "borderRadius": "12px",
+        "font": "14px",
+        "lineHeight": "20px",
+        "shadow": "none"
+      }
+    ]
+  }
+]

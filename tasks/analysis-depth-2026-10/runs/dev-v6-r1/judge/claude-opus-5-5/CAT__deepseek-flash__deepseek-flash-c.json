@@ -1,0 +1,106 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "b6cdb08aa8b8e0feb610303f1eb91fb89431ca9ed11fd1d0929e904282e7e3ee",
+ "y_sha256": "1a76081715666b14dcbdbf74eec8fe43f43936379bd69e1c8bb1ffc9a39978d6",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A calls FY2023 the margin peak, though FY2024's 20.2% was higher. Its red flag says cash 'stayed flat', contradicting its own 44.9% cash rise. Draft B adds sourced drivers for FY2017-18, geography, incremental margin and working-capital days. It also discloses that the debt figures omit $7.1bn due within one year, and labels its interpretations as analysis. Both sets of watch thresholds are numeric."
+   },
+   "cost_usd": 0.146813,
+   "latency_s": 10.76,
+   "backend": "claude_cli",
+   "input_tokens": 17329,
+   "cached_input_tokens": 727,
+   "output_tokens": 693,
+   "reasoning_tokens": 465,
+   "meta": {
+    "duration_api_ms": 6557,
+    "cache_creation_input_tokens": 16600,
+    "list_cost_usd": 0.080413
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"Draft A calls FY2023 the margin peak, though FY2024's 20.2% was higher. Its red flag says cash 'stayed flat', contradicting its own 44.9% cash rise. Draft B adds sourced drivers for FY2017-18, geography, incremental margin and working-capital days. It also discloses that the debt figures omit $7.1bn due within one year, and labels its interpretations as analysis. Both sets of watch thresholds are numeric.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A discloses that current long-term debt is missing from total debt, so its leverage and net-cash figures are properly caveated. It also adds FY2017\u201318 drivers and inventory and receivable days, and labels its analysis as analysis. B is cleaner and adds the Power Generation detail. But B says cash 'stayed flat' while its own source shows +44.9%. Its capex watch item claims FCF margin would stay below a median it currently exceeds. It also omits the debt caveat."
+   },
+   "cost_usd": 0.152093,
+   "latency_s": 14.576,
+   "backend": "claude_cli",
+   "input_tokens": 17329,
+   "cached_input_tokens": 727,
+   "output_tokens": 957,
+   "reasoning_tokens": 721,
+   "meta": {
+    "duration_api_ms": 10483,
+    "cache_creation_input_tokens": 16600,
+    "list_cost_usd": 0.085693
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"A discloses that current long-term debt is missing from total debt, so its leverage and net-cash figures are properly caveated. It also adds FY2017\u201318 drivers and inventory and receivable days, and labels its analysis as analysis. B is cleaner and adds the Power Generation detail. But B says cash 'stayed flat' while its own source shows +44.9%. Its capex watch item claims FCF margin would stay below a median it currently exceeds. It also omits the debt caveat.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.298906
+}

@@ -1,0 +1,4748 @@
+[
+  {
+    "name": "production-check-email-dark-1440-settled",
+    "evidence": "evidence/production-check-email-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-check-email-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-check-email-dark-390-settled",
+    "evidence": "evidence/production-check-email-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-check-email-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-check-email-light-1440-settled",
+    "evidence": "evidence/production-check-email-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-check-email-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-check-email-light-390-settled",
+    "evidence": "evidence/production-check-email-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-check-email-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-1023-edge-reduced",
+    "evidence": "evidence/production-company-AAPL-dark-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-1024-edge",
+    "evidence": "evidence/production-company-AAPL-dark-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-1440-first",
+    "evidence": "evidence/production-company-AAPL-dark-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-1440-settled",
+    "evidence": "evidence/production-company-AAPL-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-320-small",
+    "evidence": "evidence/production-company-AAPL-dark-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-390-first",
+    "evidence": "evidence/production-company-AAPL-dark-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-390-settled",
+    "evidence": "evidence/production-company-AAPL-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-390-text200",
+    "evidence": "evidence/production-company-AAPL-dark-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-dark-768-tablet",
+    "evidence": "evidence/production-company-AAPL-dark-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-1023-edge-reduced",
+    "evidence": "evidence/production-company-AAPL-light-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-1024-edge",
+    "evidence": "evidence/production-company-AAPL-light-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-1440-first",
+    "evidence": "evidence/production-company-AAPL-light-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-1440-settled",
+    "evidence": "evidence/production-company-AAPL-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-320-small",
+    "evidence": "evidence/production-company-AAPL-light-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-390-first",
+    "evidence": "evidence/production-company-AAPL-light-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-390-settled",
+    "evidence": "evidence/production-company-AAPL-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-390-text200",
+    "evidence": "evidence/production-company-AAPL-light-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-company-AAPL-light-768-tablet",
+    "evidence": "evidence/production-company-AAPL-light-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-contact-dark-1440-settled",
+    "evidence": "evidence/production-contact-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-contact-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-contact-dark-390-settled",
+    "evidence": "evidence/production-contact-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-contact-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-contact-light-1440-settled",
+    "evidence": "evidence/production-contact-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-contact-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-contact-light-390-settled",
+    "evidence": "evidence/production-contact-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-contact-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-1023-edge-reduced",
+    "evidence": "evidence/production-filing-3-dark-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-1024-edge",
+    "evidence": "evidence/production-filing-3-dark-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-1440-first",
+    "evidence": "evidence/production-filing-3-dark-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-1440-settled",
+    "evidence": "evidence/production-filing-3-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-320-small",
+    "evidence": "evidence/production-filing-3-dark-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-390-first",
+    "evidence": "evidence/production-filing-3-dark-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-390-launcher-occlusion",
+    "evidence": "evidence/production-filing-3-dark-390-launcher-occlusion.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-390-launcher-occlusion.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-390-settled",
+    "evidence": "evidence/production-filing-3-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-390-source-filing",
+    "evidence": "evidence/production-filing-3-dark-390-source-filing.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-390-source-filing-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-390-source-open",
+    "evidence": "evidence/production-filing-3-dark-390-source-open.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-390-source-open-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-390-text200",
+    "evidence": "evidence/production-filing-3-dark-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-dark-768-tablet",
+    "evidence": "evidence/production-filing-3-dark-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-dark-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-1023-edge-reduced",
+    "evidence": "evidence/production-filing-3-light-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-1024-edge",
+    "evidence": "evidence/production-filing-3-light-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-1440-first",
+    "evidence": "evidence/production-filing-3-light-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-1440-settled",
+    "evidence": "evidence/production-filing-3-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-320-small",
+    "evidence": "evidence/production-filing-3-light-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-390-first",
+    "evidence": "evidence/production-filing-3-light-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-390-launcher-occlusion",
+    "evidence": "evidence/production-filing-3-light-390-launcher-occlusion.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-390-launcher-occlusion.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-390-settled",
+    "evidence": "evidence/production-filing-3-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-390-source-filing",
+    "evidence": "evidence/production-filing-3-light-390-source-filing.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-390-source-filing-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-390-source-open",
+    "evidence": "evidence/production-filing-3-light-390-source-open.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-390-source-open-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-390-text200",
+    "evidence": "evidence/production-filing-3-light-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-filing-3-light-768-tablet",
+    "evidence": "evidence/production-filing-3-light-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-filing-3-light-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-forgot-password-dark-1440-settled",
+    "evidence": "evidence/production-forgot-password-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-forgot-password-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-forgot-password-dark-390-settled",
+    "evidence": "evidence/production-forgot-password-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-forgot-password-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-forgot-password-light-1440-settled",
+    "evidence": "evidence/production-forgot-password-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-forgot-password-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-forgot-password-light-390-settled",
+    "evidence": "evidence/production-forgot-password-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-forgot-password-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-1023-edge-reduced",
+    "evidence": "evidence/production-home-dark-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-1024-edge",
+    "evidence": "evidence/production-home-dark-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-1440-first",
+    "evidence": "evidence/production-home-dark-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-1440-settled",
+    "evidence": "evidence/production-home-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-320-small",
+    "evidence": "evidence/production-home-dark-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-390-first",
+    "evidence": "evidence/production-home-dark-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-390-menu",
+    "evidence": "evidence/production-home-dark-390-menu.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-390-menu-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-390-settled",
+    "evidence": "evidence/production-home-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-390-text200",
+    "evidence": "evidence/production-home-dark-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-dark-768-tablet",
+    "evidence": "evidence/production-home-dark-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-1023-edge-reduced",
+    "evidence": "evidence/production-home-light-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-1024-edge",
+    "evidence": "evidence/production-home-light-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-1440-first",
+    "evidence": "evidence/production-home-light-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-1440-settled",
+    "evidence": "evidence/production-home-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-320-small",
+    "evidence": "evidence/production-home-light-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-390-first",
+    "evidence": "evidence/production-home-light-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-390-menu",
+    "evidence": "evidence/production-home-light-390-menu.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-390-menu-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-390-settled",
+    "evidence": "evidence/production-home-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-390-text200",
+    "evidence": "evidence/production-home-light-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-home-light-768-tablet",
+    "evidence": "evidence/production-home-light-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-1023-edge-reduced",
+    "evidence": "evidence/production-login-dark-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-1024-edge",
+    "evidence": "evidence/production-login-dark-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-1440-email",
+    "evidence": "evidence/production-login-dark-1440-email.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-1440-email-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-1440-first",
+    "evidence": "evidence/production-login-dark-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-1440-hover",
+    "evidence": "evidence/production-login-dark-1440-hover.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-1440-hover-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-1440-settled",
+    "evidence": "evidence/production-login-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-320-small",
+    "evidence": "evidence/production-login-dark-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-390-email",
+    "evidence": "evidence/production-login-dark-390-email.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-390-email-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-390-first",
+    "evidence": "evidence/production-login-dark-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-390-settled",
+    "evidence": "evidence/production-login-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-390-text200",
+    "evidence": "evidence/production-login-dark-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-390-text200-fold.png",
+    "originalSize": [
+      389,
+      843
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-dark-768-tablet",
+    "evidence": "evidence/production-login-dark-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-1023-edge-reduced",
+    "evidence": "evidence/production-login-light-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-1024-edge",
+    "evidence": "evidence/production-login-light-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-1440-email",
+    "evidence": "evidence/production-login-light-1440-email.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-1440-email-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-1440-first",
+    "evidence": "evidence/production-login-light-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-1440-hover",
+    "evidence": "evidence/production-login-light-1440-hover.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-1440-hover-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-1440-settled",
+    "evidence": "evidence/production-login-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-320-small",
+    "evidence": "evidence/production-login-light-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-390-email",
+    "evidence": "evidence/production-login-light-390-email.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-390-email-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-390-first",
+    "evidence": "evidence/production-login-light-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-390-settled",
+    "evidence": "evidence/production-login-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-390-text200",
+    "evidence": "evidence/production-login-light-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-390-text200-fold.png",
+    "originalSize": [
+      389,
+      843
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-login-light-768-tablet",
+    "evidence": "evidence/production-login-light-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-login-light-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-nonexistent-design-review-dark-1440-settled",
+    "evidence": "evidence/production-nonexistent-design-review-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-nonexistent-design-review-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-nonexistent-design-review-dark-390-settled",
+    "evidence": "evidence/production-nonexistent-design-review-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-nonexistent-design-review-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-nonexistent-design-review-light-1440-settled",
+    "evidence": "evidence/production-nonexistent-design-review-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-nonexistent-design-review-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-nonexistent-design-review-light-390-settled",
+    "evidence": "evidence/production-nonexistent-design-review-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-nonexistent-design-review-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-1023-edge-reduced",
+    "evidence": "evidence/production-pricing-dark-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-1024-edge",
+    "evidence": "evidence/production-pricing-dark-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-1440-first",
+    "evidence": "evidence/production-pricing-dark-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-1440-settled",
+    "evidence": "evidence/production-pricing-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-320-small",
+    "evidence": "evidence/production-pricing-dark-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-390-first",
+    "evidence": "evidence/production-pricing-dark-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-390-settled",
+    "evidence": "evidence/production-pricing-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-390-text200",
+    "evidence": "evidence/production-pricing-dark-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-dark-768-tablet",
+    "evidence": "evidence/production-pricing-dark-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-dark-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-1023-edge-reduced",
+    "evidence": "evidence/production-pricing-light-1023-edge-reduced.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-1023-edge-reduced-fold.png",
+    "originalSize": [
+      1023,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-1024-edge",
+    "evidence": "evidence/production-pricing-light-1024-edge.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-1024-edge-fold.png",
+    "originalSize": [
+      1024,
+      900
+    ],
+    "recordSize": [
+      200,
+      176
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-1440-first",
+    "evidence": "evidence/production-pricing-light-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-1440-settled",
+    "evidence": "evidence/production-pricing-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-320-small",
+    "evidence": "evidence/production-pricing-light-320-small.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-320-small-fold.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-390-first",
+    "evidence": "evidence/production-pricing-light-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-390-settled",
+    "evidence": "evidence/production-pricing-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-390-text200",
+    "evidence": "evidence/production-pricing-light-390-text200.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-390-text200-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-pricing-light-768-tablet",
+    "evidence": "evidence/production-pricing-light-768-tablet.jpg",
+    "source": "/workspace/scratch/captures/production-pricing-light-768-tablet-fold.png",
+    "originalSize": [
+      768,
+      1024
+    ],
+    "recordSize": [
+      200,
+      220
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-privacy-dark-1440-settled",
+    "evidence": "evidence/production-privacy-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-privacy-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-privacy-dark-390-settled",
+    "evidence": "evidence/production-privacy-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-privacy-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-privacy-light-1440-settled",
+    "evidence": "evidence/production-privacy-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-privacy-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-privacy-light-390-settled",
+    "evidence": "evidence/production-privacy-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-privacy-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-dark-1440-first",
+    "evidence": "evidence/production-register-dark-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-register-dark-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-dark-1440-settled",
+    "evidence": "evidence/production-register-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-register-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-dark-390-first",
+    "evidence": "evidence/production-register-dark-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-register-dark-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-dark-390-settled",
+    "evidence": "evidence/production-register-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-register-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-light-1440-first",
+    "evidence": "evidence/production-register-light-1440-first.jpg",
+    "source": "/workspace/scratch/captures/production-register-light-1440-first-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-light-1440-settled",
+    "evidence": "evidence/production-register-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-register-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-light-390-first",
+    "evidence": "evidence/production-register-light-390-first.jpg",
+    "source": "/workspace/scratch/captures/production-register-light-390-first-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-register-light-390-settled",
+    "evidence": "evidence/production-register-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-register-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-reset-password-dark-1440-settled",
+    "evidence": "evidence/production-reset-password-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-reset-password-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-reset-password-dark-390-settled",
+    "evidence": "evidence/production-reset-password-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-reset-password-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-reset-password-light-1440-settled",
+    "evidence": "evidence/production-reset-password-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-reset-password-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-reset-password-light-390-settled",
+    "evidence": "evidence/production-reset-password-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-reset-password-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-security-dark-1440-settled",
+    "evidence": "evidence/production-security-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-security-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-security-dark-390-settled",
+    "evidence": "evidence/production-security-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-security-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-security-light-1440-settled",
+    "evidence": "evidence/production-security-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-security-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-security-light-390-settled",
+    "evidence": "evidence/production-security-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-security-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-terms-dark-1440-settled",
+    "evidence": "evidence/production-terms-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-terms-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-terms-dark-390-settled",
+    "evidence": "evidence/production-terms-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-terms-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-terms-light-1440-settled",
+    "evidence": "evidence/production-terms-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-terms-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-terms-light-390-settled",
+    "evidence": "evidence/production-terms-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-terms-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-verify-email-dark-1440-settled",
+    "evidence": "evidence/production-verify-email-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-verify-email-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-verify-email-dark-390-settled",
+    "evidence": "evidence/production-verify-email-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-verify-email-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-verify-email-light-1440-settled",
+    "evidence": "evidence/production-verify-email-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-verify-email-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-verify-email-light-390-settled",
+    "evidence": "evidence/production-verify-email-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-verify-email-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-waitlist-dark-1440-settled",
+    "evidence": "evidence/production-waitlist-dark-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-waitlist-dark-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-waitlist-dark-390-settled",
+    "evidence": "evidence/production-waitlist-dark-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-waitlist-dark-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-waitlist-light-1440-settled",
+    "evidence": "evidence/production-waitlist-light-1440-settled.jpg",
+    "source": "/workspace/scratch/captures/production-waitlist-light-1440-settled-fold.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "production-waitlist-light-390-settled",
+    "evidence": "evidence/production-waitlist-light-390-settled.jpg",
+    "source": "/workspace/scratch/captures/production-waitlist-light-390-settled-fold.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-light-1440",
+    "evidence": "evidence/local-dashboard-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-light-1440",
+    "evidence": "evidence/local-dashboard-watchlist-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-light-1440",
+    "evidence": "evidence/local-dashboard-settings-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-connected-accounts-&-sessions-light-1440",
+    "evidence": "evidence/local-settings-connected-accounts-&-sessions-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/settings-connected-accounts-&-sessions-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-change-password-light-1440",
+    "evidence": "evidence/local-settings-change-password-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/settings-change-password-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-light-1440",
+    "evidence": "evidence/local-calendar-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-light-390",
+    "evidence": "evidence/local-dashboard-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-light-390",
+    "evidence": "evidence/local-dashboard-watchlist-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-light-390",
+    "evidence": "evidence/local-dashboard-settings-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-connected-accounts-&-sessions-light-390",
+    "evidence": "evidence/local-settings-connected-accounts-&-sessions-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/settings-connected-accounts-&-sessions-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-change-password-light-390",
+    "evidence": "evidence/local-settings-change-password-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/settings-change-password-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-light-390",
+    "evidence": "evidence/local-calendar-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-light-390-200pct",
+    "evidence": "evidence/local-dashboard-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-light-390-200pct",
+    "evidence": "evidence/local-dashboard-watchlist-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-light-390-200pct",
+    "evidence": "evidence/local-dashboard-settings-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-light-390-200pct",
+    "evidence": "evidence/local-calendar-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-dark-1440",
+    "evidence": "evidence/local-dashboard-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-dark-1440",
+    "evidence": "evidence/local-dashboard-watchlist-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-dark-1440",
+    "evidence": "evidence/local-dashboard-settings-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-connected-accounts-&-sessions-dark-1440",
+    "evidence": "evidence/local-settings-connected-accounts-&-sessions-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/settings-connected-accounts-&-sessions-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-change-password-dark-1440",
+    "evidence": "evidence/local-settings-change-password-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/settings-change-password-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-dark-1440",
+    "evidence": "evidence/local-calendar-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-dark-390",
+    "evidence": "evidence/local-dashboard-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-dark-390",
+    "evidence": "evidence/local-dashboard-watchlist-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-dark-390",
+    "evidence": "evidence/local-dashboard-settings-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-connected-accounts-&-sessions-dark-390",
+    "evidence": "evidence/local-settings-connected-accounts-&-sessions-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/settings-connected-accounts-&-sessions-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-change-password-dark-390",
+    "evidence": "evidence/local-settings-change-password-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/settings-change-password-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-dark-390",
+    "evidence": "evidence/local-calendar-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-dark-390-200pct",
+    "evidence": "evidence/local-dashboard-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-dark-390-200pct",
+    "evidence": "evidence/local-dashboard-watchlist-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-dark-390-200pct",
+    "evidence": "evidence/local-dashboard-settings-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-dark-390-200pct",
+    "evidence": "evidence/local-calendar-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-light-1440",
+    "evidence": "evidence/local-analysis-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-metrics-by-period-light-1440",
+    "evidence": "evidence/local-analysis-metrics-by-period-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-metrics-by-period-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-data-notes-light-1440",
+    "evidence": "evidence/local-analysis-data-notes-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-data-notes-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-light-390",
+    "evidence": "evidence/local-analysis-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-metrics-by-period-light-390",
+    "evidence": "evidence/local-analysis-metrics-by-period-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-metrics-by-period-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-data-notes-light-390",
+    "evidence": "evidence/local-analysis-data-notes-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-data-notes-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-light-390-200pct",
+    "evidence": "evidence/local-analysis-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-dark-1440",
+    "evidence": "evidence/local-analysis-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-metrics-by-period-dark-1440",
+    "evidence": "evidence/local-analysis-metrics-by-period-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-metrics-by-period-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-data-notes-dark-1440",
+    "evidence": "evidence/local-analysis-data-notes-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-data-notes-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-dark-390",
+    "evidence": "evidence/local-analysis-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-metrics-by-period-dark-390",
+    "evidence": "evidence/local-analysis-metrics-by-period-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-metrics-by-period-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-data-notes-dark-390",
+    "evidence": "evidence/local-analysis-data-notes-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-data-notes-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-dark-390-200pct",
+    "evidence": "evidence/local-analysis-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-light-1440",
+    "evidence": "evidence/local-feedback-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-notification-bell-light-1440",
+    "evidence": "evidence/local-notification-bell-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/notification-bell-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-user-menu-light-1440",
+    "evidence": "evidence/local-user-menu-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/user-menu-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-filing-alerts-light-1440",
+    "evidence": "evidence/local-settings-filing-alerts-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/settings-filing-alerts-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-banner-light-1440",
+    "evidence": "evidence/local-verification-banner-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/verification-banner-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-modal-light-1440",
+    "evidence": "evidence/local-verification-modal-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/verification-modal-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-week-light-1440",
+    "evidence": "evidence/local-calendar-week-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-week-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-light-1440",
+    "evidence": "evidence/local-calendar-month-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-day-light-1440",
+    "evidence": "evidence/local-calendar-day-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-day-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-bell-popover-light-1440",
+    "evidence": "evidence/local-calendar-bell-popover-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-bell-popover-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-light-1440",
+    "evidence": "evidence/local-filing-pro-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-ask-light-1440",
+    "evidence": "evidence/local-filing-pro-ask-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-ask-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-citation-light-1440",
+    "evidence": "evidence/local-filing-pro-citation-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-citation-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-source-pane-light-1440",
+    "evidence": "evidence/local-filing-source-pane-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-source-pane-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-light-1440",
+    "evidence": "evidence/local-filing-free-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-ask-light-1440",
+    "evidence": "evidence/local-filing-free-ask-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-ask-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-citation-light-1440",
+    "evidence": "evidence/local-filing-free-citation-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-citation-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-upgrade-modal-light-1440",
+    "evidence": "evidence/local-upgrade-modal-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/upgrade-modal-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-signup-light-1440",
+    "evidence": "evidence/local-filing-signup-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-signup-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-monthly-light-1440",
+    "evidence": "evidence/local-filing-monthly-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-monthly-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-failed-light-1440",
+    "evidence": "evidence/local-filing-failed-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-failed-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-stored-failed-light-1440",
+    "evidence": "evidence/local-filing-stored-failed-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-stored-failed-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-light-390",
+    "evidence": "evidence/local-feedback-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-mobile-signed-menu-light-390",
+    "evidence": "evidence/local-mobile-signed-menu-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/mobile-signed-menu-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-filing-alerts-light-390",
+    "evidence": "evidence/local-settings-filing-alerts-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/settings-filing-alerts-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-banner-light-390",
+    "evidence": "evidence/local-verification-banner-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/verification-banner-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-modal-light-390",
+    "evidence": "evidence/local-verification-modal-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/verification-modal-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-week-light-390",
+    "evidence": "evidence/local-calendar-week-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-week-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-light-390",
+    "evidence": "evidence/local-calendar-month-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-day-light-390",
+    "evidence": "evidence/local-calendar-day-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-day-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-bell-popover-light-390",
+    "evidence": "evidence/local-calendar-bell-popover-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-bell-popover-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-signup-light-390",
+    "evidence": "evidence/local-filing-signup-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-signup-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-monthly-light-390",
+    "evidence": "evidence/local-filing-monthly-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-monthly-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-failed-light-390",
+    "evidence": "evidence/local-filing-failed-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-failed-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-stored-failed-light-390",
+    "evidence": "evidence/local-filing-stored-failed-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-stored-failed-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-dark-1440",
+    "evidence": "evidence/local-feedback-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-notification-bell-dark-1440",
+    "evidence": "evidence/local-notification-bell-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/notification-bell-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-user-menu-dark-1440",
+    "evidence": "evidence/local-user-menu-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/user-menu-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-filing-alerts-dark-1440",
+    "evidence": "evidence/local-settings-filing-alerts-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/settings-filing-alerts-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-banner-dark-1440",
+    "evidence": "evidence/local-verification-banner-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/verification-banner-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-modal-dark-1440",
+    "evidence": "evidence/local-verification-modal-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/verification-modal-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-week-dark-1440",
+    "evidence": "evidence/local-calendar-week-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-week-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-dark-1440",
+    "evidence": "evidence/local-calendar-month-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-day-dark-1440",
+    "evidence": "evidence/local-calendar-day-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-day-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-bell-popover-dark-1440",
+    "evidence": "evidence/local-calendar-bell-popover-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-bell-popover-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-dark-1440",
+    "evidence": "evidence/local-filing-pro-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-ask-dark-1440",
+    "evidence": "evidence/local-filing-pro-ask-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-ask-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-citation-dark-1440",
+    "evidence": "evidence/local-filing-pro-citation-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-citation-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-source-pane-dark-1440",
+    "evidence": "evidence/local-filing-source-pane-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-source-pane-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-dark-1440",
+    "evidence": "evidence/local-filing-free-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-ask-dark-1440",
+    "evidence": "evidence/local-filing-free-ask-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-ask-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-citation-dark-1440",
+    "evidence": "evidence/local-filing-free-citation-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-citation-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-upgrade-modal-dark-1440",
+    "evidence": "evidence/local-upgrade-modal-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/upgrade-modal-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-signup-dark-1440",
+    "evidence": "evidence/local-filing-signup-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-signup-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-monthly-dark-1440",
+    "evidence": "evidence/local-filing-monthly-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-monthly-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-failed-dark-1440",
+    "evidence": "evidence/local-filing-failed-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-failed-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-stored-failed-dark-1440",
+    "evidence": "evidence/local-filing-stored-failed-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/filing-stored-failed-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-dark-390",
+    "evidence": "evidence/local-feedback-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-mobile-signed-menu-dark-390",
+    "evidence": "evidence/local-mobile-signed-menu-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/mobile-signed-menu-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-settings-filing-alerts-dark-390",
+    "evidence": "evidence/local-settings-filing-alerts-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/settings-filing-alerts-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-banner-dark-390",
+    "evidence": "evidence/local-verification-banner-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/verification-banner-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-verification-modal-dark-390",
+    "evidence": "evidence/local-verification-modal-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/verification-modal-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-week-dark-390",
+    "evidence": "evidence/local-calendar-week-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-week-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-dark-390",
+    "evidence": "evidence/local-calendar-month-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-day-dark-390",
+    "evidence": "evidence/local-calendar-day-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-day-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-bell-popover-dark-390",
+    "evidence": "evidence/local-calendar-bell-popover-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-bell-popover-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-signup-dark-390",
+    "evidence": "evidence/local-filing-signup-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-signup-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-monthly-dark-390",
+    "evidence": "evidence/local-filing-monthly-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-monthly-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-failed-dark-390",
+    "evidence": "evidence/local-filing-failed-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-failed-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-stored-failed-dark-390",
+    "evidence": "evidence/local-filing-stored-failed-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-stored-failed-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-light-390",
+    "evidence": "evidence/local-filing-pro-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-ask-light-390",
+    "evidence": "evidence/local-filing-pro-ask-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-ask-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-citation-light-390",
+    "evidence": "evidence/local-filing-pro-citation-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-citation-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-source-pane-light-390",
+    "evidence": "evidence/local-filing-source-pane-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-source-pane-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-light-390",
+    "evidence": "evidence/local-filing-free-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-ask-light-390",
+    "evidence": "evidence/local-filing-free-ask-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-ask-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-citation-light-390",
+    "evidence": "evidence/local-filing-free-citation-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-citation-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-upgrade-modal-light-390",
+    "evidence": "evidence/local-upgrade-modal-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/upgrade-modal-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-dark-390",
+    "evidence": "evidence/local-filing-pro-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-ask-dark-390",
+    "evidence": "evidence/local-filing-pro-ask-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-ask-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-citation-dark-390",
+    "evidence": "evidence/local-filing-pro-citation-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-citation-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-source-pane-dark-390",
+    "evidence": "evidence/local-filing-source-pane-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-source-pane-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-dark-390",
+    "evidence": "evidence/local-filing-free-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-ask-dark-390",
+    "evidence": "evidence/local-filing-free-ask-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-ask-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-free-citation-dark-390",
+    "evidence": "evidence/local-filing-free-citation-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/filing-free-citation-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-upgrade-modal-dark-390",
+    "evidence": "evidence/local-upgrade-modal-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/upgrade-modal-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-empty-light-390",
+    "evidence": "evidence/local-calendar-empty-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-empty-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-error-light-390",
+    "evidence": "evidence/local-calendar-error-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-error-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-error-light-390",
+    "evidence": "evidence/local-dashboard-error-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-error-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-overflow-detail-light-390-200pct",
+    "evidence": "evidence/local-dashboard-watchlist-overflow-detail-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-overflow-detail-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-overflow-detail-light-390-200pct",
+    "evidence": "evidence/local-dashboard-settings-overflow-detail-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-overflow-detail-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-empty-dark-390",
+    "evidence": "evidence/local-calendar-empty-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-empty-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-error-dark-390",
+    "evidence": "evidence/local-calendar-error-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-error-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-error-dark-390",
+    "evidence": "evidence/local-dashboard-error-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-error-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-watchlist-overflow-detail-dark-390-200pct",
+    "evidence": "evidence/local-dashboard-watchlist-overflow-detail-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-watchlist-overflow-detail-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-dashboard-settings-overflow-detail-dark-390-200pct",
+    "evidence": "evidence/local-dashboard-settings-overflow-detail-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/dashboard-settings-overflow-detail-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-field-light-1440",
+    "evidence": "evidence/local-feedback-field-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-field-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-field-light-390",
+    "evidence": "evidence/local-feedback-field-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-field-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-field-dark-1440",
+    "evidence": "evidence/local-feedback-field-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-field-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-feedback-field-dark-390",
+    "evidence": "evidence/local-feedback-field-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/feedback-field-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-light-320",
+    "evidence": "evidence/local-filing-pro-light-320.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-light-320.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-light-390-200pct",
+    "evidence": "evidence/local-filing-pro-light-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-light-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-dark-320",
+    "evidence": "evidence/local-filing-pro-dark-320.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-dark-320.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-filing-pro-dark-390-200pct",
+    "evidence": "evidence/local-filing-pro-dark-390-200pct.jpg",
+    "source": "/workspace/scratch/local-walk/filing-pro-dark-390-200pct.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-source-sheet-header-light-390",
+    "evidence": "evidence/local-source-sheet-header-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/source-sheet-header-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-source-launcher-proved-light-390",
+    "evidence": "evidence/local-source-launcher-proved-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/source-launcher-proved-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-tickers-light-390",
+    "evidence": "evidence/local-calendar-month-tickers-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-tickers-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-tickers-light-320",
+    "evidence": "evidence/local-calendar-month-tickers-light-320.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-tickers-light-320.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-source-sheet-header-dark-390",
+    "evidence": "evidence/local-source-sheet-header-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/source-sheet-header-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-source-launcher-proved-dark-390",
+    "evidence": "evidence/local-source-launcher-proved-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/source-launcher-proved-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-tickers-dark-390",
+    "evidence": "evidence/local-calendar-month-tickers-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-tickers-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-calendar-month-tickers-dark-320",
+    "evidence": "evidence/local-calendar-month-tickers-dark-320.jpg",
+    "source": "/workspace/scratch/local-walk/calendar-month-tickers-dark-320.png",
+    "originalSize": [
+      320,
+      568
+    ],
+    "recordSize": [
+      200,
+      355
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-revenue-growth-light-1440",
+    "evidence": "evidence/local-analysis-revenue-growth-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-revenue-growth-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-ai-trend-analysis-light-1440",
+    "evidence": "evidence/local-analysis-ai-trend-analysis-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-ai-trend-analysis-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-the-trajectory-light-1440",
+    "evidence": "evidence/local-analysis-the-trajectory-light-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-the-trajectory-light-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-revenue-growth-light-390",
+    "evidence": "evidence/local-analysis-revenue-growth-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-revenue-growth-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-ai-trend-analysis-light-390",
+    "evidence": "evidence/local-analysis-ai-trend-analysis-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-ai-trend-analysis-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-the-trajectory-light-390",
+    "evidence": "evidence/local-analysis-the-trajectory-light-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-the-trajectory-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-revenue-growth-dark-1440",
+    "evidence": "evidence/local-analysis-revenue-growth-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-revenue-growth-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-ai-trend-analysis-dark-1440",
+    "evidence": "evidence/local-analysis-ai-trend-analysis-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-ai-trend-analysis-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-the-trajectory-dark-1440",
+    "evidence": "evidence/local-analysis-the-trajectory-dark-1440.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-the-trajectory-dark-1440.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      200,
+      125
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-revenue-growth-dark-390",
+    "evidence": "evidence/local-analysis-revenue-growth-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-revenue-growth-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-ai-trend-analysis-dark-390",
+    "evidence": "evidence/local-analysis-ai-trend-analysis-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-ai-trend-analysis-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "local-analysis-the-trajectory-dark-390",
+    "evidence": "evidence/local-analysis-the-trajectory-dark-390.jpg",
+    "source": "/workspace/scratch/local-walk/analysis-the-trajectory-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      200,
+      433
+    ],
+    "kind": "fold preview"
+  },
+  {
+    "name": "hero-200-phone-light",
+    "evidence": "evidence/hero-200-phone-light.jpg",
+    "source": "/workspace/scratch/instruments/home-200-390.png",
+    "originalSize": [
+      326,
+      3352
+    ],
+    "recordSize": [
+      326,
+      3352
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "hero-200-phone-dark",
+    "evidence": "evidence/hero-200-phone-dark.jpg",
+    "source": "/workspace/scratch/instruments/home-dark-200-390.png",
+    "originalSize": [
+      326,
+      3352
+    ],
+    "recordSize": [
+      326,
+      3352
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "hero-200-desktop-light",
+    "evidence": "evidence/hero-200-desktop-light.jpg",
+    "source": "/workspace/scratch/instruments/home-200-1440.png",
+    "originalSize": [
+      592,
+      1844
+    ],
+    "recordSize": [
+      390,
+      1215
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "hero-200-desktop-dark",
+    "evidence": "evidence/hero-200-desktop-dark.jpg",
+    "source": "/workspace/scratch/instruments/home-dark-200-1440.png",
+    "originalSize": [
+      592,
+      1844
+    ],
+    "recordSize": [
+      390,
+      1215
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "secondary-header-light",
+    "evidence": "evidence/secondary-header-light.jpg",
+    "source": "/workspace/scratch/instruments/pricing-header-light.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      640,
+      400
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "secondary-header-dark",
+    "evidence": "evidence/secondary-header-dark.jpg",
+    "source": "/workspace/scratch/instruments/pricing-header-dark.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      640,
+      400
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "source-modal-light",
+    "evidence": "evidence/source-modal-light.jpg",
+    "source": "/workspace/scratch/local-walk/source-sheet-header-light-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      390,
+      844
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "source-modal-dark",
+    "evidence": "evidence/source-modal-dark.jpg",
+    "source": "/workspace/scratch/local-walk/source-sheet-header-dark-390.png",
+    "originalSize": [
+      390,
+      844
+    ],
+    "recordSize": [
+      390,
+      844
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "logo-dark",
+    "evidence": "evidence/logo-dark.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-dark-logo-crop.png",
+    "originalSize": [
+      36,
+      36
+    ],
+    "recordSize": [
+      36,
+      36
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "logo-light",
+    "evidence": "evidence/logo-light.jpg",
+    "source": "/workspace/scratch/captures/production-company-AAPL-light-logo-crop.png",
+    "originalSize": [
+      36,
+      36
+    ],
+    "recordSize": [
+      36,
+      36
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "auth-glow-dark",
+    "evidence": "evidence/auth-glow-dark.jpg",
+    "source": "/workspace/scratch/captures/production-login-dark-1440-glass-hover-crop.png",
+    "originalSize": [
+      352,
+      239
+    ],
+    "recordSize": [
+      352,
+      239
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "home-composition-light",
+    "evidence": "evidence/home-composition-light.jpg",
+    "source": "/workspace/scratch/captures/production-home-light-1440-settled.png",
+    "originalSize": [
+      1440,
+      8374
+    ],
+    "recordSize": [
+      360,
+      2094
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "home-composition-dark",
+    "evidence": "evidence/home-composition-dark.jpg",
+    "source": "/workspace/scratch/captures/production-home-dark-1440-settled.png",
+    "originalSize": [
+      1440,
+      8374
+    ],
+    "recordSize": [
+      360,
+      2094
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "header-pending-light",
+    "evidence": "evidence/header-pending-light.jpg",
+    "source": "/workspace/scratch/captures/local-header-light-1440-pending.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      640,
+      400
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "header-resolved-light",
+    "evidence": "evidence/header-resolved-light.jpg",
+    "source": "/workspace/scratch/captures/local-header-light-1440-resolved.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      640,
+      400
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "header-pending-dark",
+    "evidence": "evidence/header-pending-dark.jpg",
+    "source": "/workspace/scratch/captures/local-header-dark-1440-pending.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      640,
+      400
+    ],
+    "kind": "full exhibit"
+  },
+  {
+    "name": "header-resolved-dark",
+    "evidence": "evidence/header-resolved-dark.jpg",
+    "source": "/workspace/scratch/captures/local-header-dark-1440-resolved.png",
+    "originalSize": [
+      1440,
+      900
+    ],
+    "recordSize": [
+      640,
+      400
+    ],
+    "kind": "full exhibit"
+  }
+]

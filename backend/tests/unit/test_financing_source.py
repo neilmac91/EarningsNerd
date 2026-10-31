@@ -5,6 +5,7 @@ import pytest
 from edgar.xbrl import XBRL
 
 from app.config import settings
+from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service
 from app.services.edgar.instance_extractor import duration_series_with_starts
 from app.services.edgar.financing_source import financing_comparison_source
@@ -58,7 +59,7 @@ def extract(monkeypatch, xml, *, cached=True):
     filing, xb = parsed_filing(xml, cached=cached)
     monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", True)
     company = SimpleNamespace(sic="7372", is_financial_institution=lambda: False)
-    monkeypatch.setattr(xbrl_service, "resolve_filing_by_accession", lambda *a: (company, [filing]))
+    monkeypatch.setattr(xbrl_instance, "resolve_filing_by_accession", lambda *a: (company, [filing]))
     raw = xbrl_service._extract_from_filing_instance_sync(CIK, ACC)
     return raw, filing, xb
 

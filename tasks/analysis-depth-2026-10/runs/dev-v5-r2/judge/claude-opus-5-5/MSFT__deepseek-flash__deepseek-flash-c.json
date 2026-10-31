@@ -1,0 +1,106 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "d9caf75c3cc8e62c2eead5e0b30b492f38ce189025c8461adb1ede225e356c2b",
+ "y_sha256": "8a506143d804743f5a77f2c86575bfed98de748c2c9389125b26769361d61a96",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts cite a $51.4bn property-additions figure to a passage truncated before it. A adds a further unsupported $22.2bn component-purchase claim, so B grounds slightly better. A goes deeper on cost lines (R&D, S&M), the TCJA inflection and EPS. B explains the FY2023 slowdown and uses OCF/net income context. B repeats the opex-growth point and states a circular cost-of-revenue cause, so A reads more clearly. Grounding decides it narrowly for B."
+   },
+   "cost_usd": 0.149005,
+   "latency_s": 18.278,
+   "backend": "claude_cli",
+   "input_tokens": 15948,
+   "cached_input_tokens": 727,
+   "output_tokens": 1355,
+   "reasoning_tokens": 1111,
+   "meta": {
+    "duration_api_ms": 13888,
+    "cache_creation_input_tokens": 15219,
+    "list_cost_usd": 0.088129
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts cite a $51.4bn property-additions figure to a passage truncated before it. A adds a further unsupported $22.2bn component-purchase claim, so B grounds slightly better. A goes deeper on cost lines (R&D, S&M), the TCJA inflection and EPS. B explains the FY2023 slowdown and uses OCF/net income context. B repeats the opex-growth point and states a circular cost-of-revenue cause, so A reads more clearly. Grounding decides it narrowly for B.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both cite the $51.4bn property-additions rise to a truncated passage that never states it. B adds a second unsupported figure, $22.2bn of component purchases, so A edges grounding. B explains more that the table cannot: the TCJA and FY2019 tax-benefit inflection, cost-of-revenue versus opex dynamics, R&D intensity, current-ratio erosion, peer free-cash-flow percentile and restatement caveats. A repeats the 7.4% opex point. B's broader, mostly supported depth outweighs its small grounding gap."
+   },
+   "cost_usd": 0.142009,
+   "latency_s": 14.323,
+   "backend": "claude_cli",
+   "input_tokens": 15946,
+   "cached_input_tokens": 727,
+   "output_tokens": 1006,
+   "reasoning_tokens": 749,
+   "meta": {
+    "duration_api_ms": 10358,
+    "cache_creation_input_tokens": 15217,
+    "list_cost_usd": 0.081141
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both cite the $51.4bn property-additions rise to a truncated passage that never states it. B adds a second unsupported figure, $22.2bn of component purchases, so A edges grounding. B explains more that the table cannot: the TCJA and FY2019 tax-benefit inflection, cost-of-revenue versus opex dynamics, R&D intensity, current-ratio erosion, peer free-cash-flow percentile and restatement caveats. A repeats the 7.4% opex point. B's broader, mostly supported depth outweighs its small grounding gap.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.291014
+}

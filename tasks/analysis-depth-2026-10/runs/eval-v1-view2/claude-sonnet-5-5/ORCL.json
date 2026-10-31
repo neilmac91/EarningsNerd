@@ -1,0 +1,1601 @@
+{
+ "ticker": "ORCL",
+ "arm": "claude-sonnet-5-5",
+ "family": "claude",
+ "model": "claude-sonnet-5-5",
+ "split": "holdout",
+ "profile": "operating",
+ "window": "FY2017..FY2026",
+ "snapshot_id": "b06c324a8ac7ace814818b5798773ecb071032dbc29787fb48ae51aa95db9875",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 57543,
+   "cached_input_tokens": 3056,
+   "output_tokens": 5425,
+   "reasoning_tokens": 3137,
+   "latency_s": 39.453,
+   "cost_usd": 0.2725,
+   "backend": "claude_cli",
+   "model_served": "claude-sonnet-5-5",
+   "meta": {
+    "duration_api_ms": 34936,
+    "cache_creation_input_tokens": 54485,
+    "list_cost_usd": 0.163835
+   },
+   "problems": [],
+   "raw": "{\"sections\":[{\"key\":\"arc\",\"title\":\"The arc\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Revenue compounded at 6.6% a year, from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196].\"},{\"type\":\"comparison\",\"text\":\"Growth was slow until FY2022, then stepped up: revenue rose 17.7% in FY2023 and 17.3% in FY2026 [D280][D421].\"},{\"type\":\"cause\",\"text\":\"The FY2023 step came primarily from revenue contributions from the Cerner acquisition, which accounted for $5.9 billion of revenue that year [P48][S61].\"},{\"type\":\"cause\",\"text\":\"In FY2026, cloud infrastructure supplied 84% of constant currency cloud growth, and its revenue rose 76.9% to $18.1 billion [P17][D644][S92].\"},{\"type\":\"cause\",\"text\":\"In FY2022 operating margin fell 11.8pp to 25.7%, as litigation related charges lifted operating expenses [D246][F30][P58].\"}]},{\"key\":\"drivers\",\"title\":\"What drove growth\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Cloud Infrastructure contributed 13.7pp of the 17.3% FY2026 growth and now makes up 26.9% of revenue [D645][D421][D643].\"},{\"type\":\"comparison\",\"text\":\"Cloud Applications added 2.8pp, while Software License fell 8.9% and subtracted 0.8pp [D668][D681][D682].\"},{\"type\":\"cause\",\"text\":\"The filing attributes the $9.3 billion rise in cloud and software revenues to customers buying applications and infrastructure technologies and renewing cloud contracts [P17][P20].\"},{\"type\":\"comparison\",\"text\":\"Operating costs grew 0.3pp faster than revenue in FY2026, and incremental operating margin was 29.4% against 52.4% in FY2025 [D443][D442][D395].\"},{\"type\":\"comparison\",\"text\":\"Diluted EPS compounded at 11.2% against 6.7% for net income, as diluted shares fell from 4,217m in FY2017 to 2,914m in FY2026 [F201][F199][X136][X145].\"}]},{\"key\":\"margins\",\"title\":\"Margins and costs\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Operating margin of 30.6% in FY2026 sits below the 32.2% window median and the 37.6% high, but above the 25.7% low [F34][D788][D787][D786].\"},{\"type\":\"fact\",\"text\":\"The FY2026 bridge shows R&D adding 1.9pp and all other lines subtracting 2.1pp, for a net change of -0.2pp [D444][D445][D433].\"},{\"type\":\"cause\",\"text\":\"Higher infrastructure expenses to support cloud infrastructure lowered the cloud and software margin, with cloud and software expenses up $6.0 billion [P16][P19].\"},{\"type\":\"judgement\",\"text\":\"The cost of building capacity is now visible in margin, and R&D leverage offset only part of it [D444][D445].\"}]},{\"key\":\"cash\",\"title\":\"Cash conversion\",\"sentences\":[{\"type\":\"cause\",\"text\":\"Operating cash flow rose 53.6% to $32.0 billion in FY2026, helped by $4.6 billion of customer prepayments with a significant financing component [D426][F84][P6].\"},{\"type\":\"comparison\",\"text\":\"Capex of $55.7 billion was 82.6% of revenue and 7.30x depreciation and amortization [F94][D404][D410].\"},{\"type\":\"comparison\",\"text\":\"Free cash flow was -$23.7 billion, a -35.2% margin against a 26.0% window median [F104][D405][D794].\"},{\"type\":\"comparison\",\"text\":\"Free cash flow was -1.39x net income against a 1.06x window median, using FY2026 net income taken from the proxy statement [D409][D800][F44].\"}]},{\"key\":\"balance_sheet\",\"title\":\"Balance sheet and capital allocation\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Net debt reached $97.6 billion, up from $81.4 billion, and at 145.0% of revenue ranks in the 0th percentile of six software peers [D414][D367][D415][D815].\"},{\"type\":\"cause\",\"text\":\"Total debt rose 39.9% to $129.5 billion, as the company issued $42.7 billion of senior notes net of costs during FY2026 [D440][D413][P7].\"},{\"type\":\"fact\",\"text\":\"Cash and investments of $31.9 billion cover 1.3 years of the FY2026 free cash flow burn [D412][D419].\"},{\"type\":\"comparison\",\"text\":\"Buybacks fell to $95 million against $5.8 billion of dividends, and diluted shares still rose 1.7% [X155][X165][D438].\"}]},{\"key\":\"red_flags\",\"title\":\"Red flags\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Runway is short: cash and investments cover 1.3 years of burn, against 28.4 years in FY2025, and the burn was funded by debt [R1][D419][D372][P4].\"},{\"type\":\"fact\",\"text\":\"Free cash flow ran at -0.03x net income in FY2025 and -1.39x in FY2026, against a 1.90x peer median, as capex rose $34.4 billion [R2][D362][D409][D818][P5].\"},{\"type\":\"fact\",\"text\":\"Leverage is rising: debt grew 39.9% in FY2026, and interest expense reached $4.6 billion from $3.6 billion on higher borrowings [R4][D413][X92][X91][P10].\"},{\"type\":\"fact\",\"text\":\"Commitments are not on the balance sheet: $260 billion of additional lease commitments, substantially all for data centers, start between FY2027 and FY2029 [P1].\"},{\"type\":\"fact\",\"text\":\"Data check: FY2026 net income of $17.0 billion in the table is proxy-sourced and rounded, and differs from the 10-K figure of $17.1 billion [R5][F44][X20].\"}]},{\"key\":\"watch\",\"title\":\"What to watch\",\"sentences\":[{\"type\":\"judgement\",\"text\":\"Free cash flow margin rising above FY2026's -35.2% would confirm that the capex burden is peaking; a lower reading would reverse that view [D405][D792], in the FY2027 10-K.\"},{\"type\":\"judgement\",\"text\":\"Cloud Infrastructure revenue growth below FY2026's 76.9% while capex stays at 82.6% of revenue would weaken the case for the spending [D644][D404], in the FY2027 10-K.\"},{\"type\":\"judgement\",\"text\":\"A Cloud and Software segment margin below FY2026's 58.9% would show infrastructure costs still compressing margin [D761], in the FY2027 10-K.\"}]}]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 60123,
+   "cached_input_tokens": 3056,
+   "output_tokens": 2661,
+   "reasoning_tokens": 297,
+   "latency_s": 17.397,
+   "cost_usd": 0.25518,
+   "backend": "claude_cli",
+   "model_served": "claude-sonnet-5-5",
+   "meta": {
+    "duration_api_ms": 12358,
+    "cache_creation_input_tokens": 57065,
+    "list_cost_usd": 0.141355
+   },
+   "problems": [],
+   "raw": "{\"sections\": [{\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Revenue compounded at 6.6% a year, from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196].\"}, {\"type\": \"comparison\", \"text\": \"Growth was slow until FY2022, then stepped up: revenue rose 17.7% in FY2023 and 17.3% in FY2026 [D280][D421].\"}, {\"type\": \"cause\", \"text\": \"The FY2023 step came primarily from revenue contributions from the Cerner acquisition, which accounted for $5.9 billion of revenue that year [P48][S61].\"}, {\"type\": \"cause\", \"text\": \"In FY2026, cloud infrastructure supplied 84% of constant currency cloud growth, and its revenue rose 76.9% to $18.1 billion [P17][D644][S92].\"}, {\"type\": \"cause\", \"text\": \"In FY2022 operating margin fell 11.8pp to 25.7%, as litigation related charges lifted operating expenses [D246][F30][P58].\"}]}, {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Cloud Infrastructure contributed 13.7pp of the 17.3% FY2026 growth and now makes up 26.9% of revenue [D645][D421][D643].\"}, {\"type\": \"comparison\", \"text\": \"Cloud Applications added 2.8pp, while Software License fell 8.9% and subtracted 0.8pp [D668][D681][D682].\"}, {\"type\": \"cause\", \"text\": \"The filing attributes the $9.3 billion rise in cloud and software revenues to customers buying applications and infrastructure technologies and renewing cloud contracts [P17][P20].\"}, {\"type\": \"comparison\", \"text\": \"Revenue growth minus operating-cost growth was -0.3pp in FY2026, and incremental operating margin was 29.4% against 52.4% in FY2025 [D443][D442][D395].\"}, {\"type\": \"comparison\", \"text\": \"Diluted EPS compounded at 11.2% against 6.7% for net income, as diluted shares fell from 4,217m in FY2017 to 2,914m in FY2026 [F201][F199][X136][X145].\"}]}, {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating margin of 30.6% in FY2026 sits below the 32.2% window median and the 37.6% high, but above the 25.7% low [F34][D788][D787][D786].\"}, {\"type\": \"fact\", \"text\": \"The FY2026 bridge shows R&D adding 1.9pp and all other lines subtracting 2.1pp, for a net change of -0.2pp [D444][D445][D433].\"}, {\"type\": \"cause\", \"text\": \"Higher infrastructure expenses to support cloud infrastructure lowered the cloud and software margin, with cloud and software expenses up $6.0 billion [P16][P19].\"}, {\"type\": \"judgement\", \"text\": \"The cost of building capacity is now visible in margin, and R&D leverage offset only part of it [D444][D445].\"}]}, {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [{\"type\": \"cause\", \"text\": \"Operating cash flow rose 53.6% to $32.0 billion in FY2026, helped by $4.6 billion of customer prepayments with a significant financing component [D426][F84][P6].\"}, {\"type\": \"comparison\", \"text\": \"Capex of $55.7 billion was 82.6% of revenue and 7.30x depreciation and amortization [F94][D404][D410].\"}, {\"type\": \"comparison\", \"text\": \"Free cash flow was -$23.7 billion, a -35.2% margin against a 26.0% window median [F104][D405][D794].\"}, {\"type\": \"comparison\", \"text\": \"Free cash flow was -1.39x net income against a 1.06x window median, using FY2026 net income taken from the proxy statement [D409][D800][F44].\"}]}, {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Net debt reached $97.6 billion, up from $81.4 billion, and at 145.0% of revenue ranks in the 0th percentile of six software peers [D414][D367][D415][D815].\"}, {\"type\": \"cause\", \"text\": \"Total debt rose 39.9% to $129.5 billion, as the company issued $42.7 billion of senior notes net of costs during FY2026 [D440][D413][P7].\"}, {\"type\": \"fact\", \"text\": \"Cash and investments of $31.9 billion cover 1.3 years of the FY2026 free cash flow burn [D412][D419].\"}, {\"type\": \"comparison\", \"text\": \"Buybacks fell to $95 million against $5.8 billion of dividends, and diluted shares still rose 1.7% [X155][X165][D438].\"}]}, {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Runway is short: cash and investments cover 1.3 years of burn, against 28.4 years in FY2025, and the burn was funded by debt [R1][D419][D372][P4].\"}, {\"type\": \"fact\", \"text\": \"Free cash flow ran at -0.03x net income in FY2025 and -1.39x in FY2026, against a 1.90x peer median, as capex rose $34.4 billion [R2][D362][D409][D818][P5].\"}, {\"type\": \"fact\", \"text\": \"Leverage is rising: debt grew 39.9% in FY2026, and interest expense reached $4.6 billion from $3.6 billion on higher borrowings [R4][D413][X92][X91][P10].\"}, {\"type\": \"fact\", \"text\": \"Commitments are not on the balance sheet: $260 billion of additional lease commitments, substantially all for data centers, start between FY2027 and FY2029 [P1].\"}, {\"type\": \"fact\", \"text\": \"Data check: FY2026 net income of $17.0 billion in the table is proxy-sourced and rounded, and differs from the 10-K figure of $17.1 billion [R5][F44][X20].\"}]}, {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [{\"type\": \"judgement\", \"text\": \"Free cash flow margin rising above FY2026's -35.2% would confirm that the capex burden is peaking; a lower reading would reverse that view [D405][D792], in the FY2027 10-K.\"}, {\"type\": \"judgement\", \"text\": \"Cloud Infrastructure revenue growth below FY2026's 76.9% while capex stays at 82.6% of revenue would weaken the case for the spending [D644][D404], in the FY2027 10-K.\"}, {\"type\": \"judgement\", \"text\": \"A Cloud and Software segment margin below FY2026's 58.9% would show infrastructure costs still compressing margin [D761], in the FY2027 10-K.\"}]}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 117666,
+  "cached_input_tokens": 6112,
+  "output_tokens": 8086,
+  "reasoning_tokens": 3434
+ },
+ "latency_s": 56.85,
+ "cost_usd": 0.52768,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 6.6% a year, from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196]."
+     },
+     {
+      "type": "comparison",
+      "text": "Growth was slow until FY2022, then stepped up: revenue rose 17.7% in FY2023 and 17.3% in FY2026 [D280][D421]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2023 step came primarily from revenue contributions from the Cerner acquisition, which accounted for $5.9 billion of revenue that year [P48][S61]."
+     },
+     {
+      "type": "cause",
+      "text": "In FY2026, cloud infrastructure supplied 84% of constant currency cloud growth, and its revenue rose 76.9% to $18.1 billion [P17][D644][S92]."
+     },
+     {
+      "type": "cause",
+      "text": "In FY2022 operating margin fell 11.8pp to 25.7%, as litigation related charges lifted operating expenses [D246][F30][P58]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Cloud Infrastructure contributed 13.7pp of the 17.3% FY2026 growth and now makes up 26.9% of revenue [D645][D421][D643]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cloud Applications added 2.8pp, while Software License fell 8.9% and subtracted 0.8pp [D668][D681][D682]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing attributes the $9.3 billion rise in cloud and software revenues to customers buying applications and infrastructure technologies and renewing cloud contracts [P17][P20]."
+     },
+     {
+      "type": "comparison",
+      "text": "Revenue growth minus operating-cost growth was -0.3pp in FY2026, and incremental operating margin was 29.4% against 52.4% in FY2025 [D443][D442][D395]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS compounded at 11.2% against 6.7% for net income, as diluted shares fell from 4,217m in FY2017 to 2,914m in FY2026 [F201][F199][X136][X145]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 30.6% in FY2026 sits below the 32.2% window median and the 37.6% high, but above the 25.7% low [F34][D788][D787][D786]."
+     },
+     {
+      "type": "fact",
+      "text": "The FY2026 bridge shows R&D adding 1.9pp and all other lines subtracting 2.1pp, for a net change of -0.2pp [D444][D445][D433]."
+     },
+     {
+      "type": "cause",
+      "text": "Higher infrastructure expenses to support cloud infrastructure lowered the cloud and software margin, with cloud and software expenses up $6.0 billion [P16][P19]."
+     },
+     {
+      "type": "judgement",
+      "text": "The cost of building capacity is now visible in margin, and R&D leverage offset only part of it [D444][D445]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "cause",
+      "text": "Operating cash flow rose 53.6% to $32.0 billion in FY2026, helped by $4.6 billion of customer prepayments with a significant financing component [D426][F84][P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex of $55.7 billion was 82.6% of revenue and 7.30x depreciation and amortization [F94][D404][D410]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was -$23.7 billion, a -35.2% margin against a 26.0% window median [F104][D405][D794]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was -1.39x net income against a 1.06x window median, using FY2026 net income taken from the proxy statement [D409][D800][F44]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt reached $97.6 billion, up from $81.4 billion, and at 145.0% of revenue ranks in the 0th percentile of six software peers [D414][D367][D415][D815]."
+     },
+     {
+      "type": "cause",
+      "text": "Total debt rose 39.9% to $129.5 billion, as the company issued $42.7 billion of senior notes net of costs during FY2026 [D440][D413][P7]."
+     },
+     {
+      "type": "fact",
+      "text": "Cash and investments of $31.9 billion cover 1.3 years of the FY2026 free cash flow burn [D412][D419]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks fell to $95 million against $5.8 billion of dividends, and diluted shares still rose 1.7% [X155][X165][D438]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Runway is short: cash and investments cover 1.3 years of burn, against 28.4 years in FY2025, and the burn was funded by debt [R1][D419][D372][P4]."
+     },
+     {
+      "type": "fact",
+      "text": "Free cash flow ran at -0.03x net income in FY2025 and -1.39x in FY2026, against a 1.90x peer median, as capex rose $34.4 billion [R2][D362][D409][D818][P5]."
+     },
+     {
+      "type": "fact",
+      "text": "Leverage is rising: debt grew 39.9% in FY2026, and interest expense reached $4.6 billion from $3.6 billion on higher borrowings [R4][D413][X92][X91][P10]."
+     },
+     {
+      "type": "fact",
+      "text": "Commitments are not on the balance sheet: $260 billion of additional lease commitments, substantially all for data centers, start between FY2027 and FY2029 [P1]."
+     },
+     {
+      "type": "fact",
+      "text": "Data check: FY2026 net income of $17.0 billion in the table is proxy-sourced and rounded, and differs from the 10-K figure of $17.1 billion [R5][F44][X20]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "judgement",
+      "text": "Free cash flow margin rising above FY2026's -35.2% would confirm that the capex burden is peaking; a lower reading would reverse that view [D405][D792], in the FY2027 10-K."
+     },
+     {
+      "type": "judgement",
+      "text": "Cloud Infrastructure revenue growth below FY2026's 76.9% while capex stays at 82.6% of revenue would weaken the case for the spending [D644][D404], in the FY2027 10-K."
+     },
+     {
+      "type": "judgement",
+      "text": "A Cloud and Software segment margin below FY2026's 58.9% would show infrastructure costs still compressing margin [D761], in the FY2027 10-K."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 621,
+ "gate": {
+  "passed": true,
+  "sentences": 30,
+  "sentence_types": {
+   "fact": 8,
+   "comparison": 11,
+   "cause": 7,
+   "judgement": 4
+  },
+  "claims": 72,
+  "verified": 72,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 6.6% a year, from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F196"
+    ],
+    "claims": [
+     {
+      "claim": "6.6%",
+      "value": 6.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F196"
+      ]
+     },
+     {
+      "claim": "$37.8 billion",
+      "value": 37.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$67.4 billion",
+      "value": 67.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Growth was slow until FY2022, then stepped up: revenue rose 17.7% in FY2023 and 17.3% in FY2026 [D280][D421].",
+    "type": "comparison",
+    "citations": [
+     "D280",
+     "D421"
+    ],
+    "claims": [
+     {
+      "claim": "17.7%",
+      "value": 17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D280"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2023 step came primarily from revenue contributions from the Cerner acquisition, which accounted for $5.9 billion of revenue that year [P48][S61].",
+    "type": "cause",
+    "citations": [
+     "P48",
+     "S61"
+    ],
+    "claims": [
+     {
+      "claim": "$5.9 billion",
+      "value": 5.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S61"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "In FY2026, cloud infrastructure supplied 84% of constant currency cloud growth, and its revenue rose 76.9% to $18.1 billion [P17][D644][S92].",
+    "type": "cause",
+    "citations": [
+     "P17",
+     "D644",
+     "S92"
+    ],
+    "claims": [
+     {
+      "claim": "84%",
+      "value": 84.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P17",
+      "ids": [
+       "P17"
+      ]
+     },
+     {
+      "claim": "76.9%",
+      "value": 76.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D644"
+      ]
+     },
+     {
+      "claim": "$18.1 billion",
+      "value": 18.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S92"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "In FY2022 operating margin fell 11.8pp to 25.7%, as litigation related charges lifted operating expenses [D246][F30][P58].",
+    "type": "cause",
+    "citations": [
+     "D246",
+     "F30",
+     "P58"
+    ],
+    "claims": [
+     {
+      "claim": "11.8pp",
+      "value": 11.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D246"
+      ]
+     },
+     {
+      "claim": "25.7%",
+      "value": 25.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Cloud Infrastructure contributed 13.7pp of the 17.3% FY2026 growth and now makes up 26.9% of revenue [D645][D421][D643].",
+    "type": "comparison",
+    "citations": [
+     "D645",
+     "D421",
+     "D643"
+    ],
+    "claims": [
+     {
+      "claim": "13.7pp",
+      "value": 13.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D645"
+      ]
+     },
+     {
+      "claim": "17.3%",
+      "value": 17.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     },
+     {
+      "claim": "26.9%",
+      "value": 26.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D643"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Cloud Applications added 2.8pp, while Software License fell 8.9% and subtracted 0.8pp [D668][D681][D682].",
+    "type": "comparison",
+    "citations": [
+     "D668",
+     "D681",
+     "D682"
+    ],
+    "claims": [
+     {
+      "claim": "2.8pp",
+      "value": 2.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D668"
+      ]
+     },
+     {
+      "claim": "8.9%",
+      "value": 8.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D681"
+      ]
+     },
+     {
+      "claim": "0.8pp",
+      "value": 0.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D682"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The filing attributes the $9.3 billion rise in cloud and software revenues to customers buying applications and infrastructure technologies and renewing cloud contracts [P17][P20].",
+    "type": "cause",
+    "citations": [
+     "P17",
+     "P20"
+    ],
+    "claims": [
+     {
+      "claim": "$9.3 billion",
+      "value": 9.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P17",
+      "ids": [
+       "P17"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Revenue growth minus operating-cost growth was -0.3pp in FY2026, and incremental operating margin was 29.4% against 52.4% in FY2025 [D443][D442][D395].",
+    "type": "comparison",
+    "citations": [
+     "D443",
+     "D442",
+     "D395"
+    ],
+    "claims": [
+     {
+      "claim": "-0.3pp",
+      "value": -0.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D443"
+      ]
+     },
+     {
+      "claim": "29.4%",
+      "value": 29.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     },
+     {
+      "claim": "52.4%",
+      "value": 52.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D395"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS compounded at 11.2% against 6.7% for net income, as diluted shares fell from 4,217m in FY2017 to 2,914m in FY2026 [F201][F199][X136][X145].",
+    "type": "comparison",
+    "citations": [
+     "F201",
+     "F199",
+     "X136",
+     "X145"
+    ],
+    "claims": [
+     {
+      "claim": "11.2%",
+      "value": 11.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F201"
+      ]
+     },
+     {
+      "claim": "6.7%",
+      "value": 6.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F199"
+      ]
+     },
+     {
+      "claim": "4,217m",
+      "value": 4217.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X136"
+      ]
+     },
+     {
+      "claim": "2,914m",
+      "value": 2914.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X145"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of 30.6% in FY2026 sits below the 32.2% window median and the 37.6% high, but above the 25.7% low [F34][D788][D787][D786].",
+    "type": "comparison",
+    "citations": [
+     "F34",
+     "D788",
+     "D787",
+     "D786"
+    ],
+    "claims": [
+     {
+      "claim": "30.6%",
+      "value": 30.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F34"
+      ]
+     },
+     {
+      "claim": "32.2%",
+      "value": 32.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D788"
+      ]
+     },
+     {
+      "claim": "37.6%",
+      "value": 37.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D787"
+      ]
+     },
+     {
+      "claim": "25.7%",
+      "value": 25.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D786"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2026 bridge shows R&D adding 1.9pp and all other lines subtracting 2.1pp, for a net change of -0.2pp [D444][D445][D433].",
+    "type": "fact",
+    "citations": [
+     "D444",
+     "D445",
+     "D433"
+    ],
+    "claims": [
+     {
+      "claim": "1.9pp",
+      "value": 1.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "2.1pp",
+      "value": 2.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     },
+     {
+      "claim": "-0.2pp",
+      "value": -0.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D433"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Higher infrastructure expenses to support cloud infrastructure lowered the cloud and software margin, with cloud and software expenses up $6.0 billion [P16][P19].",
+    "type": "cause",
+    "citations": [
+     "P16",
+     "P19"
+    ],
+    "claims": [
+     {
+      "claim": "$6.0 billion",
+      "value": 6.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P19",
+      "ids": [
+       "P19"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The cost of building capacity is now visible in margin, and R&D leverage offset only part of it [D444][D445].",
+    "type": "judgement",
+    "citations": [
+     "D444",
+     "D445"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow rose 53.6% to $32.0 billion in FY2026, helped by $4.6 billion of customer prepayments with a significant financing component [D426][F84][P6].",
+    "type": "cause",
+    "citations": [
+     "D426",
+     "F84",
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "53.6%",
+      "value": 53.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D426"
+      ]
+     },
+     {
+      "claim": "$32.0 billion",
+      "value": 32.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F84"
+      ]
+     },
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex of $55.7 billion was 82.6% of revenue and 7.30x depreciation and amortization [F94][D404][D410].",
+    "type": "comparison",
+    "citations": [
+     "F94",
+     "D404",
+     "D410"
+    ],
+    "claims": [
+     {
+      "claim": "$55.7 billion",
+      "value": 55.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F94"
+      ]
+     },
+     {
+      "claim": "82.6%",
+      "value": 82.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D404"
+      ]
+     },
+     {
+      "claim": "7.30x",
+      "value": 7.3,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D410"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow was -$23.7 billion, a -35.2% margin against a 26.0% window median [F104][D405][D794].",
+    "type": "comparison",
+    "citations": [
+     "F104",
+     "D405",
+     "D794"
+    ],
+    "claims": [
+     {
+      "claim": "-$23.7 billion",
+      "value": -23.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F104"
+      ]
+     },
+     {
+      "claim": "-35.2%",
+      "value": -35.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D405"
+      ]
+     },
+     {
+      "claim": "26.0%",
+      "value": 26.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D794"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow was -1.39x net income against a 1.06x window median, using FY2026 net income taken from the proxy statement [D409][D800][F44].",
+    "type": "comparison",
+    "citations": [
+     "D409",
+     "D800",
+     "F44"
+    ],
+    "claims": [
+     {
+      "claim": "-1.39x",
+      "value": -1.39,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D409"
+      ]
+     },
+     {
+      "claim": "1.06x",
+      "value": 1.06,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D800"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt reached $97.6 billion, up from $81.4 billion, and at 145.0% of revenue ranks in the 0th percentile of six software peers [D414][D367][D415][D815].",
+    "type": "comparison",
+    "citations": [
+     "D414",
+     "D367",
+     "D415",
+     "D815"
+    ],
+    "claims": [
+     {
+      "claim": "$97.6 billion",
+      "value": 97.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D414"
+      ]
+     },
+     {
+      "claim": "$81.4 billion",
+      "value": 81.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D367"
+      ]
+     },
+     {
+      "claim": "145.0%",
+      "value": 145.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D415"
+      ]
+     },
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D815"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Total debt rose 39.9% to $129.5 billion, as the company issued $42.7 billion of senior notes net of costs during FY2026 [D440][D413][P7].",
+    "type": "cause",
+    "citations": [
+     "D440",
+     "D413",
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "39.9%",
+      "value": 39.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     },
+     {
+      "claim": "$129.5 billion",
+      "value": 129.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D413"
+      ]
+     },
+     {
+      "claim": "$42.7 billion",
+      "value": 42.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Cash and investments of $31.9 billion cover 1.3 years of the FY2026 free cash flow burn [D412][D419].",
+    "type": "fact",
+    "citations": [
+     "D412",
+     "D419"
+    ],
+    "claims": [
+     {
+      "claim": "$31.9 billion",
+      "value": 31.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D412"
+      ]
+     },
+     {
+      "claim": "1.3 years",
+      "value": 1.3,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D419"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks fell to $95 million against $5.8 billion of dividends, and diluted shares still rose 1.7% [X155][X165][D438].",
+    "type": "comparison",
+    "citations": [
+     "X155",
+     "X165",
+     "D438"
+    ],
+    "claims": [
+     {
+      "claim": "$95 million",
+      "value": 95.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X155"
+      ]
+     },
+     {
+      "claim": "$5.8 billion",
+      "value": 5.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X165"
+      ]
+     },
+     {
+      "claim": "1.7%",
+      "value": 1.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D438"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Runway is short: cash and investments cover 1.3 years of burn, against 28.4 years in FY2025, and the burn was funded by debt [R1][D419][D372][P4].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "D419",
+     "D372",
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "1.3 years",
+      "value": 1.3,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D419"
+      ]
+     },
+     {
+      "claim": "28.4 years",
+      "value": 28.4,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D372"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow ran at -0.03x net income in FY2025 and -1.39x in FY2026, against a 1.90x peer median, as capex rose $34.4 billion [R2][D362][D409][D818][P5].",
+    "type": "fact",
+    "citations": [
+     "R2",
+     "D362",
+     "D409",
+     "D818",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "-0.03x",
+      "value": -0.03,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D362"
+      ]
+     },
+     {
+      "claim": "-1.39x",
+      "value": -1.39,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D409"
+      ]
+     },
+     {
+      "claim": "1.90x",
+      "value": 1.9,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D818"
+      ]
+     },
+     {
+      "claim": "$34.4 billion",
+      "value": 34.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P5",
+      "ids": [
+       "P5"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Leverage is rising: debt grew 39.9% in FY2026, and interest expense reached $4.6 billion from $3.6 billion on higher borrowings [R4][D413][X92][X91][P10].",
+    "type": "fact",
+    "citations": [
+     "R4",
+     "D413",
+     "X92",
+     "X91",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "39.9%",
+      "value": 39.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "growth D413/D366",
+      "ids": [
+       "D413",
+       "D366"
+      ]
+     },
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X92"
+      ]
+     },
+     {
+      "claim": "$3.6 billion",
+      "value": 3.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X91"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Commitments are not on the balance sheet: $260 billion of additional lease commitments, substantially all for data centers, start between FY2027 and FY2029 [P1].",
+    "type": "fact",
+    "citations": [
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$260 billion",
+      "value": 260.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P1",
+      "ids": [
+       "P1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Data check: FY2026 net income of $17.0 billion in the table is proxy-sourced and rounded, and differs from the 10-K figure of $17.1 billion [R5][F44][X20].",
+    "type": "fact",
+    "citations": [
+     "R5",
+     "F44",
+     "X20"
+    ],
+    "claims": [
+     {
+      "claim": "$17.0 billion",
+      "value": 17.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F44"
+      ]
+     },
+     {
+      "claim": "$17.1 billion",
+      "value": 17.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X20"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Free cash flow margin rising above FY2026's -35.2% would confirm that the capex burden is peaking; a lower reading would reverse that view [D405][D792], in the FY2027 10-K.",
+    "type": "judgement",
+    "citations": [
+     "D405",
+     "D792"
+    ],
+    "claims": [
+     {
+      "claim": "-35.2%",
+      "value": -35.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D405"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Cloud Infrastructure revenue growth below FY2026's 76.9% while capex stays at 82.6% of revenue would weaken the case for the spending [D644][D404], in the FY2027 10-K.",
+    "type": "judgement",
+    "citations": [
+     "D644",
+     "D404"
+    ],
+    "claims": [
+     {
+      "claim": "76.9%",
+      "value": 76.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D644"
+      ]
+     },
+     {
+      "claim": "82.6%",
+      "value": 82.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D404"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "A Cloud and Software segment margin below FY2026's 58.9% would show infrastructure costs still compressing margin [D761], in the FY2027 10-K.",
+    "type": "judgement",
+    "citations": [
+     "D761"
+    ],
+    "claims": [
+     {
+      "claim": "58.9%",
+      "value": 58.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D761"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 72,
+  "verified": 71,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "drivers",
+    "sentence": "Operating costs grew 0.3pp faster than revenue in FY2026, and incremental operating margin was 29.4% against 52.4% in FY2025 [D443][D442][D395].",
+    "type": "comparison",
+    "failure": "'0.3pp' matches cited = -0.3497 but the sentence says it went the other way"
+   }
+  ]
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 6.6% a year, from $37.8 billion in FY2017 to $67.4 billion in FY2026 [F1][F10][F196]."
+     },
+     {
+      "type": "comparison",
+      "text": "Growth was slow until FY2022, then stepped up: revenue rose 17.7% in FY2023 and 17.3% in FY2026 [D280][D421]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2023 step came primarily from revenue contributions from the Cerner acquisition, which accounted for $5.9 billion of revenue that year [P48][S61]."
+     },
+     {
+      "type": "cause",
+      "text": "In FY2026, cloud infrastructure supplied 84% of constant currency cloud growth, and its revenue rose 76.9% to $18.1 billion [P17][D644][S92]."
+     },
+     {
+      "type": "cause",
+      "text": "In FY2022 operating margin fell 11.8pp to 25.7%, as litigation related charges lifted operating expenses [D246][F30][P58]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Cloud Infrastructure contributed 13.7pp of the 17.3% FY2026 growth and now makes up 26.9% of revenue [D645][D421][D643]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cloud Applications added 2.8pp, while Software License fell 8.9% and subtracted 0.8pp [D668][D681][D682]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing attributes the $9.3 billion rise in cloud and software revenues to customers buying applications and infrastructure technologies and renewing cloud contracts [P17][P20]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 0.3pp faster than revenue in FY2026, and incremental operating margin was 29.4% against 52.4% in FY2025 [D443][D442][D395]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS compounded at 11.2% against 6.7% for net income, as diluted shares fell from 4,217m in FY2017 to 2,914m in FY2026 [F201][F199][X136][X145]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 30.6% in FY2026 sits below the 32.2% window median and the 37.6% high, but above the 25.7% low [F34][D788][D787][D786]."
+     },
+     {
+      "type": "fact",
+      "text": "The FY2026 bridge shows R&D adding 1.9pp and all other lines subtracting 2.1pp, for a net change of -0.2pp [D444][D445][D433]."
+     },
+     {
+      "type": "cause",
+      "text": "Higher infrastructure expenses to support cloud infrastructure lowered the cloud and software margin, with cloud and software expenses up $6.0 billion [P16][P19]."
+     },
+     {
+      "type": "judgement",
+      "text": "The cost of building capacity is now visible in margin, and R&D leverage offset only part of it [D444][D445]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "cause",
+      "text": "Operating cash flow rose 53.6% to $32.0 billion in FY2026, helped by $4.6 billion of customer prepayments with a significant financing component [D426][F84][P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex of $55.7 billion was 82.6% of revenue and 7.30x depreciation and amortization [F94][D404][D410]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was -$23.7 billion, a -35.2% margin against a 26.0% window median [F104][D405][D794]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow was -1.39x net income against a 1.06x window median, using FY2026 net income taken from the proxy statement [D409][D800][F44]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt reached $97.6 billion, up from $81.4 billion, and at 145.0% of revenue ranks in the 0th percentile of six software peers [D414][D367][D415][D815]."
+     },
+     {
+      "type": "cause",
+      "text": "Total debt rose 39.9% to $129.5 billion, as the company issued $42.7 billion of senior notes net of costs during FY2026 [D440][D413][P7]."
+     },
+     {
+      "type": "fact",
+      "text": "Cash and investments of $31.9 billion cover 1.3 years of the FY2026 free cash flow burn [D412][D419]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks fell to $95 million against $5.8 billion of dividends, and diluted shares still rose 1.7% [X155][X165][D438]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Runway is short: cash and investments cover 1.3 years of burn, against 28.4 years in FY2025, and the burn was funded by debt [R1][D419][D372][P4]."
+     },
+     {
+      "type": "fact",
+      "text": "Free cash flow ran at -0.03x net income in FY2025 and -1.39x in FY2026, against a 1.90x peer median, as capex rose $34.4 billion [R2][D362][D409][D818][P5]."
+     },
+     {
+      "type": "fact",
+      "text": "Leverage is rising: debt grew 39.9% in FY2026, and interest expense reached $4.6 billion from $3.6 billion on higher borrowings [R4][D413][X92][X91][P10]."
+     },
+     {
+      "type": "fact",
+      "text": "Commitments are not on the balance sheet: $260 billion of additional lease commitments, substantially all for data centers, start between FY2027 and FY2029 [P1]."
+     },
+     {
+      "type": "fact",
+      "text": "Data check: FY2026 net income of $17.0 billion in the table is proxy-sourced and rounded, and differs from the 10-K figure of $17.1 billion [R5][F44][X20]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "judgement",
+      "text": "Free cash flow margin rising above FY2026's -35.2% would confirm that the capex burden is peaking; a lower reading would reverse that view [D405][D792], in the FY2027 10-K."
+     },
+     {
+      "type": "judgement",
+      "text": "Cloud Infrastructure revenue growth below FY2026's 76.9% while capex stays at 82.6% of revenue would weaken the case for the spending [D644][D404], in the FY2027 10-K."
+     },
+     {
+      "type": "judgement",
+      "text": "A Cloud and Software segment margin below FY2026's 58.9% would show infrastructure costs still compressing margin [D761], in the FY2027 10-K."
+     }
+    ]
+   }
+  ]
+ }
+}

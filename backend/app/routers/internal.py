@@ -4,24 +4,39 @@ These let an external scheduler kick the Phase 2 filing scan / digest without a 
 job, gated by a shared-secret header (`X-Internal-Token`). There is no user session here, so the
 normal `is_admin` gating doesn't apply — auth is the constant-time token compare below.
 
-Each trigger returns 202 immediately and runs the work in a background task (the scan/digest can be
-slow; we don't want to hold the request open and hit Cloud Run's HTTP timeout). The Cloud Run *job*
-remains the primary, more robust mechanism for production scheduling — see docs/DEPLOYMENT.md.
+With durable tasks enabled, each trigger returns 202 only after queue acceptance; the worker
+awaits completion in its own request. Flag-off deployments retain their legacy background task
+behaviour. Cloud Run jobs remain the primary mechanism for fleet-wide scheduling.
 """
 from __future__ import annotations
 
 import hmac
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.services import filing_scan_service, retention_service
+from app.services.durable_tasks import TaskUnavailable
+from app.services.internal_task_runner import enqueue_internal_job
+from app.services.job_sessions import run_in_own_session, run_in_own_session_sync
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _enqueue_durable(job: str, arguments: dict[str, Any] | None = None) -> dict[str, int]:
+    try:
+        return await enqueue_internal_job(job, arguments)
+    except TaskUnavailable as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The job could not be queued. Please retry.",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 def _require_internal_token(x_internal_token: Optional[str] = Header(None)) -> None:
@@ -32,129 +47,136 @@ def _require_internal_token(x_internal_token: Optional[str] = Header(None)) -> N
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Internal job endpoints are not configured.",
         )
-    if not x_internal_token or not hmac.compare_digest(x_internal_token, expected):
+    # Bytes, not str: compare_digest raises TypeError on a non-ASCII str, and headers decode as latin-1.
+    if not x_internal_token or not hmac.compare_digest(x_internal_token.encode(), expected.encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal token.")
 
 
 async def _run_filing_scan() -> None:
-    from app.database import SessionLocal
-
-    db = SessionLocal()
     try:
-        stats = await filing_scan_service.run_filing_scan(db)
+        stats = await run_in_own_session(filing_scan_service.run_filing_scan)
         logger.info("Filing scan (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Filing scan (internal trigger) failed")
-    finally:
-        db.close()
 
 
 async def _run_daily_digest() -> None:
-    from app.database import SessionLocal
-
-    db = SessionLocal()
     try:
-        stats = await filing_scan_service.run_daily_digest(db)
+        stats = await run_in_own_session(filing_scan_service.run_daily_digest)
         logger.info("Daily digest (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Daily digest (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/filing-scan", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_filing_scan(background: BackgroundTasks):
-    background.add_task(_run_filing_scan)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("filing-scan")
+    else:
+        background.add_task(_run_filing_scan)
     return {"status": "accepted", "job": "filing-scan"}
+
+
+@router.post("/jobs/summary-recovery", dependencies=[Depends(_require_internal_token)])
+async def recover_summary_jobs():
+    """Confirm up to twenty durable handoffs; never run paid generation here."""
+    if not settings.SUMMARY_DURABLE_GENERATION_ENABLED or not settings.DURABLE_TASKS_ENABLED:
+        raise HTTPException(status_code=409, detail="Durable summary generation is disabled.")
+    from app.services.summary_jobs import recover_due_jobs
+
+    try:
+        dispatched = await recover_due_jobs(limit=20)
+    except TaskUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Summary recovery could not reach the queue.") from exc
+    return {"status": "completed", "dispatched": dispatched}
 
 
 @router.post("/jobs/filing-digest", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_filing_digest(background: BackgroundTasks):
-    background.add_task(_run_daily_digest)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("filing-digest")
+    else:
+        background.add_task(_run_daily_digest)
     return {"status": "accepted", "job": "filing-digest"}
 
 
 def _run_retention_purge(dry_run: bool) -> None:
-    from app.database import SessionLocal
-
-    db = SessionLocal()
     try:
-        stats = retention_service.run_retention_purge(db, dry_run=dry_run)
+        stats = run_in_own_session_sync(retention_service.run_retention_purge, dry_run=dry_run)
         logger.info("Retention purge (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Retention purge (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/retention-purge", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_retention_purge(background: BackgroundTasks, dry_run: bool = False):
     """Apply (or with ``dry_run`` preview) the scheduled retention purge; counts only in the logs."""
-    background.add_task(_run_retention_purge, dry_run)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("retention-purge", {"dry_run": dry_run})
+    else:
+        background.add_task(_run_retention_purge, dry_run)
     return {"status": "accepted", "job": "retention-purge", "dry_run": dry_run}
 
 
 async def _run_earnings_refresh() -> None:
-    from app.database import SessionLocal
     from app.services import earnings_calendar_service
 
-    db = SessionLocal()
     try:
-        stats = await earnings_calendar_service.run_refresh(db)
+        stats = await run_in_own_session(earnings_calendar_service.run_refresh)
         logger.info("Earnings-calendar refresh (internal trigger) complete: %s", stats.as_dict())
     except Exception:
         logger.exception("Earnings-calendar refresh (internal trigger) failed")
-    finally:
-        db.close()
 
 
 async def _run_earnings_alerts() -> None:
-    from app.database import SessionLocal
     from app.services import earnings_alert_service
 
-    db = SessionLocal()
     try:
-        stats = await earnings_alert_service.send_earnings_day_alerts(db)
+        stats = await run_in_own_session(earnings_alert_service.send_earnings_day_alerts)
         logger.info("Earnings-day alerts (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Earnings-day alerts (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/earnings-calendar-refresh", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_earnings_refresh(background: BackgroundTasks):
     """Daily ingest: Alpha Vantage bulk estimates + EDGAR 8-K Item 2.02 sweep + rescore."""
-    background.add_task(_run_earnings_refresh)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("earnings-calendar-refresh")
+    else:
+        background.add_task(_run_earnings_refresh)
     return {"status": "accepted", "job": "earnings-calendar-refresh"}
 
 
 @router.post("/jobs/earnings-day-alerts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_earnings_alerts(background: BackgroundTasks):
     """Send one batched email per opted-in user whose watched companies report today."""
-    background.add_task(_run_earnings_alerts)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("earnings-day-alerts")
+    else:
+        background.add_task(_run_earnings_alerts)
     return {"status": "accepted", "job": "earnings-day-alerts"}
 
 
 def _run_backfill_facts() -> None:
     # Sync (CPU/DB-bound) → FastAPI runs it in a threadpool, off the event loop.
-    from app.database import SessionLocal
     from app.services import facts_service
 
-    db = SessionLocal()
     try:
-        stats = facts_service.backfill_facts(db)
+        stats = run_in_own_session_sync(facts_service.backfill_facts)
         logger.info("Facts backfill (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Facts backfill (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/backfill-facts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
-async def trigger_backfill_facts(background: BackgroundTasks):
-    background.add_task(_run_backfill_facts)
-    return {"status": "accepted", "job": "backfill-facts"}
+async def trigger_backfill_facts(background: BackgroundTasks, limit: Optional[int] = None):
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("backfill-facts", {"limit": limit})
+    else:
+        background.add_task(_run_backfill_facts)
+    return {"status": "accepted", "job": "backfill-facts", **accepted}
 
 
 class NotableFilingsScanRequest(BaseModel):
@@ -168,17 +190,13 @@ class NotableFilingsScanRequest(BaseModel):
 
 
 async def _run_notable_filings_scan(days: Optional[int]) -> None:
-    from app.database import SessionLocal
     from app.services import notable_filings_service
 
-    db = SessionLocal()
     try:
-        stats = await notable_filings_service.run_scan(db, days=days)
+        stats = await run_in_own_session(notable_filings_service.run_scan, days=days)
         logger.info("Notable-filings scan (internal trigger) complete: %s", stats.as_dict())
     except Exception:
         logger.exception("Notable-filings scan (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/notable-filings-scan", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
@@ -187,7 +205,10 @@ async def trigger_notable_filings_scan(
 ):
     """Sweep EDGAR full-text search for notable filings into the notable_filings table."""
     days = req.days if req else None
-    background.add_task(_run_notable_filings_scan, days)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("notable-filings-scan", {"days": days})
+    else:
+        background.add_task(_run_notable_filings_scan, days)
     return {"status": "accepted", "job": "notable-filings-scan", "days": days}
 
 
@@ -207,35 +228,40 @@ class SyncCompanyfactsRequest(BaseModel):
 async def _run_sync_companyfacts(
     tickers: list[str], watchlist_only: bool, limit: Optional[int], force: bool
 ) -> None:
-    from app.database import SessionLocal
     from app.services import facts_service
 
-    db = SessionLocal()
     try:
-        stats = await facts_service.sync_companyfacts_batch(
-            db, tickers=tickers or None, watchlist_only=watchlist_only, limit=limit, force=force
+        stats = await run_in_own_session(
+            facts_service.sync_companyfacts_batch,
+            tickers=tickers or None, watchlist_only=watchlist_only, limit=limit, force=force,
         )
         logger.info("Companyfacts sync (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Companyfacts sync (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/sync-companyfacts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_sync_companyfacts(req: SyncCompanyfactsRequest, background: BackgroundTasks):
     tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
-    background.add_task(_run_sync_companyfacts, tickers, req.watchlist_only, req.limit, req.force)
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("sync-companyfacts", {
+            "tickers": tickers, "watchlist_only": req.watchlist_only,
+            "limit": req.limit, "force": req.force,
+        })
+    else:
+        background.add_task(_run_sync_companyfacts, tickers, req.watchlist_only, req.limit, req.force)
     return {
         "status": "accepted",
         "job": "sync-companyfacts",
         "tickers": len(tickers),
         "watchlist_only": req.watchlist_only,
+        **accepted,
     }
 
 
 class BackfillFilingHistoryRequest(BaseModel):
-    """P1-6: backfill deep 10-K/10-Q history (since 2001) from EFTS for a cohort.
+    """P1-6: backfill deep 10-K/10-Q history (and 20-F/40-F behind ENABLE_FPI_FILINGS) from EFTS.
 
     ``tickers`` > ``watchlist_only`` > all companies, capped per run by
     ``HISTORY_BACKFILL_MAX_COMPANIES``. A few EFTS requests per company through the shared rate
@@ -252,31 +278,43 @@ class BackfillFilingHistoryRequest(BaseModel):
 async def _run_backfill_filing_history(
     tickers: list[str], watchlist_only: bool, limit: Optional[int]
 ) -> None:
-    from app.database import SessionLocal
     from app.services import filing_history_service
 
-    db = SessionLocal()
     try:
-        stats = await filing_history_service.batch_backfill(
-            db, tickers=tickers or None, watchlist_only=watchlist_only, limit=limit
+        stats = await run_in_own_session(
+            filing_history_service.batch_backfill,
+            tickers=tickers or None, watchlist_only=watchlist_only, limit=limit,
         )
         logger.info("Filing-history backfill (internal trigger) complete: %s", stats)
     except Exception:
         logger.exception("Filing-history backfill (internal trigger) failed")
-    finally:
-        db.close()
 
 
 @router.post("/jobs/backfill-filing-history", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_backfill_filing_history(req: BackfillFilingHistoryRequest, background: BackgroundTasks):
     tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
-    background.add_task(_run_backfill_filing_history, tickers, req.watchlist_only, req.limit)
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("backfill-filing-history", {
+            "tickers": tickers, "watchlist_only": req.watchlist_only, "limit": req.limit,
+        })
+    else:
+        background.add_task(_run_backfill_filing_history, tickers, req.watchlist_only, req.limit)
     return {
         "status": "accepted",
         "job": "backfill-filing-history",
         "tickers": len(tickers),
         "watchlist_only": req.watchlist_only,
+        **accepted,
     }
+
+
+# A dry run makes at least one serial SEC request per job, and the API service is pinned to 1 SEC
+# request per second per bucket (docs/OPERATIONS.md), so a preview of up to 20 jobs normally fits the
+# /internal route's 30 s request timeout; a job that needs a mega-filer's full submissions history
+# (about 43 requests) or other SEC traffic on the instance can still push it past.
+# tests/unit/test_internal_durable_tasks.py ties this cap to that timeout.
+DRY_RUN_MAX_JOBS = 20
 
 
 class PrecomputeRequest(BaseModel):
@@ -307,7 +345,8 @@ async def trigger_precompute(req: PrecomputeRequest, background: BackgroundTasks
     """Pre-generate (and cache) the latest 10-K/10-Q analyses for the given tickers.
 
     ``dry_run=true`` runs synchronously and returns the coverage report (no generation). A real run
-    is fire-and-forget (202) — generation is slow, so we don't hold the request open."""
+    is accepted asynchronously (202); durable mode bounds fanout and excludes forced paid
+    generation so task retries cannot intentionally regenerate an already cached summary."""
     from app.services import precompute_service
 
     tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
@@ -316,16 +355,24 @@ async def trigger_precompute(req: PrecomputeRequest, background: BackgroundTasks
     forms = [f.strip().upper() for f in req.forms if f and f.strip()] or ["10-K"]
 
     if req.dry_run:
-        # A dry run does a couple of (serial) SEC round-trips per job, so a large cohort would blow
-        # the request/gateway timeout. Cap the synchronous preview; use a real run for the full fleet.
-        if len(tickers) * len(forms) > 100:
+        # Reject a preview too large to finish inside the request timeout instead of letting it 504.
+        if len(tickers) * len(forms) > DRY_RUN_MAX_JOBS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Dry run is capped at 100 total jobs (tickers x forms) to avoid gateway timeouts.",
+                detail=(
+                    f"Dry run is capped at {DRY_RUN_MAX_JOBS} total jobs (tickers x forms) so the "
+                    "synchronous preview normally fits the request timeout; split a larger preview into batches."
+                ),
             )
         out = await precompute_service.precompute(tickers, forms=forms, force=False, dry_run=True)
         return {"status": "ok", "job": "precompute", "dry_run": True, **out}
 
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("precompute", {
+            "tickers": tickers, "forms": forms, "force": req.force,
+        })
+    else:
+        background.add_task(_run_precompute, tickers, forms, req.force)
     response.status_code = status.HTTP_202_ACCEPTED
-    background.add_task(_run_precompute, tickers, forms, req.force)
-    return {"status": "accepted", "job": "precompute", "tickers": len(tickers), "forms": forms}
+    return {"status": "accepted", "job": "precompute", "tickers": len(tickers), "forms": forms, **accepted}

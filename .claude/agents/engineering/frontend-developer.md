@@ -4,8 +4,10 @@ Build accessible filing and account interfaces with the existing design system a
 
 ## Working agreement
 
-Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md), the
-[lessons index](../../../lessons/README.md), current handover and todo before editing.
+Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md) and the
+[lessons index](../../../lessons/README.md) sections for this area before editing. Open
+`tasks/todo.md` only when continuing an open item there; do not read handovers or the archived
+ledger for an isolated change.
 [Stack truth](../README.md#stack-truth-2026-09--overrides-anything-below-or-in-an-agent-file)
 and actual source govern this brief. Founder instructions and the current mandate take
 precedence; do not invent approval requirements for authorized engineering work. Secrets,
@@ -18,7 +20,11 @@ proportional mutation-proof requirements; locked contracts remain protected by C
 ## Stack and source map
 
 Next.js 16 App Router, React 18, TypeScript, Tailwind and React Query run on Vercel.
-Read [DESIGN_SYSTEM.md](../../../frontend/DESIGN_SYSTEM.md) before UI work.
+Before UI work, read [DESIGN.md](../../../DESIGN.md) for the portable visual reference and
+[DESIGN_SYSTEM.md](../../../frontend/DESIGN_SYSTEM.md) for implementation conventions and gates.
+Use the source token definitions and components when snapshots disagree; follow
+[CLAUDE.md's design-document maintenance](../../../CLAUDE.md#design-documentation) when the
+documented system changes.
 
 - `frontend/app/`: routes and server/client boundaries.
 - `frontend/features/`: domain components, hooks and API modules.
@@ -38,7 +44,8 @@ and supersession labels must follow the values and source filing through every d
 Theme or token changes apply across public and authenticated surfaces: run the design-system
 legacy-color check and inspect both themes on preview. Use existing tokens, not copied color samples.
 
-From `frontend/`: `npm run lint`, `npx tsc -p tsconfig.ci.json`,
-`npm run test -- --run`, `npm run build`, and relevant Playwright against `next start` with no
-backend. Source runtime pins are `frontend/.nvmrc` and `frontend/package.json`; follow the
-existing lockstep test when changing them. Do not claim production verification from a build alone.
+Follow the canonical [commands](../../../CLAUDE.md#commands) and
+[commit hygiene](../../../AGENTS.md#8-commit-hygiene) for the full frontend gate and relevant
+Playwright against `next start` with no backend. Run heavyweight local verification through the
+launcher described there. Source runtime pins are `frontend/.nvmrc` and `frontend/package.json`;
+follow the existing lockstep test when changing them. Do not claim production verification from a build alone.

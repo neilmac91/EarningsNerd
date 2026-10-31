@@ -1,0 +1,86 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides deeper analysis with segment drivers, margin bridge, cash conversion, and red flags, all well-sourced. Draft A is mostly restating table values with minimal interpretation. B's grounding is strong, with every claim cited to filings or calculations. B covers more dimensions and is clearer, with specific watch items. B is the better draft."
+   },
+   "cost_usd": 0.003074,
+   "latency_s": 2.702,
+   "input_tokens": 6830,
+   "output_tokens": 142,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B provides deeper analysis with segment drivers, margin bridge, cash conversion, and red flags, all well-sourced. Draft A is mostly restating table values with minimal interpretation. B's grounding is strong, with every claim cited to filings or calculations. B covers more dimensions and is clearer, with specific watch items. B is the better draft.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Draft A provides deep, well-sourced analysis of growth drivers, margin changes, cash conversion, and red flags, with clear separation of facts and analysis. Draft B merely restates table values without interpretation and lacks grounding for its red flags. A is far more useful."
+   },
+   "cost_usd": 0.003042,
+   "latency_s": 2.277,
+   "input_tokens": 6830,
+   "output_tokens": 126,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"strong\",\n  \"rationale\": \"Draft A provides deep, well-sourced analysis of growth drivers, margin changes, cash conversion, and red flags, with clear separation of facts and analysis. Draft B merely restates table values without interpretation and lacks grounding for its red flags. A is far more useful.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.006116
+}

@@ -7,13 +7,14 @@ Contains configuration constants and enums for SEC filing operations.
 import os
 from enum import Enum
 from typing import List
+from app.public_email_addresses import SUPPORT_EMAIL
 
 
 # SEC EDGAR identity - required by SEC for API access. SEC's fair-access policy asks for a declared
 # User-Agent of the form "Sample Company Name AdminContact@sample.com" (a product/operator name plus
 # a contact), not a bare email — a bare address reads as an undeclared automated tool. Prod should
 # set EDGAR_IDENTITY explicitly; this default is the compliant fallback (mirrors settings.SEC_USER_AGENT).
-EDGAR_IDENTITY = os.environ.get("EDGAR_IDENTITY", "EarningsNerd/1.0 (contact@earningsnerd.io)")
+EDGAR_IDENTITY = os.environ.get("EDGAR_IDENTITY", f"EarningsNerd/1.0 ({SUPPORT_EMAIL})")
 
 
 class FilingType(str, Enum):

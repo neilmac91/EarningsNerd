@@ -7,13 +7,13 @@ import { TickerFilingsView } from '@/features/filings/components/TickerFilingsVi
 import { queryKeys } from '@/lib/queryKeys'
 
 const original: Filing = {
-  id: 41, filing_type: '10-K', filing_date: '2026-02-01', accession_number: 'original',
+  id: 41, filing_type: '10-K', filing_date: '2026-02-01', accession_number: '0000320193-25-000079',
   document_url: 'https://www.sec.gov/original.htm', sec_url: 'https://www.sec.gov/original',
-  superseded_by_accession: 'amendment',
+  superseded_by_accession: '0000320193-25-000101',
 }
 const amendment: Filing = {
   ...original, id: 72, filing_type: '10-K/A', filing_date: '2026-02-02',
-  accession_number: 'amendment', superseded_by_accession: null,
+  accession_number: '0000320193-25-000101', superseded_by_accession: null,
 }
 
 describe('filing supersession', () => {
@@ -25,7 +25,7 @@ describe('filing supersession', () => {
     rerender(<SupersededFilingNotice filing={original} filings={[original]} />)
     expect(screen.getByText('Superseded')).toBeVisible()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
-    rerender(<SupersededFilingNotice filing={{ ...original, superseded_by_accession: 'original' }} filings={[original]} />)
+    rerender(<SupersededFilingNotice filing={{ ...original, superseded_by_accession: original.accession_number }} filings={[original]} />)
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     rerender(<SupersededFilingNotice filing={amendment} filings={[original, amendment]} />)
     expect(screen.queryByText('Superseded')).not.toBeInTheDocument()
@@ -38,12 +38,19 @@ describe('filing supersession', () => {
     const { container } = render(
       <QueryClientProvider client={client}><TickerFilingsView ticker="aapl" /></QueryClientProvider>,
     )
-    const originalLink = screen.getByRole('link', { name: 'Generate AI summary for 10-K original' })
+    // Label in name (WCAG 2.5.3): the accessible name starts with the visible "Open filing", and a
+    // hidden tail names the row's filing by its form and accession number, so the rows' links stay
+    // distinct without an aria-label (lessons/frontend-hidden-name-tails-bring-their-own-space.md).
+    const originalLink = screen.getByRole('link', { name: 'Open filing (10-K, accession 0000320193-25-000079)' })
     expect(originalLink).toHaveAttribute('href', '/filing/41')
+    expect(originalLink).not.toHaveAttribute('aria-label')
+    expect(originalLink).toHaveAccessibleName('Open filing (10-K, accession 0000320193-25-000079)')
     const row = originalLink.parentElement!.parentElement!
     expect(within(row).getByText('Superseded')).toBeVisible()
     expect(within(row).getByRole('link', { name: 'View amendment' })).toHaveAttribute('href', '/filing/72')
-    expect(screen.getByRole('link', { name: 'Generate AI summary for 10-K/A amendment' })).toHaveAttribute('href', '/filing/72')
+    const amendmentLink = screen.getByRole('link', { name: 'Open filing (10-K/A, accession 0000320193-25-000101)' })
+    expect(amendmentLink).toHaveAttribute('href', '/filing/72')
+    expect(amendmentLink).toHaveAccessibleName('Open filing (10-K/A, accession 0000320193-25-000101)')
     expect(container.querySelector('a a')).toBeNull()
     expect(screen.getAllByText('Superseded')).toHaveLength(1)
     client.clear()

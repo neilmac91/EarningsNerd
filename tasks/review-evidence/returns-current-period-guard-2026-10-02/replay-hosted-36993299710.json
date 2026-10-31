@@ -1,0 +1,38 @@
+{
+ "purpose": "Offline replay of the hosted 70-run cohort: main versus the returns current-period guard.",
+ "report": {
+  "path": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/eval-36993299710/eval_20261002T101321Z.json",
+  "sha256": "08672385ce1490a67a4b08c90af25d1fdc9d8ae7b64dadba261078eb43371d2c"
+ },
+ "renderers": {
+  "main": {
+   "app_file": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/gamma/main-06ad809a/backend/app/__init__.py",
+   "stamp": "summary-2026-09-t",
+   "git": null
+  },
+  "branch": {
+   "app_file": "/home/user/wt/returns-guard/backend/app/__init__.py",
+   "stamp": "summary-2026-09-u",
+   "git": {
+    "head": "4b354ed6e7950d0b37863bc3b8f823dca1c79008",
+    "tracked_clean": true
+   }
+  }
+ },
+ "script_sha256": "9619281b0e2204f61c740231f8afadaf879d7005e3247e12de0174a54620be69",
+ "counts": {
+  "results": 70,
+  "results_with_returns_line": 64,
+  "grounding_identical": 70,
+  "grounding_changed": 0,
+  "returns_lines_changed": 0,
+  "other_section_fields_changed": 0,
+  "markdown_lines_changed_outside_returns_line": 0,
+  "hosted_line_equals_main_rerender": 70,
+  "hosted_line_equals_branch_rerender": 70,
+  "ratio_clauses_in_lines": 126,
+  "ratio_current_not_net_income_current": 0
+ },
+ "changed_returns_lines": [],
+ "misaligned_ratio_clauses": []
+}

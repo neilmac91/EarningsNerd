@@ -1,0 +1,80 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "COP",
+ "split": "dev",
+ "claims": 5,
+ "output_sha256": "1c3e7de346b67e492e15f000e05c5774af5c18abbf75dfe6760fffb5e3e65cda",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2022 jump came mainly from higher realized commodity prices and higher sales volumes, mostly from the Shell Permian acquisition .",
+   "passages": [
+    {
+     "id": "P59",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues increased $32,666 million in 2022, mainly due to higher realized commodity prices and higher sales volumes, primarily due to our Shell Permian acquisition, partially offset by assets divested. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher realized commodity prices and higher sales volumes, primarily due to Shell Permian acquisition."
+  },
+  {
+   "sentence": "Sales and other operating revenues rose $4.2 billion in 2025 on higher volumes of $6.2 billion, including Marathon Oil volumes, partly offset by lower realized crude prices .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues increased $4,199 million in 2025, primarily due to higher volumes of $6,197 million, inclusive of sales volumes from our acquisition of Marathon Oil and higher realized gas prices of $824 million and the timing of sales as compared to 2024. These increases were partially offset by lower realized crude and bitumen prices of $4,615 million and $349 million, respectively. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states increase due to higher volumes including Marathon Oil, partly offset by lower realized crude prices."
+  },
+  {
+   "sentence": "DD&A rose $1.9 billion in 2025 on the Marathon Oil acquisition and higher production volumes, and production and operating expenses rose $1.6 billion on the same acquisition plus $216 million of severance .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "DD&A increased $1,901 million in 2025 primarily due to impacts from our acquisition of Marathon Oil in the fourth quarter of 2024 and higher production volumes. See Note 3."
+    },
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production and operating expenses increased $1,580 million in 2025, primarily due to impacts from our acquisition of Marathon Oil in the fourth quarter of 2024 and $216 million of severance costs related to a restructuring. See Note 3 and See Note 14."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages state DD&A and production expenses increases due to Marathon Oil acquisition and higher volumes, with severance costs."
+  },
+  {
+   "sentence": "The 2025 decline came from lower commodity prices, mostly offset by operations from the 2024 Marathon Oil acquisition .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities in 2025 totaled $19.8 billion, compared with $20.1 billion for 2024, and $20.0 billion for 2023. The decrease in 2025 compared to 2024 resulted from lower commodity prices, mostly offset by operations from the 2024 Marathon Oil acquisition. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states decrease resulted from lower commodity prices, mostly offset by operations from Marathon Oil acquisition."
+  },
+  {
+   "sentence": "In 2025 the company spent $12.6 billion on capital and investments, $5.0 billion on buybacks, $4.0 billion on dividends and $0.9 billion on debt retirement, partly offset by $3.2 billion of asset sales .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "To meet our short- and long-term liquidity requirements, we look to a variety of funding sources, including cash generated from operating activities, our commercial paper and credit facility programs and our ability to sell securities using our shelf registration statement. In 2025, the primary uses of our available cash were $12.6 billion to support our ongoing capital expenditures and investments program; $5.0 billion to repurchase common stock; $4.0 billion to pay the ordinary dividend; and $0.9 billion to retire debt, partly offset by proceeds from asset sales of $3.2 billion. In 2025, cash and cash equivalents increased by $0.9 billion to $6.5 billion. See Note 3 and Note 7."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists uses of cash including capital, buybacks, dividends, debt retirement, partly offset by asset sales."
+  }
+ ],
+ "cost_usd": 0.0011,
+ "backend": "openai_compat",
+ "input_tokens": 979,
+ "cached_input_tokens": 0,
+ "output_tokens": 229
+}

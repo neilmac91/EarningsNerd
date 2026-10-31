@@ -1,0 +1,106 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "57945a6ae0ac9175320dc98ef473ccad58d6d2eead0d88c1afaa629a1ee2bde6",
+ "y_sha256": "dec88ab13f14e1e660c5e4dbf8f728301cce88bea580efb6540726780425aad2",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts cite the $51.4bn property-additions figure to a truncated passage that never states it. A adds more unsupported causes: net margin rising 'largely' from other income, M365 product growth credited wholly to Copilot/E5, and the FY2023 slowdown reduced to the More Personal Computing decline. B quotes its sources faithfully, maps every year's growth correctly, adds a peer comparison for free cash flow margin and the Xbox drag, and labels its judgements as analysis."
+   },
+   "cost_usd": 0.144717,
+   "latency_s": 16.969,
+   "backend": "claude_cli",
+   "input_tokens": 15762,
+   "cached_input_tokens": 727,
+   "output_tokens": 1215,
+   "reasoning_tokens": 979,
+   "meta": {
+    "duration_api_ms": 12302,
+    "cache_creation_input_tokens": 15033,
+    "list_cost_usd": 0.084585
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite the $51.4bn property-additions figure to a truncated passage that never states it. A adds more unsupported causes: net margin rising 'largely' from other income, M365 product growth credited wholly to Copilot/E5, and the FY2023 slowdown reduced to the More Personal Computing decline. B quotes its sources faithfully, maps every year's growth correctly, adds a peer comparison for free cash flow margin and the Xbox drag, and labels its judgements as analysis.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Each draft has one grounding flaw. A claims the net-to-operating margin gap exists because other income included OpenAI gains, which reverses the logic. B attributes the capex step-up to AI build-out without citing any source for it. B adds better-supported drivers (Copilot and E5 per-user growth, operating-cash-flow causes), separates capital intensity from earnings quality, discloses restatements and the overlap in product revenue figures, and sets a Cloud growth threshold. A offers a peer free-cash-flow comparison."
+   },
+   "cost_usd": 0.145977,
+   "latency_s": 18.128,
+   "backend": "claude_cli",
+   "input_tokens": 15762,
+   "cached_input_tokens": 727,
+   "output_tokens": 1278,
+   "reasoning_tokens": 1031,
+   "meta": {
+    "duration_api_ms": 13586,
+    "cache_creation_input_tokens": 15033,
+    "list_cost_usd": 0.085845
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Each draft has one grounding flaw. A claims the net-to-operating margin gap exists because other income included OpenAI gains, which reverses the logic. B attributes the capex step-up to AI build-out without citing any source for it. B adds better-supported drivers (Copilot and E5 per-user growth, operating-cash-flow causes), separates capital intensity from earnings quality, discloses restatements and the overlap in product revenue figures, and sets a Cloud growth threshold. A offers a peer free-cash-flow comparison.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.290694
+}

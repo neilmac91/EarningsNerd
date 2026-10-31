@@ -1,0 +1,106 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "cdb59399efa6ea33a1023d60e218f296bae08a91600201008590cd56ee271698",
+ "y_sha256": "ab2aefa9377291c016419e0dfdf5e4f97220c38d55c308c00df0bc832544aede",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A explains more: gross-margin drivers, the EYLEA HD offset and receivables. But it attributes the US REGEN-COV collapse to a passage about Roche's ex-US Ronapreve. It also misreads the receivables passage, since rising receivables lowered rather than drove FY2021 conversion. And it states 'structural, not cyclical' as unlabelled fact. B's causal claims match its passages, its judgements are labelled as analysis, and it adds operating-cost leverage, buyback-driven EPS and SBC context."
+   },
+   "cost_usd": 0.146052,
+   "latency_s": 15.442,
+   "backend": "claude_cli",
+   "input_tokens": 15665,
+   "cached_input_tokens": 0,
+   "output_tokens": 1037,
+   "reasoning_tokens": 788,
+   "meta": {
+    "duration_api_ms": 10643,
+    "cache_creation_input_tokens": 15663,
+    "list_cost_usd": 0.0834
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A explains more: gross-margin drivers, the EYLEA HD offset and receivables. But it attributes the US REGEN-COV collapse to a passage about Roche's ex-US Ronapreve. It also misreads the receivables passage, since rising receivables lowered rather than drove FY2021 conversion. And it states 'structural, not cyclical' as unlabelled fact. B's causal claims match its passages, its judgements are labelled as analysis, and it adds operating-cost leverage, buyback-driven EPS and SBC context.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds more depth: the shift toward collaboration revenue, EYLEA HD offsetting EYLEA's decline, gross-margin causes and tax rate. But it has three grounding faults. It attributes the US REGEN-COV collapse to a passage about Ronapreve sales outside the US. It misreads the receivables passage: rising receivables lowered FY2021 cash conversion. It states 'structural, not cyclical' as fact. A says less, but every causal claim matches its sources and interpretation is labelled."
+   },
+   "cost_usd": 0.136985,
+   "latency_s": 12.856,
+   "backend": "claude_cli",
+   "input_tokens": 15663,
+   "cached_input_tokens": 727,
+   "output_tokens": 868,
+   "reasoning_tokens": 626,
+   "meta": {
+    "duration_api_ms": 8716,
+    "cache_creation_input_tokens": 14934,
+    "list_cost_usd": 0.077249
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds more depth: the shift toward collaboration revenue, EYLEA HD offsetting EYLEA's decline, gross-margin causes and tax rate. But it has three grounding faults. It attributes the US REGEN-COV collapse to a passage about Ronapreve sales outside the US. It misreads the receivables passage: rising receivables lowered FY2021 cash conversion. It states 'structural, not cyclical' as fact. A says less, but every causal claim matches its sources and interpretation is labelled.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.283037
+}

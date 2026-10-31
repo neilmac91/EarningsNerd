@@ -1,0 +1,175 @@
+{
+  "viewport": 1440,
+  "document": 1585,
+  "card": {
+    "x": 784,
+    "y": 329,
+    "w": 592,
+    "h": 1843.703125,
+    "right": 1376
+  },
+  "metrics": [
+    {
+      "text": "Revenue",
+      "box": {
+        "x": 833,
+        "y": 939.5,
+        "w": 164.65625,
+        "h": 32,
+        "right": 997.65625
+      },
+      "textBounds": {
+        "x": 833,
+        "y": 940.5,
+        "w": 95.75,
+        "h": 29,
+        "right": 928.75
+      },
+      "class": "truncate text-xs text-text-secondary-light dark:text-text-secondary-dark"
+    },
+    {
+      "text": "$416,161M",
+      "box": {
+        "x": 833,
+        "y": 979.5,
+        "w": 164.65625,
+        "h": 51.203125,
+        "right": 997.65625
+      },
+      "textBounds": {
+        "x": 833,
+        "y": 984.5,
+        "w": 172.8125,
+        "h": 41,
+        "right": 1005.8125
+      },
+      "class": "mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base text-text-primary-light dark:text-text-primary-dark"
+    },
+    {
+      "text": "▲+6.4%",
+      "box": {
+        "x": 833,
+        "y": 1034.703125,
+        "w": 164.65625,
+        "h": 32,
+        "right": 997.65625
+      },
+      "textBounds": {
+        "x": 833,
+        "y": 1034.703125,
+        "w": 95.90625,
+        "h": 31,
+        "right": 928.90625
+      },
+      "class": "mt-0.5 whitespace-nowrap font-data text-xs font-medium tabular-nums text-gain-text dark:text-gain-dark"
+    },
+    {
+      "text": "Net Income",
+      "box": {
+        "x": 1022.65625,
+        "y": 939.5,
+        "w": 139.671875,
+        "h": 32,
+        "right": 1162.328125
+      },
+      "textBounds": {
+        "x": 1022.65625,
+        "y": 940.5,
+        "w": 127.5,
+        "h": 29,
+        "right": 1150.15625
+      },
+      "class": "truncate text-xs text-text-secondary-light dark:text-text-secondary-dark"
+    },
+    {
+      "text": "$112,010M",
+      "box": {
+        "x": 1022.65625,
+        "y": 979.5,
+        "w": 139.671875,
+        "h": 51.203125,
+        "right": 1162.328125
+      },
+      "textBounds": {
+        "x": 1022.65625,
+        "y": 984.5,
+        "w": 172.8125,
+        "h": 41,
+        "right": 1195.46875
+      },
+      "class": "mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base text-text-primary-light dark:text-text-primary-dark"
+    },
+    {
+      "text": "▲+19.5%",
+      "box": {
+        "x": 1022.65625,
+        "y": 1034.703125,
+        "w": 139.671875,
+        "h": 32,
+        "right": 1162.328125
+      },
+      "textBounds": {
+        "x": 1022.65625,
+        "y": 1034.703125,
+        "w": 110.546875,
+        "h": 31,
+        "right": 1133.203125
+      },
+      "class": "mt-0.5 whitespace-nowrap font-data text-xs font-medium tabular-nums text-gain-text dark:text-gain-dark"
+    },
+    {
+      "text": "Diluted EPS",
+      "box": {
+        "x": 1187.328125,
+        "y": 939.5,
+        "w": 139.671875,
+        "h": 32,
+        "right": 1327
+      },
+      "textBounds": {
+        "x": 1187.328125,
+        "y": 940.5,
+        "w": 129.109375,
+        "h": 29,
+        "right": 1316.4375
+      },
+      "class": "truncate text-xs text-text-secondary-light dark:text-text-secondary-dark"
+    },
+    {
+      "text": "$7.46",
+      "box": {
+        "x": 1187.328125,
+        "y": 979.5,
+        "w": 139.671875,
+        "h": 51.203125,
+        "right": 1327
+      },
+      "textBounds": {
+        "x": 1187.328125,
+        "y": 984.5,
+        "w": 96.015625,
+        "h": 41,
+        "right": 1283.34375
+      },
+      "class": "mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base text-text-primary-light dark:text-text-primary-dark"
+    },
+    {
+      "text": "▲+22.7%",
+      "box": {
+        "x": 1187.328125,
+        "y": 1034.703125,
+        "w": 139.671875,
+        "h": 32,
+        "right": 1327
+      },
+      "textBounds": {
+        "x": 1187.328125,
+        "y": 1034.703125,
+        "w": 110.546875,
+        "h": 31,
+        "right": 1297.875
+      },
+      "class": "mt-0.5 whitespace-nowrap font-data text-xs font-medium tabular-nums text-gain-text dark:text-gain-dark"
+    }
+  ]
+}

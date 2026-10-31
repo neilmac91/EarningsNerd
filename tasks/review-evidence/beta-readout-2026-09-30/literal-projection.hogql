@@ -1,0 +1,37 @@
+SELECT toString(uuid) AS uuid, event, toUnixTimestamp(timestamp) AS timestamp_s,
+  JSONExtractRaw(properties, 'evidence_version') AS evidence_version_json,
+  JSONExtractRaw(properties, 'auth_state_at_event') AS auth_state_at_event_json,
+  JSONExtractRaw(properties, 'account_id_at_event') AS account_id_at_event_json,
+  JSONExtractRaw(properties, 'analytics_consent_at_event') AS analytics_consent_at_event_json,
+  JSONExtractRaw(properties, 'filing_id') AS filing_id_json,
+  JSONExtractRaw(properties, 'summary_id') AS summary_id_json,
+  JSONExtractRaw(properties, 'request_id') AS request_id_json,
+  JSONExtractRaw(properties, 'logical_request_id') AS logical_request_id_json,
+  JSONExtractRaw(properties, 'client_attempt') AS client_attempt_json,
+  JSONExtractRaw(properties, 'transport_attempt') AS transport_attempt_json,
+  JSONExtractRaw(properties, 'identity_evidence') AS identity_evidence_json,
+  JSONExtractRaw(properties, 'consent_evidence') AS consent_evidence_json,
+  JSONExtractRaw(properties, 'outcome') AS outcome_json,
+  JSONExtractRaw(properties, 'delivery_path') AS delivery_path_json,
+  JSONExtractRaw(properties, 'summary_service_invoked') AS summary_service_invoked_json,
+  JSONExtractRaw(properties, 'duration_ms') AS duration_ms_json,
+  JSONExtractRaw(properties, 'reason') AS reason_json,
+  JSONExtractRaw(properties, 'entry_point') AS entry_point_json
+FROM (
+  SELECT '00000000-0000-4000-8000-000000000010' AS uuid,
+    'summary_viewed' AS event,
+    toDateTime('2026-09-28 00:00:00', 'UTC') AS timestamp,
+    '{"evidence_version":1,"auth_state_at_event":"authenticated","account_id_at_event":"1001","analytics_consent_at_event":true,"filing_id":11,"entry_point":"synthetic_validation","summary_id":22}' AS properties
+  UNION ALL
+  SELECT '00000000-0000-4000-8000-000000000011' AS uuid,
+    'summary_request_started' AS event,
+    toDateTime('2026-09-28 00:00:01', 'UTC') AS timestamp,
+    '{"evidence_version":1,"auth_state_at_event":"authenticated","account_id_at_event":"1001","analytics_consent_at_event":true,"filing_id":11,"entry_point":"synthetic_validation","request_id":"00000000-0000-4000-8000-000000000001","identity_evidence":"server_authenticated","consent_evidence":"client_declaration"}' AS properties
+  UNION ALL
+  SELECT '00000000-0000-4000-8000-000000000012' AS uuid,
+    'summary_request_finished' AS event,
+    toDateTime('2026-09-28 00:00:02', 'UTC') AS timestamp,
+    '{"evidence_version":1,"auth_state_at_event":"authenticated","account_id_at_event":"1001","analytics_consent_at_event":true,"filing_id":11,"entry_point":"synthetic_validation","request_id":"00000000-0000-4000-8000-000000000001","identity_evidence":"server_authenticated","consent_evidence":"client_declaration","summary_id":22,"outcome":"complete","delivery_path":"generation","summary_service_invoked":true,"duration_ms":1000,"reason":"synthetic_fixture"}' AS properties
+)
+ORDER BY timestamp, uuid
+LIMIT 10

@@ -5,7 +5,7 @@
     "sp500": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
     "nasdaq100": "https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies"
   },
-  "generated_on": "2026-09-06",
+  "generated_on": "2026-10-01",
   "count": 518,
   "members": [
     {
@@ -443,6 +443,13 @@
       ]
     },
     {
+      "ticker": "BE",
+      "name": "Bloom Energy",
+      "indices": [
+        "sp500"
+      ]
+    },
+    {
       "ticker": "BEN",
       "name": "Franklin Resources",
       "indices": [
@@ -483,13 +490,6 @@
       "name": "Baker Hughes",
       "indices": [
         "nasdaq100",
-        "sp500"
-      ]
-    },
-    {
-      "ticker": "BLDR",
-      "name": "Builders FirstSource",
-      "indices": [
         "sp500"
       ]
     },
@@ -1798,6 +1798,13 @@
       ]
     },
     {
+      "ticker": "ILMN",
+      "name": "Illumina, Inc.",
+      "indices": [
+        "sp500"
+      ]
+    },
+    {
       "ticker": "INCY",
       "name": "Incyte",
       "indices": [
@@ -1959,7 +1966,6 @@
       "ticker": "KHC",
       "name": "Kraft Heinz",
       "indices": [
-        "nasdaq100",
         "sp500"
       ]
     },
@@ -2612,6 +2618,13 @@
       ]
     },
     {
+      "ticker": "P",
+      "name": "Everpure",
+      "indices": [
+        "sp500"
+      ]
+    },
+    {
       "ticker": "PANW",
       "name": "Palo Alto Networks",
       "indices": [
@@ -3165,13 +3178,6 @@
       ]
     },
     {
-      "ticker": "TAP",
-      "name": "Molson Coors Beverage Company",
-      "indices": [
-        "sp500"
-      ]
-    },
-    {
       "ticker": "TDG",
       "name": "TransDigm Group",
       "indices": [
@@ -3324,13 +3330,6 @@
     {
       "ticker": "TT",
       "name": "Trane Technologies",
-      "indices": [
-        "sp500"
-      ]
-    },
-    {
-      "ticker": "TTD",
-      "name": "Trade Desk (The)",
       "indices": [
         "sp500"
       ]

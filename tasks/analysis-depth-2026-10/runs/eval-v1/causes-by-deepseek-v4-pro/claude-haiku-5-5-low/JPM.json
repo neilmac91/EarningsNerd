@@ -1,0 +1,118 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 9,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Net interest income jumped 33.8% to $89.3 billion in FY2023 , which the 10-K attributes to higher rates .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net revenue was $8.0 billion, compared with $80 million in the prior year, predominantly driven by higher net interest income due to higher rates, partially offset by the impact of lower Firmwide average deposit balances."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage cites higher net interest income due to higher rates, but not the 33.8% jump to $89.3B."
+  },
+  {
+   "sentence": "Net interest income fell 4.7% in FY2020 , a move the business-level discussion ties to deposit margin compression .",
+   "passages": [
+    {
+     "id": "P67",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net revenue was $9.3 billion, flat compared to the prior year. Net interest income was $6.2 billion, a decrease of 5%, driven by deposit margin compression, predominantly offset by higher deposit balances and lending revenue. Noninterest revenue was $3.1 billion, an increase of 13%, driven by higher deposit-related fees, particularly cash management fees, higher investment banking revenue, and a gain on a strategic investment. The increase was partially offset by a $56 million markdown of a held-for-sale position and lower card income, primarily due to lower volumes as a result of the COVID-19 pandemic."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net interest income decreased 5% driven by deposit margin compression."
+  },
+  {
+   "sentence": "In FY2025 net interest income rose 3.1% to $95.4 billion , driven by higher Markets net interest income and Card revolving balances .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states NII up 3% driven by higher Markets NII and higher revolving balances in Card Services."
+  },
+  {
+   "sentence": "Noninterest income rose 2.4% to $87.0 billion  on Markets and asset-management fees, offset by the absence of a $7.9 billion Visa gain .",
+   "passages": [
+    {
+     "id": "P27",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Noninterest revenue (\u201cNIR\u201d) was $87.0 billion, up 2%, reflecting higher Markets noninterest revenue, higher asset management fees in AWM and CCB, higher auto operating lease income, lower net investment securities losses in Treasury and CIO, higher Payments fees, higher investment banking fees, and a $588 million First Republic-related gain recorded in the first quarter of 2025. These increases were predominantly offset by the absence of the $7.9 billion net gain related to Visa shares recorded in the second quarter of 2024, as well as lower card income in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states NIR up 2% reflecting higher Markets NIR and asset management fees, offset by absence of Visa gain."
+  },
+  {
+   "sentence": "Noninterest expense rose 4.2%  to $95.6 billion , driven by compensation and brokerage costs, partly offset by FDIC accrual releases .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense, including higher revenue-related compensation and growth in the number of employees. The increase in expense was also driven by higher brokerage expense and distribution fees, higher auto lease depreciation, and continued investments in technology and marketing, as well as higher occupancy expense. These factors were partially offset by FDIC special assessment accrual releases of $763 million compared with an increase of $725 million in the prior year, as well as the absence of a $1.0 billion contribution of Visa shares to the JPMorgan Chase Foundation recorded in the second quarter of 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states noninterest expense up 4% driven by compensation and brokerage, partially offset by FDIC accrual releases."
+  },
+  {
+   "sentence": "The largest move was FY2021's net margin rise from 24.3% in FY2020  to 39.7% , as the provision fell from 14.6%  to -7.6% of revenue  on improved credit .",
+   "passages": [
+    {
+     "id": "P55",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Retained loans were relatively flat compared to December 31, 2020 as the decline in Home Lending driven by paydowns outpacing originations of prime mortgage loans was predominantly offset by growth in AWM. Retained nonaccrual loans decreased from December 31, 2020 reflecting improved credit performance. Net recoveries for the year ended December 31, 2021 were higher when compared with the prior year as the current year benefited from further improvement in HPI and higher reversals of prior write-downs due to prepayments as a result of the low rate environment."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage discusses retained loans and credit performance, not net margin or provision as percentage of revenue."
+  },
+  {
+   "sentence": "The outflow reflected higher trading assets and securities borrowed, partly offset by net income .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash used due to higher trading assets and securities borrowed, partially offset by net income."
+  },
+  {
+   "sentence": "Loans rose $121 billion in FY2025, predominantly in CIB Markets .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2025, loans increased by $121.1\u00a0billion, predominantly driven by higher loans in CIB, primarily in Markets, and higher securities-based lending in AWM, both associated with higher client demand. Lending-related commitments increased by $64.5\u00a0billion, predominantly driven by higher commitments in CIB, including held-for-sale commitments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states loans increased $121.1B predominantly driven by higher loans in CIB, primarily in Markets."
+  },
+  {
+   "sentence": "At 7.8% of revenue  the provision is above the 6.0% peer median , ranking 75th percentile of four banks ; the stated cause is wholesale: criticized exposure rose to $48.5 billion from $44.7 billion, driven by downgrades in SPEs and Consumer & Retail .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Exposures that are deemed to be criticized align with the U.S. banking regulators\u2019 definition of criticized exposures, which consist of the special mention, substandard and doubtful categories. Total criticized exposure, excluding loans held-for-sale and loans at fair value, was $48.5 billion and $44.7 billion as of December\u00a031, 2025 and 2024, representing approximately 3.4% and 3.5% of total wholesale credit exposure, respectively; of the $48.5 billion, $42.9 billion was performing. The increase in criticized exposure was driven by SPEs, Consumer & Retail, Banks & Finance Companies, Healthcare, and Chemicals & Plastics, primarily resulting from downgrades and new lending-related commitments, partially offset by Real Estate and Industrials, primarily resulting from net portfolio activity and upgrades."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports criticized exposure increase to $48.5B driven by downgrades in SPEs and Consumer & Retail, but not provision percentile or peer median."
+  }
+ ],
+ "cost_usd": 0.001947
+}

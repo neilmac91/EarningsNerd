@@ -1,26 +1,19 @@
 /** @type {import('next').NextConfig} */
 const { withSentryConfig } = require('@sentry/nextjs/config')
+const path = require('path')
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['recharts'],
+  // Public addresses are shared with the backend; include that repository source in the bundle.
+  turbopack: { root: path.resolve(__dirname, '..') },
   typescript: {
     // `next build` typechecks the same surface as CI's `npm run typecheck`: shipped app/library code.
     // Since 16.3 the build walks tsconfig.json's full `include` (tests/** too); specs are exercised
     // by Vitest/Playwright and carry their own type debt, so they stay out of the production gate.
     tsconfigPath: 'tsconfig.ci.json',
   },
-  images: {
-    // Logo.dev's ticker-keyed logo CDN (see CompanyLogo.tsx). Hotlinked directly —
-    // no proxy needed since its token is a publishable, client-safe identifier.
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'img.logo.dev',
-        pathname: '/ticker/**',
-      },
-    ],
-  },
+  // No `images` config: nothing renders through next/image. Company marks (components/CompanyLogo.tsx)
+  // are a plain img hotlinked from Logo.dev's CDN with their own 1x/2x/3x candidates.
   env: {
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL ||
       (process.env.NODE_ENV === 'production' ? 'https://api.earningsnerd.io' : 'http://localhost:8000'),
@@ -61,38 +54,6 @@ const nextConfig = {
         ],
       },
     ]
-  },
-  webpack: (config, { isServer }) => {
-    // TODO: Revisit this webpack configuration when Next.js or recharts has better support for lodash.
-    // This is a workaround for a known issue with recharts and lodash compatibility.
-    // See: https://github.com/recharts/recharts/issues/2372
-    // Fix for Recharts/lodash compatibility issue
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-      }
-    }
-    
-    // Ensure lodash and its submodules are resolved correctly
-    const path = require('path')
-    const lodashPath = path.dirname(require.resolve('lodash/package.json'))
-    
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'lodash$': lodashPath,
-      'lodash/isEqual': path.join(lodashPath, 'isEqual.js'),
-      'lodash/throttle': path.join(lodashPath, 'throttle.js'),
-      'lodash/merge': path.join(lodashPath, 'merge.js'),
-    }
-    
-    // Also ensure modules can resolve lodash submodules
-    config.resolve.modules = [
-      ...(config.resolve.modules || []),
-      path.join(__dirname, 'node_modules'),
-    ]
-    
-    return config
   },
 }
 

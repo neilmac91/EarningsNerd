@@ -1,0 +1,2560 @@
+[
+ {
+  "name": "the button's sage in the background shorthand, on white",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Verify my email' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "the button's sage in the background shorthand, on white",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Verify my email"
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "the button's sage in the background shorthand, on the page's cream",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Verify my email' in #ffffff on #f4f3ee, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "the button's sage in the background shorthand, on the page's cream",
+   "runs": [
+    {
+     "ground": "#f4f3ee",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Verify my email"
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a ground in the background shorthand on a div",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a ground in the background shorthand on a div",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a cell's ground in its bgcolor alone",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a cell's ground in its bgcolor alone",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a table's ground in its bgcolor alone",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a table's ground in its bgcolor alone",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a row's ground in its bgcolor alone",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a row's ground in its bgcolor alone",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a link's ground in a bgcolor",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Verify' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a link's ground in a bgcolor",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Verify"
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a marquee's bgcolor, on a tag it reads none of",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a marquee's bgcolor, on a tag it reads none of",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a marquee left open in a cell, which a cell's start closes, as it reads no tag of one",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale on white.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a marquee left open in a cell, which a cell's start closes, as it reads no tag of one",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale on white."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a body's ground in its style",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a body's ground in its style",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a body's ground in its bgcolor",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a body's ground in its bgcolor",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a heading's ground, whose style it does not read",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale heading.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a heading's ground, whose style it does not read",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale heading."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "an emphasis's ground, whose style it does not read",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "an emphasis's ground, whose style it does not read",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a background-color spaced before its colon",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #fbfaf6 on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a background-color spaced before its colon",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#fbfaf6",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a heading's ink, unread, on a dark ground it reads",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale heading.' in #000000 on #000000, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a heading's ink, unread, on a dark ground it reads",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale heading."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a color spaced before its colon, on a dark ground",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #000000 on #000000, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a color spaced before its colon, on a dark ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a big's style, which it does not read, on a dark ground",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #000000 on #000000, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a big's style, which it does not read, on a dark ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a font's colour",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a font's colour",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a body's text colour",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a body's text colour",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a basefont's colour, where it sets no size",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a basefont's colour, where it sets no size",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a header cell's ink, read as a cell's",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale heading.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a header cell's ink, read as a cell's",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale heading."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "the page's cream as ink on white",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Cream words.' in #f4f3ee on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "the page's cream as ink on white",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#f4f3ee",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Cream words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "an ink just under 12 from its ground",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Near-black words.' in #0f0f0f on #000000, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "an ink just under 12 from its ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#0f0f0f",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Near-black words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "an ink of the ground's own colour",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Sage on sage.' in #4f7a63 on #4f7a63, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "an ink of the ground's own colour",
+   "runs": [
+    {
+     "ground": "#4f7a63",
+     "ink": "#4f7a63",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Sage on sage."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a style's later color over its earlier",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Black words.' in #000000 on #000000, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a style's later color over its earlier",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Black words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a style's later background-color over its earlier",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a style's later background-color over its earlier",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "inherit, which keeps the ink below",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "inherit, which keeps the ink below",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "!important alone, which keeps the ink below",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Black words.' in #000000 on #000000, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "!important alone, which keeps the ink below",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Black words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "two styles, of which it reads the first",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "two styles, of which it reads the first",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a span written closed, which it holds open",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a span written closed, which it holds open",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a span left open in a cell, which the next cell's start leaves open",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale on white.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a span left open in a cell, which the next cell's start leaves open",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale on white."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a row's start, which closes the cells and the row before it to the table's ground",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Black on black.' in #000000 on #000000, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a row's start, which closes the cells and the row before it to the table's ground",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Black on white."
+    },
+    {
+     "ground": "#000000",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Black on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a body's ink, which its end tag leaves open",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words after the body.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a body's ink, which its end tag leaves open",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words after the body."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a tag, an attribute and a declaration in capitals",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a tag, an attribute and a declaration in capitals",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "an unquoted style",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "an unquoted style",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a style in curly quotes, which it reads as straight ones",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a style in curly quotes, which it reads as straight ones",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a declaration after a newline",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a declaration after a newline",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a zero-width space, which counts as text",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads '\\u200b' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a zero-width space, which counts as text",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "​"
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a no-break space by its number, which counts as text",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads '' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a no-break space by its number, which counts as text",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": " "
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a no-break space as itself, which counts as text",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads '' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a no-break space as itself, which counts as text",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": " "
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a no-break space by its name and then by its number, the second of which counts as text",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads '' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a no-break space by its name and then by its number, the second of which counts as text",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "  "
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a name a browser decodes as a tab, which it reads as written",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads '&Tab;' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a name a browser decodes as a tab, which it reads as written",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "&Tab;"
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a block Outlook's conditional comments reveal to every other client",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a block Outlook's conditional comments reveal to every other client",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a noscript's markup, which it reads",
+  "kind": "broken",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a noscript's markup, which it reads",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a short hex",
+  "kind": "refused",
+  "reader": [
+   "<span>'s style's color is '#fff', which the reader does not read as SpamAssassin reads it (a name, a short hex and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as six-digit hex, as colour_problems asks"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a short hex",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a colour's name",
+  "kind": "refused",
+  "reader": [
+   "<span>'s style's color is 'white', which the reader does not read as SpamAssassin reads it (a name, a short hex and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as six-digit hex, as colour_problems asks"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a colour's name",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "rgb()",
+  "kind": "refused",
+  "reader": [
+   "<span>'s style's color is 'rgb(255,255,255)', which the reader does not read as SpamAssassin reads it (a name, a short hex and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as six-digit hex, as colour_problems asks"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "rgb()",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a colour with !important after it, which it reads as an invalid colour",
+  "kind": "refused",
+  "reader": [
+   "<span>'s style's color is '#ffffff !important', which the reader does not read as SpamAssassin reads it (a name, a short hex and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as six-digit hex, as colour_problems asks"
+  ],
+  "spamassassin": {
+   "invalid_colour": 1,
+   "low_contrast": 0,
+   "name": "a colour with !important after it, which it reads as an invalid colour",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "invalid",
+     "invalid": 1,
+     "invisible": 1,
+     "low": 0,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a ground's name",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale on black.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<div>'s style's background-color is 'black', which the reader does not read as SpamAssassin reads it (a name, a short hex and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as six-digit hex, as colour_problems asks"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a ground's name",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a font's colour by name",
+  "kind": "refused",
+  "reader": [
+   "<font>'s color attribute is 'white', which the reader does not read as SpamAssassin reads it (a name, a short hex and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as six-digit hex, as colour_problems asks"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a font's colour by name",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a body's text colour in a short hex",
+  "kind": "refused",
+  "reader": [
+   "<body>'s text attribute is '#fff', which the reader does not read as SpamAssassin reads it (a name, a short hex and rgb() as colours of its own, a value with !important after it as an invalid colour): write it as six-digit hex, as colour_problems asks"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a body's text colour in a short hex",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a style written with a character reference",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<span>'s style attribute is written with a character reference, which SpamAssassin's HTML parser (HTML::Parser) decodes on terms of its own: write the characters themselves"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a style written with a character reference",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a font's colour written with a character reference",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<font>'s color attribute is written with a character reference, which SpamAssassin's HTML parser (HTML::Parser) decodes on terms of its own: write the characters themselves"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a font's colour written with a character reference",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a basefont's size written with a character reference, which the standard library decodes and it does not",
+  "kind": "refused",
+  "reader": [
+   "<basefont>'s size attribute is written with a character reference, which SpamAssassin's HTML parser (HTML::Parser) decodes on terms of its own: write the characters themselves"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a basefont's size written with a character reference, which the standard library decodes and it does not",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a title",
+  "kind": "refused",
+  "reader": [
+   "<title> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a title",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "A title."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a textarea",
+  "kind": "refused",
+  "reader": [
+   "<textarea> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a textarea",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "an xmp",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<xmp> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "an xmp",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "<span style=\"color:#FFFFFF;\">Pale words.</span>"
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a plaintext",
+  "kind": "refused",
+  "reader": [
+   "<plaintext> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a plaintext",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words.</body></html>"
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a listing",
+  "kind": "refused",
+  "reader": [
+   "<listing> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a listing",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "an iframe",
+  "kind": "refused",
+  "reader": [
+   "<iframe> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "an iframe",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a noembed",
+  "kind": "refused",
+  "reader": [
+   "<noembed> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a noembed",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a noframes",
+  "kind": "refused",
+  "reader": [
+   "<noframes> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a noframes",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a script written closed",
+  "kind": "refused",
+  "reader": [
+   "<script> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a script written closed",
+   "runs": []
+  },
+  "agrees": null
+ },
+ {
+  "name": "a script, whose text it passes over",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'var words = 1;' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<script> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a script, whose text it passes over",
+   "runs": []
+  },
+  "agrees": null
+ },
+ {
+  "name": "a style block, whose text it passes over",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'p { margin: 0; }' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<style> holds what a parser reads as raw text, SpamAssassin's (HTML::Parser) and the standard library's, in one Python release or another, each on terms of its own: leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a style block, whose text it passes over",
+   "runs": []
+  },
+  "agrees": null
+ },
+ {
+  "name": "a no-break space in a style, which it reads as a space",
+  "kind": "refused",
+  "reader": [
+   "<span>'s style holds a character past ASCII, and SpamAssassin, which reads a mail's text as characters, matches a colour's declaration in Unicode (a no-break space as a space, a Kelvin sign as a k): write the style in ASCII"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a no-break space in a style, which it reads as a space",
+   "runs": [
+    {
+     "ground": "#1a1a17",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a Kelvin sign in a property's name, which it reads as a k",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale on black.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<div>'s style holds a character past ASCII, and SpamAssassin, which reads a mail's text as characters, matches a colour's declaration in Unicode (a no-break space as a space, a Kelvin sign as a k): write the style in ASCII"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a Kelvin sign in a property's name, which it reads as a k",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a no-break space before the / that closes a span, which it reads as a space, so it holds the span open",
+  "kind": "refused",
+  "reader": [
+   "a tag's name, 'span\\xa0', holds a character past ASCII, which SpamAssassin, reading a mail's text as characters, reads on terms of its own (before the \"/\" that closes a start tag, a no-break space as a space, so it holds the tag open): write the tag's name in ASCII"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a no-break space before the / that closes a span, which it reads as a space, so it holds the span open",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "an end tag whose name holds a no-break space",
+  "kind": "refused",
+  "reader": [
+   "a tag's name, 'span\\xa0', holds a character past ASCII, which SpamAssassin, reading a mail's text as characters, reads on terms of its own (before the \"/\" that closes a start tag, a no-break space as a space, so it holds the tag open): write the tag's name in ASCII"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "an end tag whose name holds a no-break space",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Ink words."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a basefont's size in a digit past ASCII, which it reads as a digit",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "<basefont>'s size holds a character past ASCII, and SpamAssassin, which reads a mail's text as characters, matches its digits and spaces in Unicode (a digit of another script as a digit, a no-break space as a space): write the size in ASCII"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a basefont's size in a digit past ASCII, which it reads as a digit",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a comment closed by -- >, where it ends one",
+  "kind": "refused",
+  "reader": [
+   "a browser's tokenizer reads the page's markup with an error (unexpected-char-in-comment), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a comment closed by -- >, where it ends one",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": " -->"
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a comment closed by --!>",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "a browser's tokenizer reads the page's markup with an error (unexpected-bang-after-double-dash-in-comment), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a comment closed by --!>",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "an end tag holding an attribute",
+  "kind": "refused",
+  "reader": [
+   "a browser's tokenizer reads the page's markup with an error (attributes-in-end-tag), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "an end tag holding an attribute",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Ink words."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a vertical tab between a tag's name and its attribute",
+  "kind": "refused",
+  "reader": [
+   "a browser's tokenizer reads the page's markup with an error (invalid-codepoint), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a vertical tab between a tag's name and its attribute",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a / between a tag's name and its attribute",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "a browser's tokenizer reads the page's markup with an error (unexpected-character-after-solidus-in-tag), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a / between a tag's name and its attribute",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a reference by number with no semicolon",
+  "kind": "refused",
+  "reader": [
+   "a browser's tokenizer reads the page's markup with an error (numeric-entity-without-semicolon), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a reference by number with no semicolon",
+   "runs": []
+  },
+  "agrees": null
+ },
+ {
+  "name": "a reference by number past Unicode's last code point",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads '�' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "a browser's tokenizer reads the page's markup with an error (illegal-codepoint-for-numeric-entity), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a reference by number past Unicode's last code point",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "&#x110000;"
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a reference by number twenty digits long, past Unicode's last code point too",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads '�' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "a browser's tokenizer reads the page's markup with an error (illegal-codepoint-for-numeric-entity), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a reference by number twenty digits long, past Unicode's last code point too",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "&#99999999999999999999;"
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a bare ampersand before a word",
+  "kind": "refused",
+  "reader": [
+   "a browser's tokenizer reads the page's markup with an error (expected-named-entity), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a bare ampersand before a word",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "R&D words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a CDATA section",
+  "kind": "refused",
+  "reader": [
+   "a browser's tokenizer reads the page's markup with an error (expected-dashes-or-doctype), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)",
+   "a marked section (<![CDATA[<span style=\"c) holds what SpamAssassin's HTML parser reads on terms of its own (a CDATA section's markup as text): leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a CDATA section",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "<span style=\"color:#FFFFFF;\">Pale words.</span>"
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "a block Outlook's marked section reveals",
+  "kind": "refused",
+  "reader": [
+   "SpamAssassin reads 'Pale words.' in #ffffff on #ffffff, too like its ground, and scores it as hidden text (HTML_FONT_LOW_CONTRAST): set the text's ground as background-color, the colon right after the name, in the style of the link, span, p, div, cell, row or table that holds it, and its ink as color there; SpamAssassin reads no background shorthand, no bgcolor and no style on another element, and reads white where nothing around a text sets a ground it reads",
+   "a browser's tokenizer reads the page's markup with an error (expected-dashes-or-doctype), and SpamAssassin's HTML parser (HTML::Parser) and the standard library's, in one Python release or another, tokenize such markup each on terms of its own: write the markup without it (a bare & as &amp;)",
+   "a marked section (<![endif) holds what SpamAssassin's HTML parser reads on terms of its own (a CDATA section's markup as text): leave it out of the page",
+   "a marked section (<![if !mso) holds what SpamAssassin's HTML parser reads on terms of its own (a CDATA section's markup as text): leave it out of the page"
+  ],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 1,
+   "name": "a block Outlook's marked section reveals",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 1,
+     "text": "Pale words."
+    }
+   ]
+  },
+  "agrees": null
+ },
+ {
+  "name": "the shell's own page",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "the shell's own page",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 1,
+     "low": 0,
+     "text": "The mail's own line. ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿ ‌​‍﻿"
+    },
+    {
+     "ground": "#f4f3ee",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Earnings​"
+    },
+    {
+     "ground": "#f4f3ee",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Nerd"
+    },
+    {
+     "ground": "#f4f3ee",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "The summary that "
+    },
+    {
+     "ground": "#ecf2ee",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "shows its work"
+    },
+    {
+     "ground": "#f4f3ee",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "."
+    },
+    {
+     "ground": "#f4f3ee",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Body"
+    },
+    {
+     "ground": "#f4f3ee",
+     "ink": "#6b7280",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "\n                    You are receiving this email because you joined the EarningsNerd waitlist.\n                  "
+    },
+    {
+     "ground": "#f4f3ee",
+     "ink": "#374151",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Filing data sourced from SEC EDGAR. Not investment advice."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "the button's sage in background-color, on the page's cream",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "the button's sage in background-color, on the page's cream",
+   "runs": [
+    {
+     "ground": "#4f7a63",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Verify my email"
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "the panel's ground in bgcolor and the shorthand, unread under its ink",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "the panel's ground in bgcolor and the shorthand, unread under its ink",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Ink on the panel."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a body's ground, unread under the default ink",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a body's ground, unread under the default ink",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Black on the page."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a table's ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a table's ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a row's ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a row's ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a cell's ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a cell's ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a div's ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a div's ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a paragraph's ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a paragraph's ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a span's ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a span's ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a link's ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a link's ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a ground in capitals",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a ground in capitals",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "an ink just over 12 from its ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "an ink just over 12 from its ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#111111",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Near-black words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a style's later color, clear of the ground",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a style's later color, clear of the ground",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "inherit, which keeps a clear ink",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "inherit, which keeps a clear ink",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "two styles, the first clear",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "two styles, the first clear",
+   "runs": [
+    {
+     "ground": "#ffffff",
+     "ink": "#1a1a17",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Ink words."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a cell's start, which closes the font and the cell before it",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a cell's start, which closes the font and the cell before it",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Black on white."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a row's start, which closes the fonts, the cells and the row before it",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a row's start, which closes the fonts, the cells and the row before it",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Black on white."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a header cell's end tag, which closes it as a cell's",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a header cell's end tag, which closes it as a cell's",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Black on white."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "an end tag, which closes every element open above its own",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "an end tag, which closes every element open above its own",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    },
+    {
+     "ground": "#ffffff",
+     "ink": "#000000",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Black on white."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a stray end tag, which closes nothing",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a stray end tag, which closes nothing",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a basefont that sets a size, and no colour",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a basefont that sets a size, and no colour",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a namespaced tag, which it passes over",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a namespaced tag, which it passes over",
+   "runs": [
+    {
+     "ground": "#000000",
+     "ink": "#ffffff",
+     "invalid": 0,
+     "invisible": 0,
+     "low": 0,
+     "text": "Pale on black."
+    }
+   ]
+  },
+  "agrees": true
+ },
+ {
+  "name": "a no-break space by its name alone, which it reads as a space",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a no-break space by its name alone, which it reads as a space",
+   "runs": []
+  },
+  "agrees": true
+ },
+ {
+  "name": "an A with a circumflex before a no-break space, which it takes out as one",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "an A with a circumflex before a no-break space, which it takes out as one",
+   "runs": []
+  },
+  "agrees": true
+ },
+ {
+  "name": "a tab by its number, which it reads as one",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a tab by its number, which it reads as one",
+   "runs": []
+  },
+  "agrees": true
+ },
+ {
+  "name": "whitespace alone",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "whitespace alone",
+   "runs": []
+  },
+  "agrees": true
+ },
+ {
+  "name": "a comment, which holds no text",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "a comment, which holds no text",
+   "runs": []
+  },
+  "agrees": true
+ },
+ {
+  "name": "classic Outlook's conditional comment, which holds no text",
+  "kind": "kept",
+  "reader": [],
+  "spamassassin": {
+   "invalid_colour": 0,
+   "low_contrast": 0,
+   "name": "classic Outlook's conditional comment, which holds no text",
+   "runs": []
+  },
+  "agrees": true
+ }
+]

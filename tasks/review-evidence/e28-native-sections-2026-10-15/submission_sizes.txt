@@ -1,0 +1,8 @@
+# Size of each filing's full submission file (.txt), the file edgartools 5.58.0 downloads on every dead section attempt
+# curl GET without Accept-Encoding (identity), body discarded; one request per filing, about 1 per second
+AAPL  10-K  HTTP 200     9392337 bytes     9.4 MB  https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt
+PLD   10-K  HTTP 200    59058670 bytes    59.1 MB  https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/0001193125-26-051453.txt
+JPM   10-K  HTTP 200    64896112 bytes    64.9 MB  https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/0001628280-26-008131.txt
+NVDA  10-Q  HTTP 200     7515560 bytes     7.5 MB  https://www.sec.gov/Archives/edgar/data/1045810/000104581026000052/0001045810-26-000052.txt
+BABA  20-F  HTTP 200    50237760 bytes    50.2 MB  https://www.sec.gov/Archives/edgar/data/1577552/000119312526231755/0001193125-26-231755.txt
+checked 2026-10-15T22:02:46Z

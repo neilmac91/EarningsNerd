@@ -1,0 +1,86 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A only restates table values, so it is fully grounded but tells readers nothing new. Draft B explains FPL-driven growth, storm-cost D&A, hedge losses, tax credits, peers and capital allocation, and flags unexplained swings. B has one unsupported causal claim: the quoted passage for the $89m cost-recovery cash impact does not state it. Tying the net-margin gap to other expense alone is also interpretive. Its depth, coverage and disclosed limits still outweigh these lapses."
+   },
+   "cost_usd": 0.100513,
+   "latency_s": 13.082,
+   "input_tokens": 11029,
+   "output_tokens": 898,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"Draft A only restates table values, so it is fully grounded but tells readers nothing new. Draft B explains FPL-driven growth, storm-cost D&A, hedge losses, tax credits, peers and capital allocation, and flags unexplained swings. B has one unsupported causal claim: the quoted passage for the $89m cost-recovery cash impact does not state it. Tying the net-margin gap to other expense alone is also interpretive. Its depth, coverage and disclosed limits still outweigh these lapses.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values, with no causes, peers, capital allocation or thresholds. A explains drivers with filing passages: fuel and storm recovery, deferred storm-cost D&A, hedge losses, tax credits and the XPLR impairments. It also flags its own data gaps. One flaw: the $89m cost-recovery cash-flow claim does not appear in its cited passage [36]. That costs A grounding, but its depth outweighs it."
+   },
+   "cost_usd": 0.096317,
+   "latency_s": 11.949,
+   "input_tokens": 11027,
+   "output_tokens": 689,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but only restates table values, with no causes, peers, capital allocation or thresholds. A explains drivers with filing passages: fuel and storm recovery, deferred storm-cost D&A, hedge losses, tax credits and the XPLR impairments. It also flags its own data gaps. One flaw: the $89m cost-recovery cash-flow claim does not appear in its cited passage [36]. That costs A grounding, but its depth outweighs it.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.19683
+}

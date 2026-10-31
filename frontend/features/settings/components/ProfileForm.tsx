@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircleIcon, CircleNotchIcon, UserIcon } from '@/lib/icons'
+import { CheckCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe, updateProfile } from '@/features/auth/api/auth-api'
+import AddressText from '@/features/auth/components/AddressText'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
-import { Button } from '@/components/ui/Button'
+import { Button, primaryUnavailableClass } from '@/components/ui/Button'
+import { cx } from '@/components/ui/cx'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
+import { MissingValue } from '@/components/ui/MissingValue'
 import { queryKeys } from '@/lib/queryKeys'
 
 export default function ProfileForm() {
@@ -26,23 +29,28 @@ export default function ProfileForm() {
     onSuccess: () => {
       // A profile mutation may finish after logout/login. Let the fenced /me query resolve
       // the current identity instead of publishing the mutation's earlier account response.
-      queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+      // Returned so Save stays `loading` until the refetched name makes the form clean; otherwise
+      // the focused, still-dirty button turns active in between and a second Enter re-sends.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
     },
   })
 
   const dirty = (user?.full_name ?? '') !== name.trim()
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <UserIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Profile</h2>
       </div>
 
       <div className="space-y-4">
         <div>
           <label className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Email</label>
-          <p className="text-text-primary-light dark:text-text-primary-dark font-medium">{user?.email ?? '—'}</p>
+          {/* The address breaks after its @ (AddressText), and break-words breaks inside a part only where the part is
+              longer than the line, so under 200% text it ends on a fragment only there (E232). */}
+          <p className="break-words text-text-primary-light dark:text-text-primary-dark font-medium">
+            {user?.email != null ? <AddressText address={user.email} /> : <MissingValue />}
+          </p>
         </div>
 
         <div>
@@ -60,13 +68,21 @@ export default function ProfileForm() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* aria-disabled + an early return, never native `disabled`: Save holds focus while its
+              request is in flight AND when the refetched name makes the form clean (!dirty) right
+              after a save. A focused button that turns disabled is blurred to <body> in Chromium. */}
           <Button
             type="button"
-            onClick={() => mutation.mutate()}
-            disabled={!dirty || mutation.isPending}
+            onClick={() => {
+              if (!dirty) return
+              mutation.mutate()
+            }}
+            wrap
+            loading={mutation.isPending}
+            aria-disabled={!dirty || mutation.isPending || undefined}
+            className={cx('max-w-full', !dirty && !mutation.isPending && primaryUnavailableClass)}
           >
-            {mutation.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
             Save changes
           </Button>
           {mutation.isSuccess && !dirty && (

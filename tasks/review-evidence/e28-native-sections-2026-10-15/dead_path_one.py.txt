@@ -1,0 +1,14 @@
+"""Run today's production sections call once (edgartools 5.58.0, live SEC) and report time and peak memory."""
+import os, sys, json, time, resource, logging
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+os.environ.setdefault("EDGAR_IDENTITY", "EarningsNerd research contact@earningsnerd.io")
+sys.path.insert(0, "/home/user/EarningsNerd/backend")
+logging.basicConfig(level=logging.WARNING)
+cik, acc, form = sys.argv[1], sys.argv[2], sys.argv[3]
+import app.services.edgar.xbrl_sections as xs  # noqa: E402
+base = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+t0 = time.perf_counter()
+out = xs._extract_sections_sync(cik.zfill(10), acc, form)
+print(json.dumps({"acc": acc, "form": form, "result": None if out is None else sorted(out), "seconds": round(time.perf_counter() - t0, 2),
+                  "maxrss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024), "rss_after_imports_mb": round(base)}))

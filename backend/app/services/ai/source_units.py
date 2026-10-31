@@ -11,6 +11,7 @@ from app.services.edgar.debt_concepts import DEBT_MATURITY_SEQUENCE, DEBT_MATURI
 from app.services.edgar.statement_context import source_context_identity, source_report_identity
 from app.services.edgar.statement_relationship_source import _text
 from app.services.edgar.tax_rate_comparison import select_tax_rate_comparison
+from app.services.edgar.reconciliation_operands import select_reconciliation_operands
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 # Deliberately narrow: a declaration immediately below the actual MD&A title, not a
@@ -254,6 +255,15 @@ class TableUnitIndex:
         self._identity_read = False
         self._tax_comparison: dict | None = None
         self._tax_comparison_read = False
+        self._reconciliation: dict | None = None
+        self._reconciliation_read = False
+
+    def reconciliation_operands(self) -> dict | None:
+        """Cache bounded native operands without granting source assertion authority."""
+        if not self._reconciliation_read:
+            self._reconciliation_read = True
+            self._reconciliation = select_reconciliation_operands(self._parse())
+        return self._reconciliation
 
     def tax_rate_comparison(self) -> dict | None:
         """Cache complete tax-note selectors; these never establish assertion authority."""

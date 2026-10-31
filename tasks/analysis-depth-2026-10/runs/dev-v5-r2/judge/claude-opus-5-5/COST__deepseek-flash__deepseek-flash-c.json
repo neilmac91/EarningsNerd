@@ -1,0 +1,106 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "052217c1c89caf2ea188804b8746c8fbe5c549b8994376a90ba8e273c7ebfbda",
+ "y_sha256": "ee16e4eb49445ac79b91c382400e3492c8117e504c6e3dbe13200951c42f44a3",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts claim faster inventory turns and better supplier terms explain the FY2026 cash-flow rise, but the truncated passage does not say this. A also invents IEEPA tariff refunds as a margin driver and calls capex/D&A a window high on one data point. B wrongly says 1.71x is above the 1.75x median and repeats itself on net margin. B better shows the FY2023\u201324 slowdown and labels analysis separately. A adds receivables and gross-mix detail."
+   },
+   "cost_usd": 0.144229,
+   "latency_s": 13.909,
+   "backend": "claude_cli",
+   "input_tokens": 16176,
+   "cached_input_tokens": 727,
+   "output_tokens": 1025,
+   "reasoning_tokens": 793,
+   "meta": {
+    "duration_api_ms": 10241,
+    "cache_creation_input_tokens": 15447,
+    "list_cost_usd": 0.082441
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts claim faster inventory turns and better supplier terms explain the FY2026 cash-flow rise, but the truncated passage does not say this. A also invents IEEPA tariff refunds as a margin driver and calls capex/D&A a window high on one data point. B wrongly says 1.71x is above the 1.75x median and repeats itself on net margin. B better shows the FY2023\u201324 slowdown and labels analysis separately. A adds receivables and gross-mix detail.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both state OCF causes the truncated passage never gives. A misreads 1.71x as 'above' the 1.75x median and uses inconsistent peer sets. B invents IEEPA tariff refunds as a gross-margin cause and calls capex/D&A a window high on one data point, so A is slightly better grounded. B is clearly deeper: product mix, gross margin, tax rate, capital intensity, receivables. It also discloses data gaps and sets sharper thresholds."
+   },
+   "cost_usd": 0.147045,
+   "latency_s": 16.415,
+   "backend": "claude_cli",
+   "input_tokens": 16178,
+   "cached_input_tokens": 727,
+   "output_tokens": 1165,
+   "reasoning_tokens": 937,
+   "meta": {
+    "duration_api_ms": 11253,
+    "cache_creation_input_tokens": 15449,
+    "list_cost_usd": 0.085249
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both state OCF causes the truncated passage never gives. A misreads 1.71x as 'above' the 1.75x median and uses inconsistent peer sets. B invents IEEPA tariff refunds as a gross-margin cause and calls capex/D&A a window high on one data point, so A is slightly better grounded. B is clearly deeper: product mix, gross margin, tax rate, capital intensity, receivables. It also discloses data gaps and sets sharper thresholds.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.291274
+}

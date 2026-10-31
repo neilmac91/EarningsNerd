@@ -1,5 +1,15 @@
-import api, { getApiUrl } from '@/lib/api/client'
+import api, { getApiUrl, parseErrorCode, type KnownErrorCode } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
+import { decodeLaterFilings } from '@/features/analysis/lib/laterFilings'
+import {
+  decodeNarrativePresentation,
+  EVIDENCE_RECOVERY,
+  EvidenceRejection,
+  type NarrativePresentation,
+} from '@/features/analysis/lib/narrativePresentation'
 
 // Idle timeout for the SSE stream — mirrors copilot-api.ts: any activity resets the clock.
 const STREAM_TIMEOUT_MS = 120000
@@ -20,7 +30,7 @@ export interface QuarterlyCoveragePeriod {
   fiscal_year: number
   fiscal_period: string
   period_end: string
-  /** True when every value in the column is Q4-derived (from the annual report: FY − YTD9 or FY − ΣQ1–3; EPS shares-based) — badged in the picker. */
+  /** Period coverage includes calculated Q4 values; individual figures carry their own provenance. */
   derived: boolean
 }
 
@@ -37,9 +47,35 @@ export interface AnalysisCoverage {
   limits: { annual: number; quarterly: number }
 }
 
-/** "nm" = the YoY/QoQ comparison crossed zero (a sign flip) and isn't a meaningful percentage —
- *  finance convention "n/m", rendered as such rather than a nonsensical number. */
+/** "nm" = the YoY/QoQ comparison is not a meaningful percentage, finance convention "n/m", rendered as such rather
+ *  than a nonsensical number. It has two causes: the two periods' values change sign through zero, or (an annual YoY
+ *  only, MPA WP5a) a later filing reports a different value for one or both of the two years, so the two sit on
+ *  different bases; only the second carries the growth as first reported (`yoy_first_reported`). */
 export type GrowthValue = number | 'nm'
+
+/** The value a fiscal year's own annual report gave, on a reported figure of an annual run for which a later filing
+ *  reports another, the one shown (MPA WP5a, D-061). It is evidence, not a data note: it changes no validation, totals
+ *  or letters. Only an exact sign flip or factor of 1,000ⁿ between the two (`disagreement`) can also be a note, the
+ *  producer's `source_conflict`, which it writes only where the own-report row passed its checks (D6) and never on a
+ *  calculated figure for an input's finding, so a `disagreement` can come with no note. Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings,
+ *  which refuses it in a quarterly run until quarterly evidence lands with its reader, D5); a point without it renders
+ *  as before. */
+export interface FirstReported {
+  value: number
+  /** The shown figure's unit: the producer sends evidence only in it. */
+  unit: string
+  /** The own report's form ("10-K", "20-F", "10-K/A"), or null where companyfacts names none. */
+  form?: string | null
+  /** The own report's accession, never the shown figure's. */
+  accession: string
+  /** The day the own report was filed (YYYY-MM-DD), or null. */
+  filed_at?: string | null
+  source_url?: string | null
+  /** The day the filing whose value is shown was filed (YYYY-MM-DD), or null. */
+  later_filed_at?: string | null
+  /** What an exact comparison found between the two values, or null for any other difference. */
+  disagreement?: 'opposite_sign' | 'scale' | null
+}
 
 /** Display valence for a series' deltas, shipped by the backend (single source of truth, like
  *  `percent` — trend_analysis_service._SERIES_TONE): "inverted" = an increase reads as a
@@ -57,12 +93,26 @@ export interface AnalysisPoint {
   raw_tag?: string | null
   derived?: boolean
   reconciled?: boolean
+  provenance?: FactProvenance | null
+  source_url?: string | null
+  yoy_provenance?: FactProvenance | null
+  qoq_provenance?: FactProvenance | null
   yoy_reconciled?: boolean | null
   qoq_reconciled?: boolean | null
   /** For a `percent`-unit series (margins), already a percentage-POINT delta — do not ×100 and
    *  do not treat as relative growth. Every other series: relative growth as a fraction. */
   yoy?: GrowthValue | null
   qoq?: GrowthValue | null
+  /** Present only where an annual run's `yoy` reads "nm" because a later filing reports a different value for one or
+   *  both of its two years: the growth the two years' own annual reports give (a number; "nm" where those values change
+   *  sign; null where they give none). Across a sign or scale finding on either year, on the figure or on any input of
+   *  its calculation, it is "nm", never a number and never null: the finding takes precedence over null. Where the shown
+   *  values also change sign, so the YoY would read "nm" anyway, the producer still sends it if the basis changed too,
+   *  and the later-filing cause wins: the dialog, the chart's footnote and the data notes' line give that cause, never
+   *  the sign change's. Absent for every other comparison, a sign change alone included. */
+  yoy_first_reported?: GrowthValue | null
+  /** The year's own annual report's value, where a later filing reports the one shown (FirstReported). */
+  first_reported?: FirstReported | null
   marker?: string
   fiscal_year?: number
   fiscal_period?: string
@@ -80,6 +130,8 @@ export interface AnalysisSeries {
   cagr: number | null
   cagr_reconciled?: boolean | null
   window_pp_reconciled?: boolean | null
+  cagr_provenance?: FactProvenance | null
+  window_pp_provenance?: FactProvenance | null
   /** The basis window the CAGR was computed over ("FY2016..FY2025") — can be narrower than the
    *  selected range when a concept was first reported mid-window. */
   cagr_window?: string | null
@@ -99,6 +151,10 @@ export interface AnalysisInflection {
 }
 
 export interface AnalysisDataset {
+  data_notes?: DataNotesWire
+  dataset_version?: string
+  snapshot_id?: string
+  data_as_of?: string | null
   ticker: string
   company_name: string
   mode: AnalysisMode
@@ -110,6 +166,9 @@ export interface AnalysisDataset {
 
 /** Same shape as CopilotCitation — the citation chips/Sources UI renders both. */
 export interface AnalysisCitation {
+  marker?: string
+  unit?: string | null
+  percent?: boolean
   n: number
   excerpt: string
   section_ref: string | null
@@ -120,9 +179,13 @@ export interface AnalysisCitation {
   period?: string
   derived?: boolean
   reconciled?: boolean | null
+  provenance?: FactProvenance | null
+  source_url?: string | null
 }
 
 export interface AnalysisCompletion {
+  narrative_presentation?: NarrativePresentation
+  snapshot_id?: string | null
   kind: 'analysis' | 'not_enough_data'
   analysis_id: number | null
   narrative: string
@@ -149,13 +212,22 @@ export interface AnalysisStreamHandlers {
   onProgress?: (stage: string) => void
   onToken: (text: string) => void
   onComplete: (completion: AnalysisCompletion) => void
-  onError: (message: string) => void
+  /** `code` comes only when the server sent a code this client knows on its registered channel (E31,
+   *  docs/audit/contracts/error-codes.md): the page keys on it first, and on the words when it is absent. */
+  onError: (message: string, code?: KnownErrorCode) => void
 }
 
-/** 403/429 gate errors — the UI swaps Retry for an Upgrade CTA (retrying can't help). */
-export const isAnalysisPaywallError = (message: string): boolean => {
+/** The codes whose card offers the plans (the contract's §3): a plan the reader lacks, or Free's allowance used up. */
+const PLAN_CODES: ReadonlySet<KnownErrorCode> = new Set<KnownErrorCode>(['plan_required', 'free_allowance_exhausted'])
+
+/** The 403 "Pro feature" gate: the page adds a way to the plans beside it. The fair-use 429 is not one
+ *  (a Pro user's monthly cap, stated once in the narrative card with no plan link). A known code decides
+ *  (PLAN_CODES are the gate; `pro_fair_use_limit` and every other code, a pause or a rate limit, are not), so
+ *  the words may change; without one, from a server before E31, the words decide. */
+export const isAnalysisPaywallError = (message: string, code?: KnownErrorCode): boolean => {
+  if (code) return PLAN_CODES.has(code)
   const m = (message || '').toLowerCase()
-  return m.includes('pro feature') || m.includes('upgrade to pro') || m.includes('fair-use limit')
+  return m.includes('pro feature') || m.includes('upgrade to pro')
 }
 
 // --- REST calls ---
@@ -171,16 +243,22 @@ export const getAnalysisDataset = async (
   signal?: AbortSignal,
 ): Promise<AnalysisDataset> => {
   const response = await api.post(`/api/analysis/${encodeURIComponent(ticker)}/dataset`, range, { signal })
-  return response.data
+  // The later-filing evidence is checked where it enters and the dataset returned as sent: a point without it is
+  // untouched (lib/laterFilings.ts).
+  const dataset = decodeLaterFilings(response.data as AnalysisDataset)
+  return Object.hasOwn(dataset, 'data_notes')
+    ? { ...dataset, data_notes: decodeDataNotes(dataset.data_notes, dataset) }
+    : dataset
 }
 
 /** Pro PDF export of a completed analysis. Routed through the shared axios client so it inherits
  *  auth-refresh + `withCredentials` (the F4 export pattern — same as `exportSummaryPdf`); a raw
  *  `fetch` here would fail for a Pro user whose access token just expired instead of silently
  *  refreshing and retrying. */
-export const exportAnalysisPdf = async (analysisId: number): Promise<Blob> => {
+export const exportAnalysisPdf = async (analysisId: number, snapshotId?: string | null): Promise<Blob> => {
   const response = await api.get(`/api/analysis/export/${analysisId}/pdf`, {
     responseType: 'blob',
+    ...(snapshotId ? { params: { snapshot_id: snapshotId } } : {}),
   })
   return response.data
 }
@@ -188,7 +266,7 @@ export const exportAnalysisPdf = async (analysisId: number): Promise<Blob> => {
 /** Pro Excel-workbook export. Same request body as `/dataset`, rebuilt server-side — so it works
  *  pre-narrative, exactly like the CSV download it replaces (no analysis_id involved). Shared
  *  axios client for the same auth-refresh reasons as `exportAnalysisPdf`. */
-export const exportAnalysisXlsx = async (ticker: string, range: AnalysisRange): Promise<Blob> => {
+export const exportAnalysisXlsx = async (ticker: string, range: AnalysisRange & { snapshot_id?: string }): Promise<Blob> => {
   const response = await api.post(
     `/api/analysis/${encodeURIComponent(ticker)}/export/xlsx`,
     range,
@@ -197,15 +275,21 @@ export const exportAnalysisXlsx = async (ticker: string, range: AnalysisRange): 
   return response.data
 }
 
-const parseErrorDetail = async (response: Response, fallback: string): Promise<string> => {
+/** A refused request's words, and its E31 code when the body carries one this client knows on this status. */
+const parseErrorDetail = async (
+  response: Response,
+  fallback: string,
+): Promise<{ message: string; code?: KnownErrorCode }> => {
   try {
     const data = await response.json()
-    if (data?.detail) return typeof data.detail === 'string' ? data.detail : fallback
-    if (data?.message) return typeof data.message === 'string' ? data.message : fallback
+    const code = parseErrorCode(data?.code, response.status)
+    if (data?.detail) return { message: typeof data.detail === 'string' ? data.detail : fallback, code }
+    if (data?.message) return { message: typeof data.message === 'string' ? data.message : fallback, code }
+    return { message: fallback, code }
   } catch {
     // Non-JSON body — fall through to the status-based fallback.
   }
-  return fallback
+  return { message: fallback }
 }
 
 /**
@@ -217,7 +301,8 @@ export const streamAnalysis = async (
   ticker: string,
   range: AnalysisRange & { force?: boolean },
   handlers: AnalysisStreamHandlers,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  dataset?: AnalysisDataset,
 ): Promise<void> => {
   const url = `${getApiUrl()}/api/analysis/${encodeURIComponent(ticker)}/stream`
 
@@ -288,11 +373,13 @@ export const streamAnalysis = async (
     cancelScheduledFlush()
     tokenBuffer = ''
   }
-  const fail = (message: string) => {
+  const fail = (message: string, code?: KnownErrorCode) => {
     if (terminal || signal?.aborted) return
     terminal = true
     discardBufferedTokens()
-    handlers.onError(message)
+    // The code rides only when there is one, so a reader of one argument sees what it saw before E31.
+    if (code) handlers.onError(message, code)
+    else handlers.onError(message)
   }
 
   try {
@@ -316,19 +403,19 @@ export const streamAnalysis = async (
 
     if (signal?.aborted) return
     if (!response.ok) {
-      let errorMessage: string
+      let refused: { message: string; code?: KnownErrorCode }
       if (response.status === 401) {
-        errorMessage = 'Sign in to run an analysis.'
+        refused = { message: 'Log in to run an analysis.' }
       } else if (response.status === 403) {
-        errorMessage = await parseErrorDetail(response, 'Multi-Period Analysis is a Pro feature.')
+        refused = await parseErrorDetail(response, 'Multi-Period Analysis is a Pro feature.')
       } else if (response.status === 429) {
-        errorMessage = await parseErrorDetail(response, 'Monthly limit reached. Please try again later.')
+        refused = await parseErrorDetail(response, 'Monthly limit reached. Please try again later.')
       } else if (response.status >= 500) {
-        errorMessage = await parseErrorDetail(response, 'Server error. Please try again.')
+        refused = await parseErrorDetail(response, 'Server error. Please try again.')
       } else {
-        errorMessage = await parseErrorDetail(response, `Request failed with status ${response.status}`)
+        refused = await parseErrorDetail(response, 'The analysis did not start. Run it again.')
       }
-      fail(errorMessage)
+      fail(refused.message, refused.code)
       return
     }
 
@@ -376,12 +463,12 @@ export const streamAnalysis = async (
           case 'token':
             if (typeof data.text === 'string') enqueueToken(data.text)
             break
-          case 'complete':
+          case 'complete': {
             // The completion carries the authoritative (renumbered) narrative — buffered raw
             // tokens are superseded.
             discardBufferedTokens()
-            terminal = true
-            handlers.onComplete({
+            const completion: AnalysisCompletion = {
+              ...(typeof data.snapshot_id === 'string' ? { snapshot_id: data.snapshot_id } : {}),
               kind: data.kind === 'not_enough_data' ? 'not_enough_data' : 'analysis',
               analysis_id: typeof data.analysis_id === 'number' ? data.analysis_id : null,
               narrative: typeof data.narrative === 'string' ? data.narrative : '',
@@ -391,10 +478,24 @@ export const streamAnalysis = async (
               mismatched: typeof data.mismatched === 'number' ? data.mismatched : null,
               cached: data.cached === true,
               n_periods: typeof data.n_periods === 'number' ? data.n_periods : 0,
-            })
+            }
+            if (Object.hasOwn(data, 'narrative_presentation')) {
+              try {
+                completion.narrative_presentation = decodeNarrativePresentation(data.narrative_presentation, completion, dataset)
+              } catch (error) {
+                // The decoder's own refusal carries the recovery sentence. Anything else is a defect inside it: it
+                // goes to the console as itself, and the reader gets the same sentence, never the engine's text.
+                if (!(error instanceof EvidenceRejection)) console.error('[analysis] narrative presentation decoder failed:', error)
+                fail(EVIDENCE_RECOVERY)
+                return
+              }
+            }
+            terminal = true
+            handlers.onComplete(completion)
             return
+          }
           case 'error':
-            fail(typeof data.message === 'string' ? data.message : 'Something went wrong.')
+            fail(typeof data.message === 'string' ? data.message : 'Something went wrong.', parseErrorCode(data.code, 'stream'))
             return
           default:
             break

@@ -1,0 +1,58 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 4,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The filing ties the FY2020 impairment charges of $984 million  primarily to the Duke Energy Progress CCR settlement .",
+   "passages": [
+    {
+     "id": "P53",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $519 million increase in impairment charges primarily driven by the Duke Energy Progress' CCR Settlement Agreement filed with the NCUC in January 2021, and the prior year's impairment reduction related to Citrus County CC at Duke Energy Florida."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage attributes $519M of $984M impairment to CCR settlement, not the entire amount."
+  },
+  {
+   "sentence": "In FY2022 the electric segment added 13.8pp of 17.1% revenue growth , which the filing ties to higher rate-case revenues, favorable weather and volumes .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage discusses net income increase, not revenue growth or percentage points."
+  },
+  {
+   "sentence": "Other income swung to -$1.55 billion in FY2020  from $592 million , which the filing ties to lower investment returns .",
+   "passages": [
+    {
+     "id": "P55",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other Income and Expenses, net. The variance was primarily due to lower returns on investments that fund certain employee benefit obligations and lower earnings on the NMC investment primarily due to lower pricing."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states variance was primarily due to lower returns on investments."
+  },
+  {
+   "sentence": "Operating cash flow fell 28.5% to $5.93 billion in FY2022 , as the filing says under-collected fuel costs deferred to regulatory assets affected cash flows .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states undercollected fuel costs deferred to regulatory assets impacted cash flows."
+  }
+ ],
+ "cost_usd": 0.00077
+}

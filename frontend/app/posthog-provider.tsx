@@ -4,21 +4,25 @@ import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState } from 'react'
-import { getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
+import { subscribeCookiePreferences } from '@/lib/browserConsent'
+import { applyPostHogConsent, browserAnalyticsAllowed, installPostHogConsentGuard } from '@/lib/posthogConsent'
+import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
+import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
+import { PostHogReadyContext } from '@/lib/posthogReady'
 
 function PostHogPageView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (pathname && posthog && posthog?.__loaded) {
+    if (pathname && posthog?.__loaded && browserAnalyticsAllowed()) {
       try {
         let url = window.origin + pathname
         if (searchParams && searchParams.toString()) {
           url = url + `?${searchParams.toString()}`
         }
         posthog.capture('$pageview', {
-          '$current_url': url,
+          '$current_url': sanitizeTelemetryUrl(url),
         })
       } catch (error) {
         console.error('PostHog: Failed to capture pageview', error)
@@ -38,129 +42,73 @@ function PostHogPageViewWrapper() {
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  const [initialized, setInitialized] = useState(false)
+  // Seeded from the SDK, for a provider that mounts again after PostHog has loaded (GlobalErrorBoundary's "Try
+  // again", a global-error reset): a second init is a no-op that never calls `loaded`, so nothing else would set it.
+  // The server render and the first hydration still start at false, since posthog.init runs only in the effect below.
+  const [initialized, setInitialized] = useState(() => Boolean(posthog?.__loaded))
+  // The visitor's analytics choice as this provider last applied it; with `initialized` it makes PostHogReadyContext.
+  const [analyticsAllowed, setAnalyticsAllowed] = useState(false)
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
-
-    // Early return if PostHog key is not configured
-    if (!key) {
-      console.warn('PostHog: NEXT_PUBLIC_POSTHOG_KEY not set, analytics disabled')
-      return
-    }
-
-    // Check cookie consent before initializing PostHog
-    const initializePostHog = (preferences?: CookiePreferences | null) => {
+    let active = true
+    let starting = false
+    const followChoice = () => {
+      const allowed = browserAnalyticsAllowed()
+      setAnalyticsAllowed(allowed)
+      if (!key) return // Identification can still mirror the account id into Sentry after consent.
       try {
-        const consent = preferences || getCookiePreferences()
-
-        // Only initialize if user has consented to analytics
-        // OR if no preferences set yet (will be handled by cookie banner)
-        if (consent && !consent.analytics) {
-          // User explicitly rejected analytics
-          if (posthog?.__loaded) {
-            // If already loaded, opt out
-            posthog.opt_out_capturing()
-          }
+        installPostHogConsentGuard(posthog)
+        if (posthog.__loaded) {
+          applyPostHogConsent(posthog)
           return
         }
-
-        // Don't initialize until user has made a choice
-        // Exception: if no consent recorded, we'll wait for the banner
-        if (!consent && typeof window !== 'undefined') {
-          // Wait for cookie consent to be set
-          return
-        }
-
-        // Initialize PostHog with consent-aware settings
-        if (!initialized && !posthog?.__loaded) {
-          posthog.init(key, {
-            api_host: host,
-            capture_pageview: false, // We handle it manually
-            capture_pageleave: consent?.analytics || false,
-            autocapture: consent?.analytics || false,
-            session_recording: {
-              maskAllInputs: true, // Mask all inputs by default for privacy
-              maskInputOptions: { password: true },
-              maskTextSelector: '[data-ph-mask]',
-              recordCrossOriginIframes: false,
-              // Only enable session recording if explicitly consented
-              // Note: This is controlled by startSessionRecording() call below
-            },
-            disable_session_recording: !consent?.sessionRecording, // Disable if not consented
-            bootstrap: { featureFlags: {} },
-            loaded: (posthogClient) => {
-              if (process.env.NODE_ENV === 'development') {
-                posthogClient.debug()
-              }
-
-              // Start session recording only if user explicitly consented
-              if (consent?.sessionRecording) {
-                posthogClient.startSessionRecording()
-              } else {
-                posthogClient.stopSessionRecording()
-              }
-
-              // Opt in if analytics consented
-              if (consent?.analytics) {
-                posthogClient.opt_in_capturing()
-              }
-
-              // Set initialized state to trigger re-render with PHProvider
-              // This must be in the loaded callback since posthog.__loaded doesn't trigger React updates
+        if (!allowed || starting) return
+        starting = true
+        posthog.init(key, {
+          api_host: host,
+          capture_pageview: false,
+          capture_pageleave: true,
+          autocapture: true,
+          opt_out_capturing_by_default: true,
+          ...postHogPrivacyConfig(posthog),
+          bootstrap: { featureFlags: {} },
+          loaded: () => {
+            // Initialization may finish after a refusal/clear in this or another tab. Never use
+            // the choice captured by the init closure to opt back in or start recording.
+            initializePostHogPrivacy(posthog)
+            applyPostHogConsent(posthog)
+            if (active) {
               setInitialized(true)
-            },
-          })
-        } else if (posthog?.__loaded) {
-          // Update existing PostHog instance based on consent
-          if (consent?.analytics) {
-            posthog.opt_in_capturing()
-
-            // Update session recording based on consent
-            if (consent.sessionRecording) {
-              posthog.startSessionRecording()
-            } else {
-              posthog.stopSessionRecording()
+              setAnalyticsAllowed(browserAnalyticsAllowed())
             }
-          } else {
-            posthog.opt_out_capturing()
-            posthog.stopSessionRecording()
-          }
-        }
+          },
+        })
       } catch (error) {
+        starting = false
         console.error('PostHog: Failed to initialize or update PostHog', error)
       }
     }
+    // Subscribe before init: synchronous loaded callbacks and concurrent choices follow one store.
+    const unsubscribe = subscribeCookiePreferences(followChoice)
+    followChoice()
+    return () => { active = false; unsubscribe() }
+  }, [])
 
-    // Initialize on mount
-    initializePostHog()
-
-    // Listen for consent changes
-    const handleConsentChange = (event: Event) => {
-      const customEvent = event as CustomEvent<CookiePreferences>
-      initializePostHog(customEvent.detail)
-    }
-
-    window.addEventListener('cookieConsentChanged', handleConsentChange)
-
-    return () => {
-      window.removeEventListener('cookieConsentChanged', handleConsentChange)
-    }
-  }, [initialized])
-
-  // Fix for React Error #310: Use conditional rendering instead of early return
-  // This ensures all hooks are called on every render, preventing hook violations
+  // One tree before and after the SDK loads. The provider stays mounted around the page and only the page-view
+  // tracker joins once PostHog has loaded, so a first allow from the footer's Cookie settings never remounts the
+  // route: a draft and the opener's focus survive it. Before consent the provider only hands its hooks the global
+  // client, as their default context does, and consent still gates posthog.init above.
+  // Account identification waits on this (lib/posthogReady.ts): the visitor allows analytics and the SDK has loaded,
+  // or there is no key and nothing to load.
+  const ready = analyticsAllowed && (initialized || !process.env.NEXT_PUBLIC_POSTHOG_KEY)
   return (
-    <>
-      {initialized && posthog?.__loaded ? (
-        <PHProvider client={posthog}>
-          <PostHogPageViewWrapper />
-          {children}
-        </PHProvider>
-      ) : (
-        <>{children}</>
-      )}
-    </>
+    <PostHogReadyContext.Provider value={ready}>
+      <PHProvider client={posthog}>
+        {initialized && posthog?.__loaded ? <PostHogPageViewWrapper /> : null}
+        {children}
+      </PHProvider>
+    </PostHogReadyContext.Provider>
   )
 }

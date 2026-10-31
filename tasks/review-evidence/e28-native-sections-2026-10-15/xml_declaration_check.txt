@@ -1,0 +1,36 @@
+# Output of xml_declaration_check.py.txt over the 32 primary documents fetch_docs.py.txt downloaded (run 2026-10-15)
+
+xml   AAPL_10-K_0000320193-25-000079.html            1,520,326 bytes  sha256 fa4cba2f85ea
+xml   AMZN_10-K_0001018724-26-000004.html            1,968,460 bytes  sha256 863bf4b7d8da
+xml   ASML_20-F_0001628280-26-011378.html           24,864,733 bytes  sha256 b30bd414828a
+xml   BABA_20-F_0001193125-26-231755.html           11,745,281 bytes  sha256 d00ab9254ed0
+xml   BA_10-K_0001628280-26-004357.html              3,439,592 bytes  sha256 21eaeb64e9dd
+xml   BRK.B_10-K_0001193125-26-083899.html          10,396,938 bytes  sha256 7cf925343ff6
+xml   BYND_10-Q_0001655210-26-000037.html            1,663,137 bytes  sha256 f3487757e1c5
+xml   COIN_10-Q_0001679788-26-000054.html            1,560,224 bytes  sha256 029525242f27
+xml   COST_10-Q_0000909832-26-000051.html              897,744 bytes  sha256 f2fd5d207716
+xml   FIGS_10-Q_0001628280-26-054342.html            1,331,157 bytes  sha256 112646d3f212
+xml   F_10-Q_0000037996-26-000086.html               2,367,436 bytes  sha256 c7889a298360
+xml   GPRO_10-K_0001500435-26-000006.html            2,305,180 bytes  sha256 5e45f3e413cb
+xml   INTC_10-Q_0000050863-26-000079.html            1,486,381 bytes  sha256 d2b6dfed4491
+xml   JD_20-F_0001193125-26-157870.html              4,884,018 bytes  sha256 0d4e872aa4bd
+xml   JPM_10-K_0001628280-26-008131.html            12,927,443 bytes  sha256 f9fb86ae8034
+xml   KO_10-Q_0001628280-26-028802.html              1,532,277 bytes  sha256 b8671976512c
+xml   MELI_10-K_0001099590-26-000006.html            4,348,682 bytes  sha256 0097666070d5
+xml   MSFT_10-K_0000950170-25-100235.html            8,158,185 bytes  sha256 9d7b47f2cc13
+xml   NEE_10-Q_0000753308-26-000060.html             3,077,756 bytes  sha256 c5d298b5ed5c
+xml   NVDA_10-Q_0001045810-26-000052.html            1,167,171 bytes  sha256 8e978bef40b2
+xml   NVO_20-F_0000353278-26-000012.html             1,425,869 bytes  sha256 0d31db0a133d
+xml   PDD_20-F_0001104659-26-050727.html             4,333,390 bytes  sha256 18e0f54b1d1c
+xml   PFE_10-Q_0000078003-26-000054.html             2,081,530 bytes  sha256 d40cca8dfd39
+xml   PGR_10-K_0000080661-26-000086.html             1,313,433 bytes  sha256 51c3516bd983
+xml   PLD_10-K_0001193125-26-051453.html            11,507,396 bytes  sha256 77d915265e57
+xml   PLTR_10-Q_0001321655-26-000028.html            1,457,552 bytes  sha256 01039d60c49e
+xml   RIVN_10-K_0001874178-26-000008.html            2,226,094 bytes  sha256 158b03991336
+xml   SE_20-F_0001140361-26-015366.html              5,641,132 bytes  sha256 6125a16adfca
+xml   TSLA_10-K_0001628280-26-003952.html            2,391,647 bytes  sha256 6c5595e77a0f
+xml   TSM_20-F_0001628280-26-025362.html            10,355,934 bytes  sha256 9f21d7cebbdf
+xml   WMT_10-K_0000104169-26-000055.html             2,324,099 bytes  sha256 007ebf906052
+xml   XOM_10-K_0000034088-26-000045.html             5,591,186 bytes  sha256 dd21f6f148f0
+
+32 of 32 documents open with an XML declaration

@@ -17,7 +17,13 @@ from app.services.ai.cash_claims import cash_conversion_basis, conventional_cash
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.debt_scope import build_debt_scope_view, leverage_statement
-from app.services.ai.xbrl_narrative import cash_flow_basis, return_ratio_basis, returns_ratio_in_band
+from app.services.ai.xbrl_narrative import (
+    cash_flow_basis,
+    return_ratio_basis,
+    return_ratio_period,
+    returns_ratio_in_band,
+)
+from app.utils.numbers import money_prefix_for
 
 
 def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
@@ -214,23 +220,21 @@ class _MarkdownRenderMixin:
 
     @staticmethod
     def _coerce_summary_dict(data: Any) -> Dict[str, Any]:
-        """Normalize parsed model JSON to the expected object shape.
+        """Normalize parsed model JSON, reserving private metadata for application authors.
 
         Some models (especially without a strict schema) return a top-level array, or a
         single-element array wrapping the object. Without this guard, ``data.get(...)`` raises
         ``'list' object has no attribute 'get'`` and the whole summary fails with the user-facing
-        "Unable to retrieve this filing" error. Coercing here keeps the pipeline alive so the
+        "We could not generate this summary" error. Coercing here keeps the pipeline alive so the
         structured fallbacks can fill any gaps instead of crashing.
         """
-        if isinstance(data, dict):
-            return data
         if isinstance(data, list):
-            for item in data:  # prefer an element that looks like the summary object
-                if isinstance(item, dict) and ("sections" in item or "metadata" in item):
-                    return item
-            for item in data:
-                if isinstance(item, dict):
-                    return item
+            objects = [item for item in data if isinstance(item, dict)]
+            data = next((item for item in objects if "sections" in item or "metadata" in item),
+                        objects[0] if objects else {})
+        if isinstance(data, dict):
+            return {key: value for key, value in data.items()
+                    if not key.startswith("_") and key != "metric_delta_context_version"}
         return {}
 
     def _apply_structured_fallbacks(
@@ -258,11 +262,9 @@ class _MarkdownRenderMixin:
         # issuers (e.g. "EUR 30.6B", "CNY 30.6B"). Standardized XBRL values are in the filer's
         # reporting currency, so the deterministic figures below must never mislabel a non-USD filer
         # as dollars — a ~7x distortion the numeric scorers can't catch, and a currency-consistency hit.
-        reporting_currency = (xbrl_metrics or {}).get("reporting_currency")
-        money_prefix = (
-            "$" if str(reporting_currency or "USD").upper() == "USD"
-            else f"{str(reporting_currency).upper()} "
-        )
+        # The rule is shared with the AI-timeout fallback (fallback_summary.py) and the prior-period
+        # backfill (schemas/summary.py).
+        money_prefix = money_prefix_for((xbrl_metrics or {}).get("reporting_currency"))
 
         def format_currency(value: Optional[float]) -> Optional[str]:
             if value is None:
@@ -548,8 +550,10 @@ class _MarkdownRenderMixin:
 
         roe = (xbrl_metrics or {}).get("return_on_equity")
         roa = (xbrl_metrics or {}).get("return_on_assets")
+        ni_metric = (xbrl_metrics or {}).get("net_income")
+        ni_period = return_ratio_period(ni_metric.get("current") if isinstance(ni_metric, dict) else None)
 
-        def _ratio_clause(key: str, label: str, metric: Any) -> Optional[str]:
+        def _ratio_clause(key: str, metric: Any) -> Optional[str]:
             # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond the shared
             # RETURNS_RATIO_BAND_PCT almost always means a near-zero denominator (HD's ~$1B equity
             # → "1644.4%") — arithmetically true, analytically noise. Honest negatives inside the
@@ -563,15 +567,33 @@ class _MarkdownRenderMixin:
             value = current.get("value")
             if not returns_ratio_in_band(value):
                 return None
-            clause = f"{label} {value:.1f}%"
+            # Current-period guard: the derivation skips a period whose denominator is missing or
+            # not positive (negative equity at the report date), so the ratio's newest point can
+            # predate the filing's net income. The current clause is undated, so that older ratio
+            # would read as this period's: omit it rather than guess (the undated-prior rule). Each
+            # ratio is judged on its own point, so a dropped ROE never drops an aligned ROA.
+            if ni_period is not None and return_ratio_period(current) not in (None, ni_period):
+                return None
+            # Name the derived ratio by its formula and this point's own numerator scope, not by
+            # an issuer-facing ROE/ROA name the filing may define on a different basis.
+            clause = f"{return_ratio_basis(key, current)}: {value:.1f}%"
             prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
             prior_value = prior.get("value")
-            if returns_ratio_in_band(prior_value):
-                clause += f" (prior {prior_value:.1f}%)"
-            return f"{clause} ({return_ratio_basis(key)})"
+            prior_period = return_ratio_period(prior)
+            if returns_ratio_in_band(prior_value) and prior_period is not None:
+                # Comparative selection remains the extractor's existing immediately-prior point.
+                # Name that point's actual date so a sequential instant cannot silently read as the
+                # filing's otherwise-prevailing YoY comparison (observed on FIGS Q2 2026); an
+                # undated prior abstains.
+                clause += f" (prior at {prior_period}: {prior_value:.1f}%"
+                prior_basis = return_ratio_basis(key, prior)
+                if prior_basis != return_ratio_basis(key, current):
+                    clause += f"; {prior_basis}"
+                clause += ")"
+            return clause
 
-        ratio_clauses = [c for c in (_ratio_clause("return_on_equity", "return on equity was", roe),
-                                     _ratio_clause("return_on_assets", "return on assets", roa)) if c]
+        ratio_clauses = [c for c in (_ratio_clause("return_on_equity", roe),
+                                     _ratio_clause("return_on_assets", roa)) if c]
         if ratio_clauses:
             line = "; ".join(ratio_clauses)
             vd["returns_on_capital"] = line[0].upper() + line[1:] + "."

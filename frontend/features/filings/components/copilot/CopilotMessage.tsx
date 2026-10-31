@@ -3,25 +3,48 @@
 import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Button } from '@/components/ui'
+import { ActivityLine, Button, countControlClass, cx, noticeTint } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
-import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
+import { sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
+import {
+  ArrowClockwiseIcon,
+  ArrowRightIcon,
+  ArrowSquareOutIcon,
+  BracketsCurlyIcon,
+  ChatCircleTextIcon,
+  CheckCircleIcon,
+  LightningIcon,
+  ProhibitIcon,
+} from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
-import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
+import type { KnownErrorCode } from '@/lib/api/client'
+import { isCopilotFairUseLimit, isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
 
-/* Visual language: the v2.2 "Ask answer" evidence block (see
-   components/AskFilingAnswer.tsx, the DS reference implementation) — panel
-   card chrome, mono answer register (.copilot-answer — DS type roles put
-   Ask-this-Filing output in the data face), brand-tint bracket markers,
-   footnote evidence rows with scoped source-check labels, and the
-   citation and source-check counts. The MACHINERY here (streaming fast
-   path, citation-chip injection, viewer deep-links, follow-ups) is
-   the shipped contract pinned by the copilot test suites — restyle only.
-   The assistant's background tool activity is deliberately never surfaced:
-   the reading state shows a single calm indicator, then the clean answer. */
+/* Visual language: the v2.2 "Ask answer" evidence block (frontend/DESIGN_SYSTEM.md,
+   "Ask answer"): panel card chrome, mono answer register (.copilot-answer: DS
+   type roles put Ask-this-Filing output in the data face), brand-tint bracket
+   markers, footnote evidence rows with scoped source-check labels, and the
+   matched-source count. The MACHINERY here (citation-chip
+   injection, viewer deep-links, follow-ups) is the shipped contract pinned
+   by the copilot test suites: restyle only.
+   Answers arrive whole: the API publishes an answer only once its citations
+   are admitted, and AskCopilotRail moves a message from 'reading' straight to
+   'done' or 'error' (its token callback is a no-op). So the reading state's
+   single calm indicator stays until the complete answer replaces it, and the
+   assistant's background tool activity is never surfaced. There is no
+   token-by-token state, so no raw-text view and no caret. */
+
+// The reading card's words while an answer is grounded; the Copilot's status line says the same (AskCopilotRail.tsx;
+// in the filing workspace the line is the pane's).
+export const READING_LINE = 'Reading the filing…'
+
+// An errored answer's sentence as its card prints it: the alert's message, or the plan card's sentence as the server
+// wrote it, never a button's label. In the filing workspace the pane's status line says the same when the error lands
+// while the Filing tab shows, the card then in the hidden Ask panel (AskCopilotRail.tsx).
+export const errorSentence = (error: string | undefined): string => error || 'Something went wrong.'
 
 export interface CopilotMessageData {
   id: string
@@ -30,9 +53,11 @@ export interface CopilotMessageData {
   citations?: CopilotCitation[]
   grounded?: number
   kind?: 'answer' | 'not_disclosed'
-  // 'reading' (pre-token), 'streaming' (tokens arriving), 'done', 'error'
-  status?: 'reading' | 'streaming' | 'done' | 'error'
+  // 'reading' (waiting for the admitted answer), then 'done' or 'error': answers arrive whole.
+  status?: 'reading' | 'done' | 'error'
   error?: string
+  /** The refusal's E31 code, when the server sent a known one: the plan card decides on it before the words. */
+  errorCode?: KnownErrorCode
   // 2-3 suggested next questions, shown as tappable chips under the latest answer.
   followups?: string[]
 }
@@ -52,7 +77,7 @@ interface CopilotMessageProps {
   isPaywallError?: boolean
   // Opens the contextual upgrade modal (used by the paywall error bubble instead of a raw link).
   onUpgrade?: () => void
-  // Issuer ticker + filing type — used by the "not disclosed" card to point to the right filing.
+  // Issuer ticker + filing type: used by the "not disclosed" card to point to the right filing.
   ticker?: string | null
   filingType?: string
   // Tapping a suggested follow-up asks it. Only shown for the latest completed answer.
@@ -64,7 +89,7 @@ interface CopilotMessageProps {
 function notDisclosedHint(filingType?: string): string | null {
   if (!filingType) return null
   if (/10-?q/i.test(filingType))
-    return 'Annual-only details like full risk factors, executive compensation, and the business overview usually live in the company’s 10-K.'
+    return 'Full risk factors and the business overview usually live in the company’s 10-K. Executive pay is usually in its proxy statement.'
   if (/10-?k/i.test(filingType))
     return 'Quarter-specific updates usually appear in the company’s most recent 10-Q.'
   return null
@@ -80,16 +105,16 @@ function FollowupChips({
 }) {
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Ask next</p>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">Ask next</p>
       <div className="flex flex-col gap-1.5">
         {followups.map((q, i) => (
           <button
             key={`${q}-${i}`}
             type="button"
             onClick={() => onFollowup(q)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-2.5 py-1.5 text-left text-xs text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-2.5 py-1.5 text-left text-xs text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            <SparkleIcon className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+            <ChatCircleTextIcon className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             {q}
           </button>
         ))}
@@ -103,10 +128,13 @@ function FollowupChips({
 type MdExtra = { node?: unknown }
 
 /** v2.2 GFM manners for the mono answer register: mb-3 block rhythm, tnum
-    numerals, reader-style hairline tables, brand links. `inject` routes a
-    text-bearing element's children through the citation-chip walker — the
+    numerals, reader-style hairline tables, prose links. `inject` routes a
+    text-bearing element's children through the citation-chip walker: the
     SAME coverage set as before the restyle (p/li/strong/em/td); everything
-    else is style-only. */
+    else is style-only. A link prints what the model wrote, a figure or a
+    date included, so it takes the prose links' rule in globals.css (the
+    answer's own ink, underlined, sage under the pointer; D-030) and adds
+    only its weight. */
 function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
   return {
     p: ({ node: _n, children, ...rest }: ComponentProps<'p'> & MdExtra) => (
@@ -136,10 +164,7 @@ function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
       <em {...rest}>{inject(children)}</em>
     ),
     a: ({ node: _n, children, ...rest }: ComponentProps<'a'> & MdExtra) => (
-      <a
-        {...rest}
-        className="font-semibold text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark"
-      >
+      <a {...rest} className="font-semibold">
         {children}
       </a>
     ),
@@ -159,7 +184,7 @@ function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
     th: ({ node: _n, children, ...rest }: ComponentProps<'th'> & MdExtra) => (
       <th
         {...rest}
-        className="border-b border-border-light px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
+        className="border-b border-border-light px-2 py-1.5 text-left text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:border-border-dark dark:text-text-tertiary-dark"
       >
         {children}
       </th>
@@ -172,7 +197,7 @@ function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
   }
 }
 
-/* The mono answer register — DS type roles render Ask-this-Filing output in
+/* The mono answer register: DS type roles render Ask-this-Filing output in
    the data face (.copilot-answer in globals.css). */
 const ANSWER_REGISTER =
   'copilot-answer tnum break-words font-data text-sm leading-7 text-text-primary-light dark:text-text-primary-dark'
@@ -187,17 +212,8 @@ function MarkdownProse({ children }: { children: string }) {
   )
 }
 
-// While tokens are still arriving we render the raw text (whitespace-preserving) instead of
-// re-parsing the growing markdown on every frame — markdown (with citation chips) is rendered once
-// the `complete` event lands. Re-parsing a markdown string that grows by a token each frame is the
-// O(n²) cost the streaming view used to pay; a plain text node is a near-free update. `pre-wrap`
-// keeps paragraph breaks readable mid-stream; the formatted answer snaps in when the stream ends.
-function StreamingText({ children }: { children: string }) {
-  return <div className={`whitespace-pre-wrap ${ANSWER_REGISTER}`}>{children}</div>
-}
-
 // Replace inline `[n]`/`[F#]` markers with interactive CitationChips via the shared walker (also
-// used by the Multi-Period Analysis narrative renderer — see lib/citationMarkers.tsx).
+// used by the Multi-Period Analysis narrative renderer: see lib/citationMarkers.tsx).
 function injectCitations(children: ReactNode, citations: CopilotCitation[]): ReactNode {
   return injectCitationMarkers(children, citations, (citation, key) => (
     <CitationChip key={key} citation={citation} />
@@ -226,47 +242,48 @@ function MarkdownProseWithCitations({
 }
 
 
-/** XBRL anchor marker — outline tag matching Phosphor regular weight (mirrors
-    the DS reference; not in lib/icons). */
-function TagIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M11.6 3.4h6.2a1.8 1.8 0 0 1 1.8 1.8v6.2c0 .48-.19.94-.53 1.27l-7.4 7.4a1.8 1.8 0 0 1-2.54 0l-6.2-6.2a1.8 1.8 0 0 1 0-2.54l7.4-7.4c.33-.34.79-.53 1.27-.53Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <circle cx="15.2" cy="8.8" r="1.4" fill="currentColor" />
-    </svg>
-  )
-}
-
-/** Attribute the existing source check; excerpt matching is not whole-answer verification. */
+/** Attribute the existing source check; excerpt matching is not whole-answer verification. A label
+    that carries a verification claim is 12px, never data-xs (tests/unit/dataXsAllowlist.spec.ts, which
+    reads both states because both render through citationVerificationLabel). The badge may shrink and
+    wrap its words, so at an enlarged text size it stays inside the card (it wraps onto its own line first). */
 function TrustBadge({ citation }: { citation: CopilotCitation }) {
   return citation.verified ? (
-    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[10.5px] font-semibold ${CHIP}`}>
+    <span className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-px text-xs font-semibold ${CHIP}`}>
       <CheckCircleIcon className="h-2.5 w-2.5" aria-hidden="true" />
       {citationVerificationLabel(citation)}
     </span>
   ) : (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-border-light bg-white px-2 py-px text-[10.5px] font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
-      Cited
+    <span className="inline-flex max-w-full items-center rounded-full border border-border-light bg-white px-2 py-px text-xs font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
+      {citationVerificationLabel(citation)}
     </span>
   )
 }
 
 /* Footnote evidence rows (v2.2): bracket marker chip + brand-rail excerpt
-   blockquote (XBRL facts swap the quote register for the tag glyph + concept
+   blockquote (XBRL facts swap the quote register for the braces glyph, the
+   XBRL fact's reserved mark, + concept
    anchor + tabular figure) + locator link + trust badge. The decorative curly
-   quotes are pseudo-elements so the excerpt stays an exact text node. */
+   quotes are pseudo-elements so the excerpt stays an exact text node. A
+   locator prints the citation's section name as the model wrote it ("Item 7.
+   MD&A"), so it is the count control's link (D-030): the secondary ink at
+   rest, sage and the underline under the pointer, the brand ring on focus. */
+const LOCATOR_LINK = cx('inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm text-xs font-semibold', countControlClass('link'))
+
+/** The locator's new-tab cue, as the app's other links to the original draw it. */
+function OpensOriginal() {
+  return (
+    <>
+      <ArrowSquareOutIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
+      <span className="sr-only"> (opens in a new tab)</span>
+    </>
+  )
+}
+
 function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
-  const linkClass =
-    'text-xs font-semibold text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
       {citations.some((c) => c.verified) && (
         <p className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           {SOURCE_MATCH_SCOPE}
@@ -279,7 +296,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
           return (
             <li key={`${c.n}-${i}`} className="flex gap-2.5 text-xs">
               <span
-                className={`flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-[10px] font-semibold ${CHIP}`}
+                className={`flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-data-xs font-semibold ${CHIP}`}
               >
                 [{String(c.n).toUpperCase()}]
               </span>
@@ -289,40 +306,42 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                     {tag && (
                       <div className="flex items-start gap-1.5">
                         <span className="mt-px text-brand-strong dark:text-brand-strong-dark">
-                          <TagIcon className="h-3.5 w-3.5 flex-none" />
+                          <BracketsCurlyIcon className="h-3.5 w-3.5 flex-none" aria-hidden="true" />
                         </span>
                         <span className="min-w-0 break-all font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">{tag}</span>
                       </div>
                     )}
-                    <p className="tnum mt-1 font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
+                    <p className="tnum mt-1 break-words font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
                       {c.excerpt}
                     </p>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
-                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-                        {c.section_ref ?? 'XBRL'} · EDGAR ↗
+                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
+                        <span className="min-w-0 break-words">{sourceLinkLabel(c.fragment_url)}</span>
+                        <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (
-                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
+                      <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>
                     ) : null}
                     <TrustBadge citation={c} />
                   </div>
                 </div>
               ) : (
                 <div className="min-w-0 flex-1">
-                  <blockquote className="border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light before:content-['“'] after:content-['”'] dark:border-brand-border-dark dark:text-text-secondary-dark">
+                  <blockquote className="break-words border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light before:content-['“'] after:content-['”'] dark:border-brand-border-dark dark:text-text-secondary-dark">
                     {c.excerpt}
                   </blockquote>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
-                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-                        {c.section_ref ?? 'View in filing'} ↗
+                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
+                        <span className="min-w-0 break-words">{c.section_ref ?? 'View in filing'}</span>
+                        <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (
-                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
+                      <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>
                     ) : (
-                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">Excerpt {c.n}</span>
+                      <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">Excerpt {c.n}</span>
                     )}
                     <TrustBadge citation={c} />
                   </div>
@@ -335,6 +354,13 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
     </div>
   )
 }
+
+/** The sources the answer card counts as matched: the server's grounded count, less any figure it calculated, which
+ *  the Sources list shows with its own label (lib/evidenceLabels FIGURE_CALCULATED: the filing does not state it). */
+const matchedSources = (message: CopilotMessageProps['message']): number =>
+  typeof message.grounded === 'number'
+    ? message.grounded - (message.citations?.filter((citation) => citation.calculated === true).length ?? 0)
+    : 0
 
 export default function CopilotMessage({
   message,
@@ -349,34 +375,46 @@ export default function CopilotMessage({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3.5 py-2 text-sm text-text-primary-light dark:text-text-primary-dark ring-1 ring-brand-border">
+        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3.5 py-2 text-sm text-text-primary-light dark:text-text-primary-dark ring-1 ring-brand-border dark:ring-brand-border-dark">
           {message.content}
         </div>
       </div>
     )
   }
 
-  // --- Assistant: error bubble ---
+  // --- Assistant: plan card. A spent allowance, a Pro-only gate or the Pro fair-use cap is a plan
+  // fact, not a failure: the quiet answer card (panel, hairline, secondary ink, role="status"), never
+  // the error tint or role="alert" (CopilotMessage.spec.tsx, statusTintsOnlyForStatus). The server's
+  // sentence says what happened; upgrading cannot lift the fair-use cap, so that card has no button. The
+  // rail turns the reading card into this one, and React keeps the element, so the reading card is already
+  // this status region and a screen reader announces the sentence when it arrives (below). While the filing workspace's
+  // Filing tab hides the card, the pane's line says the sentence (errorSentence).
+  if (message.status === 'error' && isPaywallError) {
+    const fairUse = isCopilotFairUseLimit(message.error || '', message.errorCode)
+    return (
+      <div role="status" className={ANSWER_CARD}>
+        <p className="text-text-secondary-light dark:text-text-secondary-dark">{errorSentence(message.error)}</p>
+        {!fairUse && onUpgrade && (
+          <div className="mt-2.5">
+            <Button size="sm" onClick={onUpgrade} leftIcon={<LightningIcon className="h-3.5 w-3.5" aria-hidden="true" />}>
+              Upgrade to Pro
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // --- Assistant: error bubble (the answer card's shape, with the thread's tail, in Notice's error tint) ---
   if (message.status === 'error') {
     return (
-      <div
-        role="alert"
-        className="rounded-xl rounded-bl-sm border border-error-light/25 bg-error-light/[0.06] px-4 py-3 text-sm dark:border-error-dark/25 dark:bg-error-dark/10"
-      >
-        <p className="font-medium text-error-light dark:text-error-dark">{message.error || 'Something went wrong.'}</p>
+      <div role="alert" className={cx('rounded-xl rounded-bl-sm border px-4 py-3 text-sm', noticeTint('error'))}>
+        <p className="font-medium text-error-light dark:text-error-dark">{errorSentence(message.error)}</p>
         <div className="mt-2.5">
-          {isPaywallError ? (
-            onUpgrade && (
-              <Button size="sm" onClick={onUpgrade} leftIcon={<SparkleIcon className="h-3.5 w-3.5" />}>
-                Upgrade to Pro
-              </Button>
-            )
-          ) : (
-            onRetry && (
-              <Button variant="secondary" size="sm" onClick={onRetry} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
-                Retry
-              </Button>
-            )
+          {onRetry && (
+            <Button variant="secondary" size="sm" onClick={onRetry} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
+              Try again
+            </Button>
           )}
         </div>
       </div>
@@ -390,7 +428,7 @@ export default function CopilotMessage({
       <div className={ANSWER_CARD}>
         <div className="mb-1.5 flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
           <ProhibitIcon className="h-4 w-4" />
-          <span className="text-xs font-semibold uppercase tracking-wide">Not disclosed in this filing</span>
+          <span className="text-xs font-semibold uppercase tracking-eyebrow">Not disclosed in this filing</span>
         </div>
         <p className="text-text-secondary-light dark:text-text-secondary-dark">{message.content}</p>
         {(hint || ticker) && (
@@ -399,7 +437,7 @@ export default function CopilotMessage({
             {ticker && (
               <Link
                 href={`/company/${encodeURIComponent(ticker)}`}
-                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline`}
+                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
               >
                 Browse {ticker}’s other filings
                 <ArrowRightIcon className="h-3 w-3" />
@@ -407,7 +445,7 @@ export default function CopilotMessage({
             )}
           </div>
         )}
-        {/* A dead end without a next step strands the user — surface the "questions this
+        {/* A dead end without a next step strands the user: surface the "questions this
             filing CAN answer" follow-ups the backend now sends with not_disclosed verdicts. */}
         {showFollowups && onFollowup && message.followups && message.followups.length > 0 && (
           <FollowupChips followups={message.followups} onFollowup={onFollowup} />
@@ -416,66 +454,49 @@ export default function CopilotMessage({
     )
   }
 
-  // --- Assistant: reading / streaming / done answer ---
+  // --- Assistant: reading / done answer ---
   const isReading = message.status === 'reading' && message.content.length === 0
-  const isStreaming = message.status === 'streaming'
   const isDone = message.status === 'done'
-  // Inject interactive citation chips only once citations are known (a completed `answer`). While
-  // streaming, `[n]` markers stay plain text via MarkdownProse until the `complete` event lands.
+  // Inject interactive citation chips only once citations are known (a completed `answer`).
   // (The not_disclosed branch already returned above, so this is always an `answer`.)
   const citations = message.citations
   const showChips = isDone && !!citations && citations.length > 0
-  const verifiedCount = citations?.filter((c) => c.verified).length ?? 0
 
   return (
-    <div className={ANSWER_CARD}>
+    // While it reads, the card is a status region: a status region announces text added to it, never text it was
+    // created with, so the plan card's sentence (above) is heard because it lands in this element. A done answer
+    // drops the role; the Copilot's status line says "Answer ready." (AskCopilotRail.tsx).
+    <div role={isReading ? 'status' : undefined} className={ANSWER_CARD}>
       {isReading ? (
-        // A single calm indicator while the answer is grounded — the assistant's
-        // background tool activity is deliberately not surfaced to the user.
-        <p className="flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
-          Reading the filing…
-        </p>
+        // A single calm indicator while the answer is grounded: the assistant's
+        // background tool activity is deliberately not surfaced to the user. The card is created with this line in it,
+        // so the card does not announce it (the Copilot's status line does); the card is the status region for the
+        // plan card's sentence, which replaces it.
+        <ActivityLine>{READING_LINE}</ActivityLine>
       ) : (
         <>
-          <div className="flex items-start">
-            <div className="min-w-0 flex-1">
-              {showChips ? (
-                <MarkdownProseWithCitations citations={citations!}>
-                  {message.content}
-                </MarkdownProseWithCitations>
-              ) : isStreaming ? (
-                <StreamingText>{message.content}</StreamingText>
-              ) : (
-                <MarkdownProse>{message.content}</MarkdownProse>
-              )}
-            </div>
-            {isStreaming && (
-              <span className="ml-0.5 inline-block animate-pulse text-brand-strong dark:text-brand-strong-dark" aria-hidden="true">
-                ▍
-              </span>
+          <div>
+            {showChips ? (
+              <MarkdownProseWithCitations citations={citations!}>
+                {message.content}
+              </MarkdownProseWithCitations>
+            ) : (
+              <MarkdownProse>{message.content}</MarkdownProse>
             )}
           </div>
 
           {message.status === 'done' && (
             <>
-              {typeof message.grounded === 'number' && message.grounded > 0 && (
-                // Source-check counts describe located evidence, not verified answer claims.
-                <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
-                    {message.grounded} matched source{message.grounded === 1 ? '' : 's'}
-                  </span>
-                  {!!citations?.length && (
-                    <span className="ml-auto font-data">
-                      {citations.length} citation{citations.length === 1 ? '' : 's'} · {verifiedCount} source checks
-                    </span>
-                  )}
+              {matchedSources(message) > 0 && (
+                // One count, said once: it describes located evidence, not verified answer claims.
+                <p className="mt-2.5 flex items-center gap-1.5 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
+                  {matchedSources(message)} matched source{matchedSources(message) === 1 ? '' : 's'}
                 </p>
               )}
               {message.citations && <SourcesList citations={message.citations} />}
-              {/* Per-answer disclaimer (audit F7): the DS reference component always carried
-                  this line — the wired renderer had dropped it. */}
+              {/* Per-answer disclaimer (audit F7): the line is part of the answer card's contract,
+                  so every done answer carries it. */}
               <AiDisclaimer lead={false} className="mt-2">
                 {SEC_EDGAR_NOT_ADVICE}
               </AiDisclaimer>

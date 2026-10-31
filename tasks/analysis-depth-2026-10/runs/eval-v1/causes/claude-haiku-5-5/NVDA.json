@@ -1,0 +1,75 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 5,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2025 added 114.2% to $130 billion , which the filing ties to data center compute and networking platforms for AI .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2025 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Demand for our Hopper architecture drove our significant growth for the full year. We began shipping production systems of the Blackwell architecture in the fourth quarter of fiscal year 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue growth driven by data center compute and networking platforms for AI."
+  },
+  {
+   "sentence": "In FY2026 the filing credits Blackwell and NVLink demand, with Data Center computing up 58.9% and networking up 141.5% .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states Blackwell drove computing growth and NVLink drove networking growth."
+  },
+  {
+   "sentence": "Operating expenses rose 41% on employee growth and compute infrastructure costs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating expenses for fiscal year 2026 were up 41% from a year ago, driven by higher compensation and benefits expenses due to employee growth and compute and infrastructure costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating expenses up 41% due to employee growth and compute infrastructure costs."
+  },
+  {
+   "sentence": "Other income of $11.1 billion , mainly unrealized equity gains , was taxed at 15.1% , leaving net margin at 55.6%  against 60.4% operating .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income, net primarily consists of realized or unrealized gains and losses from investments in non-marketable equity securities, publicly-held equity securities, and the impact of changes in foreign currency rates. The change in Other income, net, compared to fiscal year 2025, was primarily driven by unrealized gains in non-marketable and publicly-held equity securities, including gains from our previously announced investment in Intel\u2019s common stock. Refer to Note 7 and 8 of the Notes to the Consolidated Financial Statements in Part\u00a0IV, Item\u00a015 of this Annual Report on Form\u00a010-K for additional information regarding our non-marketable equity securities."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports other income from unrealized equity gains but not tax rate or margins."
+  },
+  {
+   "sentence": "Inventory provisions cut FY2023 gross margin by 8.0pp , with $2.17 billion of charges on excess Ampere supply .",
+   "passages": [
+    {
+     "id": "P35",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin was 56.9% and 64.9% for fiscal years 2023 and 2022, respectively. The decrease in fiscal year 2023 was primarily due to $2.17 billion of inventory provisions in fiscal year 2023, which consists of approximately $1.04 billion for inventory on hand and approximately $1.13 billion for inventory purchase obligations in excess of our current demand projections."
+    },
+    {
+     "id": "P38",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin for fiscal year 2023 declined from a year ago, driven by $2.17 billion of inventory charges largely relating to excess supply of NVIDIA Ampere architecture Gaming and Data Center products as compared to the demand expectations for these products, particularly for the expected demand in China. The inventory charges were comprised of $1.04 billion for inventory on hand and $1.13 billion for inventory purchase obligations in excess of our demand expectations."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states inventory provisions of $2.17 billion on excess Ampere supply cut gross margin."
+  }
+ ],
+ "cost_usd": 0.001043
+}

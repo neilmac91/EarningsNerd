@@ -1,8 +1,11 @@
-"""Current-subscription read boundary; independent of the global checkout Stripe client.
+"""Exact-ID Stripe read boundary; independent of the global checkout Stripe client.
 
+Webhook processing reads the current subscription under the account lock and a paid invoice before
+that lock is taken; the serving-charge report (``billing_serving_prices.py``) reads the bound Prices.
 The transport limits connection/read inactivity and makes one attempt. These are not a total
-wall-clock deadline: DNS and a progressing response can take longer. The calling worker retains
-its account lock/session until the read finishes; never abandon that worker on a future timeout.
+wall-clock deadline: DNS and a progressing response can take longer. A reconciling worker retains
+its account lock/session until the subscription read finishes; never abandon that worker on a
+future timeout.
 """
 from __future__ import annotations
 
@@ -92,3 +95,15 @@ def retrieve_invoice_snapshot(invoice_id: str) -> dict:
             return snapshot
     except Exception as exc:
         raise SubscriptionReconciliationUnavailable("Current Stripe invoice state is unavailable") from exc
+
+
+def retrieve_price_snapshot(price_id: str) -> dict:
+    """Read one exact Price for the serving-charge report, which validates the fields it reports."""
+    try:
+        with _bounded_client() as client:
+            snapshot = client.v1.prices.retrieve(price_id).to_dict()
+            if not isinstance(snapshot, dict) or snapshot.get("id") != price_id:
+                raise ValueError("Price identity does not match requested ID")
+            return snapshot
+    except Exception as exc:
+        raise SubscriptionReconciliationUnavailable("Current Stripe price state is unavailable") from exc

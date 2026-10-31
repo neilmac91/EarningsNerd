@@ -1,0 +1,82 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 6,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2024 drop came as rising grain stocks, lower commodity prices and elevated interest rates cut large and small agriculture shipment volumes .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states rising grain stocks, lower commodity prices, elevated interest rates contributed to lower shipment volumes."
+  },
+  {
+   "sentence": "That FY2023 gain came from volume growth and price realization of 17% in the U.S. and Canada and 12% outside it .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes increased 10 percent in the U.S. and Canada, 32 percent in Australia, and 9 percent in Western Europe, partially offset by the effect of suspension of shipments to Russia. Price realization was 17 percent in the U.S. and Canada and 12 percent outside the U.S. and Canada, driven by strong demand. Prior period results were impacted by special items (see Note 4)."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports price realization percentages but not volume growth; volume growth was 10% U.S./Canada, not 17%."
+  },
+  {
+   "sentence": "In FY2024 revenue fell 15.6% while operating costs fell only 11.9% , a 3.7pp gap , as production costs stayed unfavorable on lower volumes and production inefficiencies .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production costs were favorable in 2024 due to lower material and employee profit-sharing incentives costs, partially offset by higher manufacturing overhead costs driven by lower volumes and production inefficiencies."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage says production costs were favorable, not unfavorable; no support for cost gap claim."
+  },
+  {
+   "sentence": "The inflow was driven by net income adjusted for non-cash provisions and a decrease in sales receivables .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash inflows driven by net income adjusted for non-cash provisions and decrease in receivables."
+  },
+  {
+   "sentence": "Management expects lower equipment-operations operating cash flow in FY2026, partly offset by inventory reductions .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "We closely monitor our cash requirements. Based on the available sources of liquidity, we expect to meet our funding needs in the short term (next 12 months) and long term (beyond 12 months). We are forecasting lower operating cash flows from equipment operations in 2026 compared with 2025, driven by a decrease in net income adjusted for non-cash provisions, partially offset by higher cash flows generated from inventory reductions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage forecasts lower operating cash flows in 2026, partially offset by inventory reductions."
+  },
+  {
+   "sentence": "The filings attribute the volume drop to moderating market conditions and lower U.S. and Canada shipments .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage attributes volume drop to U.S./Canada decrease but not to moderating market conditions."
+  }
+ ],
+ "cost_usd": 0.00114
+}

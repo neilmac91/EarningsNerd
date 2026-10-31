@@ -4,10 +4,11 @@
    StreamingSummaryDisplay — app/filing/[id]/StreamingSummaryDisplay.tsx
    -----------------------------------------------------------------------------
    The live generation experience for a filing summary: one calm progress Card
-   (bar + honest step log + polished whimsy) and, once text streams in, a second
-   Card carrying the AI summary. Composed from the DS primitives (Card, Badge,
-   Notice, GuidanceCard, SkeletonText) with useCountUp for the percent and motion
-   tokens for its timers — no hand-rolled cards, rings, or raw ms.
+   (bar + honest step log + one line of the voice in the header's live-status
+   line) and, once text streams in, a second Card carrying the AI summary.
+   Composed from the DS primitives (Card, Badge, GuidanceCard, SkeletonText) with
+   useCountUp for the percent and motion tokens for its timers — no hand-rolled
+   cards, rings, or raw ms.
 
    The PROGRESS MATH is load-bearing and unchanged from the prior inline version
    (STAGE_ORDER / STAGE_PROGRESS_MAP / the asymptotic optimistic-progress loop);
@@ -15,56 +16,101 @@
    (backend/app/services/summary_pipeline.py), not here.
 ============================================================================= */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
+import { plural } from '@/features/filings/lib/sectionChanges'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
-import { Button } from '@/components/ui/Button'
-import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
-import { SparkleIcon } from '@/lib/icons'
+import { CheckIcon } from '@/lib/icons'
+import { isNonRetryableStreamError, isPaywallStreamError, type SummaryStreamFailure } from '@/features/summaries/api/summaries-api'
+import { secondaryUnavailableClass } from '@/components/ui/Button'
+import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
+import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
+import { TRIAL_DAYS, proFairUseLine } from '@/lib/planLimits'
 import { useCountUp } from '@/hooks/useCountUp'
+import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
+import { RetryButton } from '@/hooks/useRetainedFailure'
 import { MOTION } from '@/lib/motion'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 
 // --- Constants ---
 
-// Playful but polished: personality without the cringe. Rotates while we work.
-const WHIMSY_MESSAGES = [
-  "Scanning 400 pages of footnotes so you don't have to…",
-  'Cross-referencing the numbers with the narrative…',
-  'Translating corporate-speak into plain English…',
-  'Reading the size-8 fine print…',
-  "Reviewing the obscure 'Other' section…",
-  'Decoding the tone of the outlook…',
-]
+// The one sanctioned playful surface (docs/voice-and-style.md › the humour floor): dry, true to what
+// the pipeline does, never a joke about money. One line per backend stage, chosen per filing, so the
+// line changes only when the work does: a run in progress is activity, never a status notice
+// (DESIGN_SYSTEM.md §4 › Inline notice, §9). The pools follow the pipeline
+// (backend/app/services/summary_stages): fetching downloads, parsing reads the sections, and the
+// figure work runs under summarizing (analyzing is two yields between two progress writes,
+// enrichment.py:187-195, so it lasts milliseconds), so those two stages share a pool. A line says what the step
+// beside it does not: "Checking the figures against the filing's data…" left the summarizing pool once the
+// writing step said the same (E230).
+const STATUS_LINES = {
+  fetching: ['Opening the filing…'],
+  parsing: [
+    'Reading the size-8 fine print…',
+    'Reading the footnotes so you can go straight to the ones that matter…',
+    'Reviewing the line called Other…',
+  ],
+  summarizing: [
+    'Finding where the filing says that…',
+    'Translating management’s phrasing into plain English…',
+  ],
+} as const
+type StatusPool = keyof typeof STATUS_LINES
+const STATUS_POOL: Record<string, StatusPool> = {
+  initializing: 'fetching',
+  queued: 'fetching',
+  fetching: 'fetching',
+  parsing: 'parsing',
+  analyzing: 'summarizing',
+  summarizing: 'summarizing',
+}
+const STALLED_LINE = 'Taking longer than usual. Still working on it.'
+
+/** The header's live-status line: the stalled sentence, else this filing's line for the stage's pool
+    (unknown and terminal stages take the fetching pool). Deterministic per filing and pool, so it never
+    flips between two lines of one pool across re-renders, and analyzing and summarizing show the same line. */
+const statusLine = (stage: string, filingId: number, isStalled: boolean): string => {
+  if (isStalled) return STALLED_LINE
+  const pool = STATUS_POOL[stage] ?? 'fetching'
+  const lines = STATUS_LINES[pool]
+  const offset = Object.keys(STATUS_LINES).indexOf(pool)
+  return lines[(Math.abs(Math.trunc(filingId)) + offset) % lines.length] ?? lines[0]
+}
 
 // Ordered list of the real pipeline stages the backend streams over SSE
 // (see backend/app/services/summary_pipeline.py). Step status is derived from the
 // live stage below — not from a timer — so the log reflects what is actually happening.
 const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing', 'summarizing', 'completed'] as const
 
-// Honest progress steps mapped to real backend stages. The filing-type label is
-// derived from the actual filing (no more hard-coded "10-Q"), and there is no
-// "vectorizing"/"semantic analysis" step because the summary path does no embedding.
+// Honest progress steps mapped to real backend stages, each step the stages it covers, in order. The filing-type
+// label is derived from the actual filing (no more hard-coded "10-Q"), and there is no "vectorizing"/"semantic
+// analysis" step because the summary path does no embedding. The figures are checked while the summary is written:
+// the backend's `analyzing` stage passes in milliseconds, two yields between two progress writes, and the XBRL
+// cross-reference and the grounding check before the summary is stored both run under `summarizing`. So one step
+// covers both stages and says both, where a step of its own ticked done before any figure was checked (E196 (6)). The
+// check says "figures", never "its figures": the code checks only some, so the label claims no more than the step it
+// replaced did (docs/voice-and-style.md › Claims). "Against the filing" is true of both checks: the figure trace reads
+// the filing's text, and the projection beside it the filing's own XBRL.
 const buildLoadingSteps = (filingType: string) => [
-  { stage: 'fetching', label: `Retrieving ${filingType || 'SEC'} filing from EDGAR` },
-  { stage: 'parsing', label: 'Extracting financial statements, risk factors & MD&A' },
-  { stage: 'analyzing', label: 'Cross-referencing standardized XBRL financials' },
-  { stage: 'summarizing', label: 'Generating investment analysis' },
+  { stages: ['fetching'], label: `Fetching the ${filingType || 'filing'} from SEC.gov`, code: filingType || undefined },
+  { stages: ['parsing'], label: 'Reading the statements, risk factors and MD&A' },
+  { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking figures against the filing' },
 ]
 
-// Screen-reader announcement for the live region. Derived from the STAGE only (never the
-// percent), so the polite region updates exactly once per stage transition instead of chattering
-// on every optimistic-progress tick.
+// Screen-reader announcement for the live region. Derived from the stage (never the percent), so the
+// polite region updates once per stage transition instead of chattering on every optimistic-progress
+// tick; the stalled sentence joins it once a run stalls (the region is atomic, so a stage change while
+// stalled reads both again).
 const stageAnnouncement = (stage: string, filingType: string): string => {
   if (stage === 'completed') return 'Summary ready.'
-  const step = buildLoadingSteps(filingType).find((s) => s.stage === stage)
+  const step = buildLoadingSteps(filingType).find((s) => s.stages.includes(stage))
   if (step) return `${step.label}.`
   if (stage === 'initializing' || stage === 'queued') return 'Starting summary generation.'
-  return 'Generating your analysis.'
+  return 'Generating the summary.'
 }
 
 const STAGE_PROGRESS_MAP: Record<string, number> = {
@@ -82,25 +128,44 @@ const STAGE_PROGRESS_MAP: Record<string, number> = {
 
 type StepStatus = 'complete' | 'active' | 'pending'
 
-/** Quiet, backend-driven step log — brand check (done) / static dot (active) /
-    dimmed (pending). No connector line, no ping, no bounce. */
+/** A step's label with its form code kept whole, one whitespace-nowrap run, as the live-status line keeps it: at 390px
+    under 200% text the fetching step broke "10-K" at its hyphen (E230). The live region reads the plain label. */
+function StepLabel({ label, code }: { label: string; code?: string }) {
+  const at = code ? label.indexOf(code) : -1
+  if (!code || at < 0) return <>{label}</>
+  return (
+    <>
+      {label.slice(0, at)}
+      <span className="whitespace-nowrap">{code}</span>
+      {label.slice(at + code.length)}
+    </>
+  )
+}
+
+/** Quiet, backend-driven step log — brand check (done) / static dot (active) / empty hairline
+    circle (pending). Every label stays at full opacity: a pending one is tertiary ink (4.9:1 and up),
+    never faded text. No connector line, no ping, no bounce. */
 function StepList({ filingType, stage, displayStageIdx }: { filingType: string; stage: string; displayStageIdx: number }) {
   const steps = buildLoadingSteps(filingType)
   return (
     <ul className="space-y-3">
       {steps.map((step) => {
-        const stepIdx = STAGE_ORDER.indexOf(step.stage as (typeof STAGE_ORDER)[number])
+        // A step is active through each stage it covers and done once the run is past its last.
+        const firstIdx = STAGE_ORDER.indexOf(step.stages[0] as (typeof STAGE_ORDER)[number])
+        const lastIdx = STAGE_ORDER.indexOf(step.stages[step.stages.length - 1] as (typeof STAGE_ORDER)[number])
         const status: StepStatus =
-          stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > stepIdx)
+          stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > lastIdx)
             ? 'complete'
-            : displayStageIdx === stepIdx
+            : displayStageIdx >= firstIdx && displayStageIdx <= lastIdx
               ? 'active'
               : 'pending'
 
         return (
+          // The marker aligns to the label's first line: its circle and the label's line are both 1.25rem, so a label
+          // that wraps (the writing step's, at phone widths) keeps its dot beside its first line, not between lines.
           <li
-            key={step.stage}
-            className={`flex items-center gap-3 transition-opacity duration-base ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}
+            key={step.stages[0]}
+            className="flex items-start gap-3"
           >
             <span
               className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors duration-base ${
@@ -112,15 +177,22 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
               }`}
             >
               {status === 'complete' ? (
-                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                // Bold: at 12px regular's stroke is 0.75px, under a device pixel (DESIGN.md › Icons).
+                <CheckIcon weight="bold" className="h-3 w-3" aria-hidden="true" />
               ) : status === 'active' ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
               ) : null}
             </span>
-            <span className={`text-sm ${status === 'active' ? 'font-medium text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
-              {step.label}
+            <span
+              className={`text-sm ${
+                status === 'active'
+                  ? 'font-medium text-text-primary-light dark:text-text-primary-dark'
+                  : status === 'complete'
+                    ? 'text-text-secondary-light dark:text-text-secondary-dark'
+                    : 'text-text-tertiary-light dark:text-text-tertiary-dark'
+              }`}
+            >
+              <StepLabel label={step.label} code={step.code} />
             </span>
           </li>
         )
@@ -137,9 +209,14 @@ export default function StreamingSummaryDisplay({
   message,
   filing,
   error,
-  onRetry,
+  onRetry: requestRetry,
   elapsedSeconds = 0,
   trialEligible = false,
+  afterFailure,
+  failure,
+  retryAfterSeconds = 0,
+  retainedResult = false,
+  retainedFocusTarget,
 }: {
   streamingText: string
   stage: string
@@ -148,56 +225,51 @@ export default function StreamingSummaryDisplay({
   error?: string | null
   onRetry?: () => void
   elapsedSeconds?: number
-  /** Whether THIS user would get the 7-day trial at checkout (first-time subscriber, resolved
+  /** Whether THIS user would get the Pro trial at checkout (first-time subscriber, resolved
    * subscription status, not beta). Gates the paywall card's trial promise — a churned ex-Pro
    * user is charged immediately, so promising them "you won't be charged" is a false billing
    * claim (staff review, PR #619). Defaults false: under-promising is the safe direction. */
   trialEligible?: boolean
+  /** Shown under the failure surface once the run has ended without a summary (an error, or the
+   * monthly limit): the filing page passes its change report, which needs no summary. */
+  afterFailure?: ReactNode
+  failure?: SummaryStreamFailure
+  retryAfterSeconds?: number
+  /** A failed refresh keeps its previously loaded summary below this compact notice. */
+  retainedResult?: boolean
+  retainedFocusTarget?: RefObject<HTMLElement | null>
 }) {
+  const onRetry = requestRetry ? () => {
+    if (retryAfterSeconds > 0) return
+    requestRetry()
+  } : undefined
   const [isClient, setIsClient] = useState(false)
-  const [whimsyMessage, setWhimsyMessage] = useState('')
-  const [showWhimsy, setShowWhimsy] = useState(false)
   const [optimisticProgress, setOptimisticProgress] = useState(0)
-  const [isStalled, setIsStalled] = useState(false)
+  // Focus targets: the progress card's heading takes focus from a Retry that leaves (RetryButton's
+  // hand-off), the failure card's heading takes focus nobody holds when it appears.
+  const progressHeadingRef = useRef<HTMLHeadingElement>(null)
+  const failureHeadingRef = useRef<HTMLHeadingElement>(null)
+  // Where the card's Retry hands focus when it leaves while holding it, resolved after the commit: the progress
+  // card's heading when its press starts the run, or this card's own heading when the card stays without its
+  // Retry (a signed-out press starts no run, and its sign-in sentence is one no retry can help).
+  const retryFocusTarget = useMemo(() => ({
+    get current() { return retainedFocusTarget?.current ?? progressHeadingRef.current ?? failureHeadingRef.current },
+  }), [retainedFocusTarget])
 
   const isError = stage === 'error' || !!error
+  // Stalled: derived in render, not stored, so the stage and the stall land in one commit and the live region
+  // below changes once per transition. Normal generation runs ~30-60s; only flag a genuine stall well past that
+  // window, and never while the summary is being written, so we never signal "failure" during a healthy run.
+  const isStalled = elapsedSeconds > 45 && stage !== 'queued' && stage !== 'completed' && stage !== 'summarizing' && !isError
+  // A failed generation (or the monthly limit) ends the run the user is waiting on, often from page load
+  // with focus on <body>: its card's heading takes focus then, so the next Tab is the card's action, not
+  // the site header. Gated on isClient: the first client render is the skeleton, with no card to focus.
+  useFocusOnArrival(failureHeadingRef, isClient && isError)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time client detection to gate SSR-unsafe rendering (avoids hydration mismatch)
     setIsClient(true)
   }, [])
-
-  // Whimsy rotation effect
-  useEffect(() => {
-    if (stage === 'completed' || isError) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs whimsy-message visibility to the async streaming generation stage
-      setShowWhimsy(false)
-      return
-    }
-
-    setShowWhimsy(true)
-    // Initial random message
-    setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
-
-    // Rotation cadence = a motion-token multiple (DS §11: no raw ms). ambient*2 ≈ 3.6s read.
-    const intervalId = setInterval(() => {
-      setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
-    }, MOTION.ambient * 2)
-
-    return () => clearInterval(intervalId)
-  }, [stage, isError])
-
-  // Stalled state detection
-  useEffect(() => {
-    // Normal generation runs ~30-60s; only flag a genuine stall well past that window
-    // so we never signal "failure" during a healthy run.
-    if (elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- derives a stall flag from async streaming elapsed time + generation stage
-      setIsStalled(true)
-    } else {
-      setIsStalled(false)
-    }
-  }, [elapsedSeconds, stage, isError])
 
   // Optimistic progress effect - uses real elapsed time from backend but asymptotic approach
   useEffect(() => {
@@ -207,6 +279,11 @@ export default function StreamingSummaryDisplay({
       return
     }
     if (isError) return
+    if (stage === 'queued') {
+      // A durable queue or source retry has no measured completion percentage yet.
+      setOptimisticProgress(0)
+      return
+    }
 
     // Get base progress for current stage
     const baseProgress = STAGE_PROGRESS_MAP[stage] || 0
@@ -253,7 +330,7 @@ export default function StreamingSummaryDisplay({
     // SSR / pre-hydration: a quiet skeleton card (gates Math.random / Date below).
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <Card className="p-8">
+        <Card className="p-cap-8">
           {/* SkeletonText carries its own role="status" — the wrapper stays role-less. */}
           <div className="space-y-6">
             <SkeletonText lines={2} />
@@ -277,48 +354,94 @@ export default function StreamingSummaryDisplay({
     ? currentStageIdx
     : STAGE_ORDER.reduce((acc, s, i) => ((STAGE_PROGRESS_MAP[s] ?? 0) <= optimisticProgress ? i : acc), -1)
 
-  // Whimsy copy: rotating quip while healthy, a reassuring line when stalled. Only rendered
-  // inside the progress card, which is itself hidden on error — so the GuidanceCard is the
+  // The live-status line: the stage's line of the voice while healthy, the stalled sentence when stalled.
+  // Only rendered inside the progress card, which is itself hidden on error — so the GuidanceCard is the
   // single failure surface (one error surface, not two).
-  const whimsyText = isStalled
-    ? 'Taking longer than usual. This looks like a complex filing; still working on it.'
-    : showWhimsy && whimsyMessage
-      ? whimsyMessage
-      : 'Warming up the analysis…'
-  const whimsyAttribution = isStalled ? 'Complex filing detected' : 'EarningsNerd analyst'
+  const line = stage === 'queued' ? message || 'Preparing this summary…' : statusLine(stage, filing.id, isStalled)
+  // The trial sentence is true only while the trial ships (ENABLE_PRO_TRIAL, flipped with the backend's
+  // PRO_TRIAL_DAYS) and this user would get it (trialEligible, from the page).
+  const showTrial = ENABLE_PRO_TRIAL && trialEligible
+  // The reason the run stopped, in the product's words: the raw message still decides the card (the
+  // paywall matcher reads it), the reader sees its mapped sentence.
+  const failureReason = streamErrorCopy(error || message) || 'It timed out before the summary finished. Try again to pick it up.'
+  // One retry policy for an interrupted first summary and an interrupted refresh. The latter
+  // uses ordinary recovery too; it must never repeat a paid refresh implicitly.
+  const retryAction = onRetry && !isNonRetryableStreamError(error || message || '', failure?.code) ? (
+    <RetryButton
+      aria-disabled={retryAfterSeconds > 0 || undefined}
+      className={secondaryUnavailableClass}
+      size={retainedResult ? 'sm' : undefined}
+      failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
+      focusTarget={retryFocusTarget}
+    />
+  ) : undefined
+
+  if (retainedResult && isError) {
+    return (
+      <Notice
+        variant="error"
+        title="Could not confirm the refreshed summary."
+        description={
+          <>
+            Showing the previously loaded summary.
+            <span className="mt-2 block">{failureReason}</span>
+            {retryAfterSeconds > 0 && (
+              <span className="mt-2 block">
+                You can try again in {retryAfterSeconds < 60
+                  ? plural(retryAfterSeconds, 'second')
+                  : plural(Math.ceil(retryAfterSeconds / 60), 'minute')}.
+              </span>
+            )}
+          </>
+        }
+        action={retryAction}
+      />
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress card — one calm focus. Hidden on error: the GuidanceCard below is the single
-          error surface, so the bar/steps/whimsy never duplicate the failure state. */}
+          error surface, so the bar/steps/status line never duplicate the failure state. */}
       {!isError && (
-        <Card className="p-6 sm:p-8">
-          {/* Live region: one polite announcement per stage transition (the progressbar's value
-              changes every tick and is deliberately NOT live). */}
+        <Card className="p-cap-6 sm:p-cap-8">
+          {/* Live region: one polite announcement per stage transition, plus the stalled sentence while
+              the run stalls (the progressbar's value changes every tick and is deliberately NOT live). */}
           <p role="status" aria-live="polite" className="sr-only">
             {stageAnnouncement(stage, filing.filing_type)}
+            {isStalled ? ` ${STALLED_LINE}` : ''}
           </p>
 
-          {/* Header: title + live status + count-up percent */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <SparkleIcon className="mt-0.5 h-5 w-5 flex-none text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  Generating your analysis
-                </h2>
-                <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  {filing.filing_type} • Processing…
-                </p>
-              </div>
+          {/* Header: title + live status + count-up percent. The row wraps: where the heading and the
+              percent do not fit side by side (200% text on a phone) the percent moves beneath, still at
+              the right (ml-auto), instead of printing over the heading. */}
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+            {/* No glyph beside the heading (DESIGN.md › Icons): the heading says what is running in words. */}
+            <div className="min-w-0">
+              <h2
+                ref={progressHeadingRef}
+                tabIndex={-1}
+                className="text-lg font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+              >
+                Generating the summary
+              </h2>
+              {/* The live-status line: the form code (wrapping whole, never at its hyphen), then one line of
+                  the voice for the stage the backend is in, or the stalled sentence. Plain secondary ink, no
+                  tint, no glyph: a run in progress is activity, never a status notice (DESIGN_SYSTEM.md §4
+                  Inline notice, §9). The span is keyed so a stage change crossfades the line in (the
+                  self-guarded animate-fadeIn; an inline span takes its opacity leg only). */}
+              <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <span className="whitespace-nowrap">{filing.filing_type}</span> ·{' '}
+                <span key={line} className="animate-fadeIn break-words">{line}</span>
+              </p>
             </div>
-            <div className="flex flex-col items-end flex-none">
+            <div className="ml-auto flex flex-none flex-col items-end">
               <span className="tnum font-data text-2xl font-semibold leading-none text-text-primary-light dark:text-text-primary-dark">
                 {pctLabel}
               </span>
               {isGenerating && (
-                <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                  Usually 30–60s
+                <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+                  Estimated progress
                 </span>
               )}
             </div>
@@ -339,18 +462,6 @@ export default function StreamingSummaryDisplay({
             />
           </div>
 
-          {/* Polished whimsy — Notice nested in the Card (DS-sanctioned).
-              aria-hidden: it's decorative flavor that rotates; the progressbar + step log
-              carry the real, accessible status, so we don't spam SR with rotating quips. */}
-          <div aria-hidden="true" className="mt-6">
-            <Notice
-              variant="info"
-              icon={<SparkleIcon className="h-[18px] w-[18px]" aria-hidden="true" />}
-              title={<span key={whimsyText} className="animate-fadeIn">{whimsyText}</span>}
-              description={whimsyAttribution}
-            />
-          </div>
-
           {/* Honest step log */}
           <div className="mt-6">
             <StepList filingType={filing.filing_type} stage={stage} displayStageIdx={displayStageIdx} />
@@ -365,19 +476,24 @@ export default function StreamingSummaryDisplay({
           the brand-tinted upgrade card (retry can't help; the quota resets monthly). The trial
           pitch renders ONLY for trial-eligible users — a churned ex-Pro hitting this card gets a
           plain upgrade CTA, because checkout would charge them immediately (staff review, #619).
-          Everything else keeps the honest error + retry. */}
-      {isError && isPaywallStreamError(error || message || '') ? (
+          Everything else keeps the honest error, and a retry where one can help. */}
+      {isError && isPaywallStreamError(error || message || '', failure?.code) ? (
         <GuidanceCard
-          icon={<SparkleIcon className="h-5 w-5" aria-hidden="true" />}
           title="You've hit this month's free limit"
+          headingLevel="h2"
+          headingRef={failureHeadingRef}
           description={
-            trialEligible
-              ? 'Your free summaries reset next month. Or go unlimited now with a 7-day free trial of Pro: cancel anytime during the trial and you won’t be charged.'
-              : 'Your free summaries reset next month. Or go unlimited now with Pro.'
+            <>
+              {showTrial
+                ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
+                : 'Your free summaries reset next month. Or go unlimited now with Pro.'}
+              {/* What "unlimited" holds, stated once app-wide (lib/planLimits.ts proFairUseLine(), E58, D-050). */}
+              <span className="mt-2 block">{proFairUseLine()}</span>
+            </>
           }
           action={
-            <Link href={trialEligible ? pricingHref('monthly') : '/pricing'} className={buttonVariants()}>
-              {trialEligible ? 'Start 7-day free trial' : 'Upgrade to Pro'}
+            <Link href={showTrial ? pricingHref('monthly') : '/pricing'} className={buttonVariants()}>
+              {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
             </Link>
           }
         />
@@ -385,23 +501,29 @@ export default function StreamingSummaryDisplay({
         <GuidanceCard
           variant="error"
           title="Generation interrupted"
-          description={error || message || 'Generation timed out. Please retry to continue.'}
-          action={
-            onRetry ? (
-              // Secondary, per the GuidanceCard convention (error retry is never the page's primary action)
-              <Button variant="secondary" onClick={onRetry}>
-                Retry generation
-              </Button>
-            ) : undefined
+          headingLevel="h2"
+          headingRef={failureHeadingRef}
+          description={
+            <>
+              {failureReason}
+              {retryAfterSeconds > 0 && (
+                <span className="mt-2 block">
+                  You can try again in {retryAfterSeconds < 60
+                    ? plural(retryAfterSeconds, 'second')
+                    : plural(Math.ceil(retryAfterSeconds / 60), 'minute')}.
+                </span>
+              )}
+            </>
           }
+          action={retryAction}
         />
       ) : null}
+      {isError && afterFailure}
 
       {/* Streamed summary — the payoff, canonical .markdown-body render */}
       {displayText && (
-        <Card as="section" className="p-6 sm:p-8">
+        <Card as="section" className="p-cap-6 sm:p-cap-8">
           <div className="mb-6 flex items-center gap-3 border-b border-border-light dark:border-border-dark pb-4">
-            <SparkleIcon className="h-5 w-5 flex-none text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">AI-generated summary</h2>
             {isGenerating && <Badge variant="brand">Live</Badge>}
           </div>

@@ -1,0 +1,86 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A explains drivers, margins, cash conversion, and flags with supported sources. Draft B has some unsupported claims (e.g., FY2017 tax rate unexplained, net cash unreliable) and less depth on growth drivers. Grounding favors A."
+   },
+   "cost_usd": 0.00545,
+   "latency_s": 2.77,
+   "input_tokens": 10610,
+   "output_tokens": 123,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"B\",\n    \"coverage\": \"A\",\n    \"clarity\": \"tie\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A explains drivers, margins, cash conversion, and flags with supported sources. Draft B has some unsupported claims (e.g., FY2017 tax rate unexplained, net cash unreliable) and less depth on growth drivers. Grounding favors A.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better coverage of red flags and watch items, and clearer separation of facts from analysis. Draft B has some unsupported claims (e.g., debt-funded buybacks) and less rigorous grounding. A's cautious interpretation of the FY2025 margin rebound and data recasts is more calibrated."
+   },
+   "cost_usd": 0.005475,
+   "latency_s": 3.149,
+   "input_tokens": 10610,
+   "output_tokens": 136,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"B\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better coverage of red flags and watch items, and clearer separation of facts from analysis. Draft B has some unsupported claims (e.g., debt-funded buybacks) and less rigorous grounding. A's cautious interpretation of the FY2025 margin rebound and data recasts is more calibrated.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010925
+}

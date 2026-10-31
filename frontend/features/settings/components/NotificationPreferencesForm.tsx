@@ -4,21 +4,24 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import Link from 'next/link'
-import { BellIcon, CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
+import { CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
+import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
+import { ENABLE_FPI_FILINGS } from '@/lib/featureFlags'
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
   NotificationPreferences,
   NotificationPreferencesUpdate,
 } from '@/features/notifications/api/notifications-api'
-import { inputClasses } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { SkeletonText } from '@/components/ui/Skeleton'
+import { Switch } from '@/components/ui/Switch'
 
 type BoolPref = 'notify_10k' | 'notify_10q' | 'notify_8k' | 'notify_20f' | 'notify_6k' | 'realtime'
 
 function Toggle({
   checked,
+  busy,
   disabled,
   onChange,
   label,
@@ -26,6 +29,9 @@ function Toggle({
   locked,
 }: {
   checked: boolean
+  /** A save is in flight: aria-disabled + aria-busy + an early return, so the switch keeps focus. */
+  busy: boolean
+  /** Not available on this plan: native disabled (server-set; never flipped by this switch). */
   disabled?: boolean
   onChange: (next: boolean) => void
   label: string
@@ -33,39 +39,44 @@ function Toggle({
   locked?: boolean
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <div className="flex-1">
+    // The label column keeps 10rem beside the switch or the switch takes the next line, so at 200% text
+    // on a phone it sits under the label instead of hanging past the card (and the column is not
+    // crushed to a word a line). At the default size the row is unchanged.
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
+      <div className="grow basis-40">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{label}</span>
           {locked && (
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-xs font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
+              className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-xs font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
             >
               <LockSimpleIcon className="h-3 w-3" />
               Pro
             </Link>
           )}
         </div>
-        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{description}</p>
+        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">{description}</p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
+      {/* Busy fades only the track; the shared switch's focus ring remains opaque.
+          Plan-locked switches retain native disabled because their own press cannot flip that state. */}
+      <Switch
+        checked={checked}
         aria-label={label}
         disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`relative mt-1 inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-          checked ? 'bg-brand-strong dark:bg-brand-dark' : 'bg-border-light dark:bg-border-dark'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
+        aria-disabled={(busy && !disabled) || undefined}
+        aria-busy={busy || undefined}
+        onCheckedChange={(next) => {
+          if (busy) return
+          onChange(next)
+        }}
+        className={clsx(
+          'mt-1 aria-disabled:cursor-not-allowed',
+          checked
+            ? 'aria-disabled:bg-brand-strong/50 dark:aria-disabled:bg-brand-dark/50'
+            : 'aria-disabled:bg-border-light/50 dark:aria-disabled:bg-white/[0.075]',
+        )}
+      />
     </div>
   )
 }
@@ -81,7 +92,11 @@ export default function NotificationPreferencesForm() {
 
   const mutation = useMutation({
     mutationFn: updateNotificationPreferences,
-    onSuccess: (updated) => {
+    // The account the change was made under (E29): a save that answers after the session generation moved on
+    // (a logout, another login, a lost session) writes nothing into the next account's preferences.
+    onMutate: () => ({ generation: getSessionGeneration() }),
+    onSuccess: (updated, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
       // The server returns the coerced/effective prefs — trust them as the source of truth.
       queryClient.setQueryData(queryKeys.notificationPreferences(), updated)
     },
@@ -91,13 +106,10 @@ export default function NotificationPreferencesForm() {
   const setBool = (field: BoolPref) => (next: boolean) => save({ [field]: next })
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          <BellIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-          Filing Alerts
-        </h2>
-        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-secondary-dark" />}
+        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Filing alerts</h2>
+        {mutation.isPending && <CircleNotchIcon aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-tertiary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.
@@ -110,7 +122,7 @@ export default function NotificationPreferencesForm() {
           Couldn&apos;t load your alert preferences. Please refresh.
         </p>
       ) : (
-        <PreferenceRows prefs={prefs} setBool={setBool} save={save} disabled={mutation.isPending} />
+        <PreferenceRows prefs={prefs} setBool={setBool} busy={mutation.isPending} />
       )}
 
       {mutation.isError && (
@@ -125,13 +137,11 @@ export default function NotificationPreferencesForm() {
 function PreferenceRows({
   prefs,
   setBool,
-  save,
-  disabled,
+  busy,
 }: {
   prefs: NotificationPreferences
   setBool: (field: BoolPref) => (next: boolean) => void
-  save: (update: NotificationPreferencesUpdate) => void
-  disabled: boolean
+  busy: boolean
 }) {
   return (
     <div className="divide-y divide-border-light dark:divide-border-dark">
@@ -139,64 +149,70 @@ function PreferenceRows({
         label="Annual reports (10-K)"
         description="Yearly comprehensive filings."
         checked={prefs.notify_10k}
-        disabled={disabled}
+        busy={busy}
         onChange={setBool('notify_10k')}
       />
       <Toggle
         label="Quarterly reports (10-Q)"
         description="Quarterly financial updates."
         checked={prefs.notify_10q}
-        disabled={disabled}
+        busy={busy}
         onChange={setBool('notify_10q')}
       />
       <Toggle
         label="Material events (8-K)"
-        description="Breaking corporate events as they're filed."
+        description="Current reports on material events."
         checked={prefs.notify_8k}
-        disabled={disabled || !prefs.eightk_available}
+        busy={busy}
+        disabled={!prefs.eightk_available}
         locked={!prefs.eightk_available}
         onChange={setBool('notify_8k')}
       />
-      <Toggle
-        label="Foreign annual reports (20-F)"
-        description="Annual reports from foreign issuers (20-F / 40-F)."
-        checked={prefs.notify_20f}
-        disabled={disabled}
-        onChange={setBool('notify_20f')}
-      />
-      <Toggle
-        label="Foreign interim reports (6-K)"
-        description="Interim updates from foreign issuers, delivered in your digest rather than in real time."
-        checked={prefs.notify_6k}
-        disabled={disabled}
-        onChange={setBool('notify_6k')}
-      />
+      {/* The foreign-issuer rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS, the API's ENABLE_FPI_FILINGS mirror, as the plan
+          lines do (E33), so the form never offers a form the API keeps off. A hidden row keeps its stored value: each
+          switch saves its own field alone, so no other save carries notify_20f or notify_6k. */}
+      {ENABLE_FPI_FILINGS && (
+        <>
+          <Toggle
+            label="Foreign annual reports (20-F)"
+            description="Annual reports from foreign issuers (20-F / 40-F)."
+            checked={prefs.notify_20f}
+            busy={busy}
+            onChange={setBool('notify_20f')}
+          />
+          <Toggle
+            label="Foreign interim reports (6-K)"
+            description="Interim updates from foreign issuers, delivered in your digest rather than in real time."
+            checked={prefs.notify_6k}
+            busy={busy}
+            onChange={setBool('notify_6k')}
+          />
+        </>
+      )}
       <Toggle
         label="Real-time alerts"
-        description="Get alerted the moment a filing lands, instead of in the daily digest."
+        description="An email from the hourly filing check, instead of the daily digest."
         checked={prefs.realtime}
-        disabled={disabled || !prefs.realtime_available}
+        busy={busy}
+        disabled={!prefs.realtime_available}
         locked={!prefs.realtime_available}
         onChange={setBool('realtime')}
       />
 
-      <div className="flex items-center justify-between gap-4 py-3">
-        <div className="flex-1">
-          <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest frequency</span>
-          <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-            How often to batch non-real-time alerts.
+      {/* The daily digest job sends once a day for everyone and reads no frequency setting, so this row
+          states the cadence instead of offering a choice no job honours. A choice comes back only with
+          a reader in the backend (tests/unit/notificationPreferencesConsumed.spec.ts). The cadence is the
+          row's value, set in the data face as the filing identity sets its facts, so it reads as a stated
+          fact rather than a label that lost its control. Its row is the switches' row, so at 200% text the
+          value sits under the description as a switch does. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
+        <div className="grow basis-40">
+          <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest</span>
+          <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+            Alerts that aren&apos;t real-time arrive in one email a day.
           </p>
         </div>
-        <select
-          value={prefs.digest}
-          disabled={disabled}
-          onChange={(e) => save({ digest: e.target.value })}
-          className={clsx(inputClasses(), 'w-auto py-1.5 text-sm')}
-        >
-          <option value="immediate">Immediate</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-        </select>
+        <span className="font-data text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Daily</span>
       </div>
     </div>
   )

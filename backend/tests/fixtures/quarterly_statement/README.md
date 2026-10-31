@@ -24,3 +24,13 @@ The native source is the positive. The five source-scope mutations and explicitl
 quantified synthetic component are adverse/coverage controls, not assertions about
 this real filing. All held-candidate files and tests remain unchanged in their
 original `9e65e74c` snapshot.
+
+`retained-cause-claim.json` copies row47/run1's complete earnings-quality field
+from that same frozen report. It attributes the current other-income level to the
+realized gain, whereas the native MD&A paragraph attributes a comparative change.
+The same historical-source mismatch applies. The separate bounded cause branch
+preserves the 88-byte authored numeric prefix and its sentence-final period, plus
+the 284-byte authored continuation, and inserts only an application limitation.
+A complete matching same-form native sentence conservatively excludes removal;
+its presence, even in a qualified wrapper, never establishes source truth. The
+original source-programme HOLD and all earlier held candidates remain unchanged.

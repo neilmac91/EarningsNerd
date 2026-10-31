@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import { toast } from 'sonner'
 import { exportSummaryPdf, exportSummaryCsv } from '../api/summaries-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import analytics from '@/lib/analytics'
@@ -35,11 +36,11 @@ export function useSummaryExports(filing: Filing) {
         })
       } catch (error) {
         if (getErrorStatus(error) === 403) {
-          alert(`${kind.toUpperCase()} export is a Pro feature. Please upgrade to Pro.`)
+          toast.error(`${kind.toUpperCase()} export is a Pro feature. Please upgrade to Pro.`)
           return
         }
         console.error('Export error:', error)
-        alert(`Failed to export ${kind.toUpperCase()}. Please try again.`)
+        toast.error(`Failed to export ${kind.toUpperCase()}. Please try again.`)
       }
     },
     [filing],

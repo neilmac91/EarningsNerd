@@ -9,6 +9,7 @@ import pytest
 from edgar.entity.core import Company
 
 from app.config import settings
+from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service
 from app.services.edgar.instance_extractor import cash_financial_classification
 from app.services.copilot_service import _compact_xbrl_block
@@ -72,11 +73,11 @@ def source_metrics(monkeypatch, sic, category, profile):
         resolutions.append(args)
         return company, [filing]
 
-    monkeypatch.setattr(xbrl_service, "resolve_filing_by_accession", resolve)
+    monkeypatch.setattr(xbrl_instance, "resolve_filing_by_accession", resolve)
     monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", True)
     monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", True)
     # The classification/profile inputs are explicit controls, not claims about this fixture issuer.
-    monkeypatch.setattr(xbrl_service, "extract_financial_statement_metrics",
+    monkeypatch.setattr(xbrl_instance, "extract_financial_statement_metrics",
                         lambda *args: (profile, {}, ()) if profile else None)
     raw = xbrl_service._extract_from_filing_instance_sync(CIK, ACC)
     assert len(resolutions) == 1

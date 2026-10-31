@@ -1,0 +1,41 @@
+agrees  welcome[none]                clear
+agrees  referral[none]               clear
+agrees  verify[none]                 'Verify my email' #ffffff on #f4f3ee
+agrees  invite[none]                 'Accept your invite' #ffffff on #f4f3ee
+agrees  reset[none]                  'Reset my password' #ffffff on #f4f3ee
+agrees  oauth[none]                  clear
+agrees  exists[none]                 'Log in to your account' #ffffff on #f4f3ee
+agrees  alert[none]                  'Read the AI summary' #ffffff on #f4f3ee
+agrees  alert-wording[none]          'Read the AI summary' #ffffff on #f4f3ee
+agrees  digest1[none]                clear
+agrees  digest3[none]                clear
+agrees  earnings1[none]              clear
+agrees  earnings3[none]              clear
+agrees  welcome[short]               clear
+agrees  referral[short]              clear
+agrees  verify[short]                'Verify my email' #ffffff on #f4f3ee
+agrees  invite[short]                'Accept your invite' #ffffff on #f4f3ee
+agrees  reset[short]                 'Reset my password' #ffffff on #f4f3ee
+agrees  oauth[short]                 clear
+agrees  exists[short]                'Log in to your account' #ffffff on #f4f3ee
+agrees  alert[short]                 'Read the AI summary' #ffffff on #f4f3ee
+agrees  alert-wording[short]         'Read the AI summary' #ffffff on #f4f3ee
+agrees  digest1[short]               clear
+agrees  digest3[short]               clear
+agrees  earnings1[short]             clear
+agrees  earnings3[short]             clear
+agrees  welcome[long]                clear
+agrees  referral[long]               clear
+agrees  verify[long]                 'Verify my email' #ffffff on #f4f3ee
+agrees  invite[long]                 'Accept your invite' #ffffff on #f4f3ee
+agrees  reset[long]                  'Reset my password' #ffffff on #f4f3ee
+agrees  oauth[long]                  clear
+agrees  exists[long]                 'Log in to your account' #ffffff on #f4f3ee
+agrees  alert[long]                  'Read the AI summary' #ffffff on #f4f3ee
+agrees  alert-wording[long]          'Read the AI summary' #ffffff on #f4f3ee
+agrees  digest1[long]                clear
+agrees  digest3[long]                clear
+agrees  earnings1[long]              clear
+agrees  earnings3[long]              clear
+agrees  data-quality                 clear
+40 pages; SpamAssassin reads 18 as low contrast; 0 where the reader reads one otherwise

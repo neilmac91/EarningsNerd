@@ -1,0 +1,10 @@
+{
+  "sentry_sdk": "2.71.0",
+  "integrations": [
+    "fastapi",
+    "sqlalchemy"
+  ],
+  "send_default_pii": false,
+  "captured_offline_events": 1
+}
+SENTRY_SHAPES_OK

@@ -1,0 +1,617 @@
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import type { ReactNode } from 'react'
+import api from '@/lib/api/client'
+import { LogoutAllSuperseded, logout, type CurrentUser } from '@/features/auth/api/auth-api'
+import {
+  LOGGED_IN_AS_ANOTHER_MESSAGE, LOGGED_OUT_FIRST_MESSAGE, LOGGED_OUT_HERE_ONLY_MESSAGE, LOGOUT_FAILED_MESSAGE, LoggedOutFirst,
+  acceptLoginAndResetAccount,
+  logoutAllInTurn, logoutAndResetAccount, subscribeAccountQueryReset,
+} from '@/features/auth/lib/accountQueryState'
+import { advanceSessionGeneration, clearSessionActive, getExplicitSessionGeneration, hasActiveSession, markSessionActive } from '@/lib/api/session'
+import { refreshAccessToken } from '@/lib/api/refresh'
+import { queryKeys } from '@/lib/queryKeys'
+import { QUERY_CLIENT_DEFAULTS } from '@/app/providers'
+import Header from '@/components/Header'
+import SettingsPage from '@/app/dashboard/settings/page'
+import { LOGOUT_ALL_CALL_SITES } from './logoutCallSites'
+
+/**
+ * The settings page's "Log out of all devices" runs in the one-logout flight the Log out controls share (E157;
+ * logoutAllInTurn, features/auth/lib/accountQueryState.ts). Pressed while a Log out runs, it waits for that one. When
+ * the Log out did not take (its request failed and /me still names the same reader, or could not be read), it posts.
+ * When the Log out took, this device has no session left to end the others with: it posts nothing and says so, in a
+ * toast, since the page leaves with that Log out. When a login overtook the Log out, or its /me named another reader
+ * (another tab signed in), it posts nothing and says nothing. A Log out pressed while it runs waits for it: settled
+ * with it when it took, and logging out on its own when it failed, saying in a toast that the other devices stayed
+ * logged in, since the page leaves with the section's line (chief design on #1813). The toasts that give a step stay
+ * up 10 s (STEP_TOAST_DURATION_MS), and the cases expect the option. One that failed puts the session flag back, so a
+ * lapsed access cookie still renews. Beside the flight, before E157, its `beginLogout` cleared the session flag a failed
+ * Log out's read of /me needs, so a lapsed access cookie read as a guest and that Log out left as logged out with the
+ * refresh cookie alive (#1496's review), and a Log out's reset lifted its refresh fence or ended it as superseded.
+ *
+ * The page renders under the site header, as the app renders it, its other sections aside, in a client built as
+ * Providers builds the app's; the requests run through the real API client, auth API and flight, with the adapter
+ * answering, so the session flag, the generation fences and the page's guard are the ones the app runs. The refresh is
+ * the one stub.
+ */
+
+const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }))
+const toasts = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), warning: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => nav, usePathname: () => '/dashboard/settings' }))
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
+}))
+vi.mock('sonner', () => ({ toast: toasts }))
+vi.mock('@/lib/analytics', () => ({ default: { identify: vi.fn(), logout: vi.fn() } }))
+vi.mock('@/lib/api/refresh', () => ({ refreshAccessToken: vi.fn() }))
+// The header's chrome and the page's other sections are not under test.
+vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
+vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
+vi.mock('@/features/notifications/components/NotificationBell', () => ({ default: () => null }))
+vi.mock('@/features/settings/components/ProfileForm', () => ({ default: () => null }))
+vi.mock('@/features/settings/components/BillingPanel', () => ({ default: () => null }))
+vi.mock('@/features/settings/components/ChangePasswordForm', () => ({ default: () => null }))
+vi.mock('@/features/settings/components/NotificationPreferencesForm', () => ({ default: () => null }))
+
+const reader: CurrentUser = {
+  id: 7, email: 'reader@example.com', full_name: 'Reader', is_pro: false, is_beta: false, is_admin: false, email_verified: true,
+}
+const other: CurrentUser = { ...reader, id: 8, email: 'other@example.com', full_name: 'Other' }
+
+type Answer = (config: InternalAxiosRequestConfig) => Promise<AxiosResponse>
+const ok = (data: unknown): Answer => async (config) => ({ data, status: 200, statusText: 'OK', headers: {}, config })
+const status = (code: number, detail: string): Answer => async (config) => {
+  throw Object.assign(new Error(`Request failed with status code ${code}`), { config, response: { status: code, data: { detail } } })
+}
+const unreachable: Answer = async (config) => { throw Object.assign(new Error('Network Error'), { config }) }
+/** An answer held until the case lets it go. */
+const heldUntil = (gate: Promise<void>, answer: Answer): Answer => async (config) => { await gate; return answer(config) }
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((yes) => { resolve = yes })
+  return { promise, resolve }
+}
+/** Let pending fetches, renders and effects run. */
+const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
+const LOGOUT_INCOMPLETE = 'This browser is logged out, but we could not end the session on the server.'
+const refused = async (): Promise<void> => { throw { response: { status: 401 } } }
+/** This browser's cookies cleared: /me then answers no user, the refresh cookie is gone, and so is the logout of every
+    session, whose route needs a live refresh token or the access cookie (E157 (2)). */
+const cookiesCleared = () => {
+  Object.assign(server, { me: status(401, 'Not authenticated'), logoutAll: status(401, 'Not authenticated'), refresh: refused, renewed: false })
+}
+/** A logout that took. */
+const endsThisSession: Answer = async (config) => {
+  cookiesCleared()
+  return ok({ status: 'success' })(config)
+}
+/** The logout route's 503: it cleared this browser's cookies, but could not end the session on the server. */
+const incomplete: Answer = async (config) => {
+  cookiesCleared()
+  return status(503, LOGOUT_INCOMPLETE)(config)
+}
+/** A logout of every session that took: this browser's session ends with the others. */
+const endsEverySession: Answer = async (config) => {
+  Object.assign(server, { me: status(401, 'Not authenticated'), refresh: refused, renewed: false })
+  return ok({ status: 'success', sessions_revoked: 3 })(config)
+}
+/** What the API answers: /me, the two logouts and the refresh, each replaceable mid-test; every request is recorded. */
+const server = {
+  me: ok(reader),
+  logout: endsThisSession,
+  logoutAll: endsEverySession,
+  /** The refresh cookie: refused unless a case renews the session. */
+  refresh: refused,
+  renewed: false,
+  requests: [] as string[],
+}
+const renews = async () => { server.renewed = true }
+/** The access cookie has lapsed: /me answers 401 until the refresh renews the session, then names `user`. */
+const lapsedAs = (user: CurrentUser): Answer => (config) =>
+  (server.renewed ? ok(user) : status(401, 'Could not validate credentials'))(config)
+const lapsed = lapsedAs(reader)
+const posts = (path: string) => server.requests.filter((request) => request === `post ${path}`).length
+const meReads = () => server.requests.filter((request) => request === 'get /api/auth/me').length
+const originalAdapter = api.defaults.adapter
+const clients: QueryClient[] = []
+const disposers: (() => void)[] = []
+
+beforeEach(() => {
+  // A flight a failed case left behind answers for an earlier generation, so no press here joins it.
+  advanceSessionGeneration()
+  clearSessionActive()
+  Object.assign(server, { me: ok(reader), logout: endsThisSession, logoutAll: endsEverySession, refresh: refused, renewed: false, requests: [] })
+  vi.mocked(refreshAccessToken).mockImplementation(() => server.refresh())
+  api.defaults.adapter = async (config) => {
+    server.requests.push(`${config.method} ${config.url}`)
+    if (config.url === '/api/auth/me') return server.me(config)
+    if (config.url === '/api/auth/logout') return server.logout(config)
+    if (config.url === '/api/auth/logout-all') return server.logoutAll(config)
+    if (config.url === '/api/auth/connections') return ok({ has_password: true, providers: [] })(config)
+    throw new Error(`unexpected request ${config.method} ${config.url}`)
+  }
+})
+afterEach(() => {
+  cleanup()
+  disposers.splice(0).forEach((dispose) => dispose())
+  clients.splice(0).forEach((client) => client.clear())
+  api.defaults.adapter = originalAdapter
+  vi.clearAllMocks()
+})
+
+/** A client as Providers builds the app's: its defaults, and the account reset when a request confirms the session lost. */
+const newClient = () => {
+  const client = new QueryClient({ defaultOptions: QUERY_CLIENT_DEFAULTS })
+  clients.push(client)
+  disposers.push(subscribeAccountQueryReset(client))
+  return client
+}
+/** The settings page under the site header, once both have read the reader, with the client and a watch on its clear(),
+    which only a logout of every session that took calls (ConnectedAccounts). */
+async function renderSettings() {
+  const client = newClient()
+  const clear = vi.spyOn(client, 'clear')
+  render(<QueryClientProvider client={client}><Header /><SettingsPage /></QueryClientProvider>)
+  await screen.findByRole('button', { name: 'Account menu' })
+  await screen.findByRole('button', { name: 'Log out of all devices' })
+  return { client, clear }
+}
+const everywhere = () => screen.getByRole('button', { name: 'Log out of all devices' })
+/** The account menu's Log out. */
+const logOut = () => {
+  fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Log out' }))
+}
+/** Once the logout of every session has ended: its error, or null when it took (its control then clears the cache, and
+    its mutation with it). */
+const logoutAllEnded = async (client: QueryClient, clear: MockInstance) => {
+  const ended = () => clear.mock.calls.length > 0 || client.getMutationCache().getAll().some(({ state }) => state.status === 'error')
+  await waitFor(() => expect(ended()).toBe(true))
+  return clear.mock.calls.length > 0 ? null : client.getMutationCache().getAll()[0].state.error
+}
+
+describe('the control whose cases run below', () => {
+  it('is the one the gate inventories, so a new one gets its cases', () => {
+    expect(Object.keys(LOGOUT_ALL_CALL_SITES)).toEqual(['features/settings/components/ConnectedAccounts.tsx'])
+  })
+})
+
+describe('"Log out of all devices" pressed while a Log out runs', () => {
+  it("waits while a failed Log out reads /me, leaving it the session flag, so a lapsed access cookie renews; then, the session alive, it logs every session out", async () => {
+    const { clear } = await renderSettings()
+    const read = deferred<void>()
+    Object.assign(server, { logout: unreachable, me: heldUntil(read.promise, lapsed), refresh: renews })
+    logOut()
+    // The Log out's request failed, and its read of /me is out with the account still on screen.
+    await waitFor(() => expect(meReads()).toBe(2))
+    const button = await screen.findByRole('button', { name: 'Log out of all devices' })
+    fireEvent.click(button)
+    await settle()
+    // It waits, busy, and the flag stays as the Log out put it back for its read: no beginLogout of its own clears it.
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    expect(hasActiveSession()).toBe(true)
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'))
+    read.resolve()
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    // /me's 401 was the lapsed access cookie: the refresh cookie renewed the session, /me named the reader, and the Log
+    // out said it did not take. Only then did the logout of every session post, once, and leave for /login.
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGOUT_FAILED_MESSAGE)
+    expect(server.requests.filter((request) => request !== 'get /api/auth/connections').slice(0, 5)).toEqual([
+      'get /api/auth/me', 'post /api/auth/logout', 'get /api/auth/me', 'get /api/auth/me', 'post /api/auth/logout-all',
+    ])
+    expect(posts('/api/auth/logout-all')).toBe(1)
+    expect(nav.push).toHaveBeenCalledWith('/login')
+    expect(nav.push).not.toHaveBeenCalledWith('/')
+  })
+
+  it("pressed while a Log out's request is out, waits for that Log out to fail and its reset to move the generation, then, the session alive, logs every session out", async () => {
+    const { clear } = await renderSettings()
+    const answer = deferred<void>()
+    server.logout = heldUntil(answer.promise, unreachable)
+    logOut()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    fireEvent.click(everywhere())
+    await settle()
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    // The request fails; the Log out's reset moves the generation the flight answers for, and /me names the reader.
+    answer.resolve()
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGOUT_FAILED_MESSAGE)
+    expect(nav.push).toHaveBeenCalledWith('/login')
+    expect(nav.push).not.toHaveBeenCalledWith('/')
+  })
+
+  it('posts when the failed Log out it waited for could not read /me (a 500), which that Log out counts as not taken', async () => {
+    const { clear } = await renderSettings()
+    const read = deferred<void>()
+    Object.assign(server, { logout: unreachable, me: heldUntil(read.promise, status(500, 'Internal Server Error')) })
+    logOut()
+    await waitFor(() => expect(meReads()).toBe(2))
+    fireEvent.click(await screen.findByRole('button', { name: 'Log out of all devices' }))
+    await settle()
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    read.resolve()
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGOUT_FAILED_MESSAGE)
+    expect(nav.push).toHaveBeenCalledWith('/login')
+  })
+
+  it('posts nothing when the Log out it waited for took, and says why in a toast, since the page leaves with that Log out', async () => {
+    const { client, clear } = await renderSettings()
+    const answer = deferred<void>()
+    server.logout = heldUntil(answer.promise, endsThisSession)
+    logOut()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    const button = everywhere()
+    fireEvent.click(button)
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'))
+    answer.resolve()
+    const error = await logoutAllEnded(client, clear)
+    await settle()
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    expect(error).toBeInstanceOf(LoggedOutFirst)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_FIRST_MESSAGE, { duration: 10000 })
+    // The Log out took and leaves, and the page renders no section for a reader gone: a line in it could not show.
+    expect(nav.push).toHaveBeenCalledWith('/')
+    expect(screen.queryByRole('button', { name: 'Log out of all devices' })).toBeNull()
+  })
+
+  it("posts nothing when the Log out it waited for answered the API's 503, which cleared this browser's cookies, and says why", async () => {
+    const { client, clear } = await renderSettings()
+    const answer = deferred<void>()
+    server.logout = heldUntil(answer.promise, incomplete)
+    logOut()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    const button = everywhere()
+    fireEvent.click(button)
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'))
+    answer.resolve()
+    const error = await logoutAllEnded(client, clear)
+    await settle()
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    expect(error).toBeInstanceOf(LoggedOutFirst)
+    // /me found no user: the Log out took, and warned in the 503's words that the server may still hold its session.
+    expect(toasts.warning).toHaveBeenCalledExactlyOnceWith(LOGOUT_INCOMPLETE)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_FIRST_MESSAGE, { duration: 10000 })
+    expect(nav.push).toHaveBeenCalledWith('/')
+  })
+
+  it("posts nothing when the failed Log out it waited for read another reader: another tab signed in, whose account it would end", async () => {
+    const { client, clear } = await renderSettings()
+    const read = deferred<void>()
+    // Another tab of this browser signs in as another account while this Log out's read is out: the cookies are that
+    // account's, and /me names it.
+    Object.assign(server, { logout: unreachable, me: heldUntil(read.promise, ok(other)) })
+    logOut()
+    await waitFor(() => expect(meReads()).toBe(2))
+    fireEvent.click(await screen.findByRole('button', { name: 'Log out of all devices' }))
+    await settle()
+    read.resolve()
+    const error = await logoutAllEnded(client, clear)
+    await settle()
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    expect(error).toBeInstanceOf(LogoutAllSuperseded)
+    expect(nav.push).not.toHaveBeenCalledWith('/login')
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
+  })
+
+  it('posts nothing and says nothing when a login overtook the Log out it waited for', async () => {
+    const { client, clear } = await renderSettings()
+    const answer = deferred<void>()
+    server.logout = heldUntil(answer.promise, ok({ status: 'success' }))
+    logOut()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    const button = everywhere()
+    fireEvent.click(button)
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'))
+    // Another account's login lands meanwhile and its identity is accepted (app/login/page.tsx's order).
+    act(() => {
+      acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+      client.setQueryData(queryKeys.currentUser(), other)
+    })
+    answer.resolve()
+    const error = await logoutAllEnded(client, clear)
+    await settle()
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    expect(error).toBeInstanceOf(LogoutAllSuperseded)
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+  })
+
+  it('posts nothing for a login accepted as the Log out it waited for settles, though that Log out did not take', async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), reader)
+    markSessionActive()
+    server.logout = unreachable
+    // The Log out's request fails and /me names the reader: it did not take, and says so to its control, in whose turn
+    // another account's login is accepted (app/login/page.tsx's order).
+    const loggingOut = logoutAndResetAccount(client, logout, (succeeded) => {
+      if (succeeded) return
+      acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+      client.setQueryData(queryKeys.currentUser(), other)
+    }).catch(() => undefined)
+    const allSessions = logoutAllInTurn().catch((error: unknown) => error)
+    await loggingOut
+    expect(await allSessions).toBeInstanceOf(LogoutAllSuperseded)
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
+  })
+})
+
+describe('a Log out pressed while "Log out of all devices" runs waits for it', () => {
+  it('and settles with it when it logs every session out: no request of its own, and the one leave is for /login', async () => {
+    const { clear } = await renderSettings()
+    const answer = deferred<void>()
+    server.logoutAll = heldUntil(answer.promise, endsEverySession)
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    expect(posts('/api/auth/logout')).toBe(0)
+    answer.resolve()
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    await settle()
+    expect(posts('/api/auth/logout')).toBe(0)
+    expect(posts('/api/auth/logout-all')).toBe(1)
+    expect(nav.push).toHaveBeenCalledWith('/login')
+    expect(nav.push).not.toHaveBeenCalledWith('/')
+    expect(toasts.error).not.toHaveBeenCalled()
+  })
+
+  it('and, when it fails, logs out on its own as a fresh press would: its own request, and its control leaves', async () => {
+    const { clear } = await renderSettings()
+    const answer = deferred<void>()
+    server.logoutAll = heldUntil(answer.promise, unreachable)
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    // It waits: no request of its own while the logout of every session is out.
+    expect(posts('/api/auth/logout')).toBe(0)
+    answer.resolve()
+    // That one failed and left the session, whose control's line may be gone with its page: this press logs out on its
+    // own, and its control's continuation leaves.
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/'))
+    expect(nav.refresh).toHaveBeenCalledTimes(1)
+    expect(posts('/api/auth/logout-all')).toBe(1)
+    expect(clear).not.toHaveBeenCalled()
+    // The section's line that it failed leaves with the page, so a toast says the other devices stayed logged in.
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HERE_ONLY_MESSAGE, { duration: 10000 })
+  })
+
+  it("and, when it fails and that Log out answers the API's 503, says both: the 503's warning and the other devices", async () => {
+    await renderSettings()
+    const answer = deferred<void>()
+    Object.assign(server, { logoutAll: heldUntil(answer.promise, unreachable), logout: incomplete })
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    answer.resolve()
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/'))
+    // /me found no user: this browser is logged out, its session maybe alive on the server, and the others are in.
+    expect(toasts.warning).toHaveBeenCalledExactlyOnceWith(LOGOUT_INCOMPLETE)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HERE_ONLY_MESSAGE, { duration: 10000 })
+  })
+
+  it('and, when it fails and that Log out does not take either, says only that, and the page stays with the section\'s line', async () => {
+    await renderSettings()
+    const answer = deferred<void>()
+    Object.assign(server, { logoutAll: heldUntil(answer.promise, unreachable), logout: unreachable })
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    answer.resolve()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGOUT_FAILED_MESSAGE))
+    await settle()
+    expect(toasts.error).toHaveBeenCalledTimes(1)
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(screen.getByText('Could not reach the server. Try again in a moment.')).toBeInTheDocument()
+  })
+
+  it('and, when a login is accepted while it waits, makes no request of its own and says nothing of the other devices', async () => {
+    const { client } = await renderSettings()
+    const answer = deferred<void>()
+    server.logoutAll = heldUntil(answer.promise, unreachable)
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    // Another account's login lands meanwhile and its identity is accepted (app/login/page.tsx's order).
+    act(() => {
+      acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+      client.setQueryData(queryKeys.currentUser(), other)
+    })
+    answer.resolve()
+    await settle()
+    await settle()
+    expect(posts('/api/auth/logout')).toBe(0)
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+  })
+})
+
+describe('"Log out of all devices" with no Log out under way', () => {
+  it('logs every session out, then clears the cache and leaves for /login', async () => {
+    const { clear } = await renderSettings()
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(posts('/api/auth/logout-all')).toBe(1)
+    expect(nav.push).toHaveBeenCalledWith('/login')
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(hasActiveSession()).toBe(false)
+  })
+
+  it('that fails says why in the section, keeps the account, and puts the session flag back, so a lapsed access cookie still renews', async () => {
+    const { client, clear } = await renderSettings()
+    server.logoutAll = unreachable
+    fireEvent.click(everywhere())
+    expect(await screen.findByText('Could not reach the server. Try again in a moment.')).toBeInTheDocument()
+    await settle()
+    expect(hasActiveSession()).toBe(true)
+    expect(clear).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+    // The access cookie lapses: the next read of /me renews the session from the refresh cookie, and names the reader.
+    Object.assign(server, { me: lapsed, refresh: renews })
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1)
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(reader)
+  })
+
+  it('called again while it runs, joins it: one request', async () => {
+    markSessionActive()
+    const answer = deferred<void>()
+    server.logoutAll = heldUntil(answer.promise, endsEverySession)
+    const first = logoutAllInTurn()
+    expect(logoutAllInTurn()).toBe(first)
+    answer.resolve()
+    await first
+    expect(posts('/api/auth/logout-all')).toBe(1)
+  })
+})
+
+describe('"Log out of all devices" names the account the tab shows (E157 (2))', () => {
+  /** The route's 409 when the account named is not the browser's (routers/auth.py's logout_all). */
+  const ANOTHER_ACCOUNT_DETAIL =
+    'This browser is logged in to a different account from the one this page shows, so no devices were logged out.'
+  /** The section's card: its heading's row sits in it. */
+  const card = () => screen.getByRole('heading', { name: 'Connected accounts & sessions' }).parentElement!.parentElement!
+  /** The bodies of the logout-of-every-session posts, as sent. */
+  const bodiesOf = (answer: Answer) => {
+    const bodies: unknown[] = []
+    server.logoutAll = async (config) => {
+      bodies.push(config.data === undefined ? undefined : JSON.parse(config.data as string))
+      return answer(config)
+    }
+    return bodies
+  }
+
+  it('in its request, and ends every session when the route finds that account', async () => {
+    const { clear } = await renderSettings()
+    const bodies = bodiesOf(endsEverySession)
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+    expect(nav.push).toHaveBeenCalledWith('/login')
+  })
+
+  it('names none, and posts no body, with no account cached to name', async () => {
+    markSessionActive()
+    const bodies = bodiesOf(endsEverySession)
+    await logoutAllInTurn()
+    expect(bodies).toEqual([undefined])
+  })
+
+  it('pressed while a Log out runs, names the same account once that Log out failed and the session survived it', async () => {
+    const { clear } = await renderSettings()
+    const bodies = bodiesOf(endsEverySession)
+    const answer = deferred<void>()
+    server.logout = heldUntil(answer.promise, unreachable)
+    logOut()
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    fireEvent.click(everywhere())
+    await settle()
+    // It waits for the Log out, holding the account it was pressed for.
+    expect(posts('/api/auth/logout-all')).toBe(0)
+    answer.resolve()
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+  })
+
+  it("and when the browser is another account's, ends nothing, says so, keeps the session flag and reads /me, which shows that account", async () => {
+    const { client, clear } = await renderSettings()
+    const before = card().textContent
+    // Another tab logged this browser in to `other`; this tab still shows `reader`, as it learns only through /me.
+    server.me = ok(other)
+    const bodies = bodiesOf(status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 }))
+    expect(bodies).toEqual([{ account_id: reader.id }])
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    await screen.findByRole('button', { name: 'Log out of all devices' })
+    await settle()
+    expect(hasActiveSession()).toBe(true)
+    expect(clear).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(toasts.warning).not.toHaveBeenCalled()
+    // No error line, in any wording: the section reads as it did before the press.
+    expect(card().textContent).toBe(before)
+  })
+
+  it.each([
+    [401, 'You are not logged in.'],
+    [403, 'This account is inactive. Contact support with any questions.'],
+    [500, 'Something went wrong on our side.'],
+  ])('says another refusal, a %i, in the section, with no toast and no read of /me', async (code, detail) => {
+    await renderSettings()
+    const reads = meReads()
+    bodiesOf(status(code, detail))
+    fireEvent.click(everywhere())
+    expect(await screen.findByText(detail)).toBeInTheDocument()
+    await settle()
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(toasts.warning).not.toHaveBeenCalled()
+    expect(toasts.success).not.toHaveBeenCalled()
+    expect(meReads()).toBe(reads)
+  })
+
+  it("clears the line an earlier failure left when a later press is refused for another account", async () => {
+    const { client } = await renderSettings()
+    server.logoutAll = unreachable
+    fireEvent.click(everywhere())
+    expect(await screen.findByText('Could not reach the server. Try again in a moment.')).toBeInTheDocument()
+    server.me = ok(other)
+    bodiesOf(status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 }))
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    expect(screen.queryByText('Could not reach the server. Try again in a moment.')).not.toBeInTheDocument()
+  })
+
+  it('and when the access cookie has lapsed too, puts the session flag back, so /me renews from the refresh cookie and shows that account', async () => {
+    const { client, clear } = await renderSettings()
+    // Another tab logged this browser in to `other`, and this tab's access cookie has lapsed since: /me answers 401
+    // until the refresh cookie renews the session. Without the flag, that 401 would read as a guest, and leave.
+    Object.assign(server, { me: lapsedAs(other), refresh: renews })
+    bodiesOf(status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 }))
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual(other))
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1)
+    expect(hasActiveSession()).toBe(true)
+    expect(clear).not.toHaveBeenCalled()
+    expect(nav.push).not.toHaveBeenCalled()
+  })
+
+  it('refused while a Log out waits on it, says so, and that Log out then logs this browser out on its own, as after any failure', async () => {
+    const { clear } = await renderSettings()
+    server.me = ok(other)
+    const answer = deferred<void>()
+    server.logoutAll = heldUntil(answer.promise, status(409, ANOTHER_ACCOUNT_DETAIL))
+    fireEvent.click(everywhere())
+    await waitFor(() => expect(posts('/api/auth/logout-all')).toBe(1))
+    logOut()
+    await settle()
+    expect(posts('/api/auth/logout')).toBe(0)
+    answer.resolve()
+    // The toast tells the reader to log in to the account they meant, which suits the page the Log out leaves for.
+    await waitFor(() => expect(posts('/api/auth/logout')).toBe(1))
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/'))
+    // One error toast, the 409's: its step stands, and a second would give another.
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGGED_IN_AS_ANOTHER_MESSAGE, { duration: 10000 })
+    expect(posts('/api/auth/logout-all')).toBe(1)
+    expect(clear).not.toHaveBeenCalled()
+  })
+})

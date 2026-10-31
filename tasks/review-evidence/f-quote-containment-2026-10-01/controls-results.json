@@ -1,0 +1,578 @@
+{
+ "cases": [
+  {
+   "id": "V01",
+   "kind": "valid: supported whitespace (newlines, NBSP, space-before-comma in source)",
+   "source": "ASML",
+   "answer": "The filing says \"Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales"
+   ]
+  },
+  {
+   "id": "V02",
+   "kind": "valid: curly quote marks",
+   "source": "ASML",
+   "answer": "The filing says “Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales” [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales"
+   ]
+  },
+  {
+   "id": "V03",
+   "kind": "valid: period inside closing quote",
+   "source": "ASML",
+   "answer": "The filing says \"Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales.\" [1]",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales."
+   ]
+  },
+  {
+   "id": "V04",
+   "kind": "valid: comma inside closing quote",
+   "source": "ASML",
+   "answer": "It notes \"Net income for 2025 amounted to €9,609.4 million,\" which is cited [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million,"
+   ]
+  },
+  {
+   "id": "V05",
+   "kind": "valid: leading/trailing truncation ellipsis",
+   "source": "ASML",
+   "answer": "\"...amounted to €9,609.4 million, representing 29.4%...\" [1]",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "...amounted to €9,609.4 million, representing 29.4%..."
+   ]
+  },
+  {
+   "id": "V06",
+   "kind": "valid: unicode edge ellipsis",
+   "source": "ASML",
+   "answer": "\"…amounted to €9,609.4 million, representing 29.4%…\" [1]",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "…amounted to €9,609.4 million, representing 29.4%…"
+   ]
+  },
+  {
+   "id": "V07",
+   "kind": "valid: resolved marker inside quote, at end",
+   "source": "ASML",
+   "answer": "The filing says \"Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales [1]\".",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales [1]"
+   ]
+  },
+  {
+   "id": "V08",
+   "kind": "valid: marker inside quote, mid-span",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 amounted to €9,609.4 million [1], representing 29.4% of total net sales\"",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million [1], representing 29.4% of total net sales"
+   ]
+  },
+  {
+   "id": "V09",
+   "kind": "valid: F-marker inside quote (pre-resolution form)",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales [F2]\"",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales [F2]"
+   ]
+  },
+  {
+   "id": "V10",
+   "kind": "valid: em dash in source, hyphen typed",
+   "source": "MSFT",
+   "answer": "The filing is organised under \"NOTE 2 - EARNINGS PER SHARE\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V11",
+   "kind": "valid: curly apostrophe + NBSP + space-before-comma in source",
+   "source": "ASML",
+   "answer": "\"For a comparison of ASML's operating results for the year ended December 31, 2024, with the year ended\" [1]",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "For a comparison of ASML's operating results for the year ended December 31, 2024, with the year ended"
+   ]
+  },
+  {
+   "id": "V12",
+   "kind": "valid: nested straight quotes from source (the \"Company\")",
+   "source": "TSLA",
+   "answer": "The auditor covered \"consolidated balance sheets of Tesla, Inc. and its subsidiaries (the \"Company\") as of December 31, 2024 and 2023\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V13",
+   "kind": "valid: nested curly-in-straight quotes from source",
+   "source": "AAPL",
+   "answer": "The filing refers to \"the Company’s chief operating decision maker (“CODM”). In addition, ASU 2023-07 requires the Company to disclose\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V14",
+   "kind": "valid: literal dot leaders in source (interior dots, contiguous)",
+   "source": "BABA",
+   "answer": "\"Date of event requiring this shell company report............... For the transition period from\" [1]",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V15",
+   "kind": "valid: source-literal bracket kept (literal-first check)",
+   "source": "literal",
+   "answer": "\"As shown in Note [7] to the financial statements\" [1]",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V16",
+   "kind": "valid: whitespace inside the model quote",
+   "source": "ASML",
+   "answer": "\"Net income for 2025\n amounted to   €9,609.4 million\" [1]",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V17",
+   "kind": "term below floor, NOT in source: ROE",
+   "source": "ASML",
+   "answer": "Return on equity (\"ROE\") is not reported [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V18",
+   "kind": "term below floor, NOT in source: Adjusted EBIT",
+   "source": "ASML",
+   "answer": "ASML does not report \"Adjusted EBIT\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Adjusted EBIT"
+   ]
+  },
+  {
+   "id": "V19",
+   "kind": "term below floor, NOT in source: 22-char label",
+   "source": "ASML",
+   "answer": "It does not use \"Adjusted EBITDA margin\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Adjusted EBITDA margin"
+   ]
+  },
+  {
+   "id": "V20",
+   "kind": "terms below floor, audit mispairing bait",
+   "source": "ASML",
+   "answer": "The \"ROE\" line, which this filing never names or defines anywhere, sits beside \"Revenue\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    " line, which this filing never names or defines anywhere, sits beside "
+   ]
+  },
+  {
+   "id": "V21",
+   "kind": "no quotes; ellipsis outside quotes",
+   "source": "ASML",
+   "answer": "Total net sales were €32,667.3 million ... and net income €9,609.4 million [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "V22",
+   "kind": "empty quotation",
+   "source": "ASML",
+   "answer": "The label is \"\" here [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "C01",
+   "kind": "composed: retained elided cell quote",
+   "source": "BABA",
+   "answer": "which report \"Revenue ... 996,347\" for the year [2].",
+   "expected": [
+    "elided_quotation"
+   ],
+   "got": [
+    "elided_quotation"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Revenue ... 996,347"
+   ]
+  },
+  {
+   "id": "C02",
+   "kind": "composed: retained label+skipped-cell quote",
+   "source": "ASML",
+   "answer": "showing \"Total net sales 32,667.3\" and \"Net income 9,609.4\" for 2025 [3].",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ]
+  },
+  {
+   "id": "C03",
+   "kind": "unsupported: paraphrased >= floor",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 was €9,609.4 million\" [1]",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 was €9,609.4 million"
+   ]
+  },
+  {
+   "id": "C04",
+   "kind": "composed: two sentences stitched, no ellipsis",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 amounted to €9,609.4 million. This compares to €7,571.6 million\" [1]",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million. This compares to €7,571.6 million"
+   ]
+  },
+  {
+   "id": "C05",
+   "kind": "composed: unicode interior ellipsis",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 amounted to … 29.4% of total net sales\" [1]",
+   "expected": [
+    "elided_quotation"
+   ],
+   "got": [
+    "elided_quotation"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to … 29.4% of total net sales"
+   ]
+  },
+  {
+   "id": "C06",
+   "kind": "composed: spaced . . . interior elision",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 . . . 29.4% of total net sales\" [1]",
+   "expected": [
+    "elided_quotation"
+   ],
+   "got": [
+    "elided_quotation"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 . . . 29.4% of total net sales"
+   ]
+  },
+  {
+   "id": "C07",
+   "kind": "composed: curly marks",
+   "source": "ASML",
+   "answer": "showing “Total net sales 32,667.3” [3].",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Total net sales 32,667.3"
+   ]
+  },
+  {
+   "id": "C08",
+   "kind": "composed: low-9 + curly close",
+   "source": "ASML",
+   "answer": "showing „Total net sales 32,667.3” [3].",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "C09",
+   "kind": "composed: marker inside does not launder",
+   "source": "ASML",
+   "answer": "showing \"Total net sales [1] 32,667.3\" [3].",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Total net sales [1] 32,667.3"
+   ]
+  },
+  {
+   "id": "C10",
+   "kind": "composed: edge period does not launder",
+   "source": "ASML",
+   "answer": "showing \"Total net sales 32,667.3.\" [3]",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Total net sales 32,667.3."
+   ]
+  },
+  {
+   "id": "C11",
+   "kind": "fail-closed: unbalanced (unterminated quote)",
+   "source": "ASML",
+   "answer": "The table shows \"Total net sales 32,667.3 [1].",
+   "expected": [
+    "unbalanced_quotation"
+   ],
+   "got": [
+    "unbalanced_quotation"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  },
+  {
+   "id": "C12",
+   "kind": "fail-closed: unbalanced, valid quote plus stray inch mark",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales\" [1] on a 12\" wafer.",
+   "expected": [
+    "unbalanced_quotation"
+   ],
+   "got": [
+    "unbalanced_quotation"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales"
+   ]
+  },
+  {
+   "id": "C13",
+   "kind": "fail-closed: missing source",
+   "source": "missing",
+   "answer": "The filing says \"Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales\" [1].",
+   "expected": [
+    "quotation_source_unavailable"
+   ],
+   "got": [
+    "quotation_source_unavailable"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": "n/a (no source)"
+  },
+  {
+   "id": "C14",
+   "kind": "fail-closed: missing source, elided",
+   "source": "missing",
+   "answer": "\"Revenue ... 996,347\" [1]",
+   "expected": [
+    "quotation_source_unavailable"
+   ],
+   "got": [
+    "quotation_source_unavailable"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": "n/a (no source)"
+  },
+  {
+   "id": "C15",
+   "kind": "ordering/determinism: two failures in span order",
+   "source": "ASML",
+   "answer": "\"Net income for 2025 was €9,609.4 million\" and \"Revenue ... 996,347\" [1]",
+   "expected": [
+    "quotation_not_in_source",
+    "elided_quotation"
+   ],
+   "got": [
+    "quotation_not_in_source",
+    "elided_quotation"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income for 2025 was €9,609.4 million",
+    "Revenue ... 996,347"
+   ]
+  },
+  {
+   "id": "C16",
+   "kind": "term >= floor NOT in source (by design flagged)",
+   "source": "ASML",
+   "answer": "It does not use \"Adjusted EBITDA excluding special items\" [1].",
+   "expected": [
+    "quotation_not_in_source"
+   ],
+   "got": [
+    "quotation_not_in_source"
+   ],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Adjusted EBITDA excluding special items"
+   ]
+  },
+  {
+   "id": "R01",
+   "kind": "residual FN: short label+cell stitch alone",
+   "source": "ASML",
+   "answer": "showing \"Net income 9,609.4\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Net income 9,609.4"
+   ]
+  },
+  {
+   "id": "R02",
+   "kind": "residual FN: short label+cell stitch alone",
+   "source": "BABA",
+   "answer": "reporting \"Revenue 996,347\" [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": [
+    "Revenue 996,347"
+   ]
+  },
+  {
+   "id": "R03",
+   "kind": "residual FN: single-quoted composed span",
+   "source": "ASML",
+   "answer": "showing 'Total net sales 32,667.3' [1].",
+   "expected": [],
+   "got": [],
+   "deterministic": true,
+   "ok": true,
+   "audit_flags": []
+  }
+ ],
+ "failures": []
+}

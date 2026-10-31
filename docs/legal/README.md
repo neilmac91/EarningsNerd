@@ -1,15 +1,16 @@
 # EarningsNerd — Legal & Compliance Documents
 
-> ⚠️ **All documents here are working templates, not legal advice.** They were drafted from the
-> project's actual data flows and from researched public sources (Apple/Google developer docs, EU/UK
-> GDPR, Swiss revFADP, EU consumer law). **Have a qualified Swiss/EU lawyer review them and complete
-> the `[bracketed]` placeholders before publishing or relying on them.**
+> The maintained website notices are the pages in `frontend/app/privacy`, `frontend/app/security`
+> and `frontend/app/terms`. The privacy/cookie companions below record implementation facts and
+> remaining review needs; other documents include historical legal templates. Source review does
+> not certify compliance. Resolve applicable contact, transfer, retention and consumer-law duties
+> before relying on drafts or authorising release.
 
 | Document | Purpose |
 |---|---|
-| [`PRIVACY_POLICY.md`](./PRIVACY_POLICY.md) | How we collect, use, share, and transfer personal data (revFADP + EU/UK GDPR + CCPA-aware). |
-| [`COOKIE_POLICY.md`](./COOKIE_POLICY.md) | Cookies and local storage used, and consent. |
-| [`TERMS_OF_SERVICE.md`](./TERMS_OF_SERVICE.md) | Terms for the website and direct (web) subscriptions. |
+| [`PRIVACY_POLICY.md`](./PRIVACY_POLICY.md) | Privacy-page source facts and unresolved disclosure/transfer reviews. |
+| [`COOKIE_POLICY.md`](./COOKIE_POLICY.md) | Browser consent implementation and separate operational processing. |
+| [`TERMS_OF_SERVICE.md`](./TERMS_OF_SERVICE.md) | Historical terms template; maintained website terms are in the app source. |
 | [`APP_STORE_COMPLIANCE.md`](./APP_STORE_COMPLIANCE.md) | Apple App Store + Google Play submission checklist. |
 | [`LAWYER_BRIEF.md`](./LAWYER_BRIEF.md) | Consolidated open-items register to brief an attorney (+ code issues found). |
 | [`DATA_PROCESSING_SETUP.md`](./DATA_PROCESSING_SETUP.md) | Step-by-step setup for sub-processor DPAs/SCCs and EU/UK Art. 27 representatives. |

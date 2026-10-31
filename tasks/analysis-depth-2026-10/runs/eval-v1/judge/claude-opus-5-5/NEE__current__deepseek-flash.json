@@ -1,0 +1,86 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is fully supported but only restates table values and has no thresholds. B explains drivers, cash conversion, peers and funding, and flags a restatement. However, it blames the FY2021 trough on the MVP impairment, which its own source places in 2020. It also cites $585m and $89m figures that its truncated passages never show. B's substance outweighs these errors, but only narrowly."
+   },
+   "cost_usd": 0.096477,
+   "latency_s": 14.497,
+   "input_tokens": 10352,
+   "output_tokens": 967,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"A is fully supported but only restates table values and has no thresholds. B explains drivers, cash conversion, peers and funding, and flags a restatement. However, it blames the FY2021 trough on the MVP impairment, which its own source places in 2020. It also cites $585m and $89m figures that its truncated passages never show. B's substance outweighs these errors, but only narrowly.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is far deeper, but several causal claims misread their sources. It ties the FY2021 margin trough to the Mountain Valley Pipeline impairment, which passage [11] places in 2020. The $89m cost-recovery effect and the $585m tax-credit rise are not in the quoted text. It also calls gross debt issued the funding source. B adds little beyond the table but is fully supported, and the rubric prefers grounding over depth."
+   },
+   "cost_usd": 0.092981,
+   "latency_s": 12.661,
+   "input_tokens": 10350,
+   "output_tokens": 793,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A is far deeper, but several causal claims misread their sources. It ties the FY2021 margin trough to the Mountain Valley Pipeline impairment, which passage [11] places in 2020. The $89m cost-recovery effect and the $585m tax-credit rise are not in the quoted text. It also calls gross debt issued the funding source. B adds little beyond the table but is fully supported, and the rubric prefers grounding over depth.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.189458
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully grounded but mostly restates table values. B explains what drove results: segment contributions, the FY2021 useful-life change, AI infrastructure weighing on gross margin, OpenAI gains inflating other income, and capex intensity squeezing free cash flow. It also adds peer and window context and thresholds to watch. B's one lapse: the '$51.4bn property additions' cause is cut off in its quoted passage and so unsupported. Otherwise B's claims are well sourced and its analysis is labelled."
+   },
+   "cost_usd": 0.111633,
+   "latency_s": 13.443,
+   "input_tokens": 12084,
+   "output_tokens": 1032,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully grounded but mostly restates table values. B explains what drove results: segment contributions, the FY2021 useful-life change, AI infrastructure weighing on gross margin, OpenAI gains inflating other income, and capex intensity squeezing free cash flow. It also adds peer and window context and thresholds to watch. B's one lapse: the '$51.4bn property additions' cause is cut off in its quoted passage and so unsupported. Otherwise B's claims are well sourced and its analysis is labelled.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A twice credits the investing-cash rise to a '$51.4 billion increase in property additions' [39], but the quoted passage is truncated and never states it. That is a real grounding lapse. Its other claims check out: segment drivers, the AI-infrastructure margin squeeze, OpenAI gains, peer net cash, labelled analysis and thresholds. Draft B is accurate but only restates table values in mechanical prose. A's depth outweighs its one unsupported attribution."
+   },
+   "cost_usd": 0.108405,
+   "latency_s": 14.518,
+   "input_tokens": 12083,
+   "output_tokens": 871,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft A twice credits the investing-cash rise to a '$51.4 billion increase in property additions' [39], but the quoted passage is truncated and never states it. That is a real grounding lapse. Its other claims check out: segment drivers, the AI-infrastructure margin squeeze, OpenAI gains, peer net cash, labelled analysis and thresholds. Draft B is accurate but only restates table values in mechanical prose. A's depth outweighs its one unsupported attribution.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.220038
+}

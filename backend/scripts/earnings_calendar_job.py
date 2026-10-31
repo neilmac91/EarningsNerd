@@ -62,9 +62,15 @@ async def _main(*, alerts: bool, sweep_from: Optional[date] = None, sweep_to: Op
             db.close()
 
 
+def _configure_logging() -> None:
+    logging.basicConfig(level=logging.INFO)
+    # httpx logs each request's URL at INFO, and Alpha Vantage's query carries the key.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
 if __name__ == "__main__":
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
-    logging.basicConfig(level=logging.INFO)
+    _configure_logging()
 
     parser = argparse.ArgumentParser(description="Refresh the earnings calendar / send earnings-day alerts.")
     parser.add_argument("--alerts", action="store_true", help="Send today's earnings-day alert digest instead of refreshing.")

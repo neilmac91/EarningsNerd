@@ -1,0 +1,230 @@
+[
+  {
+    "name": "sheet-header-false",
+    "initialTheme": "light",
+    "label": "Switch to dark mode",
+    "point": {
+      "x": 304,
+      "y": 34
+    },
+    "box": {
+      "x": 282,
+      "y": 12,
+      "w": 44,
+      "h": 44
+    },
+    "hit": "Switch to dark mode",
+    "modal": "true",
+    "headerZ": "50",
+    "themeAfter": "dark",
+    "modalAfter": "true"
+  },
+  {
+    "name": "source-launcher",
+    "theme": "light",
+    "launcher": {
+      "x": 264.109375,
+      "y": 778,
+      "w": 105.890625,
+      "h": 46
+    },
+    "covered": [
+      {
+        "text": "The increase was attributed by management to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China.",
+        "line": {
+          "x": 29,
+          "y": 769,
+          "w": 287.6875,
+          "h": 17
+        },
+        "point": {
+          "x": 290.3984375,
+          "y": 782
+        },
+        "hit": "Source"
+      },
+      {
+        "text": "The increase was attributed by management to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China.",
+        "line": {
+          "x": 29,
+          "y": 789,
+          "w": 288.125,
+          "h": 17
+        },
+        "point": {
+          "x": 290.6171875,
+          "y": 797.5
+        },
+        "hit": "Source"
+      }
+    ]
+  },
+  {
+    "name": "calendar-month-tickers",
+    "width": 390,
+    "theme": "light",
+    "cellWidth": 50.859375,
+    "accessibleName": "Thursday, October 15, 5 companies report: TSM, IBM, BRK.B and 2 more",
+    "tickers": [
+      {
+        "text": "TSM",
+        "width": 12,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "IBM",
+        "width": 12,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "BRK.B",
+        "width": 12,
+        "scrollWidth": 37,
+        "font": "12px"
+      }
+    ]
+  },
+  {
+    "name": "calendar-month-tickers",
+    "width": 320,
+    "theme": "light",
+    "cellWidth": 40.859375,
+    "accessibleName": "Thursday, October 15, 5 companies report: TSM, IBM, BRK.B and 2 more",
+    "tickers": [
+      {
+        "text": "TSM",
+        "width": 2,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "IBM",
+        "width": 2,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "BRK.B",
+        "width": 2,
+        "scrollWidth": 37,
+        "font": "12px"
+      }
+    ]
+  },
+  {
+    "name": "sheet-header-true",
+    "initialTheme": "dark",
+    "label": "Switch to light mode",
+    "point": {
+      "x": 304,
+      "y": 34
+    },
+    "box": {
+      "x": 282,
+      "y": 12,
+      "w": 44,
+      "h": 44
+    },
+    "hit": "Switch to light mode",
+    "modal": "true",
+    "headerZ": "50",
+    "themeAfter": "light",
+    "modalAfter": "true"
+  },
+  {
+    "name": "source-launcher",
+    "theme": "dark",
+    "launcher": {
+      "x": 264.109375,
+      "y": 778,
+      "w": 105.890625,
+      "h": 46
+    },
+    "covered": [
+      {
+        "text": "The increase was attributed by management to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China.",
+        "line": {
+          "x": 29,
+          "y": 769,
+          "w": 287.6875,
+          "h": 17
+        },
+        "point": {
+          "x": 290.3984375,
+          "y": 782
+        },
+        "hit": "Source"
+      },
+      {
+        "text": "The increase was attributed by management to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China.",
+        "line": {
+          "x": 29,
+          "y": 789,
+          "w": 288.125,
+          "h": 17
+        },
+        "point": {
+          "x": 290.6171875,
+          "y": 797.5
+        },
+        "hit": "Source"
+      }
+    ]
+  },
+  {
+    "name": "calendar-month-tickers",
+    "width": 390,
+    "theme": "dark",
+    "cellWidth": 50.859375,
+    "accessibleName": "Thursday, October 15, 5 companies report: TSM, IBM, BRK.B and 2 more",
+    "tickers": [
+      {
+        "text": "TSM",
+        "width": 12,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "IBM",
+        "width": 12,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "BRK.B",
+        "width": 12,
+        "scrollWidth": 37,
+        "font": "12px"
+      }
+    ]
+  },
+  {
+    "name": "calendar-month-tickers",
+    "width": 320,
+    "theme": "dark",
+    "cellWidth": 40.859375,
+    "accessibleName": "Thursday, October 15, 5 companies report: TSM, IBM, BRK.B and 2 more",
+    "tickers": [
+      {
+        "text": "TSM",
+        "width": 2,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "IBM",
+        "width": 2,
+        "scrollWidth": 22,
+        "font": "12px"
+      },
+      {
+        "text": "BRK.B",
+        "width": 2,
+        "scrollWidth": 37,
+        "font": "12px"
+      }
+    ]
+  }
+]

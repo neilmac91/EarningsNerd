@@ -1,0 +1,761 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
+import type { CurrentUser } from '@/features/auth/api/auth-api'
+import type { NotificationPreferences } from '@/features/notifications/api/notifications-api'
+import type { SubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
+import ProfileForm from '@/features/settings/components/ProfileForm'
+import ChangePasswordForm from '@/features/settings/components/ChangePasswordForm'
+import ConnectedAccounts from '@/features/settings/components/ConnectedAccounts'
+import BillingPanel from '@/features/settings/components/BillingPanel'
+import NotificationPreferencesForm from '@/features/settings/components/NotificationPreferencesForm'
+import SettingsPage from '@/app/dashboard/settings/page'
+import { resetAccountQueries } from '@/features/auth/lib/accountQueryState'
+import { queryKeys } from '@/lib/queryKeys'
+
+/**
+ * Settings controls keep keyboard focus while their own request is in flight and through the state
+ * that request leaves behind ("Saved", cleared fields). They are aria-disabled + aria-busy with an
+ * early return, never natively `disabled`: Chromium blurs a focused control that turns `disabled` to
+ * <body>. jsdom does not blur disabled elements, so these specs pin the attributes, that focus is
+ * never moved off the control, and that a second activation (click, Enter-submit) sends no request.
+ * Manage billing's success navigates away, so it stays pending until the page leaves: the kept
+ * focus cannot open a second portal session while the browser is on its way to Stripe.
+ */
+
+const api = vi.hoisted(() => ({
+  getCurrentUserSafe: vi.fn(),
+  updateProfile: vi.fn(),
+  changePassword: vi.fn(),
+  getConnections: vi.fn(),
+  unlinkProvider: vi.fn(),
+  logoutAllSessions: vi.fn(),
+  getSubscriptionStatus: vi.fn(),
+  getUsage: vi.fn(),
+  createPortalSession: vi.fn(),
+  getNotificationPreferences: vi.fn(),
+  updateNotificationPreferences: vi.fn(),
+  deleteUserAccount: vi.fn(),
+}))
+vi.mock('@/features/auth/api/auth-api', () => ({
+  getCurrentUserSafe: api.getCurrentUserSafe,
+  updateProfile: api.updateProfile,
+  changePassword: api.changePassword,
+  getConnections: api.getConnections,
+  unlinkProvider: api.unlinkProvider,
+  logoutAllSessions: api.logoutAllSessions,
+  LogoutAllSuperseded: class LogoutAllSuperseded extends Error {},
+  exportUserData: vi.fn(),
+  deleteUserAccount: api.deleteUserAccount,
+}))
+vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
+  getSubscriptionStatus: api.getSubscriptionStatus,
+  getUsage: api.getUsage,
+  createPortalSession: api.createPortalSession,
+}))
+vi.mock('@/features/notifications/api/notifications-api', () => ({
+  getNotificationPreferences: api.getNotificationPreferences,
+  updateNotificationPreferences: api.updateNotificationPreferences,
+}))
+const router = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => router }))
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
+}))
+// The foreign-issuer alert rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS (E33). Every case starts with it off, as the flag
+// ships; a case turns it on through the getter, as pricing-section.spec.tsx does.
+const flags = vi.hoisted(() => ({ ENABLE_FPI_FILINGS: false }))
+vi.mock('@/lib/featureFlags', async (original) => ({
+  ...(await original<typeof import('@/lib/featureFlags')>()),
+  get ENABLE_FPI_FILINGS() { return flags.ENABLE_FPI_FILINGS },
+}))
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+const user = (fullName: string | null): CurrentUser => ({
+  id: 1, email: 'a@example.test', full_name: fullName, is_pro: true, is_beta: false, is_admin: false, email_verified: true,
+})
+
+function renderWithClient(ui: ReactNode, client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })) {
+  return { client, ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>) }
+}
+
+/** TanStack calls mutationFn a few microtasks after mutate(), so a request count is only
+    meaningful once pending work has flushed — otherwise a second request would not be seen yet. */
+const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
+/** In flight: announced busy + unavailable, still focusable, and still the focused element. */
+/** Busy is announced (aria-busy + aria-disabled) and the control keeps focus. That a busy flag
+    never turns it natively disabled is the rule-12 gate's job (busyControlsStayFocusable.spec.ts). */
+function expectBusyAndFocused(control: HTMLElement) {
+  expect(control).toHaveAttribute('aria-busy', 'true')
+  expect(control).toHaveAttribute('aria-disabled', 'true')
+  expect(document.activeElement).toBe(control)
+}
+
+afterEach(() => {
+  cleanup()
+  onlineManager.setOnline(true)
+  Object.values(api).forEach((mock) => mock.mockReset())
+  flags.ENABLE_FPI_FILINGS = false
+})
+
+describe('ProfileForm Save', () => {
+  it('keeps focus through its request and the clean "Saved" state after it, and ignores repeat clicks', async () => {
+    api.getCurrentUserSafe.mockResolvedValueOnce(user('Old')).mockResolvedValue(user('New'))
+    const patch = deferred<unknown>()
+    api.updateProfile.mockReturnValue(patch.promise)
+    renderWithClient(<ProfileForm />)
+
+    const field = screen.getByLabelText('Display name')
+    await waitFor(() => expect(field).toHaveValue('Old'))
+    const save = screen.getByRole('button', { name: 'Save changes' })
+    // Nothing to save: unavailable, but focusable — the state a save lands back in.
+    expect(save).toHaveAttribute('aria-disabled', 'true')
+    expect(save).not.toBeDisabled()
+    fireEvent.click(save)
+    await settle()
+    expect(api.updateProfile).not.toHaveBeenCalled()
+
+    fireEvent.change(field, { target: { value: 'New' } })
+    expect(save).not.toHaveAttribute('aria-disabled')
+    save.focus()
+    fireEvent.click(save)
+    await waitFor(() => expect(save).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(save)
+    fireEvent.click(save)
+    await settle()
+    expect(api.updateProfile).toHaveBeenCalledTimes(1)
+
+    await act(async () => patch.resolve(user('New')))
+    // The refetched name now matches the field, so the form is clean: Save turns unavailable
+    // while it still holds focus — the flip native `disabled` would blur.
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
+    expect(save).toHaveAttribute('aria-disabled', 'true')
+    expect(save).not.toHaveAttribute('aria-busy')
+    expect(save).not.toBeDisabled()
+    expect(document.activeElement).toBe(save)
+    fireEvent.click(save)
+    await settle()
+    expect(api.updateProfile).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays busy after the PATCH until the refetched name lands, so a click in that window sends no second save', async () => {
+    const me = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockResolvedValueOnce(user('Old')).mockReturnValueOnce(me.promise)
+    api.updateProfile.mockResolvedValue(user('New'))
+    renderWithClient(<ProfileForm />)
+
+    const field = screen.getByLabelText('Display name')
+    await waitFor(() => expect(field).toHaveValue('Old'))
+    fireEvent.change(field, { target: { value: 'New' } })
+    const save = screen.getByRole('button', { name: 'Save changes' })
+    save.focus()
+    fireEvent.click(save)
+    await waitFor(() => expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(2))
+    // The PATCH has resolved but /me still holds the old name, so the field is still dirty.
+    expectBusyAndFocused(save)
+    fireEvent.click(save)
+    await settle()
+    expect(api.updateProfile).toHaveBeenCalledTimes(1)
+
+    await act(async () => me.resolve(user('New')))
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
+    expect(save).toHaveAttribute('aria-disabled', 'true')
+    expect(save).not.toHaveAttribute('aria-busy')
+    expect(document.activeElement).toBe(save)
+  })
+})
+
+describe('ChangePasswordForm submit', () => {
+  it('keeps focus through its request and the cleared form, and refuses a repeat click or Enter-submit', async () => {
+    api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
+    const post = deferred<unknown>()
+    api.changePassword.mockReturnValue(post.promise)
+    renderWithClient(<ChangePasswordForm />)
+
+    const current = await screen.findByLabelText('Current password')
+    const submit = screen.getByRole('button', { name: 'Update password' })
+    const form = submit.closest('form')!
+    // Incomplete: unavailable but focusable, and Enter in a field submits nothing (as `disabled` did).
+    expect(submit).toHaveAttribute('aria-disabled', 'true')
+    expect(submit).not.toBeDisabled()
+    fireEvent.submit(form)
+    await settle()
+    expect(api.changePassword).not.toHaveBeenCalled()
+    expect(screen.queryByText(/at least 12 characters/)).not.toBeInTheDocument()
+
+    fireEvent.change(current, { target: { value: 'old-password-1' } })
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'new-password-12' } })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'new-password-12' } })
+    expect(submit).not.toHaveAttribute('aria-disabled')
+    submit.focus()
+    fireEvent.click(submit)
+    await waitFor(() => expect(submit).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(submit)
+    fireEvent.click(submit)
+    fireEvent.submit(form) // Enter in a field while the request is in flight
+    await settle()
+    expect(api.changePassword).toHaveBeenCalledTimes(1)
+
+    await act(async () => post.resolve({}))
+    // Success clears the fields, so the button turns unavailable while it still holds focus.
+    expect(await screen.findByText('Password saved')).toBeInTheDocument()
+    expect(submit).toHaveAttribute('aria-disabled', 'true')
+    expect(submit).not.toHaveAttribute('aria-busy')
+    expect(submit).not.toBeDisabled()
+    expect(document.activeElement).toBe(submit)
+    fireEvent.click(submit)
+    fireEvent.submit(form)
+    await settle()
+    expect(api.changePassword).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/at least 12 characters/)).not.toBeInTheDocument()
+  })
+})
+
+describe('ConnectedAccounts', () => {
+  const google = { provider: 'google', provider_email: 'a@gmail.test', linked_at: null }
+
+  it('Unlink keeps focus while its own request is in flight and ignores a second click', async () => {
+    api.getConnections.mockResolvedValue({ has_password: true, providers: [google] })
+    const del = deferred<unknown>()
+    api.unlinkProvider.mockReturnValue(del.promise)
+    renderWithClient(<ConnectedAccounts />)
+
+    const unlink = await screen.findByRole('button', { name: 'Unlink' })
+    unlink.focus()
+    fireEvent.click(unlink)
+    await waitFor(() => expect(unlink).toHaveTextContent('Unlinking…'))
+    expectBusyAndFocused(unlink)
+    fireEvent.click(unlink)
+    await settle()
+    expect(api.unlinkProvider).toHaveBeenCalledTimes(1)
+
+    await act(async () => del.reject(new Error('Unlink refused')))
+    expect(await screen.findByText('Unlink refused')).toBeInTheDocument()
+    expect(unlink).toHaveTextContent('Unlink')
+    expect(unlink).not.toHaveAttribute('aria-disabled')
+    expect(unlink).not.toBeDisabled()
+    expect(document.activeElement).toBe(unlink)
+  })
+
+  it('Unlink stays busy until the refetch drops its row, so a second activation sends no second DELETE', async () => {
+    const refetch = deferred<unknown>()
+    api.getConnections
+      .mockResolvedValueOnce({ has_password: true, providers: [google] })
+      .mockReturnValueOnce(refetch.promise)
+    api.unlinkProvider.mockResolvedValue({})
+    renderWithClient(<ConnectedAccounts />)
+
+    const unlink = await screen.findByRole('button', { name: 'Unlink' })
+    unlink.focus()
+    fireEvent.click(unlink)
+    await waitFor(() => expect(api.getConnections).toHaveBeenCalledTimes(2))
+    // The DELETE has resolved; the refetch that removes this row has not.
+    expectBusyAndFocused(unlink)
+    fireEvent.click(unlink)
+    await settle()
+    expect(api.unlinkProvider).toHaveBeenCalledTimes(1)
+
+    await act(async () => refetch.resolve({ has_password: true, providers: [] }))
+    expect(await screen.findByText('No social logins linked.')).toBeInTheDocument()
+    expect(screen.queryByText(/Could not unlink/)).not.toBeInTheDocument()
+    // The refetch dropped the row and the focused Unlink with it: focus lands on the section heading.
+    expect(unlink.isConnected).toBe(false)
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: /Connected accounts/ }))
+  })
+
+  it('the last sign-in method is unavailable but focusable, and a click sends nothing', async () => {
+    api.getConnections.mockResolvedValue({ has_password: false, providers: [google] })
+    renderWithClient(<ConnectedAccounts />)
+    const unlink = await screen.findByRole('button', { name: 'Unlink' })
+    expect(unlink).toHaveAttribute('aria-disabled', 'true')
+    expect(unlink).not.toHaveAttribute('aria-busy')
+    expect(unlink).not.toBeDisabled()
+    unlink.focus()
+    fireEvent.click(unlink)
+    await settle()
+    expect(api.unlinkProvider).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(unlink)
+  })
+
+  it("a sibling's unlink that leaves this row the last sign-in method keeps focus on this row's Unlink", async () => {
+    const apple = { provider: 'apple', provider_email: 'a@icloud.test', linked_at: null }
+    api.getConnections
+      .mockResolvedValueOnce({ has_password: false, providers: [google, apple] })
+      .mockResolvedValue({ has_password: false, providers: [apple] })
+    const del = deferred<unknown>()
+    api.unlinkProvider.mockReturnValue(del.promise)
+    renderWithClient(<ConnectedAccounts />)
+
+    await screen.findAllByRole('button', { name: 'Unlink' })
+    const [googleUnlink, appleUnlink] = screen.getAllByRole('button', { name: 'Unlink' })
+    expect(appleUnlink).not.toHaveAttribute('aria-disabled')
+    googleUnlink.focus()
+    fireEvent.click(googleUnlink)
+    await waitFor(() => expect(googleUnlink).toHaveTextContent('Unlinking…'))
+    appleUnlink.focus() // Tab to the next row while Google's unlink is in flight
+
+    await act(async () => del.resolve({}))
+    await waitFor(() => expect(screen.queryByText('Google')).not.toBeInTheDocument())
+    // Apple is now the only sign-in method: unavailable while it still holds focus.
+    expect(appleUnlink).toBeInTheDocument()
+    expect(appleUnlink).toHaveAttribute('aria-disabled', 'true')
+    expect(appleUnlink).not.toBeDisabled()
+    expect(document.activeElement).toBe(appleUnlink)
+    fireEvent.click(appleUnlink)
+    await settle()
+    expect(api.unlinkProvider).toHaveBeenCalledTimes(1)
+  })
+
+  it('Log out of all devices keeps focus while in flight and ignores a second click', async () => {
+    api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
+    const post = deferred<unknown>()
+    api.logoutAllSessions.mockReturnValue(post.promise)
+    renderWithClient(<ConnectedAccounts />)
+
+    const signOut = await screen.findByRole('button', { name: 'Log out of all devices' })
+    signOut.focus()
+    fireEvent.click(signOut)
+    await waitFor(() => expect(signOut).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(signOut)
+    fireEvent.click(signOut)
+    await settle()
+    expect(api.logoutAllSessions).toHaveBeenCalledTimes(1)
+    // No /me is cached here, so the press names no account (E157 (2)); logoutAllJoinsTheFlight.spec.tsx holds that a
+    // request naming none posts no body.
+    expect(api.logoutAllSessions).toHaveBeenCalledWith(undefined)
+
+    await act(async () => post.reject(new Error('Sign-out failed')))
+    expect(await screen.findByText('Sign-out failed')).toBeInTheDocument()
+    expect(signOut).not.toHaveAttribute('aria-disabled')
+    expect(document.activeElement).toBe(signOut)
+  })
+
+  it('Log out of all devices refused for a login accepted while it waited neither clears, leaves nor shows an error', async () => {
+    const { LogoutAllSuperseded } = await import('@/features/auth/api/auth-api')
+    api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
+    api.logoutAllSessions.mockRejectedValue(new LogoutAllSuperseded())
+    router.push.mockClear()
+    const { client, container } = renderWithClient(<ConnectedAccounts />)
+    const clear = vi.spyOn(client, 'clear')
+
+    const signOut = await screen.findByRole('button', { name: 'Log out of all devices' })
+    const before = container.textContent
+    fireEvent.click(signOut)
+    await waitFor(() => expect(api.logoutAllSessions).toHaveBeenCalledTimes(1))
+    await settle()
+    expect(clear).not.toHaveBeenCalled()
+    expect(router.push).not.toHaveBeenCalled()
+    // No error line, in any wording: the card reads as it did before the press.
+    expect(container.textContent).toBe(before)
+  })
+})
+
+describe('BillingPanel Manage billing', () => {
+  it('keeps focus while the portal session is requested and ignores a second click', async () => {
+    const sub: SubscriptionStatus = {
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    }
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getSubscriptionStatus.mockResolvedValue(sub)
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    const portal = deferred<{ url: string }>()
+    api.createPortalSession.mockReturnValue(portal.promise)
+    renderWithClient(<BillingPanel />)
+
+    const manage = await screen.findByRole('button', { name: 'Manage billing' })
+    manage.focus()
+    fireEvent.click(manage)
+    await waitFor(() => expect(manage).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(manage)
+    fireEvent.click(manage)
+    await settle()
+    expect(api.createPortalSession).toHaveBeenCalledTimes(1)
+
+    await act(async () => portal.reject(new Error('stripe down')))
+    expect(await screen.findByText('Could not open the billing portal. Please try again.')).toBeInTheDocument()
+    expect(manage).not.toHaveAttribute('aria-disabled')
+    expect(document.activeElement).toBe(manage)
+  })
+
+  it('stays busy while the page leaves for the portal, and is live again after a back-forward restore', async () => {
+    const sub: SubscriptionStatus = {
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    }
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getSubscriptionStatus.mockResolvedValue(sub)
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    api.createPortalSession.mockResolvedValue({ url: 'https://billing.stripe.com/p/session_1' })
+    // jsdom cannot navigate; a plain object records the assignment instead.
+    const realLocation = window.location
+    Object.defineProperty(window, 'location', { value: { href: '' }, writable: true, configurable: true })
+    try {
+      renderWithClient(<BillingPanel />)
+      const manage = await screen.findByRole('button', { name: 'Manage billing' })
+      manage.focus()
+      fireEvent.click(manage)
+      await waitFor(() => expect(window.location.href).toBe('https://billing.stripe.com/p/session_1'))
+      await settle()
+      // Still on the page while the browser leaves: busy, focused, and a second click opens nothing.
+      expectBusyAndFocused(manage)
+      fireEvent.click(manage)
+      await settle()
+      expect(api.createPortalSession).toHaveBeenCalledTimes(1)
+
+      // Back from Stripe via the back-forward cache: pageshow settles the request.
+      await act(async () => { window.dispatchEvent(new Event('pageshow')) })
+      await waitFor(() => expect(manage).not.toHaveAttribute('aria-busy'))
+      expect(manage).not.toHaveAttribute('aria-disabled')
+      expect(document.activeElement).toBe(manage)
+    } finally {
+      Object.defineProperty(window, 'location', { value: realLocation, writable: true, configurable: true })
+    }
+  })
+})
+
+describe('BillingPanel Retry', () => {
+  const freeSub: SubscriptionStatus = {
+    is_pro: false, stripe_customer_id: null, stripe_subscription_id: null, subscription_status: null,
+    plan: 'free', status: null, trial_end: null, current_period_end: null, cancel_at_period_end: false,
+  }
+  const proSub: SubscriptionStatus = {
+    ...freeSub, is_pro: true, status: 'active', plan: 'pro', stripe_customer_id: 'cus_1', current_period_end: '2027-06-18T00:00:00Z',
+  }
+  const usage = { summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' }
+  const heading = () => screen.getByRole('heading', { name: 'Billing' })
+  /** The plan was loaded once, then its refresh failed: the stale-data Notice. */
+  function staleClient() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(queryKeys.currentUser(), user(null))
+    client.setQueryData(queryKeys.subscription.byUser(1), proSub)
+    return client
+  }
+
+  it('subscription unavailable: its press keeps the Notice and the focused Retry busy; success hands focus to "Billing"', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    retry.focus()
+    fireEvent.click(retry)
+    await settle()
+    expect(retry.isConnected).toBe(true)
+    expect(screen.getByText('Failed to load billing information')).toBeInTheDocument()
+    expectBusyAndFocused(retry)
+    await act(async () => refetched.resolve(freeSub))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it('identity unavailable: the same, through the identity retry', async () => {
+    const refetched = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
+    api.getSubscriptionStatus.mockResolvedValue(freeSub)
+    api.getUsage.mockResolvedValue(usage)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    retry.focus()
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+    await act(async () => refetched.resolve(user(null)))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it('a retry that fails again leaves the same Retry focused and live', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const again = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(again.promise)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    retry.focus()
+    fireEvent.click(retry)
+    await settle()
+    await act(async () => again.reject(new Error('down')))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(retry.isConnected).toBe(true)
+    expect(retry).not.toHaveAttribute('aria-disabled')
+    expect(document.activeElement).toBe(retry)
+  })
+
+  it('a reconnect refetch nobody pressed keeps the Notice and the focused Retry busy', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    retry.focus()
+    act(() => onlineManager.setOnline(false))
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
+    expect(retry.isConnected).toBe(true)
+    expectBusyAndFocused(retry)
+    await act(async () => refetched.resolve(freeSub))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it("another account's first plan load shows the skeleton, not the last account's error card", async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down'))
+    const { client } = renderWithClient(<BillingPanel />)
+    await screen.findByText('Failed to load billing information')
+
+    // The subscription is keyed by user id: another account signs in while the panel is mounted.
+    const secondPlan = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockReturnValueOnce(secondPlan.promise)
+    act(() => client.setQueryData(queryKeys.currentUser(), { ...user(null), id: 2 }))
+    await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
+    await settle()
+    expect(screen.queryByText('Failed to load billing information')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    await act(async () => secondPlan.resolve(proSub))
+    expect(await screen.findByText('Pro')).toBeInTheDocument()
+  })
+
+  it('stale-data Retry: busy offline; its own success hands focus to "Billing"', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed')).mockReturnValueOnce(refetched.promise)
+    renderWithClient(<BillingPanel />, staleClient())
+    await screen.findByText("Couldn't refresh billing details")
+    const retry = screen.getByRole('button', { name: 'Try again' })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
+    await act(async () => refetched.resolve(proSub))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it('stale-data Retry: busy at once after a press, so a second press in the same tick sends nothing', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed')).mockReturnValue(refetched.promise)
+    renderWithClient(<BillingPanel />, staleClient())
+    await screen.findByText("Couldn't refresh billing details")
+    const retry = screen.getByRole('button', { name: 'Try again' })
+    fireEvent.click(retry)
+    expect(retry).toHaveAttribute('aria-busy', 'true')
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2)
+    await act(async () => refetched.resolve(proSub))
+  })
+})
+
+// lessons/frontend-spinner-gate-on-shared-errored-query.md: the page's spinner gate and its children's
+// observers of the same failed query used to remount each other forever.
+describe('SettingsPage over a failed account check', () => {
+  it('a non-401 /me failure renders the page with the billing Notice after at most 2 /me calls in 200 ms', async () => {
+    api.getCurrentUserSafe.mockRejectedValue(new Error('account down'))
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockResolvedValue({
+      notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+      channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+    })
+    renderWithClient(<SettingsPage />)
+    // Short act() windows, so React renders, and mounts and unmounts children, all through the 200 ms: one
+    // long act() would defer every render to its end and hide a loop.
+    const start = Date.now()
+    while (Date.now() - start < 200) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5)) })
+    expect(api.getCurrentUserSafe.mock.calls.length).toBeLessThanOrEqual(2)
+    expect(screen.getByRole('heading', { name: 'Account settings' })).toBeInTheDocument()
+    expect(await screen.findByText('Failed to load billing information')).toBeInTheDocument()
+  })
+})
+
+// E29 (2): the account sections wait for a reader, as the dashboard's do.
+describe('SettingsPage when the session is lost', () => {
+  it('sends the confirmed guest to /login, and Connected accounts and Filing alerts do not read again to show load errors', async () => {
+    router.push.mockClear() // another case's logout may have pushed /login already
+    api.getCurrentUserSafe.mockResolvedValue(user('Ada'))
+    api.getSubscriptionStatus.mockResolvedValue({
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    })
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockResolvedValue({
+      notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+      channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+    })
+    const { client } = renderWithClient(<SettingsPage />)
+    expect(await screen.findByRole('switch', { name: 'Annual reports (10-K)' })).toBeInTheDocument()
+    await waitFor(() => expect(api.getConnections).toHaveBeenCalledTimes(1))
+    expect(api.getNotificationPreferences).toHaveBeenCalledTimes(1)
+
+    // The session lapses: the API refuses what the sections would read now, and the reset settles the reader on null.
+    api.getConnections.mockRejectedValue(new Error('Not authenticated'))
+    api.getNotificationPreferences.mockRejectedValue(new Error('Not authenticated'))
+    act(() => resetAccountQueries(client, undefined, 'session-loss'))
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/login'))
+    await settle()
+    expect(api.getConnections).toHaveBeenCalledTimes(1)
+    expect(api.getNotificationPreferences).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Failed to load connected accounts.')).not.toBeInTheDocument()
+    expect(screen.queryByText("Couldn't load your alert preferences. Please refresh.")).not.toBeInTheDocument()
+  })
+
+  it('shows the bones while a first read of the account waits offline, not a blank page', async () => {
+    onlineManager.setOnline(false)
+    api.getCurrentUserSafe.mockResolvedValue(user('Ada'))
+    renderWithClient(<SettingsPage />)
+    expect(await screen.findByRole('status', { name: 'Loading your settings' })).toBeInTheDocument()
+    expect(api.getCurrentUserSafe).not.toHaveBeenCalled()
+  })
+
+  it('a deleted account leaves for the home page, not /login, though the /me after it answers no user', async () => {
+    router.push.mockClear() // another case's logout may have pushed /login already
+    api.getCurrentUserSafe.mockResolvedValue(user('Ada'))
+    api.getSubscriptionStatus.mockResolvedValue({
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    })
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockResolvedValue({
+      notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+      channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+    })
+    api.deleteUserAccount.mockResolvedValue({ message: 'Account deleted' })
+    const { client } = renderWithClient(<SettingsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete my account' }))
+    fireEvent.change(screen.getByPlaceholderText('delete my account'), { target: { value: 'delete my account' } })
+    // The deleted account's session is gone: the /me the cleared cache reads again answers no user.
+    api.getCurrentUserSafe.mockResolvedValue(null)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }))
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/'))
+    // The cleared cache reads /me again and settles on no user, a confirmed guest: unguarded, the redirect pushed /login.
+    await waitFor(() => {
+      const read = client.getQueryState(queryKeys.currentUser())
+      expect(read?.data).toBeNull()
+      expect(read?.fetchStatus).toBe('idle')
+    })
+    await settle()
+    expect(router.push).not.toHaveBeenCalledWith('/login')
+  })
+})
+
+describe('NotificationPreferencesForm', () => {
+  const prefs: NotificationPreferences = {
+    notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+    channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+  }
+
+  it('a flipped switch keeps focus through the save, and no control starts a second save meanwhile', async () => {
+    api.getNotificationPreferences.mockResolvedValue(prefs)
+    const put = deferred<NotificationPreferences>()
+    api.updateNotificationPreferences.mockReturnValue(put.promise)
+    renderWithClient(<NotificationPreferencesForm />)
+
+    const tenK = await screen.findByRole('switch', { name: 'Annual reports (10-K)' })
+    // Plan availability stays native `disabled` — server-set, never flipped by the switch itself.
+    expect(screen.getByRole('switch', { name: 'Material events (8-K)' })).toBeDisabled()
+    tenK.focus()
+    fireEvent.click(tenK)
+    await waitFor(() => expect(tenK).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(tenK)
+    fireEvent.click(tenK)
+    fireEvent.click(screen.getByRole('switch', { name: 'Quarterly reports (10-Q)' }))
+    await settle()
+    expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
+    expect(api.updateNotificationPreferences.mock.calls[0][0]).toEqual({ notify_10k: true })
+
+    await act(async () => put.resolve({ ...prefs, notify_10k: true }))
+    await waitFor(() => expect(tenK).toHaveAttribute('aria-checked', 'true'))
+    expect(tenK).not.toHaveAttribute('aria-disabled')
+    expect(tenK).not.toBeDisabled()
+    expect(document.activeElement).toBe(tenK)
+  })
+
+  // DSW-01: no job reads a digest frequency (run_daily_digest sends once a day for everyone), so the
+  // row states the cadence and offers no choice; notificationPreferencesConsumed.spec.ts holds it. The
+  // cadence is the row's value in the data face, as the filing identity sets its facts.
+  it('states the daily digest as a fact, with no control that saves a frequency', async () => {
+    api.getNotificationPreferences.mockResolvedValue({ ...prefs, digest: 'weekly' })
+    renderWithClient(<NotificationPreferencesForm />)
+
+    expect(await screen.findByText('Alerts that aren\'t real-time arrive in one email a day.')).toBeInTheDocument()
+    expect(screen.getByText('Daily')).toHaveClass('font-data')
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Filing alerts' })).toBeInTheDocument()
+  })
+
+  // E33: the foreign-issuer rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS, the mirror of the API's ENABLE_FPI_FILINGS, as the
+  // plan lines do. Off, no row offers a form the API keeps off; on, each shows the preference the server stored.
+  const switchNames = () => screen.getAllByRole('switch').map((control) => control.getAttribute('aria-label'))
+  const TEN_K = 'Annual reports (10-K)'
+  const TWENTY_F = 'Foreign annual reports (20-F)'
+  const SIX_K = 'Foreign interim reports (6-K)'
+
+  it.each([false, true])('offers the foreign-issuer rows only while the FPI flag is on, each in its stored state (flag %s)', async (on) => {
+    flags.ENABLE_FPI_FILINGS = on
+    api.getNotificationPreferences.mockResolvedValue({ ...prefs, notify_20f: true, notify_6k: false })
+    const { container } = renderWithClient(<NotificationPreferencesForm />)
+
+    await screen.findByRole('switch', { name: TEN_K })
+    expect(switchNames()).toEqual([
+      TEN_K, 'Quarterly reports (10-Q)', 'Material events (8-K)', ...(on ? [TWENTY_F, SIX_K] : []), 'Real-time alerts',
+    ])
+    expect(screen.getByText('Daily')).toBeInTheDocument()
+    if (!on) {
+      expect(container).not.toHaveTextContent(/20-F|40-F|6-K|foreign/i)
+      return
+    }
+    expect(screen.getByRole('switch', { name: TWENTY_F })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: SIX_K })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  // E33: a hidden row keeps what the reader stored. Each switch saves its own field alone, so a save made while the
+  // foreign rows are hidden carries neither notify_20f nor notify_6k, and the API changes only the fields it is sent
+  // (users.py: model_dump(exclude_unset=True)), as the mock does. A build with the flag on shows them as stored.
+  it('a save while the foreign rows are hidden sends only its own field, and the flag turned on shows the stored values', async () => {
+    const stored: NotificationPreferences = { ...prefs, notify_20f: true, notify_6k: true }
+    api.getNotificationPreferences.mockResolvedValue(stored)
+    api.updateNotificationPreferences.mockImplementation(async (update: Partial<NotificationPreferences>) => ({ ...stored, ...update }))
+    const { client, rerender } = renderWithClient(<NotificationPreferencesForm />)
+
+    const annual = await screen.findByRole('switch', { name: TEN_K })
+    expect(screen.queryByRole('switch', { name: TWENTY_F })).toBeNull()
+    expect(screen.queryByRole('switch', { name: SIX_K })).toBeNull()
+    fireEvent.click(annual)
+    await waitFor(() => expect(annual).toHaveAttribute('aria-checked', 'true'))
+    expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
+    expect(api.updateNotificationPreferences.mock.calls[0][0]).toStrictEqual({ notify_10k: true })
+    expect(client.getQueryData(queryKeys.notificationPreferences())).toMatchObject({ notify_10k: true, notify_20f: true, notify_6k: true })
+
+    flags.ENABLE_FPI_FILINGS = true
+    rerender(<QueryClientProvider client={client}><NotificationPreferencesForm /></QueryClientProvider>)
+    expect(screen.getByRole('switch', { name: TWENTY_F })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: SIX_K })).toHaveAttribute('aria-checked', 'true')
+  })
+})

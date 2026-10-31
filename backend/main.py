@@ -13,38 +13,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.config import settings, APP_VERSION
+from app.utils.feedback_privacy import is_private_feedback_path, private_feedback_request
+from app.utils.telemetry_bootstrap import init_sentry
 
-# Initialize Sentry for error tracking (must be done before FastAPI app creation)
-try:
-    import sentry_sdk
-    from sentry_sdk.integrations.fastapi import FastApiIntegration
-    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-except ImportError:
+# Initialize Sentry for error tracking (must be done before FastAPI app creation, and before the app modules below are
+# imported, so an import-time error is reported). One line for each outcome: the four the ops logs-probe counts.
+_sentry = init_sentry("api")
+if _sentry.status == "unavailable":
     print("Sentry SDK not available - install sentry-sdk for error tracking")
-else:
-    if settings.SENTRY_DSN:
-        try:
-            sentry_sdk.init(
-                dsn=settings.SENTRY_DSN,
-                environment=settings.ENVIRONMENT,
-                # Release = deployed git SHA (CI sets SENTRY_RELEASE=$GITHUB_SHA on Cloud Run), so
-                # errors are attributable to an exact revision. None → Sentry's default detection.
-                release=settings.SENTRY_RELEASE or None,
-                traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
-                profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
-                integrations=[
-                    FastApiIntegration(transaction_style="endpoint"),
-                    SqlalchemyIntegration(),
-                ],
-                # Don't send PII
-                send_default_pii=False,
-            )
-            print("✓ Sentry error tracking initialized")
-        except Exception as e:
-            # A malformed DSN or init failure must never block application startup
-            print(f"⚠️  Sentry initialization failed ({e}) - error tracking disabled")
-    else:
-        print("⚠️  SENTRY_DSN not configured - error tracking disabled")
+elif _sentry.status == "initialized":
+    print("✓ Sentry error tracking initialized")
+elif _sentry.status == "failed":
+    # A malformed DSN or init failure must never block application startup
+    print(f"⚠️  Sentry initialization failed ({_sentry.error}) - error tracking disabled")
+elif _sentry.status == "unconfigured":
+    print("⚠️  SENTRY_DSN not configured - error tracking disabled")
 
 from app.database import engine, Base, get_db, ensure_additive_columns
 from app.services.event_loop import set_app_loop
@@ -71,6 +54,7 @@ from app.routers import (
     reporting_this_week,
     email,
     contact,
+    legal,
     feedback,
     webhooks,
     admin,
@@ -78,8 +62,10 @@ from app.routers import (
     dashboard,
     search,
     peers,
+    section_reviews,
     insiders,
     calendar,
+    security_contact,
 )
 
 def _run_on_daemon_thread(loop: asyncio.AbstractEventLoop, name: str, step) -> asyncio.Future:
@@ -267,6 +253,8 @@ _cors_config = {
         "Accept",
         "Origin",
         "X-Requested-With",
+        "Idempotency-Key",
+        "X-Feedback-User-Id",
         "X-Correlation-ID",
         # Cloudflare Turnstile token headers the auth/contact/waitlist forms attach
         # (see app/services/turnstile.py:_TOKEN_HEADERS). Without these the browser
@@ -275,7 +263,7 @@ _cors_config = {
         "cf-turnstile-response",
         "x-turnstile-token",
     ],
-    "expose_headers": ["X-Correlation-ID"],
+    "expose_headers": ["X-Correlation-ID", "Retry-After"],
 }
 
 # Only allow localhost regex in development (for various dev server ports)
@@ -310,25 +298,50 @@ def _error_response_cors_headers(request: Request) -> dict[str, str]:
         "Vary": "Origin",
     }
 
-# Security headers middleware
+def _security_headers(request: Request) -> dict[str, str]:
+    """The security headers every response carries.
+
+    ``add_security_headers`` stamps them on whatever passes back through it. Two responses never
+    do, so they set these themselves: the timeout's 504, built in ``request_timeout_middleware``,
+    which sits outside it, and the global ``Exception`` handler's 500, which Starlette answers from
+    ServerErrorMiddleware, outside every user middleware. /security says the API's responses under
+    /api carry a Content-Security-Policy of default-src 'none' (E137).
+    """
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    }
+    if settings.ENVIRONMENT == "production":
+        headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    path = request.url.path
+    if path == "/api" or path.startswith("/api/"):
+        headers["Content-Security-Policy"] = "default-src 'none'"
+    return headers
+
+
+# Keep feedback privacy inside the existing HTTP middleware: another BaseHTTPMiddleware
+# task handoff lets streaming bodies advance before outer response headers are delivered.
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-    if settings.ENVIRONMENT == "production":
-        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-    if request.url.path.startswith("/api/"):
-        response.headers.setdefault("Content-Security-Policy", "default-src 'none'")
-    return response
+    token = private_feedback_request.set(is_private_feedback_path(request.url.path))
+    try:
+        response = await call_next(request)
+        for name, value in _security_headers(request).items():
+            response.headers.setdefault(name, value)
+        return response
+    finally:
+        private_feedback_request.reset(token)
 
 
 # Request timeout middleware
 # Configurable timeouts per endpoint pattern
 REQUEST_TIMEOUT_SECONDS = {
     "default": 30.0,
+    "/api/feedback/with-attachments": 60.0,
+    # A real stale refresh generates its batch in the request, inside Cloud Run's 600 s (the route's docstring).
+    "/api/admin/summaries/refresh-stale": admin.REFRESH_STALE_TIMEOUT_SECONDS,
     "/api/summaries/": 120.0,  # Summary generation needs more time
     "/api/filings/": 60.0,     # Filing fetches from SEC EDGAR
     "/health": 5.0,            # Health checks should be fast
@@ -377,7 +390,8 @@ async def request_timeout_middleware(request: Request, call_next):
         # 504 it synthesizes never passes back through CORSMiddleware. Without them the browser
         # blocks the cross-origin 504 and the client sees an opaque "Unable to connect to the
         # server" instead of the real timeout — the same masking the 503/500 handlers already guard
-        # against (see _error_response_cors_headers).
+        # against (see _error_response_cors_headers). It sits outside add_security_headers too, so
+        # the 504 sets those headers itself (_security_headers).
         return JSONResponse(
             status_code=504,
             content={
@@ -385,16 +399,18 @@ async def request_timeout_middleware(request: Request, call_next):
                 "path": path,
                 "timeout_seconds": timeout
             },
-            headers=_error_response_cors_headers(request),
+            headers={**_error_response_cors_headers(request), **_security_headers(request)},
         )
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(legal.router, prefix="/api/legal", tags=["Legal availability"])
 app.include_router(companies.router, prefix="/api/companies", tags=["Companies"])
 app.include_router(peers.router, prefix="/api/companies", tags=["Peers"])
 app.include_router(insiders.router, prefix="/api/companies", tags=["Insiders"])
 app.include_router(filings.router, prefix="/api/filings", tags=["Filings"])
 app.include_router(summaries.router, prefix="/api/summaries", tags=["Summaries"])
+app.include_router(section_reviews.router, prefix="/api/summaries", tags=["Wording review"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
 app.include_router(saved_summaries.router, prefix="/api/saved-summaries", tags=["Saved Summaries"])
@@ -413,6 +429,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(internal.router, prefix="/internal", tags=["Internal"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["Calendar"])
+app.include_router(security_contact.router, tags=["Security Contact"])
 
 
 # SEC EDGAR circuit-breaker handler: when the breaker is open we are deliberately
@@ -442,6 +459,41 @@ async def circuit_open_exception_handler(request: Request, exc: CircuitOpenError
 
 
 # Global exception handler for unhandled errors
+from app.services.durable_tasks import TaskUnavailable
+
+
+@app.exception_handler(TaskUnavailable)
+async def task_handoff_exception_handler(request: Request, exc: TaskUnavailable):
+    from fastapi.responses import JSONResponse
+    logger.error("Durable task handoff unavailable path=%s", request.url.path)
+    return JSONResponse(
+        status_code=503, headers=_error_response_cors_headers(request),
+        content={"detail": "Background work could not be queued. Please retry."},
+    )
+
+
+# A refused request's 422 lists each error's type, loc and msg only. FastAPI's default answer also
+# returned each refused value (for a missing field, the whole body), a password among them, and a
+# value that is not valid Unicode made rendering it raise: a 500 whose traceback quoted it (E97).
+from fastapi.exceptions import RequestValidationError
+
+from app.services.auth_validation import public_validation_errors
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=422, content={"detail": public_validation_errors(exc.errors())})
+
+
+# A coded refusal answers as the HTTPException it replaces did, plus the code a client routes on instead of its words
+# (E31; docs/audit/contracts/error-codes.md §4). No answer changes until a producer raises one.
+from app.api_errors import CodedHTTPException, coded_http_exception_handler
+
+app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
@@ -450,28 +502,34 @@ async def global_exception_handler(request: Request, exc: Exception):
     """
     from fastapi.responses import JSONResponse
 
-    # Log the error with full context
-    logger.exception(
-        f"Unhandled exception on {request.method} {request.url.path}: {exc}"
-    )
+    private_feedback = is_private_feedback_path(request.url.path)
+    if private_feedback:
+        # Driver exceptions can embed SQL bind values, including feedback text. This also
+        # covers exceptions raised outside the request middleware's context lifetime.
+        logger.warning("Private feedback request failed (%s)", type(exc).__name__)
+    else:
+        logger.exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
 
     # Report to Sentry if available
     try:
         import sentry_sdk
-        sentry_sdk.capture_exception(exc)
+        if not private_feedback:
+            sentry_sdk.capture_exception(exc)
     except ImportError:
         pass
 
     # Return a generic error response (don't leak internal details in production)
-    error_detail = str(exc) if settings.ENVIRONMENT != "production" else "An unexpected error occurred"
+    error_detail = str(exc) if settings.ENVIRONMENT != "production" and not private_feedback else "An unexpected error occurred"
 
+    # Starlette answers this handler from ServerErrorMiddleware, outside add_security_headers, so the
+    # 500 sets those headers itself (_security_headers).
     return JSONResponse(
         status_code=500,
         content={
             "detail": error_detail,
             "type": "internal_server_error",
         },
-        headers=_error_response_cors_headers(request),
+        headers={**_error_response_cors_headers(request), **_security_headers(request)},
     )
 
 

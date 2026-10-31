@@ -1,0 +1,86 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A accepts a $1.5bn FY2025 total debt figure against $35.5bn of FY2023 long-term debt. It then builds $8.8bn net cash and a top peer ranking on that figure. It also ties the FY2017 bottling revenue drop to refranchising using a passage about SG&A. B flags the missing debt lines and discloses the unexplained 82.5% FY2017 tax rate. It also bridges the margin swing across FY2024\u201325, adds a peer comparison for cash conversion, and labels its judgements as analysis."
+   },
+   "cost_usd": 0.140505,
+   "latency_s": 12.473,
+   "input_tokens": 16133,
+   "output_tokens": 856,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"A accepts a $1.5bn FY2025 total debt figure against $35.5bn of FY2023 long-term debt. It then builds $8.8bn net cash and a top peer ranking on that figure. It also ties the FY2017 bottling revenue drop to refranchising using a passage about SG&A. B flags the missing debt lines and discloses the unexplained 82.5% FY2017 tax rate. It also bridges the margin swing across FY2024\u201325, adds a peer comparison for cash conversion, and labels its judgements as analysis.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A spots that the FY2025 total debt of $1.5bn is missing long-term debt lines, so its net cash and peer rank are unreliable. B takes them at face value and calls debt 'small against cash', a material misreading. B adds more depth: the refranchising step-down and grounded gross-margin and SG&A drivers. But its refranchising causal claim leans on an SG&A passage. A also flags the unexplained FY2017 tax rate."
+   },
+   "cost_usd": 0.139413,
+   "latency_s": 12.585,
+   "input_tokens": 16129,
+   "output_tokens": 803,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"A spots that the FY2025 total debt of $1.5bn is missing long-term debt lines, so its net cash and peer rank are unreliable. B takes them at face value and calls debt 'small against cash', a material misreading. B adds more depth: the refranchising step-down and grounded gross-margin and SG&A drivers. But its refranchising causal claim leans on an SG&A passage. A also flags the unexplained FY2017 tax rate.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.279918
+}

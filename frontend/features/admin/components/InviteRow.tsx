@@ -10,14 +10,17 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { resendInvite, revokeInvite, type InviteRecord } from '@/features/admin/api/admin-api'
 import InviteStatusBadge from '@/features/admin/components/InviteStatusBadge'
 import RevokeConfirmModal from '@/features/admin/components/RevokeConfirmModal'
+import { MissingValue } from '@/components/ui/MissingValue'
 import ResendShareModal from '@/features/admin/components/ResendShareModal'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
-function fmtDate(value: string | null): string {
-  if (!value) return '—'
+/** A stored instant as its day, or null when there is none or it does not parse: the cell then shows MissingValue
+ *  ("unavailable"), never a bare token. */
+function fmtDate(value: string | null): string | null {
+  if (!value) return null
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return null
   return format(d, 'MMM d, yyyy')
 }
 
@@ -30,9 +33,11 @@ export default function InviteRow({ invite }: InviteRowProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   // Holds the freshly-minted link after a resend so we can offer it for sharing.
-  const [resendShare, setResendShare] = useState<{ link: string; email: string | null } | null>(
-    null,
-  )
+  const [resendShare, setResendShare] = useState<{
+    link: string
+    email: string | null
+    emailed: boolean
+  } | null>(null)
 
   // Client-side cooldown countdown after a resend, so an admin can't hammer the endpoint and
   // mint a pile of fresh links in a few seconds.
@@ -48,7 +53,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
       setCooldown(RESEND_COOLDOWN_SECONDS)
       toast.success(result.emailed ? `Invite re-sent to ${result.email}` : 'Fresh invite link minted')
       // Surface the fresh link in a dialog so the admin can copy/share it right away.
-      setResendShare({ link: result.invite_link, email: result.email })
+      setResendShare({ link: result.invite_link, email: result.email, emailed: result.emailed })
       queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     },
     onError: (err: unknown) => {
@@ -70,41 +75,53 @@ export default function InviteRow({ invite }: InviteRowProps) {
 
   const isUsed = invite.status === 'used'
   const isRevoked = invite.status === 'revoked'
-  const emailLabel = invite.email ?? 'this invite'
+  // A link-only invite has no address to name, so its actions say what it is.
+  const resendLabel = invite.email ? `Resend invite to ${invite.email}` : 'Resend this link-only invite'
+  const revokeLabel = invite.email ? `Revoke invite to ${invite.email}` : 'Revoke this link-only invite'
   const resendDisabled = resendMutation.isPending || cooldown > 0
 
   return (
     <tr className="hover:bg-background-light dark:hover:bg-white/5">
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-primary-light dark:text-text-primary-dark">
         {invite.email ?? (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">Link only</span>
+          <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Link only</span>
         )}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {invite.cohort ?? '—'}
+        {/* An invite minted without a cohort has none: "no cohort", never "unavailable". */}
+        {invite.cohort ?? <MissingValue label="no cohort" />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm">
         <InviteStatusBadge status={invite.status} />
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(invite.created_at)}
+        {fmtDate(invite.created_at) ?? <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(invite.expires_at)}
+        {fmtDate(invite.expires_at) ?? <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm">
         <div className="flex items-center gap-2">
           {/* Resend is hidden once an invite is used — re-minting a redeemed invite is a 409. */}
           {!isUsed && (
+            // aria-disabled + an early return, not native `disabled` (the DS Button's `loading`
+            // pattern): ResendShareModal returns focus here on close, and a disabled button can't
+            // take it (Chrome even blurs it mid-request), so focus would land on <body>. Unavailable
+            // fades the label and hairline, not the element, so the focus indicator keeps its strength
+            // (dark's hairline is white/10, so its half is white/5).
             <button
               type="button"
-              onClick={() => resendMutation.mutate()}
-              disabled={resendDisabled}
-              aria-label={`Resend invite to ${emailLabel}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5"
+              onClick={() => {
+                if (resendDisabled) return
+                resendMutation.mutate()
+              }}
+              aria-disabled={resendDisabled || undefined}
+              aria-busy={resendMutation.isPending || undefined}
+              aria-label={resendLabel}
+              className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:cursor-not-allowed aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50"
             >
               {resendMutation.isPending ? (
-                <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />
+                <CircleNotchIcon aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
               ) : (
                 <PaperPlaneTiltIcon className="h-3.5 w-3.5" />
               )}
@@ -122,8 +139,8 @@ export default function InviteRow({ invite }: InviteRowProps) {
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
-              aria-label={`Revoke invite to ${emailLabel}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:bg-error-dark/15"
+              aria-label={revokeLabel}
+              className="focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:border-error-dark/40 dark:hover:bg-transparent"
             >
               <ProhibitIcon className="h-3.5 w-3.5" />
               Revoke
@@ -145,6 +162,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
         <ResendShareModal
           link={resendShare.link}
           email={resendShare.email}
+          emailed={resendShare.emailed}
           onClose={() => setResendShare(null)}
         />
       )}

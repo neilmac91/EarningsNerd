@@ -23,9 +23,9 @@ be done from the repo. Ordered by impact. Companion docs: `SEO_AUDIT.md`, `SEO_R
 
 ## 3. DNS / redirect config (Vercel dashboard)
 
-- Vercel → Project → Settings → Domains: make `www.earningsnerd.io` the **primary** domain and
-  set `earningsnerd.io` to **Redirect (308 Permanent)** to www. Today the apex answers with a
-  **307 Temporary** (verified 2026-07-16), which tells Google the move is temporary and splits
+- Vercel → Project → Settings → Domains: `earningsnerd.io` redirects to `www.earningsnerd.io` with a
+  **308 Permanent**, keeping path and query (read 2026-10-17). Until then the apex answered with a
+  **307 Temporary** (verified 2026-07-16), which told Google the move was temporary and split
   ranking signals across the two hosts.
 - Sanity-check after: `curl -I https://earningsnerd.io/` → expect `308` + `location: https://www.earningsnerd.io/`.
 

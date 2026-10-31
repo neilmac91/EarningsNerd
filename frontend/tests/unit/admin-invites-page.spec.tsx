@@ -1,7 +1,8 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock the admin API module so the page renders without real network calls.
 vi.mock('@/features/admin/api/admin-api', () => ({
@@ -12,10 +13,15 @@ vi.mock('@/features/admin/api/admin-api', () => ({
 }))
 
 // sonner's Toaster is rendered globally in the real app, not here; stub toast calls.
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 import AdminInvitesPage from '@/app/admin/invites/page'
-import { listInvites, type InviteRecord } from '@/features/admin/api/admin-api'
+import {
+  listInvites,
+  resendInvite,
+  type InviteRecord,
+  type ResendResult,
+} from '@/features/admin/api/admin-api'
 
 const invite: InviteRecord = {
   id: 1,
@@ -26,6 +32,16 @@ const invite: InviteRecord = {
   used_at: null,
   user_id: null,
   created_at: '2026-06-20T00:00:00Z',
+}
+
+/** The page's heading outline: SecondaryHeader's h1 first, then the sections, never skipping a level. */
+function expectOutline(h1: string) {
+  const headings = screen.getAllByRole('heading')
+  expect(headings[0]).toHaveTextContent(h1)
+  const levels = headings.map((h) => Number(h.tagName.slice(1)))
+  expect(levels[0]).toBe(1)
+  expect(levels.filter((level) => level === 1)).toHaveLength(1)
+  levels.slice(1).forEach((level, i) => expect(level).toBeLessThanOrEqual(levels[i] + 1))
 }
 
 function renderPage() {
@@ -48,6 +64,7 @@ describe('AdminInvitesPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Invite people' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Invites', level: 2 })).toBeInTheDocument()
+    expectOutline('Invites')
 
     // The row populates once the query resolves.
     expect(await screen.findByText('alice@example.com')).toBeInTheDocument()
@@ -61,7 +78,30 @@ describe('AdminInvitesPage', () => {
   it('shows the empty state when there are no invites', async () => {
     vi.mocked(listInvites).mockResolvedValue([])
     renderPage()
-    expect(await screen.findByText(/No invites yet/i)).toBeInTheDocument()
+    // One plain line in the card (ADM-07, ADM-09): no title, no nested GuidanceCard.
+    const empty = await screen.findByText(/No invites yet/i)
+    expect(empty).toHaveAttribute('role', 'status')
+    expect(empty).toHaveTextContent(/^No invites yet\. Send your first one above\.$/)
+    expect(screen.queryByText(/No Invites Found/i)).not.toBeInTheDocument()
+  })
+
+  it('names a link-only invite\'s actions by what it is, not "this invite" (ADM-22)', async () => {
+    vi.mocked(listInvites).mockResolvedValue([{ ...invite, id: 3, email: null }])
+    renderPage()
+    // The visible labels stay "Resend" and "Revoke".
+    expect(await screen.findByRole('button', { name: 'Resend this link-only invite' })).toHaveTextContent('Resend')
+    expect(screen.getByRole('button', { name: 'Revoke this link-only invite' })).toHaveTextContent('Revoke')
+  })
+
+  it('shows a load failure as a Notice with a Retry that refetches (ADM-11)', async () => {
+    vi.mocked(listInvites).mockRejectedValueOnce(new Error('network')).mockResolvedValue([invite])
+    const user = userEvent.setup()
+    renderPage()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load the invites.')
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('alice@example.com')).toBeInTheDocument()
+    expect(listInvites).toHaveBeenCalledTimes(2)
   })
 
   it('updates the live counter as valid/invalid emails are entered', async () => {
@@ -78,11 +118,252 @@ describe('AdminInvitesPage', () => {
     expect(screen.getByText(/1 invalid/)).toBeInTheDocument()
     // The Send button enables once there is at least one valid, not-already-invited email.
     expect(screen.getByRole('button', { name: /Send invites/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Send invites/i })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('marks an already-invited address in the chip\'s own plain type, not a faded eyebrow (ADM-17)', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    await screen.findByText('alice@example.com')
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'alice@example.com' } })
+    fireEvent.blur(field)
+    const marker = await screen.findByText('· already invited')
+    // The marker reads in the chip's own size and ink: no opacity- class and no eyebrow treatment, under any variant.
+    expect([...marker.classList].filter((cls) => /(^|:)(opacity-|text-data-xs$|uppercase$|tracking-eyebrow$)/.test(cls))).toEqual([])
   })
 
   it('disables Send invites when there is nothing valid to send', async () => {
     vi.mocked(listInvites).mockResolvedValue([])
     renderPage()
-    expect(screen.getByRole('button', { name: /Send invites/i })).toBeDisabled()
+    // aria-disabled, not native: a send can empty the list while Send holds focus
+    // (busyControls.admin-auth.spec.tsx).
+    expect(screen.getByRole('button', { name: /Send invites/i })).toHaveAttribute('aria-disabled', 'true')
   })
 })
+
+describe('AdminInvitesPage resend dialog focus return', () => {
+  type User = ReturnType<typeof userEvent.setup>
+
+  // A resend revokes the old invite and mints a replacement with a new id (admin.py resend_invite).
+  const resent: ResendResult = {
+    id: 2,
+    email: 'alice@example.com',
+    invite_link: 'https://earningsnerd.io/invite/fresh-token',
+    expires_at: '2026-07-08T00:00:00Z',
+    emailed: true,
+    cohort: 'beta',
+    revoked_invite_id: 1,
+  }
+  // The refetched list: the fresh invite on top, the original row now revoked beneath it.
+  const afterResend: InviteRecord[] = [
+    { ...invite, id: 2, created_at: '2026-06-21T00:00:00Z' },
+    { ...invite, status: 'revoked' },
+  ]
+
+  const closeVia: Array<[string, (user: User) => Promise<void>]> = [
+    ['Done', (user) => user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Done' }))],
+    ['Escape', (user) => user.keyboard('{Escape}')],
+    [
+      'scrim click',
+      // The portal's root is the scrim, whether or not it also carries role="dialog".
+      (user) => user.click(screen.getByRole('dialog').closest('body > *') as HTMLElement),
+    ],
+  ]
+
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+    vi.mocked(resendInvite).mockReset()
+    vi.mocked(listInvites).mockResolvedValueOnce([invite]).mockResolvedValue(afterResend)
+    vi.mocked(resendInvite).mockResolvedValue(resent)
+  })
+
+  /** Resend the original invite, wait for the share dialog and the post-resend refetch. */
+  async function resendFromRow(user: User) {
+    renderPage()
+    const resend = await screen.findByRole('button', { name: 'Resend invite to alice@example.com' })
+    const row = resend.closest('tr') as HTMLTableRowElement
+    await user.click(resend)
+    await screen.findByRole('dialog')
+    await waitFor(() => expect(within(row).getByText('Revoked')).toBeInTheDocument())
+    return { resend, row }
+  }
+
+  it.each(closeVia)('returns focus to the resending row when closed via %s', async (_how, close) => {
+    const user = userEvent.setup()
+    const { resend, row } = await resendFromRow(user)
+
+    await close(user)
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(row).toContainElement(document.activeElement as HTMLElement)
+    expect(resend).toHaveFocus()
+    // Focus came back mid-cooldown: the button is inert but still focusable.
+    expect(resend).toHaveTextContent(/^Resend \(\d+s\)$/)
+    expect(resend).toHaveAttribute('aria-disabled', 'true')
+    expect(resend).not.toBeDisabled()
+    expect(resendInvite).toHaveBeenCalledTimes(1)
+    expect(resendInvite).toHaveBeenCalledWith(1)
+  })
+
+  it('ignores activation of the focused Resend button during the cooldown', async () => {
+    const user = userEvent.setup()
+    const { resend } = await resendFromRow(user)
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(resend).toHaveFocus())
+
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    await user.click(resend)
+
+    expect(resendInvite).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(resend).toHaveFocus()
+  })
+
+  it('keeps Resend focused but inert while the request is in flight', async () => {
+    let settle: (result: ResendResult) => void = () => {}
+    vi.mocked(resendInvite).mockReturnValue(
+      new Promise<ResendResult>((resolve) => {
+        settle = resolve
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    const resend = await screen.findByRole('button', { name: 'Resend invite to alice@example.com' })
+
+    await user.click(resend)
+
+    await waitFor(() => expect(resend).toHaveAttribute('aria-busy', 'true'))
+    // Native `disabled` here would blur the button in Chrome before the dialog records its opener.
+    expect(resend).toHaveAttribute('aria-disabled', 'true')
+    expect(resend).not.toBeDisabled()
+    expect(resend).toHaveFocus()
+    await user.click(resend)
+    expect(resendInvite).toHaveBeenCalledTimes(1)
+
+    settle(resent)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(resend).not.toHaveAttribute('aria-busy')
+  })
+})
+
+
+/**
+ * The table scrolls inside its card, never the page (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review: at
+ * 390 the Status pills were cut off at the card's edge with no cue). Classes are what a unit test can pin; the
+ * capture harness measures the layout they make in a real browser.
+ */
+describe('AdminInvitesPage: the table scrolls inside its card', () => {
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  it('holds the table in a positioned scroll box that says nothing while the table fits', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    const box = (await screen.findByText('alice@example.com')).closest('table')!.parentElement!
+    expect(box).toHaveClass('relative', 'overflow-x-auto')
+    expect(box).not.toHaveAttribute('role')
+    expect(box).not.toHaveAttribute('tabindex')
+    expect(screen.queryByText('Scroll horizontally to read all columns.')).not.toBeInTheDocument()
+  })
+
+  it('says the table scrolls, and makes it a named keyboard region, while it is wider than its box', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => 356)
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(() => 854)
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    const region = await screen.findByRole('region', { name: 'Scrollable table: Invites' })
+    expect(region).toContainElement(screen.getByRole('button', { name: 'Revoke invite to alice@example.com' }))
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region).toHaveAccessibleDescription('Scroll horizontally to read all columns.')
+  })
+})
+
+/**
+ * An email chip keeps its address, its marker and its remove button inside it and the card, and the marker clear of
+ * the button (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review: at 200% text the already-invited chip
+ * squeezed its address out and put its remove button past the card; the founder's recheck of #1344: at 320px under
+ * 200% text the marker painted through the button). jsdom lays nothing out, so this case can only pin the classes;
+ * tests/e2e/admin-invite-chip-reflow.spec.ts measures what they paint in Chromium.
+ */
+describe('AdminInvitesPage: an email chip stays inside its card', () => {
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+  })
+
+  it('keeps an already-invited address, its marker and its remove button inside the chip, the address on a line of its own and the button ending the chip when the row is narrow', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    await screen.findByText('alice@example.com')
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'alice@example.com' } })
+    fireEvent.blur(field)
+    const remove = await screen.findByRole('button', { name: 'Remove alice@example.com' })
+    const chip = remove.parentElement!
+    const address = within(chip).getByText('alice@example.com')
+    const marker = within(chip).getByText('· already invited')
+    // One group that wraps and may shrink below its text: when both do not fit, the marker goes under the address
+    // and the address truncates. A marker that cannot shrink (shrink-0, nowrap) squeezed the address to nothing.
+    const group = address.parentElement!
+    expect(marker.parentElement).toBe(group)
+    expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap')
+    expect(address).toHaveClass('truncate')
+    // The dot is held to "already" by a no-break space, so a wrapped marker never leaves the dot alone at a line's
+    // end. getByText's normalizer reads U+00A0 as a space, so the raw text is what pins it.
+    expect(marker.textContent).toBe('· already invited')
+    // The button is the chip's own last child, so it stays last in reading and Tab order; the chip is capped at the
+    // card and rounds as a box once it wraps (a 9999px radius turns a wrapped chip into a capsule whose curve
+    // crosses its text).
+    expect([...chip.children].at(-1)).toBe(remove)
+    expect(chip).toHaveClass('max-w-full', 'rounded-xl')
+    expect(chip).not.toHaveClass('rounded-full')
+    // The narrow state. The chip row is an inline-size query container; below 9.6em of its text size an invited chip
+    // no longer fits on one line, so the group dissolves, the chip wraps with no row gap, and the address takes the first line
+    // whole and wraps anywhere instead of truncating (beside the button it kept 52px at 320px under 200% text, the
+    // chief designer's review of #1344). The marker takes the rest of the line it shares with the button, and carries
+    // that one class and nothing else (no shrink-0 or nowrap, above).
+    expect(chip.parentElement).toHaveClass('[container-type:inline-size]')
+    expect(chip).toHaveClass('[@container(width<9.6em)]:flex-wrap', '[@container(width<9.6em)]:gap-y-0')
+    expect(group).toHaveClass('[@container(width<9.6em)]:contents')
+    expectOwnLineWhenNarrow(address)
+    expect(marker.className).toBe('[@container(width<9.6em)]:flex-1')
+    expectEndsChipWhenNarrow(remove)
+  })
+
+  it('gives a valid and an invalid address the same line of their own, the button ending the chip, when the row is narrow', async () => {
+    vi.mocked(listInvites).mockResolvedValue([])
+    renderPage()
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'bob@example.com, nope' } })
+    fireEvent.blur(field)
+    for (const email of ['bob@example.com', 'nope']) {
+      const remove = await screen.findByRole('button', { name: `Remove ${email}` })
+      expectOwnLineWhenNarrow(within(remove.parentElement!).getByText(email))
+      expectEndsChipWhenNarrow(remove)
+    }
+  })
+})
+
+/**
+ * Below 9.6em the remove button ends the chip on whatever line it lands, as it does above (the chief designer's call on
+ * #1344): alone on a line it sat at the line's start.
+ */
+function expectEndsChipWhenNarrow(remove: HTMLElement) {
+  expect(remove).toHaveClass('[@container(width<9.6em)]:ml-auto')
+}
+
+/** Above 9.6em of the row the address truncates beside its marker; below it, it takes the first line whole and wraps. */
+function expectOwnLineWhenNarrow(address: HTMLElement) {
+  expect(address).toHaveClass(
+    'truncate',
+    '[@container(width<9.6em)]:order-first',
+    '[@container(width<9.6em)]:basis-full',
+    '[@container(width<9.6em)]:whitespace-normal',
+    '[@container(width<9.6em)]:[overflow-wrap:anywhere]',
+  )
+  // Sharing the first line with the button (flex-1) is what left it 52px.
+  expect(address).not.toHaveClass('[@container(width<9.6em)]:flex-1')
+}

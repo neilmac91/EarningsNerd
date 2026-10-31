@@ -1,0 +1,86 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A has several errors. Its operating-cash-flow-to-net-income range omits FY2020's 6.43x. It claims EPS outpaced net income because the share count rose, which is backwards. It calls net margin close to operating margin when they are 15.7% versus 27.2%. It labels D&A the cost drag without support. Draft B labels its judgements as analysis, discloses missing explanations, and adds impairment amounts, ROE versus peers and interest. A reads a little more cleanly."
+   },
+   "cost_usd": 0.126545,
+   "latency_s": 13.623,
+   "input_tokens": 14203,
+   "output_tokens": 930,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A has several errors. Its operating-cash-flow-to-net-income range omits FY2020's 6.43x. It claims EPS outpaced net income because the share count rose, which is backwards. It calls net margin close to operating margin when they are 15.7% versus 27.2%. It labels D&A the cost drag without support. Draft B labels its judgements as analysis, discloses missing explanations, and adds impairment amounts, ROE versus peers and interest. A reads a little more cleanly.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B makes several unsupported or wrong claims. It credits FY2024 net income growth to rates and weather, but its passage names prior-year impairments as the primary cause. It says an 11.2% tax rate kept net margin 'close' to operating margin, when they are 15.7% and 27.2%. It says rising shares made EPS outpace net income. A ties its causes to the filings, labels its analysis, flags unexplained moves and adds the ROE peer gap."
+   },
+   "cost_usd": 0.130477,
+   "latency_s": 16.694,
+   "input_tokens": 14207,
+   "output_tokens": 1125,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B makes several unsupported or wrong claims. It credits FY2024 net income growth to rates and weather, but its passage names prior-year impairments as the primary cause. It says an 11.2% tax rate kept net margin 'close' to operating margin, when they are 15.7% and 27.2%. It says rising shares made EPS outpace net income. A ties its causes to the filings, labels its analysis, flags unexplained moves and adds the ROE peer gap.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.257022
+}

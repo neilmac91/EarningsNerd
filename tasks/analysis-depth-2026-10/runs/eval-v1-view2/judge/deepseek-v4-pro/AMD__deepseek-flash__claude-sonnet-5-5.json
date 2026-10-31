@@ -1,0 +1,86 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better peer context, and more precise red flags and watch items, all well-supported by cited sources. Draft B has some unsupported claims and less interpretive depth."
+   },
+   "cost_usd": 0.005635,
+   "latency_s": 4.311,
+   "input_tokens": 10927,
+   "output_tokens": 111,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better peer context, and more precise red flags and watch items, all well-supported by cited sources. Draft B has some unsupported claims and less interpretive depth.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better-supported claims, and more concrete watch items with numeric thresholds. It explains drivers, margin effects, and cash conversion with citations, while Draft B has some unsupported or less precise statements. A is more grounded and informative."
+   },
+   "cost_usd": 0.005579,
+   "latency_s": 3.739,
+   "input_tokens": 10927,
+   "output_tokens": 124,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better-supported claims, and more concrete watch items with numeric thresholds. It explains drivers, margin effects, and cash conversion with citations, while Draft B has some unsupported or less precise statements. A is more grounded and informative.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.011214
+}

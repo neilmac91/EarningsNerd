@@ -1,24 +1,19 @@
 'use client'
 
+import type { OAuthSignup } from './OAuthStartControl'
+
+import OAuthStartControl from './OAuthStartControl'
+
 /**
  * Google sign-in button. White surface + official multicolor "G", per Google's
  * brand guidelines (https://developers.google.com/identity/branding-guidelines).
  */
-export default function GoogleSignInButton({
-  apiBase,
-  label = 'Continue with Google',
-}: {
-  apiBase: string
-  label?: string
-}) {
+export default function GoogleSignInButton({ apiBase, invite, signup }: { apiBase: string; invite?: string; signup?: OAuthSignup }) {
   return (
-    <a
-      href={`${apiBase}/api/auth/google`}
-      className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.99] focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-    >
+    <OAuthStartControl apiBase={apiBase} provider="google" invite={invite} signup={signup} className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.99]">
       <GoogleLogo />
-      {label}
-    </a>
+      Continue with Google
+    </OAuthStartControl>
   )
 }
 

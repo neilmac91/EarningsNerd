@@ -1,0 +1,292 @@
+"""Password-account persistence behind ``/api/auth``: the account lookup, registration, the single-use
+email-verification and password-reset tokens, and the writes around a password login, reset or change.
+
+Moved out of ``app.routers.auth`` so the router stays HTTP only
+(``tests/unit/test_router_orm_ceilings_allowlist.py``). The router keeps every HTTP concern: rate
+limits, Turnstile, the invite gate, the breached-password check, the password hash calls (on the password
+thread), cookies, the account-exists and OAuth-linked mail, audit rows and telemetry; the reset and
+verification links are issued and mailed by ``account_mail_service`` (F60). Only a token's SHA-256 is
+stored; the raw value travels in the emailed link. The two token exceptions are what the router maps
+to its 400s.
+"""
+from __future__ import annotations
+
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Tuple
+
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.models import InviteCode, User
+from app.services import invite_service, login_lockout
+from app.services.auth_validation import is_valid_unicode
+from app.services.account_agreement_service import (
+    AcceptedAccountAgreement, require_current_agreement, stage_account_agreement,
+)
+from app.services.legal_readiness_service import require_collection_available
+from app.services.refresh_token_service import create_refresh_token, lock_user_tokens, revoke_all_for_user
+
+EMAIL_VERIFY_EXPIRY_HOURS = 24
+PASSWORD_RESET_EXPIRY_HOURS = 1
+
+
+class AccountTokenInvalidError(Exception):
+    """No account holds this verification or reset token (unknown, or already used)."""
+
+
+class AccountTokenExpiredError(Exception):
+    """The token names an account, but its expiry has passed."""
+
+
+def _generate_token() -> tuple[str, str]:
+    """Return (raw_token_to_email, sha256_hash_to_store). Never store the raw token."""
+    raw = secrets.token_urlsafe(32)
+    hashed = hashlib.sha256(raw.encode()).hexdigest()
+    return raw, hashed
+
+
+def _hash_token(raw: str) -> str:
+    # A token that is not valid text (a lone surrogate) is no token this module minted (``_generate_token`` makes
+    # URL-safe ASCII), so a verification or reset lookup refuses it as unknown instead of raising from the encode,
+    # which answered 500 (E97).
+    if not is_valid_unicode(raw):
+        raise AccountTokenInvalidError()
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def find_user_by_email(db: Session, email: str) -> Optional[User]:
+    """The account for ``email`` (normalised by the request schema), or None. One query, no writes.
+
+    The auth dependencies await this through ``run_in_threadpool``: pool checkout can wait, and
+    keeping it off the event loop lets other requests finish and run their request-owned Session
+    cleanup, returning pool slots (lessons/ops-auth-lookups-must-let-request-cleanup-progress.md).
+    """
+    return db.query(User).filter(User.email == email).first()
+
+
+def create_password_account(
+    db: Session,
+    *,
+    email: str,
+    hashed_password: str,
+    full_name: Optional[str],
+    invite: Optional[InviteCode],
+    agreement: AcceptedAccountAgreement | None = None,
+) -> Optional[User]:
+    """Create and commit an unverified password account; None when no account may result.
+
+    ``invite`` is the closed-beta invite the register handler already validated (None in public
+    mode). None covers a refused redemption (the invite redeemed or revoked since it validated) and
+    a lost concurrent-create race for the same email; the caller answers both with its opaque response.
+    """
+    require_collection_available()
+    agreement = require_current_agreement(agreement)
+    user = User(
+        email=email,
+        hashed_password=hashed_password,
+        full_name=full_name,
+        email_verified=False,
+    )
+    db.add(user)
+    try:
+        db.flush()
+        stage_account_agreement(db, user, agreement, source="password")
+        # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
+        # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
+        # refused redemption (the invite redeemed or revoked since it validated) rolls the account
+        # back too, so an invite admits one account at most and none once revoked, and a failed
+        # insert never burns an invite.
+        if invite is not None:
+            if not invite_service.redeem_invite(db, invite, user, commit=False):
+                db.rollback()
+                return None
+            user.is_beta = True
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        # Lost a concurrent-create race for the same email — stay opaque (treat as existing).
+        db.rollback()
+        return None
+    return user
+
+
+def issue_email_verification_token(db: Session, user: User) -> str:
+    """Store a new verification token's hash with its 24-hour expiry, commit, and return the raw
+    token for the link. It replaces any earlier token, so only the latest link works."""
+    raw_token, hashed = _generate_token()
+    user.email_verification_token = hashed
+    user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFY_EXPIRY_HOURS)
+    db.commit()
+    return raw_token
+
+
+def record_password_login(
+    db: Session,
+    user_id: int,
+    verified_hash: str,
+    email: str,
+    *,
+    user_agent: Optional[str] = None,
+    ip: Optional[str] = None,
+) -> Optional[Tuple[User, str, str]]:
+    """Finish a password login whose password matched ``verified_hash``: reset the account's lockout,
+    stamp ``last_login_at`` and mint the session's refresh token, committed together (see
+    ``login_lockout.clear_failures``). Returns the user, the raw refresh token and the account's stored
+    address, read before the commit expires the user: the caller builds the access token and the audit row
+    from it, so no read after the commit can fail a login that committed (E121). It is the stored row's
+    value; a login's typed address is lowercased and matched exactly, so the two are the same string.
+
+    Under the account's users row lock (``refresh_token_service.lock_user_tokens``), and only while that
+    hash is still the account's and the account active: a password reset or change revokes every
+    session but cannot reach a token minted after it commits, so a login that verified the old password
+    before one committed would keep a session through it (E121). Then nothing is written and None is
+    returned, as for a wrong password. A reset or change that starts after the lock is taken waits for
+    this commit, and its revocation then reaches the new token too.
+    """
+    lock_user_tokens(db, user_id)
+    user = db.query(User).filter(User.id == user_id).populate_existing().first()
+    if user is None or user.hashed_password != verified_hash or not user.is_active:
+        db.rollback()  # releases the lock; nothing was written
+        return None
+    login_lockout.clear_failures(db, email)  # a successful login resets the lockout
+    user.last_login_at = datetime.now(timezone.utc)
+    _, refresh_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
+    stored_email = user.email
+    db.commit()
+    return user, refresh_token, stored_email
+
+
+def verify_email_token(db: Session, raw_token: str) -> Tuple[User, int]:
+    """Mark the account holding ``raw_token`` verified, burn the token and commit. Returns the account and its
+    id, read before the commit expires the account, so a caller can name it after the commit without reading the
+    account again (E121).
+
+    The token's lookup takes the account's users row lock (``FOR NO KEY UPDATE``, as
+    ``refresh_token_service.lock_user_tokens`` takes it, so inserts naming the account do not wait), so two
+    verifications of one link run one at a time on PostgreSQL: the second waits for the first's commit, then finds
+    the link burnt and raises :class:`AccountTokenInvalidError`, on one instance and across instances alike. (Since
+    E121 the route runs this in the thread pool, where two posts of one link could otherwise both read it and both
+    verify.)
+
+    Raises :class:`AccountTokenInvalidError` for an unknown or used token and
+    :class:`AccountTokenExpiredError` for an expired one; neither writes anything.
+    """
+    hashed = _hash_token(raw_token)
+    now = datetime.now(timezone.utc)
+
+    user = db.query(User).filter(User.email_verification_token == hashed).with_for_update(key_share=True).first()
+    if not user:
+        raise AccountTokenInvalidError()
+    if user.email_verification_expires and user.email_verification_expires < now:
+        raise AccountTokenExpiredError()
+
+    user.email_verified = True
+    user.email_verification_token = None
+    user.email_verification_expires = None
+    user_id = user.id
+    db.commit()
+    return user, user_id
+
+
+def grant_reverse_trial(db: Session, user: User, days: int) -> None:
+    """Grant the no-card reverse trial and commit it in its own transaction, so a failure cannot undo
+    the verification committed before it. Whatever the grant or the commit raises propagates
+    unchanged: the caller catches it, calls :func:`discard_reverse_trial`, and logs it as the
+    original error. The caller decides eligibility (``entitlements.is_pro_user``)."""
+    # Imported on use, as verify_email did before the move, so importing this module (and so
+    # app.routers.auth) does not load subscription_sync.
+    from app.services.subscription_sync import start_reverse_trial
+
+    start_reverse_trial(db, user, days)
+    db.commit()
+
+
+def discard_reverse_trial(db: Session) -> None:
+    """Roll back a failed :func:`grant_reverse_trial`; a failing rollback propagates."""
+    db.rollback()
+
+
+def issue_password_reset_token(db: Session, user: User) -> str:
+    """Store a new reset token's hash with its 1-hour expiry, commit, and return the raw token."""
+    raw_token, hashed = _generate_token()
+    user.password_reset_token = hashed
+    user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=PASSWORD_RESET_EXPIRY_HOURS)
+    db.commit()
+    return raw_token
+
+
+def find_password_reset_user(db: Session, raw_token: str) -> User:
+    """The account holding the reset token ``raw_token``. Raises :class:`AccountTokenInvalidError`
+    or :class:`AccountTokenExpiredError`; writes nothing."""
+    hashed = _hash_token(raw_token)
+    now = datetime.now(timezone.utc)
+
+    user = db.query(User).filter(User.password_reset_token == hashed).first()
+    if not user:
+        raise AccountTokenInvalidError()
+    if user.password_reset_expires and user.password_reset_expires < now:
+        raise AccountTokenExpiredError()
+    return user
+
+
+def complete_password_reset(db: Session, user: User, hashed_password: str) -> None:
+    """Set the new password, burn the reset token, confirm the email, revoke every session, commit."""
+    user.hashed_password = hashed_password
+    user.password_reset_token = None
+    user.password_reset_expires = None
+    # The user proved control of their inbox, so confirm the email too.
+    user.email_verified = True
+    # Reset is account recovery: revoke every existing session so a stolen/active refresh token
+    # can't outlive the reset. The attacker is evicted; the legitimate owner logs in fresh.
+    revoke_all_for_user(db, user.id)
+    db.commit()
+
+
+def complete_password_reset_by_id(db: Session, user_id: int, hashed_password: str) -> None:
+    """The reset route's write: the account :func:`find_password_reset_user` found, read again by its id, then
+    :func:`complete_password_reset`. The route releases its session between the two, before the breached-password
+    check and the hash, so it keeps the id, not the row (E121). Raises :class:`AccountTokenInvalidError`, writing
+    nothing, when the account has been deleted since, as the token's read would have then.
+
+    The account's users row lock (``refresh_token_service.lock_user_tokens``) comes before the read, which then
+    sees the commit of whoever held it: a deletion holding it when this starts has deleted the row by the time the
+    read runs. Read before the lock, the row was still there, the reset waited at its revocation's lock, and its
+    commit then matched no row and raised.
+
+    The token is not checked again: the read and the write were apart across those waits when the route ran them
+    on the event loop too, so a reset whose token another reset burned meanwhile still writes, as it did there."""
+    lock_user_tokens(db, user_id)
+    user = db.query(User).filter(User.id == user_id).populate_existing().first()
+    if user is None:
+        db.rollback()  # releases the lock; nothing was written
+        raise AccountTokenInvalidError()
+    complete_password_reset(db, user, hashed_password)
+
+
+def stage_password_change(
+    db: Session, user: User, hashed_password: str, verified_hash: Optional[str]
+) -> bool:
+    """Set the new password and revoke every refresh token, WITHOUT committing, and return True.
+
+    ``verified_hash`` is the hash the caller checked the current password against, or None for an
+    account that had none to check. Under the account's users row lock
+    (``refresh_token_service.lock_user_tokens``), and only while it is still the account's: a reset or
+    another change that committed while the caller hashed would otherwise be overwritten, and its
+    revocation undone by the session minted next, so whoever knew the old password would take the
+    account back from its owner's recovery (E121). Then nothing is written and False is returned. A
+    reset or change that starts after the lock is taken waits for this change's commit.
+
+    The caller's session re-issue (``issue_session`` → ``refresh_token_service.mint_refresh_token``)
+    commits the change, the revocation and this device's new token together, so a failure there
+    rolls the whole change back (no password-changed-but-500 inconsistency).
+    """
+    lock_user_tokens(db, user.id)
+    current = db.query(User).filter(User.id == user.id).populate_existing().first()
+    if current is None or current.hashed_password != verified_hash:
+        db.rollback()  # releases the lock; nothing was written
+        return False
+    current.hashed_password = hashed_password
+    revoke_all_for_user(db, current.id)
+    return True

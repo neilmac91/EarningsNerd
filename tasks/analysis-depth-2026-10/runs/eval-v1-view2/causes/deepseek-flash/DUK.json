@@ -1,0 +1,58 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 4,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2022 was the step change in the top line, revenue up 17.1%, as rate cases, favorable weather and volumes lifted results .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    }
+   ],
+   "label": "partial",
+   "reason": "Rate cases, weather and volumes are cited for higher net income after non-cash adjustments (operating cash flow), not as the revenue driver."
+  },
+  {
+   "sentence": "FY2020 was the trough, net income down 63.3% on impairment charges and COVID-19 volume losses .",
+   "passages": [
+    {
+     "id": "P60",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Electric Utilities and Infrastructure\u2019s variance is primarily due to impairment charges and revenue reductions related to the CCR settlement agreement filed with the NCUC to resolve coal ash cost recovery issues, unfavorable weather and lower volumes driven by impacts from the COVID-19 pandemic, partially offset by base rate adjustments in various jurisdictions. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "partial",
+   "reason": "Impairments and COVID-driven lower volumes explain the Electric Utilities segment variance, not consolidated net income; the CCR settlement and weather are omitted."
+  },
+  {
+   "sentence": "FY2024's 59.2% net income growth came from rate increases and riders, improved weather and higher volumes .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Duke Energy's 2024 Net Income Available to Duke Energy Corporation (GAAP Reported Earnings) increased primarily due to higher impairments on the sale of the Commercial Renewables business in the prior year. Additional drivers primarily include growth from rate increases and riders, improved weather and higher sales volumes, partially offset by higher interest expense, depreciation on a growing asset base and storm costs, along with a higher effective tax rate. See \u201cResults of Operations\u201d below for a detailed discussion of the consolidated results of operations and a detailed discussion of financial results for each of Duke Energy\u2019s reportable business segments, as well as Other."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage names prior-year Commercial Renewables impairments as the primary driver; rate increases, weather and volumes are only additional drivers."
+  },
+  {
+   "sentence": "FY2022's -$5.4 billion free cash flow reflected fuel undercollections that increased borrowings until recovery .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "partial",
+   "reason": "Undercollections raised borrowings and hurt cash flows, but the passage doesn't attribute the free cash flow level to them; capex is unaddressed."
+  }
+ ],
+ "cost_usd": 0.035
+}

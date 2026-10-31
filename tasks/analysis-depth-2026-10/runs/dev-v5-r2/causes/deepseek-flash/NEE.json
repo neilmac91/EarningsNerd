@@ -1,0 +1,87 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "NEE",
+ "split": "dev",
+ "claims": 6,
+ "output_sha256": "aa4f112d0162a797a5cea8dd79710272a226bfe32c4b338f341698bd3ed45d31",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2021 was the sharp break: operating margin fell 14.6pp to 15.5% as operating income dropped 43.1% , with NEER's results held back by the absence of 2020's Spain project gain and unfavorable non-qualifying hedge activity .",
+   "passages": [
+    {
+     "id": "P63",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's results increased in 2021 primarily driven by the absence of an impairment charge related to its investment in Mountain Valley Pipeline occurring in 2020 and higher earnings on new investments, partly offset by unfavorable non-qualifying hedge activity compared to 2020 and the absence of the 2020 gain on the sale of the Spain projects. In 2021, NEER added approximately 2,008 MW of new wind generating capacity and 728 MW of solar generating capacity, repowered 435 MW of wind generating capacity and increased its backlog of contracted renewable development projects."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage names Spain gain absence and hedge activity only as offsets; NEER results actually increased in 2021. It does not explain the consolidated operating income drop."
+  },
+  {
+   "sentence": "FY2023 reversed it, operating margin rising 23.5pp to 41.3% , helped by $1,729 million of non-qualifying hedge gains in NEER's net income .",
+   "passages": [
+    {
+     "id": "P30",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "(a)For 2025, 2024 and 2023, approximately $28 million of gains, $36 million of losses and $1,729 million of gains, respectively, are included in NEER's net income; the remaining balance is included in Corporate and Other. The change in non-qualifying hedge activity is primarily attributable to changes in forward power and natural gas prices, interest rates and foreign currency exchange rates, as well as the reversal of previously recognized unrealized mark-to-market gains or losses as the underlying transactions were realized."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage confirms $1,729M of 2023 hedge gains in NEER net income but never links them to the operating margin rise."
+  },
+  {
+   "sentence": "FY2025 net income slipped 1.6% to $6.84 billion  on lower Corporate and Other results, partly offset by higher FPL and NEER results .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net income attributable to NEE for 2025 was $6.84 billion compared to $6.95 billion in 2024. In 2025, net income attributable to NEE decreased primarily due to lower results at Corporate and Other, partly offset by higher results at FPL and NEER. The comparison of the results of operations for the years ended December 31, 2024 and 2023 are included in Management's Discussion in NEE's and FPL's Annual Report on Form 10-K for the year ended December 31, 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states the decrease came from lower Corporate and Other results, partly offset by higher FPL and NEER results."
+  },
+  {
+   "sentence": "NEER's segment net income rose to $2,975 million in FY2025 , reflecting higher earnings from new investments, partly offset by higher financing costs .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's results increased in 2025 primarily reflecting higher earnings from new investments, partly offset by higher financing costs. In 2025, NEER added approximately 1,604 MW of new wind generating capacity, 2,859 MW of solar generating capacity and 1,799 MW of battery storage capacity and increased its backlog of contracted development projects."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states NEER's 2025 increase reflects new investment earnings, partly offset by higher financing costs."
+  },
+  {
+   "sentence": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs of about $1,090 million tied to Hurricanes Debby, Helene and Milton .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation and amortization expense increased $951 million during 2025 primarily reflecting higher amortization of deferred storm costs, primarily associated with Hurricanes Debby, Helene and Milton, as discussed above, of approximately $1,090\u00a0million and increased depreciation related to higher plant in service balances, partly offset by the impact of reserve amortization. Reserve amortization, or reversal of such amortization, reflects adjustments to accrued asset removal costs provided under the 2021 rate agreement in order to achieve the targeted regulatory ROE. Reserve amortization is recorded as either an increase or decrease to accrued asset removal costs which is reflected in noncurrent regulatory assets on NEE's and FPL's consolidated balance sheets. As of December\u00a031, 2025, approximately $303\u00a0million of reserve amortization remains available for future amortization through the RSM under the 2025 rate agreement."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes the $951M increase primarily to about $1,090M of storm cost amortization from Debby, Helene and Milton."
+  },
+  {
+   "sentence": "Net margin fell 3.1pp to 26.5%  even as operating margin held, because other income (expense) was -$3,750 million  on unfavorable non-qualifying hedge activity and higher average debt balances .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results decreased $1,256 million during 2025 primarily due to unfavorable after-tax impacts of approximately $1,002 million, as compared to the prior year, related to non-qualifying hedge activity as a result of changes in the fair value of interest rate derivative instruments used to manage interest rate and foreign currency exchange rate risk associated primarily with outstanding and expected future debt issuances and borrowings (see Note\u00a03) as well as higher average debt balances."
+    }
+   ],
+   "label": "partial",
+   "reason": "Hedge activity and higher debt balances explain Corporate and Other's decline, not the other income (expense) line or net margin."
+  }
+ ],
+ "cost_usd": 0.041504,
+ "backend": "claude_cli",
+ "input_tokens": 3279,
+ "cached_input_tokens": 0,
+ "output_tokens": 764
+}

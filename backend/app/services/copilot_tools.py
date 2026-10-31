@@ -11,7 +11,9 @@ Session lifetime is the subtle part. The Copilot's SSE generator runs *after* th
 may already be gone (the same reason P1 added ``snapshot_filing``), so a tool **must not** touch the
 request ``db``. Every :func:`run_tool` call therefore opens its own short-lived ``SessionLocal()``,
 queries, and closes it in a ``finally``. Callers bind company, accession and native currency
-(captured eagerly from the snapshot) via a closure.
+(captured eagerly from the snapshot) via a closure. Its pool checkout can wait, so async callers
+await it through ``app.services.ai.copilot_chat.run_in_lookup_thread``, in threads of its own: never
+on the event loop or in its default executor (``lessons/ops-auth-lookups-must-let-request-cleanup-progress.md``).
 
 Everything here is tolerant: ``run_tool`` never raises — unknown/absent data and unexpected errors
 become ``{"error": ...}`` dicts so the streaming loop stays well-formed.
@@ -27,6 +29,9 @@ from sqlalchemy import desc
 
 from app.database import SessionLocal
 from app.models.financial_fact import FinancialFact
+from app.services.fact_provenance import (
+    calculated_provenance, operands_within_accession, provenance_for_fact, published_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +212,7 @@ def _fact_provenance(fact: FinancialFact) -> dict[str, Any]:
         "fiscal_period": fact.fiscal_period,
         "raw_tag": fact.raw_tag,
         "accession": fact.accession,
+        "provenance": provenance_for_fact(fact),
     }
 
 
@@ -258,6 +264,11 @@ def _select_fact(rows: list[FinancialFact], reporting_currency: str | None) -> F
     fact = rows[0]
     if canonical_unit(fact.unit) is None or not math.isfinite(float(fact.value)):
         raise _Unavailable("invalid_fact")
+    if published_value(fact) is None:
+        raise _Unavailable("unsupported_calculation")
+    # Multi-period arithmetic cannot become evidence belonging to one viewed filing.
+    if not operands_within_accession(provenance_for_fact(fact), fact.accession):
+        raise _Unavailable("cross_filing_calculation")
     return fact
 
 
@@ -311,7 +322,7 @@ def _has_duration(fact: FinancialFact) -> bool:
 # `instance_extractor.DURATION_WINDOWS` already own; `tests/unit/test_copilot_tools.py` asserts
 # they stay equal, so widening one cannot silently widen what a derived metric will compute.
 _SCOPE_DURATION_DAYS: dict[str, tuple[int, int]] = {
-    "FY": (320, 390), "Q1": (75, 105), "Q2": (75, 105), "Q3": (75, 105), "Q4": (75, 105),
+    "FY": (320, 390), "Q1": (75, 105), "Q2": (75, 105), "Q3": (75, 105), "Q4": (75, 120),
 }
 
 
@@ -382,6 +393,7 @@ def _run_compute_metric(
             "unit": "pure", "current_value": float(current.value), "prior_value": float(prior.value),
             "prior_period_end": prior.period_end.isoformat(), "prior_fiscal_year": prior.fiscal_year,
             "source_facts": [_fact_provenance(current), _fact_provenance(prior)],
+            "provenance": calculated_provenance("year_over_year_growth", [current, prior]),
         })
         return result
     denominator_concept = args.get("denominator_concept") or _DEFAULT_MARGIN_DENOMINATORS.get(concept, "revenue")
@@ -402,6 +414,7 @@ def _run_compute_metric(
         "numerator_value": float(current.value), "denominator_concept": denominator_concept,
         "denominator_value": float(denominator.value),
         "source_facts": [_fact_provenance(current), _fact_provenance(denominator)],
+        "provenance": calculated_provenance("margin", [current, denominator]),
     })
     return result
 
@@ -443,8 +456,8 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
     """Render a successful tool fact result as a citation dict (existing citation shape, minus ``n``).
 
     Reuses the same ``{excerpt, section_ref, verified, fragment_url}`` shape as text citations so the
-    frontend renders an XBRL fact in the Sources list / chips with a Verified badge — no frontend
-    change. ``n`` is assigned by the caller's unified citation-resolution pass (one continuous
+    frontend renders an XBRL fact in the Sources list and chips: "Matches filing" for a filed fact, and
+    "Calculated from filing" for a figure the server computed (``value_kind``). ``n`` is assigned by the caller's unified citation-resolution pass (one continuous
     sequence across text and fact citations, in first-appearance order — see
     ``copilot_service._resolve_citations``). ``fragment_url`` is the filing document URL when known
     (XBRL facts have no in-text fragment), populated by the caller.
@@ -477,7 +490,10 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
         "fragment_url": None,
         # Machine-readable value + concept the chip vouches for (the excerpt only carries the
         # display rendering) — lets the eval harness re-verify value AND concept adjacency on
-        # the final answer without parsing formatted strings. The frontend ignores the extra keys.
+        # the final answer without parsing formatted strings. The frontend reads ``concept`` and
+        # ``value_kind``: a quoted excerpt carries neither, a filed fact carries ``concept`` alone and
+        # reads "Matches filing", and a figure the server computed names its ``value_kind`` and reads
+        # "Calculated from filing" (frontend/features/filings/api/copilot-api.ts, parseCompletion).
         "value": float(value) if isinstance(value, (int, float)) else None,
         "value_kind": kind,
         "concept": concept,

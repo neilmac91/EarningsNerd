@@ -1,0 +1,118 @@
+{
+  "dispatch_id": "CTO-ENVELOPE-HANDBACK-01",
+  "recorded_at": "2026-10-04T14:31:38.292411+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "CTO",
+  "wave": "R3 input (CEO directive: CTO owns the required current-cohort E09 input to the COO); not R5",
+  "lane": "beta operations",
+  "role_label": "cto-current-beta-operating-envelope-author",
+  "requested_model": "claude-fable-5-1",
+  "independent_lenses_requested_models": {
+    "configured-values-vs-code": "claude-opus-5-5",
+    "evidence-classification-honesty": "claude-fable-5-1",
+    "scope-and-holds-compliance": "claude-sonnet-5-5"
+  },
+  "package_sha256": "2209215e245813bd25aa6d8f70a41d5da98598f8b9ffdaf67da970e26a20d0e2",
+  "repository_read_scope": {
+    "commit": "100fb7d6bdaf62590af19964d39c2ed732062210",
+    "mode": "read-only; no git writes; no tests or servers run; no gcloud/network/production reads"
+  },
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md",
+    "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json"
+  ],
+  "allowed_inputs": [
+    {
+      "label": "COO first deliverable (C1 five components)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md",
+      "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+      "bytes": 15184
+    },
+    {
+      "label": "CTO acknowledgement",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/cto/ACKNOWLEDGEMENT.md",
+      "sha256": "e1815c0eff2afddfdadf10dbde520cd226fe21ae087f38c7f19b29e0a78106fd",
+      "bytes": 1728
+    },
+    {
+      "label": "CTO first deliverable (R1/R5)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/cto/FIRST-DELIVERABLE.md",
+      "sha256": "bdca249db6353d09e8605b3d0fca627e67312d48e272fbd4de54e67769f8b4d6",
+      "bytes": 9954
+    },
+    {
+      "label": "CEO directive (current)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/control/CEO-DIRECTIVE.md",
+      "sha256": "5008dbbc240ab9628b0d2f91913a14662e770347174990852eb21563eac0d48b",
+      "bytes": 4979
+    },
+    {
+      "label": "Chief transfer policy",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/control/CHIEF-TRANSFER-POLICY.md",
+      "sha256": "c6b8dc3a47dfcdc115ac966ec1bf52793627e0fdad43574cba3573680d8b54d3",
+      "bytes": 10803
+    },
+    {
+      "label": "Wave register",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/control/WAVE-REGISTER.json",
+      "sha256": "55a602dfaa24457553ad324f2dd531c49f9bff27f3fa694447dfbb2f713bd16d",
+      "bytes": 2249
+    },
+    {
+      "label": "Current snapshot (package)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/control/CURRENT-SNAPSHOT.md",
+      "sha256": "5015c115573443e55b4c92717110161289053b7cb727cdf85c21854349fe95fe",
+      "bytes": 4046
+    },
+    {
+      "label": "Handback contract",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/control/HANDBACK-CONTRACT.md",
+      "sha256": "cc4d5b743cd78c65998b38efeeadc6cd51ef84939c56905bd6b687f0068f8e32",
+      "bytes": 1370
+    },
+    {
+      "label": "Master plan review",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/evidence/MASTERPLAN-REVIEW.md",
+      "sha256": "0c946f93c801bbb98836aab9c11b789d7748d88bf8894f3fbf57d0370399c710",
+      "bytes": 21877
+    },
+    {
+      "label": "CFO first deliverable (spend-authority provenance only)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cfo/references/FIRST-DELIVERABLE.md",
+      "sha256": "925fcc6b5a0a69c65fa1813c9d2da738a8f28b3cb1b011e22cb430a4354f476c",
+      "bytes": 14260
+    },
+    {
+      "label": "CEO ledger access statement",
+      "path": "tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md",
+      "sha256": "9d6143456b4b43c940f684638f9a65ed765bd6a0299084487f3a31aaf68d5e9f",
+      "bytes": 2225
+    },
+    {
+      "label": "CEO repository snapshot",
+      "path": "tasks/code-red-20261004/runtime/control/REPOSITORY-SNAPSHOT.json",
+      "sha256": "a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9",
+      "bytes": 2770
+    },
+    {
+      "label": "Assignment prompt",
+      "path": "/home/user/EarningsNerd/tasks/code-red-20261004/runtime/dispatch/CTO-ENVELOPE-HANDBACK-ASSIGNMENT.md",
+      "sha256": "13dcf2c78ebeab70f5bd9a8cb84dd4a5faafcc66a42e656d2a557310ff9abe76",
+      "bytes": 10792
+    }
+  ],
+  "entry_condition": "COO FIRST-DELIVERABLE names this handback as the next owner action; inputs present; repository clone at main 100fb7d6.",
+  "stop_conditions": [
+    "any production/cloud read or mutation",
+    "any E09 code or dormant-code activation",
+    "any source/customer payload",
+    "any policy number chosen from the four-slot arithmetic or the 110/120 s request controls without evidence",
+    "any claim of fleet capacity from process-local settings"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false
+  },
+  "one_writer_for_output_paths": true
+}

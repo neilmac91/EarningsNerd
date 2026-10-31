@@ -1,5 +1,12 @@
 # EarningsNerd — Competitive Strategy & Product Roadmap (2026)
 
+> **Superseded in part (2026-10-11):** the identity directives here ("dark-first", the mint `#10B981`
+> accent, D1 and the "calm, editorial, dark-first UI" row of the thesis table) were replaced by the July
+> 2026 rebrand: a cream-first light theme, one sage accent in both themes and a navy dark theme. `DESIGN.md`
+> and `frontend/DESIGN_SYSTEM.md` are current; the brand studio records under `docs/brand/` carry the
+> decision ([01-interview.md](brand/01-interview.md), A2). The product and competitive analysis
+> below is unchanged history.
+>
 > **Author's note:** This is a strategic synthesis document, not an implementation spec. It maps
 > EarningsNerd's *actual* code-level capabilities against a forensic teardown of two adjacent
 > platforms — **Stocktwits** (social/sentiment) and **Fiscal AI** (AI financial-data synthesis) —

@@ -1,0 +1,556 @@
+{
+  "host": "https://eu.posthog.com",
+  "path_used": "/api/projects/117863/file_download_batch_exports/01a10d89-1ee8-0000-3e2c-9000712c9502/download/01a10d89-3a26-0000-56f3-e1f6c4004610/",
+  "first_response_status": 302,
+  "body_fetch_status": 200,
+  "successful_url_form": "file_id",
+  "attempts": [
+    {
+      "url_form": "file_id",
+      "host": "https://eu.posthog.com",
+      "path": "/api/projects/117863/file_download_batch_exports/01a10d89-1ee8-0000-3e2c-9000712c9502/download/01a10d89-3a26-0000-56f3-e1f6c4004610/",
+      "request_utc": "2026-10-05T20:52:57.891664+00:00",
+      "first_response_status": 302,
+      "body_fetch_status": 200,
+      "redirects": 1
+    }
+  ],
+  "download_request_count": 1,
+  "redirect_body_fetch_count": 1,
+  "file_name": "posthog-hogql-01a10d89-1ee8-0000-3e2c-9000712c9502-01a10d89-3a26-0000-56f3-e1f6c4004610.jsonl",
+  "bytes": 2092,
+  "sha256": "67bc4e91db4f1bdc31dd4ffc290efd1864d4babdd6c33bd1e45bfb3fa413c6a5",
+  "row_count": 3,
+  "row_count_check": true,
+  "key_set_check": true,
+  "key_set_details": [
+    {
+      "line": 1,
+      "exact_key_set": true,
+      "exact_key_order": false,
+      "actual_key_order": [
+        "client_attempt_json",
+        "analytics_consent_at_event_json",
+        "timestamp_s",
+        "summary_id_json",
+        "entry_point_json",
+        "reason_json",
+        "evidence_version_json",
+        "logical_request_id_json",
+        "transport_attempt_json",
+        "request_id_json",
+        "outcome_json",
+        "identity_evidence_json",
+        "duration_ms_json",
+        "account_id_at_event_json",
+        "auth_state_at_event_json",
+        "delivery_path_json",
+        "consent_evidence_json",
+        "event",
+        "summary_service_invoked_json",
+        "filing_id_json",
+        "uuid"
+      ],
+      "missing": [],
+      "extra": [],
+      "duplicate_keys": []
+    },
+    {
+      "line": 2,
+      "exact_key_set": true,
+      "exact_key_order": false,
+      "actual_key_order": [
+        "client_attempt_json",
+        "analytics_consent_at_event_json",
+        "timestamp_s",
+        "summary_id_json",
+        "entry_point_json",
+        "reason_json",
+        "evidence_version_json",
+        "logical_request_id_json",
+        "transport_attempt_json",
+        "request_id_json",
+        "outcome_json",
+        "identity_evidence_json",
+        "duration_ms_json",
+        "account_id_at_event_json",
+        "auth_state_at_event_json",
+        "delivery_path_json",
+        "consent_evidence_json",
+        "event",
+        "summary_service_invoked_json",
+        "filing_id_json",
+        "uuid"
+      ],
+      "missing": [],
+      "extra": [],
+      "duplicate_keys": []
+    },
+    {
+      "line": 3,
+      "exact_key_set": true,
+      "exact_key_order": false,
+      "actual_key_order": [
+        "client_attempt_json",
+        "analytics_consent_at_event_json",
+        "timestamp_s",
+        "summary_id_json",
+        "entry_point_json",
+        "reason_json",
+        "evidence_version_json",
+        "logical_request_id_json",
+        "transport_attempt_json",
+        "request_id_json",
+        "outcome_json",
+        "identity_evidence_json",
+        "duration_ms_json",
+        "account_id_at_event_json",
+        "auth_state_at_event_json",
+        "delivery_path_json",
+        "consent_evidence_json",
+        "event",
+        "summary_service_invoked_json",
+        "filing_id_json",
+        "uuid"
+      ],
+      "missing": [],
+      "extra": [],
+      "duplicate_keys": []
+    }
+  ],
+  "expected_key_order": [
+    "uuid",
+    "event",
+    "timestamp_s",
+    "evidence_version_json",
+    "auth_state_at_event_json",
+    "account_id_at_event_json",
+    "analytics_consent_at_event_json",
+    "filing_id_json",
+    "summary_id_json",
+    "request_id_json",
+    "logical_request_id_json",
+    "client_attempt_json",
+    "transport_attempt_json",
+    "identity_evidence_json",
+    "consent_evidence_json",
+    "outcome_json",
+    "delivery_path_json",
+    "summary_service_invoked_json",
+    "duration_ms_json",
+    "reason_json",
+    "entry_point_json"
+  ],
+  "uuid_check": true,
+  "uuid_values": [
+    "00000000-0000-4000-8000-000000000010",
+    "00000000-0000-4000-8000-000000000012",
+    "00000000-0000-4000-8000-000000000011"
+  ],
+  "event_check": true,
+  "event_values": [
+    "summary_viewed",
+    "summary_request_finished",
+    "summary_request_started"
+  ],
+  "timestamp_check": true,
+  "timestamp_rendering": [
+    {
+      "value": 1790553600,
+      "rendering": "integer"
+    },
+    {
+      "value": 1790553602,
+      "rendering": "integer"
+    },
+    {
+      "value": 1790553601,
+      "rendering": "integer"
+    }
+  ],
+  "rows_ordered_by_timestamp_then_uuid": false,
+  "per_value_renderings": [
+    {
+      "line": 1,
+      "uuid": "00000000-0000-4000-8000-000000000010",
+      "values": {
+        "evidence_version_json": {
+          "value": "1",
+          "rendered_type": "str",
+          "jsonl_token": "\"1\"",
+          "present": true
+        },
+        "auth_state_at_event_json": {
+          "value": "\"authenticated\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"authenticated\\\"\"",
+          "present": true
+        },
+        "account_id_at_event_json": {
+          "value": "\"1001\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"1001\\\"\"",
+          "present": true
+        },
+        "analytics_consent_at_event_json": {
+          "value": "true",
+          "rendered_type": "str",
+          "jsonl_token": "\"true\"",
+          "present": true
+        },
+        "filing_id_json": {
+          "value": "11",
+          "rendered_type": "str",
+          "jsonl_token": "\"11\"",
+          "present": true
+        },
+        "summary_id_json": {
+          "value": "22",
+          "rendered_type": "str",
+          "jsonl_token": "\"22\"",
+          "present": true
+        },
+        "request_id_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "logical_request_id_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "client_attempt_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "transport_attempt_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "identity_evidence_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "consent_evidence_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "outcome_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "delivery_path_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "summary_service_invoked_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "duration_ms_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "reason_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "entry_point_json": {
+          "value": "\"synthetic_validation\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"synthetic_validation\\\"\"",
+          "present": true
+        }
+      }
+    },
+    {
+      "line": 2,
+      "uuid": "00000000-0000-4000-8000-000000000012",
+      "values": {
+        "evidence_version_json": {
+          "value": "1",
+          "rendered_type": "str",
+          "jsonl_token": "\"1\"",
+          "present": true
+        },
+        "auth_state_at_event_json": {
+          "value": "\"authenticated\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"authenticated\\\"\"",
+          "present": true
+        },
+        "account_id_at_event_json": {
+          "value": "\"1001\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"1001\\\"\"",
+          "present": true
+        },
+        "analytics_consent_at_event_json": {
+          "value": "true",
+          "rendered_type": "str",
+          "jsonl_token": "\"true\"",
+          "present": true
+        },
+        "filing_id_json": {
+          "value": "11",
+          "rendered_type": "str",
+          "jsonl_token": "\"11\"",
+          "present": true
+        },
+        "summary_id_json": {
+          "value": "22",
+          "rendered_type": "str",
+          "jsonl_token": "\"22\"",
+          "present": true
+        },
+        "request_id_json": {
+          "value": "\"00000000-0000-4000-8000-000000000001\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"00000000-0000-4000-8000-000000000001\\\"\"",
+          "present": true
+        },
+        "logical_request_id_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "client_attempt_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "transport_attempt_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "identity_evidence_json": {
+          "value": "\"server_authenticated\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"server_authenticated\\\"\"",
+          "present": true
+        },
+        "consent_evidence_json": {
+          "value": "\"client_declaration\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"client_declaration\\\"\"",
+          "present": true
+        },
+        "outcome_json": {
+          "value": "\"complete\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"complete\\\"\"",
+          "present": true
+        },
+        "delivery_path_json": {
+          "value": "\"generation\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"generation\\\"\"",
+          "present": true
+        },
+        "summary_service_invoked_json": {
+          "value": "true",
+          "rendered_type": "str",
+          "jsonl_token": "\"true\"",
+          "present": true
+        },
+        "duration_ms_json": {
+          "value": "1000",
+          "rendered_type": "str",
+          "jsonl_token": "\"1000\"",
+          "present": true
+        },
+        "reason_json": {
+          "value": "\"synthetic_fixture\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"synthetic_fixture\\\"\"",
+          "present": true
+        },
+        "entry_point_json": {
+          "value": "\"synthetic_validation\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"synthetic_validation\\\"\"",
+          "present": true
+        }
+      }
+    },
+    {
+      "line": 3,
+      "uuid": "00000000-0000-4000-8000-000000000011",
+      "values": {
+        "evidence_version_json": {
+          "value": "1",
+          "rendered_type": "str",
+          "jsonl_token": "\"1\"",
+          "present": true
+        },
+        "auth_state_at_event_json": {
+          "value": "\"authenticated\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"authenticated\\\"\"",
+          "present": true
+        },
+        "account_id_at_event_json": {
+          "value": "\"1001\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"1001\\\"\"",
+          "present": true
+        },
+        "analytics_consent_at_event_json": {
+          "value": "true",
+          "rendered_type": "str",
+          "jsonl_token": "\"true\"",
+          "present": true
+        },
+        "filing_id_json": {
+          "value": "11",
+          "rendered_type": "str",
+          "jsonl_token": "\"11\"",
+          "present": true
+        },
+        "summary_id_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "request_id_json": {
+          "value": "\"00000000-0000-4000-8000-000000000001\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"00000000-0000-4000-8000-000000000001\\\"\"",
+          "present": true
+        },
+        "logical_request_id_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "client_attempt_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "transport_attempt_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "identity_evidence_json": {
+          "value": "\"server_authenticated\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"server_authenticated\\\"\"",
+          "present": true
+        },
+        "consent_evidence_json": {
+          "value": "\"client_declaration\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"client_declaration\\\"\"",
+          "present": true
+        },
+        "outcome_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "delivery_path_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "summary_service_invoked_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "duration_ms_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "reason_json": {
+          "value": "",
+          "rendered_type": "str",
+          "jsonl_token": "\"\"",
+          "present": true
+        },
+        "entry_point_json": {
+          "value": "\"synthetic_validation\"",
+          "rendered_type": "str",
+          "jsonl_token": "\"\\\"synthetic_validation\\\"\"",
+          "present": true
+        }
+      }
+    }
+  ],
+  "bom": false,
+  "newline": {
+    "ends_with_newline": true,
+    "trailing_newline_count": 1,
+    "trailing_bytes_hex": "0a",
+    "crlf_count": 0,
+    "comparison_baseline": "Exactly one terminal LF"
+  },
+  "duplicate_rows": false,
+  "deviations": [
+    "Key order differs on line 1",
+    "Key order differs on line 2",
+    "Key order differs on line 3",
+    "Rows are not ordered by timestamp then uuid"
+  ],
+  "request_utc": "2026-10-05T20:52:57.891664+00:00",
+  "verification_utc": "2026-10-05T20:54:38.632511+00:00",
+  "api_call_statement": "no other API call was made",
+  "api_call_statement_scope": "The bounded download and local verification phase only.",
+  "operational_deviations": [
+    "Original credential and checkout preconditions were absent. The user separately authorized Chrome credential setup, scope reduction to only batch_export:read, and transient clipboard transfer before the bounded download phase. Browser setup traffic is outside the download phase; no claim is made that no other API traffic occurred during setup."
+  ],
+  "credential_scope_verified_in_ui": "batch_export:read only, Default project 117863",
+  "clipboard_cleared": true,
+  "key_order_check": false,
+  "key_contract_check": false,
+  "expected_rows_by_uuid": {
+    "00000000-0000-4000-8000-000000000010": {
+      "event": "summary_viewed",
+      "timestamp_s": 1790553600
+    },
+    "00000000-0000-4000-8000-000000000011": {
+      "event": "summary_request_started",
+      "timestamp_s": 1790553601
+    },
+    "00000000-0000-4000-8000-000000000012": {
+      "event": "summary_request_finished",
+      "timestamp_s": 1790553602
+    }
+  }
+}

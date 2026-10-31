@@ -1,0 +1,106 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "1c1a333bbf7edfc88a3d97163f32b5cb08fc052ca73adebe95768e122b726406",
+ "y_sha256": "fb1fe80cca75d47ca44afdd6f73925be7601e056cab29319cb16c374c4d49468",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both cite a passage that never mentions Wirtgen. A has worse errors: it says a positive 41.1% incremental margin 'turned negative'. It also presents a net-debt figure as a top-ranked 'net cash position', ignoring the post-FY2021 debt reporting break. B discloses that break and labels its analysis separately. B misapplies FY2022 MD&A to explain FY2024 costs, but its margin bridge and operating-cost analysis add more depth."
+   },
+   "cost_usd": 0.118401,
+   "latency_s": 12.608,
+   "backend": "claude_cli",
+   "input_tokens": 13475,
+   "cached_input_tokens": 727,
+   "output_tokens": 814,
+   "reasoning_tokens": 585,
+   "meta": {
+    "duration_api_ms": 8488,
+    "cache_creation_input_tokens": 12746,
+    "list_cost_usd": 0.067417
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both cite a passage that never mentions Wirtgen. A has worse errors: it says a positive 41.1% incremental margin 'turned negative'. It also presents a net-debt figure as a top-ranked 'net cash position', ignoring the post-FY2021 debt reporting break. B discloses that break and labels its analysis separately. B misapplies FY2022 MD&A to explain FY2024 costs, but its margin bridge and operating-cost analysis add more depth.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful context, such as the FY2024 demand drivers and rising credit losses, but it has several misreads. It calls a 41.1% incremental margin 'negative' and labels net debt a 'net cash position' ranked 100th percentile. It also uses post-FY2021 debt figures the data flags as incomplete. A's main flaw is citing an FY2022 passage for FY2024 cost causes. A discloses the debt reporting break and labels its analysis separately from facts."
+   },
+   "cost_usd": 0.119245,
+   "latency_s": 12.933,
+   "backend": "claude_cli",
+   "input_tokens": 13473,
+   "cached_input_tokens": 727,
+   "output_tokens": 857,
+   "reasoning_tokens": 629,
+   "meta": {
+    "duration_api_ms": 8063,
+    "cache_creation_input_tokens": 12744,
+    "list_cost_usd": 0.068269
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds useful context, such as the FY2024 demand drivers and rising credit losses, but it has several misreads. It calls a 41.1% incremental margin 'negative' and labels net debt a 'net cash position' ranked 100th percentile. It also uses post-FY2021 debt figures the data flags as incomplete. A's main flaw is citing an FY2022 passage for FY2024 cost causes. A discloses the debt reporting break and labels its analysis separately from facts.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.237646
+}

@@ -1,0 +1,126 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "NEE",
+ "split": "dev",
+ "claims": 8,
+ "output_sha256": "2dc4aced7444fb8e247f265fe28c8c979bb3090e846655b9048336008a8ebbd8",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2021 collapse reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity at NEER .",
+   "passages": [
+    {
+     "id": "P63",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's results increased in 2021 primarily driven by the absence of an impairment charge related to its investment in Mountain Valley Pipeline occurring in 2020 and higher earnings on new investments, partly offset by unfavorable non-qualifying hedge activity compared to 2020 and the absence of the 2020 gain on the sale of the Spain projects. In 2021, NEER added approximately 2,008 MW of new wind generating capacity and 728 MW of solar generating capacity, repowered 435 MW of wind generating capacity and increased its backlog of contracted renewable development projects."
+    },
+    {
+     "id": "P68",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER recognized $1.4 billion of equity in losses of equity method investees in 2020 compared to $67 million of equity in earnings of equity method investees for the prior year period. The change for 2020 primarily reflects an impairment charge related to the investment in Mountain Valley Pipeline of approximately $1.5 billion. See Note 4 - Nonrecurring Fair Value Measurements."
+    }
+   ],
+   "label": "partial",
+   "reason": "The Mountain Valley Pipeline impairment drove 2020, not 2021. The 2021 passage says its absence raised results. Only unfavorable hedge activity is a 2021 cause."
+  },
+  {
+   "sentence": "The FY2023 spike came from $1,729 million of non-qualifying hedge gains in NEER's net income , and FY2024 revenue fell 5.2% on lower storm and fuel cost recovery revenues at FPL .",
+   "passages": [
+    {
+     "id": "P30",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "(a)For 2025, 2024 and 2023, approximately $28 million of gains, $36 million of losses and $1,729 million of gains, respectively, are included in NEER's net income; the remaining balance is included in Corporate and Other. The change in non-qualifying hedge activity is primarily attributable to changes in forward power and natural gas prices, interest rates and foreign currency exchange rates, as well as the reversal of previously recognized unrealized mark-to-market gains or losses as the underlying transactions were realized."
+    },
+    {
+     "id": "P35",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2024, operating revenues decreased $1,346 million primarily related to lower storm cost recovery revenues and lower fuel cost recovery revenues, partly offset by an increase in retail base revenues."
+    }
+   ],
+   "label": "partial",
+   "reason": "The $1,729M 2023 hedge gains are stated but not tied to a spike. The 2024 revenue decline causes are cited, but the 5.2% scope is unclear."
+  },
+  {
+   "sentence": "FPL's FY2025 revenue rose $1,243 million on higher storm cost recovery, retail base and storm protection plan revenues, partly offset by lower fuel cost recovery .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2025, operating revenues increased $1,243 million primarily due to higher storm cost recovery, retail base and storm protection plan cost recovery revenues, partly offset by lower fuel cost recovery revenues."
+    }
+   ],
+   "label": "supported",
+   "reason": "P21 states exactly these drivers and the offset for FPL's 2025 revenue increase."
+  },
+  {
+   "sentence": "NEER's increase came from new wind, solar and battery investments, partly offset by higher financing costs .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's results increased in 2025 primarily reflecting higher earnings from new investments, partly offset by higher financing costs. In 2025, NEER added approximately 1,604 MW of new wind generating capacity, 2,859 MW of solar generating capacity and 1,799 MW of battery storage capacity and increased its backlog of contracted development projects."
+    },
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Results from new investments in 2025 increased primarily due to higher earnings related to new wind and solar generation and battery storage facilities that entered service during or after 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P26/P13 cite new wind, solar and battery investments, partly offset by higher financing costs."
+  },
+  {
+   "sentence": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation and amortization expense increased $951 million during 2025 primarily reflecting higher amortization of deferred storm costs, primarily associated with Hurricanes Debby, Helene and Milton, as discussed above, of approximately $1,090\u00a0million and increased depreciation related to higher plant in service balances, partly offset by the impact of reserve amortization. Reserve amortization, or reversal of such amortization, reflects adjustments to accrued asset removal costs provided under the 2021 rate agreement in order to achieve the targeted regulatory ROE. Reserve amortization is recorded as either an increase or decrease to accrued asset removal costs which is reflected in noncurrent regulatory assets on NEE's and FPL's consolidated balance sheets. As of December\u00a031, 2025, approximately $303\u00a0million of reserve amortization remains available for future amortization through the RSM under the 2025 rate agreement."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16 attributes the $951M increase mainly to deferred storm cost amortization from Debby, Helene and Milton."
+  },
+  {
+   "sentence": "Below the line, other income (expense) was -$3,750 million , driven by non-qualifying interest rate hedge losses and higher average debt balances at Corporate and Other .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results decreased $1,256 million during 2025 primarily due to unfavorable after-tax impacts of approximately $1,002 million, as compared to the prior year, related to non-qualifying hedge activity as a result of changes in the fair value of interest rate derivative instruments used to manage interest rate and foreign currency exchange rate risk associated primarily with outstanding and expected future debt issuances and borrowings (see Note\u00a03) as well as higher average debt balances."
+    }
+   ],
+   "label": "partial",
+   "reason": "P8 gives these causes for Corporate and Other's results decline, not for the consolidated other income (expense) line."
+  },
+  {
+   "sentence": "The swing from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenues from fuel and other cost recovery clauses and pass-through costs, such as franchise fees, revenue taxes and storm-related surcharges, are largely a pass-through of costs. Such revenues also include a return on investment allowed to be recovered through the cost recovery clauses on certain assets, primarily related to certain solar, environmental projects, storm protection plan investments and the unamortized balance of the regulatory asset associated with FPL's acquisition of a generation facility. See Item\u00a01. Business \u2013 FPL \u2013 FPL Regulation \u2013 FPL Electric Rate Regulation \u2013 Cost Recovery Clauses. Under-recovery or over-recovery of cost recovery clause and other pass-through costs (deferred clause and franchise expenses and revenues) can significantly affect NEE's and FPL's operating cash flows. During 2025, the change from a net over-recovery of cost recovery clauses to a net under-recovery of cost recovery clauses impacted FPL's operating cash flows by approximately $89 million, primarily related to higher fuel prices."
+    }
+   ],
+   "label": "supported",
+   "reason": "P19 states the over- to under-recovery swing affected FPL operating cash flows by about $89M."
+  },
+  {
+   "sentence": "The FY2025 effective tax rate moved -23.3pp to -17.7% , reflecting clean energy tax credits that lower reported taxes but are non-cash .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's effective income tax rate for 2025 and 2024 was approximately (343)% and (165)%, respectively, and is primarily based on the composition of pretax income in 2025 and 2024 as well as the impact of clean energy tax credits. PTCs from wind and solar projects and ITCs from solar, battery storage and certain wind projects are included in NEER\u2019s earnings. PTCs are recognized as wind and solar energy is generated and sold based on a per kWh rate prescribed in applicable federal and state statutes. During the year ended December 31, 2025, clean energy tax credits increased by approximately $585\u00a0million reflecting growth in NEER's business. See Note\u00a01 \u2013 Income Taxes for a discussion of clean energy tax credits, Note\u00a05 and Note\u00a016."
+    }
+   ],
+   "label": "partial",
+   "reason": "Clean energy credits explain NEER's segment tax rate, not the consolidated rate. The non-cash characterization is not stated."
+  }
+ ],
+ "cost_usd": 0.05326,
+ "backend": "claude_cli",
+ "input_tokens": 4286,
+ "cached_input_tokens": 0,
+ "output_tokens": 949
+}

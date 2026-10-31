@@ -1,0 +1,5 @@
+part_i_item_1: rendered_tables=33 glued_to_preceding_text=2
+    'he periods ended March\xa031 (in millions):' + 'First Quarter 2025\nCompany excluding Fo'
+    'ecurities were as follows (in millions):' + 'December 31, 2025\nFair Value Level  Com'
+part_i_item_2: rendered_tables=30 glued_to_preceding_text=1
+    ' by our subsequent filings with the SEC.' + '2026 Guidance\nTotal Company\nAdjusted EB'

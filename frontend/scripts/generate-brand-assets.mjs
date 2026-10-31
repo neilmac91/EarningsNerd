@@ -20,6 +20,21 @@
                                      256px-wide sage mark on TRANSPARENT — the
                                      raster the backend embeds in Excel exports
                                      (openpyxl can't rasterize SVG)
+     public/assets/earningsnerd-mark-sage.png
+                                     the same raster at a fixed URL, first
+                                     offered as the mail header's mark and kept
+                                     there since the header took the tile (D-035)
+     public/assets/earningsnerd-appicon.png
+                                     128×128 app tile, the transactional mail
+                                     header's mark, served at a fixed URL (clients
+                                     drop inline SVG; the tile keeps its own
+                                     ground where a mail app darkens the message)
+
+   The two public/assets PNGs are held by the published-URL rule
+   (public/assets/LOGO_README.md › Rules; sent mail shows the tile by address).
+   If a source change alters one, keep the committed file and write the new
+   rendition under a new name: tests/unit/publishedAssetUrls.spec.ts pins each
+   one's sha256 and fails until you do.
 
    Run: npm run brand:assets
    Requires devDeps sharp + png-to-ico + playwright. If playwright's managed
@@ -95,14 +110,30 @@ async function main() {
   // rasterized once here (committed) so the backend needs no SVG toolchain.
   const backendBrand = path.resolve(root, '..', 'backend', 'app', 'assets', 'brand')
   await fs.mkdir(backendBrand, { recursive: true })
-  await fs.writeFile(
-    path.join(backendBrand, 'earningsnerd-mark.png'),
-    await sharp(path.join(assets, 'earningsnerd-mark-sage.svg'), { density: 300 })
-      .resize({ width: 256 })
-      .png()
-      .toBuffer(),
-  )
+  const sageMark = await sharp(path.join(assets, 'earningsnerd-mark-sage.svg'), { density: 300 })
+    .resize({ width: 256 })
+    .png()
+    .toBuffer()
+  await fs.writeFile(path.join(backendBrand, 'earningsnerd-mark.png'), sageMark)
   console.log('✓ backend/app/assets/brand/earningsnerd-mark.png (256w, transparent)')
+
+  // The same raster served at a fixed URL (/assets/earningsnerd-mark-sage.png). It was first offered
+  // as the mail header's mark and stays at its URL, in the published-URL register, since the header
+  // took the tile below (D-035); no mail references it. One buffer, two paths: the two files are
+  // byte-identical by construction.
+  await fs.writeFile(path.join(assets, 'earningsnerd-mark-sage.png'), sageMark)
+  console.log('✓ assets/earningsnerd-mark-sage.png (256w, transparent, served at a fixed URL)')
+
+  // The app tile served at a fixed URL (/assets/earningsnerd-appicon.png) for the transactional
+  // mail header (docs/brand/templates/email-header.html, ported into email_service.py by its own
+  // PR). Gmail and Outlook drop inline SVG, and the mail apps that darken a light-only message
+  // leave its images alone, so the header carries the self-backgrounded tile, not the bare mark:
+  // the tile keeps its cream-on-sage contrast on any ground. 128 px, 4× the 32 px it is shown at.
+  await fs.writeFile(
+    path.join(assets, 'earningsnerd-appicon.png'),
+    await sharp(appiconSvg, { density: 300 }).resize(128, 128).png().toBuffer(),
+  )
+  console.log("✓ assets/earningsnerd-appicon.png (128, the mail header's tile)")
 
   // og-image — deterministic Playwright render of the committed template
   const browser = await chromium.launch(

@@ -1,0 +1,85 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "SNAP",
+ "split": "dev",
+ "claims": 5,
+ "output_sha256": "854af63581fa707adeb39e56b129e0b5de59bb48278012d2b5d740d0a3a2ad15",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2017 loss of $3.45 billion was driven by a $2.6 billion increase in stock-based compensation tied to the CEO award and IPO-related RSUs .",
+   "passages": [
+    {
+     "id": "P74",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net loss for the year ended December 31, 2017 was $3.4 billion, compared to $514.6 million for the same period in 2016. Adjusted EBITDA loss for the year ended December 31, 2017 was $720.1 million, compared to $459.2 million for the same period in 2016. The increase in net loss for the period was driven by a $2.6 billion increase in stock-based compensation expense primarily related to the CEO award and the recognition of expense related to RSUs with a performance condition satisfied on the effectiveness of the registration statement for our IPO in March 2017. Additionally, the increase in net loss was also driven by $39.9 million for Spectacles inventory-related charges that occurred in the third quarter of 2017. The remaining increase in net loss and the increase in Adjusted EBITDA was driven by an increase in cost of revenue and operating expenses, which more than offset revenue growth during the period. The increase in cost of revenue was primarily related to higher infrastructure costs. The increase in operating expenses was primarily related to increased headcount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P74 attributes the higher 2017 net loss to a $2.6B stock-compensation increase from the CEO award and IPO-triggered RSUs. Spectacles charges are also cited."
+  },
+  {
+   "sentence": "The advertising increase came from roughly 17% more impressions, largely in Sponsored Snaps and Spotlight, partly offset by a roughly 10% lower cost per impression; other revenue rose on subscription growth .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2025 increased $570.0 million compared to the same period in 2024. The increase was driven by a $282.4 million increase in advertising revenue for the year ended December\u00a031, 2025. The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 17% compared to the prior year, largely due to expanded advertising delivery within Sponsored Snaps and Spotlight. The increase in advertising revenue was partially offset by a decrease in the cost per advertising impression of approximately 10%, which is driven by strong growth in impressions delivery. The increase in total revenue was also driven by a $287.6 million increase in other revenue, which is predominantly due to higher subscription revenue from growth in the number of subscribers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P24 gives ~17% impression growth from Sponsored Snaps/Spotlight, offset by ~10% lower cost per impression, and subscriber-driven other revenue."
+  },
+  {
+   "sentence": "Sales and marketing fell $42.4 million on prior-year marketing timing, lower advertising spend and $19.9 million of FY2024 restructuring, while R&D rose $101.9 million on product development headcount .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and marketing expenses for the year ended December\u00a031, 2025 decreased $42.4 million compared to the same period in 2024. The decrease was primarily driven by the timing of marketing events occurring in the prior year, lower advertising and marketing investments, as well as $19.9 million in restructuring charges recognized in 2024. The decrease was partially offset by higher employee compensation due to additional sales and marketing headcount."
+    },
+    {
+     "id": "P23",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Research and development expenses for the year ended December\u00a031, 2025 increased $101.9 million compared to the same period in 2024. The increase was primarily due to investments in product development, including higher employee compensation due to additional research and development headcount. The increase was partially offset by $38.8\u00a0million in restructuring charges recognized in 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 gives the S&M drivers, including $19.9M of 2024 restructuring. P23 ties the R&D increase to product development and headcount."
+  },
+  {
+   "sentence": "Operating cash flow rose on non-cash items, including $1.0 billion of stock-based compensation and $163.6 million of depreciation and amortization, plus working-capital timing .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $656.2 million for the year ended December\u00a031, 2025, compared to net cash provided by operating activities of $413.5 million for the year ended December\u00a031, 2024, resulting primarily from our net loss, adjusted for non-cash items, including stock-based compensation expense of $1.0 billion, depreciation and amortization expense of $163.6 million and gains on debt extinguishment of $96.7 million. Net cash provided by operating activities for the year ended December\u00a031, 2025 was also driven by a $45.9 million increase in accounts payable and a $66.7 million increase in prepaid expenses and other current assets primarily due to the timing of payments, as well as a $31.8 million increase in accounts receivable due to the timing of collections."
+    }
+   ],
+   "label": "partial",
+   "reason": "P13 explains the level of 2025 operating cash flow through non-cash items and timing. It does not attribute the year-over-year rise to them."
+  },
+  {
+   "sentence": "In February 2025 it issued $1.50 billion of 2033 Notes and repurchased $1.4 billion of 2026, 2027 and 2028 Notes, leaving total debt at $3.54 billion .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Note 7. Debt",
+     "text": "In February 2025, we entered into a purchase agreement with certain counterparties for the sale of $ 1.50 billion principal amount of senior notes due in 2033 (the \u201c2033 Notes\u201d and collectively with the 2034 Notes, the \u201cSenior Notes\u201d) in a private offering to qualified institutional buyers pursuant to Rule 144A under the Securities Act, and outside the United States to non-U.S. persons pursuant to Regulation S under the Securities Act. The 2033 Notes were issued pursuant to an indenture dated February 14, 2025. The proceeds from the issuance of the 2033 Notes, net of $ 26.9 million in debt issuance costs, were $ 1.47 billion and primarily used for the February 2025 repurchase transactions, as discussed below. In connection with the February 2025 repurchase transactions, $ 6.5 million of the debt issuance costs were expensed in the first quarter of 2025, with the remainder to be amortized to interest expense using the effective interest rate method."
+    },
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Note 7. Debt",
+     "text": "In February 2025, we entered into various privately negotiated repurchase transactions with certain holders of the 2026 Notes, 2027 Notes, and 2028 Notes, pursuant to which we repurchased $ 45.3 million in aggregate principal amount of the 2026 Notes, $ 797.4 million in aggregate principal amount of the 2027 Notes, and $ 800.0 million in aggregate principal amount of the 2028 Notes. The total cash repurchase price was $ 1.4 billion, which was $ 190.1 million below the carrying value of the repurchased notes. The February 2025 repurchase transactions were accounted for as both a debt modification and a partial debt extinguishment, which resulted in a $ 66.9 million gain on extinguishment in the first quarter of 2025. The portion accounted for as a debt modification resulted in a $ 128.3 million increase to the carrying value of the 2033 Notes, offset by $ 5.1 million of debt issuance costs carried over from the repurchased notes."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 and P1 state the $1.50B 2033 Notes issuance and $1.4B repurchase. The $3.54B total isn't in passages; figures are checked elsewhere."
+  }
+ ],
+ "cost_usd": 0.047576,
+ "backend": "claude_cli",
+ "input_tokens": 3908,
+ "cached_input_tokens": 0,
+ "output_tokens": 816
+}

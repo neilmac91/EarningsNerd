@@ -1,0 +1,86 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is fully supported but only restates table values, so it gives the reader nothing new. B explains revenue, D&A, hedge losses and tax effects, and most claims match their passages. It has real lapses: the stock split is not in passage [7], the $89m under-recovery cause is absent from [43], and the $585m credit figure is cut off in [32]. B's grounding is weaker, but its depth and coverage are enough to edge it ahead."
+   },
+   "cost_usd": 0.096253,
+   "latency_s": 14.462,
+   "input_tokens": 10429,
+   "output_tokens": 925,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A is fully supported but only restates table values, so it gives the reader nothing new. B explains revenue, D&A, hedge losses and tax effects, and most claims match their passages. It has real lapses: the stock split is not in passage [7], the $89m under-recovery cause is absent from [43], and the $585m credit figure is cut off in [32]. B's grounding is weaker, but its depth and coverage are enough to edge it ahead.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B is fully supported but only restates table values. A explains the storm and fuel pass-through swings, tax credits, hedge losses, D&A, peers and dividends, and labels its analysis. A also has unsupported citations: [7] never mentions the split, [43] does not state the $89m, and [32] cuts off before the $585m figure. Those gaps narrow but do not erase A's substantive advantage."
+   },
+   "cost_usd": 0.093449,
+   "latency_s": 13.135,
+   "input_tokens": 10431,
+   "output_tokens": 784,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B is fully supported but only restates table values. A explains the storm and fuel pass-through swings, tax credits, hedge losses, D&A, peers and dividends, and labels its analysis. A also has unsupported citations: [7] never mentions the split, [43] does not state the $89m, and [32] cuts off before the $585m figure. Those gaps narrow but do not erase A's substantive advantage.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.189702
+}

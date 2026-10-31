@@ -1,0 +1,86 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values. B explains the FY2019 impairment, the FY2020 rebound, FY2026 drivers, cash conversion, payout and peers. B has grounding slips: [36] is a segment passage used for company gross margin, OCF/NI is compared with an FCF/NI median, 'growth engine for most of the window' rests on three years, and 'typical of the business model' is opinion stated as fact. Its depth still outweighs these."
+   },
+   "cost_usd": 0.102769,
+   "latency_s": 12.749,
+   "input_tokens": 11736,
+   "output_tokens": 728,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values. B explains the FY2019 impairment, the FY2020 rebound, FY2026 drivers, cash conversion, payout and peers. B has grounding slips: [36] is a segment passage used for company gross margin, OCF/NI is compared with an FCF/NI median, 'growth engine for most of the window' rests on three years, and 'typical of the business model' is opinion stated as fact. Its depth still outweighs these.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains causes that B never touches: the FY2019 Shave Care impairment, the FY2020 rebound and COVID demand, the FY2026 shift from US to non-US growth, and the Glad gain. It has flaws. 'Tougher US competition' is not in the truncated passage, the gross-margin passage is segment-level, OCF/NI is compared with an FCF/NI median, and 'typical of the business model' is unsupported. B is fully sourced but only restates table values, with vague watch items."
+   },
+   "cost_usd": 0.101261,
+   "latency_s": 12.163,
+   "input_tokens": 11730,
+   "output_tokens": 655,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains causes that B never touches: the FY2019 Shave Care impairment, the FY2020 rebound and COVID demand, the FY2026 shift from US to non-US growth, and the Glad gain. It has flaws. 'Tougher US competition' is not in the truncated passage, the gross-margin passage is segment-level, OCF/NI is compared with an FCF/NI median, and 'typical of the business model' is unsupported. B is fully sourced but only restates table values, with vague watch items.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.20403
+}

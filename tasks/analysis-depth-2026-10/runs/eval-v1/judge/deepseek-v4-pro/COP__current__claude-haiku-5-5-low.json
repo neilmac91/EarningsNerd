@@ -1,0 +1,86 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B explains drivers, margins, cash conversion, balance sheet, and red flags with cited passages, while Draft A mostly restates table values. B's causal claims are supported by its sources, and it discloses data limitations. B is more informative and grounded."
+   },
+   "cost_usd": 0.003075,
+   "latency_s": 2.86,
+   "input_tokens": 6514,
+   "output_tokens": 124,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B explains drivers, margins, cash conversion, balance sheet, and red flags with cited passages, while Draft A mostly restates table values. B's causal claims are supported by its sources, and it discloses data limitations. B is more informative and grounded.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Draft A explains drivers, margins, cash conversion, balance sheet, and red flags with cited sources, while Draft B merely restates table values. A is fully grounded and covers more dimensions with clear, calibrated analysis."
+   },
+   "cost_usd": 0.003057,
+   "latency_s": 1.883,
+   "input_tokens": 6514,
+   "output_tokens": 115,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"strong\",\n  \"rationale\": \"Draft A explains drivers, margins, cash conversion, balance sheet, and red flags with cited sources, while Draft B merely restates table values. A is fully grounded and covers more dimensions with clear, calibrated analysis.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.006132
+}

@@ -1,0 +1,116 @@
+{
+ "main_app_file": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/gamma/main-06ad809a/backend/app/__init__.py",
+ "branch_app_file": "/home/user/wt/returns-guard/backend/app/__init__.py",
+ "cases": {
+  "A_10k_negative_equity_at_report_date": {
+   "net_income_current": "2025-12-31",
+   "roe_current": "2024-12-31",
+   "roe_prior": "2023-12-31",
+   "roa_current": "2025-12-31",
+   "roa_prior": "2024-12-31",
+   "ratio_current_differs_from_net_income": [
+    "roe"
+   ],
+   "grounding_identical": true,
+   "line_identical": false,
+   "markdown_identical_outside_returns_line": true,
+   "main_line": "Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2023-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "branch_line": "Period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "grounding_ratio_lines": [
+    "- Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31); basis: period net income / period-end equity, not annualized",
+    "- Return on Assets: 5.0% (period: 2025-12-31); prior: 4.2% (2024-12-31); basis: period net income / period-end assets, not annualized"
+   ]
+  },
+  "B_10k_equity_missing_at_report_date": {
+   "net_income_current": "2025-12-31",
+   "roe_current": "2024-12-31",
+   "roe_prior": "2023-12-31",
+   "roa_current": "2025-12-31",
+   "roa_prior": "2024-12-31",
+   "ratio_current_differs_from_net_income": [
+    "roe"
+   ],
+   "grounding_identical": true,
+   "line_identical": false,
+   "markdown_identical_outside_returns_line": true,
+   "main_line": "Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2023-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "branch_line": "Period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "grounding_ratio_lines": [
+    "- Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31); basis: period net income / period-end equity, not annualized",
+    "- Return on Assets: 5.0% (period: 2025-12-31); prior: 4.2% (2024-12-31); basis: period net income / period-end assets, not annualized"
+   ]
+  },
+  "C_10k_normal": {
+   "net_income_current": "2025-12-31",
+   "roe_current": "2025-12-31",
+   "roe_prior": "2024-12-31",
+   "roa_current": "2025-12-31",
+   "roa_prior": "2024-12-31",
+   "ratio_current_differs_from_net_income": [],
+   "grounding_identical": true,
+   "line_identical": true,
+   "markdown_identical_outside_returns_line": true,
+   "main_line": "Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2024-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "branch_line": "Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2024-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "grounding_ratio_lines": [
+    "- Return on Equity: 20.0% (period: 2025-12-31); prior: 20.0% (2024-12-31); basis: period net income / period-end equity, not annualized",
+    "- Return on Assets: 5.0% (period: 2025-12-31); prior: 4.2% (2024-12-31); basis: period net income / period-end assets, not annualized"
+   ]
+  },
+  "D_10k_zero_equity_at_report_date": {
+   "net_income_current": "2025-12-31",
+   "roe_current": "2024-12-31",
+   "roe_prior": "2023-12-31",
+   "roa_current": "2025-12-31",
+   "roa_prior": "2024-12-31",
+   "ratio_current_differs_from_net_income": [
+    "roe"
+   ],
+   "grounding_identical": true,
+   "line_identical": false,
+   "markdown_identical_outside_returns_line": true,
+   "main_line": "Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2023-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "branch_line": "Period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).",
+   "grounding_ratio_lines": [
+    "- Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31); basis: period net income / period-end equity, not annualized",
+    "- Return on Assets: 5.0% (period: 2025-12-31); prior: 4.2% (2024-12-31); basis: period net income / period-end assets, not annualized"
+   ]
+  },
+  "E_10q_figs_like_negative_equity_at_report_date": {
+   "net_income_current": "2026-06-30",
+   "roe_current": "2026-03-31",
+   "roe_prior": null,
+   "roa_current": "2026-06-30",
+   "roa_prior": "2026-03-31",
+   "ratio_current_differs_from_net_income": [
+    "roe"
+   ],
+   "grounding_identical": true,
+   "line_identical": false,
+   "markdown_identical_outside_returns_line": true,
+   "main_line": "Period net income attributable to the parent / period-end equity, not annualized: 1.5%; period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).",
+   "branch_line": "Period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).",
+   "grounding_ratio_lines": [
+    "- Return on Equity: 1.5% (period: 2026-03-31); basis: period net income / period-end equity, not annualized",
+    "- Return on Assets: 0.6% (period: 2026-06-30); prior: 0.4% (2026-03-31); basis: period net income / period-end assets, not annualized"
+   ]
+  },
+  "F_10q_figs_like_normal_sequential_prior": {
+   "net_income_current": "2026-06-30",
+   "roe_current": "2026-06-30",
+   "roe_prior": "2026-03-31",
+   "roa_current": "2026-06-30",
+   "roa_prior": "2026-03-31",
+   "ratio_current_differs_from_net_income": [],
+   "grounding_identical": true,
+   "line_identical": true,
+   "markdown_identical_outside_returns_line": true,
+   "main_line": "Period net income attributable to the parent / period-end equity, not annualized: 2.3% (prior at 2026-03-31: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).",
+   "branch_line": "Period net income attributable to the parent / period-end equity, not annualized: 2.3% (prior at 2026-03-31: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).",
+   "grounding_ratio_lines": [
+    "- Return on Equity: 2.3% (period: 2026-06-30); prior: 1.5% (2026-03-31); basis: period net income / period-end equity, not annualized",
+    "- Return on Assets: 0.6% (period: 2026-06-30); prior: 0.4% (2026-03-31); basis: period net income / period-end assets, not annualized"
+   ]
+  }
+ }
+}

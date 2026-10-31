@@ -1,0 +1,903 @@
+{
+  "source_sha256": "513789f462c784068a92153e69ccfd46a1f1029b4e449f284de34e463b3c2272",
+  "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+  "report_row": 12,
+  "raw_sections": {
+    "the_print": {
+      "headline": "FIGS reported Q2 2026 net revenues of $196.6M (up 28.8% YoY) and net income of $28.4M, with gross margin expanding 8.2 percentage points to 75.2%.",
+      "key_takeaways": [
+        "Net revenues rose 28.8% YoY to $196.6M for the three months ended June 30, 2026, driven by an increase in orders and higher AOV, per Item 2 MD&A.",
+        "Net income increased to $28.4M from $7.1M in the prior-year quarter; diluted EPS was $0.15 versus $0.04.",
+        "Gross margin expanded 8.2 percentage points to 75.2%, which management attributes primarily to IEEPA tariff refunds, positive impacts from price increases and ongoing efficiency efforts, partially offset by tariffs.",
+        "A CBP withhold release order issued June 23, 2026 against a Jordanian manufacturing partner that accounted for approximately one-third of finished goods production in the quarter is expected to adversely impact net revenues, gross margin and inventory levels in the second half of 2026."
+      ],
+      "what_changed": "Net revenues increased 28.8% YoY to $196.6M, which management attributes primarily to an increase in orders and higher AOV. Gross margin expanded 8.2 percentage points to 75.2%, attributed primarily to IEEPA tariff refunds, positive impacts from price increases and ongoing efficiency efforts, partially offset by tariffs. Net income rose to $28.4M from $7.1M, and net income margin increased to 14.4% from 4.7%.",
+      "tone": "positive",
+      "source_section_ref": "Item 2. MD&A"
+    },
+    "results_that_matter": {
+      "table": [
+        {
+          "metric": "Net revenues",
+          "current_period": "$196,619 thousand",
+          "prior_period": "$152,640 thousand",
+          "change": "up 28.8% YoY",
+          "commentary": "Management attributes the increase primarily to an increase in orders and higher AOV.",
+          "supporting_evidence": "The increase in net revenues was primarily driven by an increase in orders and higher AOV."
+        },
+        {
+          "metric": "Gross profit",
+          "current_period": "$147,855 thousand",
+          "prior_period": "$102,246 thousand",
+          "change": "up 44.6% YoY",
+          "commentary": "Management attributes the increase primarily to IEEPA tariff refunds, higher unit sales, and positive impact from price increases, partially offset by tariffs.",
+          "supporting_evidence": "The increase in gross profit was primarily due to IEEPA tariff refunds, higher unit sales, and positive impact from price increases, partially offset by tariffs."
+        },
+        {
+          "metric": "Gross margin",
+          "current_period": "75.2%",
+          "prior_period": "67.0%",
+          "change": "up 820 bps YoY",
+          "commentary": "Management attributes the increase primarily to IEEPA tariff refunds, positive impacts from price increases and ongoing efficiency efforts, partially offset by tariffs.",
+          "supporting_evidence": "The increase in gross margin was primarily due to IEEPA tariff refunds, positive impacts from price increases and ongoing efficiency efforts, partially offset by tariffs."
+        },
+        {
+          "metric": "Net income from operations",
+          "current_period": "$35,262 thousand",
+          "prior_period": "$9,915 thousand",
+          "change": "up 255.6% YoY",
+          "commentary": "Operating income rose as gross profit growth outpaced a 21.9% increase in total operating expenses.",
+          "supporting_evidence": ""
+        },
+        {
+          "metric": "Net income",
+          "current_period": "$28,379 thousand",
+          "prior_period": "$7,099 thousand",
+          "change": "up 299.8% YoY",
+          "commentary": "Net income increased alongside higher operating income and a provision for income taxes of $8.5M.",
+          "supporting_evidence": ""
+        },
+        {
+          "metric": "Diluted earnings per share",
+          "current_period": "$0.15",
+          "prior_period": "$0.04",
+          "change": "up $0.11 YoY",
+          "commentary": "Diluted EPS rose while diluted weighted-average shares increased to 195,139,642 from 172,929,960.",
+          "supporting_evidence": ""
+        },
+        {
+          "metric": "Basic earnings per share",
+          "current_period": "$0.17",
+          "prior_period": "$0.04",
+          "change": "up $0.13 YoY",
+          "commentary": "Basic EPS rose on higher net income and weighted-average basic shares of 166,467,633 versus 162,683,329.",
+          "supporting_evidence": ""
+        },
+        {
+          "metric": "Adjusted EBITDA",
+          "current_period": "$36,586 thousand",
+          "prior_period": "$19,727 thousand",
+          "change": "up 85.5% YoY",
+          "commentary": "Adjusted EBITDA margin was 18.6% versus 12.9%; the reconciliation deducts a $7,899 thousand IEEPA tariff refund related to goods sold in the prior fiscal year.",
+          "supporting_evidence": ""
+        }
+      ],
+      "source_section_ref": "Item 1. Financial Statements; Item 2. MD&A"
+    },
+    "earnings_quality": {
+      "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory.",
+      "red_flags": [
+        "Accounts receivable rose to $23,293 thousand from $6,271 thousand at December 31, 2025, primarily reflecting $16.0 million of IEEPA tariff refunds included in other receivables."
+      ],
+      "source_section_ref": "Note 16. IEEPA Tariff Refunds; Item 2. MD&A"
+    },
+    "value_drivers": {
+      "source_section_ref": "Note 15. Share Repurchase Program; Item 2. MD&A",
+      "returns_on_capital": "Period net income attributable to the parent / period-end equity, not annualized: 6.4% (prior at 2026-03-31: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 4.9%.",
+      "capital_allocation_verified": {
+        "comparison": "",
+        "filing_statements": [
+          "Repurchases under the program have been and are expected to be funded from existing cash and cash equivalents.",
+          "On August 6, 2026, the Board authorized an additional increase of $100.0 million to the share repurchase program, bringing the total authorization for repurchases under the program to up to $200.0 million of the Company\u2019s outstanding Class A common stock."
+        ]
+      }
+    },
+    "forward_signals": {
+      "guidance": "The filing does not provide quantitative revenue or EPS guidance. It states that, without taking into account mitigation efforts and based on information available today, the company believes tariffs will continue to negatively impact gross margin for 2026, although to a lesser extent than previously disclosed in the 2025 Annual Report on Form 10-K, and that it expects the CBP withhold release order will adversely impact net revenues, gross margin and inventory levels in the second half of 2026.",
+      "known_trends": [
+        "Tariffs have increased product costs, negatively impacting gross margin for the three months ended June 30, 2026, and the company believes tariffs will continue to negatively impact gross margin for 2026, although to a lesser extent than previously disclosed.",
+        "The CBP withhold release order issued June 23, 2026 against a Jordanian manufacturing partner that accounted for approximately one-third of finished goods production during the quarter is expected to adversely impact net revenues, gross margin and inventory levels in the second half of 2026.",
+        "The company historically has generated a higher proportion of net revenues, and incurred higher selling and marketing expenses, during the fourth quarter compared to other quarters."
+      ],
+      "subsequent_events": [
+        "Subsequent to June 30, 2026, the Company received the remaining $16.0 million IEEPA tariff refund receivable outstanding as of June 30, 2026.",
+        "On August 6, 2026, the Board authorized an additional increase of $100.0 million to the share repurchase program, bringing total authorization to up to $200.0 million."
+      ],
+      "quotes": [
+        {
+          "speaker": "FIGS, Inc. management",
+          "quote": "Overall, we expect the WRO will adversely impact our net revenues, gross margin and inventory levels in the second half of 2026.",
+          "context": "Item 2. MD&A - Recent Developments"
+        },
+        {
+          "speaker": "FIGS, Inc. management",
+          "quote": "Without taking into account mitigation efforts and based on the information available to us today, we believe that tariffs will continue to negatively impact gross margin for 2026, although to a lesser extent than we previously disclosed in our 2025 Annual Report on Form 10-K.",
+          "context": "Item 2. MD&A - Recent Developments"
+        }
+      ],
+      "tone": "cautious",
+      "source_section_ref": "Item 2. MD&A - Recent Developments"
+    },
+    "risks": [
+      {
+        "summary": "A CBP withhold release order issued June 23, 2026 against a Jordanian manufacturing partner that accounted for approximately one-third of finished goods production in the quarter may prevent import of those products into the United States.",
+        "supporting_evidence": "On June 23, 2026, CBP issued a withhold release order (\u201cWRO\u201d) against certain garments produced by our Jordanian manufacturing partner. That manufacturer accounted for approximately one-third of our finished goods production during the three months ended June 30, 2026."
+      },
+      {
+        "summary": "Tariffs have increased product costs and negatively impacted gross margin, and the company states it cannot be certain how effective mitigation strategies will be over the long term.",
+        "supporting_evidence": "Tariffs have increased our product costs, negatively impacting gross margin for the three months ended June 30, 2026."
+      },
+      {
+        "summary": "A putative securities class action was dismissed with prejudice in January 2025, but plaintiffs appealed and the appeal is under submission; related derivative suits remain pending.",
+        "supporting_evidence": "Plaintiffs filed an appeal from that dismissal and oral argument in the appeal took place on July 7, 2026. The appeal is now under submission. The related derivative suits against the Company and certain of its executive officers and directors are currently pending."
+      },
+      {
+        "summary": "The company is subject to state laws on taxes on remote sellers and recorded an estimated contingent sales tax payable.",
+        "supporting_evidence": "In accordance with ASC 450, Contingencies, the Company recorded $1.5 million within sales tax payable on the Company\u2019s condensed consolidated balance sheets as of June 30, 2026 and December 31, 2025, as an estimate of contingent sales tax payable."
+      }
+    ],
+    "balance_sheet_liquidity": {
+      "leverage": "The selected standardized XBRL data does not establish a debt balance under a concept whose scope can be verified. That is an unestablished XBRL scope, not zero debt and not a net cash position; it does not establish total debt, net debt or debt-to-equity. This does not establish that debt is absent from the filing text.",
+      "liquidity": "Cash and cash equivalents were $108,539 thousand at June 30, 2026, up from $81,985 thousand at December 31, 2025, with available borrowings of $91.6 million under the 2021 Facility; management states existing cash, cash flows from operations and available borrowings are sufficient to support working capital and capital expenditure requirements for at least the next 12 months.",
+      "working_capital": "Current assets $452.9M vs. current liabilities $91.4M (current ratio 4.96x). Prior reported balance sheet as of 2025-12-31: $447.3M vs. $90.5M (4.94x).",
+      "maturities_covenants": [
+        "The Second Amendment extended the maturity date of the 2021 Facility from September 7, 2026 to November 3, 2030 and reduced the annual commitment fee to 0.15% of the unused Revolving Facility.",
+        "Borrowings bear interest at either Term SOFR plus 1.125% or the Base Rate plus 0.125%."
+      ],
+      "source_section_ref": "Item 2. MD&A - Liquidity and Capital Resources; Note 9. Financing Arrangements"
+    },
+    "notable_footnotes": [
+      {
+        "item": "IEEPA tariff refunds",
+        "impact": "The company recognized a $15.4 million reduction in cost of goods sold and a $5.1 million reduction in the carrying value of inventories on hand, and recorded a $16.0 million receivable for remaining accepted claims.",
+        "supporting_evidence": "During the three and six months ended June 30, 2026, the Company recognized a $15.4 million reduction in cost of goods sold in the Company's condensed consolidated statements of operations, representing the expense for IEEPA tariffs on inventory sold to customers since the tariffs were enacted in February 2025, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year.",
+        "source_section_ref": "Note 16. IEEPA Tariff Refunds"
+      },
+      {
+        "item": "Share repurchase program",
+        "impact": "As of June 30, 2026, approximately $19.2 million remained available for future repurchases; a subsequent $100.0 million increase brought total authorization to up to $200.0 million.",
+        "supporting_evidence": "As of June 30, 2026, the Company had approximately $19.2 million available for future repurchases of its Class A common stock under the share repurchase program.",
+        "source_section_ref": "Note 15. Share Repurchase Program"
+      },
+      {
+        "item": "Inventory purchase obligations",
+        "impact": "Inventory purchase obligations were approximately $63.1 million as of June 30, 2026.",
+        "supporting_evidence": "Inventory purchase obligations as of June 30, 2026 were approximately $63.1 million.",
+        "source_section_ref": "Note 10. Commitments and Contingencies"
+      },
+      {
+        "item": "Effective tax rate",
+        "impact": "The effective tax rate for the three months ended June 30, 2026 was 23.1% versus 41.0% in the prior-year period, and 20.0% versus 49.6% for the six months.",
+        "supporting_evidence": "For the three months ended June 30, 2026 and 2025, the Company's effective tax rate was 23.1% and 41.0%, respectively.",
+        "source_section_ref": "Note 11. Income Taxes"
+      }
+    ]
+  },
+  "controls": [
+    {
+      "name": "retained_target",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null,
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "retained_run1",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Q2 2026 net income of $28.4M includes a $15.4M reduction in cost of goods sold from IEEPA tariff refunds, of which $7.9M relates to tariffs on goods sold in the prior fiscal year. Adjusted EBITDA, which the filing defines as net income adjusted to exclude other income, net; gain/loss on disposal of assets; provision for income taxes; depreciation and amortization expense; stock-based compensation and related expense; transaction costs; expenses related to non-ordinary course disputes; and refunds recognized for IEEPA tariffs incurred on goods sold in the prior fiscal year, was $36.6M for Q2 2026 versus $19.7M for Q2 2025.",
+        "red_flags": [
+          "Accounts receivable increased to $23.3M at June 30, 2026 from $6.3M at December 31, 2025, primarily due to $16.0M of IEEPA tariff refunds included in other receivables."
+        ],
+        "source_section_ref": "Item 1. Financial Statements - Note 16 and Item 2. MD&A"
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "authored_prefix_2",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "It is false that Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "authored_prefix_3",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "For illustration, Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "authored_prefix_4",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Management withdrew the claim that Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "authored_prefix_5",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "The Canadian subsidiary's Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "authored_prefix_6",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Compared with 2025, Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "authored_prefix_7",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "In euros, Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "authored_prefix_8",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "The following statements are conditional. Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "middle_tail_9",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense only if the refund becomes payable. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "middle_tail_10",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense but revenue fell 20%. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "middle_tail_11",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense because these deductions depressed results. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "middle_tail_12",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense and management later withdrew this claim. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "first_qualification",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year, if the claim is valid. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "middle_denial",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand does not deduct that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "middle_hypothesis",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. Hypothetically, the company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "third_dependency",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. As a result of those deductions, the company recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "third_pronoun",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. This also caused a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "third_tail",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory. This depended on those deductions."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "two_sentences",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "wrong_total",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,585 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "wrong_refund",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,898 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "wrong_antecedent",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $8.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "wrong_net",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,378 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "wrong_date",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2025 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "invalid_date",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 31, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "wrong_currency",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of \u20ac36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "wrong_descriptor",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand property-tax refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "huge_amount",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "unsupported_grammar",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand excludes that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "correct_add",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand adds that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "camel_only",
+      "expected_selected": true,
+      "authored": {
+        "operatingVsOneTime": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null,
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "empty_canonical",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": "",
+        "operatingVsOneTime": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null,
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "null_canonical",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": null,
+        "operatingVsOneTime": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null,
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "equal_alias",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory.",
+        "operatingVsOneTime": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null,
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "conflicting_alias",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory.",
+        "operatingVsOneTime": "Other authored claim."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "whitespace_alias",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory.",
+        "operatingVsOneTime": " "
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "whitespace_canonical",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": " ",
+        "operatingVsOneTime": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "recovery",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "annual_call",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "missing_native",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": null
+    },
+    {
+      "name": "source_hypothetical",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "hypothetical"
+    },
+    {
+      "name": "source_withdrawn",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "withdrawn"
+    },
+    {
+      "name": "source_denied",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "denied"
+    },
+    {
+      "name": "source_foreign_entity",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "foreign_entity"
+    },
+    {
+      "name": "source_foreign_currency",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "foreign_currency"
+    },
+    {
+      "name": "source_own_caption",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "own_caption"
+    },
+    {
+      "name": "source_governing_predecessor",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "governing_predecessor"
+    },
+    {
+      "name": "source_global_hypothetical",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "global_hypothetical",
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "source_global_withdrawn",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "global_withdrawn",
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "source_duplicate_table",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "duplicate_table"
+    },
+    {
+      "name": "source_footer_condition",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "footer_condition"
+    },
+    {
+      "name": "source_extra_footnote",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "extra_footnote"
+    },
+    {
+      "name": "source_unknown_descriptor",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "unknown_descriptor"
+    },
+    {
+      "name": "source_wrong_table_period",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "wrong_table_period"
+    },
+    {
+      "name": "source_wrong_table_currency",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "wrong_table_currency"
+    },
+    {
+      "name": "source_period_caption_geometry",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "period_caption_geometry"
+    },
+    {
+      "name": "source_unit_caption_geometry",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "unit_caption_geometry"
+    },
+    {
+      "name": "source_ambiguous_period",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "ambiguous_period"
+    },
+    {
+      "name": "source_anchor_currency",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "anchor_currency"
+    },
+    {
+      "name": "source_anchor_entity",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "anchor_entity"
+    },
+    {
+      "name": "source_conflicting_anchor",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "conflicting_anchor"
+    },
+    {
+      "name": "source_wrong_refund_period",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "wrong_refund_period"
+    },
+    {
+      "name": "source_bad_arithmetic",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "bad_arithmetic"
+    },
+    {
+      "name": "source_all_zero",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $0 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $28,379 thousand deducts that $0 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "all_zero"
+    },
+    {
+      "name": "source_mixed_zero",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $38,205 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "mixed_zero",
+      "projection": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "source_synthetic_new_amounts",
+      "expected_selected": true,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,380 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,587 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "synthetic_new_amounts",
+      "projection": "Reported net income of $28,380 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. This summary could not independently verify the stated directions of the adjusted EBITDA reconciliation. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+    },
+    {
+      "name": "source_root_dei",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "root_dei"
+    },
+    {
+      "name": "source_root_usgaap",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "root_usgaap"
+    },
+    {
+      "name": "source_root_ix",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "root_ix"
+    },
+    {
+      "name": "source_root_xbrli",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "root_xbrli"
+    },
+    {
+      "name": "source_root_currency",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "root_currency"
+    },
+    {
+      "name": "source_local_dei",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "local_dei"
+    },
+    {
+      "name": "source_local_usgaap",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "local_usgaap"
+    },
+    {
+      "name": "source_local_ix",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "local_ix"
+    },
+    {
+      "name": "source_local_xbrli",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "local_xbrli"
+    },
+    {
+      "name": "source_local_currency",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "local_currency"
+    },
+    {
+      "name": "source_unqualified_dei",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "unqualified_dei"
+    },
+    {
+      "name": "source_unqualified_fact",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "unqualified_fact"
+    },
+    {
+      "name": "source_unqualified_context",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "unqualified_context"
+    },
+    {
+      "name": "source_unqualified_measure",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "unqualified_measure"
+    },
+    {
+      "name": "source_root_transform",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "root_transform"
+    },
+    {
+      "name": "source_local_transform",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "local_transform"
+    },
+    {
+      "name": "source_rowspan",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "rowspan"
+    },
+    {
+      "name": "source_amount_colspan",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "amount_colspan"
+    },
+    {
+      "name": "source_misparented_context",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "misparented_context"
+    },
+    {
+      "name": "source_nested_measure",
+      "expected_selected": false,
+      "authored": {
+        "operating_vs_one_time": "Reported net income of $28,379 thousand includes a $15.4 million reduction in cost of goods sold recognized for IEEPA tariff refunds, $7.9 million of which relates to IEEPA tariffs on goods sold in the prior fiscal year. The company's defined Adjusted EBITDA of $36,586 thousand deducts that $7,899 thousand prior-year refund, along with other income net, provision for income taxes, depreciation and amortization, and stock-based compensation and related expense. The company also recognized a $5.1 million reduction in the carrying value of inventories on hand as of June 30, 2026 for tariffs previously capitalized as cost of inventory."
+      },
+      "source_mutation": "nested_measure"
+    }
+  ]
+}

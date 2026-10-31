@@ -1,0 +1,32 @@
+{"label": "backport", "ticker": "PLD", "form": "10-K", "accession": "0001193125-26-051453", "sections": {"risk": 52847, "mda": 67507, "financials": 984}, "error": null, "seconds": 4.6}
+{"label": "backport", "ticker": "NEE", "form": "10-Q", "accession": "0000753308-26-000060", "sections": {"financials": 130616, "mda": 54295, "risk": 1196}, "error": null, "seconds": 2.9}
+{"label": "backport", "ticker": "PGR", "form": "10-K", "accession": "0000080661-26-000086", "sections": {"risk": 72573, "mda": 243, "financials": 251}, "error": null, "seconds": 1.9}
+{"label": "backport", "ticker": "FIGS", "form": "10-Q", "accession": "0001628280-26-054342", "sections": {"financials": 44455, "mda": 42767, "risk": 210468}, "error": null, "seconds": 1.9}
+{"label": "backport", "ticker": "GPRO", "form": "10-K", "accession": "0001500435-26-000006", "sections": {"risk": 100619, "mda": 97278, "financials": 122471}, "error": null, "seconds": 2.3}
+{"label": "backport", "ticker": "AAPL", "form": "10-K", "accession": "0000320193-25-000079", "sections": {"risk": 68163, "mda": 18018, "financials": 60874}, "error": null, "seconds": 1.9}
+{"label": "backport", "ticker": "MSFT", "form": "10-K", "accession": "0000950170-25-100235", "sections": {"risk": 68824, "mda": 49534, "financials": 128086}, "error": null, "seconds": 3.9}
+{"label": "backport", "ticker": "NVDA", "form": "10-Q", "accession": "0001045810-26-000052", "sections": {"financials": 48091, "mda": 28905, "risk": 43097}, "error": null, "seconds": 3.0}
+{"label": "backport", "ticker": "JPM", "form": "10-K", "accession": "0001628280-26-008131", "sections": {"risk": 112862, "mda": 414433, "financials": 567675}, "error": null, "seconds": 9.4}
+{"label": "backport", "ticker": "KO", "form": "10-Q", "accession": "0001628280-26-028802", "sections": {"financials": 80218, "mda": 58473, "risk": 641}, "error": null, "seconds": 1.9}
+{"label": "backport", "ticker": "TSLA", "form": "10-K", "accession": "0001628280-26-003952", "sections": {"risk": 83678, "mda": 55405, "financials": 171280}, "error": null, "seconds": 2.5}
+{"label": "backport", "ticker": "AMZN", "form": "10-K", "accession": "0001018724-26-000004", "sections": {"risk": 60660, "mda": 46296, "financials": 121717}, "error": null, "seconds": 2.0}
+{"label": "backport", "ticker": "BRK.B", "form": "10-K", "accession": "0001193125-26-083899", "sections": {"risk": 21888, "mda": 127344, "financials": 228436}, "error": null, "seconds": 8.6}
+{"label": "backport", "ticker": "XOM", "form": "10-K", "accession": "0000034088-26-000045", "sections": {"risk": 35671, "mda": 130464, "financials": 162817}, "error": null, "seconds": 4.1}
+{"label": "backport", "ticker": "PFE", "form": "10-Q", "accession": "0000078003-26-000054", "sections": {"financials": 170651, "mda": 476, "risk": 388}, "error": null, "seconds": 2.7}
+{"label": "backport", "ticker": "F", "form": "10-Q", "accession": "0000037996-26-000086", "sections": {"financials": 75539, "mda": 87806}, "error": null, "seconds": 2.6}
+{"label": "backport", "ticker": "WMT", "form": "10-K", "accession": "0000104169-26-000055", "sections": {"risk": 93314, "mda": 58168, "financials": 108237}, "error": null, "seconds": 2.6}
+{"label": "backport", "ticker": "COST", "form": "10-Q", "accession": "0000909832-26-000051", "sections": {"financials": 33718, "mda": 34454, "risk": 383}, "error": null, "seconds": 1.6}
+{"label": "backport", "ticker": "BA", "form": "10-K", "accession": "0001628280-26-004357", "sections": {"risk": 57151, "mda": 89675, "financials": 199092}, "error": null, "seconds": 3.4}
+{"label": "backport", "ticker": "INTC", "form": "10-Q", "accession": "0000050863-26-000079", "sections": {"financials": 58238, "risk": 871}, "error": null, "seconds": 2.2}
+{"label": "backport", "ticker": "PLTR", "form": "10-Q", "accession": "0001321655-26-000028", "sections": {"financials": 51398, "mda": 41640, "risk": 304170}, "error": null, "seconds": 1.8}
+{"label": "backport", "ticker": "RIVN", "form": "10-K", "accession": "0001874178-26-000008", "sections": {"risk": 6645, "mda": 52606, "financials": 137955}, "error": null, "seconds": 2.4}
+{"label": "backport", "ticker": "COIN", "form": "10-Q", "accession": "0001679788-26-000054", "sections": {"financials": 67141, "mda": 40039, "risk": 943}, "error": null, "seconds": 2.0}
+{"label": "backport", "ticker": "BYND", "form": "10-Q", "accession": "0001655210-26-000037", "sections": {"mda": 44884, "risk": 2828}, "error": null, "seconds": 2.2}
+{"label": "backport", "ticker": "BABA", "form": "20-F", "accession": "0001193125-26-231755", "sections": {"risk": 410872, "mda": 139430, "financials": 761}, "error": null, "seconds": 5.7}
+{"label": "backport", "ticker": "ASML", "form": "20-F", "accession": "0001628280-26-011378", "sections": {}, "error": null, "seconds": 17.0}
+{"label": "backport", "ticker": "TSM", "form": "20-F", "accession": "0001628280-26-025362", "sections": {"risk": 62160, "mda": 37151, "financials": 4603}, "error": null, "seconds": 7.0}
+{"label": "backport", "ticker": "JD", "form": "20-F", "accession": "0001193125-26-157870", "sections": {"risk": 361721, "mda": 77469, "financials": 200}, "error": null, "seconds": 5.0}
+{"label": "backport", "ticker": "SE", "form": "20-F", "accession": "0001140361-26-015366", "sections": {"risk": 222751, "mda": 93170, "financials": 9353}, "error": null, "seconds": 4.4}
+{"label": "backport", "ticker": "NVO", "form": "20-F", "accession": "0000353278-26-000012", "sections": {"risk": 6897, "mda": 22484, "financials": 11371}, "error": null, "seconds": 7.6}
+{"label": "backport", "ticker": "PDD", "form": "20-F", "accession": "0001104659-26-050727", "sections": {"risk": 366184, "mda": 51093, "financials": 209}, "error": null, "seconds": 4.6}
+{"label": "backport", "ticker": "MELI", "form": "10-K", "accession": "0001099590-26-000006", "sections": {"risk": 131636, "mda": 98636, "financials": 341}, "error": null, "seconds": 3.2}

@@ -1,31 +1,39 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Badge, Button, Card, DataTable, type Column } from '@/components/ui'
+import { Button, Card, DataTable, MissingValue, type Column } from '@/components/ui'
 import { FileXlsIcon } from '@/lib/icons'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { directionText } from '@/lib/financialTone'
+import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
+import { formatTableGrowth, tableComparisonText, tableCurrencyLabel, tableFigureText, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
+import { calculatedMetricsSentence, reportIdentity, tableComparisonBasis, tablePresentation } from '@/features/analysis/lib/reportPresentation'
+import { markedNote } from '@/features/analysis/lib/dataNotes'
+import { comparisonLaterFiling } from '@/features/analysis/lib/laterFilings'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import ReconciliationBadge from './ReconciliationBadge'
-
-const currencyFromUnit = (unit: string | undefined): string => {
-  const code = (unit || 'USD').split('/')[0].trim().toUpperCase()
-  return /^[A-Z]{3}$/.test(code) ? code : 'USD'
-}
-
-export const formatSeriesValue = (value: number, series: AnalysisSeries): string => {
-  if (series.percent) return fmtPercent(value, { digits: 1 })
-  if (series.unit === 'pure')
-    return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}×`
-  if (series.unit.endsWith('/shares'))
-    return fmtCurrency(value, { currency: currencyFromUnit(series.unit), digits: 2, compact: false })
-  return fmtCurrency(value, { currency: currencyFromUnit(series.unit), compact: true })
-}
+import DataNoteMark from './DataNoteMark'
+import { useDataNotes } from './DataNotesContext'
+import DataNotesLink from './DataNotesLink'
+import GrowthText from './GrowthText'
+import SourceValue from './SourceValue'
 
 // DataTable's generic requires an index signature (Record<string, unknown>).
 type Row = { series: AnalysisSeries } & Record<string, unknown>
+
+// A figure cell: value over change, each line the cell's full width and right-justified onto one figure edge (the mark
+// gutter to its right, DataNoteMark compact: --mark-gutter is one 11px mark, 0.4125rem, and its 2px gap), in the figure
+// face (Geist Mono with a drawn minus), whose fixed 600-unit advance gives tabular lining figures; no tracking, as the
+// data annotation size has none. A period column holds its widest line inside its 1px phone inset. A figure carries no
+// dagger (D-061), so that line is an eight-glyph figure and a one-letter note, 8 × 7.2 + 2 + 6.6 = 66.2px (a nine-glyph
+// figure alone is 64.8px, seven glyphs and a two-letter note 65.6px), so 4.375rem (70px, 68px inside) on a phone and
+// 4.75rem (68px inside its 4px inset) from md. metrics-table.spec.tsx derives both from tableTokenBudget. Those 2px a
+// column cost a 375px phone its third whole period (a 309px content box, 104 + 3 × 70 > 309), so below md, where the
+// card's content box is 19.25rem to 19.625rem wide, the metric column gives up to 0.375rem (6px at the default text
+// size) and three periods sit beside it, as at 390px. From md the band would cut the 8.25rem column instead: at 200%
+// text an 816px screen's card falls in it, and its metric column would drop to 5.2rem, too narrow for its names.
+const FIGURE_CELL = 'relative flex flex-col gap-0.5 font-figure tabular-nums lining-nums tracking-normal'
+const FIGURE_LINE = 'flex w-full items-baseline justify-end'
 
 /**
  * Metrics × periods grid: every value in the data face, the period-over-period delta beneath it
@@ -48,66 +56,96 @@ export default function MetricsTable({
    *  network call, so the button shows a loading state. */
   exporting?: boolean
 }) {
+  const notes = useDataNotes(dataset)
+  // Every period of the run, in one horizontally scrolling table: from 1280px up all of them fit, and on a phone the
+  // table opens on the newest (the 6-of-N window it replaced hid periods and saved nothing).
+  const periods = dataset.periods
+  const visibleNotes = useMemo(() => tablePresentation(dataset, notes).notes, [dataset, notes])
+  // A count agrees with the run's length: "1 year", "10 years".
+  const periodUnit = `${dataset.mode === 'quarterly' ? 'quarter' : 'year'}${dataset.periods.length === 1 ? '' : 's'}`
+  const basis = dataset.mode === 'quarterly' ? 'prior quarter' : 'prior year'
+  // The engine computes CAGR annual-only (a "compound ANNUAL growth rate" over 12 quarters
+  // isn't well-defined) and over a window of two years or more: in quarterly mode or on a run of
+  // one year the final column would show the missing-value mark in every row, so it is hidden
+  // there entirely, with the legend's sentence and the caption's, rather than shipping as dead UI.
+  const showsCagr = dataset.mode === 'annual' && dataset.periods.length > 1
   const columns = useMemo<Column<Row>[]>(() => {
-    const periodColumns: Column<Row>[] = dataset.periods.map((period) => ({
+    const periodColumns: Column<Row>[] = periods.map((period) => {
+      const derivedQuarter = period.fiscal_period === 'Q4' && dataset.series.some(series => series.points.some(point => point.period === period.key && point.value != null && point.derived && point.provenance?.method !== 'reported'))
+      return {
       key: period.key,
-      header: period.key,
+      header: dataset.mode === 'quarterly' ? (
+        <span className="font-data tracking-normal">
+          <span className="sr-only">{formatAnalysisPeriod(period.key)}{derivedQuarter ? ', includes calculated fourth-quarter flow figures' : ''}</span>
+          <span aria-hidden="true" data-period-label>
+            {period.fiscal_period}
+            <span className="block font-normal">’{String(period.fiscal_year).slice(-2)}{derivedQuarter ? <span title="Includes calculated fourth-quarter flow figures"> †</span> : null}</span>
+          </span>
+        </span>
+      ) : period.key,
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {
-        const point = row.series.points.find((p) => p.period === period.key)
-        if (!point || point.value === null || point.value === undefined) {
-          return <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
-        }
-        const growth = dataset.mode === 'quarterly' ? point.qoq ?? point.yoy : point.yoy
-        const growthReconciled = dataset.mode === 'quarterly' && point.qoq != null
-          ? point.qoq_reconciled : point.yoy_reconciled
-        const growthLabel = dataset.mode === 'quarterly' && point.qoq != null ? 'QoQ' : 'YoY'
+        const point = row.series.points.find((p) => p.period === period.key) ?? { period: period.key, value: null }
+        const currencyLabel = tableCurrencyLabel(row.series)
+        const sourceLabel = `${row.series.label}${currencyLabel ? ` (${currencyLabel})` : ''}`
+        // A missing figure is MissingValue in its source control; the control's own name reads "unavailable" too. Its
+        // dash stands on the figure edge in the note ink, the mark gutter beside it empty: a gap marks nothing (D-061).
+        if (point.value == null) return <div className={FIGURE_CELL}><SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}><MissingValue className="text-note-light dark:text-note-dark" /></SourceValue></div>
+        const growthBasis = tableComparisonBasis(dataset.mode, point)
+        const growth = point[growthBasis]
+        const growthReconciled = point[`${growthBasis}_reconciled`]
+        const growthLabel = growthBasis === 'qoq' ? 'QoQ' : 'YoY'
+        const growthProvenance = point[`${growthBasis}_provenance`]
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
         const tone = applySeriesTone(row.series.tone, direction)
+        const note = notes.noteFor(point)
+        const growthNote = notes.noteForComparison(point, growthBasis)
+        // Only a note that questions the number draws a letter, so only its letter takes a glyph from the budget.
+        const compactGrowth = tableComparisonText(growth, row.series.percent, growthNote)
         return (
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="flex items-center gap-1">
-              {formatSeriesValue(point.value, row.series)}
-              <ReconciliationBadge reconciled={point.reconciled} />
-              {point.derived && (
-                <span
-                  className="cursor-help text-warning-light dark:text-warning-dark"
-                  title="Computed fourth quarter: derived from the annual report (full year minus the reported year-to-date quarters; EPS re-derived from Q4 net income and weighted shares)."
-                  aria-label="Derived value"
-                >
-                  †
-                </span>
-              )}
+          <div className={FIGURE_CELL}>
+            <span className="block">
+              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote, laterFiling: growthBasis === 'yoy' ? comparisonLaterFiling(point, row.series.percent) : undefined } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, row.series, note)}</span></SourceValue>
             </span>
             {growthText && (
-              <span className={`text-xs ${directionText[tone]}`}>
-                {growthLabel} {growthText}
-                <ReconciliationBadge reconciled={growthReconciled} label="Unverified growth" />
+              <span className={`flex flex-col items-end text-xs tracking-normal ${dataDirectionText[tone]}`}>
+                {dataset.mode === 'quarterly' && growthLabel === 'YoY' && <span>YoY </span>}
+                <span className={FIGURE_LINE}>
+                  <span className="sr-only">Change vs {dataset.mode === 'quarterly' && growthLabel === 'YoY' ? 'same quarter last year' : basis} </span>
+                  <GrowthText text={compactGrowth} /><DataNoteMark compact note={growthNote} />
+                </span>
               </span>
             )}
           </div>
         )
       },
-    }))
+      }
+    })
     const metricColumn: Column<Row> = {
       key: 'metric',
-      header: 'Metric',
+      // The legend stays in the table's own heading row; the page heading rail leaves it out (data-rail-omit, E202).
+      header: <><span>Metric</span><span data-rail-omit className="block font-normal normal-case tracking-normal text-data-xs">value · Δ vs {basis}</span></>,
+      rowHeader: true,
+      // The metric column sits on the panel frame: the name in the figure ink (Lc 101.3 / -91.8 on panel), its currency
+      // line in the panel's secondary ink (90.9 / -77.3).
       render: (row: Row) => (
-        <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-          {row.series.label}
+        <span className="font-medium text-figure-light dark:text-figure-dark">
+          {row.series.label}{tableCurrencyLabel(row.series) ? ' ' : ''}
+          {tableCurrencyLabel(row.series) && <span className="block text-data-xs font-normal text-text-secondary-light dark:text-text-secondary-dark">{tableCurrencyLabel(row.series)}</span>}
         </span>
       ),
     }
-    // The engine computes CAGR annual-only (a "compound ANNUAL growth rate" over 12 quarters
-    // isn't well-defined) — the column would render "—" for every row in quarterly mode, so it's
-    // hidden there entirely rather than shipping as permanently dead UI.
-    if (dataset.mode !== 'annual') {
+    if (!showsCagr) {
       return [metricColumn, ...periodColumns]
     }
+    // An en-dash already offers a line break after it, so the window wraps there in a narrow column. The window sits
+    // under "CAGR", as the legend sits under "Metric": it stays in the table's own heading row, and the page heading
+    // rail shows "CAGR" alone, on the row's own first line (data-rail-omit, E202).
+    const cagrWindow = formatAnalysisWindow(dataset.periods[0]?.key ?? '', dataset.periods.at(-1)?.key ?? '')
     const cagrColumn: Column<Row> = {
       key: 'cagr',
-      header: 'CAGR',
+      header: <><span className="sr-only">{cagrWindow} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal"><span className="block">CAGR</span><span data-rail-omit className="block">{cagrWindow}</span></span></>,
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {
@@ -117,48 +155,45 @@ export default function MetricsTable({
         const win = windowGrowth(row.series)
         const { text, direction } = formatGrowth(win.value, win.isPercent)
         const tone = applySeriesTone(row.series.tone, direction)
+        const note = notes.noteForWindow(row.series)
+        const provenance = win.isPercent ? row.series.window_pp_provenance : row.series.cagr_provenance
+        const reconciled = win.isPercent ? row.series.window_pp_reconciled : row.series.cagr_reconciled
+        const compactText = formatTableGrowth(win.value, win.isPercent, tableTokenBudget(markedNote(note)?.letter))
         // cursor-help only when the tooltip actually exists — same condition for both.
         const windowTooltip =
           win.isPercent && row.series.window_pp_range
-            ? `Percentage-point change over ${row.series.window_pp_range}. CAGR doesn't apply to a percent-unit series.`
+            ? `Percentage-point change over ${formatAnalysisPeriod(row.series.window_pp_range)}. CAGR doesn't apply to a percent-unit series.`
             : undefined
         return text ? (
           <span
-            className={windowTooltip ? `cursor-help ${directionText[tone]}` : directionText[tone]}
+            className={`${FIGURE_CELL} ${windowTooltip ? `cursor-help ${dataDirectionText[tone]}` : dataDirectionText[tone]}`}
             title={windowTooltip}
           >
-            {text}
-            <ReconciliationBadge
-              reconciled={win.isPercent ? row.series.window_pp_reconciled : row.series.cagr_reconciled}
-              label="Unverified growth"
-            />
+            <SourceValue compactMarks
+              point={{ value: win.value, period: (win.isPercent ? row.series.window_pp_range : row.series.cagr_window) ?? dataset.period_key, unit: win.isPercent ? 'percentage points' : 'growth fraction', provenance, reconciled: reconciled ?? undefined }}
+              label={`${row.series.label} ${win.label}`} note={note}
+              comparison={{ label: win.isPercent ? 'Window change' : 'CAGR', display: text, provenance, reconciled, note }}
+            ><span className="inline-block">{compactText}</span></SourceValue>
           </span>
         ) : (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
+          // No window figure: the dash on the figure edge, the gutter kept beside it.
+          <span className={FIGURE_CELL}><span className={FIGURE_LINE}><MissingValue className="text-note-light dark:text-note-dark" /><DataNoteMark compact /></span></span>
         )
       },
     }
     return [metricColumn, ...periodColumns, cagrColumn]
-  }, [dataset])
+  }, [dataset, notes, periods, basis, showsCagr])
 
   const rows = useMemo<Row[]>(() => dataset.series.map((series) => ({ series })), [dataset])
-  const hasDerived = dataset.series.some((s) => s.points.some((p) => p.derived))
 
   return (
-    <Card as="section" className="p-6">
+    <Card as="section" className="[--mark-gutter:0.5375rem] [container-type:inline-size] min-w-0 p-4 sm:p-cap-6" data-analysis-metrics>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Metrics by period
           </Heading>
-          {hasDerived && (
-            <Badge
-              variant="warning"
-              title="† values are computed fourth quarters, derived from the annual report, since companies disclose Q4 only inside the full-year figures. Flows: full year minus the reported year-to-date quarters; EPS: Q4 net income ÷ Q4 weighted shares."
-            >
-              † computed Q4
-            </Badge>
-          )}
+          <DataNotesLink notes={visibleNotes} />
         </div>
         {onExportXlsx && (
           <Button
@@ -172,12 +207,32 @@ export default function MetricsTable({
           </Button>
         )}
       </div>
+      {/* The figures carry no dagger: this sentence names the metrics the run calculates (D-061). */}
+      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">{calculatedMetricsSentence(dataset)}</p>
+      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">n/m means not meaningful.{dataset.mode === 'quarterly'
+        ? ' Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
+        : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.' : null}</p>
       <DataTable<Row>
+        key={reportIdentity(dataset)}
         columns={columns}
         rows={rows}
         rowKey={(row) => row.series.concept}
         density="compact"
+        cellPadding="compact"
+        layout="fixed"
+        colWidths={columns.map((column) => column.key === 'metric' ? 'var(--metric-col)' : 'var(--period-col)')}
+        className="[--metric-col:min(6.5rem,100cqi)] max-md:[@container(19.25rem<=width<19.625rem)]:[--metric-col:calc(100cqi-3*var(--period-col))] [--period-col:4.375rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
+        snapColumns
+        scrollRegion={{
+          label: `Metrics by period, scrollable table of ${periods.length} ${periodUnit}`,
+          // A phone opens the table at its end: with one period, the metric names are all that lies to its left.
+          hint: periods.length === 1 ? '← Metric names' : `← Earlier ${periodUnit}`,
+          startAtEndOnMobile: true,
+        }}
+        caption={`Metrics by period, ${periods.length} ${periodUnit}: value and change versus ${basis}.${dataset.mode === 'quarterly' ? ' Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows.' : ''}`}
         stickyFirstColumn
+        surface="well"
+        pageHeader
         empty="No metrics available for the selected periods."
       />
     </Card>

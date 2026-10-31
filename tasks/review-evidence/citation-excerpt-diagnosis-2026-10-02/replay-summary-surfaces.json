@@ -1,0 +1,76 @@
+{
+ "provenance_service_sha256": "aac4acff158bfdcccc80912d374c7356622617cfa533a5f3a0b3fd25c8251115",
+ "runs": [
+  {
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/eval-36868705889/eval_20261001T133640Z.json",
+   "artifact_sha256": "8d6112a6499a09a33298a8e140f9cb6ff92de5eb7d7ce8d9bf74873e77854fba",
+   "source_sha": "7feb73c7ee4ce2463dc3ee9f409cb04a7c338540",
+   "ai_evidence_snap": true,
+   "ai_forward_quote_gate": false,
+   "rows": 70,
+   "by_surface": {
+    "results_that_matter.supporting_evidence": {
+     "full_contiguous": 237,
+     "not_contiguous": 6,
+     "too_short_to_verify": 5
+    },
+    "notable_footnotes.supporting_evidence": {
+     "full_contiguous": 232,
+     "not_contiguous": 3,
+     "too_short_to_verify": 10
+    },
+    "forward_signals.quotes.quote": {
+     "full_contiguous": 81,
+     "too_short_to_verify": 2
+    },
+    "risks.supporting_evidence(projected)": {
+     "full_contiguous": 265,
+     "too_short_to_verify": 2
+    }
+   },
+   "examples": {}
+  },
+  {
+   "artifact": "/tmp/claude-0/-home-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/eval-36962781437/eval_20261002T041306Z.json",
+   "artifact_sha256": "2b08639e9f4fde62844630d8ecd957f344e8e756dee628821cbcc56950d45faf",
+   "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+   "ai_evidence_snap": true,
+   "ai_forward_quote_gate": false,
+   "rows": 70,
+   "by_surface": {
+    "results_that_matter.supporting_evidence": {
+     "full_contiguous": 254,
+     "not_contiguous": 10,
+     "too_short_to_verify": 7
+    },
+    "notable_footnotes.supporting_evidence": {
+     "full_contiguous": 228,
+     "not_contiguous": 6,
+     "too_short_to_verify": 14,
+     "only_inner_quoted_span": 1
+    },
+    "forward_signals.quotes.quote": {
+     "full_contiguous": 94,
+     "too_short_to_verify": 1
+    },
+    "risks.supporting_evidence(projected)": {
+     "full_contiguous": 267,
+     "too_short_to_verify": 3
+    }
+   },
+   "examples": {
+    "notable_footnotes.supporting_evidence:only_inner_quoted_span": [
+     {
+      "ticker": "BYND",
+      "filing_type": "10-Q",
+      "run": 0,
+      "accession": "0001655210-26-000037",
+      "excerpt_sha256": "f1b570e44272220caba695d12b8c4bc54843133dd33f14c0e9b4280716799ff0",
+      "value": "The Company has determined that the errors identified below were immaterial to the previously issued interim unaudited condensed consolidated financial statements for the three months ended March 29, 2025 and has corrected these errors pros",
+      "quoted_span": "Accounting Changes and Error Corrections."
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,6 +1,7 @@
 """Unit tests for SEC token accounting and Retry-After handling."""
 
 import asyncio
+import sys
 from types import SimpleNamespace
 
 import httpx
@@ -23,6 +24,10 @@ def _http_429(retry_after: str | None) -> httpx.HTTPStatusError:
 class TestRetryAfterParsing:
     def test_numeric_seconds(self):
         assert SECRateLimiter._retry_after_seconds(_http_429("30")) == 30.0
+
+    def test_extreme_decimal_is_retained_without_integer_or_float_overflow(self):
+        assert SECRateLimiter._retry_after_seconds(_http_429("9" * 5000)) == sys.float_info.max
+        assert SECRateLimiter._retry_after_seconds(_http_429("0" * 5000 + "30")) == 30.0
 
     def test_negative_seconds_clamps_to_zero(self):
         assert SECRateLimiter._retry_after_seconds(_http_429("-5")) == 0.0
@@ -68,7 +73,10 @@ class TestRetryAfterHonored:
         async def _fake_sleep(seconds):
             waits.append(seconds)
 
-        monkeypatch.setattr("app.services.sec_rate_limiter.asyncio.sleep", _fake_sleep)
+        monkeypatch.setattr(
+            "app.services.sec_rate_limiter.asyncio",
+            SimpleNamespace(Lock=asyncio.Lock, sleep=_fake_sleep),
+        )
 
         limiter = SECRateLimiter(requests_per_second=100, max_retries=2, base_backoff_seconds=0.5)
         calls = {"n": 0}
@@ -90,7 +98,10 @@ class TestRetryAfterHonored:
         async def _fake_sleep(seconds):
             waits.append(seconds)
 
-        monkeypatch.setattr("app.services.sec_rate_limiter.asyncio.sleep", _fake_sleep)
+        monkeypatch.setattr(
+            "app.services.sec_rate_limiter.asyncio",
+            SimpleNamespace(Lock=asyncio.Lock, sleep=_fake_sleep),
+        )
 
         limiter = SECRateLimiter(requests_per_second=100, max_retries=2, base_backoff_seconds=0.5)
 
@@ -127,8 +138,14 @@ async def test_elapsed_refill_is_spent_once(monkeypatch, scenario):
         "app.services.sec_rate_limiter.time",
         SimpleNamespace(monotonic=lambda: clock.now),
     )
-    monkeypatch.setattr("app.services.sec_rate_limiter.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr(
+        "app.services.sec_rate_limiter.asyncio",
+        SimpleNamespace(Lock=asyncio.Lock, sleep=fake_sleep),
+    )
     limiter = SECRateLimiter(requests_per_second=4)
+
+    # Caller/background sleeps must not advance the limiter's simulated clock.
+    await asyncio.sleep(0)
 
     async def request() -> None:
         admitted.append(clock.now)
@@ -167,6 +184,8 @@ async def test_elapsed_refill_is_spent_once(monkeypatch, scenario):
 async def test_document_source_observation_preserves_transport_and_decoded_text(monkeypatch, mode):
     import hashlib
     from app.services.edgar import compat
+
+    monkeypatch.setattr(compat.random, "uniform", lambda low, high: high)
 
     url = "https://sec.example/selected.htm"
     final_url = "https://sec.example/final.htm" if mode == "redirect" else url

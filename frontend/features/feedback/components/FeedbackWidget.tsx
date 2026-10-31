@@ -1,161 +1,235 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
-import { ChatCircleDotsIcon, XIcon, CircleNotchIcon, PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button } from '@/components/ui/Button'
-import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
-import { hasActiveSession } from '@/lib/api/session'
-import { isApiError, getErrorMessage } from '@/lib/api/types'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
+import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, cx, inputClasses, primaryUnavailableClass, type SegmentedOption } from '@/components/ui'
+import { getFeedbackCapabilities, type FeedbackType } from '@/features/feedback/api/feedback-api'
+import { useFeedbackDraft } from '@/features/feedback/hooks/useFeedbackDraft'
+import FeedbackFilePicker from '@/features/feedback/components/FeedbackFilePicker'
+import { clearPendingFeedback, readPendingFeedback } from '@/features/feedback/lib/feedbackFiles'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { queryKeys } from '@/lib/queryKeys'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
+import { BOTTOM_CHROME_OFFSET, CONSENT_LAYER_EVENT } from '@/lib/consentLayer'
+import { overlapsKeepClear } from '@/lib/launcherKeepClear'
 
-const TYPES: { value: FeedbackType; label: string }[] = [
-  { value: 'bug', label: '🐞 Bug' },
-  { value: 'feature', label: '✨ Idea' },
-  { value: 'general', label: '💬 General' },
+// The report's kind: one choice among options that all show, so the SegmentedControl (E35), at its `md` size and
+// stretched across the form below 40rem (1280px under 200% text), wrapping whole segments onto another row where the
+// dialog is narrower than the row (a phone at 200% text, E169); from 40rem up it is one content-width row, as
+// `fullWidth` documents (E183).
+const TYPES: readonly SegmentedOption<FeedbackType>[] = [
+  { value: 'bug', label: 'Bug' },
+  { value: 'feature', label: 'Idea' },
+  { value: 'general', label: 'General' },
 ]
 
 // Secondary launcher: pinned bottom-LEFT (Ask is the bottom-right hero) and clear of the iOS home
-// indicator / Android nav bar. max() keeps a 1.25rem base gap on flat phones and adds the inset on
-// notched ones (needs viewport-fit=cover, set in app/layout.tsx).
+// indicator / Android nav bar and of the cookie-consent bar: BOTTOM_CHROME_OFFSET keeps a 1.25rem
+// base gap on flat phones, adds the inset on notched ones (needs viewport-fit=cover, set in
+// app/layout.tsx) and the bar's height while it is mounted, so this z-30 button never rises over
+// the bar's "Customize" (lib/consentLayer).
 const LAUNCHER_OFFSET: React.CSSProperties = {
-  bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+  bottom: BOTTOM_CHROME_OFFSET,
   left: 'max(1.25rem, env(safe-area-inset-left))',
 }
-// The popup sits just above the launcher.
-const PANEL_OFFSET: React.CSSProperties = {
-  bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 3.75rem)',
-  left: 'max(1.25rem, env(safe-area-inset-left))',
-}
+
+// The launcher's one fixed site (tests/unit/bottomChromeLadder.spec.ts pins it at z-30). Its colour and opacity changes
+// take the fast motion token, and none runs under reduced motion (DESIGN_SYSTEM §11).
+const LAUNCHER_CLASS =
+  'fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-[color,background-color,opacity] duration-fast motion-reduce:transition-none hover:bg-white hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark'
 
 /**
  * Always-available beta feedback launcher. Renders a floating button for logged-in users only
- * (gated on the client-readable session marker), opening a small bug/idea/general report panel that
+ * (observing the shared current-user query), opening a small bug/idea/general report panel that
  * posts to /api/feedback. Mounted once in Providers so it's available across the authenticated app.
+ *
+ * v3 (DS-04): the report panel is a ui/Modal dialog (focus trap, Escape, focus return to the
+ * launcher, overlay + z-modal tokens) instead of an anchored popover with no keyboard handling.
  */
 export default function FeedbackWidget() {
-  // Avoid a hydration mismatch: the session marker lives in localStorage (client-only), so we render
-  // nothing on the server / first paint and decide after mount.
-  const [mounted, setMounted] = useState(false)
-  const [authed, setAuthed] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [type, setType] = useState<FeedbackType>('general')
-  const [message, setMessage] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { data: user } = useQuery({
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
+    enabled: ENABLE_FEEDBACK_WIDGET,
+    staleTime: 60_000,
+  })
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration latch: session marker lives in localStorage, so we resolve client-only state after mount
-    setMounted(true)
-    setAuthed(hasActiveSession())
-  }, [])
+    if (user === null) clearPendingFeedback()
+    else if (user) readPendingFeedback(user.id)
+  }, [user])
 
-  if (!ENABLE_FEEDBACK_WIDGET || !mounted || !authed) return null
+  // Undefined is an unresolved identity, not a guest. Retained identity survives a failed
+  // background read; confirmed logout or a different reader unmounts the private draft.
+  if (!ENABLE_FEEDBACK_WIDGET || !user) return null
+  return <AccountFeedback key={user.id} readerId={user.id} />
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (message.trim().length < 5) return
-    setSubmitting(true)
-    try {
-      await submitFeedback({
-        type,
-        message: message.trim(),
-        pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
-      })
-      toast.success('Thanks for the feedback', { description: 'We read every note. It really helps.' })
-      setMessage('')
-      setType('general')
-      setOpen(false)
-    } catch (err: unknown) {
-      toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not send feedback. Please try again.')
-    } finally {
-      setSubmitting(false)
+function AccountFeedback({ readerId }: { readerId: number }) {
+  const [open, setOpen] = useState(false)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
+  const launcherRef = useRef<HTMLButtonElement>(null)
+  // N17: the launcher never rests over a headline figure. While a region the page marks keep-clear (the analysis KPI
+  // strip and the results header over it) lies under its box (lib/launcherKeepClear), it steps aside without moving: it fades and lets the pointer
+  // through to the figure, keyboard focus brings it back, and it never yields while its own dialog is open.
+  const [yielding, setYielding] = useState(false)
+  const close = () => setOpen(false)
+  const {
+    type, setType, message, setMessage, files, addFiles, removeFile, submit,
+    locked, busy, phase, progress, notice, statusFailure, editableFailure, edit,
+  } = useFeedbackDraft(readerId, close)
+  const capabilityKey = queryKeys.feedback.capabilities(readerId)
+  const capabilities = useQuery({
+    queryKey: capabilityKey,
+    queryFn: ({ signal }) => getFeedbackCapabilities(signal),
+    enabled: open,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const capabilityFailure = useRetainedFailure(capabilities, capabilityKey)
+  const attachmentsEnabled = capabilities.data?.attachments_enabled === true
+  const mediaUnavailable = phase === 'editing' && files.length > 0 && !attachmentsEnabled
+
+  // One check a frame at most, the requestAnimationFrame throttle DataTable's heading rail also uses, queued on a passive
+  // scroll, a resize, the consent bar coming or going (the launcher rises with it) and a change of the page's size
+  // (results mount after Run with no scroll). jsdom has no ResizeObserver of its own, hence the guard. This component
+  // mounts only for a reader the current-user query confirms, so the measurement runs for as long as the launcher shows.
+  useEffect(() => {
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const box = launcherRef.current?.getBoundingClientRect()
+      setYielding(!!box && overlapsKeepClear(box))
     }
+    const queue = () => { if (!frame) frame = requestAnimationFrame(check) }
+    queue()
+    window.addEventListener('scroll', queue, { passive: true })
+    window.addEventListener('resize', queue)
+    window.addEventListener(CONSENT_LAYER_EVENT, queue)
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(queue)
+    observer?.observe(document.body)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('scroll', queue)
+      window.removeEventListener('resize', queue)
+      window.removeEventListener(CONSENT_LAYER_EVENT, queue)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [])
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (mediaUnavailable) return
+    void submit()
+  }
+
+  function handlePaste(event: React.ClipboardEvent) {
+    if (!attachmentsEnabled || locked) return
+    const pasted = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null)
+    if (pasted.length) addFiles(pasted)
+    // Native text paste remains intact, including mixed text/image clipboard data.
+  }
+  function handleAddFiles(incoming: readonly File[]) {
+    if (attachmentsEnabled) addFiles(incoming)
   }
 
   return (
     <>
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Send feedback"
-          style={PANEL_OFFSET}
-          className="fixed z-30 w-[min(92vw,22rem)] rounded-2xl bg-panel-light p-4 shadow-e2 ring-1 ring-black/5 dark:bg-panel-dark dark:shadow-none dark:ring-white/10"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-              Send feedback
-            </h2>
-            <button
-              type="button"
-              aria-label="Close feedback"
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
-            >
-              <XIcon className="h-4 w-4" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-            <div className="flex gap-2">
-              {TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setType(t.value)}
-                  aria-pressed={type === t.value}
-                  className={
-                    'flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ' +
-                    (type === t.value
-                      ? 'border-brand-strong/40 bg-brand-strong/10 text-brand-strong dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15 dark:text-brand-strong-dark'
-                      : 'border-black/10 text-text-secondary-light hover:bg-black/[0.03] dark:border-white/15 dark:text-text-secondary-dark dark:hover:bg-white/[0.04]')
-                  }
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+      <Modal open={open} onClose={close} labelledBy="feedback-dialog-title" size="sm" initialFocusRef={messageRef} className="ph-no-capture">
+        <ModalHeader id="feedback-dialog-title" onClose={close}>
+          Send feedback
+        </ModalHeader>
+        <ModalBody>
+          <form onSubmit={handleSubmit} className="space-y-3" onPaste={handlePaste}>
+            <SegmentedControl label="Feedback type" options={TYPES.map((option) => ({ ...option, disabled: locked }))} value={type} onChange={setType} size="md" fullWidth focusableDisabled />
 
             <textarea
+              ref={messageRef}
               aria-label="Feedback message"
+              aria-describedby="feedback-message-help"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => { if (!locked) setMessage(e.target.value) }}
+              readOnly={locked}
               required
-              autoFocus
               rows={4}
               maxLength={4000}
               placeholder="What's working, what's broken, or what you'd love to see…"
-              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-strong focus:outline-none focus:ring-2 focus:ring-brand-strong/30 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
+              // The field recipe (E154): its fill, border, padding, focus ring and 44px floor; it stays a fixed four rows.
+              className={inputClasses({ className: 'resize-none' })}
             />
+            <p id="feedback-message-help" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              Describe what happened. You can paste a web link here too.
+            </p>
 
+            {(attachmentsEnabled || files.length > 0) && (
+              <FeedbackFilePicker files={files} locked={locked} canAdd={attachmentsEnabled} onAdd={handleAddFiles} onRemove={removeFile} messageRef={messageRef} />
+            )}
+            {!attachmentsEnabled && files.length > 0 && phase === 'editing' && (
+              <p role="status" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                Screenshot uploads are unavailable right now. Remove the screenshots to send just your note, or keep this draft for later.
+              </p>
+            )}
+            {capabilityFailure.failed && !files.length && (
+              <div className="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <p>Screenshots are unavailable right now. You can still send a note or link.</p>
+                <RetryButton failures={[capabilityFailure]} focusTarget={messageRef} textField />
+              </div>
+            )}
+            {notice && <p role="status" className="break-words text-sm text-text-secondary-light dark:text-text-secondary-dark">{notice}</p>}
+            {phase === 'sending' && files.length > 0 && (
+              <div className="space-y-1">
+                <progress aria-label="Screenshot upload" value={progress} max={100} className="w-full accent-brand dark:accent-brand-dark" />
+                <p role="status" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  {progress < 100 ? `Uploading screenshots: ${progress}%` : 'Upload complete. Saving your feedback…'}
+                </p>
+              </div>
+            )}
+            {statusFailure.failed && (
+              <div role="alert" className="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <p>We could not check whether your feedback was saved. Keep this draft while we check again.</p>
+                <RetryButton failures={[statusFailure]} focusTarget={messageRef} textField />
+              </div>
+            )}
+            {editableFailure && <Button type="button" variant="secondary" wrap onClick={() => { edit(); messageRef.current?.focus() }}>Edit feedback</Button>}
+
+            {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
+                that turns disabled (focus → <body>). Native `disabled` stays only for the too-short
+                message — the textarea sets it, and the success reset that clears the message also
+                closes this panel in the same render, so it never flips under focus. */}
             <Button
               type="submit"
-              disabled={submitting || message.trim().length < 5}
-              className="w-full py-2 font-semibold active:scale-[0.99]"
+              loading={busy}
+              loadingText={phase === 'checking' ? 'Checking…' : files.length ? progress < 100 ? 'Uploading…' : 'Saving…' : 'Sending…'}
+              disabled={message.trim().length < 5}
+              aria-disabled={busy || mediaUnavailable || undefined}
+              className={`w-full py-2 font-semibold active:scale-[0.99] ${mediaUnavailable ? primaryUnavailableClass : ''}`}
             >
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                  Sending…
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <PaperPlaneTiltIcon className="h-4 w-4" />
-                  Send feedback
-                </span>
-              )}
+              <span className="flex items-center justify-center gap-2">
+                <PaperPlaneTiltIcon className="h-4 w-4" />
+                Send feedback
+              </span>
             </Button>
           </form>
-        </div>
-      )}
+        </ModalBody>
+      </Modal>
 
+      {/* Yielding, it keeps its place, its rung and its name in the accessibility tree. Keyboard focus brings it back
+          (`focus-visible:`: a Tab, an Escape close, any key); a focus Modal returns after a pointer close (Send, the
+          close button, a scrim tap) does not, so it never comes back opaque and tappable over the figures as the
+          reader scrolls on. */}
       <button
+        ref={launcherRef}
         type="button"
         aria-label={open ? 'Close feedback' : 'Send feedback'}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
         style={LAUNCHER_OFFSET}
-        className="fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-colors hover:bg-background-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+        className={cx(LAUNCHER_CLASS, yielding && !open && 'pointer-events-none opacity-0 focus-visible:pointer-events-auto focus-visible:opacity-100')}
       >
         <ChatCircleDotsIcon className="h-5 w-5" />
         <span className="hidden sm:inline">Feedback</span>

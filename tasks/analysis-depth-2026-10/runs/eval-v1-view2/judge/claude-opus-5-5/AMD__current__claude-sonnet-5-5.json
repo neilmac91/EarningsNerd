@@ -1,0 +1,86 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values; its debt red flag and watch items have no thresholds. B explains segment drivers, the Xilinx and PC inflections, the tax-driven net margin, inventory risk and peer context. B has grounding lapses: the cited FY2022 passage does not mention Xilinx amortization, the SG&A recast is unsourced, and its 0.2pp gross-margin figure differs from the filing's 1%. Most claims are supported, so B's depth outweighs these."
+   },
+   "cost_usd": 0.115153,
+   "latency_s": 14.37,
+   "input_tokens": 12479,
+   "output_tokens": 1050,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"A is fully sourced but only restates table values; its debt red flag and watch items have no thresholds. B explains segment drivers, the Xilinx and PC inflections, the tax-driven net margin, inventory risk and peer context. B has grounding lapses: the cited FY2022 passage does not mention Xilinx amortization, the SG&A recast is unsourced, and its 0.2pp gross-margin figure differs from the filing's 1%. Most claims are supported, so B's depth outweighs these.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values, with vague watch items. A has two unsupported claims: Xilinx amortization as the cause of FY2022's gross-margin drop, which passage [36] does not state, and an SG&A recast with no source. Otherwise A explains segment drivers, the tax-driven net margin, inventory risk, peers and numeric watch thresholds, all well cited. Its depth outweighs those lapses."
+   },
+   "cost_usd": 0.105793,
+   "latency_s": 10.13,
+   "input_tokens": 12479,
+   "output_tokens": 582,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but only restates table values, with vague watch items. A has two unsupported claims: Xilinx amortization as the cause of FY2022's gross-margin drop, which passage [36] does not state, and an SG&A recast with no source. Otherwise A explains segment drivers, the tax-driven net margin, inventory risk, peers and numeric watch thresholds, all well cited. Its depth outweighs those lapses.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.220946
+}

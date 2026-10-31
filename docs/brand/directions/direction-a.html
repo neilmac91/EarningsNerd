@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="mockup.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+.receipt { padding: 20px 22px 0; overflow: hidden; }
+.receipt .head { display:flex; align-items:center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--hair); } .receipt .head .ident { flex: 1 1 auto; }
+.lines { list-style: none; }
+.lines li { display: grid; grid-template-columns: minmax(0,1.4fr) auto auto; gap: 0 16px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--hair); font-size: 14px; }
+.lines .name { color: var(--ink); }
+.lines .fact { display:block; font-family: var(--mono); font-size: 11px; color: var(--ink3); margin-top: 3px; word-break: break-all; }
+.lines .val { font-family: var(--mono); font-weight: 600; font-size: 14px; text-align: right; }
+.lines .delta { font-family: var(--mono); font-size: 12px; text-align: right; min-width: 72px; }
+.lines .chk { grid-column: 1 / -1; font-family: var(--mono); font-size: 11px; color: var(--brand-strong); display:flex; gap:6px; align-items:center; margin-top: 2px; }
+.lines .chk::before { content: ''; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--brand-strong); display:inline-block; background: radial-gradient(circle, var(--brand-strong) 35%, transparent 40%); }
+.total { margin-top: 2px; padding: 14px 0 18px; border-top: 1px dashed var(--ink2); display:flex; justify-content: space-between; gap: 12px; font-family: var(--mono); font-size: 12px; }
+.total b { color: var(--ink); font-weight: 600; }
+.tear { height: 14px; margin: 0 -22px; background: radial-gradient(circle at 8px -2px, transparent 7px, var(--panel) 7.5px) 0 0 / 16px 14px repeat-x; position: relative; }
+.tear::after { content:''; position:absolute; inset: -1px -1px auto; }
+.rule { display: flex; align-items: center; gap: 16px; margin-top: 56px; font-family: var(--mono); font-size: 12px; color: var(--ink3); }
+.rule::before, .rule::after { content: ''; flex: 1; border-top: 1px dashed var(--ink3); }
+.stamp { flex: none; margin-left: auto; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-strong); border: 1.5px solid var(--brand-strong); border-radius: 4px; padding: 3px 7px; transform: rotate(-4deg); }
+.receipt-wrap { position: relative; }
+@media (max-width:600px){ .lines li { grid-template-columns: minmax(0,1fr) auto; } .lines .delta { grid-column: 2; } }
+</style></head><body>
+<header><div class="bar"><div class="lockup"><svg viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor"><g transform="translate(0,-14.8)"><path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"/><g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"/><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"/></g></g></svg><span class="wordmark">Earnings<em>Nerd</em></span></div><nav><span>Pricing</span><span>Contact</span></nav><a class="btn" href="#">Request an invite</a></div></header>
+<main class="hero">
+  <div>
+    <p class="eyebrow">10-K · 10-Q · 20-F</p>
+    <h1 class="display">Every figure comes with its <span class="brand">receipt</span>.</h1>
+    <p class="sub">A nine-part summary of the filing, with each checkable figure traced to the company's own XBRL and each quote to the filing text. The ones we could not check are counted, not guessed.</p>
+    <div class="cta"><a class="btn lg" href="#">See a live example →</a><span class="access">Private beta · request an invite</span></div>
+  </div>
+  <div class="receipt-wrap">
+    <section class="panel receipt" aria-label="Receipt">
+      <div class="head"><p class="ident"><b>Apple Inc.</b><span>AAPL</span><span>·</span><b>10-K</b><span>·</span><span>FY2025</span><span>·</span><span>filed Oct 31, 2025</span></p><span class="stamp">5 of 5 matched</span></div>
+      <ul class="lines">
+        <li><span class="name">Total net sales<span class="fact">{ } us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax</span></span><span class="val">$416,161M</span><span class="delta up">▲ +6.4%</span><span class="chk">matched the company's XBRL</span></li>
+        <li><span class="name">Net income<span class="fact">{ } us-gaap:NetIncomeLoss</span></span><span class="val">$112,010M</span><span class="delta up">▲ +19.5%</span><span class="chk">matched the company's XBRL</span></li>
+        <li><span class="name">Diluted EPS<span class="fact">{ } us-gaap:EarningsPerShareDiluted</span></span><span class="val">$7.46</span><span class="delta up">▲ +22.7%</span><span class="chk">matched the company's XBRL</span></li>
+        <li><span class="name">Operating cash flow<span class="fact">{ } us-gaap:NetCashProvidedByUsedInOperatingActivities</span></span><span class="val">$111,482M</span><span class="delta down">▼ −5.7%</span><span class="chk">matched the company's XBRL</span></li>
+        <li><span class="name">Dividends paid<span class="fact">{ } us-gaap:PaymentsOfDividends</span></span><span class="val">$15,421M</span><span class="delta up">▲ +1.2%</span><span class="chk">matched the company's XBRL</span></li>
+      </ul>
+      <p class="total"><span>FIGURES CHECKED</span><b>5 of 5 matched · 0 withheld</b></p>
+      <div class="tear"></div>
+    </section>
+  </div>
+</main>
+<footer class="strip"><p class="rule">every figure, with its fact · every quote, with its passage</p></footer>
+</body></html>

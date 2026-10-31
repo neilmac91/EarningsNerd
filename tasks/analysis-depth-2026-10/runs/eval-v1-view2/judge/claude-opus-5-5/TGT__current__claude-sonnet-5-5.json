@@ -1,0 +1,86 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "Draft A restates table values without interpretation. Its red flag cites an irrelevant FY2016 operand. Draft B explains the FY2020 surge, the FY2022 markdown hit, category mix shift, the SG&A one-offs, the capex rise against the $5B guidance, peer rankings and payout coverage. Its causal claims mostly match the quoted passages, with slight stretches such as 'cost of managing elevated inventory'. It discloses a gross-margin gap but leaks a stray internal 'dropped R2' note."
+   },
+   "cost_usd": 0.101493,
+   "latency_s": 13.604,
+   "input_tokens": 11144,
+   "output_tokens": 901,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"strong\",\n \"rationale\": \"Draft A restates table values without interpretation. Its red flag cites an irrelevant FY2016 operand. Draft B explains the FY2020 surge, the FY2022 markdown hit, category mix shift, the SG&A one-offs, the capex rise against the $5B guidance, peer rankings and payout coverage. Its causal claims mostly match the quoted passages, with slight stretches such as 'cost of managing elevated inventory'. It discloses a gross-margin gap but leaks a stray internal 'dropped R2' note.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft B is fully supported but only restates table values. Draft A explains the drivers: the FY2020 comparable-sales surge, the FY2022 markdowns, the Discretionary/Frequency mix shift, SG&A offsets, buybacks lifting EPS, peer ranks and capex guidance. A stretches slightly by tying FY2022 margin loss to a truncated passage, and it leaks internal notes about dropped flags. Overall it is well grounded and far more useful."
+   },
+   "cost_usd": 0.098853,
+   "latency_s": 11.798,
+   "input_tokens": 11144,
+   "output_tokens": 769,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft B is fully supported but only restates table values. Draft A explains the drivers: the FY2020 comparable-sales surge, the FY2022 markdowns, the Discretionary/Frequency mix shift, SG&A offsets, buybacks lifting EPS, peer ranks and capex guidance. A stretches slightly by tying FY2022 margin loss to a truncated passage, and it leaks internal notes about dropped flags. Overall it is well grounded and far more useful.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.200346
+}

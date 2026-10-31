@@ -1,0 +1,37 @@
+# g_precheck.py (tasks/review-evidence/g-stage1-2026-10-02/) over the four G stage-2 copilot-eval.json files
+copilot-37028750965
+  system_prompt {'a88b6fb1': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+copilot-37029156902
+  system_prompt {'16457055': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+copilot-37029566102
+  system_prompt {'a88b6fb1': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+copilot-37029964566
+  system_prompt {'16457055': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+
+# provider system_fingerprint per run: grep -o '"system_fingerprint": *"[^"]*"' runner.log | sort | uniq -c
+37028750965:  31 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+37029156902:  36 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+37029566102:  29 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+37029964566:  35 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+
+# sha256 of each input
+37028750965 a.zip 2faf7318bb255b65956c14c682a5d08b700adf463c9ccdcebcea13fa28c04ef3 copilot-eval.json 7c720d2ccd5866b7a39e066aafcbbe67f9a8d3b86dcd352886e3bbcb66e97059 runner.log 455346b247fe5f49666fa50a9c06af4a99a93c507ac54c74d078b97361d8629a
+37029156902 a.zip 9fd89c2aa507b437a049e7f955756618df854cb71ada78347b57d05d4ec405c2 copilot-eval.json 7ac0b18bb57272f39162edf121073baac4cdb895da8ab4a22d982f2fcfcd8c74 runner.log ebcd1db4d221988d67c4cccf19ac25f41737e48953de45f7c9e1342bfda07a4d
+37029566102 a.zip c03410643aec27829e92bc3e20001f5f4ae634b5c02fa9192b186f31a300bdca copilot-eval.json f185d3dce752e557015925df7acce2a4a7accd0c14937594caf3960fbd67adac runner.log 09dbc8d2046da7e003919d1f04092d3fc298b2cd2f5f09d8df542d7a7fda00e1
+37029964566 a.zip e2b18a1f30f91082d7c5869a67bbac15ad31233fc866a906482f40d63a9084b9 copilot-eval.json 7b6f80d758d055e18e47332352be6bd66a71f08d9d1774cb65254c166bf4f6b0 runner.log d7bbfccdeea4db840aa1c846ce83737fca2a7ce250f0b090d9ab895805994084

@@ -42,7 +42,8 @@ consistency — that's what to optimize for.
 
 ## Candidates (the bake-off)
 
-Registered in `models.py`. Claude is called via the official `anthropic` SDK (native
+Registered in `models.py`, except `baseline`, which runs the current `openai_service` pipeline. Claude is
+called via the official `anthropic` SDK (native
 structured outputs); the OpenAI-compatible providers via the `openai` SDK + per-provider base
 URLs.
 
@@ -62,6 +63,9 @@ to each provider's documented OpenAI-compatible endpoint and are overridable via
 > **Cost column:** Claude per-token prices are verified (claude-api skill). The other prices
 > are **UNVERIFIED placeholders** — confirm against each provider's pricing page before relying
 > on the `$cost` column. Cost is secondary to the quality verdict; edit prices in `models.py`.
+> The `baseline` row is priced differently: the pipeline's own `ai_call` estimates
+> (`app/services/llm_pricing.py`, peak-aware), for every generation including retries, so it is
+> not like-for-like with the candidates' rows (see RUNBOOK Step 7).
 
 ## Running it
 
@@ -120,7 +124,9 @@ grounded Q&A loop, so it has a sibling eval with its own deterministic gates:
   "not disclosed", not fabricate).
 - **Scorers (`copilot_scorers.py`, deterministic, no network):**
   - *Citation faithfulness* — every text citation's excerpt must verify **verbatim** in the filing
-    (re-run independently of the answer's own `verified` flag; XBRL/tool citations exempt). Hard gate.
+    (re-run independently of the answer's own `verified` flag; XBRL/tool citations exempt), and its
+    section label must carry none of decision F's double quote marks (Copilot's own publication
+    rule). Hard gate.
   - *Refusal calibration* — refuse iff the filing does not disclose the answer. Hard gate.
   - *Numeric accuracy* — for targeted numeric questions, the expected figure must appear (reuses the
     summary harness's value-rendering matcher). Hard gate.

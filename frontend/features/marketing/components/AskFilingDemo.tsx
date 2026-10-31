@@ -1,17 +1,18 @@
 import { Button } from '@/components/ui/Button'
-import { CheckCircleIcon, QuotesIcon } from '@/lib/icons'
+import { ChatCircleTextIcon, CheckCircleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
-import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
+import { xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
+import { citationVerificationLabel } from '@/features/filings/components/copilot/citationVerification'
 import CitationChip from '@/features/filings/components/copilot/CitationChip'
 import { SAMPLE_ASK, SAMPLE_FILING } from '@/features/marketing/lib/landing-samples'
 
 // The mono answer register (DS §3: Ask-this-Filing output renders in the data face).
 const ANSWER_REGISTER =
-  'copilot-answer tnum font-data text-[13px] leading-relaxed text-text-primary-light dark:text-text-primary-dark'
+  'copilot-answer tnum font-data text-sm leading-relaxed text-text-primary-light dark:text-text-primary-dark'
 
 // Inside-card eyebrow (11px uppercase tracked, tertiary on the white field surface).
 const EYEBROW =
-  'text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark'
+  'text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark'
 
 const FIELD = 'rounded-lg border border-border-light bg-white dark:border-white/10 dark:bg-white/5'
 
@@ -22,12 +23,14 @@ const CITATIONS: CopilotCitation[] = [...SAMPLE_ASK.citations]
 
 /**
  * The "Ask this Filing" product screen for the landing page: one question, one completed answer
- * whose `[F1]` / `[1]` markers are the REAL CitationChip (injected through the same
- * lib/citationMarkers walker CopilotMessage uses), and a footnote row per citation that names the
- * chip kind in plain words ("XBRL figure" / "Passage"). No FilingViewerProvider is mounted, so
- * each chip degrades to its EDGAR anchor, which keeps both reachable. The composer beneath is a
- * static shell, hidden from assistive tech because it accepts nothing. Server-rendered: only
- * CitationChip is a client boundary, and it receives plain citation data.
+ * whose `[1]` `[2]` `[3]` markers (numbered as the server numbers a live answer) are the REAL
+ * CitationChip, injected through the same lib/citationMarkers walker CopilotMessage uses, and a
+ * footnote row per citation that names the chip kind in plain words ("Filed figure", "Calculated figure" or
+ * "Passage", from the server's own fields) and what was checked, in the product's vocabulary
+ * (citationVerificationLabel). No FilingViewerProvider is mounted, so each chip degrades to its link to SEC.gov,
+ * which keeps every chip reachable. The composer beneath is a static shell, hidden from assistive tech because it
+ * accepts nothing. Server-rendered: only CitationChip is a client boundary, and it receives plain
+ * citation data.
  */
 export default function AskFilingDemo() {
   const answer = injectCitationMarkers(SAMPLE_ASK.answer, CITATIONS, (citation, key) => (
@@ -41,7 +44,7 @@ export default function AskFilingDemo() {
           aria-hidden="true"
           className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-weak text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark"
         >
-          <QuotesIcon className="h-4 w-4" />
+          <ChatCircleTextIcon className="h-4 w-4" />
         </span>
         <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
           Ask this Filing
@@ -61,8 +64,9 @@ export default function AskFilingDemo() {
 
           <ul className="mt-3 flex flex-col gap-1.5 border-t border-border-light pt-2.5 dark:border-white/10">
             {CITATIONS.map((citation) => {
-              const isFact = isXbrlCitation(citation)
-              const locator = isFact ? xbrlTag(citation) : citation.section_ref
+              // The kind comes from the server's payload (fact or calculated), never from the section label.
+              const isFigure = citation.fact === true || citation.calculated === true
+              const locator = isFigure ? xbrlTag(citation) : citation.section_ref
               return (
                 <li
                   key={String(citation.n)}
@@ -71,14 +75,14 @@ export default function AskFilingDemo() {
                   <span className="font-data font-semibold text-brand-strong dark:text-brand-strong-dark">
                     [{String(citation.n).toUpperCase()}]
                   </span>
-                  <span className={EYEBROW}>{isFact ? 'XBRL figure' : 'Passage'}</span>
+                  <span className={EYEBROW}>{citation.calculated ? 'Calculated figure' : isFigure ? 'Filed figure' : 'Passage'}</span>
                   {locator && (
-                    <span className={isFact ? 'min-w-0 break-all font-data text-data-xs' : undefined}>{locator}</span>
+                    <span className={isFigure ? 'min-w-0 break-all font-data text-data-xs' : undefined}>{locator}</span>
                   )}
                   {citation.verified && (
                     <span className="inline-flex items-center gap-1 font-medium text-brand-strong dark:text-brand-strong-dark">
                       <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      Verified
+                      {citationVerificationLabel(citation)}
                     </span>
                   )}
                 </li>
@@ -90,7 +94,7 @@ export default function AskFilingDemo() {
         {/* Decorative composer: hidden from assistive tech and out of the tab order (a server
             component may render the client <Button>, but not call its class factory). */}
         <div aria-hidden="true" className={`${FIELD} flex items-center gap-2 py-1.5 pl-3.5 pr-1.5`}>
-          <span className="flex-1 text-sm text-text-tertiary-light dark:text-text-secondary-dark">Ask this filing…</span>
+          <span className="flex-1 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">Ask this filing…</span>
           <Button size="sm" tabIndex={-1}>
             Ask
           </Button>

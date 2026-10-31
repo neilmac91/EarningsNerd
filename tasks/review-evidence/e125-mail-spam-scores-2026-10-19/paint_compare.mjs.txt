@@ -1,0 +1,37 @@
+// E125: paint each page of two render dumps in Chromium and compare the pixels, page by page (offline).
+// Usage: node paint_compare.mjs <main dump.json> <head dump.json> <out.json>
+// Each page loads in a browser context of its own, its images answered with the tile from the site's public folder,
+// at 600 px and at 320 px wide (device scale 1), and is captured whole. Two pages paint the same where the PNGs are
+// byte for byte one.
+import { createRequire } from "node:module";
+import { readFileSync, writeFileSync } from "node:fs";
+const require = createRequire("/home/user/EarningsNerd/frontend/package.json");
+const { chromium } = require("playwright");
+
+const [mainPath, headPath, outPath] = process.argv.slice(2);
+const main = JSON.parse(readFileSync(mainPath, "utf8"));
+const head = JSON.parse(readFileSync(headPath, "utf8"));
+const tile = readFileSync("/home/user/EarningsNerd/frontend/public/assets/earningsnerd-appicon.png");
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });  // the pinned Chromium 141
+async function paint(html, width) {
+  const context = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  await page.route("**/*", (route) =>
+    route.request().url().endsWith(".png") ? route.fulfill({ body: tile, contentType: "image/png" }) : route.abort());
+  await page.setContent(html, { waitUntil: "load" });
+  const shot = await page.screenshot({ fullPage: true });
+  await context.close();
+  return shot;
+}
+const rows = [];
+for (const name of Object.keys(main)) {
+  if (main[name].html === head[name].html) continue;
+  for (const width of [600, 320]) {
+    const [a, b] = [await paint(main[name].html, width), await paint(head[name].html, width)];
+    rows.push({ name, width, same: Buffer.compare(a, b) === 0, bytes: [a.length, b.length] });
+    console.log(`${Buffer.compare(a, b) === 0 ? "same   " : "DIFFERS"} ${name} at ${width} px`);
+  }
+}
+await browser.close();
+writeFileSync(outPath, JSON.stringify(rows, null, 1) + "\n");
+console.log(`${rows.length} paintings of ${rows.length / 2} changed pages; ${rows.filter((r) => !r.same).length} differ`);

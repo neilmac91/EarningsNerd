@@ -1,33 +1,28 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
-from app.utils.datetimes import iso_z, utcnow
+from datetime import datetime
+from app.utils.datetimes import utcnow
 import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import (
-    BillingPayment,
-    Company,
-    Filing,
-    NotificationLog,
-    SavedSummary,
-    User,
-    UserSearch,
-    UserUsage,
-    Watchlist,
-)
+from app.models import User
 from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refresh_cookie
-from app.services.audit_service import log_user_deletion, log_data_export
+# The user_* services are imported as modules, not functions: their functions stay patchable at
+# their home, and no handler below can shadow a service function of the same name.
+from app.services import user_account_service, user_data_export_service, user_notification_feed_service
+from app.services import filing_list_service
+from app.services.audit_service import log_data_export
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import (
-    coerce_to_entitlement,
+    apply_preference_update,
     get_or_create_preferences,
 )
+from app.services.stripe_threads import run_on_stripe_threads
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -40,6 +35,10 @@ try:
 except ImportError:
     STRIPE_AVAILABLE = False
     logger.warning("Stripe not available - install stripe package for subscription cancellation")
+
+# Provider wire statuses, not entitlement rules (those remain in entitlements.py). A subscription in
+# one of these can never bill again; account deletion cancels a subscription in any other status.
+_ENDED_STRIPE_SUBSCRIPTION_STATUSES = frozenset({"canceled", "incomplete_expired"})
 
 try:
     from posthog import Posthog
@@ -106,16 +105,18 @@ async def update_profile(
 ):
     """Update editable profile fields (currently the display name)."""
     data = payload.model_dump(exclude_unset=True)
-    if "full_name" in data:
-        current_user.full_name = data["full_name"]
-    db.commit()
-    db.refresh(current_user)
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "is_pro": current_user.is_pro,
-    }
+
+    def update() -> Dict[str, Any]:
+        # The profile edit's session work, and each preference, bell and export route's, is one unit in
+        # the thread pool: its reads and writes, its payload and the release, so no checkout or statement
+        # waits on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md). The deletion
+        # releases the auth lookup's connection before its third-party calls and writes in one unit after.
+        try:
+            return user_account_service.apply_profile_update(db, current_user, data)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(update)
 
 
 class NotificationPreferencesResponse(BaseModel):
@@ -168,8 +169,16 @@ async def get_notification_preferences(
     db: Session = Depends(get_db),
 ):
     """Get the current user's new-filing alert preferences (creating defaults if none exist)."""
-    prefs = get_or_create_preferences(db, current_user.id)
-    return _prefs_response(prefs, get_entitlements(current_user))
+
+    def read() -> NotificationPreferencesResponse:
+        try:
+            prefs = get_or_create_preferences(db, current_user.id)
+            # The plan reads the account's subscription row, so it is resolved inside the unit too.
+            return _prefs_response(prefs, get_entitlements(current_user))
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(read)
 
 
 @router.put("/me/notification-preferences", response_model=NotificationPreferencesResponse)
@@ -183,24 +192,26 @@ async def update_notification_preferences(
     Pro-gated toggles (``realtime``, ``notify_8k``) are accepted but **coerced off** for non-Pro
     users (rather than erroring), so the frontend can show them as locked Pro upsells.
     """
-    prefs = get_or_create_preferences(db, current_user.id, commit=False)
-
     VALID_CHANNELS = {"email", "in_app"}
     VALID_DIGESTS = {"immediate", "daily", "weekly"}
     data = update.model_dump(exclude_unset=True)
-    if "channel" in data and data["channel"] not in VALID_CHANNELS:
-        raise HTTPException(status_code=400, detail=f"channel must be one of {sorted(VALID_CHANNELS)}")
-    if "digest" in data and data["digest"] not in VALID_DIGESTS:
-        raise HTTPException(status_code=400, detail=f"digest must be one of {sorted(VALID_DIGESTS)}")
 
-    for field, value in data.items():
-        setattr(prefs, field, value)
+    def write() -> NotificationPreferencesResponse:
+        try:
+            # A refusal is raised in the unit too, so it still releases the auth lookup's connection.
+            if "channel" in data and data["channel"] not in VALID_CHANNELS:
+                raise HTTPException(
+                    status_code=400, detail=f"Channel must be one of: {', '.join(sorted(VALID_CHANNELS))}.")
+            if "digest" in data and data["digest"] not in VALID_DIGESTS:
+                raise HTTPException(
+                    status_code=400, detail=f"Digest must be one of: {', '.join(sorted(VALID_DIGESTS))}.")
+            prefs = get_or_create_preferences(db, current_user.id, commit=False)
+            ent = apply_preference_update(db, prefs, data, current_user)
+            return _prefs_response(prefs, ent)
+        finally:
+            filing_list_service.release_request_session(db)
 
-    ent = get_entitlements(current_user)
-    coerce_to_entitlement(prefs, ent)  # force Pro-only toggles off if not entitled
-    db.commit()
-    db.refresh(prefs)
-    return _prefs_response(prefs, ent)
+    return await run_in_threadpool(write)
 
 
 # --------------------------------------------------------------------------- in-app notifications
@@ -225,63 +236,28 @@ class NotificationListResponse(BaseModel):
     unread_count: int
 
 
-def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    """Treat naive datetimes (SQLite) as UTC so aware/naive comparisons never raise."""
-    if dt is None:
-        return None
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
-
-
-def _unread_count(db: Session, user: User) -> int:
-    """Count of successfully-sent alerts logged since the user last opened the bell.
-
-    One aggregate statement (E10c): the bell polls this every minute per open session and the
-    log is never purged, so the count must not grow with account age. ``created_at`` is a
-    timezone-aware column; an aware-UTC bound value compares correctly on PostgreSQL
-    (timestamptz) and on SQLite (both sides are rendered as naive UTC text).
-    """
-    query = db.query(func.count(NotificationLog.id)).filter(
-        NotificationLog.user_id == user.id, NotificationLog.status == "sent"
-    )
-    seen = _as_utc(user.notifications_seen_at)
-    if seen is not None:
-        query = query.filter(NotificationLog.created_at > seen)
-    return query.scalar() or 0
-
-
 def _notifications_payload(db: Session, user: User, limit: int) -> NotificationListResponse:
     """Recent filing alerts (newest first) + unread count for the in-app bell.
 
-    Reads the same ``notification_log`` rows the alert scanner writes (channel-agnostic), so no
-    extra delivery path is needed — opening the bell surfaces whatever alerts were recorded.
+    The list is read and shaped before the count is taken, as one response.
     """
-    seen = _as_utc(user.notifications_seen_at)
-    rows = (
-        db.query(NotificationLog, Filing, Company)
-        .join(Filing, NotificationLog.filing_id == Filing.id)
-        .join(Company, Filing.company_id == Company.id)
-        .filter(
-            NotificationLog.user_id == user.id,
-            NotificationLog.status == "sent",
-        )
-        .order_by(NotificationLog.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    entries = user_notification_feed_service.recent_notifications(db, user, limit)
     items = [
         NotificationItem(
-            id=log.id,
-            filing_id=filing.id,
-            ticker=company.ticker,
-            company_name=company.name,
-            filing_type=filing.filing_type,
-            filing_date=filing.filing_date,
-            created_at=log.created_at,
-            read=bool(seen and (c := _as_utc(log.created_at)) and c <= seen),
+            id=entry.id,
+            filing_id=entry.filing_id,
+            ticker=entry.ticker,
+            company_name=entry.company_name,
+            filing_type=entry.filing_type,
+            filing_date=entry.filing_date,
+            created_at=entry.created_at,
+            read=entry.read,
         )
-        for log, filing, company in rows
+        for entry in entries
     ]
-    return NotificationListResponse(items=items, unread_count=_unread_count(db, user))
+    return NotificationListResponse(
+        items=items, unread_count=user_notification_feed_service.unread_count(db, user)
+    )
 
 
 @router.get("/me/notifications", response_model=NotificationListResponse)
@@ -291,7 +267,14 @@ async def list_notifications(
     db: Session = Depends(get_db),
 ):
     """Recent filing alerts for the in-app bell, newest first, plus the unread count."""
-    return _notifications_payload(db, current_user, limit)
+
+    def read() -> NotificationListResponse:
+        try:
+            return _notifications_payload(db, current_user, limit)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(read)
 
 
 @router.post("/me/notifications/seen", response_model=NotificationListResponse)
@@ -299,19 +282,17 @@ async def mark_notifications_seen(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Mark the bell as opened (resets the unread count). Returns the now-read recent list.
+    """Mark the bell as opened (resets the unread count). Returns the now-read recent list, built from
+    the user ``mark_seen`` reads back after its commit."""
 
-    Fetch the real row via ``db.get`` and mutate it directly (rather than a bulk UPDATE) so the
-    response is built from a fresh, in-session user — robust regardless of ``expire_on_commit`` — and
-    so it works for the test stand-in (a non-session user) too.
-    """
-    user = db.get(User, current_user.id)
-    if user is not None:
-        user.notifications_seen_at = datetime.now(timezone.utc)
-        db.commit()
-    else:
-        user = current_user
-    return _notifications_payload(db, user, 20)
+    def mark() -> NotificationListResponse:
+        try:
+            user = user_notification_feed_service.mark_seen(db, current_user)
+            return _notifications_payload(db, user, 20)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(mark)
 
 
 @router.get("/export")
@@ -320,130 +301,77 @@ async def export_user_data(
     db: Session = Depends(get_db)
 ):
     """
-    Export all user data for GDPR compliance (Right to Data Portability - Article 20)
+    Export the account records provided by the data-export feature in JSON format.
 
-    Returns all personal data associated with the user account in JSON format.
+    Includes retained feedback and private screenshot download metadata, not image bytes.
+    Provider logs, audit records, other correspondence and backups are not included.
     """
-    try:
-        # Collect profile data
-        profile_data = {
-            "user_id": current_user.id,
-            "email": current_user.email,
-            "full_name": current_user.full_name,
-            "is_active": current_user.is_active,
-            "is_pro": current_user.is_pro,
-            "stripe_customer_id": current_user.stripe_customer_id,
-            "stripe_subscription_id": current_user.stripe_subscription_id,
-            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
-            "updated_at": current_user.updated_at.isoformat() if current_user.updated_at else None,
-        }
+    user_id = current_user.id
 
-        # Collect search history
-        searches = db.query(UserSearch).filter(UserSearch.user_id == current_user.id).all()
-        searches_data = [
-            {
-                "id": search.id,
-                "query": search.query,
-                "company_id": search.company_id,
-                "created_at": search.created_at.isoformat() if search.created_at else None,
-            }
-            for search in searches
-        ]
+    def export() -> JSONResponse:
+        # One unit in the thread pool, as the profile edit's: the payload, its audit row and the release,
+        # then the response, rendered there too. The audit row's commit expires the account row, so
+        # nothing after it reads the row.
+        try:
+            export_data = user_data_export_service.build_user_data_export(db, current_user)
 
-        # Collect saved summaries
-        saved_summaries = db.query(SavedSummary).filter(SavedSummary.user_id == current_user.id).all()
-        saved_summaries_data = [
-            {
-                "id": summary.id,
-                "summary_id": summary.summary_id,
-                "notes": summary.notes,
-                "created_at": summary.created_at.isoformat() if summary.created_at else None,
-            }
-            for summary in saved_summaries
-        ]
+            logger.info(f"User data export completed for user {user_id}")
 
-        # Collect watchlist
-        watchlist = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).all()
-        watchlist_data = [
-            {
-                "id": item.id,
-                "company_id": item.company_id,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-            }
-            for item in watchlist
-        ]
-
-        # Collect usage data
-        usage = db.query(UserUsage).filter(UserUsage.user_id == current_user.id).all()
-        usage_data = [
-            {
-                "id": usage_item.id,
-                "month": usage_item.month,
-                "summary_count": usage_item.summary_count,
-                "created_at": usage_item.created_at.isoformat() if usage_item.created_at else None,
-                "updated_at": usage_item.updated_at.isoformat() if usage_item.updated_at else None,
-            }
-            for usage_item in usage
-        ]
-
-        # Export every retained observation owned by this account, across live/test modes.
-        payments = db.query(BillingPayment).filter(BillingPayment.user_id == current_user.id).all()
-        payments_data = [
-            {
-                "stripe_payment_id": payment.stripe_payment_id,
-                "livemode": payment.livemode,
-                "stripe_invoice_id": payment.stripe_invoice_id,
-                "source_event_id": payment.source_event_id,
-                "source_api_version": payment.source_api_version,
-                "amount_minor": payment.amount_minor,
-                "currency": payment.currency,
-                "payment_type": payment.payment_type,
-                # SQLite drops timezone metadata; both columns store UTC instants.
-                "paid_at": iso_z(payment.paid_at.replace(tzinfo=timezone.utc) if payment.paid_at.tzinfo is None
-                                 else payment.paid_at.astimezone(timezone.utc)),
-                "observed_at": iso_z(payment.observed_at.replace(tzinfo=timezone.utc) if payment.observed_at.tzinfo is None
-                                     else payment.observed_at.astimezone(timezone.utc)),
-                "subscription_invoice": payment.subscription_invoice,
-                "user_id": payment.user_id,
-                "attribution": payment.attribution,
-                "stripe_customer_id": payment.stripe_customer_id,
-                "stripe_subscription_id": payment.stripe_subscription_id,
-                "is_beta_observed": payment.is_beta_observed,
-                "invite_cohort_observed": payment.invite_cohort_observed,
-                "billing_cycle": payment.billing_cycle,
-            }
-            for payment in payments
-        ]
-
-        # Compile export
-        export_data = {
-            "profile": profile_data,
-            "searches": searches_data,
-            "saved_summaries": saved_summaries_data,
-            "watchlist": watchlist_data,
-            "usage": usage_data,
-            "billing_payments": payments_data,
-            "export_timestamp": utcnow().isoformat(),
-        }
-
-        logger.info(f"User data export completed for user {current_user.id}")
-
-        # Create audit log entry
-        log_data_export(db, current_user.id, current_user.email)
+            # Create audit log entry
+            log_data_export(db, user_id, current_user.email)
+        finally:
+            filing_list_service.release_request_session(db)
 
         return JSONResponse(
             content=export_data,
             headers={
-                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{current_user.id}_{utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
+                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{user_id}_{utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
             }
         )
 
+    try:
+        return await run_in_threadpool(export)
+
     except Exception as e:
-        logger.error(f"Error exporting user data for user {current_user.id}: {str(e)}")
+        logger.error(f"Error exporting user data for user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to export user data"
+            detail="We could not export your data. Try again in a moment."
         )
+
+
+def _cancel_billable_subscriptions(stripe_customer_id: str, user_id: int) -> None:
+    """Cancel each of the customer's Stripe subscriptions that can still bill, walking every page before it
+    returns. The account deletion hands it whole to the Stripe threads (E170), so the list, its later pages and
+    the deletes hold neither the event loop nor a default worker thread."""
+    # status='all', not 'active': a trialing subscription converts to paid at trial end
+    # and a past_due one keeps retrying the card. 'all' also returns ended history, so
+    # the live ones can sit behind the first page: walk every page.
+    subscriptions = stripe.Subscription.list(customer=stripe_customer_id, status='all', limit=100)
+    for subscription in subscriptions.auto_paging_iter():
+        if subscription.status in _ENDED_STRIPE_SUBSCRIPTION_STATUSES:
+            continue
+        if subscription.customer != stripe_customer_id:
+            # The list is external data: never cancel a subscription this customer does not own.
+            logger.warning(f"Skipped Stripe subscription {subscription.id} of another customer for user {user_id}")
+            continue
+        stripe.Subscription.delete(subscription.id)
+        logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
+
+
+def _request_posthog_deletion(user_id: int) -> None:
+    """Send PostHog the account's ``$delete`` event and wait for it to go. The flush waits up to 10 s, so the
+    account deletion runs this in a worker thread, off the event loop, holding no pooled connection."""
+    # PostHog GDPR deletion — keyed by distinct_id (user id). Do not echo the
+    # email back as a property; the $delete event already targets this person.
+    posthog_client.capture(
+        distinct_id=str(user_id),
+        event='$delete',
+        properties={
+            'deletion_timestamp': utcnow().isoformat()
+        }
+    )
+    posthog_client.flush()  # Ensure the event is sent immediately
 
 
 @router.delete("/me")
@@ -453,45 +381,48 @@ async def delete_user_account(
     response: Response = None
 ):
     """
-    Delete user account and all associated data (GDPR Right to Erasure - Article 17)
+    Delete the account and its associated application records.
 
     This endpoint:
-    1. Deletes all user data from the database (cascade delete)
-    2. Logs the deletion for audit purposes
+    1. Makes the best-effort provider calls (Stripe, PostHog, Sentry) and records their outcomes
+    2. Deletes the user row, and the records its database cascades own, in one transaction with the
+       deletion's audit row: a failure of either rolls both back and answers 500 (F19)
     3. Clears authentication cookie
     4. Returns success confirmation
 
-    Note: Stripe customer data will be retained for 7 years per tax requirements.
-    Users will receive a confirmation email before this endpoint should be called.
+    Stripe customer, audit and provider records can remain. Provider actions are best-effort;
+    this endpoint does not establish universal erasure or a fixed legal retention period.
     """
+    # The auth lookup loaded these, so reading them makes no statement.
+    user_id = current_user.id
+    user_email = current_user.email
+    stripe_customer_id = current_user.stripe_customer_id
+    # Each provider's outcome, logged with a failure too: a failed deletion commits no audit row (unless its
+    # commit was applied and only the reply was lost), and the provider actions already taken are not undone (F19).
+    deletion_results = {
+        "stripe": "skipped",
+        "posthog": "skipped",
+        "sentry": "skipped"
+    }
     try:
-        user_id = current_user.id
-        user_email = current_user.email
-        stripe_customer_id = current_user.stripe_customer_id
-
         # Log deletion for audit trail (before deleting user)
         logger.warning(
             f"USER DELETION: User {user_id} ({user_email}) account deletion initiated. "
             f"Stripe customer: {stripe_customer_id}"
         )
 
-        # Delete from third-party services BEFORE deleting from database
-        deletion_results = {
-            "stripe": "skipped",
-            "posthog": "skipped",
-            "sentry": "skipped"
-        }
+        # The auth lookup's connection goes back before the third-party calls, so none of them holds
+        # one; the audit row and the deletion run after them as one unit in the thread pool (E171), and
+        # commit as one transaction (F19).
+        await run_in_threadpool(filing_list_service.release_request_session, db)
 
-        # 1. Cancel Stripe subscription if active
+        # Delete from third-party services BEFORE deleting from database
+        # 1. Cancel every Stripe subscription that can still bill
         if STRIPE_AVAILABLE and stripe_customer_id:
             try:
-                # List all active subscriptions for this customer
-                subscriptions = stripe.Subscription.list(customer=stripe_customer_id, status='active')
-                for subscription in subscriptions.data:
-                    stripe.Subscription.delete(subscription.id)
-                    logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
+                await run_on_stripe_threads(_cancel_billable_subscriptions, stripe_customer_id, user_id)
 
-                # Note: We do NOT delete the Stripe customer record (7-year tax retention requirement)
+                # Keep the Stripe customer record for billing administration and applicable retention duties.
                 # stripe.Customer.delete(stripe_customer_id)  # DO NOT DO THIS
                 deletion_results["stripe"] = "subscriptions_cancelled"
                 logger.info(f"Stripe subscriptions cancelled for user {user_id}, customer retained for tax compliance")
@@ -502,23 +433,14 @@ async def delete_user_account(
         # 2. Send deletion request to PostHog
         if POSTHOG_AVAILABLE and posthog_client:
             try:
-                # PostHog GDPR deletion — keyed by distinct_id (user id). Do not echo the
-                # email back as a property; the $delete event already targets this person.
-                posthog_client.capture(
-                    distinct_id=str(user_id),
-                    event='$delete',
-                    properties={
-                        'deletion_timestamp': utcnow().isoformat()
-                    }
-                )
-                posthog_client.flush()  # Ensure the event is sent immediately
+                await run_in_threadpool(_request_posthog_deletion, user_id)
                 deletion_results["posthog"] = "deletion_requested"
                 logger.info(f"PostHog deletion event sent for user {user_id}")
             except Exception as e:
                 logger.error(f"Failed to send PostHog deletion for user {user_id}: {str(e)}")
                 deletion_results["posthog"] = f"error: {str(e)}"
 
-        # 3. Anonymize user in Sentry (Sentry doesn't support full deletion)
+        # 3. Clear Sentry account context for future events; historical events remain.
         if SENTRY_AVAILABLE:
             try:
                 # Set user context to None to anonymize future events
@@ -529,17 +451,18 @@ async def delete_user_account(
                 logger.error(f"Failed to anonymize Sentry user {user_id}: {str(e)}")
                 deletion_results["sentry"] = f"error: {str(e)}"
 
-        # Create audit log BEFORE deleting user (so we can still reference user_id)
-        log_user_deletion(
-            db=db,
-            user_id=user_id,
-            user_email=user_email,
-            third_party_results=deletion_results
-        )
+        def record_and_delete() -> None:
+            # One unit in the thread pool: a failure is rolled back before the release.
+            try:
+                # The audit row and the deletion commit together (cascade delete handles related records).
+                user_account_service.delete_account(db, user_id, third_party_results=deletion_results)
+            except Exception:
+                user_account_service.rollback_account_deletion(db)
+                raise
+            finally:
+                filing_list_service.release_request_session(db)
 
-        # Delete user from database (cascade delete will handle related records)
-        db.delete(current_user)
-        db.commit()
+        await run_in_threadpool(record_and_delete)
 
         # Clear all session cookies (access + session-presence + refresh) using the same helpers
         # as logout. The previous code cleared a non-existent "auth_token" cookie, leaving the real
@@ -557,16 +480,18 @@ async def delete_user_account(
 
         return {
             "status": "success",
-            "message": "Your account and all associated data have been permanently deleted.",
+            "message": "Your account has been deleted. Some billing, audit and provider records may remain; see the privacy policy for details.",
             "deleted_at": utcnow().isoformat(),
             "third_party_deletions": deletion_results
         }
 
     except Exception as e:
-        db.rollback()
-        logger.error(f"Error deleting user account {current_user.id}: {str(e)}")
+        logger.error(
+            f"Error deleting user account {user_id}: {str(e)}. "
+            f"Third-party deletion results: {deletion_results}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete account. Please contact support."
+            detail="We could not delete your account. Contact support."
         )
 

@@ -1,0 +1,123 @@
+{
+ "results": [
+  {
+   "mutation": "M1 capture records nothing",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "5 failed, 71 passed, 9 warnings in 4.11s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_attempt_trace_retains_candidate_and_closes_provider[no_envelope]",
+    "tests/unit/test_copilot_gate.py::test_attempt_trace_retains_candidate_and_closes_provider[rejected]",
+    "tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_other_attempts_records_off_the_row",
+    "tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_service_lines_in_runner_log",
+    "tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run"
+   ]
+  },
+  {
+   "mutation": "M2 reason not copied to the row error",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 3.98s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run"
+   ]
+  },
+  {
+   "mutation": "M3 a named withhold counts as success",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "3 failed, 73 passed, 9 warnings in 3.88s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[decision-f]",
+    "tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[other-reason]",
+    "tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run"
+   ]
+  },
+  {
+   "mutation": "M4 no attempt-context check",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 4.47s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_other_attempts_records_off_the_row"
+   ]
+  },
+  {
+   "mutation": "M5 filter left on the service logger",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 4.33s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_other_attempts_records_off_the_row"
+   ]
+  },
+  {
+   "mutation": "M6 generic label kept",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "4 failed, 72 passed, 9 warnings in 4.13s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_human_readable_report_preserves_failures_counts_and_json[True]",
+    "tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[decision-f]",
+    "tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[other-reason]",
+    "tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run"
+   ]
+  },
+  {
+   "mutation": "M7 markdown verdict shows the raw error",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "2 failed, 74 passed, 9 warnings in 3.80s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_human_readable_report_preserves_failures_counts_and_json[True]",
+    "tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run"
+   ]
+  },
+  {
+   "mutation": "M8 summary step not always()",
+   "file": "../.github/workflows/copilot-eval.yml",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 3.93s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts"
+   ]
+  },
+  {
+   "mutation": "M9 summary step fails when the report is missing",
+   "file": "../.github/workflows/copilot-eval.yml",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 4.62s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts"
+   ]
+  },
+  {
+   "mutation": "M10 workflow_dispatch trigger added",
+   "file": "../.github/workflows/copilot-eval.yml",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 4.14s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts"
+   ]
+  },
+  {
+   "mutation": "M11 the filter drops the record",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 4.10s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_service_lines_in_runner_log"
+   ]
+  },
+  {
+   "mutation": "M12 the capture is a handler again",
+   "file": "evals/copilot_runner.py",
+   "killed": true,
+   "summary": "1 failed, 75 passed, 9 warnings in 3.86s",
+   "failed": [
+    "tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_service_lines_in_runner_log"
+   ]
+  }
+ ],
+ "tree_restored_clean": true
+}

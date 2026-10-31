@@ -11,6 +11,9 @@ Usage:
 
 import hashlib
 import logging
+import math
+import random
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
@@ -18,17 +21,42 @@ from urllib.parse import quote
 import httpx
 
 from .client import edgar_client
+from app.services.sec_request_gate import sec_request_options
 from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_stats
-from .exceptions import EdgarError, EdgarNetworkError, EdgarRateLimitError, EdgarTimeoutError
+from .exceptions import EdgarError, EdgarNetworkError, EdgarNotFoundError, EdgarRateLimitError, EdgarTimeoutError
 from .config import FilingType, EDGAR_IDENTITY
 from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 from app.services.sec_rate_limiter import sec_rate_limiter
+from app.utils.datetimes import utcnow
 from app.utils.sec_urls import build_sec_archive_url, normalize_accession, normalize_cik
 
 logger = logging.getLogger(__name__)
 
 MAX_SEC_ATTACHMENT_BYTES = 32 * 1024 * 1024
 SEC_ATTACHMENT_CHUNK_BYTES = 64 * 1024
+
+
+def _document_transport_error(exc: httpx.HTTPError, timeout: float) -> EdgarError:
+    """Classify before leaving the breaker; permanent HTTP refusals are not outages."""
+    if isinstance(exc, httpx.TimeoutException):
+        return EdgarTimeoutError(timeout_seconds=timeout, cause=exc)
+    if isinstance(exc, httpx.RequestError):
+        return EdgarNetworkError("SEC document transport failed", cause=exc)
+    status = exc.response.status_code
+    context = {"status_code": status}
+    retry_after = sec_rate_limiter._retry_after_seconds(exc)
+    if retry_after is not None:
+        context["retry_after_seconds"] = retry_after
+    if status == 429:
+        return EdgarRateLimitError(
+            retry_after=math.ceil(retry_after) if retry_after is not None else 60,
+            cause=exc, context=context,
+        )
+    if status == 408 or status >= 500:
+        return EdgarNetworkError("SEC document server failed", cause=exc, context=context)
+    if status == 404:
+        return EdgarNotFoundError("SEC document is not available", cause=exc, context=context)
+    return EdgarError("SEC document request refused", code="EDGAR_HTTP_REFUSED", cause=exc, context=context)
 
 
 def _decoded_source_provenance(
@@ -59,8 +87,11 @@ def _filing_attachment_url(cik: str, accession_number: str, filename: str) -> st
     return build_sec_archive_url(cik, accession_number) + quote(filename, safe="-._~")
 
 
-async def _bounded_identity_response_content(response: httpx.Response) -> bytes:
+async def _bounded_identity_response_content(
+    response: httpx.Response, max_bytes: Optional[int] = None,
+) -> bytes:
     """Read an identity-encoded HTTP entity while bounding declared and actual size."""
+    max_bytes = MAX_SEC_ATTACHMENT_BYTES if max_bytes is None else max_bytes
     content_encoding = response.headers.get("content-encoding")
     if content_encoding is not None and content_encoding.strip().lower() != "identity":
         raise ValueError("SEC attachment returned a non-identity Content-Encoding")
@@ -69,16 +100,16 @@ async def _bounded_identity_response_content(response: httpx.Response) -> bytes:
     if declared_length is not None:
         if not declared_length.isdigit():
             raise ValueError("SEC attachment returned an invalid Content-Length")
-        if int(declared_length) > MAX_SEC_ATTACHMENT_BYTES:
+        if int(declared_length) > max_bytes:
             raise ValueError(
-                f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
+                f"SEC attachment exceeds the {max_bytes}-byte entity limit"
             )
 
     content = bytearray()
     async for chunk in response.aiter_raw(chunk_size=SEC_ATTACHMENT_CHUNK_BYTES):
-        if len(content) + len(chunk) > MAX_SEC_ATTACHMENT_BYTES:
+        if len(content) + len(chunk) > max_bytes:
             raise ValueError(
-                f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
+                f"SEC attachment exceeds the {max_bytes}-byte entity limit"
             )
         content.extend(chunk)
     return bytes(content)
@@ -115,7 +146,7 @@ class SECEdgarServiceCompat:
         if (
             self._tickers_cache is not None
             and self._tickers_cache_time is not None
-            and datetime.now() - self._tickers_cache_time < self._cache_ttl
+            and utcnow() - self._tickers_cache_time < self._cache_ttl
         ):
             return self._tickers_cache
 
@@ -125,7 +156,7 @@ class SECEdgarServiceCompat:
         if redis_data is not None:
             logger.debug("SEC tickers L2 cache hit")
             SECEdgarServiceCompat._tickers_cache = redis_data
-            SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+            SECEdgarServiceCompat._tickers_cache_time = utcnow()
             return redis_data
 
         # Fetch from SEC EDGAR
@@ -136,7 +167,7 @@ class SECEdgarServiceCompat:
                 # restart), so it must fail-fast and fall back to the stale cache below rather than
                 # sleep through the 5-attempt / Retry-After-120s ladder — that belongs to cron-shaped
                 # callers (S4 review #3). It carried the breaker but bypassed the limiter.
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(**sec_request_options()) as client:
                     async def _do_request() -> httpx.Response:
                         resp = await client.get(
                             "https://www.sec.gov/files/company_tickers.json",
@@ -151,7 +182,7 @@ class SECEdgarServiceCompat:
 
                     # Update both cache tiers
                     SECEdgarServiceCompat._tickers_cache = data
-                    SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+                    SECEdgarServiceCompat._tickers_cache_time = utcnow()
                     await self._set_tickers_to_redis(redis_key, data)
 
                     logger.debug("SEC tickers fetched and cached (L1+L2)")
@@ -259,8 +290,13 @@ class SECEdgarServiceCompat:
         """
         Search for companies by ticker or name.
 
-        Uses fast local search on cached SEC ticker data. Falls back to
-        EdgarTools fuzzy search only if local search yields no results.
+        Local search on the cached SEC ticker file only; a query it cannot match returns []. (The
+        old EdgarTools fuzzy fallback is gone: it always failed after up to ten submissions
+        downloads on the event loop, so it never returned a company — CODE RED record 17.)
+
+        Exact ticker hits come first, then entries whose name or ticker merely contains the query.
+        That suits the typeahead; to bind a requested ticker to its company use
+        :meth:`resolve_ticker`, never this method's first hit.
 
         Returns legacy format:
         [{"ticker": "AAPL", "name": "Apple Inc.", "cik": "0000320193", "exchange": None}]
@@ -268,26 +304,32 @@ class SECEdgarServiceCompat:
         Raises:
             EdgarError: If there's a network or API error
         """
-        # Primary: fast local search on cached data (<1ms)
         try:
             tickers_data = await self._get_cached_tickers()
-            results = self._local_search(tickers_data, query)
-            if results:
-                return results
-        except EdgarError:
-            raise
-        except Exception as e:
-            logger.warning(f"Local search failed, trying EdgarTools: {e}")
-
-        # Fallback: EdgarTools fuzzy search (for queries local search can't match)
-        try:
-            companies = await edgar_client.search_company(query)
-            return [c.to_dict() for c in companies]
+            return self._local_search(tickers_data, query)
         except EdgarError:
             raise
         except Exception as e:
             logger.error(f"Unexpected error searching company: {e}")
             raise EdgarError(f"Failed to search companies: {e}", cause=e)
+
+    async def resolve_ticker(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """The SEC ticker-file entry whose ticker IS ``ticker``, in :meth:`search_company`'s format,
+        or None when the file does not list it. The match is exact and case-insensitive, the same
+        comparison as the search's exact tier; no other spelling is mapped onto the file's.
+
+        A retired, renamed or mistyped ticker therefore resolves to nothing instead of to the first
+        partial name/ticker match (RTN once bound to Enterprise Products PARTNERS). The search ranks
+        exact ticker hits ahead of partial ones, so its result cap never drops the exact entry.
+
+        Raises:
+            EdgarError: If the ticker file cannot be fetched
+        """
+        wanted = ticker.lower().strip()
+        if not wanted:
+            return None
+        hits = await self.search_company(ticker)
+        return next((hit for hit in hits if hit["ticker"].lower() == wanted), None)
 
     async def get_filings(
         self,
@@ -362,28 +404,41 @@ class SECEdgarServiceCompat:
         filename: str,
         timeout: Optional[float] = None,
         max_retries: int = 1,
+        max_bytes: Optional[int] = None,
     ) -> tuple[bytes, Dict[str, Any]]:
         """Fetch one same-filing attachment as bounded identity entity bytes.
 
         The returned bytes are the HTTP entity bytes after transfer framing. The
         request requires identity content encoding and rejects any compressed
         response before reading its body. Redirects fail; callers cannot use this
-        method to leave the requested filing directory.
+        method to leave the requested filing directory. ``max_bytes`` can narrow the
+        entity cap when several members must share a single source budget.
         """
         if type(max_retries) is not int or max_retries < 1:
             raise ValueError("max_retries must be a positive integer")
+        max_bytes = MAX_SEC_ATTACHMENT_BYTES if max_bytes is None else max_bytes
+        if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_SEC_ATTACHMENT_BYTES:
+            raise ValueError("max_bytes must be between 1 and MAX_SEC_ATTACHMENT_BYTES")
 
         requested_url = _filing_attachment_url(cik, accession_number, filename)
         timeout = timeout or 60.0
         import asyncio as aio
 
         physical_attempts = 0
+
+        def admitted(waiting: bool) -> None:
+            nonlocal physical_attempts
+            if not waiting:
+                physical_attempts += 1
+
+        client_options = sec_request_options(on_wait=admitted)
         try:
             async with edgar_circuit_breaker:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(**client_options) as client:
                     async def _do_get() -> tuple[bytes, Dict[str, Any]]:
                         nonlocal physical_attempts
-                        physical_attempts += 1
+                        if not client_options:  # Disabled gate: retain existing accounting.
+                            physical_attempts += 1
                         async with client.stream(
                             "GET",
                             requested_url,
@@ -397,7 +452,7 @@ class SECEdgarServiceCompat:
                             response.raise_for_status()
                             if response.url != httpx.URL(requested_url):
                                 raise ValueError("SEC attachment response left the requested filing URL")
-                            content = await _bounded_identity_response_content(response)
+                            content = await _bounded_identity_response_content(response, max_bytes)
                             source = {
                                 "schema_version": 1,
                                 "representation": "httpx_identity_entity_bytes",
@@ -480,40 +535,76 @@ class SECEdgarServiceCompat:
         timeout: Optional[float] = None,
         max_retries: int = 3,
     ) -> tuple[str, str, Optional[str]]:
-        """
-        Get filing document content by URL.
+        """Fetch the document within one deadline, including pacing and retries.
 
-        Note: This method uses direct HTTP as EdgarTools doesn't expose URL-based access.
+        HTTPX timeouts alone apply per network operation, not to limiter waits or
+        the whole retry ladder. A server cooldown that cannot fit the remaining
+        deadline is returned to the caller, never shortened into an early retry.
         """
-        timeout = timeout or 60.0
+        timeout = 60.0 if timeout is None else timeout
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be a positive finite number")
+        if type(max_retries) is not int or max_retries < 1:
+            raise ValueError("max_retries must be a positive integer")
         import asyncio as aio
+
+        deadline = time.monotonic() + timeout
+        phase = "admission"
+
+        def admission_wait(waiting: bool) -> None:
+            nonlocal phase
+            phase = "admission" if waiting else "request"
 
         try:
             async with edgar_circuit_breaker:
-                async with httpx.AsyncClient() as client:
-                    # Each attempt acquires a limiter token before hitting sec.gov (the fetch carried
-                    # the breaker but bypassed the limiter). The manual exponential backoff below owns
-                    # retries, so use execute() (token wait) not execute_with_backoff.
-                    async def _do_get() -> httpx.Response:
-                        resp = await client.get(
-                            document_url,
-                            headers={"User-Agent": EDGAR_IDENTITY},
-                            timeout=timeout,
-                            follow_redirects=True,
-                        )
-                        resp.raise_for_status()
-                        return resp
+                try:
+                    async with aio.timeout(timeout), httpx.AsyncClient(
+                        **sec_request_options(on_wait=admission_wait),
+                    ) as client:
+                        async def _do_get() -> httpx.Response:
+                            nonlocal phase
+                            phase = "request"
+                            resp = await client.get(
+                                document_url,
+                                headers={"User-Agent": EDGAR_IDENTITY},
+                                timeout=max(0.001, deadline - time.monotonic()),
+                                follow_redirects=True,
+                            )
+                            resp.raise_for_status()
+                            return resp
 
-                    for attempt in range(max_retries):
-                        try:
-                            response = await sec_rate_limiter.execute(_do_get)
-                            return response.text, str(response.url), response.headers.get("content-type")
-                        except Exception:
-                            if attempt == max_retries - 1:
-                                raise
-                            await aio.sleep(2 ** attempt)
+                        for attempt in range(max_retries):
+                            phase = "admission"
+                            try:
+                                response = await sec_rate_limiter.execute(_do_get)
+                                return response.text, str(response.url), response.headers.get("content-type")
+                            except httpx.HTTPError as exc:
+                                error = _document_transport_error(exc, timeout)
+                                status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+                                retryable = (
+                                    isinstance(exc, httpx.TransportError)
+                                    or status in {408, 429, 500, 502, 503, 504}
+                                )
+                                if not retryable or attempt == max_retries - 1:
+                                    raise error from exc
+                                retry_after = sec_rate_limiter._retry_after_seconds(exc)
+                                delay = max(random.uniform(0, 2 ** attempt), retry_after or 0)
+                                if delay >= deadline - time.monotonic():
+                                    raise error from exc
+                                phase = "backoff"
+                                await aio.sleep(delay)
+                except TimeoutError as exc:
+                    if phase == "request":
+                        raise EdgarTimeoutError(timeout_seconds=timeout, cause=exc) from exc
+                    # Local queueing is not evidence that SEC is unhealthy.
+                    raise EdgarError(
+                        "SEC document deadline expired while waiting",
+                        code="EDGAR_WAIT_TIMEOUT", cause=exc, context={"phase": phase, "timeout_seconds": timeout},
+                    ) from exc
         except CircuitOpenError as e:
             raise EdgarError(f"SEC EDGAR circuit breaker is open: {e}", cause=e)
+        except EdgarError:
+            raise
         except Exception as e:
             raise EdgarError(f"Failed to fetch document: {e}", cause=e)
 
@@ -541,9 +632,10 @@ class XBRLServiceCompat:
         self,
         accession_number: str,
         cik: str,
+        refresh: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
-        Get XBRL data for a filing.
+        Get XBRL data for a filing (``refresh``: see ``EdgarXBRLService.get_xbrl_data``).
 
         Returns legacy format:
         {
@@ -552,7 +644,7 @@ class XBRLServiceCompat:
             ...
         }
         """
-        return await edgar_xbrl_service.get_xbrl_data(accession_number, cik)
+        return await edgar_xbrl_service.get_xbrl_data(accession_number, cik, refresh=refresh)
 
     def extract_standardized_metrics(self, xbrl_data: Dict) -> Dict[str, Any]:
         """
@@ -565,16 +657,18 @@ class XBRLServiceCompat:
     async def get_filing_sections(
         self,
         accession_number: str,
-        cik: str,
         filing_type: str,
+        *,
+        html: str,
     ) -> Optional[Dict[str, str]]:
         """
-        Extract critical sections (financials / mda / risk) via edgartools' native parser.
+        Parse critical sections (financials / mda / risk) from the fetched primary document.
 
         Returns a dict of clean section text, or None when unavailable (callers fall back
-        to the legacy regex extractor).
+        to the legacy regex extractor). No SEC request: ``html`` is the document the caller
+        already downloaded through ``sec_edgar_service``.
         """
-        return await edgar_xbrl_service.get_filing_sections(accession_number, cik, filing_type)
+        return await edgar_xbrl_service.get_filing_sections(accession_number, filing_type, html=html)
 
 
 # Singleton instances for drop-in replacement

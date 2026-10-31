@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import {
@@ -8,13 +8,21 @@ import {
   generateSummaryStream,
   isPaywallStreamError,
   getSummaryProgress,
+  SummaryStreamError,
+  type SummaryStreamFailure,
   type Summary,
   type SummaryProgressData,
 } from '../api/summaries-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { queryKeys } from '@/lib/queryKeys'
+import { ApiError } from '@/lib/api/client'
 import analytics from '@/lib/analytics'
+import { IN_PROGRESS_MARKER, isSummaryReady } from '../lib/summaryPlaceholder'
 
+// The hook's own fallback sentences are written in the product voice; a backend sentence is mapped
+// where it is shown (features/summaries/lib/streamErrorCopy.ts, read by StreamingSummaryDisplay), so the
+// raw message stays the one the paywall and retry matchers read. The signed-out sentence below is set
+// before any stream starts, so no matcher reads it; it says what to do.
 const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (!error) return null
 
@@ -24,15 +32,19 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
     if (payload?.detail) return payload.detail
     if (payload?.message) return payload.message
     if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
-      return 'Generation timed out, please retry.'
+      return 'The summary timed out. Try again to generate it.'
     }
-    return error.message
+    // axios's own message ("Network Error", "Request failed with status code 500") is transport text.
+    return 'The summary could not load. Try again.'
   }
 
+  // The API client's own status sentences are transport text, not copy (a dropped connection names the
+  // API's URL): only a message the backend wrote reaches the card.
+  if (error instanceof ApiError) return error.backendDetail || 'The summary could not load. Try again.'
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
 
-  return 'Unexpected error occurred while loading the summary.'
+  return 'The summary could not load. Try again.'
 }
 
 const PROGRESS_POLL_INTERVAL_MS = 1000
@@ -74,12 +86,15 @@ export interface SummaryGeneration {
   elapsedSeconds: number
   generationError: string | null
   activeErrorMessage: string | null
+  generationFailure?: SummaryStreamFailure
+  retryAfterSeconds: number
   isStreaming: boolean
   hasStartedGeneration: boolean
   isGenerating: boolean
   hasSummaryContent: boolean
-  handleGenerateSummary: (options?: { force?: boolean }) => Promise<void>
+  handleGenerateSummary: (options?: { force?: boolean; retryFailed?: boolean }) => Promise<void>
   handleRegenerateSummary: () => void
+  handleRetrySummary: () => void
   refetchSummary: () => void
 }
 
@@ -105,24 +120,55 @@ export function useSummaryGeneration({
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
+  const [generationFailure, setGenerationFailure] = useState<SummaryStreamFailure>()
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState(0)
+  const retryUntil = useRef(0)
+  const activeRequest = useRef<AbortController | null>(null)
+  const lifecycle = useRef<object | null>(null)
+  const runStartedAt = useRef(0)
+  const forcing = useRef(false)
+
+  useEffect(() => {
+    const owner = {}
+    lifecycle.current = owner
+    return () => {
+      // StrictMode replays effects in development. Cancel only when this owner was not replaced
+      // by that replay; a real unmount always releases its reader, including a pending retry.
+      queueMicrotask(() => {
+        if (lifecycle.current === owner) {
+          activeRequest.current?.abort()
+          activeRequest.current = null
+        }
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!retryAfterSeconds) return
+    const interval = setInterval(() => {
+      setRetryAfterSeconds(Math.max(0, Math.ceil((retryUntil.current - Date.now()) / 1000)))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [retryAfterSeconds])
 
   // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale so the client refetches
   // on mount — the seed only guarantees the first paint (and the crawler HTML).
   const {
     data: summary,
     isLoading: summaryLoading,
+    isFetching: summaryFetching,
     refetch,
     error: summaryError,
   } = useQuery<Summary | null>({
     queryKey: queryKeys.summary(filingId),
-    queryFn: () => getSummary(filingId),
+    queryFn: ({ signal }) => getSummary(filingId, signal),
     retry: false,
     enabled: !!filing,
     initialData: initialSummary,
     initialDataUpdatedAt: 0,
   })
 
-  const summaryHasPlaceholder = !!(summary?.business_overview && summary.business_overview.includes('Generating summary'))
+  const summaryHasPlaceholder = !!(summary?.business_overview && summary.business_overview.includes(IN_PROGRESS_MARKER))
   const hasSummaryContent = !!(summary?.business_overview && !summaryHasPlaceholder)
   // L1: a surfaced terminal error also ends generation. Without this, an errored run that left the
   // "Generating summary" placeholder in place would keep isGenerating — and the 1s progress poll —
@@ -132,32 +178,104 @@ export function useSummaryGeneration({
   // Progress poll drives the generation UI. Gated off once real content has arrived and stopped on
   // ANY of the backend's three terminal stages (completed/error/partial), so it can never outlive
   // the generation it reports on (L1 — the poll's terminal set must match record_progress's).
-  useQuery<SummaryProgressData>({
+  const progress = useQuery<SummaryProgressData>({
     queryKey: queryKeys.summaryProgress(filingId),
     queryFn: () => getSummaryProgress(filingId),
     enabled: !!filing && isGenerating && !hasSummaryContent,
-    refetchInterval: (query) => progressRefetchInterval(query.state.data?.stage),
+    refetchInterval: (query) => query.state.dataUpdatedAt < runStartedAt.current
+      ? PROGRESS_POLL_INTERVAL_MS : progressRefetchInterval(query.state.data?.stage),
   })
 
+  // A completed persisted result wins even if Safari lost its terminal SSE frame. Do not turn
+  // an old progress error into this run's error: progress is filing-scoped, not job-scoped yet.
+  useEffect(() => {
+    if (!isGenerating || forcing.current || progress.dataUpdatedAt < runStartedAt.current
+      || !['completed', 'partial'].includes(progress.data?.stage ?? '')) return
+    const owner = activeRequest.current
+    if (!owner) return
+    let cancelled = false
+    void getSummary(filingId, owner.signal).then(async (ready) => {
+      if (cancelled || activeRequest.current !== owner || !isSummaryReady(ready)) return
+      await queryClient.cancelQueries({ queryKey: queryKeys.summary(filingId) })
+      if (cancelled || activeRequest.current !== owner) return
+      queryClient.setQueryData(queryKeys.summary(filingId), ready)
+      setGenerationError(null)
+      setIsStreaming(false)
+      owner.abort()
+      activeRequest.current = null
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [filingId, isGenerating, progress.data?.stage, progress.dataUpdatedAt, queryClient])
+
   const handleGenerateSummary = useCallback(
-    async (options?: { force?: boolean }) => {
+    async (options?: { force?: boolean; retryFailed?: boolean }) => {
+      // The ref closes the gap before React commits busy state (double taps and effect replay).
+      if (activeRequest.current || Date.now() < retryUntil.current) return
       // Generation requires an account (the backend 401s guests). The page renders a signup gate
       // for unauthenticated visitors, so this is a defensive backstop, not the primary UX.
       if (!isAuthenticated) {
-        setGenerationError('Please sign in to generate summaries.')
+        setGenerationError('Log in to generate this summary.')
         return
       }
+      const controller = new AbortController()
+      activeRequest.current = controller
+      forcing.current = options?.force === true
+      runStartedAt.current = Date.now()
+      const ownsReader = () => activeRequest.current === controller && !controller.signal.aborted
       setHasStartedGeneration(true)
       setGenerationError(null)
+      setGenerationFailure(undefined)
       setIsStreaming(true)
       setStreamingText('')
       setStreamingStage('initializing')
-      setStreamingMessage(options?.force ? 'Regenerating analysis...' : 'Initializing AI analysis...')
+      setStreamingMessage(options?.force ? 'Regenerating the summary…' : 'Reading the filing…')
+      setElapsedSeconds(0)
+
+      const recover = async () => {
+        const ready = await getSummary(filingId, controller.signal)
+        if (ownsReader() && isSummaryReady(ready)) {
+          // An older observer read must not overwrite a newly committed result with its old null.
+          await queryClient.cancelQueries({ queryKey: queryKeys.summary(filingId) })
+          if (!ownsReader()) return ready
+          queryClient.setQueryData(queryKeys.summary(filingId), ready)
+        }
+        return ready
+      }
+      const fail = (errorMessage: string, failure?: SummaryStreamFailure) => {
+        if (!ownsReader()) return
+        setGenerationError(errorMessage)
+        setGenerationFailure(failure)
+        if (failure?.retryAfterSeconds) {
+          retryUntil.current = Date.now() + failure.retryAfterSeconds * 1000
+          setRetryAfterSeconds(failure.retryAfterSeconds)
+        }
+        setStreamingStage('error')
+        setStreamingMessage(errorMessage)
+        setIsStreaming(false)
+        setStreamingText('')
+        if (isPaywallStreamError(errorMessage, failure?.code) && filing) {
+          analytics.paywallPromptShown({ filingId: filing.id, ticker: filing.company?.ticker ?? null,
+            filingType: filing.filing_type, entryPoint })
+        }
+      }
+      let completion: Promise<void> | undefined
 
       try {
+        // Retrying means recovering or joining. A completed result may have arrived since the
+        // last error, so read it before sending another generation request.
+        if (!options?.force) {
+          try {
+            const ready = await recover()
+            if (!ownsReader()) return
+            if (isSummaryReady(ready)) return
+          } catch {
+            if (!ownsReader()) return
+          }
+        }
         await generateSummaryStream(
           filingId,
           (chunk: string) => {
+            if (!ownsReader()) return
             // REPLACE (not append): the backend emits the summary as a single full-markdown 'chunk',
             // and A5 progressive 'preview' frames are growing full renders routed through here — each
             // supersedes the last, and the final 'chunk' supersedes the previews.
@@ -165,6 +283,7 @@ export function useSummaryGeneration({
             setStreamingText(chunk)
           },
           (stage: string, message: string, data?: { elapsed_seconds?: number; heartbeat_count?: number }) => {
+            if (!ownsReader()) return
             setGenerationError(null)
             setStreamingStage(stage)
             setStreamingMessage(message)
@@ -173,49 +292,47 @@ export function useSummaryGeneration({
             }
           },
           () => {
-            setGenerationError(null)
-            // Refetch the summary to get the full structured data
-            refetch()
-            queryClient.invalidateQueries({ queryKey: queryKeys.summary(filingId) })
-            setIsStreaming(false)
+            if (!ownsReader()) return
+            // A terminal frame identifies saved work, but the UI still needs its structured
+            // body. A failed read must leave an actionable failure, never endless progress.
+            completion = (async () => {
+              try {
+                const ready = await recover()
+                if (!ownsReader()) return
+                if (!isSummaryReady(ready)) fail('The summary could not load. Try again.')
+                else setGenerationError(null)
+              } catch {
+                fail('The summary could not load. Try again.')
+              }
+            })()
           },
-          (errorMessage: string) => {
-            setGenerationError(errorMessage)
-            setStreamingStage('error')
-            setStreamingMessage(errorMessage)
-            setIsStreaming(false)
-            // Reset progress state on error
-            setStreamingText('')
-            // Activation funnel: record the client-confirmed moment the upgrade wall is shown.
-            if (isPaywallStreamError(errorMessage) && filing) {
-              analytics.paywallPromptShown({
-                filingId: filing.id,
-                ticker: filing.company?.ticker ?? null,
-                filingType: filing.filing_type,
-                entryPoint,
-              })
-            }
-          },
-          { force: options?.force, entryPoint },
+          fail,
+          { force: options?.force, retryFailed: options?.retryFailed, entryPoint, signal: controller.signal, recover },
         )
+        await completion
       } catch (error: unknown) {
+        if (!ownsReader()) return
+        // The transport already delivered this failure with its cooldown and code.
+        if (error instanceof SummaryStreamError) return
         // Reuse the shared friendly-error mapping (Axios detail/message + timeout) rather than a
         // bare .message, so a thrown generation error reads the same as a failed summary fetch.
-        const message = getFriendlyErrorMessage(error) || 'Failed to generate summary'
-        setGenerationError(message)
-        setStreamingStage('error')
-        setStreamingMessage(message)
-        setIsStreaming(false)
-        setStreamingText('')
+        const message = getFriendlyErrorMessage(error) || 'We could not generate this summary. Try again shortly.'
+        fail(message)
       } finally {
-        setIsStreaming(false)
+        if (activeRequest.current === controller) {
+          activeRequest.current = null
+          setIsStreaming(false)
+        }
       }
     },
-    [filingId, filing, refetch, queryClient, isAuthenticated, entryPoint],
+    [filingId, filing, queryClient, isAuthenticated, entryPoint],
   )
 
   const handleRegenerateSummary = useCallback(() => {
-    handleGenerateSummary({ force: true })
+    handleGenerateSummary({ force: true, retryFailed: true })
+  }, [handleGenerateSummary])
+  const handleRetrySummary = useCallback(() => {
+    void handleGenerateSummary({ retryFailed: true })
   }, [handleGenerateSummary])
 
   // Auto-generate summary when page loads if no summary exists. Signed-in users only, and only
@@ -228,6 +345,7 @@ export function useSummaryGeneration({
     if (
       filing &&
       !summaryLoading &&
+      !summaryFetching &&
       !isStreaming &&
       !hasSummaryContent &&
       !hasStartedGeneration &&
@@ -240,6 +358,7 @@ export function useSummaryGeneration({
   }, [
     filing,
     summaryLoading,
+    summaryFetching,
     isStreaming,
     hasSummaryContent,
     hasStartedGeneration,
@@ -268,12 +387,15 @@ export function useSummaryGeneration({
     elapsedSeconds,
     generationError,
     activeErrorMessage,
+    generationFailure,
+    retryAfterSeconds,
     isStreaming,
     hasStartedGeneration,
     isGenerating,
     hasSummaryContent,
     handleGenerateSummary,
     handleRegenerateSummary,
+    handleRetrySummary,
     refetchSummary: refetch,
   }
 }

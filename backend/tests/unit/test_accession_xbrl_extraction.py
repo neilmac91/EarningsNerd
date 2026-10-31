@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl_module
 from app.services.edgar.debt_concepts import DEBT_COMPONENT_CONCEPTS
 from app.services.edgar.instance_extractor import (
@@ -327,7 +328,7 @@ def _patch_company(filings):
     # returns (company, filings). Patch that instead of EdgarCompany.
     company = FakeCompany(filings)
     return patch.object(
-        xbrl_module,
+        xbrl_instance,
         "resolve_filing_by_accession",
         lambda cik, accession_number: (company, list(filings)),
     )
@@ -599,10 +600,10 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     calls.clear()
     monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
-    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {'net_income': ['NetIncomeLoss']})
-    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {metric: concepts})
-    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, 'DURATION_CONCEPTS', {'net_income': ['NetIncomeLoss']})
+    monkeypatch.setattr(xbrl_instance, 'INSTANT_CONCEPTS', {metric: concepts})
+    monkeypatch.setattr(xbrl_instance, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, '_extract_segments', lambda *a: [])
     with _patch_company([FakeFiling('10-K', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
     # The debt-scope slice adds exactly ONE additive evidence pass over the admissible debt
@@ -620,9 +621,8 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
                     for end, value in expected_series]
     assert raw[metric] == expected_raw
     if qualified:
-        assert standardized[metric]['series'] == [
-            {k: v for k, v in item.items() if k != 'accn'} for item in expected_raw
-        ]
+        # Each standardized fact keeps the filing it records (accn), so a comparison can refuse another's (E184).
+        assert standardized[metric]['series'] == expected_raw
     else:
         assert metric not in standardized
 
@@ -646,8 +646,7 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     converted = service.extract_standardized_metrics(legacy)
     if expected_legacy:
         assert converted['cash_and_equivalents']['series'] == [
-            {**{k: v for k, v in item.items() if k != 'accn'}, 'currency': None}
-            for item in expected_legacy
+            {**item, 'currency': None} for item in expected_legacy
         ]
     else:
         assert 'cash_and_equivalents' not in converted
@@ -712,12 +711,12 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
     }])
     monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
-    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {
+    monkeypatch.setattr(xbrl_instance, 'DURATION_CONCEPTS', {
         'net_income': ['NetIncomeLoss'], 'capital_expenditures': concepts,
     })
-    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {})
-    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, 'INSTANT_CONCEPTS', {})
+    monkeypatch.setattr(xbrl_instance, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, '_extract_segments', lambda *a: [])
     with _patch_company([FakeFiling('10-K', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
     # The debt-scope slice adds exactly ONE additive evidence pass over the admissible debt
@@ -736,9 +735,7 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
         ]
         assert raw['capital_expenditures'] == expected_raw
         standardized = EdgarXBRLService().extract_standardized_metrics(raw)
-        assert standardized['capital_expenditures']['series'] == [
-            {key: value for key, value in row.items() if key != 'accn'} for row in expected_raw
-        ]
+        assert standardized['capital_expenditures']['series'] == expected_raw
         grounding = build_xbrl_narrative_section(standardized)
         assert f'current source concept: {qualified}' in grounding
         assert f'prior source concept: {qualified}' in grounding
@@ -793,11 +790,11 @@ def test_revenue_source_namespace_survives_fact_and_citation_paths(monkeypatch, 
     calls.clear()
     monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
-    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {'revenue': concepts})
-    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {})
-    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
-    monkeypatch.setattr(xbrl_module, 'debt_component_observations', lambda *a, **k: [])
+    monkeypatch.setattr(xbrl_instance, 'DURATION_CONCEPTS', {'revenue': concepts})
+    monkeypatch.setattr(xbrl_instance, 'INSTANT_CONCEPTS', {})
+    monkeypatch.setattr(xbrl_instance, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, '_extract_segments', lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, 'debt_component_observations', lambda *a, **k: [])
     with _patch_company([FakeFiling('20-F', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
     assert calls == expected_queries  # Namespace preservation adds no source query.
@@ -854,6 +851,10 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
 
     frames = {income_tag: frame(income), cash_tag: frame(5_024_523_000),
               "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment": frame(513_809_000)}
+    for concept, value in (("us-gaap:StockholdersEquity", 20_000_000_000),
+                           ("us-gaap:Assets", 50_000_000_000)):
+        frames[concept] = pd.DataFrame([{"period_end": "2025-12-31", "currency": "USD",
+                                         "is_dimensioned": False, "numeric_value": value}])
     if income_tag == "us-gaap:NetIncomeLoss":
         # Both exist in source; do not switch to total income to match model prose.
         frames["us-gaap:ProfitLoss"] = frame(1_610_894_000)
@@ -873,16 +874,29 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", False)
     monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", False)
     selected = {key: DURATION_CONCEPTS[key] for key in ("net_income", "operating_cash_flow", "capital_expenditures")}
-    monkeypatch.setattr(xbrl_module, "DURATION_CONCEPTS", selected)
-    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {})
-    monkeypatch.setattr(xbrl_module, "dividend_component_sum_series", lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, "_extract_segments", lambda *a: [])
-    monkeypatch.setattr(xbrl_module, "debt_component_observations", lambda *a, **k: [])
+    monkeypatch.setattr(xbrl_instance, "DURATION_CONCEPTS", selected)
+    monkeypatch.setattr(xbrl_instance, "INSTANT_CONCEPTS", {
+        key: xbrl_module.INSTANT_CONCEPTS[key] for key in ("shareholders_equity", "total_assets")
+    })
+    monkeypatch.setattr(xbrl_instance, "dividend_component_sum_series", lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, "_extract_segments", lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, "debt_component_observations", lambda *a, **k: [])
     with _patch_company([FakeFiling("20-F", "2025-12-31", xb)]):
         raw = _extract_from_filing_instance_sync("0000000001", "selected-accession")
     assert raw["net_income"][0]["raw_tag"] == income_tag
     assert raw["operating_cash_flow"][0]["raw_tag"] == cash_tag
     assert raw["net_income"][0]["value"] == income
+    # Exercise the real producer: synthetic standardized metadata cannot prove ratio custody.
+    selected_metrics = EdgarXBRLService().extract_standardized_metrics(raw)
+    for ratio, key in (("return_on_equity", "shareholders_equity"), ("return_on_assets", "total_assets")):
+        # Raw instance points (persisted as Filing.xbrl_data, which Copilot JSON-dumps) keep main's
+        # exact key set: any added key (raw_tag or another name) changes Copilot prompt bytes.
+        assert set(raw[key][0]) == {"period", "value", "form", "accn", "currency"}
+        point = selected_metrics[ratio]["current"]
+        assert point["numerator"] == selected_metrics["net_income"]["current"]
+        assert point["numerator"]["raw_tag"] == income_tag
+        assert point["denominator"]["period"] == raw[key][0]["period"]
+        assert point["denominator"]["value"] == raw[key][0]["value"]
     if income_tag == "us-gaap:NetIncomeLoss":
         assert "us-gaap:ProfitLoss" not in calls  # Preserve first-candidate precedence.
     ni, ocf = raw["net_income"][0], raw["operating_cash_flow"][0]
@@ -923,6 +937,11 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     raw_summary = {"schema_version": 2, "sections": sections}
     line = sections["earnings_quality"]["cash_conversion"]
     expected = f"{5_024_523_000 / income:.1f}x net income {basis} (cash conversion)"
+    if defect is None:
+        # The rendered return ratios name the same selected income concept the extractor chose.
+        returns = sections_to_markdown(render_sections(raw_summary)).lower()
+        assert f"period net income {basis} / period-end equity, not annualized: " in returns
+        assert f"period net income {basis} / period-end assets, not annualized: " in returns
     assert (expected in line) is (basis is not None)
     assert preview is not None
     for text in (preview, sections_to_markdown(render_sections(raw_summary)), json.dumps(render_sections_json(raw_summary))):

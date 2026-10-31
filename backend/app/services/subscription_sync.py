@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.models import StripeEvent, Subscription, User
 from app.models.subscription import ACTIVE_STATUSES
-from app.services.entitlements import is_pro_user
+from app.services.entitlements import is_pro_user, subscription_state_grants_pro
 
 logger = logging.getLogger(__name__)
 
@@ -165,23 +165,41 @@ def apply_checkout_completed(
 def apply_subscription_upsert(
     db: Session, sub_obj: dict, *, user: Optional[User] = None,
 ) -> Optional[User]:
-    """Handle ``customer.subscription.created`` / ``.updated``: full state from the Stripe object."""
+    """Handle ``customer.subscription.created`` / ``.updated``: full state from the Stripe object.
+
+    While the account is entitled, a state that grants no Pro for a subscription other than the
+    bound one (an old subscription's dunning outcome, a late retry) is ignored, so it cannot unbind
+    a paying replacement. The bound subscription's own events and an entitling one still apply.
+    Returns the affected user, or None for an unknown user or an ignored event.
+    """
     stripe_sub_id = sub_obj.get("id")
     stripe_customer_id = sub_obj.get("customer")
     status = (sub_obj.get("status") or "incomplete").lower()
+    trial_end = _ts_to_dt(sub_obj.get("trial_end"))
 
     user = user or _find_user(db, stripe_sub_id, stripe_customer_id)
     if not user:
         return None
 
-    sub = _get_or_create_subscription(db, user)
+    sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
+    current_sub_id = (sub.stripe_subscription_id if sub else None) or user.stripe_subscription_id
+    if (stripe_sub_id and current_sub_id and stripe_sub_id != current_sub_id
+            and not subscription_state_grants_pro(status, trial_end) and is_pro_user(user)):
+        logger.info(
+            "Ignoring Stripe subscription update user_id=%s subscription_id=%s status=%s "
+            "reason=not_current_subscription",
+            user.id, stripe_sub_id, status,
+        )
+        return None
+
+    sub = sub or _get_or_create_subscription(db, user)
     sub.status = status
     sub.plan = "pro" if status in ACTIVE_STATUSES else "free"
     sub.stripe_subscription_id = stripe_sub_id or sub.stripe_subscription_id
     sub.stripe_customer_id = stripe_customer_id or sub.stripe_customer_id
     sub.stripe_price_id = _price_id_from_sub(sub_obj) or sub.stripe_price_id
     sub.current_period_end = _ts_to_dt(_current_period_end_from_sub(sub_obj)) or sub.current_period_end
-    sub.trial_end = _ts_to_dt(sub_obj.get("trial_end"))
+    sub.trial_end = trial_end
     sub.cancel_at_period_end = bool(sub_obj.get("cancel_at_period_end", False))
 
     if stripe_sub_id:

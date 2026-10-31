@@ -9,23 +9,36 @@ no network). The richer narrative diff stays on-demand (the summary), per the co
 `compute_what_changed` is a pure function (unit-testable on dicts) that enforces hard invariants so
 corrupt/misaligned XBRL never produces a misleading headline:
   * revenue must be finite and ≥ 0;
-  * sign(EPS) must match sign(net income) for the period;
+  * sign(EPS) must match sign(net income) for the period (basic EPS where the filing reports it);
 otherwise the offending metric is dropped (never the whole row) and ``data_quality`` is "partial".
 When nothing usable remains the headline is ``None`` and the card falls back to a neutral line.
+EPS is one line, diluted where both sides of the pair carry it and basic otherwise, each side from
+the same key, its prior side the figure for the period the prior filing reported, or with no prior
+XBRL the filing's own comparative (``_eps_line``).
 """
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+import re
+from typing import Any, NamedTuple, Optional
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, defer, joinedload
 
-from app.models import Filing, Summary, Watchlist
+from app.models import Filing, Summary, SummaryGenerationProgress, Watchlist
 from app.services import metric_delta_service
+from app.services.copilot_tools import canonical_unit
 from app.services.edgar.models import MetricChange
-from app.services.summary_generation_service import get_generation_progress_snapshot
-from app.services.summary_placeholders import is_summary_placeholder
+from app.services.filing_section_service import (
+    ACCESS_FULL,
+    ACCESS_NONE,
+    NO_SECTION_ACCESS,
+    SectionAccess,
+    wording_change_summaries,
+)
+from app.services.section_review_service import review_progress
+from app.services.summary_generation_service import progress_read_status
+from app.services.summary_placeholders import is_stored_summary_ready
 
 logger = logging.getLogger(__name__)
 
@@ -45,16 +58,24 @@ def _feed_form_types() -> tuple[str, ...]:
         return FEED_FORM_TYPES + FEED_FPI_ANNUAL_FORM_TYPES
     return FEED_FORM_TYPES
 
-# (xbrl_data key, human label) in headline priority order. The financial-institution component keys
-# are self-gating: a bank's xbrl_data carries net/non-interest income (not "revenue"), while a
-# non-financial filer carries "revenue" (not the components), so only the applicable rows render.
+# (xbrl_data key, human label) in headline priority order, each label /analysis's name for the key
+# (trend_analysis/periods.py _CONCEPT_LABELS), one entry to a line: frontend/tests/unit/metricLabelParity.spec.ts
+# reads this list as text and holds every label to /analysis's.
+# The financial-institution component keys are self-gating: a bank's xbrl_data carries
+# net/noninterest income (not "revenue"), while a non-financial filer carries "revenue" (not the
+# components), so only the applicable rows render. The two EPS keys are one line: _eps_line picks one
+# of them per pair, so a report never shows both.
 _DELTA_METRICS = [
     ("revenue", "Revenue"),
     ("net_interest_income", "Net interest income"),
-    ("noninterest_income", "Non-interest income"),
+    ("noninterest_income", "Noninterest income"),
     ("net_income", "Net income"),
-    ("earnings_per_share", "EPS"),
+    ("eps_diluted", "EPS (diluted)"),
+    ("earnings_per_share", "EPS (basic)"),
 ]
+# The EPS line's keys, in preference order: diluted, the figure investors quote (P1.5), then basic.
+_EPS_METRICS = ("eps_diluted", "earnings_per_share")
+_BASIC_EPS = "earnings_per_share"
 
 _DIRECTION_WORD = {"increase": "up", "decrease": "down", "unchanged": "flat"}
 
@@ -109,15 +130,137 @@ def _current_and_prior(
     return cur_value, cur_period, prior_value, cur_tag, prior_tag
 
 
+def _value_at(xbrl: Optional[dict], metric: str, period: Optional[str]) -> Optional[tuple[float, Optional[str]]]:
+    """The metric's (value, raw_tag) for exactly ``period`` in a filing's XBRL, or None."""
+    for entry_period, value, tag in _series_desc(xbrl, metric):
+        if entry_period == period:
+            return value, tag
+    return None
+
+
+def _newest_period(xbrl: Optional[dict], before: Optional[str] = None) -> Optional[str]:
+    """The newest period a filing's XBRL reports for any of What changed's metrics, before ``before`` when
+    given: for a filing's own blob, its own period; for a prior filing's, the period the prior filing reported."""
+    newest: Optional[str] = None
+    for metric, _label in _DELTA_METRICS:
+        period = next((p for p, _value, _tag in _series_desc(xbrl, metric) if before is None or p < before), None)
+        if period is not None and (newest is None or period > newest):
+            newest = period
+    return newest
+
+
+class _EpsLine(NamedTuple):
+    """What changed's one EPS line, and the filing and period each side came from (for invariant 2)."""
+
+    metric: str
+    current: float
+    current_period: str
+    current_tag: Optional[str]
+    prior: Optional[float] = None
+    prior_period: Optional[str] = None
+    prior_tag: Optional[str] = None
+    prior_xbrl: Optional[dict] = None
+
+
+def _eps_line(current_xbrl: Optional[dict], prior_xbrl: Optional[dict]) -> Optional[_EpsLine]:
+    """What changed's one EPS line, or None when the filing reports no EPS for its own period.
+
+    Both sides come from ONE key, the first of ``_EPS_METRICS`` whose pair is complete. A blob stored before
+    P1.5 (2026-06-14) or by the companyfacts fallback carries no ``eps_diluted``, so a pair that needs it from
+    such a blob takes the basic line, though a 10-K's own restated prior year still completes the diluted
+    pair. (``earnings_per_share`` itself can hold a diluted figure, on either side, where a filer tagged no
+    basic EPS: E260.)
+
+    Given a prior filing's XBRL, the prior side is the key's figure for the period that filing reported: this
+    filing's own figure for that period when it reports one, restated or split-adjusted since, as a 10-K reports
+    its prior fiscal year; else the prior filing's. It is never the filing's own figure for another period: for
+    a 10-Q that is the year-ago quarter, while the report reads "Quarter over quarter". With no prior XBRL (no
+    prior filing, one never extracted, or a reporting-currency change), or one that reports none of What
+    changed's metrics before this filing's period, the filing's own comparative stands in, as it does for every
+    metric.
+
+    A diluted pair is not used where either side's diluted figure exceeds its filing's basic EPS for the same
+    period (the check facts/reconcile.py makes): the line falls to basic. A key with no figure for the filing's
+    own period never stands for it. When no key completes a pair, the first key with a current figure comes
+    back without a prior: no EPS line shows, but invariant 2 still checks net income's current sign against it.
+    """
+    own_period = _newest_period(current_xbrl)
+    if own_period is None:
+        return None
+    prior_period = _newest_period(prior_xbrl, before=own_period) if prior_xbrl is not None else None
+    guard_only: Optional[_EpsLine] = None
+    for metric in _EPS_METRICS:
+        series = _series_desc(current_xbrl, metric)
+        if not series or series[0][0] != own_period:
+            continue
+        line = _EpsLine(metric, series[0][1], own_period, series[0][2])
+        if prior_period is None:
+            older = next(((p, value, tag) for p, value, tag in series[1:] if p < own_period), None)
+            if older is not None:
+                line = line._replace(prior=older[1], prior_period=older[0], prior_tag=older[2], prior_xbrl=current_xbrl)
+        else:
+            for source in (current_xbrl, prior_xbrl):
+                hit = _value_at(source, metric, prior_period)
+                if hit is not None:
+                    line = line._replace(prior=hit[0], prior_period=prior_period, prior_tag=hit[1], prior_xbrl=source)
+                    break
+        if line.prior is not None and _diluted_within_basic(line, current_xbrl):
+            return line
+        if guard_only is None:
+            guard_only = _EpsLine(line.metric, line.current, line.current_period, line.current_tag)
+    return guard_only
+
+
+def _diluted_within_basic(line: _EpsLine, current_xbrl: Optional[dict]) -> bool:
+    """False where a diluted line's figure, on either side, exceeds its filing's basic EPS for that period."""
+    if line.metric != "eps_diluted":
+        return True
+    for xbrl, period, value in ((current_xbrl, line.current_period, line.current), (line.prior_xbrl, line.prior_period, line.prior)):
+        basic = _value_at(xbrl, _BASIC_EPS, period)
+        if basic is not None and value is not None and value > basic[0] + 1e-9:
+            return False
+    return True
+
+
+def _sign_eps(xbrl: Optional[dict], period: Optional[str], shown: float) -> float:
+    """The EPS figure invariant 2 holds net income's sign to: the filing's basic EPS for the period where it
+    reports one, as facts/reconcile.py checks, else the figure shown. A diluted figure can fall below zero while
+    basic EPS and net income stay above it (a gain the diluted numerator leaves out, such as a warrant
+    liability's fair-value gain), so basic EPS is the like-for-like figure."""
+    basic = _value_at(xbrl, _BASIC_EPS, period)
+    return basic[0] if basic is not None else shown
+
+
+def reporting_currency(xbrl: Optional[dict]) -> Optional[str]:
+    """A filing's as-filed reporting currency from its stored XBRL, as an ISO 4217 code ("USD",
+    "CNY"). None when the extraction never resolved one."""
+    unit = canonical_unit(xbrl.get("reporting_currency")) if isinstance(xbrl, dict) else None
+    return unit if unit and re.fullmatch(r"[A-Z]{3}", unit) else None
+
+
 def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict]) -> Optional[dict]:
     """Deterministic period-over-period headline from stored XBRL. None if nothing usable."""
+    # Never difference amounts across reporting currencies. An issuer that changes its reporting
+    # currency restates its comparatives in the new one, so its own filing's comparative stands in
+    # for the prior filing's amounts, and a metric without one is withheld. An unknown currency on
+    # either side proves no change, so the prior filing is used as before.
+    current_currency, prior_currency = reporting_currency(current_xbrl), reporting_currency(prior_xbrl)
+    if current_currency and prior_currency and current_currency != prior_currency:
+        prior_xbrl = None
+
     data: dict[str, tuple[float, Optional[float]]] = {}
     tags: dict[str, tuple[Optional[str], Optional[str]]] = {}
     for metric, _label in _DELTA_METRICS:
+        if metric in _EPS_METRICS:
+            continue  # one EPS line, chosen below
         cur, _period, prior, cur_tag, prior_tag = _current_and_prior(current_xbrl, prior_xbrl, metric)
         if cur is not None:
             data[metric] = (cur, prior)
             tags[metric] = (cur_tag, prior_tag)
+    eps_line = _eps_line(current_xbrl, prior_xbrl)
+    if eps_line is not None:
+        data[eps_line.metric] = (eps_line.current, eps_line.prior)
+        tags[eps_line.metric] = (eps_line.current_tag, eps_line.prior_tag)
     if not data:
         return None
 
@@ -140,11 +283,21 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
             del data["revenue"]
             data_quality = "partial"
 
-    # Invariant 2: sign(EPS) must match sign(net income) — checked for current AND prior periods.
-    # Disagreement in either period ⇒ distrust both metrics.
-    if "earnings_per_share" in data and "net_income" in data:
-        eps, prior_eps = data["earnings_per_share"]
+    # Invariant 2: sign(EPS) must match sign(net income) — checked for current AND prior periods. The EPS
+    # figure is each side's basic EPS for its period where its filing reports one, else the line shown
+    # (_sign_eps), and the prior side's net income is that same filing's for that period where it reports
+    # one, so a year this filing restates is held to its restated net income. Disagreement in either period
+    # ⇒ distrust both metrics: the EPS line and net income.
+    if eps_line is not None and eps_line.metric in data and "net_income" in data:
+        eps = _sign_eps(current_xbrl, eps_line.current_period, eps_line.current)
+        prior_eps = (
+            _sign_eps(eps_line.prior_xbrl, eps_line.prior_period, eps_line.prior)
+            if eps_line.prior is not None else None
+        )
         net_income, prior_net_income = data["net_income"]
+        same_filing = _value_at(eps_line.prior_xbrl, "net_income", eps_line.prior_period)
+        if eps_line.prior is not None and same_filing is not None:
+            prior_net_income = same_filing[0]
         mismatch_current = eps != 0 and net_income != 0 and (eps > 0) != (net_income > 0)
         mismatch_prior = (
             prior_eps is not None and prior_net_income is not None
@@ -152,7 +305,7 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
             and (prior_eps > 0) != (prior_net_income > 0)
         )
         if mismatch_current or mismatch_prior:
-            del data["earnings_per_share"]
+            del data[eps_line.metric]
             del data["net_income"]
             data_quality = "partial"
 
@@ -192,20 +345,16 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
 
 # --------------------------------------------------------------------------- summary status
 
-def _summary_status(summary: Optional[Summary], filing_id: int) -> dict:
-    """Mirror the watchlist-insights status taxonomy (ready/placeholder/generating/error/missing)."""
+def _summary_status(summary: Optional[Summary], progress: Optional[SummaryGenerationProgress]) -> dict:
+    """Mirror the watchlist-insights status taxonomy (ready/placeholder/generating/error/missing).
+    ``progress`` is the filing's generation-progress row, consulted only without a summary, through the
+    insights' own reading of it (``progress_read_status``)."""
     if summary is not None:
-        placeholder = is_summary_placeholder(summary.business_overview)
-        return {"summary_id": summary.id, "summary_status": "placeholder" if placeholder else "ready"}
+        ready = is_stored_summary_ready(summary)
+        return {"summary_id": summary.id, "summary_status": "ready" if ready else "placeholder"}
 
-    progress = get_generation_progress_snapshot(filing_id)
-    if progress:
-        stage = progress.get("stage", "generating")
-        return {
-            "summary_id": None,
-            "summary_status": "error" if stage == "error" else f"generating:{stage}",
-        }
-    return {"summary_id": None, "summary_status": "missing"}
+    status, _snapshot = progress_read_status(progress)
+    return {"summary_id": None, "summary_status": status}
 
 
 def _prior_same_form(company_filings_desc: list[Filing], current: Filing) -> Optional[Filing]:
@@ -219,11 +368,37 @@ def _prior_same_form(company_filings_desc: list[Filing], current: Filing) -> Opt
 
 # --------------------------------------------------------------------------- composition
 
-def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
+def _wording_changes(
+    db: Session, user_id: int, filings: list[Filing], access: SectionAccess
+) -> dict[int, Optional[dict]]:
+    """Per head filing, the Item 1A wording-change counts the card shows (from the cached
+    comparison summary; nothing when the filing has no comparison yet) and, for a viewer who gets
+    the full change list, the progress of their review of it, reconciled against the live
+    comparison exactly as the review endpoint reports it (``section_review_service.review_progress``:
+    a re-extraction that retired ids or the receipt reopens the review here too). Nothing at all
+    while the feature is off or the viewer has no access."""
+    if access.level == ACCESS_NONE or not filings:
+        return {}
+    summaries = wording_change_summaries(db, [f.id for f in filings])
+    progress: dict[int, dict] = {}
+    if access.level == ACCESS_FULL and summaries:
+        progress = review_progress(db, user_id, [f for f in filings if f.id in summaries])
+    out: dict[int, Optional[dict]] = {}
+    for filing_id, summary in summaries.items():
+        review = progress.get(filing_id, {"labeled": 0, "completed_at": None}) if access.level == ACCESS_FULL else None
+        out[filing_id] = {**summary, "review": review}
+    return out
+
+
+def compose_feed(
+    db: Session, user_id: int, limit: int = 20, *, section_access: SectionAccess = NO_SECTION_ACCESS
+) -> list[dict]:
     """Each watched company's NEWEST eligible filing (10-K/10-Q, plus 20-F/40-F behind
     ENABLE_FPI_FILINGS) — one item per company, companies ordered by that filing's date, newest
     first. ``limit`` caps the number of COMPANIES shown (not filings). Each item carries a
-    deterministic "what changed" headline + summary status. DB-only; no live EDGAR on render."""
+    deterministic "what changed" headline + summary status and, when ``section_access`` grants the
+    viewer the Item 1A wording diff, its change counts (``wording_changes``, with the viewer's
+    review progress for full access). DB-only; no live EDGAR on render."""
     company_ids = [
         row[0]
         for row in db.query(Watchlist.company_id).filter(Watchlist.user_id == user_id).distinct().all()
@@ -291,6 +466,21 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
     ):
         summary_by_filing.setdefault(s.filing_id, s)
 
+    # Generation progress for the heads without a summary, read in this session. A helper that opens
+    # its own session per filing would need a second pooled connection while this one is held, and
+    # four such requests deadlock the four-slot pool (lessons/ops-one-connection-per-request-unit.md).
+    pending_ids = [fid for fid in filing_ids if fid not in summary_by_filing]
+    progress_by_filing: dict[int, SummaryGenerationProgress] = {}
+    if pending_ids:
+        progress_by_filing = {
+            progress.filing_id: progress
+            for progress in db.query(SummaryGenerationProgress)
+            .filter(SummaryGenerationProgress.filing_id.in_(pending_ids))
+            .all()
+        }
+
+    wording_by_filing = _wording_changes(db, user_id, heads, section_access)
+
     items: list[dict] = []
     for f in heads:
         company = f.company
@@ -299,7 +489,7 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
         prior = prior_by_filing.get(f.id)
         prior_xbrl = prior_xbrl_by_id.get(prior.id) if prior else None
         what_changed = compute_what_changed(f.xbrl_data, prior_xbrl)
-        status = _summary_status(summary_by_filing.get(f.id), f.id)
+        status = _summary_status(summary_by_filing.get(f.id), progress_by_filing.get(f.id))
         items.append({
             "filing_id": f.id,
             "accession_number": f.accession_number,
@@ -310,5 +500,6 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
             "summary_id": status["summary_id"],
             "summary_status": status["summary_status"],
             "what_changed": what_changed,
+            "wording_changes": wording_by_filing.get(f.id),
         })
     return items

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analysis data notes prototype</title>
+<meta name="description" content="Runnable prototype of the proposed Multi-Period Analysis treatment for source-check states, measured against a reproduction of today's layout, on the real META 12-quarter dataset.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script>try { if (localStorage.getItem('proto-theme') === 'dark') document.documentElement.classList.add('dark') } catch (e) {}</script>
+</head>
+<body>
+<div class="proto-bar" role="group" aria-label="Prototype controls (not part of the design)">
+  <strong>Prototype</strong>
+  <label>State
+    <select id="ctl-state">
+      <option value="clean">1 · clean</option>
+      <option value="legacy" selected>2 · incomplete history</option>
+      <option value="discrepancy">3 · genuine discrepancy</option>
+    </select>
+  </label>
+  <label>View
+    <select id="ctl-mode">
+      <option value="proposed" selected>Proposed</option>
+      <option value="current">Current (reproduction of today's markup)</option>
+    </select>
+  </label>
+  <label>Table window
+    <select id="ctl-window">
+      <option value="12" selected>All 12</option>
+      <option value="6n">Newest 6</option>
+      <option value="6e">Earliest 6</option>
+    </select>
+  </label>
+  <button type="button" id="ctl-theme">Theme: light</button>
+  <button type="button" id="ctl-text">Text: 100%</button>
+  <span class="readout" id="readout" aria-live="polite"></span>
+</div>
+
+<div class="site-header"><span class="mark">EN</span>&nbsp;Earnings<span class="mark">Nerd</span></div>
+
+<main id="page">
+  <header>
+    <div class="page-title"><h1>Multi-Period Analysis</h1><span class="chip pro">Pro</span></div>
+    <p class="lede">Pick a company and up to 10 fiscal years or 12 quarters. Growth, margins, cash, and balance sheet, plus AI-assisted commentary with sources and calculation methods.</p>
+  </header>
+
+  <section class="card card-body" id="picker" aria-labelledby="picker-h">
+    <h2 id="picker-h" class="sr-only">Company and periods</h2>
+    <div id="picker-root"></div>
+  </section>
+
+  <div id="results"></div>
+
+  <p class="disclaimer">EarningsNerd provides financial data and AI-assisted commentary for research, not investment advice or a recommendation to trade securities. Figures may be reported or calculated; sources and methods accompany this analysis. Data and commentary may contain errors or omissions. Check material information against original filings before making investment decisions. EarningsNerd is not affiliated with or endorsed by the SEC. See our <a href="#">Terms</a>.</p>
+</main>
+
+<div class="scrim" id="evidence" data-open="false">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="evidence-title" tabindex="-1">
+    <div class="d-head"><h2 id="evidence-title"></h2><button type="button" class="close" id="evidence-close" aria-label="Close">✕</button></div>
+    <div class="d-body" id="evidence-body"></div>
+  </div>
+</div>
+
+<script src="data/coverage.js"></script>
+<script src="data/clean.js"></script>
+<script src="data/legacy.js"></script>
+<script src="data/discrepancy.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

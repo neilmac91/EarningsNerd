@@ -1,0 +1,63 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 4,
+ "output_sha256": "ab2aefa9377291c016419e0dfdf5e4f97220c38d55c308c00df0bc832544aede",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "REGEN-COV contributed 66.4pp of the FY2021 increase and its disappearance cost 36.3pp in FY2022 , with the FY2022 decline tied to the end of those U.S. product sales .",
+   "passages": [
+    {
+     "id": "P33",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cost of goods sold decreased in 2022, compared to 2021, primarily due to the Company recognizing REGEN-COV net product sales (and corresponding cost of goods sold) in the United States during 2021 and a 2021 payment of $259.6\u00a0million owed in connection with global gross profits under our Roche collaboration agreement; such transactions did not recur in 2022. Cost of goods sold also decreased during 2022 since effective July 1, 2022, as a result of the A&R IO LCA described in Part I, Item 1. \"Business - Collaboration, License, and Other Agreements - Sanofi - Immuno-Oncology\", we are no longer obligated to pay Sanofi for their share of Libtayo U.S. gross profits (during the six months ended June 30, 2022, Cost of goods sold included $70.1 million related to our obligation for Sanofi's share of Libtayo U.S. gross profits compared to $133.0 million for full year 2021)."
+    }
+   ],
+   "label": "partial",
+   "reason": "P33 ties the FY2022 cost of goods sold decline to non-recurring U.S. REGEN-COV sales, not revenue; nothing explains the FY2021 increase."
+  },
+  {
+   "sentence": "Regeneron's share of Sanofi antibody profits rose 33.6% and added 9.3pp, driven by higher Dupixent sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 says the increase in share of profits was driven by higher profits from increased Dupixent sales."
+  },
+  {
+   "sentence": "U.S. EYLEA net product sales fell 42.4% and subtracted 14.2pp, on lower volumes from competitive pressure and the EYLEA HD transition plus a lower net selling price .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 gives lower volumes from competitive pressure and the EYLEA HD transition, plus a lower net selling price."
+  },
+  {
+   "sentence": "The SG&A decline was primarily due to lower charitable contributions to Good Days .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 says SG&A decreased primarily due to lower charitable contributions to Good Days."
+  }
+ ],
+ "cost_usd": 0.029352,
+ "backend": "claude_cli",
+ "input_tokens": 2615,
+ "cached_input_tokens": 0,
+ "output_tokens": 422
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
 interface UseSheetFocusTrapOptions {
   /** When true the trap is engaged: focus is moved in, kept inside, and restored on deactivate. */
@@ -19,7 +19,7 @@ interface UseSheetFocusTrapOptions {
 }
 
 // Standard focusable selector — anything keyboard-reachable, excluding explicitly removed (-1) tabstops.
-const FOCUSABLE_SELECTOR = [
+export const FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
   'input:not([disabled])',
@@ -28,7 +28,8 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
 
-function getFocusable(container: HTMLElement): HTMLElement[] {
+/** Rendered focusables inside `container`, in document order (shared with evidencePopoverKeys). */
+export function getFocusable(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     // "Is rendered" via getClientRects(): robust inside position:fixed containers (the sheet is
     // fixed), where offsetParent can be null even for visible elements. Excludes display:none /
@@ -44,10 +45,20 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
  *  - keeps Tab / Shift+Tab cycling within the container (wraps at both ends);
  *  - closes on Escape.
  *
+ * The trap arms ONCE per activation, like ui/Modal: `onClose` is read through a ref, so a caller that
+ * passes a new callback each render cannot re-run the effect (its cleanup would return focus, then
+ * the re-run would capture an element INSIDE the sheet as "previously focused" and refocus the first
+ * focusable). lessons/frontend-dialog-trap-arms-once-per-open.md
+ *
  * SSR-safe (guards `document`). The caller decides when it's a modal — pass `active` false on
  * desktop (lg+) where the sheet is a static side pane, so nothing is trapped there.
  */
 export function useSheetFocusTrap({ active, containerRef, onClose, restoreFocusRef }: UseSheetFocusTrapOptions): void {
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!active) return
     if (typeof document === 'undefined') return
@@ -69,9 +80,15 @@ export function useSheetFocusTrap({ active, containerRef, onClose, restoreFocusR
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // A key typed inside another modal layer (one stacked over the sheet, or nested in it) belongs
+      // to that layer. ui/Modal already stops Tab/Escape in window capture before they reach this
+      // document-level listener; this covers layers that don't, such as SourceTrace's source sheet.
+      const layer = e.target instanceof Element ? e.target.closest('[aria-modal="true"]') : null
+      if (layer && !layer.contains(container)) return
+
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab') return
@@ -113,7 +130,7 @@ export function useSheetFocusTrap({ active, containerRef, onClose, restoreFocusR
       const restore = restoreFocusRef?.current ?? previouslyFocused
       restore?.focus?.()
     }
-  }, [active, containerRef, onClose, restoreFocusRef])
+  }, [active, containerRef, restoreFocusRef])
 }
 
 export default useSheetFocusTrap

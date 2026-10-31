@@ -1,0 +1,51 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 3,
+ "output_sha256": "f4c589650d10b811ef9f3e253fc5d1fb1dca5ffba19eb0dbf4d59367639d62f1",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2022 was the step change in the top line, up 17.1% on rate cases, favorable weather and volumes, partly offset by an estimated impairment on the Commercial Renewables disposal groups .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher revenues from rate cases, favorable weather and volumes, partially offset by impairment."
+  },
+  {
+   "sentence": "FY2020 was the trough, with net income down 63.3% on coal ash settlement impairments and pandemic-driven volume losses .",
+   "passages": [
+    {
+     "id": "P60",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Electric Utilities and Infrastructure\u2019s variance is primarily due to impairment charges and revenue reductions related to the CCR settlement agreement filed with the NCUC to resolve coal ash cost recovery issues, unfavorable weather and lower volumes driven by impacts from the COVID-19 pandemic, partially offset by base rate adjustments in various jurisdictions. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage mentions impairment charges and pandemic-driven volume losses, but not a 63.3% net income decline."
+  },
+  {
+   "sentence": "FY2022 conversion fell to 20.7% of revenue as rising fuel costs created undercollections financed with borrowings .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage discusses undercollections and borrowings, but not conversion falling to 20.7% of revenue."
+  }
+ ],
+ "cost_usd": 0.000682,
+ "backend": "openai_compat",
+ "input_tokens": 602,
+ "cached_input_tokens": 0,
+ "output_tokens": 144
+}

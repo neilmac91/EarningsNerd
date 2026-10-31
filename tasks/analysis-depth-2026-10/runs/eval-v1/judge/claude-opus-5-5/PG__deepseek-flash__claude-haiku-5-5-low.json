@@ -1,0 +1,86 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A adds useful context: COVID demand in FY2020 and a peer FCF-margin comparison. But it overreaches. It calls the US the engine 'for most of the window' with only three years of data. It applies a segment-level gross-margin passage to the whole company and compares OCF/NI against an FCF/NI median. B labels its inferences as analysis, discloses FY2018 data problems and admits when no cause is given. Both cite $919m payables without visible support."
+   },
+   "cost_usd": 0.138153,
+   "latency_s": 12.947,
+   "input_tokens": 15994,
+   "output_tokens": 794,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A adds useful context: COVID demand in FY2020 and a peer FCF-margin comparison. But it overreaches. It calls the US the engine 'for most of the window' with only three years of data. It applies a segment-level gross-margin passage to the whole company and compares OCF/NI against an FCF/NI median. B labels its inferences as analysis, discloses FY2018 data problems and admits when no cause is given. Both cite $919m payables without visible support.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful depth: the multi-year US contribution trend, the peer FCF margin and the COVID context. But it has more grounding errors. It adds 'tougher US competition', which the passage does not state, and cites a segment-level passage for company gross margin. It compares OCF/NI to the FCF/NI median and calls capex the window high without support. A labels its interpretations as analysis and flags the FY2018 data mismatch. Both cite $919m payables without support."
+   },
+   "cost_usd": 0.136293,
+   "latency_s": 12.194,
+   "input_tokens": 15994,
+   "output_tokens": 701,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds useful depth: the multi-year US contribution trend, the peer FCF margin and the COVID context. But it has more grounding errors. It adds 'tougher US competition', which the passage does not state, and cites a segment-level passage for company gross margin. It compares OCF/NI to the FCF/NI median and calls capex the window high without support. A labels its interpretations as analysis and flags the FY2018 data mismatch. Both cite $919m payables without support.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.274446
+}

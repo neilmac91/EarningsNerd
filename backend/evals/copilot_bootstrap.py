@@ -78,6 +78,9 @@ def configure_environment(database: Path, output: Path) -> None:
         "SECRET_KEY": "source-bootstrap-disposable-test-key-not-for-authentication",
         "SKIP_REDIS_INIT": "true", "ENABLE_HISTORY_BACKFILL_ON_VISIT": "false",
         "EDGAR_LOCAL_DATA_DIR": str(output / "edgar-cache"),
+        # EdgarTools' anchor cache (TOC extraction, which section detection uses) defaults to the
+        # home directory; keep it with the run (E25, lessons/test-conftest-hermetic-env.md).
+        "EDGAR_CACHE_DIR": str(output / "edgar-anchor-cache"),
         "USE_STATEMENT_FINANCIALS": "true", "USE_EDGARTOOLS_SECTIONS": "true",
         "ENABLE_FPI_FILINGS": "true", "AI_FALLBACK_BASE_URL": "", "AI_FALLBACK_MODEL": "",
         # Extraction helpers construct a client on import, but this process never generates.
@@ -151,7 +154,8 @@ async def prepare_source(source: dict, runtime: Any, output: Path) -> dict:
         if not isinstance(xbrl, dict) or not xbrl:
             raise ValueError("xbrl_unavailable")
         stage = "sections"
-        sections = await runtime.xbrl.get_filing_sections(source["accession_number"], source["cik"], source["filing_type"])
+        sections = await runtime.xbrl.get_filing_sections(
+            source["accession_number"], source["filing_type"], html=html)
         result["artifacts"]["sections"] = _artifact(folder, "sections.json", sections)
         # Native parser unavailability is recorded; the production excerpt helper owns fallback.
         stage = "persist"
@@ -167,7 +171,12 @@ async def prepare_source(source: dict, runtime: Any, output: Path) -> dict:
                 document_url=metadata["document_url"], sec_url=metadata.get("sec_url"), xbrl_data=xbrl)
             db.add(filing)
             db.commit()
-            excerpt = runtime.excerpt(db, filing, html, sections=sections)
+            # The builder's own record of where the excerpt came from (excerpt_provenance, E80-C1), kept before the
+            # checks below, so a source one of them refuses keeps it; the runner's preflight reads it against the
+            # golden case.
+            records: list = []
+            excerpt = runtime.excerpt(db, filing, html, sections=sections, on_provenance=records.append)
+            result["excerpt_provenance"] = records[-1] if records else None
             result["artifacts"]["excerpt"] = _artifact(folder, "excerpt.txt", excerpt or "")
             if not excerpt or not excerpt.strip():
                 raise ValueError("excerpt_unavailable")

@@ -1,0 +1,99 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "NEE",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2025 FPL revenue rose 7.7% , mainly on storm cost recovery of about $1.09 billion, partly offset by lower fuel recovery .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in operating revenues in 2025 reflects higher storm cost recovery revenues of approximately $1,091\u00a0million primarily associated with the completion of surcharges for Hurricanes Debby, Helene and Milton, as discussed above, as well as an increase of $217\u00a0million in revenues from the storm protection plan cost recovery clause as a result of increased investments. The increase in operating revenues in 2025 was partly offset by a decrease in fuel cost recovery revenues of approximately $353\u00a0million primarily as a result of lower fuel rates. In 2025 and 2024, cost recovery clauses contributed approximately $497\u00a0million and $417\u00a0million, respectively, to FPL\u2019s net income."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 attributes the 2025 revenue increase to about $1,091M storm cost recovery, partly offset by about $353M lower fuel recovery."
+  },
+  {
+   "sentence": "The 5.2pp drop in FY2024  followed lower storm cost recovery of about $1.09 billion and fuel recovery down about $526 million .",
+   "passages": [
+    {
+     "id": "P34",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The decrease in operating revenues in 2024 reflects lower storm cost recovery revenues of approximately $1,090 million primarily associated with the completion of surcharges for Hurricanes Ian and Nicole, as discussed above. The decrease in operating revenues in 2024 was also impacted by a decrease in fuel cost recovery revenues of approximately $526 million primarily as a result of lower fuel and energy prices. In 2024 and 2023, cost recovery clauses contributed approximately $417 million and $369 million, respectively, to FPL\u2019s net income."
+    }
+   ],
+   "label": "supported",
+   "reason": "P34 attributes the 2024 revenue decrease to about $1,090M lower storm recovery and about $526M lower fuel recovery."
+  },
+  {
+   "sentence": "The -17.7% effective tax rate  reflects clean energy tax credits that rose about $585 million .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's effective income tax rate for 2025 and 2024 was approximately (343)% and (165)%, respectively, and is primarily based on the composition of pretax income in 2025 and 2024 as well as the impact of clean energy tax credits. PTCs from wind and solar projects and ITCs from solar, battery storage and certain wind projects are included in NEER\u2019s earnings. PTCs are recognized as wind and solar energy is generated and sold based on a per kWh rate prescribed in applicable federal and state statutes. During the year ended December 31, 2025, clean energy tax credits increased by approximately $585\u00a0million reflecting growth in NEER's business. See Note\u00a01 \u2013 Income Taxes for a discussion of clean energy tax credits, Note\u00a05 and Note\u00a016."
+    }
+   ],
+   "label": "partial",
+   "reason": "P11 ties the $585M credit increase to NEER's (343)% rate, a different segment from the cited -17.7% rate."
+  },
+  {
+   "sentence": "Other income and expense widened from -$1.44 billion  to -$3.75 billion ; the filing cites about $1.00 billion of after-tax hedge losses .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results decreased $1,256 million during 2025 primarily due to unfavorable after-tax impacts of approximately $1,002 million, as compared to the prior year, related to non-qualifying hedge activity as a result of changes in the fair value of interest rate derivative instruments used to manage interest rate and foreign currency exchange rate risk associated primarily with outstanding and expected future debt issuances and borrowings (see Note\u00a03) as well as higher average debt balances."
+    }
+   ],
+   "label": "partial",
+   "reason": "P8 cites $1,002M hedge losses for Corporate and Other results, not for the consolidated other income/expense line."
+  },
+  {
+   "sentence": "D&A rose to 25.5% of revenue from 23.2% , mainly on storm cost amortization of about $1.09 billion .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation and amortization expense increased $951 million during 2025 primarily reflecting higher amortization of deferred storm costs, primarily associated with Hurricanes Debby, Helene and Milton, as discussed above, of approximately $1,090\u00a0million and increased depreciation related to higher plant in service balances, partly offset by the impact of reserve amortization. Reserve amortization, or reversal of such amortization, reflects adjustments to accrued asset removal costs provided under the 2021 rate agreement in order to achieve the targeted regulatory ROE. Reserve amortization is recorded as either an increase or decrease to accrued asset removal costs which is reflected in noncurrent regulatory assets on NEE's and FPL's consolidated balance sheets. As of December\u00a031, 2025, approximately $303\u00a0million of reserve amortization remains available for future amortization through the RSM under the 2025 rate agreement."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16 attributes the D&A increase mainly to about $1,090M higher amortization of deferred storm costs."
+  },
+  {
+   "sentence": "Operating cash flow fell 5.8% , partly because the shift to net under-recovery of clause costs reduced it by about $89 million .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenues from fuel and other cost recovery clauses and pass-through costs, such as franchise fees, revenue taxes and storm-related surcharges, are largely a pass-through of costs. Such revenues also include a return on investment allowed to be recovered through the cost recovery clauses on certain assets, primarily related to certain solar, environmental projects, storm protection plan investments and the unamortized balance of the regulatory asset associated with FPL's acquisition of a generation facility. See Item\u00a01. Business \u2013 FPL \u2013 FPL Regulation \u2013 FPL Electric Rate Regulation \u2013 Cost Recovery Clauses. Under-recovery or over-recovery of cost recovery clause and other pass-through costs (deferred clause and franchise expenses and revenues) can significantly affect NEE's and FPL's operating cash flows. During 2025, the change from a net over-recovery of cost recovery clauses to a net under-recovery of cost recovery clauses impacted FPL's operating cash flows by approximately $89 million, primarily related to higher fuel prices."
+    }
+   ],
+   "label": "partial",
+   "reason": "P19 gives the $89M under-recovery impact on FPL's operating cash flows, not as a cause of the consolidated decline."
+  },
+  {
+   "sentence": "The filings tie the FY2025 Corporate and Other drop to higher average debt and hedge losses , pointing to financing cost rather than operations .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results decreased $1,256 million during 2025 primarily due to unfavorable after-tax impacts of approximately $1,002 million, as compared to the prior year, related to non-qualifying hedge activity as a result of changes in the fair value of interest rate derivative instruments used to manage interest rate and foreign currency exchange rate risk associated primarily with outstanding and expected future debt issuances and borrowings (see Note\u00a03) as well as higher average debt balances."
+    },
+    {
+     "id": "P25",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results in 2025 decreased primarily related to higher interest expense due to unfavorable non-qualifying hedge activity compared to 2024 as well as higher average debt balances."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 and P25 cite unfavorable hedge activity in interest expense and higher average debt balances, both financing costs."
+  }
+ ],
+ "cost_usd": 0.048092
+}

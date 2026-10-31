@@ -1,99 +1,103 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { useRef } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { CircleNotchIcon, CreditCardIcon, SparkleIcon } from '@/lib/icons'
+import { LightningIcon } from '@/lib/icons'
 import {
   getSubscriptionStatus,
   getUsage,
   createPortalSession,
 } from '@/features/subscriptions/api/subscriptions-api'
-import { formatLocalDate } from '@/lib/format'
-// NOTE: current_period_end / trial_end are genuine Stripe INSTANTS, not calendar dates, so
-// formatLocalDate here reports their UTC calendar day. That is the intended read for a billing
-// boundary (it matches what Stripe shows), but it is the mirror image of the filing-date rule —
-// do not cite these two lines as precedent for rendering a calendar date.
+import { formatInstant } from '@/lib/format'
+// current_period_end and trial_end are Stripe INSTANTS, so both lines name the day each falls on in the
+// reader's own time zone: the day the plan renews or the trial ends where they are. A calendar date
+// (filing_date) keeps its own day through formatLocalDate instead.
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { MissingValue } from '@/components/ui/MissingValue'
 import { Notice } from '@/components/ui/Notice'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
-
-function daysUntil(value: string | null): number | null {
-  if (!value) return null
-  const end = new Date(value).getTime()
-  if (Number.isNaN(end)) return null
-  return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)))
-}
+import { untilPageReturns } from '@/lib/untilPageReturns'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 export default function BillingPanel() {
-  const { data: user, isPending: identityPending, isError: identityError, refetch: refetchIdentity, isFetching: identityFetching } = useQuery({
+  const identityQuery = useQuery({
     queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false,
   })
-  const { data: sub, isError, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
+  const { data: user, isPending: identityPending } = identityQuery
+  const subscriptionQuery = useQuery({
     queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     enabled: !!user,
     retry: false,
   })
+  const { data: sub } = subscriptionQuery
+  // A failure keeps its Notice, and a focused Retry in it, through any refetch until data replaces it.
+  const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(user?.id))
+  // Where a Retry's focus goes when its Notice clears (RetryButton). Both branches render this heading
+  // at the same place, so it is the same node across the swap.
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const { data: usage } = useQuery({ queryKey: queryKeys.usage.byUser(user?.id), queryFn: getUsage, enabled: !!user, retry: false })
 
   const portal = useMutation({
     mutationFn: createPortalSession,
     onSuccess: (data) => {
-      if (data.url) window.location.href = data.url
+      if (!data.url) return
+      window.location.href = data.url
+      // Pending while the page leaves for Stripe: Manage billing keeps focus, and released any sooner
+      // a second Enter would open a second portal session.
+      return untilPageReturns()
     },
   })
 
   // Surface a failure with nothing to show rather than silently falling back to "Free" — that
   // would mislead a Pro subscriber on a transient network error. A failed REFRESH of retained
   // same-account data is different: the last resolved plan stays visible with a notice below.
-  const identityUnavailable = identityError && user === undefined
-  const subscriptionUnavailable = isError && sub === undefined
+  const identityUnavailable = identityFailure.failed && user === undefined
+  const subscriptionUnavailable = subscriptionFailure.failed && sub === undefined
   if (identityUnavailable || subscriptionUnavailable) {
     return (
-      <Card className="p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
+      <Card className="p-cap-6 mb-6">
+        <div className="mb-4">
+          <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
         </div>
         <Notice
           variant="error"
           title="Failed to load billing information"
           description="Please try again."
           action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void (identityUnavailable ? refetchIdentity() : refetchSubscription())}
-              loading={identityUnavailable ? identityFetching : subscriptionFetching}
-              loadingText="Retrying…"
-            >
-              Retry
-            </Button>
+            <RetryButton size="sm" failures={[identityUnavailable ? identityFailure : subscriptionFailure]} focusTarget={headingRef} />
           }
         />
+        <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          Need help? Email{' '}
+          <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.billing}</a>.
+        </p>
       </Card>
     )
   }
 
   if (user === null) return null
 
-  const subscriptionStale = isError && sub !== undefined
+  const subscriptionStale = subscriptionFailure.failed && sub !== undefined
 
   const isPro = Boolean(sub?.is_pro)
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
   const isTrialing = isPro && sub?.status === 'trialing'
-  const trialDays = isTrialing ? daysUntil(sub?.trial_end ?? null) : null
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
+  // An unreadable trial_end formats to '', and the line then shows nothing, as TrialBanner does.
+  const trialEndsOn = isTrialing ? formatInstant(sub?.trial_end, 'MMM d, yyyy') : ''
 
   return (
-    <Card className="p-6 mb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
+    <Card className="p-cap-6 mb-6">
+      <div className="mb-4">
+        <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
       </div>
 
       {identityPending || sub === undefined ? (
@@ -106,9 +110,7 @@ export default function BillingPanel() {
               title="Couldn't refresh billing details"
               description="Showing your last loaded details."
               action={
-                <Button variant="secondary" size="sm" onClick={() => void refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
-                  Retry
-                </Button>
+                <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={headingRef} />
               }
             />
           )}
@@ -121,7 +123,7 @@ export default function BillingPanel() {
                   carries state text like "Pro (trial)" that must stay sentence case. */}
               <Badge
                 variant={isPro ? 'brand' : 'free'}
-                icon={isPro ? <SparkleIcon className="h-3.5 w-3.5" /> : null}
+                icon={isPro ? <LightningIcon className="h-3.5 w-3.5" /> : null}
               >
                 {planLabel}
               </Badge>
@@ -135,7 +137,7 @@ export default function BillingPanel() {
                   ? usage.summaries_limit == null
                     ? `${usage.summaries_used} · Unlimited`
                     : `${usage.summaries_used} / ${usage.summaries_limit}`
-                  : '—'}
+                  : <MissingValue />}
               </span>
             </div>
 
@@ -146,17 +148,16 @@ export default function BillingPanel() {
                   {sub.cancel_at_period_end ? 'Access until' : 'Renews on'}
                 </span>
                 <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  {formatLocalDate(sub.current_period_end, 'MMM d, yyyy')}
+                  {formatInstant(sub.current_period_end, 'MMM d, yyyy')}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Trial countdown */}
-          {isTrialing && trialDays !== null && (
-            <div className="rounded-lg border border-brand-border bg-brand-weak dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              <strong>{trialDays} {trialDays === 1 ? 'day' : 'days'} left</strong> in your Pro trial
-              {sub?.trial_end ? ` · ends ${formatLocalDate(sub.trial_end, 'MMM d, yyyy')}` : ''}.
+          {/* Trial end: the date, never a countdown (docs/voice-and-style.md: patient). */}
+          {trialEndsOn && (
+            <div className="rounded-lg border border-brand-border bg-brand-weak dark:border-white/10 dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Pro trial ends {trialEndsOn}.
             </div>
           )}
 
@@ -172,18 +173,21 @@ export default function BillingPanel() {
               the customer id, and send everyone else to /pricing to subscribe. */}
           <div className="border-t border-border-light dark:border-border-dark pt-3">
             {sub?.stripe_customer_id ? (
+              /* `loading`, not `disabled`, while the portal session is requested: a focused button
+                 that turns natively disabled is blurred to <body> in Chromium. */
               <Button
                 variant="secondary"
+                wrap
+                className="max-w-full"
                 onClick={() => portal.mutate()}
-                disabled={portal.isPending}
+                loading={portal.isPending}
               >
-                {portal.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
                 Manage billing
               </Button>
             ) : (
               <Link
                 href="/pricing"
-                className={buttonVariants({ variant: 'primary' })}
+                className={buttonVariants({ variant: 'primary', wrap: true, className: 'max-w-full text-center' })}
               >
                 {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
               </Link>
@@ -196,6 +200,10 @@ export default function BillingPanel() {
           </div>
         </div>
       )}
+      <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        Billing questions? Email{' '}
+        <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.billing}</a>.
+      </p>
     </Card>
   )
 }

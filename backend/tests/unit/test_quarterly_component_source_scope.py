@@ -12,17 +12,22 @@ from unittest.mock import AsyncMock
 from lxml import html
 import pytest
 
-from app.services.ai.statement_relationship import COMPONENT_LIMITATION, OWNED_FIELD
+from app.services.ai.statement_relationship import CAUSE_LIMITATION, COMPONENT_LIMITATION, OWNED_FIELD
 from app.services.openai_service import OpenAIService
 from app.services.summary_sections import render_sections, sections_to_markdown
-from tests.unit.test_quarterly_component_withholding import CLAIM, SUFFIX, acquire, original, sections
+from tests.unit.test_quarterly_component_withholding import (
+    CAUSE_CLAIM, CAUSE_PREFIX, CAUSE_SUFFIX, CLAIM, SUFFIX, acquire, original, sections,
+)
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("location", [
     "heading_tail", "before_heading", "enclosing_block", "wrapper_tail", "before_page_hr",
 ])
-async def test_governing_source_qualifications_only_allow_explicit_withholding(location):
+@pytest.mark.parametrize("claim,suffix,limitation", [
+    (CLAIM, SUFFIX, COMPONENT_LIMITATION), (CAUSE_CLAIM, CAUSE_SUFFIX, CAUSE_LIMITATION),
+])
+async def test_governing_source_qualifications_only_allow_explicit_withholding(location, claim, suffix, limitation):
     document = html.fromstring(original().encode())
     table = document.xpath('/html/body/div[56]/table')[0]
     wrapper = table.getparent()
@@ -54,7 +59,7 @@ async def test_governing_source_qualifications_only_allow_explicit_withholding(l
     assert context is not None  # matching is possible; assertion authority is not established
     assert context["assertion_scope"] == "not_established"
     service = OpenAIService()
-    supplied = {"sections": sections(), "metadata": {}}
+    supplied = {"sections": sections(claim), "metadata": {}}
     service.generate_structured_summary = AsyncMock(return_value=copy.deepcopy(supplied))
     result = await service.summarize_filing(changed, "Palantir", "10-Q", statement_source=context)
     raw = result["raw_summary"]
@@ -62,13 +67,16 @@ async def test_governing_source_qualifications_only_allow_explicit_withholding(l
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
     preview = service._partial_markdown_preview(json.dumps(supplied), None, statement_source=context)
     owned = raw["sections"]["earnings_quality"][OWNED_FIELD]
-    assert owned["paragraphs"] == [COMPONENT_LIMITATION]
-    assert owned["preserved_authored_suffix"] == SUFFIX
+    assert owned["paragraphs"] == [limitation]
+    assert owned["preserved_authored_suffix"] == suffix
     for visible in [result["business_overview"], result["management_discussion"], preview,
                     sections_to_markdown(render_sections(raw))]:
-        assert COMPONENT_LIMITATION in visible
-        assert CLAIM not in visible
-        assert SUFFIX.strip() in visible
+        assert limitation in visible
+        assert claim not in visible
+        assert suffix.strip() in visible
+        if claim == CAUSE_CLAIM:
+            assert CAUSE_PREFIX + "." in visible
+            assert owned["preserved_authored_prefix"] == CAUSE_PREFIX + "."
         assert "Net income was" not in visible
         assert "reconciles to" not in visible
         assert "Unaudited consolidated statement" not in visible
@@ -76,7 +84,7 @@ async def test_governing_source_qualifications_only_allow_explicit_withholding(l
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
-    "quarterly", "quarterly_qualified", "annual", "absent", "unknown_kind", "no_kind", "empty",
+    "quarterly", "quarterly_qualified", "quarterly_cause_exclusion", "annual", "absent", "unknown_kind", "no_kind", "empty",
 ])
 async def test_actual_judge_and_acceptance_consumers_omit_only_quarterly_operands(monkeypatch, case):
     from app.services.edgar.statement_context import acquire_statement_context
@@ -89,8 +97,14 @@ async def test_actual_judge_and_acceptance_consumers_omit_only_quarterly_operand
             document.xpath('/html/body/div[56]/table')[0].getparent().getprevious().tail = (
                 "The following statement is hypothetical and does not report actual results."
             )
+        if case == "quarterly_cause_exclusion":
+            paragraph = html.Element("div")
+            paragraph.text = CAUSE_CLAIM.removesuffix(CAUSE_SUFFIX)
+            document.xpath("//body")[0].append(paragraph)
         source = acquire(html.tostring(document).decode())
         assert source is not None and source["assertion_scope"] == "not_established"
+        if case == "quarterly_cause_exclusion":
+            assert source["complete_other_income_explanations"] == [{"component": "gain", "asset": "privately-held"}]
     elif case == "annual":
         source = acquire_statement_context(
             annual_original("meli").decode(), accession=SOURCES["meli"][0],

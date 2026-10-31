@@ -22,7 +22,7 @@ export default function SupersededFilingNotice({
       {replacement && (
         <Link
           href={`/filing/${replacement.id}`}
-          className="text-sm font-medium text-brand-strong underline underline-offset-2 dark:text-brand-strong-dark"
+          className="rounded-sm text-sm font-medium text-brand-strong underline underline-offset-2 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
         >
           View amendment
         </Link>

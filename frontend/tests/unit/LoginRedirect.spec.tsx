@@ -23,6 +23,8 @@ vi.mock('@/features/auth/components/AuthShell', () => ({
 }))
 vi.mock('@/features/auth/components/SocialAuthButtons', () => ({ default: () => null }))
 vi.mock('@/features/auth/components/TurnstileWidget', () => ({ default: () => null }))
+// The page's registration read (its link for a visitor without an account) is answered here, never by the network.
+vi.mock('@/features/marketing/api/access-api', () => ({ getRegistrationConfig: async () => null }))
 
 function renderLogin() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -33,7 +35,7 @@ function submitLogin() {
   fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }))
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'reader@example.com' } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'test-password' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 }
 
 describe('completed email-login redirect consumption', () => {
@@ -75,7 +77,7 @@ describe('completed email-login redirect consumption', () => {
     await screen.findByText('Credentials rejected')
     expect(mockPush).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/pricing?billing=yearly'))
     expect(consumePostAuthRedirect()).toBeNull()
   })

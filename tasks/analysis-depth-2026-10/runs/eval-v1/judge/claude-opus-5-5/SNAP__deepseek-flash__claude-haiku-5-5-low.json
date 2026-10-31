@@ -1,0 +1,86 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A's sources do not support three of its claims. It says debt 'rose' to $3,536.8m without support. It describes capex as 'team workspaces, not capacity expansion', but the cited passage is truncated before saying so. It attributes other-revenue growth to subscribers, which B also does. Draft A is richer on geography and FY2017 stock compensation, but Draft B cites interest expense, labels its own analysis, and states plainly where the passages are silent."
+   },
+   "cost_usd": 0.146485,
+   "latency_s": 14.579,
+   "input_tokens": 16583,
+   "output_tokens": 975,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A's sources do not support three of its claims. It says debt 'rose' to $3,536.8m without support. It describes capex as 'team workspaces, not capacity expansion', but the cited passage is truncated before saying so. It attributes other-revenue growth to subscribers, which B also does. Draft A is richer on geography and FY2017 stock compensation, but Draft B cites interest expense, labels its own analysis, and states plainly where the passages are silent.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B goes deeper, with the FY2017 stock-comp cause, geographic mix, the peer margin gap, G&A and capex/D&A. But it adds unsupported claims. The capex 'leased facilities\u2026 not capacity expansion' text is absent from the truncated passage, and 'debt rose' conflicts with the cited repurchase. Both drafts state the subscriber-growth cause without support. A has fewer such gaps, discloses unexplained items, labels its analysis and ranks red flags. Grounding tips it to A."
+   },
+   "cost_usd": 0.148477,
+   "latency_s": 15.036,
+   "input_tokens": 16587,
+   "output_tokens": 1073,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B goes deeper, with the FY2017 stock-comp cause, geographic mix, the peer margin gap, G&A and capex/D&A. But it adds unsupported claims. The capex 'leased facilities\u2026 not capacity expansion' text is absent from the truncated passage, and 'debt rose' conflicts with the cited repurchase. Both drafts state the subscriber-growth cause without support. A has fewer such gaps, discloses unexplained items, labels its analysis and ranks red flags. Grounding tips it to A.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.294962
+}

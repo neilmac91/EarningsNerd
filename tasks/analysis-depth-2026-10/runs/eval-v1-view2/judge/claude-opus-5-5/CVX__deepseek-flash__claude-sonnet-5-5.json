@@ -1,0 +1,86 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A compares operating-cash-flow/net income (2.76x) with a cited free-cash-flow/net-income median (1.10x), which is a mislabelled comparison. It also presents net cash and its peer rank uncritically, though debt data after FY2021 is broken. B flags that debt gap and labels its analysis. It explains the FY2025 margin drop from the cited pre-tax passage and adds the payout history. Both stretch the FY2022 income passage to explain revenue. B's 'cash-burn candidate' item is awkward, so A reads cleaner."
+   },
+   "cost_usd": 0.133145,
+   "latency_s": 12.56,
+   "input_tokens": 15238,
+   "output_tokens": 846,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A compares operating-cash-flow/net income (2.76x) with a cited free-cash-flow/net-income median (1.10x), which is a mislabelled comparison. It also presents net cash and its peer rank uncritically, though debt data after FY2021 is broken. B flags that debt gap and labels its analysis. It explains the FY2025 margin drop from the cited pre-tax passage and adds the payout history. Both stretch the FY2022 income passage to explain revenue. B's 'cash-burn candidate' item is awkward, so A reads cleaner.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft B has two grounding problems. It compares OCF/net income of 2.76x against a 1.10x median that is actually the FCF/net income median. It also states as fact that payouts were 'funded partly' by debt, which no source says. Draft A ties the margin decline to the cited pre-tax drivers and flags that the debt data look incomplete, so net cash and its peer rank may be overstated. B gives that ranking without caveat. B reads slightly more cleanly."
+   },
+   "cost_usd": 0.137257,
+   "latency_s": 13.832,
+   "input_tokens": 15242,
+   "output_tokens": 1050,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft B has two grounding problems. It compares OCF/net income of 2.76x against a 1.10x median that is actually the FCF/net income median. It also states as fact that payouts were 'funded partly' by debt, which no source says. Draft A ties the margin decline to the cited pre-tax drivers and flags that the debt data look incomplete, so net cash and its peer rank may be overstated. B gives that ranking without caveat. B reads slightly more cleanly.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.270402
+}

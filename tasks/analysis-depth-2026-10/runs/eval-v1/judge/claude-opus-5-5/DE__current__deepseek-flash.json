@@ -1,0 +1,86 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is far deeper, but several of its causal claims fail against its own sources. Its Wirtgen 12% figure is absent from [5]. [35] says production costs were favorable, not unfavorable. 'Moderating market conditions' in [19] explains price, not volume. It compares OCF/NI to an FCF/NI median and calls net debt a net cash position. A is shallow, restating the table, but fully supported. Grounding is weighted first."
+   },
+   "cost_usd": 0.099377,
+   "latency_s": 12.921,
+   "input_tokens": 10862,
+   "output_tokens": 908,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is far deeper, but several of its causal claims fail against its own sources. Its Wirtgen 12% figure is absent from [5]. [35] says production costs were favorable, not unfavorable. 'Moderating market conditions' in [19] explains price, not volume. It compares OCF/NI to an FCF/NI median and calls net debt a net cash position. A is shallow, restating the table, but fully supported. Grounding is weighted first.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is far deeper, but several claims fail their sources. The Wirtgen 12% figure is not in passage [5]. It says production costs were unfavorable when [35] says favorable. It attributes the volume drop to 'moderating market conditions', which [19] links only to price. It compares OCF/NI with an FCF/NI median. B is thin restatement but fully supported. Under grounding-first weighting, B edges ahead."
+   },
+   "cost_usd": 0.099665,
+   "latency_s": 12.666,
+   "input_tokens": 10868,
+   "output_tokens": 920,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A is far deeper, but several claims fail their sources. The Wirtgen 12% figure is not in passage [5]. It says production costs were unfavorable when [35] says favorable. It attributes the volume drop to 'moderating market conditions', which [19] links only to price. It compares OCF/NI with an FCF/NI median. B is thin restatement but fully supported. Under grounding-first weighting, B edges ahead.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "overall": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  }
+ },
+ "cost_usd": 0.199042
+}

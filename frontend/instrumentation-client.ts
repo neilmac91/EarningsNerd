@@ -4,7 +4,11 @@ import {
   SENTRY_CONSOLE_LOG_LEVELS,
   SENTRY_DATA_COLLECTION,
   SENTRY_REPLAY_SAMPLE_RATES,
+  SENTRY_TELEMETRY_PRIVACY,
 } from "./lib/sentryConfig";
+import { installTelemetryNavigationGuard, protectTelemetryRoute, sanitizeTelemetryUrl } from './lib/telemetryPrivacy'
+
+installTelemetryNavigationGuard()
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -14,6 +18,7 @@ Sentry.init({
   environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || undefined,
   dataCollection: SENTRY_DATA_COLLECTION,
   ...SENTRY_REPLAY_SAMPLE_RATES,
+  ...SENTRY_TELEMETRY_PRIVACY,
   integrations: [
     // v11 defaults to one browser session per page load; retain v10's route lifecycle.
     Sentry.browserSessionIntegration({ lifecycle: SENTRY_BROWSER_SESSION_LIFECYCLE }),
@@ -22,4 +27,8 @@ Sentry.init({
   ],
 });
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+export const onRouterTransitionStart: typeof Sentry.captureRouterTransitionStart = (url, ...args) => {
+  // Runs before the router changes the address or renders the sensitive page.
+  protectTelemetryRoute(url)
+  Sentry.captureRouterTransitionStart(sanitizeTelemetryUrl(url), ...args)
+}

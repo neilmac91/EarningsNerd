@@ -241,7 +241,7 @@ def _new_company(db):
     from app.models import Company
 
     suffix = uuid.uuid4().hex[:8]
-    company = Company(cik=suffix, ticker=("T" + suffix[:4]).upper(), name=f"Co {suffix}")
+    company = Company(cik=suffix, ticker=("T" + suffix).upper(), name=f"Co {suffix}")
     db.add(company)
     db.commit()
     db.refresh(company)
@@ -512,8 +512,7 @@ _BACKFILL_STD = {
 
 
 def _fake_extract(xbrl):
-    # Only our marked filing yields metrics, so the test is isolated from any other filings that
-    # may carry xbrl_data in the shared test DB.
+    # Several tests use this marker; each backfill also scopes its pass to its own company ticker.
     if isinstance(xbrl, dict) and xbrl.get("mark") == "X":
         return _BACKFILL_STD
     return {}
@@ -559,7 +558,7 @@ class TestBackfill:
         from datetime import datetime
 
         from app.database import SessionLocal
-        from app.models import Filing
+        from app.models import Company, Filing
 
         db = SessionLocal()
         cid = _new_company(db)
@@ -575,13 +574,14 @@ class TestBackfill:
         db.add(filing)
         db.commit()
 
-        svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        ticker = db.get(Company, cid).ticker
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         db.refresh(filing)
         assert filing.processed_facts_at is not None  # stamped after normalization
         stamped_at = filing.processed_facts_at
 
         # An incremental pass skips already-stamped filings (timestamp unchanged).
-        svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True, cross_check=False)
+        svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True, cross_check=False, tickers=[ticker])
         db.refresh(filing)
         assert filing.processed_facts_at == stamped_at
         db.close()
@@ -707,7 +707,8 @@ class TestBackfill:
         db = SessionLocal()
         cid = _new_company(db)
         filing = self._marked_filing(db, cid, "auth")
-        svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        ticker = db.get(Company, cid).ticker
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
         row.reconciled = False  # the local gate says False; pretend the SEC confirmed it below
         db.commit()
@@ -715,7 +716,6 @@ class TestBackfill:
         filing.processed_facts_at = None
         db.commit()
 
-        ticker = db.get(Company, cid).ticker
         # Sanity: with the fetch available (empty authority) the audit would flip the flag.
         stats_with = svc.backfill_facts(
             db, extract=_fake_extract, companyfacts_fetcher=lambda cik: {"facts": {}},
@@ -736,11 +736,13 @@ class TestBackfill:
 
     def test_default_backfill_stats_shape_is_unchanged(self):
         from app.database import SessionLocal
+        from app.models import Company
 
         db = SessionLocal()
         cid = _new_company(db)
         self._marked_filing(db, cid, "shape")
-        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        ticker = db.get(Company, cid).ticker
+        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         assert set(stats) == {"filings_processed", "facts_inserted", "facts_skipped",
                               "facts_rejected", "extract_errors"}
         db.close()
@@ -806,6 +808,21 @@ class TestExtractAuthoritative:
         ]}}}}}
         assert ("revenue", date(2024, 9, 30)) not in svc.extract_authoritative_values(cf)
 
+    @pytest.mark.parametrize("form", ["DEF 14A", "PRE 14C"])
+    def test_a_later_proxy_item_is_never_the_authority(self, form):
+        # FedEx's shape: the 10-K's FY2025 net income, then a proxy's pay-versus-performance table
+        # listed after it, in dollars rather than millions. The 10-K's value stays the authority, so
+        # the cross-check confirms a parsed 10-K figure instead of replacing it with 4,092 dollars.
+        year = {"start": "2024-06-01", "end": "2025-05-31"}
+        cf = {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": [
+            {**year, "val": 4_092e6, "form": "10-K", "filed": "2025-07-20"},
+            {**year, "val": 4_092.0, "form": form, "filed": "2025-08-11"},
+        ]}}}}}
+        auth = svc.extract_authoritative_values(cf)
+        assert auth == {("net_income", date(2025, 5, 31)): 4_092e6}
+        out = svc.cross_check_facts([_cfact("net_income", 4_092e6, period_end=date(2025, 5, 31))], auth)
+        assert (out[0]["value"], out[0]["source"]) == (4_092e6, "edgar_xbrl")
+
 
 def _cfact(concept, value, reconciled=True, period_end=date(2024, 12, 31)):
     return {
@@ -858,7 +875,7 @@ class TestBackfillCrossCheck:
         from datetime import datetime
 
         from app.database import SessionLocal
-        from app.models import Filing, FinancialFact
+        from app.models import Company, Filing, FinancialFact
 
         db = SessionLocal()
         cid = _new_company(db)
@@ -882,7 +899,8 @@ class TestBackfillCrossCheck:
         def _fetcher(_cik):
             return _COMPANYFACTS
 
-        svc.backfill_facts(db, extract=_extract, companyfacts_fetcher=_fetcher)
+        ticker = db.get(Company, cid).ticker
+        svc.backfill_facts(db, extract=_extract, companyfacts_fetcher=_fetcher, tickers=[ticker])
 
         row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").first()
         assert row is not None
@@ -899,9 +917,9 @@ class TestGetFilingFundamentals:
         from app.models import Company, Filing
 
         suffix = uuid.uuid4().hex[:8]
-        company = db.query(Company).filter_by(ticker=("F" + suffix[:4]).upper()).first()
+        company = db.query(Company).filter_by(ticker=("F" + suffix).upper()).first()
         if company is None:
-            company = Company(cik=suffix, ticker=("F" + suffix[:4]).upper(), name=f"FF {suffix}")
+            company = Company(cik=suffix, ticker=("F" + suffix).upper(), name=f"FF {suffix}")
             db.add(company)
             db.commit()
             db.refresh(company)
@@ -948,22 +966,23 @@ class TestGetFilingFundamentals:
         db.close()
 
     def test_excludes_non_annual_facts(self):
-        # The series must be annual-only: a quarterly fact (fiscal_period=None, as a 10-Q yields) must
-        # never surface next to the FY value for the same year under the chart's "Annual figures" label.
+        # The series must be annual-only: a quarterly fact (fiscal_period=None) stored under the
+        # filing's own accession must never surface next to the FY value for the same year under the
+        # chart's "Annual figures" label. The writers stamp a filing's rows with its own accession.
         from app.database import SessionLocal
 
         db = SessionLocal()
         acc = uuid.uuid4().hex[:8]
         _company, filing = self._company_and_filing(db, f"QTR-{acc}")
 
-        common = {"concept": "revenue", "unit": "USD", "form": "10-K",
+        common = {"concept": "revenue", "unit": "USD", "form": "10-K", "accession": filing.accession_number,
                   "company_id": _company.id, "filing_id": filing.id, "source": "edgar_xbrl"}
         svc.upsert_facts(db, [
             {**common, "period_end": date(2024, 12, 31), "fiscal_year": 2024, "fiscal_period": "FY",
-             "value": 400.0, "accession": f"FY-{acc}"},
+             "value": 400.0},
             # A Q3 point in the same fiscal_year — annual-only filter must drop it.
             {**common, "period_end": date(2024, 9, 30), "fiscal_year": 2024, "fiscal_period": None,
-             "form": "10-Q", "value": 100.0, "accession": f"Q3-{acc}"},
+             "value": 100.0},
         ])
 
         out = svc.get_filing_fundamentals(db, filing.id)
@@ -1008,7 +1027,7 @@ class TestRemediateIndustryFacts:
         from app.models import Company, Filing
 
         suffix = uuid.uuid4().hex[:8]
-        company = Company(cik=suffix, ticker=("R" + suffix[:4]).upper(),
+        company = Company(cik=suffix, ticker=("R" + suffix).upper(),
                           name=f"Bank {suffix}", sic="6022")
         db.add(company)
         db.commit()
@@ -1102,7 +1121,7 @@ class TestBackfillCompanySic:
     def _company(self, db, sic=None):
         from app.models import Company
         suffix = uuid.uuid4().hex[:8]
-        c = Company(cik=suffix, ticker=("S" + suffix[:4]).upper(), name=f"Co {suffix}", sic=sic)
+        c = Company(cik=suffix, ticker=("S" + suffix).upper(), name=f"Co {suffix}", sic=sic)
         db.add(c)
         db.commit()
         db.refresh(c)

@@ -1,0 +1,118 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "RIVN",
+ "split": "holdout",
+ "claims": 9,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2022 revenue jump of 2914.5% came primarily from 19,412 more vehicle deliveries .",
+   "passages": [
+    {
+     "id": "P67",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenues increased for the year ended December 31, 2022, compared to the year ended December 31, 2021 primarily due to increased deliveries of 19,412 vehicles."
+    }
+   ],
+   "label": "supported",
+   "reason": "P67 attributes the FY2022 revenue increase primarily to 19,412 more vehicle deliveries."
+  },
+  {
+   "sentence": "Gross profit turned positive at $144 million in FY2025 from -$1.20 billion in FY2024, and the filing credits higher selling prices and lower cost per vehicle for the automotive improvement .",
+   "passages": [
+    {
+     "id": "P20",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Automotive gross profit losses improved for the year ended December 31, 2025, primarily due to the higher average selling prices and reductions in the cost per vehicle noted above."
+    }
+   ],
+   "label": "supported",
+   "reason": "P20 credits higher average selling prices and lower cost per vehicle for the improvement in automotive gross profit."
+  },
+  {
+   "sentence": "The filing attributes the increase to vehicle electrical architecture and software development services, remarketing sales, and repair and maintenance services .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Software and services revenues increased significantly for the year ended December 31, 2025 primarily due to an increase in vehicle electrical architecture and software development services, as well as increases in remarketing sales and vehicle repair and maintenance services."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 names electrical architecture and software development services, remarketing sales, and repair and maintenance services."
+  },
+  {
+   "sentence": "The automotive decline came from 9,332 fewer deliveries, due in part to the expiry of 45W tax credits, and lower regulatory credit sales .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Automotive revenues decreased for the year ended December 31, 2025, primarily resulting from a decrease in deliveries of 9,332 vehicles, due in part to the expiration of 45W tax credits after September 30, 2025, as well as a decrease in sales of automotive regulatory credits, partially offset by higher average selling prices and a higher mix of R1 deliveries. The increase in average selling prices was driven by a consumer shift towards higher performance variants along with a decline in discounting."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 cites 9,332 fewer deliveries, partly from the 45W credit expiry, plus lower regulatory credit sales."
+  },
+  {
+   "sentence": "Cost of revenue fell 15.0%, which the filing ties to fewer vehicles produced and delivered and lower material and conversion costs .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "For the year ended December 31, 2025, Automotive cost of revenues included $484 million of depreciation and amortization expense and $43 million of stock-based compensation expense. The year-over-year decrease in Automotive cost of revenues was primarily due to fewer vehicles being produced and delivered, as well as reductions in the cost of raw materials, product components, and conversion costs, resulting in part from the cost of revenue efficiency initiatives and accelerated depreciation that occurred during the prior year."
+    }
+   ],
+   "label": "partial",
+   "reason": "P21 gives these causes for automotive cost of revenues only, not total cost of revenue."
+  },
+  {
+   "sentence": "Net margin of -67.7% sits below operating margin of -66.5% because other expense included $186 million for a securities class action settlement .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other expense, net increased for the year ended December 31, 2025 primarily due to $186 million of expense recorded for the settlement of securities class action litigation, net of expected insurance recoveries, which was partially offset by the cumulative gain on our equity method investment in Also, Inc. (refer to Note 16 \u201cCommitments and Contingencies\u201d and Note 2 \"Equity Method Investments\" to our consolidated financial statements included in this Form 10-K for more information)."
+    }
+   ],
+   "label": "partial",
+   "reason": "P10 explains the increase in other expense, not the full gap between net and operating margin, which has other components."
+  },
+  {
+   "sentence": "Operating cash outflow narrowed to $779 million, which the filing attributes to a significant reduction in net loss .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in operating activities decreased during the year ended December 31, 2025 compared to the year ended December 31, 2024, primarily driven by a significant reduction in net loss."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes lower operating cash use primarily to a significant reduction in net loss."
+  },
+  {
+   "sentence": "Capex rose 49.9% to $1.71 billion, or 2.18x D&A, on expansion of production capacity at the Normal Factory .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in investing activities decreased during the year ended December 31, 2025 compared to the year ended December 31, 2024, primarily driven by lower purchases of short-term investments, partially offset by lower maturities of short-term investments and higher capital expenditures related to the expansion of production capacity at our Normal Factory. During the year ended December 31, 2025, we continued to invest in the growth of our business at our Normal Factory, our next generation vehicle platforms and technologies, and our go-to-market infrastructure."
+    }
+   ],
+   "label": "supported",
+   "reason": "P3 ties higher capital expenditures to expanding production capacity at the Normal Factory."
+  },
+  {
+   "sentence": "Financing inflow of $886 million came primarily from shares issued to Volkswagen Group and capital contributed by outside parties in Mind Robotics .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by financing activities during the year ended December 31, 2025 primarily resulted from the issuance of $750 million in shares of Class A common stock to Volkswagen Group in connection with the achievement of the Financial Milestone, as well as capital contributed by outside parties in the formation of Mind Robotics, Inc. and Mind Robotics, LLC (see Note 1 \"Presentation and Nature of Operations\" and Note 19 \u201cVariable Interest Entities\u201d to our consolidated financial statements included in this Form 10-K for more information). Net cash provided by financing activities during the year ended December 31, 2024 primarily resulted from the issuance of the 2026 Convertible Note (see Note 10 \u201cDebt\u201d to our consolidated financial statements included in this Form 10-K for more information)."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 cites the Volkswagen Class A share issuance and outside capital contributed to Mind Robotics."
+  }
+ ],
+ "cost_usd": 0.044128
+}

@@ -1,0 +1,64 @@
+{
+ "upstream": "https://api.earningsnerd.io",
+ "cache_dir": "cache/ (gitignored; regenerated on first use)",
+ "recorded_at": "2026-10-04T19:40:26+00:00",
+ "entries": [
+  {
+   "file": "cache/1317077e1af249b32335bd6a.json",
+   "kind": "upstream-response",
+   "path": "/api/summaries/filing/3",
+   "status": 200,
+   "content_type": "application/json",
+   "body_bytes": 80751,
+   "body_sha256": "1412895e504244693ab14f54bd9477e30f221604b1c4caaae62441e1ab4ce3b7",
+   "fetched_at": "2026-10-04T18:55:47+00:00"
+  },
+  {
+   "file": "cache/616aa6bff0d19eb840fd036f.json",
+   "kind": "upstream-response",
+   "path": "/api/auth/registration",
+   "status": 200,
+   "content_type": "application/json",
+   "body_bytes": 48,
+   "body_sha256": "912f102b55fca1ff381f5ef8650314535216255dc3f6f1d56d88bcc7d536c095",
+   "fetched_at": "2026-10-04T18:55:47+00:00"
+  },
+  {
+   "file": "cache/66990bf2cac4191f729751d0.json",
+   "kind": "upstream-response",
+   "path": "/api/filings/3",
+   "status": 200,
+   "content_type": "application/json",
+   "body_bytes": 437,
+   "body_sha256": "db78c1312fc643c2bf04b50297df131f6b81688576c08c95b2d28db755f773fd",
+   "fetched_at": "2026-10-04T18:55:47+00:00"
+  },
+  {
+   "file": "cache/84fb0c6f32d8d3865fc49fc5.json",
+   "kind": "upstream-response",
+   "path": "/api/notable_filings?limit=8",
+   "status": 200,
+   "content_type": "application/json",
+   "body_bytes": 2076,
+   "body_sha256": "63d99d7304d91320e3ba26e779dc1f14c3f3640d818c4793effcad813b2ba84f",
+   "fetched_at": "2026-10-04T18:55:47+00:00"
+  },
+  {
+   "file": "cache/88a1ab448a4da0351d5bd54b.json",
+   "kind": "upstream-response",
+   "path": "/api/summaries/filing/3/what-changed",
+   "status": 200,
+   "content_type": "application/json",
+   "body_bytes": 773,
+   "body_sha256": "a2ab495434b7c42b9e59d79e09be05ebea3afa7a8c5f3b31413939fc002b3f97",
+   "fetched_at": "2026-10-04T18:55:51+00:00"
+  },
+  {
+   "file": "cache/summary-filing-3.json",
+   "kind": "raw-json",
+   "bytes": 80751,
+   "sha256": "1412895e504244693ab14f54bd9477e30f221604b1c4caaae62441e1ab4ce3b7",
+   "fetched_at": "2026-10-04T18:55:29+00:00"
+  }
+ ]
+}

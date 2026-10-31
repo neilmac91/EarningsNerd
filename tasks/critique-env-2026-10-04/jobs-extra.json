@@ -1,0 +1,8 @@
+[
+ {"out":"X-filing-320x256-pro-rail","route":"/filing/3","scenario":"pro,content","theme":"light","viewport":"320x256","mobile":true,"coachSeen":true,"steps":"shot=top;click=role:button:Ask this Filing;wait=800;shot=sheet;aria=role:dialog;tabtrail=6"},
+ {"out":"X-filing-320x256-anon","route":"/filing/3","scenario":"anon","theme":"light","viewport":"320x256","mobile":true,"coachSeen":true,"full":true},
+ {"out":"X-filing-1024x768-pro-rail","route":"/filing/3","scenario":"pro,content","theme":"light","viewport":"1024x768","coachSeen":true,"steps":"click=role:button:Ask this Filing;wait=800;shot=pane-open;click=[role=dialog] button:has-text('revenue');wait=4500;shot=answer"},
+ {"out":"X-filing-1023x768-pro-rail","route":"/filing/3","scenario":"pro,content","theme":"light","viewport":"1023x768","coachSeen":true,"steps":"click=role:button:Ask this Filing;wait=800;shot=sheet-open"},
+ {"out":"X-filing-390-pro-upgrade-over-sheet","route":"/filing/3","scenario":"free,exhausted","theme":"light","viewport":"390x844","mobile":true,"coachSeen":true,"steps":"click=role:button:Ask this Filing;wait=700;shot=teaser;click=[role=dialog] button:has-text('Upgrade');wait=700;shot=upgrade;aria=body;press=Escape;wait=400;keyfocus;shot=after-escape"},
+ {"out":"X-filing-390-anon-coachmark","route":"/filing/3","scenario":"anon","theme":"light","viewport":"390x844","mobile":true,"steps":"shot=coachmark;rect=role:button:Ask this Filing;rect=role:button:Dismiss"}
+]

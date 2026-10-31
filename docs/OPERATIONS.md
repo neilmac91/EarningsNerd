@@ -88,13 +88,187 @@ process: `in_flight`, `admitted`, `peak_in_flight`; and the chat-only slot gate
 counted but bounded by its own semaphores and never waits here) and
 `sec_rate_limiter` (the process-local SEC token bucket: `total_requests`, `rate_limit_hits`,
 `current_tokens`, `requests_per_second`). Both are per process: the load on the shared provider
-key or the SEC IP is the sum over the API instances and every job that ran in the window
-(pregenerate, filing-scan and backfill-facts each carry their own bucket, and their Monday
-06:00–07:00 UTC schedules overlap each other and the service). A rising `rejected` count means
-chat callers are timing out in the queue rather than at the provider; `rate_limit_hits` climbing on
-the service while a job runs is the aggregate SEC budget being exceeded, which only lower
-per-process budgets on the service and jobs can fix. This addition changes no capacity or
-startup/probe deadlines.
+key or on SEC is the sum over the API instances and every job that ran in the window (every
+SEC-calling job carries its own buckets: pregenerate, the hourly filing-scan, backfill-facts and the
+EFTS jobs notable-filings and earnings-calendar-refresh; pregenerate at Monday 06:00 UTC and
+backfill-facts at Monday 07:30 UTC each overlap the hourly scan and the service in the 06:00–08:30
+window). A rising `rejected` count means chat callers are timing out in the queue rather than at the
+provider; `rate_limit_hits` climbing on the service while a job runs is the aggregate SEC budget
+being exceeded; the per-process pins below bound the configured sum, not observed traffic. This addition
+changes no capacity or startup/probe deadlines.
+
+#### SEC budgets per process (deploy-pinned)
+
+Each process holds two independent SEC limiters: the app's token bucket, `SEC_RATE_LIMIT_PER_SECOND`
+(code default 10; it starts full, with capacity equal to rate), and edgartools' sliding window,
+`EDGAR_RATE_LIMIT_PER_SEC` (library default 9, read once at import). The app wraps edgartools
+traffic in its own bucket only in the SIC lookup (`app/services/edgar/company_sic.py`), which
+therefore draws from both, so a process's configured SEC ceiling is at most the sum of the two. SEC
+allows 10 requests per second per user regardless of machines, so the deploy pins both to `1` on the
+API service, every Cloud Run job and the private task worker (`ci.yml`; gate
+`tests/unit/test_sec_process_budgets.py`), and so does each Ops workflow step that runs a backend
+script on its runner (gate `tests/unit/test_ops_workflow_wiring.py`; CODE RED decision records 16
+and 17 staged it, the jobs and the worker first). Two request paths could not fit the service's 1 req/s and were removed with the
+pin: the insider endpoint (`GET /api/companies/{ticker}/insiders`, a cold load of about two edgartools
+requests per Form 4 for up to 60 Form 4s, so about 120) answers 404 unless `ENABLE_INSIDER_ACTIVITY` is
+set (the deploy pins it `false`), and company search answers from the cached SEC ticker file only (its
+edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
+generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
+to companyfacts (its section parse makes no SEC request: parses run one at a time on their own
+worker, off the edgar pool, and the excerpt waits for it before the 18 s enrichment join; a parse past its 30 s bound, 40 s for a 20-F, leaves the regex excerpt); a
+mega-filer's filing older than its recent submissions window needs about 43 history requests, past
+every enrichment budget; and a
+company's first filings list, coverage and full-text search each wait for their request. Breaker-wrapped
+edgartools calls queued behind that work (a company's first filings list, 6-K text, and visit refreshes
+run in-process when durable tasks are off) can time out after 15 s (30 s for 6-K text), and five
+timeouts in a row open the shared SEC circuit breaker for 30 s, which fails summary document fetches on
+that instance meanwhile (Circuit Breaker Management below). A synchronous precompute dry run on
+`/internal` makes at least one request per job, so the route caps it at 20 jobs (tickers × forms),
+which normally fits the 30 s request timeout; a job that needs a mega-filer's full submissions history
+(about 43 requests) or other SEC traffic on the instance can still push it past. Split a larger
+preview into batches.
+
+The configured sustained sums are: 4 req/s sustained with no job running (two service instances), 6
+in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap — Monday 06:00 and
+07:00 UTC (pregenerate, whose first attempt can run until 07:00, with a scan), Monday 07:30–08:30 UTC
+(backfill-facts with a scan) and a daily EFTS job over a running scan — and 22 req/s if every job ran
+at once (24 with the worker, 26 in a handover second), which configuration does not prevent. The
+feedback-media cleanup job adds two to this conservative configured sum but performs no SEC calls.
+A full bucket at rate R admits up to 2R−1 requests in
+its first second (19 at the default 10), but at the pinned rate of 1 the bucket never holds more than
+one token, so admissions are at least 1 s apart, and edgartools' window never exceeds its rate per
+rolling second: under the pin a process's ceiling is 2 req/s in every second, the first included, so
+these sums are also the per-second ceilings. The private task worker (`earningsnerd-task-worker`, one
+instance running one isolated child per delivery) is deployed only with
+`GCP_DURABLE_TASKS_ENABLED=true` (on in production since 2026-10-08); it adds 2 req/s to every window,
+giving 6 req/s sustained with no job running and at most 10 req/s in any scheduled overlap, at the cap
+with no headroom. Each task runs in a fresh child with fresh limiters, so a handover between two
+children inside one second can briefly admit up to 4 req/s from the worker, 12 req/s in such a
+second. A filing-scan run through the worker (`/internal/jobs/filing-scan`) is bounded by its 480 s
+work timeout (`TASKS_WORK_TIMEOUT_SECONDS`), about 450 watched companies at 1 req/s; the scheduled
+scan belongs on the Cloud Run job (1,800 s).
+
+The Monday figures assume the Cloud Scheduler crons in `docs/DEPLOYMENT.md`: backfill-facts at
+`30 7 * * 1`, so it starts after a first attempt of pregenerate (`0 6 * * 1`, 3,600 s timeout) has
+ended. At the earlier `0 7 * * 1` the 07:00 overlap would carry pregenerate, the scan and
+backfill-facts: 12 req/s with the worker, 14 in a handover second. The schedulers are created by hand,
+so the repository cannot enforce them; the gate checks the documented crons, time zones and task
+timeouts. Check the live schedule with `gcloud scheduler jobs describe backfill-facts-weekly
+--location=us-west1 --format="value(schedule,timeZone)"`.
+
+An optional shared request admission gate is available behind
+`SEC_DISTRIBUTED_LIMIT_ENABLED=false`. The default-off capability does not change
+the production limits described here. When enabled on every participating process,
+`earningsnerd_sec_request_gate` holds one fleet-wide row: a short PostgreSQL
+transaction locks it without waiting, reads the database clock, and admits at most
+one new decision per 125 ms (8 per second), without saved burst credits or future
+reservations. Existing per-process pacing runs first. The transaction finishes
+before sleeping or contacting SEC. A missing table/row, coordinator error or
+exhausted wait fails closed as `SECAdmissionUnavailable`, never an upstream 429.
+The primary document deadline includes admission and does not count a local
+admission timeout against SEC's circuit breaker.
+The typed local error carries retryability for bounded admission/pool waits,
+recognized transient database failures and connection `OperationalError` without
+a SQLSTATE. That last case can include permanent connection setup failures, so it
+receives capped recovery without inspecting driver prose. Unsupported backend or
+dependency setup, missing state, recognized schema/permission/authentication
+SQLSTATEs and unknown internal defects remain terminal. A shared embargo that
+cannot fit the caller's remaining wait returns
+its remaining delay immediately; durable generation schedules recovery under its
+existing attempt/age caps and does not spend retries inside that embargo. This
+stays `filing_source_unavailable` with no upstream status, not a synthetic SEC 429.
+
+The bound is on committed **request admission decisions**, not the timing of
+socket writes or when callers receive grants: a delayed commit, process pause or
+connection-pool wait can bunch later sends. Exact wire dispatch control would
+require an owned egress dispatcher. The owned HTTPX clients attach a per-send
+request hook, including redirects and auth resends, preserving proxy routing.
+The pinned EdgarTools manager uses the same gate below its disk cache; cache hits
+spend nothing, revalidation/retries/redirects each spend a permit. Its reachable
+short-SGML fallback is routed through a fresh cache-disabled manager sharing the
+same limiter, identity and TLS/proxy settings. A version/signature check refuses
+unknown dependency shapes when enabled. No global HTTPX class or installed
+dependency file is modified. Native transport retries remain zero; external
+clients/retry transports, manual diagnostics and traffic outside these owners are
+not covered. The unused dependency URL parser and XML-native forms stay outside
+the application's supported call paths; the tests guard that boundary.
+
+When either owner receives a 429, or a 503 carrying a usable `Retry-After`, it
+publishes a shared `cooldown_until` before returning the response to its retry
+path. Delta seconds use the database clock; HTTP-dates are absolute UTC deadlines.
+The row lock preserves the greater existing deadline, so a later shorter hint
+cannot reopen admission early. Positive hints are never capped to a shorter wait;
+an unrepresentably large delta becomes PostgreSQL infinity, requiring an explicit
+operational decision before traffic can resume. A 429 with no usable hint imposes
+one second; a 503 with no hint retains existing retry behavior. New grants after
+the feedback commits wait for both the cooldown and ordinary 125 ms spacing.
+Requests already admitted or in flight are not recalled. Edgar response wrappers
+sit below its disk cache; cache hits do not replay feedback and 429 responses are
+never positively cached. The one manager instance is replaced by a version-checked
+subclass before it opens clients; global HTTPX behavior remains unchanged.
+
+Feedback persistence is bounded and fails the affected call closed on DB errors;
+the response body is closed before the error escapes. Once observed, async
+feedback is shielded from a caller disconnect while it waits for the dedicated DB
+slot. It owns no HTTP work. A process termination or failed feedback write can
+still prevent publication; a shared pause exists only after that write commits.
+Observe the fixed, private-safe `SEC shared cooldown persistence failed` warning
+and coordinator failures as activation blockers, rather than treating them as SEC
+rate-limit evidence or silently falling back to local-only traffic.
+
+Activation is a separate operational change. Before enabling, read back every
+API revision, job image, task-worker child and manual execution; deploy the
+capability everywhere while disabled and drain old/off executions before claiming
+a fleet bound. Include all deploy environment maps in the activation change.
+Read back Cloud SQL headroom against the full overlap envelope: each process
+creates at most one additional lazy coordinator connection, no overflow, separate
+from request-owned sessions to avoid nested-pool deadlock. One dedicated async
+worker admits at most one outstanding DB unit per process; it never sends HTTP.
+Cancellation may waste a permit but cannot send later from that DB worker. An
+already-running synchronous Edgar worker cannot be cancelled by its async caller's
+deadline: it may continue later requests, each still requiring local and shared
+admission. The coordinator does not establish disconnect cancellation or an overall
+Edgar-operation deadline. The coordinator uses bounded checkout/connect/statement
+waits, preserves UTC sessions and PGOPTIONS, and runs no startup DDL. Apply both
+additive SEC request gate/cooldown migrations before activation;
+replaying it never resets the existing deadline. Activation must provide coordinator
+wait/error telemetry and compare request latency before increasing traffic; the
+current health endpoint does not expose this coordinator. Disabling removes the shared
+bound and retains the documented local limits; it is not a way to preserve a
+fleet guarantee during a database outage. No activation or egress change is part
+of this capability, and these local/transaction tests do not prove release-day
+availability.
+
+Not bounded by this pin: rollout-overlap instances, manual job executions and operator one-shots, a
+job task retried after a failure or timeout (no documented create command sets `--max-retries`, so
+Cloud Run's default of three retries applies, and each attempt restarts its task timeout: a retried
+pregenerate can still be running at 07:30 and meet backfill-facts and a scan, 10 req/s or 12 with the
+worker, and a retried scan can meet the next one), a scheduler cron moved by hand, the service, a job
+or the worker created by hand without the pins (the commands in `docs/DEPLOYMENT.md` and the runbook
+set them, and CI sets them on the next deployable merge), and any request outside both limiters. Neither
+the jobs nor the worker (it serves only `/health` and its task endpoint) expose limiter state: the
+pin shows as longer execution times and, when SEC pushes back, as app-bucket 429 backoff warnings in
+their logs. Lowering the budget shows up as longer SEC waits inside a process (the limiter waits, it
+does not reject, and waits are not counted): `rate_limit_hits` increments only when a backoff-path
+request receives a recognised SEC 429, so a flat counter is not evidence of safe aggregate traffic,
+while a rising one is SEC pushing back. SEC 403 responses are not counted there; they show in logs.
+
+To change or undo the pins, set new values in the `ci.yml` maps, or add
+`--remove-env-vars=SEC_RATE_LIMIT_PER_SECOND,EDGAR_RATE_LIMIT_PER_SEC` to each update, in a change
+that also touches a deployable `backend/` path and updates the gate
+(`tests/unit/test_sec_process_budgets.py`, and the backfill-facts map in
+`tests/unit/test_data_completeness.py`); when adding `--remove-env-vars`, drop the keys from that
+update's map. `--update-env-vars` only sets keys, so deleting them from `ci.yml`, or reverting the
+change that added them, leaves the pins live; a change confined to `ci.yml` does not deploy at all. A revert of stage 2 also
+restores the public insider endpoint and the edgartools search fallback while the service stays
+pinned, so in the same change remove the service pins or keep the insider switch and local-only search.
+After a deploy, Ops `describe-service` (`docs/DEPLOYMENT.md`) prints `SEC_RATE_LIMIT_PER_SECOND`,
+`EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision, the pregenerate
+job and the task worker's serving revision, and fails when either pin is not `1` on the service or
+the worker; admin `/metrics` shows `sec_rate_limiter.requests_per_second` for the instance that
+answers; Ops `describe-jobs` prints both pin values for each of the nine jobs and fails when either
+is missing or not `1`. Ops `capacity-readout` carries the worker's request classes and latencies and
+its error-level log counts, the only aggregate evidence of the pin's effect on the worker.
 
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 
@@ -108,27 +282,56 @@ said it served), `system_fingerprint` (the provider's backend build id when pres
 `total_tokens`, `cache_hit_tokens`, `cache_miss_tokens`, `reasoning_tokens`; `null` = the provider
 did not report it, never zero), `estimated_cost_usd` (per-model price table in
 `app/services/llm_pricing.py`, times `AI_PEAK_PRICE_MULTIPLIER` when `peak` is true) and `peak`.
+The estimate prices every prompt token once: a cache half the provider left out is the rest of
+the prompt, at its own tariff, and with no split all input is priced at the miss rate. It is
+`null`, never zero or a partial sum, when the input or the output count is unknown.
 One `ai_summary` aggregate follows each summary generation. Admin `GET /metrics` exposes the
-process-local counters, including `estimated_cost_usd` per (operation, provider, model, outcome).
+process-local counters per (operation, provider, model, outcome): `estimated_cost_usd` and its
+explicit twin `estimated_cost_known_usd` sum the known estimates only, `estimated_cost_unknown_calls`
+counts the calls left out of that sum, and `estimated_cost_complete` is true only when there are none.
+The log-based cost metrics below likewise sum known estimates only, since a `null` estimate does not
+match their extractor; their companion counter counts the calls left out, from the service and the
+jobs, so a chart or alert on the sums can show when they are incomplete.
 
 What to watch after a provider change (ADR-0008): `actual_model` or `system_fingerprint` moving
 without a deploy is a silent routing change; `reasoning_tokens` above zero means thinking mode was
 enabled upstream (every path sends it disabled); a step in `completion_tokens` or `latency_ms`
 per `operation` is a behaviour change worth an eval run.
 
-Log-based cost metric (one-time setup, not applied by CI):
+Log-based cost metrics (one-time setup, not applied by CI). The API service and its task worker log JSON
+in production (`main.py` and `task_worker_main.py` turn on `StructuredLogFormatter`), so their `ai_call` text
+is `jsonPayload.message`; Cloud Run jobs log plain text, `textPayload`. An extractor reads one field, so each
+gets its own known-subtotal distribution, which `gcloud` takes only from a config file (its flags carry no
+extractor, label or histogram-bucket options); one counter covers both. A cost under USD 0.0001 is written
+in exponent form (`6.3e-05`), which the extractor keeps. Once a small-cost call and a null-estimate call have
+been logged, check in Metrics Explorer that the small value lands at its size and the null line leaves the
+subtotal alone, since Cloud Logging's handling of either is not exercised here:
 
 ```bash
-gcloud logging metrics create ai_call_estimated_cost_usd \
-  --project=earnings-nerd \
-  --description="Sum of estimated_cost_usd over ai_call lines" \
-  --log-filter='resource.type="cloud_run_revision" AND textPayload:"ai_call {"' \
-  --value-extractor='REGEXP_EXTRACT(textPayload, "\"estimated_cost_usd\":([0-9.]+)")' \
-  --metric-kind=DELTA --value-type=DISTRIBUTION
+cd "$(mktemp -d)"  # the two config files stay out of the checkout
+for spec in "service cloud_run_revision jsonPayload.message" "jobs cloud_run_job textPayload"; do
+  read -r scope resource field <<<"$spec"
+  cat > "ai-call-cost-$scope.yaml" <<EOF
+description: 'Known subtotal: sum of non-null estimated_cost_usd over the $scope ai_call lines'
+filter: 'resource.type="$resource" AND $field:"ai_call {"'
+valueExtractor: 'REGEXP_EXTRACT($field, "\"estimated_cost_usd\":([0-9.eE+-]+)")'
+labelExtractors:
+  trigger: 'REGEXP_EXTRACT($field, "\"trigger\":\"([a-z]+)\"")'
+  operation: 'REGEXP_EXTRACT($field, "\"operation\":\"([a-z_]+)\"")'
+metricDescriptor: {metricKind: DELTA, valueType: DISTRIBUTION, labels: [{key: trigger}, {key: operation}]}
+bucketOptions: {exponentialBuckets: {numFiniteBuckets: 32, growthFactor: 2, scale: 0.000001}}
+EOF
+  gcloud logging metrics create "ai_call_estimated_cost_usd_$scope" --project=earnings-nerd \
+    --config-from-file="ai-call-cost-$scope.yaml"
+done
+gcloud logging metrics create ai_call_cost_unknown --project=earnings-nerd \
+  --description="ai_call lines whose estimated_cost_usd is null, outside the known subtotals" \
+  --log-filter='(resource.type="cloud_run_revision" AND jsonPayload.message:"ai_call {" AND jsonPayload.message:"\"estimated_cost_usd\":null") OR (resource.type="cloud_run_job" AND textPayload:"ai_call {" AND textPayload:"\"estimated_cost_usd\":null")'
 ```
 
-Then an alerting policy on the daily sum (a $5/day threshold is roughly 2× current product
-spend) and a dashboard split by the `trigger` and `operation` labels, extracted the same way.
+Then an alert on each subtotal's daily total, or one query-language condition adding the two (a $5/day
+threshold is roughly 2× current product spend; neither form is exercised here), with `ai_call_cost_unknown`
+beside it, and a dashboard split by the `trigger` and `operation` labels the configs extract.
 Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exists (plan item W6).
 
 **Status codes:**
@@ -174,7 +377,7 @@ Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exist
 
 **L1 Cache Size:**
 ```python
-# In xbrl_service.py
+# In app/services/edgar/xbrl_cache.py
 _cache_max_size = 1000  # Increase for more memory, fewer evictions
 ```
 
@@ -251,11 +454,40 @@ prerequisite, 33/33 application tables and 40/40 migration hashes. See
 [deployment setup and import procedure](DEPLOYMENT.md#monthly-cloud-sql-logical-export) for the
 dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
 
+### Feedback screenshot cleanup alerts
+
+The hourly `feedback-media-cleanup` job is separately monitored by feature-owned Cloud Monitoring
+policies provisioned through protected Ops. Failed completed executions notify the existing verified
+channel; missing normal-cleanup success heartbeats alert after two hours. Probe and dry-run success
+cannot refresh that heartbeat. Overdue objects fail the execution after their counters are recorded.
+Inspect the counts-only job ledger and the private-storage manifests before concluding that media was
+erased. See [private feedback screenshots](DEPLOYMENT.md#private-feedback-screenshots) for provisioning,
+permission checks and the distinction between configured alert routing and verified delivery.
+
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 
 New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per
-outbound email: frozen recipient/sender/subject/HTML, the provider `Idempotency-Key`, status,
-lease and attempt bookkeeping) and `earningsnerd_delivery_items` (the filings each batch owns).
+outbound email: frozen recipient/sender/subject/HTML and plain-text part, the provider
+`Idempotency-Key`, status, lease and attempt bookkeeping) and `earningsnerd_delivery_items` (the
+filings each batch owns). The plain-text part (`body_text`, E110) is covered by the batch's
+`payload_sha256`; a batch frozen before the column holds NULL there and replays as it was frozen,
+its page alone, under the digest it was frozen with.
+Reply-To is also frozen in that envelope and covered by `payload_sha256`. Batches with a
+frozen Reply-To use `reply_to:ready`, `reply_to:claimed`, `reply_to:sending` and
+`reply_to:retryable`; all four remain outside older workers' due, claim and stale-lease
+predicates. Compatible workers accept both state families and retain the family from the
+persisted status on every claim, retry, re-key and lease recovery, even if `reply_to` changes or
+becomes NULL. Legacy NULL Reply-To batches retain their legacy states, omitted header, payload
+hash and provider key. No batch kinds, queues or job schedules change.
+
+During a rollback to an older image, new-protocol batches wait until a compatible worker is
+restored; the older image can continue processing legacy batches. Retain the nullable column,
+status values, provider keys and item ownership. Do not use SQL to relabel states, re-key these
+batches or release their filings to bypass the protocol boundary. Ready/retryable batches
+resume with a compatible worker, and expired preparation leases recover normally. An expired
+sending lease still becomes `ambiguous` and needs the human reconciliation below; rollback
+preserves that uncertainty.
+
 `accepted`, `suppressed` and `ambiguous` are terminal. `ambiguous` means the provider's answer
 was lost after bytes may have left (timeout, dropped connection, unparsable or non-object 5xx
 response, expired sending lease, exhausted attempts, payload drift): the job never dispatches it
@@ -298,9 +530,44 @@ earningsnerd-earnings-day-alerts`): the job only takes over `failed` rows whose 
 today, so after that day the alert lapses.
 
 Never re-send an `ambiguous` batch by hand under its old key, and never edit its frozen payload
-(`payload_sha256` would then park it as `payload_drift`). A `retryable` batch needs no action:
-the job retries it with backoff, re-keying it if the replay window closed. Historical
-`notification_log` rows are never replayed.
+(`payload_sha256` would then park it as `payload_drift`). Code from before E110 reads no
+`body_text`, so a drain it runs fails the digest of every due batch frozen with a text part and
+parks it as `payload_drift`, unsent: after a rollback past E110, and during the deploy that ships
+it, in a job execution that started on the old image and reaches its drain after the new image
+froze a batch. Such a batch was ready or retryable when that drain claimed it, so the provider
+never accepted it: at `attempts = 0` it never reached the provider, and a retryable batch's attempts
+each ended in a documented non-acceptance (the old drain re-keys one whose replay window closed
+before it parks it). Give its filings back to selection as above. Otherwise a `retryable` batch
+needs no action: the job retries it with backoff, re-keying it if the replay window closed.
+Historical `notification_log` rows are never replayed.
+
+### Account mail (F60)
+
+Forgot-password and resend-verification queue their mail, the `account_mail` task, on the shared
+`earningsnerd-background` queue whenever `DURABLE_TASKS_ENABLED` is on (production since
+2026-10-08), so the private task worker sends it, not the API.
+
+- **Where failures surface.** A failed send logs `Reset email NOT sent to user id=N: <class>` (or
+  `Verification email ...`) at ERROR and is not retried. A send that sent nothing (a 429, a 5xx, no
+  connection, no API key) logs `... email not sent to user id=N: <class> (nothing sent)`, and Cloud
+  Tasks delivers it again, up to the queue's five attempts. These lines reach Cloud Logging only:
+  filter `earningsnerd-task-worker` for `email NOT sent` and `(nothing sent)`. With `SENTRY_DSN` bound on
+  the worker, a failed delivery also reaches Sentry by its exception's type and stack alone (the worker's
+  `Durable task failed` and the child's `AccountMailNotSent`, F50); a send that failed after sending is no
+  failed delivery, so it reaches Sentry not at all. Registration's own verification mail is still sent from the API, whose
+  ERROR lines reach Sentry.
+- **The cap.** `ACCOUNT_MAIL_LIMITER` (`routers/auth.py`) admits 60 account mails an hour per API
+  instance across both routes, after each caller's per-IP (20 an hour per route) and per-address (3
+  an hour) limits. Past it every address gets the same 429 until the window turns, so a flood costs
+  that hour's reset and verification mail instead of backing the queue up.
+- **Latency.** A mail waits behind the task the worker is running (up to the 480 s work timeout) and
+  anything queued before it.
+- **Rollback.** CI updates the worker before the API, so a forward deploy is safe. A revert deploys
+  in the same order, so account mail queued until the API's revert lands meets a worker whose
+  `TaskEnvelope` has no `account_mail` kind: it fails every attempt (422) and is lost, and its senders
+  must ask again. To lose none, first roll the API's traffic back (the Ops workflow's
+  `rollback-traffic`), which stops new account mail reaching the queue; let the queue drain; then
+  revert. Never pause or delete the queue (`docs/DEPLOYMENT.md`).
 
 ### Monitoring Alerts (Suggested Thresholds)
 
@@ -310,7 +577,7 @@ the job retries it with backoff, re-keying it if the replay window closed. Histo
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
 | `cache.redis.healthy` | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
-| `database.checked_out` | > 8 | = pool_size |
+| `database.checked_out` | ≥ pool_size − 1 (3 on the deployed service pool 4 / overflow 0) | = pool_size |
 
 ## Request Timeout Configuration
 
@@ -332,6 +599,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /email/test` | Send a test email via Resend (diagnoses email config; defaults to admin's own address) |
+| `POST /users/free` | Refuses with 409 and creates nothing: an account comes only from signup, where its holder accepts the account requirements, so the answer points to an invitation (`POST /invites`) |
 | `DELETE /filing/{id}/summary` | Delete summary for a filing |
 | `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
 | `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
@@ -340,7 +608,30 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | `GET /filings/audit-xbrl` | Audit filings for stale XBRL data |
 | `POST /filings/bulk-reset-stale` | Bulk reset stale filings (supports dry_run) |
 | `POST /summaries/reset-all` | Bulk delete summaries by form so they regenerate with current prompts; skips saved (bookmarked) rows unless `include_saved=true` (supports dry_run) |
-| `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrades, `dry_run` reports the staleness count. Returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`): a row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
+| `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrading a summary the filing page shows (a stored row the page cannot show is always replaced), `dry_run` reports the staleness count. A real run regenerates up to 10 rows (`limit`, default 5) one at a time in its request, which keeps its CPU allocated (the deploy runs the API with `--cpu-throttling` while durable tasks are on), and returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`/`deferred`). The path's request timeout is 570 s (`main.py`), inside the service's 600 s, and a run starts no generation more than 350 s after the route begins, leaving the last one its allowance (its 120 s pipeline backstop and a minute for its setup and cleanup) and 40 s for the work around the batch; the rows it does not start are `deferred`, still stale, for a later call. The allowance is not a bound: while durable tasks are on, a generation's cleanup waits for its worker threads, so one started near the bound that outlasts it can take the run past 570 s, and the run answers 504. That generation's tail, its re-read and the audit row then finish after the response under that throttling, the audit row keeping only counts; no other generation starts. A row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
+
+### Test accounts
+
+`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. While checkout is open, its checkouts reuse one live Stripe Customer created for verification and are never paid.
+
+- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire while checkout is open; while it is closed, as now, an Upgrade click fires none.
+- Nothing deletes it: the retention purge never deletes accounts (`backend/app/services/retention_service.py`).
+
+To create another test account, sign up through the site with an address whose inbox the tester
+controls. Signup is where an account's holder accepts the account requirements, so no admin route
+creates one: `POST /api/admin/users/free` answers 409 and creates nothing. While
+`REGISTRATION_MODE` is `invite_only`, an admin first mints an invitation bound to that address
+(`POST /api/admin/invites` with `email`) and hands over the response's `invite_link`, which is
+shown once. Asking the mint to email it answers 503 while promotional mail stays closed
+(`legal_readiness_service.is_marketing_available()`), and the mint and signup both answer 503
+while new collection is closed (`is_collection_available()`).
+
+New checkout is closed in code today: `legal_readiness_service.is_checkout_available()`
+returns False, so `POST /api/subscriptions/create-checkout-session` answers 503. Once it
+reopens, the monthly trial is available once per account. To test the first-subscription trial
+again after an actual trial or subscription, create a fresh Free account. Opening an unpaid
+Checkout preview and leaving it unsubmitted does not consume that eligibility, so those checks
+can reuse the existing test account. Leave the retained user id 9 unchanged.
 
 ### Verification Scripts
 
@@ -372,34 +663,214 @@ Located in `backend/scripts/`:
 
 ### Review gate (rule 12 for the review-wait lesson)
 
-`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every non-draft pull
-request head. It passes only when Codex's "Review Summary" comment reports **Completed** for that
-exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
-characters); a completed review of an earlier head is not enough, because a push does not
-re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
-twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the pull request's
-latest gate run automatically (the workflow's `issue_comment` job, the only one holding a write
-scope, `actions: write`), so a re-requested review is observed without a manual re-run. Logic in
+`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every pull request
+head. On every pull-request event while the pull request is a draft the check fails (converting a ready
+pull request back to a draft starts no run), and marking it ready starts the wait; `@codex review` on a
+draft re-runs its newest gate run, which fails again, unless that run is a skip from before #1331, which
+the re-run job refuses (E60 lists the drafts). The script reads the draft flag from the pull
+request as it is now: a job skipped by its condition reports success, which a required check counts as
+passing, and an event can still describe a draft after the pull request was marked ready, so the job
+never skips on a pull-request event. Draft or not and override or not, it fails at once while the
+pull request's title, body or any of its commit messages puts a closing keyword (close, fix or resolve,
+in any form) right before an issue or pull request reference, since the merge into `main` would close
+what it names, a pull request included: on 2026-10-09 the merge of #1136 left #1156 closed, unmerged,
+that way (`lessons/ops-closing-keywords-close-what-they-name.md`). It reads the text as GitHub renders
+it (Markdown escapes dropped, HTML entities decoded) and lists each reference; an edit to the title or
+body re-runs the check, and a commit message is reworded on the branch. Until the edit's run reports, the
+previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
+pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
+messages would go unread. Draft or not and override or not, it fails too while the pull request changes a
+file whose path holds, as whole segments, a path that an open row of the base branch's `tasks/todo.md`
+leaves to its next change, until its title, body or a commit message names each such row (E218). The path
+is one the row's owner, the parenthetical after its id and disposition, names in backticks in a segment
+that names a next change ("next writer of `routers/auth.py`", "the next PR that changes `x.py`"); the
+failure lists each row and the files it owns, and an edit of the body that names each row, carried or
+answered, re-runs it (`lessons/ops-read-the-rows-a-change-owns-before-you-make-it.md`). The rows are read
+as the check runs, so a row that lands on the base after a pull request's last run holds it from its next
+run (a push, an edit or a re-run); until then the earlier result stands. GitHub lists at most 3,000 of a
+pull request's files, and at that cap every open row that leaves a path counts until the title, body or a
+commit message names it.
+A squash message typed at merge is outside every pull-request check. It passes
+only when the trusted Codex summary's machine state names that full head, reports **Completed**,
+and has `has_unresolved_findings` exactly false, with the required review-cycle evidence; or when
+the pull request body carries a line `Review override: <reason>` (ten or more characters). The
+ready transition's own review must have completed. A later manual review of a different head may
+supersede that completed review's findings; a manual review of the same head requires the ready
+review itself to be clean. A completed review of an earlier head is not enough, because a push does not
+re-trigger Codex here: after fix commits, comment `@codex review` at once, or, while a review
+still shows Running, once it completes or is an hour old. The gate waits up to
+twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
+on the pull request's current head automatically (the workflow's `issue_comment` job, the only one
+holding a write scope, `actions: write`), so a re-requested review is observed without a manual
+re-run. The job finds that run by the head commit and the pull request's head branch and repository,
+however many runs other pull requests have had since. GitHub re-runs a run only within 30 days of its
+first attempt, at most 50 times; past that the job fails, giving GitHub's reason and the remedy (push,
+or edit the body). The job reports each outcome only in its own log, in the Actions tab: its run sits
+on `main`'s latest commit, so the pull request's checks do not show it. Neither a ready mark nor an
+`@codex review` goes in while a review shows Running: the summary carries no run id, so the gate replays
+its history, pairs each completion with the open start of its head and trigger, never with one begun while
+another of them was open (such a start holds the gate for its whole hour), and waits while any start is open,
+until that review completes or is an hour old, when it counts as abandoned (F58 call 1, approved 2026-10-23). A ready review that hangs therefore stops
+blocking an hour after it started, and one fresh draft-to-ready transition then passes; a ready mark or
+request made inside that hour costs the hour again (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`
+gives the recovery order). The gate prints each reason as it polls. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and
 holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is
 trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
-unreviewed while the reviewed object exists. Because the definition comes from `main`, the gate first
-runs on pull requests opened after it has merged.
+unreviewed while the reviewed object exists. F58 additionally reads GitHub's ready-transition
+timeline and the bot's authenticated comment edit history, replaying it to pair each completion with
+its start. GitHub's event/request timestamps have second precision, so a start in the same second
+cannot establish ordering: the gate requires the next whole-second boundary. The PR's live head
+and latest manual request must agree with that proof. Missing,
+malformed or contradictory evidence waits instead of falling back to an older clean result.
+GitHub retains at most 100 comment revisions and the bot exposes no unique review-run ID, so missing
+required history waits, and so does a start still open, or an unreadable revision, younger than the hour; a
+start or completion within the hour after an unreadable revision never pairs, and one fresh draft-to-ready
+transition is the way out. Marking ready already requests a review;
+let that cycle finish before sending another manual request for the same head. Thread disposition
+remains a reviewer responsibility (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
+Each run takes the workflow definition from `main` as it
+stood at the run's event, and a re-run keeps that definition, so a change here reaches a pull request
+at its next pull-request event. The re-run job never re-runs a skipped run: only a run from before
+#1331 can skip, under its old draft condition, and a re-run would replay the skip. A ready pull
+request whose newest gate run is such a skip needs a new pull-request event, an edit to its body for
+instance. Never re-run such a run by hand ("Re-run all jobs"): it replays the skip, which a required
+check counts as passing. Those runs pass GitHub's 30-day re-run limit around 2026-11-14. A draft whose
+newest gate run is such a skip also shows it as its newest check from the moment it is marked ready
+until its ready run's check appears, a few seconds, or for good when no run starts (an Actions outage,
+or a transition made with a workflow's `GITHUB_TOKEN`): push or edit its body while it is still a
+draft, so its newest check is a real run, then mark it ready.
 
 The check binds merges through the ruleset on `main` (id 23561253, created 2026-09-16, `gh api
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
 blocked; a pull request required with **zero** approvals and squash as the only merge method;
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
-`lighthouse` and `review-gate`, each pinned to the GitHub Actions app; no bypass actors, so the rules
+`lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app. The founder
+removed `e2e-charts-v2` from this list on 2026-10-26 (F67); its chart and gallery specs now run
+unconditionally in `e2e-tests`, and E195 deletes the duplicate job; no bypass actors, so the rules
 bind the administrator too. A required status check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is
 switched off for the same reason (agent commits are authored as `noreply@anthropic.com`). When the
 review service is unavailable, the pull request body's `Review override: <reason>` line is the only
 way through the gate, by design.
+
+Required checks bind a pull request only as far as its workflow files can be trusted. The ruleset pins
+each check to the GitHub Actions app, and that app runs a pull request's `pull_request` workflows from
+the pull request's own tree. So a pull request that edits `.github/workflows/` can make every required
+check pass: it can rewrite the job behind `backend-tests`, or add jobs named `review-gate` and
+`backend-tests` that do nothing. `test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate`
+catches only an accidental second `review-gate` job, since a pull request that adds one on purpose can
+neuter `backend-tests` too. What binds such a pull request is that only the repository's writers can
+merge, and that `AGENTS.md` §5 reviews every change to `.github/workflows/**` at the high tier, so the
+merge rests on reading the workflow diff, not on the checks. A required check that a pull request cannot
+forge needs a source outside its workflows: a dedicated GitHub App that the ruleset names as the check's
+source, with its key held in an environment only `main` can use, or a ruleset-required workflow, which
+GitHub configures in an organization's or an enterprise's rulesets (a personal account owns this
+repository). Neither is in place, and the gap is accepted (the founder left this call to the agent on
+2026-10-16); closing it starts with that App.
+
+### Agent production readbacks (F51)
+
+The fixed `regn-summary-incident-readout` Ops operation reads only the API service's
+`earningsnerd-backend-00661-zr9` logs for filing IDs 45003 and 45004 between
+2026-10-30 11:00 and 11:15 UTC. Dispatch it from reviewed `main`; the workflow's
+main-only and apply-approval restrictions are unchanged. It reads no SQL or secrets,
+makes no SEC or model request, and is exempt from the deployment preflight because
+its source is historical Logging data. It retains the ordinary `ops` concurrency
+group, so check for pending/running Ops operations before dispatching it.
+
+`ops/diagnostics/regn_summary_incident.py` emits only validated timestamps, the two
+filing IDs, fixed stage/reason codes, and HTTP status numbers parsed from the primary
+document transport's HTTPX error prefix. It never emits raw messages, tracebacks,
+URLs, user identifiers, or gcloud stderr. Reasons are `http_forbidden` (403),
+`http_rate_limited` (429), `http_not_found` (404), `http_server_error` (5xx),
+`http_other_client_error` (other 4xx), `circuit_open`, `empty_document`, `timeout`,
+`connection_error`, `invalid_url`, or `unclassified`. An unclassified failure remains
+unknown; a 403 does not by itself prove rate limiting or identify SEC's blocking rule.
+
+The read requests at most 501 entries and projects the first 500, marking a lookahead
+as `truncated`. Rejected shapes/scopes make an otherwise untruncated read `partial`.
+`complete` describes the bounded log query, not proof that all requests logged or
+succeeded; no matching entries cannot exonerate an upstream. Responses over 8 MiB
+are rejected after capture, with a 60-second command timeout and a two-minute job
+step limit. The byte check is an acceptance bound, not a subprocess memory bound.
+Read failures emit `unavailable` and a closed reason, failing the step. No raw-log
+artifact is created. This one-incident operation takes no query inputs and does not
+extend the three Claude Code command allow rules below.
+
+After a backend deploy has concluded, a Claude Code session may read production through two read-only
+Ops operations. `.claude/settings.json` allows exactly these three commands, each as an exact-match rule:
+
+```sh
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=describe-service
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=logs-probe
+gh run list -R neilmac91/EarningsNerd --workflow ops.yml --branch main --event workflow_dispatch -L 5 --json databaseId,status,conclusion,createdAt,headSha
+```
+
+**When the rules apply.** Only in a session that applies this checkout's project settings: a
+single-repository session (a cloud thread in a project reads no project permission rules, nor does a
+cloud session with several repositories in an Anthropic-hosted environment), in a workspace whose trust
+is recorded (a `-p` or SDK run uses project allow rules only when `~/.claude.json` records
+`hasTrustDialogAccepted` for the repository's main checkout root, where a worktree's trust is keyed),
+with no managed `allowManagedPermissionRulesOnly` and no `autoMode.classifyAllShell` (which suspends
+every Bash allow rule in Auto mode), and, under the Bash sandbox, with GitHub's API on the sandbox's
+allowlist (a command that carries hosts of its own goes to the classifier). There, in Auto mode, a
+matching command runs without a prompt and without the auto-mode classifier. Anywhere else it goes to the
+prompt, the classifier or the session's own tool allowance, as before.
+
+**No command proves the route on its own.** In Auto mode a silent run shows only that the command was
+allowed, by these rules or by the classifier, which may approve a read of run metadata, or even a read
+dispatch, by itself; in Accept edits, or under a harness that allows every Bash command, any command
+that runs proves nothing about these rules
+(`lessons/ops-prove-the-permission-route-before-a-gated-session.md`). The conclusive result is the
+other one: a prompt or a classifier denial of one of the three exact commands means the rules did not
+apply, so record it verbatim and stop, never reshape a command. `/permissions` lists each rule and the
+file it comes from; the operator checks the conditions above beside it.
+
+**What a rule admits.** A rule without `*` matches only its own text, so another operation, input, ref
+or repository, a variable, or a wrapper or assignment the matcher does not strip falls outside it.
+Two of the allowed commands chained together (`&&`, `;`, a newline) are each allowed; issue each alone
+anyway. A read cannot replace a queued run: `ops.yml` runs `describe-service` and `logs-probe` each in
+a concurrency group of its own run, so neither queues behind, nor replaces, a pending operation, an
+approved apply's included. A read can overlap an Ops run that is in progress, though: a
+`describe-service` that overlaps a `feedback-media` enable or disable apply can stop on a revision that
+is not ready yet, as a describe during a deploy does, and one during or after `rollback-traffic` stops on
+the traffic check until traffic is moved back to the latest revision. So dispatch a read when the list
+shows no Ops run in progress, one read at a time, and wait until the list shows it `completed` before
+the next. The list covers the newest five Ops dispatches.
+
+**What the runs print** is the projection their steps already make ([Read-only release configuration
+audit](DEPLOYMENT.md#read-only-release-configuration-audit)):
+- `describe-service`: the traffic and revision names, `SENTRY_RELEASE`, the allow-listed values (the two
+  AI base URLs among them) and SEC pins, each container's image reference, the sizing lines and the
+  worker's invoker verdict; never the service, traffic or worker URLs, another environment value or
+  gcloud's error text. A required read that fails stops the step, with no verdict line, on an
+  `Unresolved production configuration: …` line that ends `cannot describe <kind> <name> (<class>).`
+  after any defect found before it; the optional invoker-policy read prints `UNVERIFIED (<class>)`.
+- `logs-probe`: whether `logging.read` is permitted, or `DENIED` with its failure class; the
+  `company_upsert_conflict` count, which is absent when its read fails; and which revisions printed each
+  Sentry start line, with counts, or `UNVERIFIED (<class>; gcloud's error text withheld)` for a kind it
+  could not read; never a log line or gcloud's error text.
+
+A record marks each of those failures Unverified (`lessons/ops-denied-reads-report-unverified.md`;
+gates `test_prod_flag_visibility.py`, `test_ops_stderr_withheld.py`,
+`test_capacity_projection_privacy.py`). The run log itself is read with `gh run view <run id> -R
+neilmac91/EarningsNerd --log`, which stays outside the allow list: an exact rule cannot carry a run id,
+and the whole job log also holds the authentication step's identity lines. A record keeps only the
+operation step's verdict, revision, flag and Sentry lines.
+
+**Nothing here allows an apply.** Every other operation, a dispatch through the REST API, a re-run, the
+deployment-review and environment calls and any `gcloud` command stay outside the allow list; an
+`-apply` still waits for the founder's approval of `ops-apply` and the workflow's owner-approval check,
+and `.claude/hooks/ops_approval_guard.py` refuses a session the approval and rejection calls whatever
+the allow list says ([DEPLOYMENT.md](DEPLOYMENT.md)). Gate:
+`backend/tests/unit/test_ops_readback_allow_rules.py` (the three rules, the forbidden corpus, and the
+jobs, steps, environment, runner and concurrency group a read dispatch runs, with the resolve script's
+vocabulary); `ops/describe/service.py`, the Python every describe runs, is review-checked.
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 
@@ -445,7 +916,7 @@ transport and makes no live send or job dispatch.
 `backend/scripts/refresh_stale_summaries.py` is the job-side counterpart of the admin
 `refresh-stale` endpoint for corpus-sized backlogs: the same shared staleness encoding
 (`app/services/summary_refresh.py`), the same in-place regeneration through the one orchestrator
-with `force_regenerate=True` (bookmarks survive, keep-better gate refuses downgrades), bounded by
+with `force_regenerate=True` (bookmarks survive; keep-better refuses to downgrade a summary the page shows), bounded by
 `--limit` and `--max-seconds`, random candidate order, honest per-filing outcomes
 (`updated` / `kept_by_gate` / `failed` / `deferred`), and a durable attempt in
 `earningsnerd_job_runs` under `refresh-stale` (a run with any failed regeneration is recorded as
@@ -473,9 +944,12 @@ Every scheduled job script records an attempt in `earningsnerd_job_runs`, using 
 separate from its business work. The logical names are `pregenerate`, `filing-scan`,
 `filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
 `notable-filings`. The weekly report records `data-quality-report` separately, even though it
-runs on the filing-digest Cloud Run job. SIC backfill, financial remediation and the reconciliation-flag audit similarly use
-`backfill-company-sic`, `remediate-financials` and `reconciliation-flag-audit`; these ad hoc
-identities cannot satisfy the scheduled facts heartbeat.
+runs on the filing-digest Cloud Run job, and the Item 1A extraction batch the real-time scan runs
+behind `ENABLE_SECTION_CHANGES` records `section-extraction` on its own row (a failed batch fails
+that row, not the scan's execution; it joins `JOB_CADENCES` when the flag flips). SIC backfill, financial remediation, the reconciliation-flag audit and the
+operator's section backfill similarly use `backfill-company-sic`, `remediate-financials`,
+`reconciliation-flag-audit` and `section-extraction-manual`; these ad hoc identities cannot satisfy a
+scheduled heartbeat.
 
 Each attempt records start, completion, status and numeric counters. Returned provider/send/
 extraction failures and failed commits mark the attempt failed and make the CLI exit nonzero;

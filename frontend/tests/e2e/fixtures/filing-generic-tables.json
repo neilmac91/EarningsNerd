@@ -1,0 +1,66 @@
+[
+  {
+    "id": "business-segment-analysis",
+    "title": "Business Segment Analysis",
+    "blocks": [
+      {
+        "kind": "table",
+        "headers": [
+          "Segment",
+          "Revenue",
+          "Revenue Change",
+          "Commentary"
+        ],
+        "rows": [
+          [
+            "iPhone",
+            "$46.2B",
+            "+6.1%",
+            "41% operating margin — higher net sales of iPhone"
+          ],
+          [
+            "Services",
+            "$26.6B",
+            "-",
+            "$1.2B of the increase came from advertising"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "notable-footnotes",
+    "title": "Notable Footnotes",
+    "blocks": [
+      {
+        "kind": "table",
+        "headers": [
+          "Item",
+          "Impact",
+          "Why it matters"
+        ],
+        "rows": [
+          [
+            "Stock-based compensation",
+            "Expense is recognized over the vesting period for equity awards.",
+            "This noncash expense can still dilute shareholders over time and reduces reported operating income."
+          ],
+          [
+            "Litigation",
+            "Contingent liabilities remain subject to uncertainty.",
+            "The eventual cash settlement may differ from management estimates."
+          ]
+        ],
+        "row_evidence": [
+          {
+            "verified": true,
+            "excerpt": "Expense is recognized over the vesting period.",
+            "section_ref": "Note 5",
+            "fragment_url": "https://www.sec.gov/x.htm"
+          },
+          null
+        ]
+      }
+    ]
+  }
+]

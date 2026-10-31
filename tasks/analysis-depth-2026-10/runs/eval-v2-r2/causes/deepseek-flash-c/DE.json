@@ -1,0 +1,63 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 4,
+ "output_sha256": "fb1fe80cca75d47ca44afdd6f73925be7601e056cab29319cb16c374c4d49468",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2018 step came largely from the Wirtgen acquisition, which added 12% to net sales for the year .",
+   "passages": [
+    {
+     "id": "P72",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Worldwide net income attributable to Deere & Company in 2018 was $2,368 million, or $7.24 per share diluted ($7.34 basic), compared with $2,159 million, or $6.68 per share diluted ($6.76 basic), in 2017. Affecting 2018 net income were increases to the provision for income taxes of $704 million due to the enactment of U.S. tax reform legislation on December 22, 2017 (tax reform) (see Note 8). Worldwide net sales and revenues increased 26 percent to $37,358 million in 2018, compared with $29,738 million in 2017. Net sales of the worldwide equipment operations rose 29 percent in 2018 to $33,351 million from $25,885 million last year. The company's acquisition of the Wirtgen Group Holding GmbH (Wirtgen) (see Note 4) in December 2017 added 12 percent to net sales for the year. Sales included price realization of 1 percent with no significant currency translation effect. Equipment net sales in the United States and Canada increased 25 percent for 2018, with Wirtgen adding 4 percent. Outside the U.S. and Canada, net sales increased 34 percent for the year, with Wirtgen adding 22 percent."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage confirms Wirtgen added 12% to sales, but that is under half of the 29% rise, so 'largely' overstates it."
+  },
+  {
+   "sentence": "In Production & Precision Agriculture, sales volumes fell 30% in the U.S. and Canada, partly offset by a 22% increase in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states volumes fell 30% in U.S./Canada, partially offset by a 22% increase in Brazil."
+  },
+  {
+   "sentence": "SG&A rose in FY2024 partly on a higher provision for credit losses, and R&D rose on continued technology investment .",
+   "passages": [
+    {
+     "id": "P33",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The cost of sales to net sales ratio increased compared to 2021 mainly due to higher production costs partially offset by price realization. Other income increased due to a non-cash gain on the remeasurement of the previously held equity investment in the Deere-Hitachi joint venture. Research and development expenses were higher in 2022 largely due to continued focus on developing and incorporating technology solutions. Selling, administrative and general expenses increased mostly due to higher provision for credit losses, including higher reserves due to the economic uncertainty in Russia (see Note 4), as well as a higher merit pay increase due to inflationary conditions. Interest expense increased in 2022 due to higher average borrowings and higher average borrowing rates. Other operating expenses were lower compared to 2021 largely due to reduced depreciation of equipment on operating leases and lower retirement benefit costs. The provision for income taxes increased consistent with higher pretax income."
+    }
+   ],
+   "label": "partial",
+   "reason": "Credit-loss and technology causes are stated for FY2022, not FY2024 as claimed."
+  },
+  {
+   "sentence": "The FY2025 inflow was driven by net income adjusted for non-cash provisions and a decrease in sales receivables, partly offset by an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage gives net income adjusted for non-cash provisions and lower sales receivables, offset by an OPEB contribution."
+  }
+ ],
+ "cost_usd": 0.031076,
+ "backend": "claude_cli",
+ "input_tokens": 2803,
+ "cached_input_tokens": 0,
+ "output_tokens": 433
+}

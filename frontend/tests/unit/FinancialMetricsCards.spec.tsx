@@ -1,0 +1,646 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import FinancialMetricsTable, { type FinancialMetric } from '@/features/summaries/components/FinancialMetricsTable'
+import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
+import { passageLabel } from '@/features/filings/lib/evidenceLabels'
+
+/**
+ * EN-03: below md each metric is one stacked card; at/above md the DataTable is unchanged. The two
+ * presentations are switched by CSS alone (`md:hidden` / `hidden md:block`), which jsdom does not
+ * apply (vitest css: false), so BOTH layouts are in the DOM here. These cases prove CONTENT PARITY:
+ * every field the table renders is read the same way from both layouts (`factsOf`) and compared
+ * with the served rows (`servedFacts`) — for the full fixture and for every data variant the
+ * acceptance names. Whether the inactive layout is really gone from the accessibility tree and the
+ * tab order, and whether long values wrap in a real layout engine, is proven in a browser by
+ * tests/e2e/metrics-stacked-cards.spec.ts — a class-name assertion proves nothing about layout.
+ */
+
+const SEC = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
+const EVIDENCE = {
+  fragment_url: `${SEC}aapl-20250927.htm#item8`,
+  verified: true,
+  section_ref: 'Item 8. Financial Statements',
+  excerpt: 'Total net sales increased 6% or $25.1 billion during 2025 compared to 2024.',
+}
+const PER_ADS = {
+  value: 45.6,
+  ordinary_per_ads: 8,
+  currency: 'CNY',
+  as_of: '2026-06-28',
+  source: 'Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares',
+  arithmetic: 'CNY 5.7 per ordinary share × 8 = CNY 45.6 per ADS',
+}
+
+/** Three rows that between them exercise every cell kind the table can show. */
+const FULL: FinancialMetric[] = [
+  {
+    metric: 'Total net sales',
+    current_period: '$416,161M',
+    prior_period: '$391,035M',
+    change_display: '+6.4%',
+    change_direction: 'up',
+    change_tone: 'gain',
+    commentary: 'Revenue grew across every segment, led by Services.',
+    source_url: SEC,
+    source_verified: true,
+    xbrl_concept: 'Revenue',
+    source_section_ref: 'Consolidated Statements of Operations',
+    commentary_evidence: EVIDENCE,
+  },
+  {
+    metric: 'Operating margin',
+    current_period: '31.9%',
+    prior_period: '31.5%',
+    change_display: '+0.4 ppts',
+    change_direction: 'up',
+    change_tone: 'gain',
+    commentary: 'Margin held despite tariff costs.',
+    source_url: SEC,
+    source_verified: false,
+  },
+  {
+    metric: 'Diluted EPS (per ordinary share)',
+    current_period: 'CN¥5.70',
+    prior_period: 'CN¥6.10',
+    change_display: '-6.6%',
+    change_direction: 'down',
+    change_tone: 'loss',
+    per_ads: PER_ADS,
+    // no commentary, no evidence, no source url
+  },
+]
+const NO_COMPARATIVES: FinancialMetric[] = [
+  { metric: 'Revenue', current_period: '$125,000', prior_period: '', commentary: 'Grew.' },
+  { metric: 'Gross margin', current_period: '48%', prior_period: '', commentary: 'Held.' },
+]
+const NO_COMMENTARY: FinancialMetric[] = [
+  { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', source_url: SEC, source_verified: true, xbrl_concept: 'Net income' },
+]
+/** Takeaways the field reads as missing beside one it shows: whitespace, the token alone, and evidence with no takeaway,
+    which takes no chip (E145). */
+const MISSING_TAKEAWAYS: FinancialMetric[] = [
+  { metric: 'Revenue', current_period: '$1.2B', prior_period: '$1.1B', change_display: '+9.1%', change_direction: 'up', change_tone: 'gain', commentary: '   ' },
+  { metric: 'Net income', current_period: '$210.0M', prior_period: '$190.0M', change_display: '+10.5%', change_direction: 'up', change_tone: 'gain', commentary: '—' },
+  { metric: 'Operating income', current_period: '$300.0M', prior_period: '$280.0M', change_display: '+7.1%', change_direction: 'up', change_tone: 'gain', commentary_evidence: EVIDENCE },
+  { metric: 'Gross margin', current_period: '48%', prior_period: '47%', change_display: '+1.0 pp', change_direction: 'up', change_tone: 'gain', commentary: 'Held.' },
+]
+const NO_EVIDENCE: FinancialMetric[] = [
+  { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', commentary: 'Lower tax rate.' },
+]
+const NO_CHANGE: FinancialMetric[] = [{ metric: 'Revenue', current_period: '$100', prior_period: '$80' }]
+/** A row without a prior value among rows that have one: its Prior cell is MissingValue, read as unavailable. */
+const MIXED_PRIOR: FinancialMetric[] = [
+  { metric: 'Revenue', current_period: '$100', prior_period: '$80', change_display: '+25.0%', change_direction: 'up', change_tone: 'gain' },
+  { metric: 'New metric', current_period: '$5', prior_period: '' },
+]
+/** A degraded summary's rows as backend/app/services/fallback_summary.py writes them and _metrics_block serves them
+ *  (generate_xbrl_summary run offline): the missing-value token for a figure the fallback lacks, and in the `change`
+ *  the table never reads. With XBRL, the net income has no prior; without, no row has a figure. */
+const FALLBACK_XBRL: Array<FinancialMetric & { change: string }> = [
+  { metric: 'Revenue', current_period: '$1.2B', prior_period: '$1.1B', change: '—', commentary: 'From XBRL data', change_display: '+9.1%', change_direction: 'up', change_tone: 'gain' },
+  { metric: 'Net Income', current_period: '$210.0M', prior_period: '—', change: '—', commentary: 'From XBRL data' },
+]
+const FALLBACK_NO_XBRL: Array<FinancialMetric & { change: string }> = [
+  { metric: 'Revenue', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+  { metric: 'Net Income', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+]
+/** Figures that are not missing and render as they did before MissingValue reached these cells: a genuine zero, and
+ *  words a summary reports in a figure's place ("Not disclosed", the degraded summary's own for a figure XBRL lacks). */
+const ZERO_AND_TEXT: FinancialMetric[] = [
+  { metric: 'Deferred revenue', current_period: '$0', prior_period: '$12M', change_display: '-100.0%', change_direction: 'down', change_tone: 'loss' },
+  { metric: 'Revenue', current_period: 'Not disclosed', prior_period: '0%' },
+]
+// Long values that SURVIVE formatMetricValue: a leading non-numeric token makes parseNumeric null,
+// so the string renders verbatim (a numeric '$1,234,567,890,123 (restated)' would compact to $1.2T
+// and never exercise the wrap path). The change string also carries an unbreakable 60-char token.
+// A second, ordinary row keeps the table in its comparatives shape (a prior that parses is what
+// switches the Prior / Change columns on).
+const UNBREAKABLE = 'x'.repeat(60)
+const LONG: FinancialMetric[] = [
+  {
+    metric: 'Revenue from contracts with customers, excluding assessed taxes, continuing operations only',
+    current_period: 'Restated to $1,234,567,890,123 after the discontinued-operations reclassification',
+    prior_period: 'Previously reported $987,654,321,098 before the reclassification',
+    change_display: `+25.0% (constant currency +23.4%, excluding the 53rd week) ${UNBREAKABLE}`,
+    change_direction: 'up',
+    change_tone: 'gain',
+    commentary: 'A takeaway long enough to wrap several times on a phone. '.repeat(6).trim(),
+    commentary_evidence: EVIDENCE,
+  },
+  { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', commentary: 'Lower tax rate.' },
+]
+
+// A popover's link for these rows' URL (no text fragment): its label, then a visually hidden " (opens in a new tab)".
+// jsdom's name computation joins the two without the space a browser keeps, so the space is optional here.
+const FILING_LINK = /^Open the filing on SEC\.gov ?\(opens in a new tab\)$/
+
+const CAPTION_WITH = 'Financial highlights: current period, prior period, change, and investor takeaway per metric'
+const CAPTION_WITHOUT = 'Financial highlights: current period and investor takeaway per metric'
+
+const layout = (c: HTMLElement, which: 'cards' | 'table') => c.querySelector<HTMLElement>(`[data-metrics-layout="${which}"]`)!
+const all = (root: Element, sel: string) => Array.from(root.querySelectorAll<HTMLElement>(sel))
+const text = (e: Element | null | undefined) => (e?.textContent ?? '').replace(/\s+/g, ' ').trim()
+const cardList = (c: HTMLElement) => all(layout(c, 'cards'), '[data-metric-card]')
+const bodyRows = (c: HTMLElement) => all(layout(c, 'table'), 'tbody tr')
+/** What assistive tech reads of an element: its text with every aria-hidden part (MissingValue's token) left out. */
+const spoken = (e: Element) => {
+  const copy = e.cloneNode(true) as Element
+  copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove())
+  return text(copy)
+}
+
+/** Everything the acceptance row says must be equal across layouts, read the same way in both. */
+function factsOf(root: HTMLElement) {
+  const isTable = root.dataset.metricsLayout === 'table'
+  return {
+    caption: isTable ? text(root.querySelector('caption')) : root.querySelector('ul')?.getAttribute('aria-label') ?? root.getAttribute('aria-label'),
+    rows: isTable ? all(root, 'tbody tr').length : all(root, '[data-metric-card]').length,
+    names: all(root, '[data-metric-field="name"]').map((e) => text(e.firstElementChild)),
+    currents: all(root, '[data-metric-field="current"]').map(text),
+    perAds: all(root, '[data-metric-field="per-ads"]').map(text),
+    priors: all(root, '[data-metric-field="prior"]').map(text),
+    changes: all(root, '[data-metric-field="change"]').map((e) => ({ text: text(e), direction: e.dataset.direction ?? null, tone: e.dataset.tone ?? null })),
+    takeaways: all(root, '[data-metric-field="takeaway"]').map((e) => text(e.firstElementChild)),
+    xbrlChips: all(root, '[data-metric-field="name"] [aria-label^="Source: "]').map((e) => e.getAttribute('aria-label')),
+    takeawayChips: all(root, '[data-metric-field="takeaway"] [aria-label^="Source: "]').map((e) => e.getAttribute('aria-label')),
+  }
+}
+
+/** A served takeaway as the field shows it, or null where it renders MissingValue: empty, whitespace or the token alone. */
+const takeawayOf = (r: FinancialMetric): string | null => (!r.commentary?.trim() || r.commentary.trim() === '—' ? null : r.commentary)
+
+/** The same facts, computed from the served rows — no client math anywhere in here either. */
+const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
+  caption: hasComparatives ? CAPTION_WITH : CAPTION_WITHOUT,
+  rows: rows.length,
+  names: rows.map((r) => r.metric),
+  perAds: rows.filter((r) => r.per_ads).map(() => expect.stringContaining('per ADS')),
+  priors: hasComparatives ? rows.map(() => expect.any(String)) : [],
+  changes: hasComparatives
+    ? rows.map((r) =>
+        r.change_display
+          ? { text: r.change_display, direction: r.change_direction ?? null, tone: r.change_tone ?? null }
+          : { text: '—unavailable', direction: null, tone: null },
+      )
+    : [],
+  takeaways: rows.map((r) => (takeawayOf(r) ?? '—no takeaway')),
+  // With no viewer and no coarse pointer a chip is the link itself, and its name says it opens a new tab.
+  xbrlChips: rows.filter((r) => r.source_url).map((r) => `Source: ${r.source_verified ? 'Matches filing' : 'Linked, not checked'} (opens in a new tab)`),
+  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => `Source: ${passageLabel(r.commentary_evidence!.verified, r.commentary_evidence!.section_ref)} (opens in a new tab)`),
+})
+
+const TONE_TOKENS = /^(font-semibold|(dark:)?text-(gain|loss)-(text|dark)|(dark:)?text-flat-(light|dark))$/
+const toneTokens = (e: Element) => (e.getAttribute('class') ?? '').split(/\s+/).filter((t) => TONE_TOKENS.test(t)).sort()
+const tokens = (e: Element) => (e.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
+
+describe('FinancialMetricsTable — stacked cards below md (EN-03): content parity', () => {
+  it.each([
+    ['the full fixture (matched + linked figure chips, evidence, per-ADS, up and down)', FULL, true],
+    ['no comparatives (no prior / change anywhere, the short caption)', NO_COMPARATIVES, false],
+    ['no commentary (MissingValue, read as "no takeaway"; no chip)', NO_COMMENTARY, true],
+    ['no evidence (a takeaway without a chip, nothing invented)', NO_EVIDENCE, true],
+    ['takeaways read as missing (whitespace, the token alone, evidence without a takeaway: MissingValue, no chip)', MISSING_TAKEAWAYS, true],
+    ['no server change (MissingValue, read as unavailable; no percentage)', NO_CHANGE, true],
+    ['a row without a prior among rows with one (MissingValue in the Prior cell, mirrored)', MIXED_PRIOR, true],
+    ['a degraded summary with XBRL (a prior served as the token: MissingValue)', FALLBACK_XBRL, true],
+    ['a degraded summary without XBRL (every figure the token: MissingValue, no comparatives)', FALLBACK_NO_XBRL, false],
+    ['a genuine zero and reported words (as served, never MissingValue)', ZERO_AND_TEXT, true],
+    ['long values (verbatim in both layouts)', LONG, true],
+  ] as const)('%s: cards === table === served', (_name, rows, hasComparatives) => {
+    const { container } = render(<FinancialMetricsTable metrics={[...rows]} bare />)
+    const cards = factsOf(layout(container, 'cards'))
+    const table = factsOf(layout(container, 'table'))
+    expect(cards.rows).toBe(rows.length)
+    expect(cards).toEqual(table)
+    expect(table).toMatchObject(servedFacts([...rows], hasComparatives))
+    expect(cards.currents).toHaveLength(rows.length)
+    // No field lets assistive tech read the token, in either layout: a missing figure is MissingValue's words.
+    for (const field of all(container, '[data-metric-field]')) expect(spoken(field), field.dataset.metricField).not.toContain('—')
+    if (!hasComparatives) {
+      expect(cards.priors).toEqual([])
+      expect(cards.changes).toEqual([])
+      // Three column headings; the metric name is each row's header (th scope="row"), one more th per row.
+      expect(all(layout(container, 'table'), 'thead th')).toHaveLength(3)
+      expect(all(layout(container, 'table'), 'tbody th[scope="row"]')).toHaveLength(rows.length)
+      for (const which of ['cards', 'table'] as const) {
+        expect(within(layout(container, which)).queryByText(/prior/i)).toBeNull()
+        expect(within(layout(container, which)).queryByText(/change/i)).toBeNull()
+      }
+      for (const card of cardList(container)) expect(within(card).getAllByRole('term')).toHaveLength(1) // Current only
+    }
+    if (rows === NO_CHANGE) {
+      expect(cards.changes).toEqual([{ text: '—unavailable', direction: null, tone: null }])
+      expect(layout(container, 'cards')).not.toHaveTextContent('%')
+    }
+    if (rows === NO_EVIDENCE || rows === NO_COMMENTARY) {
+      expect(cards.takeawayChips).toEqual([])
+      expect(all(container, '[data-metric-field="takeaway"] a, [data-metric-field="takeaway"] button')).toHaveLength(0)
+      expect(within(container).queryByText(/Quote found in filing/)).toBeNull()
+    }
+    if (rows === MIXED_PRIOR) {
+      // strict mirroring: the Prior group is rendered for every row, MissingValue where the row has no prior
+      expect(cards.priors).toEqual(['$80.0', '—unavailable'])
+      expect(cards.changes[1]).toEqual({ text: '—unavailable', direction: null, tone: null })
+      for (const card of cardList(container)) expect(within(card).getAllByRole('term').map(text)).toEqual(['Current period', 'Prior period', 'Change'])
+    }
+    if (rows === FALLBACK_XBRL) {
+      expect(cards.currents).toEqual(['$1.2B', '$210.0M'])
+      expect(cards.priors).toEqual(['$1.1B', '—unavailable'])
+      expect(cards.changes[1]).toEqual({ text: '—unavailable', direction: null, tone: null })
+    }
+    if (rows === FALLBACK_NO_XBRL) expect(cards.currents).toEqual(['—unavailable', '—unavailable'])
+    if (rows === ZERO_AND_TEXT) {
+      expect(cards.currents).toEqual(['$0.00', 'Not disclosed'])
+      expect(cards.priors).toEqual(['$12.0M', '0.0%'])
+    }
+  })
+
+  it('keeps the precision a currency row was served with: "$7.46" never displays as "$7.5"', () => {
+    const rows: FinancialMetric[] = [
+      { metric: 'Diluted EPS', current_period: '$7.46', prior_period: '$6.08', change_display: '+22.7%', change_direction: 'up', change_tone: 'gain' },
+      { metric: 'Total net sales', current_period: '$416,161M', prior_period: '$391,035M', change_display: '+6.4%', change_direction: 'up', change_tone: 'gain' },
+    ]
+    const { container } = render(<FinancialMetricsTable metrics={rows} bare />)
+    for (const which of ['cards', 'table'] as const) {
+      const facts = factsOf(layout(container, which))
+      expect(facts.currents).toEqual(['$7.46', '$416.2B'])
+      expect(facts.priors).toEqual(['$6.08', '$391.0B'])
+    }
+  })
+
+  it('a card is one <li> per served row, in order, each with the row’s name once and the caption naming the list', () => {
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
+    const cards = cardList(container)
+    expect(cards).toHaveLength(FULL.length)
+    expect(cards.map((c) => text(c.querySelector('[data-metric-field="name"]')!.firstElementChild))).toEqual(FULL.map((r) => r.metric))
+    for (const [i, c] of cards.entries()) expect(within(c).getAllByText(FULL[i].metric)).toHaveLength(1)
+    expect(screen.getByRole('list', { name: CAPTION_WITH })).toBe(layout(container, 'cards'))
+    expect(screen.getByRole('table', { name: CAPTION_WITH })).toBeInTheDocument()
+  })
+
+  it('the caption names the table and the list in the no-comparatives variant too', () => {
+    render(<FinancialMetricsTable metrics={NO_COMPARATIVES} bare />)
+    expect(screen.getByRole('table', { name: CAPTION_WITHOUT })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: CAPTION_WITHOUT })).toBeInTheDocument()
+    expect(screen.queryByText('Prior Period')).toBeNull()
+    expect(screen.queryByText('Change')).toBeNull()
+  })
+
+  it('change tone and glyph come from the server: the card dd carries exactly the tone tokens the table td carries', () => {
+    const rows: FinancialMetric[] = [
+      // the numbers fall, the server says gain (a cost line): both layouts follow the server
+      { metric: 'Cost of sales', current_period: '$80', prior_period: '$100', change_display: '-20.0%', change_direction: 'down', change_tone: 'gain' },
+      { metric: 'Flat line', current_period: '$100', prior_period: '$100', change_display: '0.0%', change_direction: 'flat', change_tone: 'flat' },
+      { metric: 'Loss line', current_period: '$90', prior_period: '$100', change_display: '-10.0%', change_direction: 'down', change_tone: 'loss' },
+      { metric: 'No tone', current_period: '$90', prior_period: '$100', change_display: '-10.0%' },
+    ]
+    const { container } = render(<FinancialMetricsTable metrics={rows} bare />)
+    const tds = all(layout(container, 'table'), '[data-metric-field="change"]').map((e) => e.closest('td')!)
+    const dds = all(layout(container, 'cards'), '[data-metric-field="change"]').map((e) => e.closest('dd')!)
+    expect(dds).toHaveLength(4)
+    expect(dds.map(toneTokens)).toEqual(tds.map(toneTokens))
+    expect(toneTokens(dds[0])).toEqual(['dark:text-gain-dark', 'font-semibold', 'text-gain-text'])
+    expect(toneTokens(dds[1])).toEqual(['dark:text-flat-dark', 'text-flat-light'])
+    expect(toneTokens(dds[2])).toEqual(['dark:text-loss-dark', 'font-semibold', 'text-loss-text'])
+    expect(toneTokens(dds[3])).toEqual([])
+    // the served direction and tone ride on the change element in both layouts, and the glyph is
+    // decorative (the signed string carries direction for AT) — in both
+    for (const which of ['cards', 'table'] as const) {
+      const changes = all(layout(container, which), '[data-metric-field="change"]')
+      expect(changes.map((e) => [e.dataset.direction, e.dataset.tone])).toEqual([['down', 'gain'], ['flat', 'flat'], ['down', 'loss'], [undefined, undefined]])
+      for (const e of changes) {
+        const svg = e.querySelector('svg')
+        expect(svg, `${which}: the glyph rides with the string`).not.toBeNull()
+        expect(svg!.getAttribute('aria-hidden')).toBe('true')
+      }
+    }
+    // the table keeps its single-line inline-flex cell; the card's glyph rides inline so the string can wrap
+    expect(tokens(all(layout(container, 'table'), '[data-metric-field="change"]')[0])).toContain('inline-flex')
+    expect(tokens(all(layout(container, 'cards'), '[data-metric-field="change"]')[0])).not.toContain('inline-flex')
+    expect(tokens(all(layout(container, 'cards'), '[data-metric-field="change"] svg')[0])).toContain('inline-block')
+  })
+
+  it('labels the figures with the table’s column vocabulary: visible short form, spoken full form, header-size eyebrows', () => {
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
+    const cards = cardList(container)
+    expect(cards).toHaveLength(FULL.length)
+    for (const c of cards) {
+      expect(within(c).getAllByRole('term').map(text)).toEqual(['Current period', 'Prior period', 'Change'])
+      expect(all(c, 'dt .sr-only').map(text)).toEqual(['period', 'period'])
+      for (const dt of all(c, 'dt')) {
+        expect(tokens(dt)).toEqual(expect.arrayContaining(['text-xs', 'uppercase', 'tracking-eyebrow']))
+      }
+      for (const dd of all(c, 'dd')) {
+        expect(tokens(dd)).toEqual(expect.arrayContaining(['font-data', 'text-sm', 'tabular-nums']))
+      }
+    }
+  })
+
+  it('never forces a card value, change line, name or takeaway onto one line or clips it (long values, an unbreakable token)', () => {
+    const { container } = render(<FinancialMetricsTable metrics={LONG} bare />)
+    const card = cardList(container)[0]
+    expect(card).toBeDefined()
+    for (const el of [card, ...all(card, '*')]) {
+      if (el.closest('svg')) continue // the direction glyph is a fixed-size icon, not text
+      expect(el.getAttribute('class') ?? '', el.tagName).not.toMatch(
+        /\b(whitespace-nowrap|whitespace-pre|truncate|text-ellipsis|text-clip|line-clamp-\d+|overflow-(x-|y-)?(hidden|clip|auto|scroll)|break-keep|h-\d+(\.\d+)?|max-h-\S+)\b/,
+      )
+      expect(el.getAttribute('style')).toBeNull()
+    }
+    // the wrap contract is inherited from the card: overflow-wrap:anywhere also lowers a flex
+    // item's min-content width, which break-words cannot — so even the unbreakable token breaks
+    expect(tokens(card)).toContain('[overflow-wrap:anywhere]')
+    // and no group's min-width comes from its content: the two year groups hold a 5rem floor capped at the row (so the
+    // groups line up across cards while they fit), never wider than the row, and the Change group none
+    expect(all(card, 'dl > div').map((group) => tokens(group).filter((t) => t.startsWith('min-w-')))).toEqual([
+      ['min-w-[min(5rem,100%)]'],
+      ['min-w-[min(5rem,100%)]'],
+      ['min-w-0'],
+    ])
+    // the long strings render verbatim in BOTH layouts (the formatter left them alone)
+    const c = factsOf(layout(container, 'cards'))
+    expect(c.currents[0]).toBe(LONG[0].current_period)
+    expect(c.priors[0]).toBe(LONG[0].prior_period)
+    expect(c.changes[0].text).toBe(LONG[0].change_display)
+    expect(c.names[0]).toBe(LONG[0].metric)
+    expect(c.takeaways[0]).toBe(LONG[0].commentary)
+    // and the md table keeps its single-line cells (unchanged at ≥768)
+    for (const f of ['current', 'prior', 'change']) {
+      expect(layout(container, 'table').querySelector(`[data-metric-field="${f}"]`)!.closest('.whitespace-nowrap')).not.toBeNull()
+    }
+  })
+
+  it('renders the per-ADS annotation inside the table’s Current cell, and in the card on its own line under the figures', () => {
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
+    const card = cardList(container)[2]
+    const row = bodyRows(container)[2]
+    expect(card).toBeDefined()
+    expect(row).toBeDefined()
+    const inCard = card.querySelector('[data-metric-field="per-ads"]')!
+    const inRow = row.querySelector('[data-metric-field="per-ads"]')!
+    expect(text(inCard)).toContain('≈ CNY 45.6 per ADS')
+    expect(text(inRow)).toBe(text(inCard))
+    expect(inCard.closest('dl')).toBeNull() // outside the Current / Prior / Change line
+    expect(inCard.compareDocumentPosition(card.querySelector('dl')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    expect(inRow.closest('td')).toBe(row.querySelectorAll('td')[0]) // the Current cell (the name is the row's th, so the first td)
+    expect(within(card).getByText(/CNY 5.7 per ordinary share/)).toBeInTheDocument()
+    // rows without the annotation carry none, in either layout
+    expect(all(cardList(container)[0], '[data-metric-field="per-ads"]')).toHaveLength(0)
+    expect(all(bodyRows(container)[0], '[data-metric-field="per-ads"]')).toHaveLength(0)
+  })
+
+  it('the md table keeps five headers in order, the px-2 wrapper, numeric cells right-aligned in the data face', () => {
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
+    const t = layout(container, 'table')
+    expect(all(t, 'thead th').map(text)).toEqual(['Metric', 'Current Period', 'Prior Period', 'Change', 'Investor Takeaway'])
+    expect(tokens(t.firstElementChild!)).toContain('px-2')
+    // The metric name is each row's header (th scope="row"), so the row's td cells are Current, Prior, Change, Takeaway.
+    expect(all(t, 'tbody tr:first-child th')).toHaveLength(1)
+    expect(t.querySelector('tbody tr:first-child th')).toHaveAttribute('scope', 'row')
+    expect(all(t, 'tbody tr:first-child td').slice(0, 3).map(tokens)).toSatisfy((cells: string[][]) =>
+      cells.every((c) => c.includes('text-right') && c.includes('font-data') && c.includes('tabular-nums')),
+    )
+    expect(tokens(t.querySelector('[data-metric-field="name"]')!)).toEqual(expect.arrayContaining(['flex', 'flex-col', 'font-medium']))
+    expect(tokens(t.querySelector('thead tr')!)).toContain('text-xs')
+    expect(tokens(t.querySelector('table')!)).toContain('text-sm')
+  })
+
+  it('card type never drops below the table’s: text-sm on the list root, no smaller utility on a name, value or takeaway', () => {
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
+    expect(tokens(layout(container, 'cards'))).toContain('text-sm')
+    const card = cardList(container)[0]
+    for (const sel of ['[data-metric-field="name"] > span', 'dd', '[data-metric-field="takeaway"] > span:first-child']) {
+      for (const el of all(card, sel)) expect(tokens(el).filter((t) => /^text-(xs|data-xs|\[)/.test(t)), sel).toEqual([])
+    }
+  })
+
+  it('carries no id in either layout — two instances side by side still leave the document’s ids unique', () => {
+    const { container } = render(
+      <>
+        <FinancialMetricsTable metrics={FULL} bare />
+        <FinancialMetricsTable metrics={FULL} bare />
+      </>,
+    )
+    expect(all(container, '[data-metric-card]')).toHaveLength(FULL.length * 2)
+    expect(all(container, 'tbody tr')).toHaveLength(FULL.length * 2)
+    const ids = all(document.body, '[id]').map((e) => e.id)
+    expect(ids).toEqual([]) // chip ids exist only while a popover is open
+    expect(new Set(ids).size).toBe(ids.length)
+    // nothing is hidden from AT by hand: the hiding is display:none at the breakpoint (browser spec). The one other hidden
+    // part is MissingValue's own token beside its words: FULL's per-ADS row has no takeaway (2 instances x 2 layouts).
+    const missingValueToken = (e: Element) => e.textContent === '—' && e.nextElementSibling?.classList.contains('sr-only') === true
+    const hidden = all(container, '[aria-hidden="true"]').filter((e) => e.tagName.toLowerCase() !== 'svg')
+    expect(hidden.filter((e) => !missingValueToken(e))).toHaveLength(0)
+    expect(hidden.filter(missingValueToken).map((e) => text(e.parentElement))).toEqual(Array(4).fill('—no takeaway'))
+  })
+
+  it('pairs every chip with exactly one twin: one copy per layout, keyed by its instance, row and field', () => {
+    const { container } = render(
+      <>
+        <FinancialMetricsTable metrics={FULL} bare />
+        <FinancialMetricsTable metrics={FULL} bare />
+      </>,
+    )
+    const copies = all(container, '[data-layout-twin]')
+    expect(copies.length).toBeGreaterThan(0)
+    const byKey = new Map<string, HTMLElement[]>()
+    for (const el of copies) byKey.set(el.dataset.layoutTwin!, [...(byKey.get(el.dataset.layoutTwin!) ?? []), el])
+    for (const [key, pair] of byKey) {
+      expect(pair, key).toHaveLength(2)
+      const layouts = pair.map((el) => el.closest('[data-metrics-layout]')!.getAttribute('data-metrics-layout')).sort()
+      expect(layouts, key).toEqual(['cards', 'table'])
+      // both copies belong to one table: the same wrapper holds the two layouts
+      expect(pair[0].closest('[data-metrics-layout]')!.parentElement).toBe(pair[1].closest('[data-metrics-layout]')!.parentElement)
+    }
+    // two instances never share a key, and each row's chips keep their own (2 tables x (2 name + 1 takeaway) chips)
+    expect(byKey.size).toBe(2 * 3)
+  })
+
+  it('switches the two layouts by the md breakpoint classes inside one wrapper, the list an explicit role="list"', () => {
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
+    // one element for the parent's space-y: a hidden sibling must not earn the other layout a margin
+    expect(container.children).toHaveLength(1)
+    expect(container.firstElementChild!.children).toHaveLength(2)
+    const cards = layout(container, 'cards')
+    const table = layout(container, 'table')
+    expect(cards).toHaveAttribute('role', 'list')
+    expect(cards.tagName).toBe('UL')
+    expect(tokens(cards)).toContain('md:hidden')
+    expect(tokens(cards)).not.toContain('hidden')
+    expect(tokens(table)).toEqual(expect.arrayContaining(['hidden', 'md:block']))
+    expect(tokens(container.firstElementChild as HTMLElement)).not.toContain('[container-type:inline-size]')
+  })
+
+  it('switches at its own 52rem instead with layoutBy="container", the wrapper the query container', () => {
+    // The landing's evidence row: beside its label column the content is 42rem at 1024px, too narrow for the table
+    // (tests/e2e/landing-highlights-alignment.spec.ts measures the real switch).
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare layoutBy="container" />)
+    const cards = layout(container, 'cards')
+    const table = layout(container, 'table')
+    expect(tokens(container.firstElementChild as HTMLElement)).toContain('[container-type:inline-size]')
+    expect(tokens(cards)).toContain('[@container(min-width:52rem)]:hidden')
+    expect(tokens(table)).toEqual(expect.arrayContaining(['hidden', '[@container(min-width:52rem)]:block']))
+    expect([...tokens(cards), ...tokens(table)].filter((token) => token.startsWith('md:'))).toEqual([])
+  })
+
+  it('composes with bare and with the self-contained Card: notes once, title once, both layouts inside', () => {
+    const bare = render(<FinancialMetricsTable metrics={FULL} notes="Figures in millions." bare />)
+    expect(bare.getAllByText('Figures in millions.')).toHaveLength(1)
+    expect(bare.queryByText(/^Financial highlights$/i)).toBeNull()
+    expect(tokens(layout(bare.container, 'cards'))).not.toContain('px-cap-5')
+    expect(cardList(bare.container)).toHaveLength(3)
+    expect(bodyRows(bare.container)).toHaveLength(3)
+    bare.unmount()
+
+    const card = render(<FinancialMetricsTable metrics={FULL} notes="Figures in millions." />)
+    expect(card.getAllByText('Figures in millions.')).toHaveLength(1)
+    expect(card.getByText('Financial highlights')).toBeInTheDocument()
+    expect(tokens(layout(card.container, 'cards'))).toEqual(expect.arrayContaining(['px-cap-5', 'py-4']))
+    expect(factsOf(layout(card.container, 'cards'))).toEqual(factsOf(layout(card.container, 'table')))
+  })
+
+  it('renders nothing for no rows', () => {
+    const { container } = render(<FinancialMetricsTable metrics={[]} bare />)
+    expect(container).toBeEmptyDOMElement()
+  })
+})
+
+/**
+ * Codex review of #1108: a source surface opened from one layout must not outlive it. Rotating a
+ * phone across 768px hides the card list (CSS) while a card chip's sheet is open; the sheet used to
+ * stay over the table and, closed, return focus to the display:none chip. Here the breakpoint is
+ * modelled the way the browser reports it to SourceTrace: the hidden layout's elements have no client
+ * rects, and the viewport fires `resize`.
+ */
+describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex review of #1108)', () => {
+  let hidden: 'cards' | 'table' = 'table'
+  const restore: Array<() => void> = []
+  afterEach(() => {
+    restore.splice(0).forEach((undo) => undo())
+  })
+
+  function setup(pointer: 'coarse' | 'fine', initiallyHidden: 'cards' | 'table', { withViewer = false } = {}) {
+    hidden = initiallyHidden
+    const mm = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === '(pointer: coarse)' ? pointer === 'coarse' : false,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    )
+    const rects = vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (this: HTMLElement) {
+      return (this.closest(`[data-metrics-layout="${hidden}"]`) ? [] : [{}]) as unknown as DOMRectList
+    })
+    restore.push(() => mm.mockRestore(), () => rects.mockRestore())
+    // With the filing page's viewer mounted, a chip that can jump in-app is a button and its popover's
+    // EDGAR link takes the next Tab (useEvidencePopoverKeys); without it the chip is that link itself.
+    render(withViewer ? <FilingViewerProvider><FinancialMetricsTable metrics={FULL} /></FilingViewerProvider> : <FinancialMetricsTable metrics={FULL} />)
+  }
+  const inLayout = (layout: 'cards' | 'table') => within(document.querySelector<HTMLElement>(`[data-metrics-layout="${layout}"]`)!)
+  const crossBreakpoint = (nowHidden: 'cards' | 'table') => {
+    hidden = nowHidden
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+  }
+
+  it('touch: a card chip’s sheet closes when the cards are hidden, and focus goes to the same chip in the table', () => {
+    setup('coarse', 'table')
+    const cardChip = inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0]
+    act(() => cardChip.focus())
+    fireEvent.click(cardChip)
+    const sheet = screen.getByRole('dialog', { name: 'Source detail' })
+    expect(sheet.contains(document.activeElement)).toBe(true)
+
+    crossBreakpoint('cards') // rotated to landscape: the table is the layout shown
+    expect(screen.queryByRole('dialog', { name: 'Source detail' })).toBeNull()
+    expect(document.activeElement).toBe(inLayout('table').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
+  })
+
+  it('keyboard: a table chip’s popover closes when the table is hidden, and focus goes to the same chip in its card', () => {
+    setup('fine', 'cards')
+    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })
+    act(() => tableChip.focus())
+    const tablePopover = screen.getByRole('group', { name: 'Source detail' })
+
+    crossBreakpoint('table') // narrowed below md: the cards are the layout shown
+    expect(tablePopover).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
+    // Focus on the twin opens the twin's own popover, as focus on any chip does: one surface, not two.
+    expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
+  })
+
+  it('keyboard: when the browser blurs the hidden chip before any resize, focus still goes to its twin', () => {
+    setup('fine', 'table')
+    const cardChip = inLayout('cards').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })
+    act(() => cardChip.focus())
+    hidden = 'cards' // the breakpoint flipped; Chromium's focus fixup blurs the chip in a task of its own
+    act(() => cardChip.blur())
+    expect(document.activeElement).toBe(inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
+    expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
+  })
+
+  it('a hover popover closes with its layout and moves no focus (no keyboard focus to hand over)', () => {
+    setup('fine', 'cards')
+    fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
+    expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
+    crossBreakpoint('table')
+    expect(screen.queryByRole('group', { name: 'Source detail' })).toBeNull()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('touch: a ui/Modal raised above the sheet keeps focus when a rotation closes the sheet beneath it', () => {
+    setup('coarse', 'table')
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
+    expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
+    // An upper layer (the Feedback dialog, through ui/Modal's marker) opened over the sheet holds focus.
+    const upper = document.createElement('div')
+    upper.setAttribute('data-ui-modal', 'true')
+    upper.innerHTML = '<button type="button">modal action</button>'
+    document.body.appendChild(upper)
+    restore.push(() => upper.remove())
+    const inModal = within(upper).getByRole('button', { name: 'modal action' })
+    act(() => inModal.focus())
+
+    crossBreakpoint('cards') // rotated: the sheet's chip is hidden, so the sheet closes beneath the modal
+    expect(screen.queryByRole('dialog', { name: 'Source detail' })).toBeNull()
+    expect(document.activeElement).toBe(inModal)
+  })
+
+  it('touch: a resize that leaves the chip rendered (an on-screen keyboard, a small window change) keeps the sheet open', () => {
+    setup('coarse', 'table')
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
+    crossBreakpoint('table') // still a phone: the cards stay shown
+    expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
+  })
+
+  // Pre-merge review of #1108: every case above starts from row 0, which is also first in document
+  // order, so a twin key that lost its row (or its instance) would still have resolved to the right
+  // element. These pin the key itself and a hand-off from another row.
+  it('keyboard: a chip in another row hands focus to that row’s twin, not to the first chip of the layout', () => {
+    setup('fine', 'cards')
+    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Linked, not checked (opens in a new tab)' }) // row 1's name chip
+    act(() => tableChip.focus())
+    crossBreakpoint('table')
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Linked, not checked (opens in a new tab)' }))
+  })
+
+  it('keyboard: focus in the popover (its EDGAR link) also goes to the twin when the breakpoint hides the chip', () => {
+    setup('fine', 'table', { withViewer: true })
+    const cardChip = inLayout('cards').getByRole('button', { name: 'Source: Matches filing' })
+    act(() => cardChip.focus())
+    fireEvent.keyDown(cardChip, { key: 'Tab' }) // the popover's EDGAR link takes the next Tab
+    const edgar = within(screen.getByRole('group', { name: 'Source detail' })).getByRole('link', { name: FILING_LINK })
+    expect(document.activeElement).toBe(edgar)
+
+    crossBreakpoint('cards') // widened past md: the table is the layout shown
+    expect(edgar).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(inLayout('table').getByRole('button', { name: 'Source: Matches filing' }))
+  })
+})

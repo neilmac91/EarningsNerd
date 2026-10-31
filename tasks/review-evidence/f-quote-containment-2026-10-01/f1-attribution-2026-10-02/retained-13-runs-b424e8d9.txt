@@ -1,0 +1,325 @@
+{
+ "code": {
+  "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+  "service_sha256": "adbe6f292a9a8d9b5a46a01074fa1e00369964b4ded5d955cdcea7f849c11aed",
+  "git_head": "b424e8d9a6fb6fa592c0846311558c890db56681",
+  "git_dirty": false
+ },
+ "runs": [
+  {
+   "run": "36500418287",
+   "source_sha": "a1c79c2c2eac1b27bf3e88d0b88701824f395702",
+   "rows": 18,
+   "with_deltas": 0
+  },
+  {
+   "run": "36511300921",
+   "source_sha": "0a6879b4733386296d715a851e310b8ce50ca38a",
+   "rows": 18,
+   "with_deltas": 0
+  },
+  {
+   "run": "36516634768",
+   "source_sha": "90de3e4fbfb85467b6d30034714fa7bafae58bde",
+   "rows": 18,
+   "with_deltas": 0
+  },
+  {
+   "run": "36519321075",
+   "source_sha": "d512ec9c41ebf4a93fbb9d0f03ecb28a8a25ce59",
+   "rows": 18,
+   "with_deltas": 0
+  },
+  {
+   "run": "36624149908",
+   "source_sha": "11674704d555e6008973469c73b98691f8f70d1e",
+   "rows": 18,
+   "with_deltas": 0
+  },
+  {
+   "run": "36630506944",
+   "source_sha": "005aacaaa9e73514bcef17884cb5c7882aa087d3",
+   "rows": 18,
+   "with_deltas": 18
+  },
+  {
+   "run": "36640254449",
+   "source_sha": "244ec380b32d5fbc49c26a8a8f33caf9b1a8042c",
+   "rows": 18,
+   "with_deltas": 18
+  },
+  {
+   "run": "36754723895",
+   "source_sha": "b5a7862b446d316351b57183a61437aba16342b5",
+   "rows": 18,
+   "with_deltas": 18
+  },
+  {
+   "run": "36777581481",
+   "source_sha": "956244b23e4d4e545658223bed728005766dd7d6",
+   "rows": 18,
+   "with_deltas": 18
+  },
+  {
+   "run": "36798834277",
+   "source_sha": "f362485651da4631bbc4179af7fbfb52efdfbafe",
+   "rows": 18,
+   "with_deltas": 18
+  },
+  {
+   "run": "36800236360",
+   "source_sha": "46e1fc5e03f7f4523b770dd3f2c9b5fe1cfb354b",
+   "rows": 18,
+   "with_deltas": 18
+  },
+  {
+   "run": "36809122540",
+   "source_sha": "2ec46bec95bb1fa2c1001b7a3596958590397762",
+   "rows": 18,
+   "with_deltas": 18
+  },
+  {
+   "run": "36870677818",
+   "source_sha": "7feb73c7ee4ce2463dc3ee9f409cb04a7c338540",
+   "rows": 18,
+   "with_deltas": 18
+  }
+ ],
+ "rows": 234,
+ "replayed": 144,
+ "answer_only": 90,
+ "replay_mismatches": [
+  {
+   "row": "BABA native-revenue-2026 d0 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d1 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d2 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d0 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d1 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d2 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d0 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d1 @36640254449",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d0 @36754723895",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d1 @36754723895",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d2 @36754723895",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d0 @36754723895",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d2 @36754723895",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d0 @36754723895",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d1 @36754723895",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d0 @36777581481",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d1 @36777581481",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d2 @36777581481",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d0 @36777581481",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d2 @36777581481",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d0 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d1 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d2 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d0 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d1 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d2 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d0 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d2 @36798834277",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d0 @36800236360",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d0 @36800236360",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d1 @36800236360",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d2 @36800236360",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d1 @36800236360",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d2 @36800236360",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d0 @36809122540",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d1 @36809122540",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d2 @36809122540",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d0 @36809122540",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d1 @36809122540",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d0 @36870677818",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d1 @36870677818",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA native-revenue-2026 d2 @36870677818",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d1 @36870677818",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "BABA viewed-native-revenue-2025 d2 @36870677818",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  },
+  {
+   "row": "ASML us-gaap-sales-net-income-2025 d2 @36870677818",
+   "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+  }
+ ],
+ "replay_mismatch_causes": {
+  "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step": 45
+ },
+ "replay_verdict_disagreements": [],
+ "published_by_run": {
+  "rows": 231,
+  "f_would_withhold": 21,
+  "by_surface": {
+   "answer": 21,
+   "reason": 0,
+   "chip": 0
+  }
+ },
+ "withheld_or_errored_by_run": {
+  "rows": 3,
+  "F-withheld": [],
+  "other reason": [
+   "MSFT sales-diluted-eps-2025 d0 @36630506944"
+  ],
+  "UNEXPLAINED": [
+   "TSLA sales-operating-income-2024 d0 @36500418287",
+   "MSFT sales-diluted-eps-2025 d1 @36624149908"
+  ]
+ },
+ "not_disclosed_rows": 0,
+ "rows_with_chips": 143,
+ "chips_checked": 429,
+ "rows_with_double_quoted_chips": 0,
+ "chips_with_double_quotes": 0,
+ "failing_chips": 0
+}
+F published 36500418287 BABA viewed-native-revenue-2025 d0 [('answer', None, ['elided_quotation'])]
+F published 36500418287 BABA viewed-native-revenue-2025 d2 [('answer', None, ['elided_quotation'])]
+F published 36500418287 ASML us-gaap-sales-net-income-2025 d0 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36511300921 ASML us-gaap-sales-net-income-2025 d0 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36511300921 ASML us-gaap-sales-net-income-2025 d1 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36516634768 BABA viewed-native-revenue-2025 d0 [('answer', None, ['elided_quotation'])]
+F published 36516634768 BABA viewed-native-revenue-2025 d1 [('answer', None, ['elided_quotation'])]
+F published 36516634768 ASML us-gaap-sales-net-income-2025 d1 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36519321075 BABA viewed-native-revenue-2025 d0 [('answer', None, ['elided_quotation'])]
+F published 36519321075 ASML us-gaap-sales-net-income-2025 d0 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36519321075 ASML us-gaap-sales-net-income-2025 d1 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36624149908 ASML us-gaap-sales-net-income-2025 d0 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36624149908 ASML us-gaap-sales-net-income-2025 d1 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36624149908 ASML us-gaap-sales-net-income-2025 d2 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36630506944 ASML us-gaap-sales-net-income-2025 d0 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36630506944 ASML us-gaap-sales-net-income-2025 d1 [('answer', None, ['elided_quotation', 'elided_quotation'])]
+F published 36630506944 ASML us-gaap-sales-net-income-2025 d2 [('answer', None, ['elided_quotation', 'elided_quotation'])]
+F published 36640254449 ASML us-gaap-sales-net-income-2025 d2 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36777581481 BABA viewed-native-revenue-2025 d0 [('answer', None, ['elided_quotation'])]
+F published 36800236360 ASML us-gaap-sales-net-income-2025 d0 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+F published 36870677818 AAPL sales-gross-profit-2025 d2 [('answer', None, ['quotation_not_in_source', 'quotation_not_in_source'])]
+ATTR_EXIT=3

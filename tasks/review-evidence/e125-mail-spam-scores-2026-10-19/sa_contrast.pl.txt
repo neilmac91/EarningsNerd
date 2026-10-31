@@ -1,0 +1,23 @@
+# E125 side finding: print each text run SpamAssassin's HTML parser flags as low contrast (offline).
+use strict; use warnings;
+use Mail::SpamAssassin;
+use Mail::SpamAssassin::HTML;
+no warnings 'redefine';
+my $orig = \&Mail::SpamAssassin::HTML::html_font_invisible;
+*Mail::SpamAssassin::HTML::html_font_invisible = sub {
+  my ($self, $text) = @_;
+  my $before = $self->{results}{font_low_contrast} // 0;
+  my $r = $orig->(@_);
+  if (($self->{results}{font_low_contrast} // 0) && !$before) {
+    my $st = $self->{text_style}[-1];
+    (my $t = $text) =~ s/\s+/ /g;
+    printf "LOW CONTRAST: fg=%s bg=%s text=[%s]\n", $st->{fgcolor} // '-', $st->{bgcolor} // '-', substr($t, 0, 80);
+  }
+  return $r;
+};
+my $sa = Mail::SpamAssassin->new({ local_tests_only => 1, dont_copy_prefs => 1 });
+local $/; my $raw = <STDIN>;
+my $msg = $sa->parse($raw);
+my $status = $sa->check($msg);
+print "score=", $status->get_score(), " tests=", $status->get_names_of_tests_hit(), "\n";
+$status->finish(); $msg->finish();

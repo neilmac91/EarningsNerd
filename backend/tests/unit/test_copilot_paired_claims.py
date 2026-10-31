@@ -165,3 +165,42 @@ async def test_repair_preserves_original_misplacement_telemetry(monkeypatch, tmp
     assert result["answer"] == ANSWER.replace("million,", "million [1],").replace("million.", "million [2].")
     assert result["misplaced_fact_markers"] == 1
     assert result["grounded"] == 2 and result["uncited_figures"] == 0
+
+
+# Unicode re.IGNORECASE folds ı onto i and ſ onto s. On that folding the folded subject raised
+# KeyError (a stream error), a folded income scale became scale 1.0 and certified a fact of that
+# unscaled value, and a folded separator still certified both operands.
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer,changes", [
+    pytest.param(ANSWER.replace("Total net sales", "Total net ſales"), None, id="subject-long-s"),
+    pytest.param(ANSWER.replace("€9,609.4 million.", "€9,609,400 thouſand."), {"value": 9609400.0},
+                 id="income-scale-long-s"),
+    pytest.param(ANSWER.replace("net income was", "net ıncome was"), None, id="separator-dotless-i"),
+])
+async def test_unicode_case_fold_never_certifies_pair(monkeypatch, tmp_path, answer, changes):
+    result = await complete(monkeypatch, tmp_path, answer=answer, changes=changes)
+    assert result["answer"] == answer
+    assert result["citations"] == [] and result["registered_markers"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer,expected", [
+    pytest.param(ANSWER.upper(), ANSWER.upper().replace("MILLION,", "MILLION [1],").replace("MILLION.", "MILLION [2]."),
+                 id="upper"),
+    pytest.param(ANSWER.replace("Total net sales", "Total Net Sales").replace("million,", "Million,")
+                 .replace("net income", "Net Income"),
+                 ANSWER.replace("Total net sales", "Total Net Sales").replace("million,", "Million [1],")
+                 .replace("net income", "Net Income").replace("million.", "million [2]."), id="mixed"),
+])
+async def test_ascii_case_variants_still_certify_pair(monkeypatch, tmp_path, answer, expected):
+    result = await complete(monkeypatch, tmp_path, answer=answer)
+    assert result["answer"] == expected and result["grounded"] == 2
+    assert [c["concept"] for c in result["citations"]] == ["revenue", "net_income"]
+
+
+@pytest.mark.asyncio
+async def test_unicode_whitespace_still_separates_pair(monkeypatch, tmp_path):
+    answer = ANSWER.replace("32,667.3 million", "32,667.3\xa0million").replace("9,609.4 million", "9,609.4\u202fmillion")
+    result = await complete(monkeypatch, tmp_path, answer=answer)
+    assert result["answer"] == answer.replace("million,", "million [1],").replace("million.", "million [2].")
+    assert result["grounded"] == 2

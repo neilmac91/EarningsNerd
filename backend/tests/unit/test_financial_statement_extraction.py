@@ -303,7 +303,7 @@ class _Company:
 
 
 def test_sync_extraction_routes_bank_to_statement_path(monkeypatch):
-    from app.services.edgar import xbrl_service as xs
+    from app.services.edgar import xbrl_instance as xs
     from app.config import settings
 
     monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", True)

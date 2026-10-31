@@ -22,14 +22,18 @@
        sticks to the left of the scroll container on an opaque panel
        surface with a token hairline on its right edge, so a wide financial
        table can scroll horizontally without losing the row label. Body
-       cells repaint on row hover via `group-hover` (their own opaque fill
-       would otherwise mask the row's hover brighten). Composes cleanly
+       cells retain an opaque fill on hover; a translucent replacement
+       would expose the values scrolling beneath the label. Composes cleanly
        with stickyHeader — the header's first cell (the "corner") gets a
        higher z-index than both plain sticky-header cells and the sticky
-       column's body cells, so it is never overlapped by either.
+       column's body cells, so it is never overlapped by either. With snapColumns,
+       release the sticky label when it cannot fit beside one whole period;
+       the label then scrolls with the table and has its own snap stop.
 ============================================================================= */
 
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useContentIn } from '../../hooks/useContentIn'
+import { useOverflowRegion } from '../../hooks/useOverflowRegion'
 import { cx } from './cx'
 import { Skeleton } from './Skeleton'
 
@@ -64,6 +68,10 @@ export interface Column<T> {
   tone?: (row: T) => CellTone | undefined
   /** Header becomes a sort button (needs `onSort` on the table). */
   sortable?: boolean
+  /** Render the body cell as a semantic row header. Opt-in; unrelated tables retain td cells. */
+  rowHeader?: boolean
+  /** Extra classes for this column's header and body cells (an inset that sets prose apart from figures). */
+  className?: string
 }
 
 export interface SortState {
@@ -91,10 +99,71 @@ export interface DataTableProps<T> {
   stickyFirstColumn?: boolean
   /** Accessible summary, rendered sr-only. */
   caption?: string
+  /** Fixed layout uses explicit CSS widths (including rem or responsive CSS variables). */
+  layout?: 'auto' | 'fixed'
+  colWidths?: readonly string[]
+  /** Narrow horizontal insets for dense, fixed-width columns; independent of row density. */
+  cellPadding?: 'standard' | 'compact'
+  /** Opt-in, named keyboard scroll region; child controls retain their own keys.
+   *  startAtEndOnMobile also limits the hint to phones with earlier columns off-screen. */
+  scrollRegion?: { label: string; hint?: string; startAtEndOnMobile?: boolean }
+  /** Equal data columns after the optional sticky label column snap to their full width. */
+  snapColumns?: boolean
+  /** 'top': body cells align to the top, so a figure shares its row label's first line, and header cells to the
+   *  bottom, so one- and two-line labels sit on the rule together. Default 'middle' (the browser's). */
+  verticalAlign?: 'middle' | 'top'
+  /** 'well': the figures sit on their own sheet inside the panel (platinum white / near-black, the `well` tokens) with
+   *  the stronger `rule` hairlines, while the heading row and the row-label column keep the panel surface and its inks;
+   *  a hovered row strengthens its two rules instead of changing its fill, so no text pair changes contrast under the
+   *  pointer and the sticky label stays opaque. Default 'panel'. */
+  surface?: 'panel' | 'well'
+  /** Keep the column headings in view while the page scrolls past a tall table. CSS cannot stick a header to the page
+   *  from inside the horizontal scroll container, so an aria-hidden copy of the heading row rides a zero-height sticky
+   *  rail under the site header (--site-header-h) and follows the table's scrollLeft. The real <thead> stays the one
+   *  screen readers read. A part of a column's header marked `data-rail-omit`, a line of its own (a legend, a range)
+   *  under what the rail keeps, stays in the real heading row and out of the rail, so the rail can be shorter than the
+   *  row. With the rail on, headings sit at the top of the row, so the rail is the row's own first lines and takes
+   *  over without moving one. Needs layout="fixed". */
+  pageHeader?: boolean
   className?: string
 }
 
 const ROW_BORDER = 'border-t border-border-light dark:border-border-dark'
+
+/** The page heading rail's height on <html> while it can cover the table: any of it under the header's line (pageHeader).
+ *  app/globals.css adds it to scroll-padding-top. */
+export const TABLE_RAIL_HEIGHT_PROPERTY = '--table-rail-h'
+
+/** The heading rail's height, read from the real heading row, since the rail's copy mounts only while it shows: the
+ *  row's height, less what the rail leaves out of its tallest heading. Each heading sits in a block as tall as its
+ *  lines (data-rail-heading), and a part marked data-rail-omit is a line of its own, so it takes its own height. */
+function railRowHeight(head: HTMLTableSectionElement): number {
+  let full = 0
+  let kept = 0
+  for (const heading of head.querySelectorAll<HTMLElement>('[data-rail-heading]')) {
+    const height = heading.getBoundingClientRect().height
+    let omitted = 0
+    for (const part of heading.querySelectorAll<HTMLElement>('[data-rail-omit]')) omitted += part.getBoundingClientRect().height
+    full = Math.max(full, height)
+    kept = Math.max(kept, height - omitted)
+  }
+  return head.getBoundingClientRect().height - full + kept
+}
+
+// The figure sheet (surface="well"): the figures sit on the sheet; the heading row and the row-label column keep the
+// panel surface and the panel's own inks, so the frame of labels reads slightly apart from the data it labels.
+const WELL = {
+  // The frame wraps the scroll container rather than bordering it, so the scrollport and the container's box stay
+  // one (snap stops, the sticky inset and focus scrolling all measure the container's own box). Its rule is an
+  // outline, drawn outside that box: a border would inset the container, whose 16px corners would then overhang the
+  // frame's 15px inner curve by a sliver of sheet beside the panel-coloured heading row.
+  frame: 'rounded-xl outline outline-1 outline-rule-light bg-well-light dark:outline-rule-dark dark:bg-well-dark',
+  edge: 'bg-panel-light dark:bg-panel-dark',
+  rowBorder: 'border-t border-rule-light dark:border-rule-dark',
+  labelCol: 'border-r border-rule-light dark:border-rule-dark',
+  head: 'text-left text-xs uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark',
+  row: '[&:hover>*]:border-t-rule-strong-light dark:[&:hover>*]:border-t-rule-strong-dark [&:hover+tr>*]:border-t-rule-strong-light dark:[&:hover+tr>*]:border-t-rule-strong-dark',
+}
 
 const STICKY_TH =
   // Opaque token surface + token hairline — collapsed borders don't stick, so the
@@ -116,6 +185,8 @@ const STICKY_COL_BASE =
 const headerZIndex = (isFirstCol: boolean, stickyHeader: boolean): string | undefined =>
   isFirstCol && stickyHeader ? 'z-20' : isFirstCol || stickyHeader ? 'z-10' : undefined
 const bodyZIndex = (isFirstCol: boolean): string | undefined => (isFirstCol ? 'z-[5]' : undefined)
+const nearestColumn = (stops: number[], position: number) => stops.reduce((best, stop, index) =>
+  Math.abs(stop - position) < Math.abs(stops[best] - position) ? index : best, 0)
 
 export function DataTable<T extends Record<string, unknown>>({
   columns,
@@ -131,68 +202,364 @@ export function DataTable<T extends Record<string, unknown>>({
   stickyHeader = false,
   stickyFirstColumn = false,
   caption,
+  layout = 'auto',
+  colWidths,
+  cellPadding = 'standard',
+  scrollRegion,
+  snapColumns = false,
+  verticalAlign = 'middle',
+  surface = 'panel',
+  pageHeader = false,
   className,
 }: DataTableProps<T>) {
   const colSpan = columns.length
+  const well = surface === 'well'
+  const stickyColBase = well ? cx('sticky left-0', WELL.edge, WELL.labelCol) : STICKY_COL_BASE
+  // On the sheet the row-label column keeps the panel surface and its rule whether it sticks or, released on a narrow
+  // screen, scrolls with the figures.
+  const wellLabel = (colIndex: number, column: Column<T>, stuck: boolean) =>
+    well && !stuck && colIndex === 0 && (stickyFirstColumn || !!column.rowHeader) ? cx(WELL.edge, WELL.labelCol) : undefined
+  const rowBorderClass = well ? WELL.rowBorder : ROW_BORDER
   const showRows = !loading && !error && rows.length > 0
   const d = DENSITY[density]
+  const inset = cellPadding === 'compact' ? 'px-px md:px-1' : 'px-3'
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const geometry = useRef({ step: 0, labelWidth: 0, viewportWidth: 0, inset: 0, range: 0, stops: [] as number[], column: 0 })
+  const initialized = useRef(false)
+  const [mobileHint, setMobileHint] = useState<'absent' | 'hidden' | 'visible'>('absent')
+  const [stickyFits, setStickyFits] = useState(true)
+  const stickyColumn = stickyFirstColumn && (!snapColumns || stickyFits)
+  const hintId = useId()
+  const fixedWidth = layout === 'fixed' && colWidths?.length === columns.length
+    ? `max(100%, calc(${colWidths.join(' + ')}))` : undefined
+  const startAtEndOnMobile = scrollRegion?.startAtEndOnMobile
+  const hasScrollRegion = !!scrollRegion
+  const { overflowing: overflows, regionProps } = useOverflowRegion(scrollRef, {
+    enabled: hasScrollRegion,
+    label: scrollRegion?.label,
+    describedBy: scrollRegion?.hint && (!startAtEndOnMobile || mobileHint === 'visible') ? hintId : undefined,
+  })
+  const renderHint = !!scrollRegion?.hint && overflows && (!startAtEndOnMobile || mobileHint !== 'absent')
+  const showHint = renderHint && (!startAtEndOnMobile || mobileHint === 'visible')
+
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current
+    const table = tableRef.current
+    if (!scroll || !table || (!snapColumns && !hasScrollRegion)) return
+    const dimensions = () => {
+      const headers = table.tHead?.rows[0]?.cells
+      return {
+        headers,
+        labelWidth: stickyFirstColumn ? headers?.[0]?.getBoundingClientRect().width ?? 0 : 0,
+        step: headers?.[stickyFirstColumn ? 1 : 0]?.getBoundingClientRect().width ?? 0,
+        viewportWidth: scroll.clientWidth,
+      }
+    }
+    const rememberColumn = () => {
+      const current = geometry.current
+      const { step, labelWidth, viewportWidth } = dimensions()
+      // Native snapping can emit scroll before ResizeObserver reports enlarged text.
+      // Keep the prior column until its old stops have been replaced by this geometry.
+      if (step === current.step && labelWidth === current.labelWidth && viewportWidth === current.viewportWidth) {
+        current.column = nearestColumn(current.stops, scroll.scrollLeft)
+      }
+      setMobileHint(!window.matchMedia('(max-width: 639px)').matches ? 'absent'
+        : scroll.scrollLeft > 1 ? 'visible' : 'hidden')
+    }
+    const measure = () => {
+      const previous = geometry.current
+      // Remove the old pad before measuring: resize and text-size changes must never compound it.
+      if (snapColumns) scroll.style.paddingInlineEnd = '0px'
+      const { headers, labelWidth, step, viewportWidth } = dimensions()
+      if (!step || !scroll.clientWidth) return
+      const fits = scroll.clientWidth >= labelWidth + step
+      setStickyFits(fits)
+      const insetWidth = stickyFirstColumn && (!snapColumns || fits) ? labelWidth : 0
+      const range = Math.max(0, scroll.scrollWidth - scroll.clientWidth)
+      // The unstuck label has its own stop; period stops then start after its width.
+      const firstStop = labelWidth - insetWidth
+      // The range ends on a whole stop: past the first period's stop, a whole number of periods; short of it (a
+      // table that overflows by less than its unstuck label, one period under enlarged text), that stop itself,
+      // never a point inside the label.
+      const pad = !snapColumns || range === 0 ? 0
+        : range < firstStop ? firstStop - range : (step - (range - firstStop) % step) % step
+      if (snapColumns) {
+        scroll.style.paddingInlineEnd = `${pad}px`
+        scroll.style.scrollPaddingInlineStart = `${insetWidth}px`
+      }
+      const wholeRange = range + pad
+      const stops = Array.from(headers ?? [], (_, index) => Math.min(wholeRange,
+        index === 0 ? 0 : Math.max(0, firstStop + (index - Number(stickyFirstColumn)) * step)))
+      geometry.current = { step, labelWidth, viewportWidth, inset: insetWidth, range: wholeRange, stops, column: previous.column }
+      const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 639px)').matches
+      if (snapColumns) scroll.scrollLeft = newest ? wholeRange : stops[Math.min(previous.column, stops.length - 1)] ?? 0
+      rememberColumn()
+      initialized.current = true
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(scroll)
+    observer?.observe(table)
+    scroll.addEventListener('scroll', rememberColumn)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer?.disconnect()
+      scroll.removeEventListener('scroll', rememberColumn)
+      window.removeEventListener('resize', measure)
+      scroll.style.paddingInlineEnd = ''
+      scroll.style.scrollPaddingInlineStart = ''
+    }
+  }, [snapColumns, stickyFirstColumn, stickyFits, fixedWidth, startAtEndOnMobile, hasScrollRegion])
+
+  // Page heading rail (pageHeader): the heading row's measured widths, the table's scrollLeft, shown only while the
+  // real <thead> has passed under the site header and some of the table is still below it. Its copy of the headings
+  // mounts only while it shows, so the page holds no second set of heading text until a reader needs one, and its
+  // height is read from the real heading row (railRowHeight); scrolling writes styles, and React renders only when
+  // the rail appears or goes.
+  const railRef = useRef<HTMLDivElement>(null)
+  const railBarRef = useRef<HTMLDivElement>(null)
+  const railTrackRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const [railWidths, setRailWidths] = useState<number[]>([])
+  const [railShown, setRailShown] = useState(false)
+  // The rail's height, reserved in the page's scroll padding while the rail can cover part of the table.
+  const [railReserve, setRailReserve] = useState(0)
+  const railOn = pageHeader && layout === 'fixed'
+  const followRail = () => {
+    const scroll = scrollRef.current
+    const bar = railBarRef.current
+    const track = railTrackRef.current
+    if (!scroll || !bar || !track) return
+    bar.style.width = `${(frameRef.current ?? scroll).offsetWidth}px`
+    track.style.transform = `translateX(${-scroll.scrollLeft}px)`
+  }
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current
+    const table = tableRef.current
+    const rail = railRef.current
+    if (!railOn || !scroll || !table || !rail) return
+    let frame = 0
+    const show = () => {
+      frame = 0
+      const head = table.tHead?.getBoundingClientRect()
+      const height = table.tHead ? railRowHeight(table.tHead) : 0
+      const whole = table.getBoundingClientRect()
+      const line = parseFloat(getComputedStyle(rail).top) || 0
+      // Stuck at the line: under an ancestor that clips overflow (the landing demo's mockup frame, a locked preview)
+      // that box is the rail's scroll container, so it never sticks to the page and must not show or reserve padding.
+      const stuck = Math.abs(rail.getBoundingClientRect().top - line) < 1
+      // Shown as soon as the row's top passes the line, while more than the rail's height of the table is below it. The
+      // headings sit at the top of their row (railHeading), so the rail's lines are the row's own first lines: where it
+      // is shorter than the row, nothing moves as it takes over, and only the parts it leaves out pass under it.
+      setRailShown(!!head && stuck && head.top < line - 0.5 && whole.bottom > line + height)
+      // Reserved whenever some of the table is under the line, shown rail or not: a figure focused while the rail is
+      // hidden (a row taller than the rail, its table's end just under the header) and scrolled to the nearest edge
+      // would otherwise sit under the rail that its own row then brings back.
+      setRailReserve(head && stuck && whole.top < line && whole.bottom > line ? Math.ceil(height) : 0)
+    }
+    const queue = () => { if (!frame) frame = requestAnimationFrame(show) }
+    const measure = () => {
+      const widths = Array.from(table.tHead?.rows[0]?.cells ?? [], (cell) => cell.getBoundingClientRect().width)
+      setRailWidths((prev) => prev.length === widths.length && prev.every((w, i) => Math.abs(w - widths[i]) < 0.01) ? prev : widths)
+      followRail()
+      queue()
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(scroll)
+    observer?.observe(table)
+    // The rail lets the pointer through, so a wheel or a swipe over it still moves the table under it; a pointer press
+    // or click in its band would land on a figure the reader cannot see. The press loses only its default (focus,
+    // selection), so outside-press listeners such as the header's menus still hear it; the click stops here, before
+    // the figure's handler. A key's click has no pointer (detail 0) and passes.
+    const guard = (event: MouseEvent) => {
+      const band = railBarRef.current?.getBoundingClientRect()
+      if (!band || event.detail === 0) return
+      if (event.clientY >= band.top && event.clientY < band.bottom && event.clientX >= band.left && event.clientX < band.right) {
+        event.preventDefault()
+        if (event.type === 'click') event.stopPropagation()
+      }
+    }
+    scroll.addEventListener('scroll', followRail, { passive: true })
+    scroll.addEventListener('mousedown', guard, true)
+    scroll.addEventListener('click', guard, true)
+    window.addEventListener('scroll', queue, { passive: true })
+    window.addEventListener('resize', queue)
+    return () => {
+      observer?.disconnect()
+      scroll.removeEventListener('scroll', followRail)
+      scroll.removeEventListener('mousedown', guard, true)
+      scroll.removeEventListener('click', guard, true)
+      window.removeEventListener('scroll', queue)
+      window.removeEventListener('resize', queue)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [railOn])
+  // The rail's copy has just mounted (or its widths changed): place it before paint.
+  useLayoutEffect(() => { if (railShown) followRail() }, [railShown, railWidths])
+  // While the rail can cover the strip under the site header, the page reserves its height on <html>
+  // (TABLE_RAIL_HEIGHT_PROPERTY) in its scroll padding: a figure reached by Tab or Shift+Tab, or scrolled into view,
+  // lands below the rail, never under it (WCAG 2.2 SC 2.4.11), the page scrolling itself and nothing scrolled after.
+  // Measured with the heading row on every reflow; cleared when no part of the table is under the line.
+  useLayoutEffect(() => {
+    if (!railReserve) return
+    const root = document.documentElement
+    root.style.setProperty(TABLE_RAIL_HEIGHT_PROPERTY, `${railReserve}px`)
+    return () => { root.style.removeProperty(TABLE_RAIL_HEIGHT_PROPERTY) }
+  }, [railReserve])
+  const frame = (node: ReactNode) => (well ? <div ref={frameRef} className={WELL.frame}>{node}</div> : node)
+  const headClass = well ? WELL.head : 'text-left text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark'
+  const railCell = (c: Column<T>, index: number, corner: boolean) => (
+    <div
+      key={c.key}
+      style={{ width: railWidths[index], flex: 'none' }}
+      className={cx(
+        // At the top of its cell, as the heading is in the real row (railHeading), so each line sits where the row's was.
+        inset, d.headerY, 'flex flex-col justify-start font-semibold',
+        c.className,
+        c.align === 'right' && 'items-end text-right',
+        corner && (well ? 'border-r border-rule-light dark:border-rule-dark' : 'border-r border-border-light dark:border-border-dark'),
+      )}
+    >
+      {c.header}
+    </div>
+  )
+  // With the rail on, each real heading sits in a block as tall as its lines, from which the rail's height is read, at
+  // the top of its cell (the th's align-top below), so the rail's lines are the row's own first lines.
+  const railHeading = (content: ReactNode) => (railOn ? <span className="block" data-rail-heading>{content}</span> : content)
 
   // Skeleton→content handoff: when `loading` flips false, whatever replaces the
-  // skeleton rows (data, empty, error) crossfades in — animate-content-in =
-  // duration-base / ease-standard; instant under reduced motion. Tables that
-  // never load don't animate on first paint.
-  const wasLoading = useRef(loading)
-  const [entered, setEntered] = useState(false)
-  useEffect(() => {
-    if (wasLoading.current && !loading) setEntered(true)
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the loading flip; intentional sync with the loading prop
-    if (loading) setEntered(false)
-    wasLoading.current = loading
-  }, [loading])
+  // skeleton rows (data, empty, error) crossfades in; tables that never load
+  // don't animate on first paint (hooks/useContentIn).
+  const enterClass = useContentIn(loading)
 
   // Row hairlines sit on the cells (renders identically to tr borders) so they
   // survive border-separate. With a sticky header the th's border-b already
   // draws the first hairline — the first body row skips its border-t.
-  const rowBorder = (i: number) => (stickyHeader && i === 0 ? undefined : ROW_BORDER)
+  const rowBorder = (i: number) => (stickyHeader && i === 0 ? undefined : rowBorderClass)
 
   return (
-    <div className={cx(stickyHeader ? 'overflow-auto' : 'overflow-x-auto', className)}>
+    <>
+    {renderHint && <p id={hintId} aria-hidden={!showHint || undefined} className={cx('mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark', !showHint && 'invisible')}>{scrollRegion!.hint}</p>}
+    {railOn && (
+      <div ref={railRef} aria-hidden="true" data-table-header-rail className="pointer-events-none sticky top-[var(--site-header-h,4rem)] z-sticky h-0 print:hidden">
+        {/* The rail leaves out a header's marked parts (data-rail-omit), so it can be shorter than the heading row. */}
+        {railShown && <div
+          ref={railBarRef}
+          className={cx(
+            'flex overflow-hidden [&_[data-rail-omit]]:hidden', headClass, d.text,
+            well ? cx('outline outline-1 outline-rule-light dark:outline-rule-dark', WELL.edge) : 'border-b border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
+          )}
+        >
+          {stickyColumn && railCell(columns[0], 0, true)}
+          <div className="relative min-w-0 flex-1 overflow-hidden">
+            <div ref={railTrackRef} className="flex w-max">
+              {columns.map((c, index) => (stickyColumn && index === 0 ? null : railCell(c, index, false)))}
+            </div>
+          </div>
+        </div>}
+      </div>
+    )}
+    {frame(
+    <div
+      ref={scrollRef}
+      {...regionProps}
+      className={cx(
+        (scrollRegion || snapColumns) && 'relative',
+        well && 'rounded-xl',
+        stickyHeader ? 'overflow-auto' : 'overflow-x-auto',
+        scrollRegion && (well ? '' : 'rounded'),
+        scrollRegion && 'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+        snapColumns && 'snap-x snap-mandatory',
+        className,
+      )}
+      onKeyDown={scrollRegion ? (event) => {
+        if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey) return
+        const scroll = event.currentTarget
+        const step = geometry.current.step || scroll.clientWidth
+        if (!step) return
+        const range = Math.max(0, scroll.scrollWidth - scroll.clientWidth)
+        const stops = [...new Set(geometry.current.stops)]
+        const pageSize = Math.max(step, scroll.clientWidth - geometry.current.inset)
+        const target = event.key === 'ArrowRight' ? stops.find(stop => stop > scroll.scrollLeft + 1) ?? range
+          : event.key === 'ArrowLeft' ? stops.findLast(stop => stop < scroll.scrollLeft - 1) ?? 0
+            : event.key === 'PageDown' ? stops.find(stop => stop >= scroll.scrollLeft + pageSize) ?? range
+              : event.key === 'PageUp' ? stops.findLast(stop => stop <= scroll.scrollLeft - pageSize) ?? 0
+                : event.key === 'Home' ? 0 : event.key === 'End' ? range : undefined
+        if (target == null) return
+        event.preventDefault()
+        scroll.scrollLeft = Math.max(0, Math.min(target, range))
+        geometry.current.column = nearestColumn(geometry.current.stops, scroll.scrollLeft)
+      } : undefined}
+      onFocusCapture={snapColumns ? (event) => {
+        if (event.target === event.currentTarget) return
+        const cell = (event.target as HTMLElement).closest('td, th')
+        const scroll = event.currentTarget
+        const { step, inset: stickyWidth, stops } = geometry.current
+        if (!cell || !scroll.contains(cell) || !step || (cell === cell.parentElement?.firstElementChild && stickyColumn)) return
+        const bounds = cell.getBoundingClientRect()
+        const viewport = scroll.getBoundingClientRect()
+        // Choose an actual snap stop that contains the whole cell. Native focus scrolling
+        // alone may snap again and put the control back beneath the label or past the edge.
+        const first = scroll.scrollLeft + bounds.right - viewport.right
+        const last = scroll.scrollLeft + bounds.left - viewport.left - stickyWidth
+        if (bounds.left < viewport.left + stickyWidth - 1 || bounds.right > viewport.right + 1) {
+          const available = stops.filter(stop => stop >= first - 1 && stop <= last + 1)
+          const target = bounds.left < viewport.left + stickyWidth ? available.at(-1) : available[0]
+          if (target != null) {
+            scroll.scrollLeft = target
+            geometry.current.column = stops.indexOf(target)
+          }
+        }
+      } : undefined}
+    >
       <table
+        ref={tableRef}
+        style={fixedWidth ? { width: fixedWidth } : undefined}
         className={cx(
           'w-full',
+          layout === 'fixed' && 'table-fixed',
           d.text,
           stickyHeader || stickyFirstColumn ? 'border-separate border-spacing-0' : 'border-collapse'
         )}
         aria-busy={loading || undefined}
       >
         {caption ? <caption className="sr-only">{caption}</caption> : null}
+        {layout === 'fixed' && colWidths && <colgroup>{colWidths.map((width, index) => <col key={columns[index]?.key ?? index} style={{ width }} />)}</colgroup>}
         <thead>
           {/* 12px uppercase metric-label header — eyebrow tracking 0.08em (--track-eyebrow), matching .markdown-body th */}
-          <tr className="text-left text-xs uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark">
+          <tr className={headClass}>
             {columns.map((c, colIndex) => {
               const sorted = sort && sort.key === c.key ? sort.dir : undefined
-              const isFirstCol = colIndex === 0 && stickyFirstColumn
+              const isFirstCol = colIndex === 0 && stickyColumn
               return (
                 <th
                   key={c.key}
                   scope="col"
                   aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
                   className={cx(
-                    'px-3 font-semibold',
+                    inset, 'font-semibold',
+                    snapColumns && !isFirstCol && 'snap-start',
                     d.headerY,
+                    railOn ? 'align-top' : verticalAlign === 'top' && 'align-bottom',
+                    c.className,
                     c.align === 'right' && 'text-right',
                     stickyHeader && STICKY_TH,
-                    isFirstCol && STICKY_COL_BASE,
+                    well && WELL.edge,
+                    isFirstCol && stickyColBase,
+                    wellLabel(colIndex, c, isFirstCol),
                     headerZIndex(isFirstCol, stickyHeader)
                   )}
                 >
-                  {c.sortable && onSort ? (
+                  {railHeading(c.sortable && onSort ? (
                     <button
                       type="button"
                       onClick={() => onSort(c.key)}
                       className={cx(
-                        'inline-flex items-center gap-1 rounded uppercase tracking-[0.08em]',
-                        'hover:text-text-primary-light dark:hover:text-text-primary-dark',
+                        'inline-flex items-center gap-1 rounded uppercase tracking-eyebrow',
+                        // On the sheet the heading rests in secondary, 1.24:1 under dark primary and 1.47:1 under white.
+                        well ? 'hover:text-text-primary-light dark:hover:text-white' : 'hover:text-text-primary-light dark:hover:text-text-primary-dark',
                         'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                         c.align === 'right' && 'flex-row-reverse',
                       )}
@@ -201,6 +568,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       <span
                         aria-hidden="true"
                         className={cx(
+                          // eslint-disable-next-line no-restricted-syntax -- aria-hidden sort glyph, not type (DS-08 exemption)
                           'text-[9px] leading-none',
                           sorted ? 'text-brand-strong dark:text-brand-strong-dark' : 'opacity-40',
                         )}
@@ -210,13 +578,13 @@ export function DataTable<T extends Record<string, unknown>>({
                     </button>
                   ) : (
                     c.header
-                  )}
+                  ))}
                 </th>
               )
             })}
           </tr>
         </thead>
-        <tbody className={entered ? 'animate-content-in motion-reduce:animate-none' : undefined}>
+        <tbody className={enterClass}>
           {loading
             ? Array.from({ length: skeletonRows }).map((_, r) => (
                 <tr key={r}>
@@ -224,15 +592,16 @@ export function DataTable<T extends Record<string, unknown>>({
                     // Skeleton rows keep the same sticky first-column treatment as real rows, so
                     // a loading table scrolled right doesn't snap the label column into place
                     // when data lands.
-                    const isFirstCol = colIndex === 0 && stickyFirstColumn
+                    const isFirstCol = colIndex === 0 && stickyColumn
                     return (
                       <td
                         key={c.key}
                         className={cx(
-                          'px-3',
+                          inset,
                           d.skelY,
                           rowBorder(r),
-                          isFirstCol && STICKY_COL_BASE,
+                          isFirstCol && stickyColBase,
+                          wellLabel(colIndex, c, isFirstCol),
                           bodyZIndex(isFirstCol)
                         )}
                       >
@@ -256,7 +625,7 @@ export function DataTable<T extends Record<string, unknown>>({
             <tr>
               <td colSpan={colSpan} className={cx('px-3 py-6', rowBorder(0))}>
                 {empty ?? (
-                  <p className="text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+                  <p className="text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
                     No results.
                   </p>
                 )}
@@ -268,30 +637,37 @@ export function DataTable<T extends Record<string, unknown>>({
             ? rows.map((row, i) => (
                 <tr
                   key={rowKey(row, i)}
-                  // `group` lets the sticky first column repaint on row hover via group-hover
-                  // (its own opaque fill would otherwise mask the row's hover brighten, since a
-                  // td's background paints over whatever the tr's hover background shows through).
-                  className="group transition-colors hover:bg-white dark:hover:bg-white/[0.03]"
+                  // Light sticky labels brighten with the row; dark labels keep their opaque
+                  // panel fill. Replacing that fill with the row's translucent white tint
+                  // would let horizontally scrolled values show through the sticky label.
+                  className={well ? WELL.row : 'group transition-colors hover:bg-white dark:hover:bg-white/[0.03]'}
                 >
                   {columns.map((c, colIndex) => {
                     const tone = c.tone?.(row)
-                    const isFirstCol = colIndex === 0 && stickyFirstColumn
+                    const isFirstCol = colIndex === 0 && stickyColumn
+                    const Cell = c.rowHeader ? 'th' : 'td'
                     return (
-                      <td
+                      <Cell
                         key={c.key}
+                        scope={c.rowHeader ? 'row' : undefined}
                         className={cx(
-                          'px-3',
+                          inset,
+                          c.rowHeader && cx('font-normal', c.align !== 'right' && 'text-left'),
+                          snapColumns && !isFirstCol && 'snap-start',
+                          (snapColumns || verticalAlign === 'top') && 'align-top',
+                          c.className,
                           d.cellY,
                           rowBorder(i),
                           c.align === 'right' && 'text-right',
                           c.numeric && 'font-data tabular-nums',
                           tone && TONE[tone],
-                          isFirstCol && cx(STICKY_COL_BASE, 'group-hover:bg-white dark:group-hover:bg-white/[0.03]'),
+                          isFirstCol && (well ? stickyColBase : cx(STICKY_COL_BASE, 'group-hover:bg-white dark:group-hover:bg-panel-dark')),
+                          wellLabel(colIndex, c, isFirstCol),
                           bodyZIndex(isFirstCol)
                         )}
                       >
                         {c.render ? c.render(row) : (row[c.key] as ReactNode)}
-                      </td>
+                      </Cell>
                     )
                   })}
                 </tr>
@@ -300,5 +676,7 @@ export function DataTable<T extends Record<string, unknown>>({
         </tbody>
       </table>
     </div>
+    )}
+    </>
   )
 }

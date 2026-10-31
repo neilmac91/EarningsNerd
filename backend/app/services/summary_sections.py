@@ -27,6 +27,9 @@ from app.services.ai.issuer_cash_disclosure import (
     OWNED_FIELD as ISSUER_CASH_OWNED_FIELD,
 )
 from app.services.ai.financing_comparison import CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, OWNED_FIELD
+from app.services.ai.acquisition_period import (
+    CONTEXT_KEY as ACQUISITION_CONTEXT_KEY, CONTEXT_VERSION as ACQUISITION_CONTEXT_VERSION, project_footnotes,
+)
 from app.services import metric_delta_service
 from app.services.summary_schema import (
     RISK_SOURCE_CONTEXT_KEY,
@@ -35,6 +38,11 @@ from app.services.summary_schema import (
     SOURCE_UNIT_CONTEXT_KEY,
     SOURCE_UNIT_CONTEXT_VERSION,
 )
+
+# The takeaway cell of a row whose takeaway read-time enrichment withheld when it swapped in the filed
+# figure (provenance_service._swap_in_filed_figures): the summary wrote one, so the exports say why it is not
+# shown, in the page's words (frontend/features/filings/lib/evidenceLabels.ts TAKEAWAY_WITHHELD).
+TAKEAWAY_WITHHELD = "Withheld: written before the figure was corrected."
 
 # Mirror frontend SummarySections.tsx PLACEHOLDER_PATTERNS so exports drop the same
 # "data unavailable" filler the page hides.
@@ -93,6 +101,16 @@ def _clean(value: Any) -> str:
     if isinstance(value, (int, float)):
         return str(value)
     return ""
+
+
+def _cell(row: dict, key: str, alias: str) -> str:
+    """``row[key] or row[alias]``, as the Change cell and the figure check read a row, as one clean cell; but a figure of
+    0 with no alias behind it is a value. Read as ``a or b`` alone it printed blank, where the exports now print a missing
+    figure's dash (E13)."""
+    value = row.get(key) or row.get(alias)
+    if not value and type(row.get(key)) in (int, float):
+        value = row.get(key)
+    return _clean(value)
 
 
 def _str_list(value: Any) -> List[str]:
@@ -155,6 +173,10 @@ class Block:
     # Internal renderer hint: rows are authoritative retained-source text. The markdown projection
     # escapes syntax characters for literal display; JSON/PDF/CSV keep the exact source characters.
     literal_cells: bool = False
+    # Internal renderer hint, parallel to ``rows``: True where the row's last cell is a passage the server
+    # located in this filing (a source-owned risk whose ``source_verified`` is True). The PDF sets that cell
+    # as the device's marked block (D-044); every other surface ignores it, like ``literal_cells``.
+    located_rows: List[bool] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
@@ -274,13 +296,16 @@ def _metrics_block(table: Any, *, exact_delta_owned: bool = False) -> Optional[B
             continue
         _delta = metric_delta_service.delta_for_row(row, exact_owned=exact_delta_owned)
         change_cell = _delta.display if _delta and _delta.display else "—"
+        takeaway = _clean(row.get("commentary"))
+        if not takeaway and row.get("commentary_withheld") == "figure_replaced":
+            takeaway = TAKEAWAY_WITHHELD
         rows.append(
             [
                 metric,
-                _clean(row.get("current_period") or row.get("currentPeriod")),
-                _clean(row.get("prior_period") or row.get("priorPeriod")),
+                _cell(row, "current_period", "currentPeriod"),
+                _cell(row, "prior_period", "priorPeriod"),
                 change_cell,
-                _clean(row.get("commentary")),
+                takeaway,
             ]
         )
         # Typed row the web renders richly (tone colours + provenance chips). Pass the row through
@@ -349,6 +374,7 @@ def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Bl
     if not isinstance(risks, list):
         return None
     rows: List[List[str]] = []
+    located: List[bool] = []
     for risk in risks:
         if source_owned:
             if not isinstance(risk, dict) or not isinstance(risk.get("supporting_evidence"), str):
@@ -359,12 +385,15 @@ def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Bl
             # Provenance already returned an authoritative retained-source slice. Do not run the
             # model-output placeholder or inline-markdown cleaners over those source characters.
             rows.append([str(len(rows) + 1), "Filing excerpt", evidence])
+            # The page's test (SummaryRisks: `source_verified === true`), a flag only the projection writes.
+            located.append(risk.get("source_verified") is True)
             continue
         normalized = _normalize_risk(risk)
         if not normalized:
             continue
         risk_text, evidence = normalized
         rows.append([str(len(rows) + 1), risk_text, evidence])
+        located.append(False)
     if not rows:
         return None
     return Block(
@@ -372,6 +401,7 @@ def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Bl
         headers=["#", "Risk", "Supporting Evidence"],
         rows=rows,
         literal_cells=source_owned,
+        located_rows=located,
     )
 
 
@@ -561,7 +591,7 @@ def _guidance_outlook(sections: dict) -> Section:
     return section
 
 
-def _footnotes_table_block(data: Any) -> Optional[Block]:
+def _footnotes_table_block(data: Any, *, acquisition_owned: bool = False) -> Optional[Block]:
     """Build the footnotes table Block (shared by v1 and v2 ``notable_footnotes`` — same shape). v2 rows
     carry a read-time ``evidence`` dict (T4), collected into ``row_evidence`` parallel to ``rows`` so the
     web shows a per-footnote Trace-to-Source chip; v1 rows have none (row_evidence stays all-None)."""
@@ -569,7 +599,7 @@ def _footnotes_table_block(data: Any) -> Optional[Block]:
         return None
     rows: List[List[str]] = []
     row_evidence: List[Optional[dict]] = []
-    for fn in data:
+    for fn in project_footnotes(data, owned=acquisition_owned):
         if isinstance(fn, dict):
             item = _clean(fn.get("item"))
             impact = _clean(fn.get("impact"))
@@ -587,9 +617,9 @@ def _footnotes_table_block(data: Any) -> Optional[Block]:
     return Block("table", headers=["Item", "Impact"], rows=rows, row_evidence=row_evidence)
 
 
-def _notable_footnotes(sections: dict) -> Section:
+def _notable_footnotes(sections: dict, *, acquisition_owned: bool = False) -> Section:
     section = Section("Notable Footnotes")
-    block = _footnotes_table_block(sections.get("notable_footnotes"))
+    block = _footnotes_table_block(sections.get("notable_footnotes"), acquisition_owned=acquisition_owned)
     if block:
         section.blocks.append(block)
     return section
@@ -857,9 +887,9 @@ def _v2_balance_sheet_liquidity(sections: dict) -> Section:
     return section
 
 
-def _v2_notable_footnotes(sections: dict) -> Section:
+def _v2_notable_footnotes(sections: dict, *, acquisition_owned: bool = False) -> Section:
     section = Section(SECTION_META["notable_footnotes"]["title"])
-    block = _footnotes_table_block(sections.get("notable_footnotes"))
+    block = _footnotes_table_block(sections.get("notable_footnotes"), acquisition_owned=acquisition_owned)
     if block:
         section.blocks.append(block)
     return section
@@ -915,9 +945,13 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
     exact_delta_owned = type(delta_marker) is int and delta_marker == metric_delta_service.EXACT_CONTEXT_VERSION
     risk_marker = raw_summary.get(RISK_SOURCE_CONTEXT_KEY)
     risk_source_owned = type(risk_marker) is int and risk_marker == RISK_SOURCE_CONTEXT_VERSION
+    acquisition_marker = raw_summary.get(ACQUISITION_CONTEXT_KEY)
+    acquisition_owned = type(acquisition_marker) is int and acquisition_marker == ACQUISITION_CONTEXT_VERSION
     rendered: List[Section] = []
     for builder in _builders_for(raw_summary.get("schema_version")):
         section = (
+            builder(sections, acquisition_owned=acquisition_owned)
+            if builder in (_notable_footnotes, _v2_notable_footnotes) else
             builder(sections, source_units_owned=source_units_owned)
             if builder is _v2_forward_signals else
             builder(sections, capital_owned=capital_owned)

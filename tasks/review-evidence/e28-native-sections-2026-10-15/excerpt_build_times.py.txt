@@ -1,0 +1,25 @@
+"""Time the excerpt build that follows the section parse, for the largest golden documents.
+
+Usage: python -I excerpt_build_times.py DOC:FORM [...]. Local files only; no network. One JSON line each:
+the regex excerpt (extract_critical_sections, what a parse that misses its window leaves) and the
+section-excerpt assembly (assemble_excerpt_from_sections on the parsed sections).
+"""
+import asyncio, json, os, sys, time
+os.environ.setdefault("SECRET_KEY", "k" * 48); os.environ.setdefault("SKIP_REDIS_INIT", "true")
+for k in ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"): os.environ.setdefault(k, "x")
+sys.path.insert(0, os.environ.get("BACKEND", "/home/user/EarningsNerd/backend"))
+from app.services.edgar.compat import xbrl_service
+from app.services.openai_service import openai_service
+
+for spec in sys.argv[1:]:
+    path, form = spec.rsplit(":", 1)
+    with open(path, encoding="utf-8", newline="") as fh:
+        html = fh.read()
+    t0 = time.perf_counter(); regex = openai_service.extract_critical_sections(html, form); t1 = time.perf_counter()
+    sections = asyncio.run(xbrl_service.get_filing_sections("0000000000-00-000000", form, html=html))
+    t2 = time.perf_counter()
+    assembled = openai_service.assemble_excerpt_from_sections(sections, form, filing_text=html) if sections else None
+    t3 = time.perf_counter()
+    print(json.dumps({"doc": os.path.basename(path).split("_")[0], "chars": len(html),
+                      "regex_excerpt_s": round(t1 - t0, 2), "regex_chars": len(regex or ""),
+                      "parse_s": round(t2 - t1, 2), "assemble_s": round(t3 - t2, 2)}))

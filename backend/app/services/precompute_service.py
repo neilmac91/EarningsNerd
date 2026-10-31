@@ -16,7 +16,6 @@ this service), not encoded here — keeping the "how aggressive" decision in con
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
@@ -47,13 +46,20 @@ async def precompute_one(
     (unless ``force``). ``dry_run`` resolves via SEC + reports what *would* happen, writing nothing
     and generating nothing. Returns a status dict; never raises for "expected" misses (not found,
     no filings) — the caller aggregates statuses.
+
+    ``force`` regenerates a stored summary in place under keep-better and reports ``generated`` (the
+    run replaced it), ``kept`` (keep-better kept it) or ``failed`` (the run ended in a terminal error
+    or never ran; one of the job's error counters). ``generation_failed`` means the filing still has
+    no summary.
     """
     from app.config import settings
     from app.database import SessionLocal
-    from app.models import Company, Filing, FilingContentCache, Summary
+    from app.models import Company, Filing, Summary
     from app.services.company_resolution import resolve_or_create_company_by_cik
     from app.services.edgar.compat import sec_edgar_service
     from app.services.summary_generation_service import generate_summary_background
+    from app.services.summary_refresh import generation_failed
+    from app.utils.datetimes import utc_from_iso
 
     ticker_u = ticker.upper().strip()
     form_u = form.upper().strip()
@@ -81,11 +87,12 @@ async def precompute_one(
             company_id = company.id
 
     if cik is None:
-        sec_results = await sec_edgar_service.search_company(ticker_u)  # network, no session held
-        if not sec_results:
+        # Exact ticker only: an unlisted one is company_not_found, never the first partial match
+        # (a retired "X" once warmed, and paid for, Exxon's 10-K).
+        sec_company = await sec_edgar_service.resolve_ticker(ticker_u)  # network, no session held
+        if sec_company is None:
             result["status"] = "company_not_found"
             return result
-        sec_company = sec_results[0]
         cik = sec_company["cik"]
         if not dry_run:
             primary = await sec_edgar_service.primary_ticker_for_cik(cik)
@@ -145,25 +152,30 @@ async def precompute_one(
 
     # Get-or-create the Filing row (short write session; mirrors routers/filings.py persistence).
     if filing_id is None:
+        from app.services.filing_amendment_service import (
+            existing_filings_for_insert,
+            lock_company_filings,
+            mark_superseded_filings,
+        )
+
         with SessionLocal() as db:
-            filing = (
-                db.query(Filing).filter(Filing.accession_number == sf["accession_number"]).first()
-            )
+            lock_company_filings(db, company_id)  # before the check below reads whether it exists
+            accession = sf["accession_number"]
+            filing = existing_filings_for_insert(db, [accession]).get(accession)
             if not filing:
                 filing = Filing(
                     company_id=company_id,
                     accession_number=sf["accession_number"],
                     filing_type=sf["filing_type"],
-                    filing_date=datetime.fromisoformat(sf["filing_date"]),
+                    filing_date=utc_from_iso(sf["filing_date"]),
                     period_end_date=(
-                        datetime.fromisoformat(sf["report_date"]) if sf.get("report_date") else None
+                        utc_from_iso(sf["report_date"]) if sf.get("report_date") else None
                     ),
                     document_url=document_url,
                     sec_url=sec_url,
                 )
                 db.add(filing)
                 db.flush()
-                from app.services.filing_amendment_service import mark_superseded_filings
                 mark_superseded_filings(db, company_id)
                 db.commit()
                 db.refresh(filing)
@@ -177,24 +189,39 @@ async def precompute_one(
         result["status"] = "already_cached"
         return result
 
+    # A forced refresh never deletes the stored summary and clears nothing before its run: the one
+    # orchestrator regenerates it IN PLACE under keep-better (force_regenerate), so its summaries.id and
+    # any saved_summaries bookmark survive, and a failed or lower-ranked run keeps it
+    # (lessons/arch-fk-safe-bulk-deletes.md). rebuild_excerpt has the run build its excerpt with the
+    # current extraction instead of reusing the stored one; the run keeps that excerpt to itself and
+    # finalize stores it in the same commit as a replacing summary, so a kept summary is never left
+    # beside an excerpt it was not generated from, whatever else runs on this filing meanwhile. A rebuild
+    # whose summary replaces with no excerpt (its build returned nothing, raised, or the enrichment join
+    # dropped it) clears the stored, stale excerpt in that commit instead (clear_stale_excerpt).
+    stored = None
     if force:
         with SessionLocal() as db:
-            db.query(Summary).filter(Summary.filing_id == filing_id).delete()
-            cache = (
-                db.query(FilingContentCache)
-                .filter(FilingContentCache.filing_id == filing_id)
-                .first()
-            )
-            if cache:
-                cache.critical_excerpt = None
-            db.commit()
+            stored = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
 
     # Generate outside any session (it manages its own; idempotent if a Summary slipped in).
-    await generate_summary_background(filing_id, user_id=None)
-
+    outcome = await generate_summary_background(
+        filing_id, None, force_regenerate=force, rebuild_excerpt=force
+    )
     with SessionLocal() as db:
-        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-        result["status"] = "generated" if summary else "generation_failed"
+        summary = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
+    # The in-place UPDATE stamps updated_at, so an unchanged (id, updated_at) was not replaced.
+    replaced = stored is None or summary is None or tuple(summary) != tuple(stored)
+
+    if summary is None:
+        result["status"] = "generation_failed"
+    elif stored is None:
+        result["status"] = "generated"
+    elif outcome is None or generation_failed(outcome):
+        # The terminal event alone cannot tell a keep from a replace (both carry the stored id), but a
+        # terminal error is a failed paid attempt, as the refresh-stale drains count it.
+        result["status"] = "failed"
+    else:
+        result["status"] = "generated" if replaced else "kept"
     return result
 
 

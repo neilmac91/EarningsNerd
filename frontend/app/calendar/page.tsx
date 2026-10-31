@@ -9,16 +9,22 @@
 
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { ENABLE_CALENDAR } from '@/lib/featureFlags'
+import { ENABLE_CALENDAR, LOGO_DEV_ENABLED } from '@/lib/featureFlags'
 import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
 
 export const metadata: Metadata = {
   title: 'Earnings calendar | EarningsNerd',
   description:
-    'The most-anticipated U.S. earnings, week by week. Before-open and after-close lanes, estimated vs confirmed vs reported dates, and day-of alerts.',
+    'U.S. earnings dates, week by week: before the open or after the close, estimated or reported, with an optional email the morning a company you follow reports.',
 }
 
 export default function CalendarRoute() {
   if (!ENABLE_CALENDAR) notFound()
-  return <EarningsCalendarPage />
+  return (
+    <>
+      {/* Every row carries a company mark once the week's events answer; the handshake runs with the HTML. */}
+      {LOGO_DEV_ENABLED && <link rel="preconnect" href="https://img.logo.dev" />}
+      <EarningsCalendarPage />
+    </>
+  )
 }

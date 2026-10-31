@@ -1,0 +1,86 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values, and it treats negative operating cash flow as a warning without noting this is normal for a bank. B explains drivers, costs, credit, peers and capital return, and flags a data issue. B has one unsupported cause: it attributes criticized exposure to 'downgrades and new lending', which the truncated passage does not state. That lapse costs it grounding, but its depth outweighs the gap."
+   },
+   "cost_usd": 0.092433,
+   "latency_s": 13.714,
+   "input_tokens": 9999,
+   "output_tokens": 906,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values, and it treats negative operating cash flow as a warning without noting this is normal for a bank. B explains drivers, costs, credit, peers and capital return, and flags a data issue. B has one unsupported cause: it attributes criticized exposure to 'downgrades and new lending', which the truncated passage does not state. That lapse costs it grounding, but its depth outweighs the gap.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is almost fully grounded but only restates table values. It skips margins despite available data and treats a bank's operating cash flow as an earnings test. A explains drivers, peer position, credit costs and capital return, and sets numeric watch thresholds. A has small lapses: the criticized-exposure cause ('downgrades and new lending') is not in the cited passage, and [8] is labelled Corporate segment without support. These do not outweigh A's far greater depth."
+   },
+   "cost_usd": 0.093449,
+   "latency_s": 13.562,
+   "input_tokens": 10001,
+   "output_tokens": 956,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is almost fully grounded but only restates table values. It skips margins despite available data and treats a bank's operating cash flow as an earnings test. A explains drivers, peer position, credit costs and capital return, and sets numeric watch thresholds. A has small lapses: the criticized-exposure cause ('downgrades and new lending') is not in the cited passage, and [8] is labelled Corporate segment without support. These do not outweigh A's far greater depth.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.185882
+}

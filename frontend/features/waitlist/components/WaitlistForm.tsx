@@ -1,13 +1,19 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { CollectionGate } from '@/features/legal/components/CollectionGate'
+import type { LegalReadiness } from '@/features/legal/api/legal-api'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
 import { ApiError } from '@/lib/api/client'
 import { joinWaitlist } from '@/features/waitlist/api/waitlist-api'
+import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
-import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
+import { exampleFilingHref, TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
+import { Button, Card, Input, Notice, buttonVariants, cx, primaryUnavailableClass } from '@/components/ui'
 
 type WaitlistSuccess = {
   message?: string
@@ -21,26 +27,55 @@ type WaitlistFormProps = {
 }
 
 const twitterCopy =
-  'I just joined the waitlist for @EarningsNerd - AI-powered SEC filing summaries for retail investors. Join me:'
+  'I just joined the waitlist for @EarningsNerd, AI summaries of SEC filings for investors who still check the source. Join me:'
 const linkedInCopy =
   'Excited to get early access to EarningsNerd, a tool that uses AI to summarize SEC filings. Join the waitlist:'
+// The router's invalid_referral (a 400 carrying its code): no signup holds the ?ref= this page was opened with.
+// One phrase for the Notice's title, the second sentence its description (lessons/frontend-a-notice-title-is-one-phrase.md).
+const unknownReferralTitle = "We can't find this referral code on the waitlist"
+const unknownReferralDescription = 'Check the link with whoever shared it.'
+// Wrapping pills (DESIGN_SYSTEM.md, Wrapping button): at 200% text "Share on WhatsApp" is wider than the card, and
+// "Join without the code" than its Notice.
+const pillLinkClass = buttonVariants({ variant: 'secondary', size: 'sm', wrap: true, className: 'max-w-full' })
+// What the referral box's status line says after a press of Copy: the link sits above the line at every width.
+const referralCopyWords = (state: 'copied' | 'failed') =>
+  state === 'copied' ? 'Referral link copied.' : 'Could not copy the link. Select it above instead.'
 
-export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps) {
+function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & { recheck: () => Promise<LegalReadiness | null> }) {
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [honeypot, setHoneypot] = useState('')
   const [turnstileToken, setTurnstileToken] = useState('')
+  // A new key mounts a new Turnstile widget, which issues a new token (see handleSubmit's finally).
+  const [turnstileKey, setTurnstileKey] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [referralRefused, setReferralRefused] = useState(false)
+  // The code "Join without the code" dropped (joinWithoutCode), so a submit before the URL loses it sends none.
+  const [droppedReferral, setDroppedReferral] = useState<string | null>(null)
   const [success, setSuccess] = useState<WaitlistSuccess | null>(null)
-  const [copied, setCopied] = useState(false)
+  // The referral box's status line (see handleCopy), and the words it last said, kept as a render-time update of state
+  // so they are there in the render that empties the line (as ResendShareModal keeps its own).
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const [heldCopyState, setHeldCopyState] = useState<'copied' | 'failed' | null>(null)
+  if (copyState !== 'idle' && copyState !== heldCopyState) setHeldCopyState(copyState)
+  // A check in place of Copy's icon for a moment after a copy; its words stay.
+  const [showCheck, setShowCheck] = useState(false)
+  const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (checkTimer.current) clearTimeout(checkTimer.current)
+  }, [])
 
-  // Derived during render from the URL — referralCode is read-only (only ever
-  // submitted, never user-edited), so no state/effect is needed (per PR review).
-  // Guard on the raw param (like the prior effect) so a blank ref stays null.
+  // Derived during render from the URL: the code is only ever submitted, never typed. Guard on the raw param so a
+  // blank ref stays null. A code the reader dropped is not sent, even while the URL still holds it.
   const refParam = searchParams.get('ref')
-  const referralCode = refParam ? refParam.trim().toLowerCase() : null
+  const urlReferral = refParam ? refParam.trim().toLowerCase() : null
+  const referralCode = urlReferral === droppedReferral ? null : urlReferral
+  const emailRef = useRef<HTMLInputElement>(null)
+  // With Turnstile on, a join waits for a token: on the first load, while a new one is issued after each join the
+  // form sends (handleSubmit's finally), and after one expires.
+  const tokenPending = TURNSTILE_ENABLED && !turnstileToken
 
   const referralLink = success?.referral_link
 
@@ -61,9 +96,10 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
     event.preventDefault()
     // The submit Button uses `loading` (aria-disabled, not native disabled) to keep its resting
     // fill, so Enter in a field can still fire this while a request is in flight — guard explicitly.
-    if (isSubmitting) return
+    // The wait for a Turnstile token is aria-disabled too, so a press or Enter sends nothing until the token comes.
+    if (isSubmitting || tokenPending) return
     setError(null)
-    setCopied(false)
+    setReferralRefused(false)
 
     if (!email.trim()) {
       setError('Please enter a valid email address.')
@@ -72,6 +108,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
     setIsSubmitting(true)
     try {
+      if (!(await recheck())?.collection_available) return
       const data = await joinWaitlist(
         {
           email: email.trim(),
@@ -93,8 +130,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         return
       }
 
+      if (data?.success === false && data?.error === 'invalid_referral') {
+        setReferralRefused(true)
+        return
+      }
+
       if (!data?.success) {
-        setError(data?.message || 'Unable to join the waitlist right now.')
+        setError(data?.message || data?.detail || 'Unable to join the waitlist right now.')
         return
       }
 
@@ -113,40 +155,78 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
       )
     } finally {
       setIsSubmitting(false)
+      // Cloudflare verifies a Turnstile token once (siteverify answers timeout-or-duplicate after), and the router
+      // checks it before the honeypot, the referral code and the signup. A sent join may have spent its token (only
+      // the rate limit answers before the check, and a lost request cannot say), so the form renews it after every
+      // one: it drops the token and mounts a new widget, and the button waits for the new token. After a join that
+      // lands, the form is gone.
+      setTurnstileToken('')
+      setTurnstileKey((key) => key + 1)
     }
   }
 
+  // "Join without the code" navigates to /waitlist, with no ?ref=. Search params do not remount a page in the App
+  // Router, so the form keeps what was typed. It drops the code here, as the link is followed: the URL keeps its
+  // ?ref= until the router commits the navigation, and Enter in the email field can come first. The refusal clears,
+  // and the focused link with it, so focus goes to the email field, where Enter submits. Link runs this as
+  // onNavigate, only for a navigation in this tab: a Ctrl or Cmd click opens /waitlist in a new tab and leaves this
+  // one, and its ?ref=, as they were.
+  const joinWithoutCode = () => {
+    setDroppedReferral(urlReferral)
+    setReferralRefused(false)
+    emailRef.current?.focus()
+  }
+
+  // Copy keeps its words, so its name is what it shows (WCAG 2.5.3), and says a press in the referral box's status line
+  // (4.1.3): its words flashed to "Copied" and nothing was heard (E244). The line is emptied first, so a second press
+  // that says the same is said again.
   const handleCopy = async () => {
     if (!referralLink) return
+    setCopyState('idle')
     try {
       await navigator.clipboard.writeText(referralLink)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      setCopyState('copied')
+      setShowCheck(true)
+      if (checkTimer.current) clearTimeout(checkTimer.current)
+      checkTimer.current = setTimeout(() => setShowCheck(false), 1500)
     } catch {
-      setCopied(false)
+      setCopyState('failed')
+      setShowCheck(false)
     }
   }
 
   if (success) {
     return (
-      <Card className="p-6">
+      <Card className="p-cap-6">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
-          <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>
+          <span className="text-sm font-semibold">Waitlist request received</span>
         </div>
-        <h3 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          {success.message || 'You&apos;re on the waitlist.'}
-        </h3>
+        <h2 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          You&apos;re on the waitlist.
+        </h2>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Your current position is <span className="tnum font-data font-semibold">#{success.position}</span>.
         </p>
+        <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          This is not an account or an invitation yet. You can explore the live example while you wait.
+        </p>
+        <ExampleCtaLink
+          href={exampleFilingHref('waitlist_success_example')}
+          placement="waitlist"
+          className={buttonVariants({ variant: 'secondary', size: 'md', wrap: true, className: 'mt-4' })}
+        >
+          Read a live example while you wait
+        </ExampleCtaLink>
 
         <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-          <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
+          <div className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
             Your referral link
           </div>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="break-all text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+            {/* The data face: Inter's contextual alternates draw the x of a code such as p4x8n2wd as a
+                multiplication sign; Geist Mono has none, so the link reads as Copy copies it. */}
+            <span className="break-all font-data text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {success.referral_link}
             </span>
             <Button
@@ -154,27 +234,35 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               variant="secondary"
               size="sm"
               onClick={handleCopy}
-              leftIcon={copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+              leftIcon={showCheck ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
               className="shrink-0"
             >
-              {copied ? 'Copied' : 'Copy'}
+              Copy
             </Button>
           </div>
+          {/* In place with the card, so the line is a live region before a press fills it; empty before a first press, it
+              takes no room. While a repeat press empties it, it keeps the words it last said, invisible and hidden from
+              the accessibility tree, so it holds its room and the card holds still. */}
+          <p role="status" className={cx('text-sm text-text-secondary-light dark:text-text-secondary-dark', heldCopyState && 'mt-2')}>
+            {copyState !== 'idle'
+              ? referralCopyWords(copyState)
+              : heldCopyState && <span aria-hidden="true" className="invisible">{referralCopyWords(heldCopyState)}</span>}
+          </p>
         </div>
 
         <div className="mt-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Move up the list by sharing. Each referral bumps you up 5 spots.
+          Each person who joins with your link moves you up {REFERRAL_BONUS} spots.
         </div>
 
         {shareLinks && (
           <div className="mt-4 flex flex-wrap gap-3">
-            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on Twitter
             </a>
-            <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on LinkedIn
             </a>
-            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on WhatsApp
             </a>
           </div>
@@ -184,7 +272,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   }
 
   return (
-    <Card as="form" onSubmit={handleSubmit} className="p-6">
+    <Card as="form" onSubmit={handleSubmit} className="p-cap-6">
       <div className="flex flex-col gap-4">
         <div>
           <label
@@ -194,6 +282,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             Email address
           </label>
           <Input
+            ref={emailRef}
             id="waitlist-email"
             type="email"
             required
@@ -231,20 +320,46 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           onChange={(event) => setHoneypot(event.target.value)}
         />
 
+        {referralRefused && (
+          <Notice
+            variant="error"
+            title={unknownReferralTitle}
+            description={unknownReferralDescription}
+            action={
+              // scroll={false}: the reader stays at the form, where focus goes.
+              <Link href="/waitlist" scroll={false} onNavigate={joinWithoutCode} className={pillLinkClass}>
+                Join without the code
+              </Link>
+            }
+          />
+        )}
+
         {error && <Notice variant="error" title={error} />}
 
-        <TurnstileWidget onToken={setTurnstileToken} />
+        <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 
+        {/* The wait for a token is aria-disabled with handleSubmit's guard, never native disabled: the token renews
+            after every join the form sends, while the button that sent it has focus, and Chromium moves focus to
+            <body> from a focused button that turns disabled (lessons/frontend-busy-controls-stay-focusable.md (e)). */}
         <Button
           type="submit"
           loading={isSubmitting}
           loadingText="Joining waitlist..."
-          disabled={TURNSTILE_ENABLED && !turnstileToken}
-          className="w-full"
+          aria-disabled={isSubmitting || tokenPending || undefined}
+          // Refused while the token comes, so the browser's own validation never starts either: an empty required
+          // field would take focus from a control announced unavailable. Enter in a field submits through this click.
+          onClick={(event) => {
+            if (tokenPending) event.preventDefault()
+          }}
+          className={cx('w-full', tokenPending && !isSubmitting && primaryUnavailableClass)}
         >
           Join the waitlist
         </Button>
       </div>
     </Card>
   )
+}
+
+export default function WaitlistForm(props: WaitlistFormProps) {
+  return <CollectionGate surface="waitlist" title="Waitlist registration is currently closed">{(recheck) => <OpenWaitlistForm source={props.source} recheck={recheck} />}</CollectionGate>
 }

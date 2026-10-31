@@ -1,0 +1,104 @@
+{
+ "system": "deepseek-flash-p",
+ "ticker": "RIVN",
+ "split": "holdout",
+ "claims": 7,
+ "output_sha256": "3b8c4ed36e3a77ca1c3c7c5fbd4714e5a99287fb5c4e6d04ed459726048cc46a",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Growth then slowed to 12.1% in FY2024 and 8.4% in FY2025 as Automotive revenue fell 14.6% on 9,332 fewer deliveries, partly from the expiration of 45W tax credits .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Automotive revenues decreased for the year ended December 31, 2025, primarily resulting from a decrease in deliveries of 9,332 vehicles, due in part to the expiration of 45W tax credits after September 30, 2025, as well as a decrease in sales of automotive regulatory credits, partially offset by higher average selling prices and a higher mix of R1 deliveries. The increase in average selling prices was driven by a consumer shift towards higher performance variants along with a decline in discounting."
+    }
+   ],
+   "label": "partial",
+   "reason": "P22 gives these causes for the FY2025 Automotive decline only. Nothing cited explains the FY2024 growth slowdown."
+  },
+  {
+   "sentence": "That jump came from vehicle electrical architecture and software development services for the Volkswagen joint venture, plus remarketing and repair and maintenance .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Software and services revenues increased significantly for the year ended December 31, 2025 primarily due to an increase in vehicle electrical architecture and software development services, as well as increases in remarketing sales and vehicle repair and maintenance services."
+    },
+    {
+     "id": "P27",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The majority of our Software and Services revenues is derived from services provided by Rivian and Volkswagen Group Technologies, LLC (the \u201cJoint Venture\u201d) to further develop, customize, and enhance Rivian\u2019s vehicle electrical architecture and software technology for use in future vehicle programs, as well as remarketing and vehicle repair and maintenance services. The majority of our Software and Services cost of revenues is driven by direct materials (e.g., remarketing vehicles) and personnel expenses, including stock-based compensation."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 attributes the increase to electrical architecture/software services, remarketing and repair; P27 ties those services to the Volkswagen JV."
+  },
+  {
+   "sentence": "Cost of revenue fell 15.0% on fewer vehicles produced and lower raw material and conversion costs .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "For the year ended December 31, 2025, Automotive cost of revenues included $484 million of depreciation and amortization expense and $43 million of stock-based compensation expense. The year-over-year decrease in Automotive cost of revenues was primarily due to fewer vehicles being produced and delivered, as well as reductions in the cost of raw materials, product components, and conversion costs, resulting in part from the cost of revenue efficiency initiatives and accelerated depreciation that occurred during the prior year."
+    }
+   ],
+   "label": "partial",
+   "reason": "The causes are stated for Automotive cost of revenues, not total cost of revenue."
+  },
+  {
+   "sentence": "SG&A rose 9.9% on go-to-market expansion, higher payroll and stock-based bonus accruals .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "For the year ended December 31, 2025, SG&A expenses included $221 million of depreciation and amortization expense and $324 million of stock-based compensation expense. SG&A expenses increased as a result of expanding our go-to-market operations and footprint, including higher payroll and related expenses primarily driven by increased headcount, stock-based compensation expenses primarily attributable to an increase in the total amount of accrued stock-based bonus incentives, and facilities expenses."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 cites go-to-market expansion, higher payroll and accrued stock-based bonus incentives."
+  },
+  {
+   "sentence": "Net margin trailed operating margin by 1.1pp, as a $186 million securities litigation settlement lifted other expense .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other expense, net increased for the year ended December 31, 2025 primarily due to $186 million of expense recorded for the settlement of securities class action litigation, net of expected insurance recoveries, which was partially offset by the cumulative gain on our equity method investment in Also, Inc. (refer to Note 16 \u201cCommitments and Contingencies\u201d and Note 2 \"Equity Method Investments\" to our consolidated financial statements included in this Form 10-K for more information)."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 says other expense rose mainly from the $186M securities litigation settlement."
+  },
+  {
+   "sentence": "The operating outflow shrank because of a significant reduction in net loss .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in operating activities decreased during the year ended December 31, 2025 compared to the year ended December 31, 2024, primarily driven by a significant reduction in net loss."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes the lower operating cash outflow to a significant reduction in net loss."
+  },
+  {
+   "sentence": "FY2025 financing brought $886 million, mainly $750 million of stock issued to Volkswagen .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by financing activities during the year ended December 31, 2025 primarily resulted from the issuance of $750 million in shares of Class A common stock to Volkswagen Group in connection with the achievement of the Financial Milestone, as well as capital contributed by outside parties in the formation of Mind Robotics, Inc. and Mind Robotics, LLC (see Note 1 \"Presentation and Nature of Operations\" and Note 19 \u201cVariable Interest Entities\u201d to our consolidated financial statements included in this Form 10-K for more information). Net cash provided by financing activities during the year ended December 31, 2024 primarily resulted from the issuance of the 2026 Convertible Note (see Note 10 \u201cDebt\u201d to our consolidated financial statements included in this Form 10-K for more information)."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 says FY2025 financing came primarily from the $750M Class A stock issuance to Volkswagen."
+  }
+ ],
+ "cost_usd": 0.041468,
+ "backend": "claude_cli",
+ "input_tokens": 3372,
+ "cached_input_tokens": 0,
+ "output_tokens": 725
+}

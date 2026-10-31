@@ -1,0 +1,4 @@
+copilot-37028750965 calls 18 unknown 0 usd 0.005905
+copilot-37029156902 calls 16 unknown 0 usd 0.032404
+copilot-37029566102 calls 18 unknown 0 usd 0.005491
+copilot-37029964566 calls 16 unknown 0 usd 0.006103

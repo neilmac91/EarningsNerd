@@ -1,0 +1,503 @@
+Full backend gate on 36408c8b128b5b272678a7be1ef22c677aef5aa4
+Base: efdc33f42bbf95a70ceb78d0c6615d59788800df
+Commands run sequentially: python -m ruff check .; python -m bandit -r app -ll; python -m pytest
+Synthetic credentials, fresh SQLite and bytecode cache; four isolated PostgreSQL15 concurrency databases configured.
+
+=== ruff: exit 0, elapsed 0.20s ===
+All checks passed!
+
+=== bandit: exit 0, elapsed 3.74s ===
+[main]	INFO	profile include tests: None
+[main]	INFO	profile exclude tests: None
+[main]	INFO	cli include tests: None
+[main]	INFO	cli exclude tests: None
+[main]	INFO	running on Python 3.11.16
+Working... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:03
+Run started:2026-10-02 21:46:28.745748+00:00
+
+Test results:
+	No issues identified.
+
+Code scanned:
+	Total lines of code: 40011
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 15
+		Medium: 0
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 7
+		High: 8
+Files skipped (0):
+
+=== pytest: exit 0, elapsed 337.16s ===
+============================= test session starts ==============================
+platform darwin -- Python 3.11.16, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend
+configfile: pytest.ini
+testpaths: tests
+plugins: platformdirs-4.12.2, asyncio-1.4.0, anyio-4.14.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 5606 items / 2 deselected / 5604 selected
+
+tests/integration/test_company_miss_path_cik_fallback.py .....           [  0%]
+tests/integration/test_company_search_ticker_integrity.py ..........     [  0%]
+tests/integration/test_extra_cache_logic.py .                            [  0%]
+tests/integration/test_login_lockout_transactions.py ......              [  0%]
+tests/integration/test_notification_delivery_transactions.py .....       [  0%]
+tests/integration/test_stream_latency.py .                               [  0%]
+tests/integration/test_subscription_event_transactions.py .............. [  0%]
+..........                                                               [  0%]
+tests/integration/test_summary_enrichment.py ....                        [  0%]
+tests/integration/test_summary_stream_contract.py .......                [  1%]
+tests/integration/test_summary_stream_heartbeat.py ...                   [  1%]
+tests/integration/test_usage_counter_transactions.py ................... [  1%]
+...........                                                              [  1%]
+tests/smoke/test_critical_paths.py ...........................           [  2%]
+tests/smoke/test_startup.py .                                            [  2%]
+tests/unit/test_acceptance_ai_checks.py ......                           [  2%]
+tests/unit/test_acceptance_ai_decision.py ..................             [  2%]
+tests/unit/test_acceptance_ai_decision_integration.py .                  [  2%]
+tests/unit/test_acceptance_ai_judge_evidence.py ..                       [  2%]
+tests/unit/test_acceptance_ai_judge_runner.py ...............            [  2%]
+tests/unit/test_acceptance_ai_protocol.py ..............                 [  3%]
+tests/unit/test_acceptance_archive.py ........                           [  3%]
+tests/unit/test_acceptance_budget.py ...............                     [  3%]
+tests/unit/test_acceptance_document_map.py ..                            [  3%]
+tests/unit/test_acceptance_executor.py ..........................        [  4%]
+tests/unit/test_acceptance_meter.py ........                             [  4%]
+tests/unit/test_acceptance_outputs.py ..............                     [  4%]
+tests/unit/test_acceptance_readiness.py .............                    [  4%]
+tests/unit/test_acceptance_source_capacity.py .                          [  4%]
+tests/unit/test_acceptance_source_contract.py .                          [  4%]
+tests/unit/test_acceptance_source_members.py ..                          [  4%]
+tests/unit/test_acceptance_source_modalities.py ..                       [  4%]
+tests/unit/test_acceptance_source_review_delivery.py ................... [  5%]
+...........................                                              [  5%]
+tests/unit/test_acceptance_source_review_execution.py .....              [  5%]
+tests/unit/test_acceptance_source_review_graph.py ..............         [  6%]
+tests/unit/test_acceptance_source_review_prompts.py ......               [  6%]
+tests/unit/test_acceptance_source_units.py ............................. [  6%]
+.............                                                            [  6%]
+tests/unit/test_acceptance_source_view.py ...                            [  6%]
+tests/unit/test_acceptance_worker.py .............                       [  7%]
+tests/unit/test_accession_xbrl_extraction.py ........................... [  7%]
+..................................                                       [  8%]
+tests/unit/test_additive_columns.py .....                                [  8%]
+tests/unit/test_admin_feedback.py .........                              [  8%]
+tests/unit/test_admin_invites.py .............                           [  8%]
+tests/unit/test_admin_refresh_stale.py ........                          [  8%]
+tests/unit/test_admin_reset_summaries.py .....                           [  8%]
+tests/unit/test_ads_ratios.py .................                          [  9%]
+tests/unit/test_agent_files_stack_truth.py .                             [  9%]
+tests/unit/test_ai_metrics.py ....................                       [  9%]
+tests/unit/test_ai_model_routing.py ......                               [  9%]
+tests/unit/test_ai_readout_validation.py ..............                  [  9%]
+tests/unit/test_alert_email_render.py ...                                [ 10%]
+tests/unit/test_analysis_coverage_pool_lifetime.py ..                    [ 10%]
+tests/unit/test_analysis_stream.py ..................................... [ 10%]
+................                                                         [ 11%]
+tests/unit/test_app_loop_lifespan.py ..                                  [ 11%]
+tests/unit/test_apple_signin.py ...........                              [ 11%]
+tests/unit/test_assess_quality_bank.py .........                         [ 11%]
+tests/unit/test_attribution_gate.py .......................              [ 11%]
+tests/unit/test_attribution_verify.py ...............................    [ 12%]
+tests/unit/test_auth_cookies.py ....                                     [ 12%]
+tests/unit/test_auth_flow.py .....................                       [ 12%]
+tests/unit/test_background_generation_characterization.py ..........     [ 13%]
+tests/unit/test_bank_component_coverage.py .......                       [ 13%]
+tests/unit/test_beta_funnel_events.py ..                                 [ 13%]
+tests/unit/test_billing_revenue.py .............................         [ 13%]
+tests/unit/test_cached_filings_pool_lifetime.py ..........               [ 13%]
+tests/unit/test_calendar_api.py .......                                  [ 13%]
+tests/unit/test_calendar_service.py .....                                [ 14%]
+tests/unit/test_capacity_projection_privacy.py ....................      [ 14%]
+tests/unit/test_capacity_readout.py .                                    [ 14%]
+tests/unit/test_capital_passages.py .....                                [ 14%]
+tests/unit/test_cash_claims.py ......................................... [ 15%]
+............                                                             [ 15%]
+tests/unit/test_cash_financial_applicability.py ........................ [ 15%]
+.......                                                                  [ 16%]
+tests/unit/test_cash_registry_consistency.py ....                        [ 16%]
+tests/unit/test_change_report_service.py ............                    [ 16%]
+tests/unit/test_checkout_session.py ....................                 [ 16%]
+tests/unit/test_circuit_breaker.py ...............                       [ 16%]
+tests/unit/test_circuit_open_handler.py ..                               [ 16%]
+tests/unit/test_citation_markers.py .............                        [ 17%]
+tests/unit/test_company_routes_pool_lifetime.py .                        [ 17%]
+tests/unit/test_companyfacts_fixture.py .......                          [ 17%]
+tests/unit/test_companyfacts_ingest.py ................................. [ 17%]
+...............                                                          [ 18%]
+tests/unit/test_configuration_reference.py .............                 [ 18%]
+tests/unit/test_contact_route.py .....                                   [ 18%]
+tests/unit/test_copilot.py ............................................. [ 19%]
+........................................................................ [ 20%]
+..........................................                               [ 21%]
+tests/unit/test_copilot_bootstrap.py ......                              [ 21%]
+tests/unit/test_copilot_citation_repair.py ............................. [ 22%]
+........................................                                 [ 22%]
+tests/unit/test_copilot_cost.py ............................             [ 23%]
+tests/unit/test_copilot_evals.py .......................                 [ 23%]
+tests/unit/test_copilot_filing_scope.py ................................ [ 24%]
+......                                                                   [ 24%]
+tests/unit/test_copilot_gate.py ........................................ [ 25%]
+....................................                                     [ 25%]
+tests/unit/test_copilot_live_regressions.py .......                      [ 25%]
+tests/unit/test_copilot_paired_claims.py ............................    [ 26%]
+tests/unit/test_copilot_prose_quotations.py ............................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+................                                                         [ 39%]
+tests/unit/test_copilot_provenance.py .................................. [ 40%]
+.....                                                                    [ 40%]
+tests/unit/test_copilot_tools.py ..............                          [ 40%]
+tests/unit/test_dashboard_feed.py ...................                    [ 41%]
+tests/unit/test_data_completeness.py ...........................         [ 41%]
+tests/unit/test_data_quality_report.py ...                               [ 41%]
+tests/unit/test_datetimes.py .....                                       [ 41%]
+tests/unit/test_dead_integrations_allowlist.py ...                       [ 41%]
+tests/unit/test_debt_scope_owner.py .................................... [ 42%]
+.............................                                            [ 43%]
+tests/unit/test_deploy_check_provider.py ..                              [ 43%]
+tests/unit/test_digest_window_query.py ...                               [ 43%]
+tests/unit/test_e8_export_state.py ..................................... [ 43%]
+........................................................................ [ 45%]
+                                                                         [ 45%]
+tests/unit/test_e8_launch_kit_matches_allow_rules.py ................... [ 45%]
+...................................................................      [ 46%]
+tests/unit/test_e8_repin_package_is_sealed.py .......                    [ 46%]
+tests/unit/test_e8_restore_session.py ..............                     [ 46%]
+tests/unit/test_earnings_alerts.py ...........                           [ 47%]
+tests/unit/test_earnings_calendar_engine.py .....................        [ 47%]
+tests/unit/test_edgar_company_cache.py .......                           [ 47%]
+tests/unit/test_edgar_get_filings_multi.py ..................            [ 48%]
+tests/unit/test_edgar_services.py ...................................... [ 48%]
+                                                                         [ 48%]
+tests/unit/test_entitlement_dependency.py ......                         [ 48%]
+tests/unit/test_entitlements.py ................                         [ 49%]
+tests/unit/test_eval_attempt_diagnostics.py ..............               [ 49%]
+tests/unit/test_eval_completeness.py ................................... [ 49%]
+.....                                                                    [ 50%]
+tests/unit/test_eval_consistency.py ..                                   [ 50%]
+tests/unit/test_eval_content_scorers.py ................................ [ 50%]
+...........                                                              [ 50%]
+tests/unit/test_eval_judge.py ...........................                [ 51%]
+tests/unit/test_eval_judge_readout.py ......                             [ 51%]
+tests/unit/test_eval_judge_report.py .........                           [ 51%]
+tests/unit/test_eval_measurement.py .................................... [ 52%]
+....................                                                     [ 52%]
+tests/unit/test_eval_parity.py ..................................        [ 53%]
+tests/unit/test_eval_provider_usage.py ..........                        [ 53%]
+tests/unit/test_eval_regression_gate.py ................                 [ 53%]
+tests/unit/test_eval_scorers.py ........................................ [ 54%]
+...............                                                          [ 54%]
+tests/unit/test_event_loop_safety.py .................                   [ 54%]
+tests/unit/test_evidence_snap.py ..................                      [ 55%]
+tests/unit/test_excel_export.py ....................                     [ 55%]
+tests/unit/test_expired_trial_gating.py .......                          [ 55%]
+tests/unit/test_export_service.py ............................           [ 56%]
+tests/unit/test_facts_service.py ....................................... [ 56%]
+.......................                                                  [ 57%]
+tests/unit/test_feedback.py .....                                        [ 57%]
+tests/unit/test_fi_predicate_single_source.py ....                       [ 57%]
+tests/unit/test_figure_trace.py ..........................               [ 57%]
+tests/unit/test_filing_content.py ...                                    [ 58%]
+tests/unit/test_filing_history_service.py ...............                [ 58%]
+tests/unit/test_filing_only_inputs.py .....                              [ 58%]
+tests/unit/test_filing_period_wiring.py ......                           [ 58%]
+tests/unit/test_filing_scan.py .......                                   [ 58%]
+tests/unit/test_filing_url_listeners.py ................................ [ 59%]
+.................                                                        [ 59%]
+tests/unit/test_filings_endpoint_db_first.py ......                      [ 59%]
+tests/unit/test_filings_list_cache.py ......                             [ 59%]
+tests/unit/test_financial_revenue_downstream.py ........................ [ 60%]
+.............................................                            [ 60%]
+tests/unit/test_financial_statement_extraction.py .................      [ 61%]
+tests/unit/test_financing_comparison.py ..........                       [ 61%]
+tests/unit/test_financing_source.py .............                        [ 61%]
+tests/unit/test_forward_quote_gate.py ...................                [ 61%]
+tests/unit/test_fpi_currency.py ..............                           [ 62%]
+tests/unit/test_fpi_summary.py ..............                            [ 62%]
+tests/unit/test_funnel_telemetry.py ....                                 [ 62%]
+tests/unit/test_generation_requires_account.py ....                      [ 62%]
+tests/unit/test_golden_set_alts.py ....                                  [ 62%]
+tests/unit/test_golden_set_bank_ground_truth.py .....                    [ 62%]
+tests/unit/test_google_jwt_clock_skew.py .                               [ 62%]
+tests/unit/test_index_membership_service.py ........                     [ 62%]
+tests/unit/test_inflight_dedup.py ........                               [ 63%]
+tests/unit/test_insider_service.py .......                               [ 63%]
+tests/unit/test_internal_jobs.py .........                               [ 63%]
+tests/unit/test_invite_gate.py ....                                      [ 63%]
+tests/unit/test_invite_service.py .....                                  [ 63%]
+tests/unit/test_issuer_cash_disclosure.py ........................       [ 63%]
+tests/unit/test_job_reporting.py ....................................... [ 64%]
+....................                                                     [ 65%]
+tests/unit/test_json_repair.py .......................................   [ 65%]
+tests/unit/test_jwt_library_allowlist.py .                               [ 65%]
+tests/unit/test_llm_no_pii.py ...                                        [ 65%]
+tests/unit/test_markdown_render_bullets.py ......                        [ 65%]
+tests/unit/test_mask_email.py ...................                        [ 66%]
+tests/unit/test_metric_delta_service.py ...........                      [ 66%]
+tests/unit/test_migration_lock_safety.py .....................           [ 66%]
+tests/unit/test_naive_utcnow_allowlist.py .                              [ 66%]
+tests/unit/test_no_raw_email_in_logs.py ..                               [ 66%]
+tests/unit/test_normalize_companyfacts_jpm_shape.py .                    [ 66%]
+tests/unit/test_notable_filings_router.py ...                            [ 66%]
+tests/unit/test_notable_filings_service.py ..............                [ 67%]
+tests/unit/test_notification_delivery.py ..............................  [ 67%]
+tests/unit/test_notification_preferences_api.py ....                     [ 67%]
+tests/unit/test_notification_service.py ..........                       [ 67%]
+tests/unit/test_notifications_api.py .......                             [ 68%]
+tests/unit/test_numbers.py ........................                      [ 68%]
+tests/unit/test_openai_service_retry.py .                                [ 68%]
+tests/unit/test_orphaned_progress.py .....                               [ 68%]
+tests/unit/test_os_getenv_allowlist.py .                                 [ 68%]
+tests/unit/test_outlook_source_coverage.py ........                      [ 68%]
+tests/unit/test_ownership_extractor.py ................................. [ 69%]
+....                                                                     [ 69%]
+tests/unit/test_password_and_profile.py ......                           [ 69%]
+tests/unit/test_peers_service.py .........                               [ 69%]
+tests/unit/test_per_ads_display.py .....                                 [ 69%]
+tests/unit/test_precompute_service.py .........                          [ 69%]
+tests/unit/test_pro_summary_cap.py ........                              [ 70%]
+tests/unit/test_prod_flag_visibility.py ................                 [ 70%]
+tests/unit/test_provenance_service.py .................................. [ 71%]
+..............................                                           [ 71%]
+tests/unit/test_provider_admission.py ......                             [ 71%]
+tests/unit/test_provider_resilience.py ................................. [ 72%]
+..                                                                       [ 72%]
+tests/unit/test_public_edgar_rate_limits.py ..                           [ 72%]
+tests/unit/test_pulse_service.py .......                                 [ 72%]
+tests/unit/test_purge_non_index_earnings.py ..                           [ 72%]
+tests/unit/test_quality_assessment.py .................                  [ 72%]
+tests/unit/test_quality_grounding_presence.py ..................         [ 73%]
+tests/unit/test_quarterly_component_source_scope.py ..................   [ 73%]
+tests/unit/test_quarterly_component_withholding.py ..................... [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+..................................                                       [ 76%]
+tests/unit/test_read_only_get_endpoints.py ....                          [ 77%]
+tests/unit/test_recovery_context.py .................................... [ 77%]
+....                                                                     [ 77%]
+tests/unit/test_redis_disabled_skip.py ...                               [ 77%]
+tests/unit/test_refresh_index_membership_script.py ........              [ 77%]
+tests/unit/test_refresh_replay.py ..                                     [ 77%]
+tests/unit/test_refresh_stale_job.py ......                              [ 78%]
+tests/unit/test_registration_config.py ...                               [ 78%]
+tests/unit/test_repair_false_reported_earnings.py ...                    [ 78%]
+tests/unit/test_repair_ticker_by_cik.py .....                            [ 78%]
+tests/unit/test_reporting_this_week_service.py .........                 [ 78%]
+tests/unit/test_resend_config.py ......                                  [ 78%]
+tests/unit/test_resend_webhook_handlers.py ..........                    [ 78%]
+tests/unit/test_retention_purge.py .......                               [ 78%]
+tests/unit/test_retired_model_ids.py .........                           [ 79%]
+tests/unit/test_review_evidence_links.py .                               [ 79%]
+tests/unit/test_review_gate.py ..................                        [ 79%]
+tests/unit/test_richer_financials.py ...........                         [ 79%]
+tests/unit/test_router_limiter_state.py ...                              [ 79%]
+tests/unit/test_saved_summary_status.py ..                               [ 79%]
+tests/unit/test_scheduled_workflows_fail_loud.py ...                     [ 79%]
+tests/unit/test_sec_full_text_search.py ..........................       [ 80%]
+tests/unit/test_sec_gov_importers_allowlist.py ...                       [ 80%]
+tests/unit/test_sec_rate_limiter.py .........................            [ 80%]
+tests/unit/test_section_extraction_guard.py ...........                  [ 80%]
+tests/unit/test_security_audit_remediation.py ....................       [ 81%]
+tests/unit/test_security_hardening.py ......................             [ 81%]
+tests/unit/test_security_hardening_week7.py .........                    [ 81%]
+tests/unit/test_security_headers.py ..                                   [ 81%]
+tests/unit/test_segment_extraction.py ..............                     [ 82%]
+tests/unit/test_shareholder_returns_extraction.py ...........            [ 82%]
+tests/unit/test_sitemap.py .............                                 [ 82%]
+tests/unit/test_sixk_classifier.py .....                                 [ 82%]
+tests/unit/test_sixk_extractor.py .......                                [ 82%]
+tests/unit/test_sixk_variant_wiring.py ..                                [ 82%]
+tests/unit/test_source_first_risks.py .                                  [ 82%]
+tests/unit/test_source_unit_quote_context.py ........................... [ 83%]
+.................                                                        [ 83%]
+tests/unit/test_statement_disclosures.py ............................... [ 84%]
+.........................................................                [ 85%]
+tests/unit/test_statement_extraction.py .............                    [ 85%]
+tests/unit/test_statement_relationship_integration.py .................. [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+..............................                                           [ 88%]
+tests/unit/test_statement_relationship_source.py ....................    [ 89%]
+tests/unit/test_stream_section_reveal.py ..........                      [ 89%]
+tests/unit/test_stripe_webhook.py ......                                 [ 89%]
+tests/unit/test_structured_markdown_render.py .......................... [ 89%]
+..............................                                           [ 90%]
+tests/unit/test_structured_output_flag.py ..                             [ 90%]
+tests/unit/test_subscription_identity.py ...............                 [ 90%]
+tests/unit/test_subscription_reconciliation.py ......................... [ 91%]
+....................                                                     [ 91%]
+tests/unit/test_subscription_webhook_sync.py ..........                  [ 91%]
+tests/unit/test_summary_audit_report.py ..................               [ 92%]
+tests/unit/test_summary_provider_lifecycle.py ........................   [ 92%]
+tests/unit/test_summary_quality.py ..................                    [ 92%]
+tests/unit/test_summary_request_evidence.py ........................     [ 93%]
+tests/unit/test_summary_schema_v2.py .......................             [ 93%]
+tests/unit/test_summary_sections_model.py ...........                    [ 93%]
+tests/unit/test_summary_version_stamps.py ......                         [ 93%]
+tests/unit/test_table_cell_units.py .................................... [ 94%]
+........................................................................ [ 95%]
+..............................................                           [ 96%]
+tests/unit/test_timeout_cors_504.py ..                                   [ 96%]
+tests/unit/test_trend_analysis_service.py .............................. [ 97%]
+......................                                                   [ 97%]
+tests/unit/test_turnstile.py .......                                     [ 97%]
+tests/unit/test_two_tier_cache.py ..................                     [ 98%]
+tests/unit/test_unsupported_foreign.py ...                               [ 98%]
+tests/unit/test_usage_reservation_wiring.py .........                    [ 98%]
+tests/unit/test_verbatim_contract.py ..........................          [ 98%]
+tests/unit/test_waitlist_join_route.py .....                             [ 98%]
+tests/unit/test_waitlist_jwt_clock_skew.py .                             [ 98%]
+tests/unit/test_weekly_readout_receiver.py .....                         [ 98%]
+tests/unit/test_xbrl_narrative_fi_addendum.py ..                         [ 98%]
+tests/unit/test_xbrl_narrative_section.py .............................. [ 99%]
+............................                                             [100%]
+
+=============================== warnings summary ===============================
+app/config.py:21
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/database.py:44
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas/summary.py:81
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/schemas/summary.py:81: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+../../../../../../../../../private/tmp/earningsnerd-deps-20261002/optional/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../../../../../../../private/tmp/earningsnerd-deps-20261002/optional/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../../../../../../../private/tmp/earningsnerd-deps-20261002/optional/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../../../../../../../private/tmp/earningsnerd-deps-20261002/optional/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+  /private/tmp/earningsnerd-deps-20261002/optional/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://docs.pydantic.dev/2.13/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    warnings.warn(
+
+app/schemas/summary.py:139
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/schemas/summary.py:139: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app/schemas/contact.py:47
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/schemas/contact.py:47: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ContactSubmissionResponse(BaseModel):
+
+app/routers/companies.py:133
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/companies.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CompanyResponse(BaseModel):
+
+app/routers/filings.py:133
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/filings.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FilingResponse(BaseModel):
+
+app/routers/saved_summaries.py:16
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/saved_summaries.py:16: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SavedSummaryResponse(BaseModel):
+
+app/routers/summaries.py:122
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/summaries.py:122: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SummaryResponse(BaseModel):
+
+app/routers/users.py:121
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/users.py:121: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationPreferencesResponse(BaseModel):
+
+app/routers/users.py:208
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/users.py:208: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationItem(BaseModel):
+
+app/routers/watchlist.py:38
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/watchlist.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class WatchlistResponse(BaseModel):
+
+app/schemas/feedback.py:34
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/schemas/feedback.py:34: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FeedbackResponse(BaseModel):
+
+tests/integration/test_stream_latency.py::test_stream_handles_high_latency_fetch
+  /private/tmp/earningsnerd-deps-20261002/optional/lib/python3.11/site-packages/httpxthrottlecache/httpxclientmanager.py:189: DeprecationWarning: <class 'httpx.Timeout'> passed: migrate to httpx2.Timeout
+    self._normalize_timeout(params)
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 1A'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 7'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_acceptance_worker.py::test_worker_uses_frozen_sources_and_retains_every_surface[10-K-False]
+tests/unit/test_acceptance_worker.py::test_partial_result_is_retained_but_not_eligible
+tests/unit/test_acceptance_worker.py::test_stream_disabled_preserves_non_streaming_provider_mode
+tests/unit/test_acceptance_worker.py::test_swallowed_source_fault_never_reaches_provider[unbound_xbrl]
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/services/edgar/xbrl_service.py:587: FutureWarning: TenK['Item 8'] found no such item in this filing. Items are optional and vary by filer, so this can be a property of the filing rather than a mistake.
+  This returns None today and raises SectionNotFoundError in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.
+    text = obj[label]
+
+tests/unit/test_earnings_alerts.py::test_free_cap_blocks_fourth_alert
+tests/unit/test_earnings_alerts.py::test_disable_frees_a_slot_and_reenable_works
+tests/unit/test_earnings_alerts.py::test_reenable_same_company_is_idempotent_not_a_new_slot
+tests/unit/test_earnings_alerts.py::test_pro_cap_is_100_and_flagged_pro
+tests/unit/test_earnings_alerts.py::test_enabled_tickers_lists_only_enabled
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/tests/unit/test_earnings_alerts.py:75: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    u = db.query(User).get(uid)
+
+tests/unit/test_notification_delivery.py::test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_realtime
+tests/unit/test_notification_delivery.py::test_replacement_failure_preserves_old_ownership_for_retry_outside_selection_window[write_error]
+tests/unit/test_notification_delivery.py::test_replacement_failure_preserves_old_ownership_for_retry_outside_selection_window[ownership_collision]
+tests/unit/test_notification_delivery.py::test_unwatching_one_company_rebuilds_the_digest_for_the_rest_in_the_same_run
+tests/unit/test_notification_delivery.py::test_retry_freezes_complete_envelope_and_rejects_changed_recipient
+  /Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/services/notification_delivery_service.py:173: SAWarning: Identity map already had an identity for (<class 'app.models.notification_delivery.DeliveryItem'>, (1,), None), replacing it with newly flushed object.   Are there load operations occurring inside of an event handler within the flush?
+    db.flush()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+========= 5604 passed, 2 deselected, 40 warnings in 333.14s (0:05:33) ==========
+--- Logging error ---
+Traceback (most recent call last):
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py", line 1113, in emit
+    stream.write(msg + self.terminator)
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/optional-deps/backend/app/routers/companies.py", line 117, in _close_yahoo_client_sync
+    asyncio.run(_async_close())
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/runners.py", line 189, in run
+    with Runner(debug=debug) as runner:
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/runners.py", line 59, in __enter__
+    self._lazy_init()
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/runners.py", line 137, in _lazy_init
+    self._loop = events.new_event_loop()
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/events.py", line 810, in new_event_loop
+    return get_event_loop_policy().new_event_loop()
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/events.py", line 699, in new_event_loop
+    return self._loop_factory()
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/unix_events.py", line 64, in __init__
+    super().__init__(selector)
+  File "/Users/neilmacaogain/Codex-local/earningsnerd-capability-integration-20260930/python-runtime/cpython-3.11.16-macos-aarch64-none/lib/python3.11/asyncio/selector_events.py", line 54, in __init__
+    logger.debug('Using selector: %s', selector.__class__.__name__)
+Message: 'Using selector: %s'
+Arguments: ('KqueueSelector',)
+

@@ -1,0 +1,58 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 4,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Operating income fell 19.9% in FY2020 ; the filing ties this to CCR settlement impairments and COVID-19 volume losses , with impairments rising to $984 million from a credit of $8.0 million in FY2019 .",
+   "passages": [
+    {
+     "id": "P60",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Electric Utilities and Infrastructure\u2019s variance is primarily due to impairment charges and revenue reductions related to the CCR settlement agreement filed with the NCUC to resolve coal ash cost recovery issues, unfavorable weather and lower volumes driven by impacts from the COVID-19 pandemic, partially offset by base rate adjustments in various jurisdictions. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage cites CCR settlement and COVID-19 volume losses as causes of operating income decline."
+  },
+  {
+   "sentence": "Revenue rose 17.1% in FY2022 to $28.7 billion , which the filing links to higher rate-case revenues, favorable weather and volumes .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes revenue increase to rate cases, favorable weather and volumes."
+  },
+  {
+   "sentence": "The largest operating-margin move, a 3.8pp fall in FY2020 , traced to a $519 million rise in impairment charges tied to the CCR settlement .",
+   "passages": [
+    {
+     "id": "P53",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $519 million increase in impairment charges primarily driven by the Duke Energy Progress' CCR Settlement Agreement filed with the NCUC in January 2021, and the prior year's impairment reduction related to Citrus County CC at Duke Energy Florida."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states $519 million increase in impairment charges driven by CCR settlement."
+  },
+  {
+   "sentence": "Operating cash flow fell 28.5% in FY2022 to $5.93 billion , as under-collected fuel costs were deferred and financed with borrowings .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage links under-collected fuel costs deferred and financed with borrowings to cash flow impact."
+  }
+ ],
+ "cost_usd": 0.000814
+}

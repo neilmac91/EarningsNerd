@@ -1,0 +1,38 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="mockup.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+.note { padding: 0; overflow: hidden; background-color: var(--panel); background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--hair) 27px 28px); background-position: 0 14px; }
+.note-head { padding: 16px 22px 10px; display:flex; justify-content: space-between; align-items: baseline; gap: 12px; background: var(--panel); border-bottom: 1px solid var(--hair); }
+.note-head .title { font-weight: 600; font-size: 14px; }
+.entries { list-style: none; padding: 10px 22px 4px; }
+.entries li { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 10px; padding: 6px 0 6px; font-size: 15px; line-height: 28px; }
+.entries .n { font-family: var(--mono); font-size: 12px; color: var(--brand-strong); line-height: 28px; }
+.entries .chips { display: flex; gap: 6px; flex-wrap: wrap; line-height: 20px; margin: 4px 0 2px; }
+.aside { font-style: italic; color: var(--ink2); }
+.aside::before { content: '· '; }
+.sig { display:flex; align-items:center; justify-content: space-between; gap: 12px; padding: 12px 22px 16px; background: var(--panel); border-top: 1px solid var(--hair); }
+.sig .who { font-style: italic; font-size: 14px; color: var(--ink2); display:flex; align-items:center; gap: 8px; }
+.sig .who svg { width: 22px; height: 17px; color: var(--brand-strong); flex: none; }
+.sig .who em { color: var(--brand-strong); font-weight: 600; }
+.nerd { font-style: italic; color: var(--brand-strong); }
+@media (max-width:600px){ .entries { padding: 8px 14px 2px; } .note-head, .sig { padding-left: 14px; padding-right: 14px; } }
+</style></head><body>
+<header><div class="bar"><div class="lockup"><svg viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor"><g transform="translate(0,-14.8)"><path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"/><g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"/><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"/></g></g></svg><span class="wordmark">Earnings<em>Nerd</em></span></div><nav><span>Pricing</span><span>Contact</span></nav><a class="btn" href="#">Request an invite</a></div></header>
+<main class="hero">
+  <div>
+    <p class="eyebrow">AI summaries of 10-Ks and 10-Qs</p>
+    <h1 class="display">Somebody has to read the <span class="nerd">footnotes</span>.</h1>
+    <p class="sub">The Nerd reads the 10-K so you can check it faster, not skip it. Numbered notes per filing, each one pointing at its passage.</p>
+    <div class="cta"><a class="btn lg" href="#">See a live example →</a><span class="access">Private beta · request an invite</span></div>
+  </div>
+  <section class="panel note" aria-label="Notebook page">
+    <div class="note-head"><span class="title">Notes on Apple Inc.</span><span class="ident"><b>10-K</b><span>·</span><span>FY2025</span><span>·</span><span>filed Oct 31, 2025</span></span></div>
+    <ol class="entries">
+      <li><span class="n">01</span><span>Total net sales $416.2B, up 6.4%.<span class="chips"><span class="chip">{ } Revenue · SEC XBRL</span></span></span></li>
+      <li><span class="n">02</span><span>Net income up 19.5% to $112.0B; diluted EPS $7.46.<span class="chips"><span class="chip">{ } NetIncomeLoss · SEC XBRL</span><span class="chip">{ } EPS Diluted · SEC XBRL</span></span></span></li>
+      <li><span class="n">03</span><span>Operating cash flow fell 5.7% to $111.5B while net income rose. <span class="aside">worth a look</span><span class="chips"><span class="chip">{ } Operating cash flow · SEC XBRL</span></span></span></li>
+      <li><span class="n">04</span><span>Dividends paid $15.4B.<span class="chips"><span class="chip">{ } PaymentsOfDividends · SEC XBRL</span></span></span></li>
+    </ol>
+    <div class="sig"><span class="who"><span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor"><g transform="translate(0,-14.8)"><path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"/><g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"/><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"/></g></g></svg> <span>read for you by Earnings<em>Nerd</em></span></span></span><span class="tally">5 of 5 figures matched the company's XBRL</span></div>
+  </section>
+</main>
+</body></html>

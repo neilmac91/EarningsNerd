@@ -145,10 +145,10 @@ def _unit_with_currency(default_unit: str, currency: Optional[str]) -> str:
 
 def _duration_ok(start: Optional[str], end: Optional[str], filing_type: str) -> bool:
     # Shared with the product's accession-aware extraction (issue #240): the
-    # duration windows live in app.services.edgar.instance_extractor so the
+    # duration windows live in app.services.edgar.instance.core so the
     # eval harness and the product ground on the same period semantics.
     # Imported lazily — app imports may need env vars that __main__ sets first.
-    from app.services.edgar.instance_extractor import duration_in_window
+    from app.services.edgar.instance.core import duration_in_window
     return duration_in_window(start, end, filing_type)
 
 
@@ -164,7 +164,7 @@ def _fact_for_metric(
     (balance-sheet, point-in-time) vs duration (flow/income, period) selector. Returns
     (value, currency, problem).
     """
-    from app.services.edgar.instance_extractor import (
+    from app.services.edgar.instance.series import (
         duration_series_with_currency,
         instant_series_with_currency,
     )
@@ -186,7 +186,8 @@ def _diluted_eps(xb, period_of_report: str, filing_type: str) -> Optional[float]
     Reuses the product's `DURATION_CONCEPTS["eps_diluted"]` so the harness and the product can't
     drift on which diluted-EPS tags count.
     """
-    from app.services.edgar.instance_extractor import DURATION_CONCEPTS, duration_series_with_currency
+    from app.services.edgar.instance.concepts import DURATION_CONCEPTS
+    from app.services.edgar.instance.series import duration_series_with_currency
 
     series, _ = duration_series_with_currency(
         xb, DURATION_CONCEPTS["eps_diluted"], filing_type, period_of_report
@@ -224,7 +225,7 @@ def _net_income_alts(xb, period_of_report: str, filing_type: str, primary: float
 
     Same-sign only: every legitimate net-income basis shares the period's sign, so an opposite-sign
     value would be a wrong concept — never accept it as an alternate (it would weaken the G1 gate)."""
-    from app.services.edgar.instance_extractor import duration_series_with_currency
+    from app.services.edgar.instance.series import duration_series_with_currency
 
     found: List[float] = []
     for concept in _NET_INCOME_ALT_CONCEPTS:
@@ -248,7 +249,8 @@ def _per_ads_eps_alts(xb, period_of_report: str, filing_type: str, ads_ratio: Op
         return []
     if ratio <= 0 or abs(ratio - 1.0) < 1e-6:  # 1:1 (or invalid) → per-ADS equals per-share
         return []
-    from app.services.edgar.instance_extractor import DURATION_CONCEPTS, duration_series_with_currency
+    from app.services.edgar.instance.concepts import DURATION_CONCEPTS
+    from app.services.edgar.instance.series import duration_series_with_currency
 
     out: List[float] = []
     for concepts in (METRIC_CONCEPTS["eps"][1], DURATION_CONCEPTS["eps_diluted"]):

@@ -1,0 +1,86 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides deeper, well-sourced analysis of growth drivers, margins, cash conversion, and red flags, while Draft A mostly restates table values. B's causal claims are supported by cited passages, and it discloses data limitations. B is more comprehensive and clearer."
+   },
+   "cost_usd": 0.003308,
+   "latency_s": 2.194,
+   "input_tokens": 6242,
+   "output_tokens": 126,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B provides deeper, well-sourced analysis of growth drivers, margins, cash conversion, and red flags, while Draft A mostly restates table values. B's causal claims are supported by cited passages, and it discloses data limitations. B is more comprehensive and clearer.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Draft A provides deep, well-sourced analysis of drivers, margins, cash conversion, balance sheet, red flags, and watch items. Draft B is superficial, restating table values without interpretation. A's grounding is solid, with every claim cited to filings or calculations. A covers all required areas with clarity and calibrated judgments."
+   },
+   "cost_usd": 0.003329,
+   "latency_s": 2.389,
+   "input_tokens": 6242,
+   "output_tokens": 137,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"strong\",\n  \"rationale\": \"Draft A provides deep, well-sourced analysis of drivers, margins, cash conversion, balance sheet, red flags, and watch items. Draft B is superficial, restating table values without interpretation. A's grounding is solid, with every claim cited to filings or calculations. A covers all required areas with clarity and calibrated judgments.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.006637
+}

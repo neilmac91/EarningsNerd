@@ -3,14 +3,17 @@
 /* =============================================================================
    WeekView (features/calendar/components/WeekView.tsx)
    -----------------------------------------------------------------------------
-   Desktop (md+): one calendar sheet — five weekday columns with BMO / AMC /
-   During·unspecified lanes stacked inside each day, top 5 per day, "+N more"
-   opening the day dialog. Mobile: a vertical day-by-day list with roomier
-   44px-target rows and in-place expansion. Both are CSS-switched (hidden
-   md:grid / md:hidden) so there is no resize listener to get wrong.
+   Wide: one calendar sheet — five weekday columns with BMO / AMC /
+   During·unspecified lanes stacked inside each day, the first five per day, "+N more"
+   opening the day dialog. Narrow: a vertical day-by-day list with roomier
+   44px-target rows and in-place expansion. Both are CSS-switched, so there is
+   no resize listener to get wrong, on the view's own width in em (its text
+   size): the sheet from 42.5em, where a column holds a row's ticker, chip and
+   bell whole, so 200% text on a desktop gets the list, not clipped columns.
 ============================================================================= */
 
 import { useState } from 'react'
+import { countControlClass } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import { formatLocalDate } from '@/lib/format'
 import type { CalendarEvent } from '../api/calendar-api'
@@ -53,7 +56,7 @@ function DayColumn({
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark">
+          <span className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
             {formatLocalDate(day.iso, 'EEE')}
           </span>
           <span
@@ -68,7 +71,7 @@ function DayColumn({
           </span>
         </div>
         {!day.holidayName && (
-          <span className="font-data text-data-xs tabular-nums text-text-tertiary-light dark:text-text-secondary-dark" title="Companies reporting">
+          <span className="font-data text-data-xs tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark" title="Companies reporting">
             {day.events.length}
           </span>
         )}
@@ -77,10 +80,10 @@ function DayColumn({
         {day.holidayName ? (
           <p className="m-auto px-2 py-4 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
             <span className="font-semibold">Market closed</span>
-            <span className="mt-0.5 block text-text-tertiary-light dark:text-text-secondary-dark">{day.holidayName}</span>
+            <span className="mt-0.5 block text-text-tertiary-light dark:text-text-tertiary-dark">{day.holidayName}</span>
           </p>
         ) : empty ? (
-          <p className="m-auto px-2 py-4 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">No reports</p>
+          <p className="m-auto px-2 py-4 text-center text-xs text-text-tertiary-light dark:text-text-tertiary-dark">No reports</p>
         ) : (
           <>
             {lanes.map((lane) => (
@@ -97,7 +100,7 @@ function DayColumn({
               <button
                 type="button"
                 onClick={() => onShowMore(day.iso)}
-                className="mt-1.5 h-7 w-full rounded-lg text-xs font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark"
+                className={cx('mt-1.5 h-7 w-full rounded-lg text-xs font-semibold', countControlClass('button'))}
               >
                 +{hidden} more
               </button>
@@ -139,18 +142,18 @@ function MobileDay({
           <div>
             <h3 className="text-sm font-semibold">{formatLocalDate(day.iso, 'EEEE, MMMM d')}</h3>
             {day.holidayName && (
-              <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">Market closed · {day.holidayName}</p>
+              <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">Market closed · {day.holidayName}</p>
             )}
           </div>
         </div>
         {!day.holidayName && (
-          <span className="font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-secondary-dark">
+          <span className="font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark">
             {day.events.length}
           </span>
         )}
       </header>
       {day.holidayName || day.events.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="px-4 py-4 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
           {day.holidayName ? `Market closed for ${day.holidayName}. No earnings are scheduled.` : 'No reports scheduled.'}
         </p>
       ) : (
@@ -169,9 +172,9 @@ function MobileDay({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-2 h-9 w-full rounded-lg border border-dashed border-brand-border text-sm font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-border-dark dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark"
+              className={cx('mt-2 h-9 w-full rounded-lg border border-dashed border-brand-border text-sm font-semibold dark:border-brand-border-dark', countControlClass('button'))}
             >
-              {expanded ? 'Show top 5' : `+${hidden} more`}
+              {expanded ? 'Show fewer' : `+${hidden} more`}
             </button>
           )}
         </div>
@@ -192,21 +195,21 @@ export function WeekView({
   onShowMore: (iso: string) => void
 }) {
   return (
-    <>
-      {/* Desktop: one sheet, five weekday columns */}
-      <div className="hidden overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 motion-safe:animate-content-in dark:border-white/10 dark:bg-panel-dark dark:shadow-none md:block">
+    <div className="[container-type:inline-size]">
+      {/* Wide: one sheet, five weekday columns */}
+      <div className="hidden overflow-hidden rounded-xl border border-border-light bg-panel-light shadow-e2 motion-safe:animate-content-in dark:border-white/10 dark:bg-panel-dark dark:shadow-none [@container(width>=42.5em)]:block">
         <div className="grid grid-cols-5">
           {days.map((day, i) => (
             <DayColumn key={day.iso} day={day} index={i} alerts={alerts} signedIn={signedIn} onShowMore={onShowMore} />
           ))}
         </div>
       </div>
-      {/* Mobile: vertical day-by-day list */}
-      <div className="flex flex-col gap-3.5 motion-safe:animate-content-in md:hidden">
+      {/* Narrow: vertical day-by-day list */}
+      <div className="flex flex-col gap-3.5 motion-safe:animate-content-in [@container(width>=42.5em)]:hidden">
         {days.map((day) => (
           <MobileDay key={day.iso} day={day} alerts={alerts} signedIn={signedIn} />
         ))}
       </div>
-    </>
+    </div>
   )
 }

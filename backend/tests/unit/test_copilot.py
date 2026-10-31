@@ -11,7 +11,10 @@ DB-touching tests are marked ``requires_db`` and override ``get_current_user`` w
 entitlements resolve to FREE vs PRO via ``is_pro`` (the ``require_entitlement`` dep resolves through
 ``get_current_user``). Mirrors ``test_notification_preferences_api.py``.
 """
+import ast
 import asyncio
+import copy
+import inspect
 import json
 import uuid
 from contextlib import contextmanager
@@ -25,6 +28,12 @@ from main import app
 from app.routers.auth import get_current_user
 from app.dependencies import _resolve_current_user
 from app.services import copilot_service
+from app.services.copilot import envelope as copilot_envelope
+from app.services.provenance_service import (
+    _MIN_VERIFIABLE_LEN,
+    extract_quoted_span,
+    normalize_for_match,
+)
 
 
 # --- Fakes -------------------------------------------------------------------------------------
@@ -112,6 +121,221 @@ async def test_service_grounds_verified_citation(monkeypatch):
     assert "#:~:text=" in cite["fragment_url"]
 
 
+# --- Excerpt boundary: the verified text must be the displayed text ------------------------------
+# The Sources panel shows the published ``excerpt`` in quote marks beside "Source match found", so
+# the whole string is presented as filing text. Before this fix (main f6e79a50) the shared verifier
+# checked only ``extract_quoted_span(excerpt)``, and ``_verify_citations`` then published the FULL
+# excerpt with ``verified: True``; it now verifies the whole excerpt.
+
+_INVENTED_PREFIX = "Invented text missing from the source, and "
+_PREFIXED_EXCERPT = _INVENTED_PREFIX + '"' + _KNOWN_SENTENCE + '"'
+_QUOTED_FREE_TEXT_SECTION = 'Item 7 "Fake words here"'
+# Decision F's double quote marks, spelled out independently of the module under test.
+_DECISION_F_MARKS = '"\uff02\u201c\u201d\u201e\u201f'
+
+
+async def _declare_one(monkeypatch, excerpt, section, *, source=None, extra=()):
+    """One referenced text citation through the real service path; returns the terminal event.
+
+    ``extra`` declarations are appended unreferenced; ``source`` replaces the cached filing text.
+    """
+    declarations = json.dumps([{"n": 1, "excerpt": excerpt, "section": section}, *extra])
+    chunks = ["Apple's revenue grew strongly [1].", " ===CITATIONS===\n" + declarations]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+    filing = _fake_filing()
+    if source is not None:
+        filing.content_cache.critical_excerpt = source
+    events = await _collect(filing, "How did revenue do?")
+    terminal = [e for e in events if e["type"] in ("complete", "error")]
+    assert len(terminal) == 1
+    return terminal[0]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_withholds_excerpt_verified_only_by_inner_quoted_span(monkeypatch):
+    """A citation whose only filing text is an inner quoted span must not publish.
+
+    The invented prefix is not in the source (premise pinned by the paired control below), so the
+    displayed excerpt is not filing text. The contract is the existing withholding path: the whole
+    answer becomes the publication error. Showing only the quoted span instead would be a new,
+    separately approved display contract, so it is deliberately not the expected outcome here.
+
+    The section label is plain so that only the excerpt rule can withhold; quoted labels have their
+    own rule and tests below.
+    """
+    terminal = await _declare_one(monkeypatch, _PREFIXED_EXCERPT, "Item 7 — MD&A")
+
+    published = terminal.get("citations") or []
+    diagnostic = {
+        "terminal_type": terminal["type"],
+        "displayed_excerpt": [c.get("excerpt") for c in published],
+        "span_actually_verified": extract_quoted_span(_PREFIXED_EXCERPT),
+        "full_excerpt_in_source": (
+            normalize_for_match(_PREFIXED_EXCERPT) in normalize_for_match(_FAKE_SOURCE)
+        ),
+        "published_verified": [c.get("verified") for c in published],
+        "published_section_ref": [c.get("section_ref") for c in published],
+    }
+    assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}, diagnostic
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_publishes_full_excerpt_contiguous_in_source(monkeypatch):
+    """Valid control for the regression above: the same sentence without the invented prefix.
+
+    Also pins that regression's premise: its quoted span is filing text, its full excerpt is not.
+    """
+    normalized_source = normalize_for_match(_FAKE_SOURCE)
+    assert extract_quoted_span(_PREFIXED_EXCERPT) == _KNOWN_SENTENCE
+    assert normalize_for_match(_KNOWN_SENTENCE) in normalized_source
+    assert normalize_for_match(_PREFIXED_EXCERPT) not in normalized_source
+
+    terminal = await _declare_one(monkeypatch, _KNOWN_SENTENCE, "Item 7 — MD&A")
+
+    assert terminal["type"] == "complete"
+    assert terminal["answer"] == "Apple's revenue grew strongly [1]."
+    assert terminal["grounded"] == 1
+    [cite] = terminal["citations"]
+    assert {k: cite[k] for k in ("n", "excerpt", "section_ref", "verified")} == {
+        "n": 1, "excerpt": _KNOWN_SENTENCE, "section_ref": "Item 7 — MD&A", "verified": True,
+    }
+    assert cite["fragment_url"].startswith(_fake_filing().document_url + "#:~:text=Revenue%20increased")
+
+
+def _published_one(terminal):
+    """The single published citation of a completed answer."""
+    assert terminal["type"] == "complete", terminal
+    [cite] = terminal["citations"]
+    return cite
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", ['"' + _KNOWN_SENTENCE + '"', "“" + _KNOWN_SENTENCE + "”"])
+async def test_service_publishes_excerpt_wrapped_in_one_quote_pair(monkeypatch, wrapped):
+    """One quote pair wrapping the WHOLE excerpt is stripped for matching; bytes publish unchanged."""
+    cite = _published_one(await _declare_one(monkeypatch, wrapped, "Item 7 — MD&A"))
+    assert (cite["excerpt"], cite["verified"]) == (wrapped, True)
+    # The deep link starts at the filing text, not at the wrapping mark.
+    assert cite["fragment_url"].startswith(_fake_filing().document_url + "#:~:text=Revenue%20increased")
+
+
+_FOLDED_EXCERPT = "Item 7 - Management’s Discussion   and\nAnalysis.  Revenue increased to 391.0"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_publishes_typography_and_whitespace_folded_excerpt(monkeypatch):
+    """Curly apostrophe, hyphen-for-dash, NBSP and runs of whitespace fold through the shared normalizer."""
+    assert _FOLDED_EXCERPT.lower() not in _FAKE_SOURCE.lower()  # premise: not byte-contiguous
+    cite = _published_one(await _declare_one(monkeypatch, _FOLDED_EXCERPT, "Item 7 — MD&A"))
+    assert (cite["excerpt"], cite["verified"]) == (_FOLDED_EXCERPT, True)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_publishes_contiguous_excerpt_containing_an_inner_quoted_term(monkeypatch):
+    """An inner “…” term inside a fully contiguous excerpt neither shrinks the needle (the term alone
+    is below the floor) nor moves the deep link off the start of the displayed excerpt."""
+    excerpt = "The Company calls this measure “services margin” in its segment reporting."
+    assert len(normalize_for_match(extract_quoted_span(excerpt))) < _MIN_VERIFIABLE_LEN
+    cite = _published_one(await _declare_one(
+        monkeypatch, excerpt, "Item 7 — MD&A", source=_FAKE_SOURCE + " " + excerpt,
+    ))
+    assert (cite["excerpt"], cite["verified"]) == (excerpt, True)
+    assert cite["fragment_url"].startswith(_fake_filing().document_url + "#:~:text=The%20Company%20calls")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_withholds_referenced_excerpt_below_the_floor(monkeypatch):
+    """A contiguous filing span one character under ``_MIN_VERIFIABLE_LEN`` is too generic to verify."""
+    excerpt = "driven by strong iPhone"
+    assert len(normalize_for_match(excerpt)) == _MIN_VERIFIABLE_LEN - 1
+    assert normalize_for_match(excerpt) in normalize_for_match(_FAKE_SOURCE)
+    terminal = await _declare_one(monkeypatch, excerpt, "Item 7 — MD&A")
+    assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_unreferenced_prefixed_declaration_stays_unverified_and_answer_publishes(monkeypatch):
+    """An unused failing declaration stays in the candidate pool as unverified; it neither blocks the
+    answer nor reaches the Sources panel."""
+    prefixed = {"n": 2, "excerpt": _PREFIXED_EXCERPT, "section": "Item 7"}
+    pool = copilot_service._verify_citations(
+        [{"n": 1, "excerpt": _KNOWN_SENTENCE, "section": "Item 7"}, prefixed],
+        _fake_filing(), normalize_for_match(_FAKE_SOURCE), {"1"},
+    )
+    assert pool["1"]["verified"] is True
+    assert pool["2"] == {"excerpt": _PREFIXED_EXCERPT, "section_ref": "Item 7", "verified": False,
+                         "fragment_url": _fake_filing().document_url}
+
+    cite = _published_one(await _declare_one(monkeypatch, _KNOWN_SENTENCE, "Item 7", extra=[prefixed]))
+    assert (cite["excerpt"], cite["verified"]) == (_KNOWN_SENTENCE, True)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("section", [
+    _QUOTED_FREE_TEXT_SECTION, "Item 7 “Fake words here", "Item 7 Fake words here”",
+    # F's marks the three cases above lack; the BMP sweep gate below covers all six.
+    *(pytest.param(f"Item 7 {mark}Fake words here", id=f"U+{ord(mark):04X}") for mark in "\uff02\u201e\u201f"),
+])
+async def test_service_withholds_referenced_citation_whose_section_ref_has_a_quote_mark(monkeypatch, section):
+    """Section labels publish unchecked, so one carrying any of decision F's double quote marks
+    (``"``, ``＂``, ``“``, ``”``, ``„``, ``‟``) would display an unverified quotation; the citation is
+    unverified even though its excerpt is filing text."""
+    terminal = await _declare_one(monkeypatch, _KNOWN_SENTENCE, section)
+    assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}
+
+
+@pytest.mark.unit
+def test_section_ref_rule_withholds_exactly_decision_f_marks():
+    """Gate (CLAUDE.md rule 12): the section_ref rule and decision F read one mark set. Over the
+    whole Basic Multilingual Plane, a section label is unverified exactly when F's prose check reads
+    its character as a double quote mark, so the two sets cannot drift apart again."""
+    labels = [{"n": cp + 1, "excerpt": _KNOWN_SENTENCE, "section": f"Item 7 {chr(cp)}"} for cp in range(0x10000)]
+    pool = copilot_service._verify_citations(labels, SimpleNamespace(), normalize_for_match(_FAKE_SOURCE), set())
+    withheld = {chr(int(n) - 1) for n, cite in pool.items() if not cite["verified"]}
+    assert withheld == {chr(cp) for cp in range(0x10000) if copilot_service._QUOTE_MARK_RE.search(chr(cp))}
+    assert withheld == set(_DECISION_F_MARKS)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("section", [
+    "Item 7", "Item 7 — Management’s Discussion and Analysis",
+    "Item 7 ‘Fake words here’", "Item 7 «Fake words here»", "Item 7 \u2033Fake words here\u2033",
+])
+async def test_service_publishes_plain_section_ref(monkeypatch, section):
+    """Plain labels (apostrophes included) are unaffected by the quote-mark rule, and so are the
+    quotation forms decision F leaves unchecked (its decided limit)."""
+    cite = _published_one(await _declare_one(monkeypatch, _KNOWN_SENTENCE, section))
+    assert (cite["section_ref"], cite["verified"]) == (section, True)
+
+
+@pytest.mark.unit
+def test_copilot_citations_never_use_the_prefix_tolerant_verifier():
+    """Gate: Copilot displays the whole excerpt, so ``_verify_citations`` verifies the whole excerpt.
+    The prefix-tolerant helpers serve summary evidence and must not return to this module."""
+    tree = ast.parse(inspect.getsource(copilot_envelope))
+    referenced = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+    referenced |= {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+    referenced |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+                   for alias in node.names}
+    assert not referenced & {"verify_excerpt_in_text", "extract_quoted_span"}
+    [verifier] = [node for node in ast.walk(tree)
+                  if isinstance(node, ast.FunctionDef) and node.name == "_verify_citations"]
+    calls = {node.func.id for node in ast.walk(verifier)
+             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    assert "verify_whole_excerpt_in_text" in calls
+
+
 def _publication_case(name):
     """Cases share the real service → router → SSE publication and quota boundary."""
     name = name.removesuffix("_pro")
@@ -170,6 +394,14 @@ def _publication_case(name):
     elif name in ("empty_array", "no_declaration"):
         answer = "The filing describes its business and an original reference [14]."
         declarations, expected = [], answer if name == "empty_array" else None
+    elif name in ("prose_quote_composed", "prose_quote_valid"):
+        # Decision F: final prose quoting stitched source text is withheld; a contiguous quote is not.
+        quote = (_KNOWN_SENTENCE if name == "prose_quote_valid"
+                 else "Revenue increased to 391.0 billion. Operating margins expanded")
+        answer = f'The filing states "{quote}" [7].'
+        declarations = [good]
+        if name == "prose_quote_valid":
+            expected = answer.replace("[7]", "[1]")
     elif name == "semantic_limit":
         answer = "This proves the company will dominate every future market [7]."
         declarations, expected = [good], answer.replace("[7]", "[1]")
@@ -200,6 +432,9 @@ def _publication_case(name):
         before = answer if name == "mixed_not_disclosed" else ""
         if name == "nd_citations":
             reason += "\n===CITATIONS===\n" + json.dumps([bad])
+        elif name == "nd_prose_quote":
+            # Decision F: a not-disclosed reason is published prose; quoting text the filing lacks withholds it.
+            reason = 'The filing only says "Forward guidance is withheld for competitive reasons".'
         elif name == "nd_repeated":
             reason += "\n===NOT_DISCLOSED===\nContradictory second verdict."
         elif name == "nd_blank_reason":
@@ -259,12 +494,13 @@ def _publication_case(name):
     "markdown_emphasis", "markdown_link", "markdown_code", "valid", "mixed_fact_valid",
     "duplicate_identical", "literal_noncolliding", "leading_zero", "numeric_group", "unused_failed",
     "empty_array", "no_declaration", "semantic_limit", "fenced", "followups", "embedded_followups",
+    "prose_quote_composed", "prose_quote_valid",
     "not_disclosed", "nd_citations", "nd_repeated", "empty_response", "whitespace_response",
     "empty_citations", "stripped_empty",
     "nd_bare", "nd_missing_followups", "nd_partial_reason", "nd_partial_sentinel", "nd_blank_reason",
     "nd_empty_followups", "nd_truncated_array", "nd_truncated_question", "nd_repairable", "nd_object",
     "nd_empty_array", "nd_one_question", "nd_four_questions", "nd_nonstring", "nd_blank_question",
-    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions",
+    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions", "nd_prose_quote",
     "nd_bare_pro", "not_disclosed_pro",
 ])
 async def test_service_publication_boundary(client, monkeypatch, case):
@@ -330,7 +566,7 @@ async def test_service_publication_boundary(client, monkeypatch, case):
         assert len(terminal) == 1
         if expected is None:
             assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
-            assert _qa_state(uid) == ([], 0, 2)
+            assert _qa_state(uid) == ([], 0, 2)  # the unit counted at provider start is refunded
             assert completed_cost == []
         else:
             complete = terminal[0]
@@ -354,7 +590,32 @@ async def test_service_publication_boundary(client, monkeypatch, case):
         }
         assert all(event["type"] != "token" for event in events)
         assert "MODEL PRIVATE" not in json.dumps(events)
-        assert pending_quota == (0, 2)
+        # Metered when the provider stream started, before any verdict (Pro: monthly; Free: lifetime).
+        assert pending_quota == ((1, 2) if is_pro else (0, 3))
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_marks_provider_start_on_the_first_chunk_only(monkeypatch):
+    """The `generating` progress marks the provider's first chunk: it follows the pre-call `reading`
+    progress exactly once, and a stream whose first chunk is the error sentinel never emits it."""
+    chunks = ["Revenue rose. ", "===CITATIONS===[]"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    stages = [e.get("stage") for e in events if e["type"] == "progress"]
+    assert stages[:2] == ["reading", copilot_service.PROVIDER_STARTED_STAGE]
+    assert stages.count(copilot_service.PROVIDER_STARTED_STAGE) == 1
+
+    monkeypatch.setattr(
+        copilot_service.openai_service,
+        "stream_chat_with_tools",
+        _chunks_to_async_gen([copilot_service.STREAM_ERROR_SENTINEL + "model exploded"]),
+    )
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    assert [e["type"] for e in events] == ["progress", "error"]
+    assert events[0]["stage"] == "reading"
 
 
 @pytest.mark.unit
@@ -568,6 +829,58 @@ def test_endpoint_over_cap_returns_429(client, monkeypatch):
     with _as_user(is_pro=True), _seed_filing() as fid:
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429
+        # E31's code the reader keys on, beside E37's words (the product name gone, D-034); the cap, not a rate limit,
+        # so no Retry-After rides with it.
+        assert resp.json() == {
+            "detail": "You've reached this month's fair-use limit of 0 questions. It resets at the start of next month.",
+            "code": "pro_fair_use_limit",
+        }
+        assert "retry-after" not in resp.headers
+
+
+@pytest.mark.requires_db
+def test_the_cap_prints_its_number_as_the_usage_line_does(client, monkeypatch):
+    # E37: the cap reads "1,000", as the rail's usage line prints it from the usage response, never "1000"; and the
+    # feature's one name stays out of the sentence (D-034).
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "check_qa_limit", lambda user, db: (False, 1000, 1000))
+    with _as_user(is_pro=True), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+    assert resp.status_code == 429
+    assert resp.json()["detail"] == (
+        "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
+    )
+
+
+@pytest.mark.requires_db
+def test_endpoint_burst_limit_429_stays_a_plain_rate_limit(client, monkeypatch):
+    # The burst limiter's 429 is not the fair-use cap: it carries no code, so the reader keeps its Retry. The route's
+    # own limiter, refusing at once, answers it.
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "ASK_LIMITER", summaries_router.RateLimiter(limit=0, window_seconds=60))
+    with _as_user(is_pro=True), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 429
+        assert resp.json() == {"detail": "Too many questions. Try again shortly."}
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(("allowance", "code", "words"), [
+    (3, "free_allowance_exhausted", "You've used your 3 free Copilot questions."),
+    (0, "plan_required", "Ask this Filing is a Pro feature."),
+])
+def test_endpoint_serialized_taste_refusal_codes_its_case(client, monkeypatch, allowance, code, words):
+    # The serialized admission's 403 takes the code its words' case names, as require_copilot_or_taste's does (E31,
+    # the contract's §3): a spent free allowance, or no allowance at all. The gate upstream is let through here.
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "reserve_qa_taste_use", lambda user, db: (False, allowance, allowance, None))
+    with _as_user(is_pro=False, free_taste_used=0), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 403
+        assert resp.json()["code"] == code and resp.json()["detail"].startswith(words)
 
 
 # --- Message assembly + snapshot ---------------------------------------------------------------
@@ -931,7 +1244,8 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
         async def _aiter():
             for c in chunks:
                 yield c
-        calls.append(kwargs)
+        # Snapshot the offered tools: kwargs hold the caller's live list, which may change later.
+        calls.append({**kwargs, "tools": copy.deepcopy(kwargs.get("tools"))})
         return _aiter()
 
     captured = {}
@@ -962,6 +1276,11 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     assert len(activity) == 2
     # Two create() calls: round 1 (tool call) + round 2 (answer).
     assert len(calls) == 2
+    # Every round offers the tools for the model to choose (live runs record neither). The expected
+    # list is built independently of the passed one, so an in-place change to the caller's list
+    # (production passes the module-global TOOLS) cannot also change the expectation.
+    offered = [{"type": "function", "function": {"name": "get_financial_fact"}}]
+    assert [(c.get("tools"), c.get("tool_choice")) for c in calls] == [(offered, "auto")] * 2
 
 
 # --- Audit fixes: stream-error handling, metering-on-success, history bounding ------------------
@@ -1041,7 +1360,8 @@ async def test_stream_chat_with_tools_yields_error_sentinel_on_failure():
 
 @pytest.mark.requires_db
 def test_endpoint_does_not_increment_qa_on_error(client, monkeypatch):
-    """A generation that fails (only an ``error`` event, no ``complete``) must NOT consume quota."""
+    """A generation that fails (only an ``error`` event, no ``complete``) must NOT consume quota:
+    the unit counted when the provider stream started is refunded on the error event."""
     async def _fake_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
         yield {"type": "error", "message": "model down"}
@@ -1420,6 +1740,274 @@ async def test_service_adjacency_keeps_qualitative_placements(monkeypatch):
     assert complete["misplaced_fact_markers"] == 0
 
 
+_NET_LOSS = {**_revenue_fact(-1_200_000_000.0, 2024), "concept": "net_income", "raw_tag": "us-gaap:NetIncomeLoss"}
+_REVENUE_1_2B = _revenue_fact(1_200_000_000.0, 2024)
+_REVENUE_847M = _revenue_fact(847_000_000.0, 2024)
+_REVENUE_DECLINE = {**_REVENUE_847M, "kind": "yoy_growth", "value": -0.153, "unit": "pure",
+                    "source_facts": [_REVENUE_847M, _revenue_fact(1_000_000_000.0, 2023)]}
+_REVENUE_GREW = {**_revenue_fact(1_153_000_000.0, 2024), "kind": "yoy_growth", "value": 0.153, "unit": "pure",
+                 "source_facts": [_revenue_fact(1_153_000_000.0, 2024), _revenue_fact(1_000_000_000.0, 2023)]}
+_LOSS_847M = {**_NET_LOSS, "value": -847_000_000.0}
+# A loss shrinking from $1.0B to $847M: compute_metric divides by abs(prior), so the rate is positive.
+_LOSS_NARROWED = {**_LOSS_847M, "kind": "yoy_growth", "value": 0.153, "unit": "pure", "source_facts": [
+    _LOSS_847M, {**_LOSS_847M, "value": -1_000_000_000.0, "period_end": "2023-12-31", "fiscal_year": 2023}]}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fact, prose, kept", [
+    # A loss stated as a profit, a decline stated as growth, and a 1,000x or 1,000,000x
+    # understatement: each matches abs(value) at some display scaling, and none is the fact.
+    (_NET_LOSS, "Net income was $1.20 billion", False),
+    (_NET_LOSS, "The company earned net income of $1.2B", False),
+    (_NET_LOSS, "Net income fell to $1.2 billion", False),
+    (_REVENUE_DECLINE, "Revenue grew 15.3% year over year", False),
+    (_REVENUE_1_2B, "Revenue was $1.2 million", False),
+    (_REVENUE_1_2B, "Revenue was $1.2 thousand", False),
+    (_REVENUE_1_2B, "Revenue was $1.2", False),
+    (_NET_LOSS, "Net income was $(1.2) million", False),
+    # The same facts stated with their real sign and scale keep the chip.
+    (_NET_LOSS, "The company reported a net loss of $1.2 billion", True),
+    (_NET_LOSS, "Net income was -$1.2 billion", True),
+    (_NET_LOSS, "Net income was $(1.2) billion", True),
+    (_REVENUE_DECLINE, "Revenue declined 15.3% year over year", True),
+    (_REVENUE_1_2B, "Revenue was $1.2 billion", True),
+    (_REVENUE_847M, "Revenue fell to $847 million", True),
+    ({**_revenue_fact(2.04, 2024), "concept": "eps_diluted", "unit": "USD/shares"}, "Diluted EPS was $2.04", True),
+    # A shrinking loss worded as a fall, and a rate in an aside after the amount it annotates.
+    (_LOSS_NARROWED, "The net loss narrowed 15.3% year over year", True),
+    (_REVENUE_GREW, "Revenue increased by $153 million (15.3%) year over year", True),
+    # A bare figure may still be a display-scaled rendering of the value.
+    (_revenue_fact(81_460_000_000.0, 2022), "Revenue, in billions of dollars, was 81.46", True),
+    # A written date's comma does not hide the profit name, a minus sign reads through a currency
+    # label, and "negative growth" is a fall.
+    (_NET_LOSS, "Net income for the year ended December 31, 2024 was $1.2B", False),
+    ({**_NET_LOSS, "unit": "CNY"}, "Net income was -RMB1.2 billion", True),
+    (_REVENUE_DECLINE, "Revenue saw negative growth of 15.3%", True),
+    # Trillion is a scale word (E103): a trillion-scale fact keeps its chip, and a billion-scale
+    # fact stated in trillions loses it.
+    ({**_revenue_fact(1.02e12, 2024), "unit": "CNY"}, "Revenue was RMB1.02 trillion", True),
+    (_revenue_fact(1.02e12, 2024), "Revenue was $1.02 trillion", True),
+    (_REVENUE_1_2B, "Revenue was $1.2 trillion", False),
+    (_REVENUE_1_2B, "Revenue was 1.2 trillion", False),
+])
+async def test_service_adjacency_reads_the_figure_sign_and_scale(monkeypatch, fact, prose, kept):
+    """A verified chip must not sit on a figure whose sign or scale contradicts its fact. Main kept
+    each wrong claim above with a chip: the value guard compared abs(value) and let a figure with
+    its own scale word fall back to the display divisors meant for bare numbers."""
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(fact)
+    )
+    answer = f"{prose} [F1]. ===CITATIONS===\n[]"
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream([fact], answer)
+    )
+
+    events = await _collect(_fake_filing(), "What were the results?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    if kept:
+        assert complete["answer"] == f"{prose} [1]."
+        assert len(complete["citations"]) == 1 and complete["misplaced_fact_markers"] == 0
+    else:
+        assert complete["answer"] == f"{prose}."
+        assert complete["citations"] == [] and complete["misplaced_fact_markers"] == 1
+
+
+_REVENUE_GROWTH = {"concept": "revenue", "kind": "yoy_growth", "value": 0.153}
+_GROSS_MARGIN = {"concept": "gross_profit", "kind": "margin", "value": 0.179}
+_PRIOR_LOSS = {"concept": "net_income", "value": -800_000_000.0}
+_FCF_BURN = {"concept": "free_cash_flow", "value": -300_000_000.0}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("fact, window, kept", [
+    # A positive rate written negative is the opposite claim; "(15.3)%" is the table form.
+    (_REVENUE_GROWTH, "Revenue growth was -15.3% ", False),
+    (_REVENUE_GROWTH, "Revenue growth was (15.3)% ", False),
+    (_REVENUE_GROWTH, "Revenue growth was negative 15.3% ", False),
+    (_GROSS_MARGIN, "Gross margin was −17.9% ", False),
+    # "(15.3%)" in prose is an aside, not a sign; the figure's clause is read through it.
+    (_REVENUE_GROWTH, "Revenue rose to $96.8B (15.3%) ", True),
+    (_REVENUE_GROWTH, "Revenue grew strongly (15.3%) ", True),
+    (_GROSS_MARGIN, "Gross profit was $17.45B (17.9%) ", True),
+    (_GROSS_MARGIN, " (17.9%) ", True),
+    (_REVENUE_GROWTH, "Revenue declined (15.3%) ", False),
+    # A fall in the figure's own clause, with no rise word there, states a negative rate.
+    (_REVENUE_GROWTH, "Revenue fell 15.3% ", False),
+    (_REVENUE_GROWTH, "Revenue rose to $96.77B, while costs fell 15.3% ", False),
+    (_REVENUE_GROWTH, "Despite lower costs, revenue rose 15.3% ", True),
+    (_REVENUE_GROWTH, "Revenue growth fell to 15.3% ", True),
+    # A shrinking loss has a positive rate; the change words of a loss are not read.
+    ({**_REVENUE_GROWTH, "concept": "operating_income"}, "Operating loss decreased 15.3% year over year ", True),
+    # A negative rate loses its chip only to a stated rise.
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Revenue was 15.3% below the prior year ", True),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Revenue was 15.3% higher ", False),
+    # A margin is a level: falling to a positive margin is still a positive margin.
+    (_GROSS_MARGIN, "Gross margin fell to 17.9% ", True),
+    (_GROSS_MARGIN, "Gross profit was $17.45B (17.9% of revenue) ", True),
+    # A hyphen after a digit is a range, and a spaced dash is a list bullet, not a minus sign.
+    (_REVENUE_GROWTH, "Revenue grew 10-15.3% ", True),
+    (_REVENUE_GROWTH, "- 15.3% revenue growth ", True),
+    # A negative amount loses its chip when the span names it as a profit with no sign word; a
+    # direction word states a change, not a sign.
+    (_NET_LOSS, "Net income was $1.2 billion ", False),
+    (_NET_LOSS, "Net income was $1.2 billion, down from $2.0 billion ", False),
+    (_NET_LOSS, "Revenue fell 10%, and net income was $1.2 billion ", False),
+    (_PRIOR_LOSS, ", compared with net income of $0.8 billion ", False),
+    (_FCF_BURN, "Free cash flow was $300 million ", False),
+    (_NET_LOSS, "Net loss for 2024, after restructuring charges, was $1.2 billion ", True),
+    (_FCF_BURN, "Free cash flow was negative $300 million ", True),
+    # The profit name is read in the figure's own clause and in the label it follows; an earlier
+    # clause names another item.
+    (_NET_LOSS, "Net income: $1.2 billion ", False),
+    (_NET_LOSS, "- **Net income:** $1.2 billion ", False),
+    (_NET_LOSS, "which includes a $250 million income tax charge, was $1.2 billion ", True),
+    (_NET_LOSS, "reflecting lower interest income and impairments, was $1.2 billion ", True),
+    # A figure used attributively has its sign noun after the marker ("a $1.2B [F1] loss").
+    (_NET_LOSS, "Net income swung to a $1.2 billion ", True),
+    (_NET_LOSS, "Net income declined to a $1.2 billion ", True),
+    (_NET_LOSS, "Earnings turned into a $1.2 billion ", True),
+    (_NET_LOSS, "Higher costs and lower other income left a $1.2 billion ", True),
+    ({**_NET_LOSS, "value": -800_000_000.0}, "Net income swung to an $800 million ", True),
+    ({"concept": "operating_cash_flow", "value": -3e8}, "Operating cash flow was a $300 million ", True),
+    # A hedge adverb or a currency label between the article and the figure still needs that noun.
+    (_NET_LOSS, "Net income swung to a roughly $1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to an approximately $1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to a €1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to a US$1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to a NT$1.2 billion ", True),
+    (_NET_LOSS, "Net income swung to an RMB1.2 billion ", True),
+    # An adjective that completes the amount's noun phrase, or a comparative on a margin, states a level.
+    (_NET_LOSS, "Net income was a record $1.2 billion ", False),
+    (_NET_LOSS, "Net income was an estimated $1.2 billion ", False),
+    ({"concept": "operating_income", "kind": "margin", "value": -0.052}, "Operating margin was a narrower 5.2% ", False),
+    # An unsigned comparative, a trend row or cash-flow wording names no profit and keeps its chip.
+    (_PRIOR_LOSS, ", compared with $0.8 billion ", True),
+    (_PRIOR_LOSS, "; 2023 $0.8B ", True),
+    ({"concept": "financing_cash_flow", "value": -3.2e9}, "Financing activities used $3.2 billion ", True),
+    ({"concept": "investing_cash_flow", "value": -5.0e9}, "Net cash used for investing activities was $5.0 billion ", True),
+    # Accounting parentheses carry the figure's own $ and scale word, read at face value.
+    (_NET_LOSS, "Net loss was (1.2) thousand ", False),
+    ({"concept": "revenue", "value": 1_200_000.0}, "Revenue was $(1.2) billion ", False),
+    (_NET_LOSS, "Net loss was $(1.2) billion ", True),
+    # ... and make a year-shaped figure a figure, not context.
+    ({"concept": "revenue", "value": 2.023e9}, "Revenue was $(2,023) billion ", False),
+    ({**_NET_LOSS, "value": -2.023e9}, "Net income was $(2,023) million ", True),
+    # A written date's comma and period do not end the figure's clause, so the profit name before
+    # it is read; a comma between a month-day and a figure that is not a year still ends it.
+    (_NET_LOSS, "Net income for the fiscal year ended December 31, 2024 was $1.2 billion ", False),
+    (_NET_LOSS, "Net income for the year ended Dec. 31, 2024 was $1.2 billion ", False),
+    (_NET_LOSS, "Net income for the year ended January 28, 2023: $1.2 billion ", False),
+    (_REVENUE_GROWTH, "Revenue fell in the year ended December 31, 2024 by 15.3% ", False),
+    (_NET_LOSS, "Net loss for the year ended December 31, 2024 was $1.2 billion ", True),
+    (_NET_LOSS, "Net income was restated on March 5, 1.2 billion ", True),
+    # A minus sign reads through a currency label and emphasis, as an article does; a dash
+    # followed by a space is still a list bullet.
+    (_NET_LOSS, "Net income was -€1.2 billion ", True),
+    (_NET_LOSS, "Net income was -US$1.2 billion ", True),
+    (_NET_LOSS, "Net income was -RMB1.2 billion ", True),
+    (_NET_LOSS, "Net income was -£1.2 billion ", True),
+    (_NET_LOSS, "Net income was -HK$1.2 billion ", True),
+    (_NET_LOSS, "Net income was −€1.2 billion ", True),
+    (_NET_LOSS, "Net income was -**$1.2 billion** ", True),
+    ({"concept": "eps_diluted", "value": -2.04}, "Diluted EPS was -US$2.04 ", True),
+    (_NET_LOSS, "Net income swung to a **$1.2 billion** ", True),
+    (_GROSS_MARGIN, "- **17.9%** gross margin ", True),
+    # The subject of a causal verb before the figure names another item, so its direction words
+    # are not read; "boosted" and "weighed on" state a direction themselves, and a direction word
+    # after the verb, or before a verb that follows the figure, is still read.
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher interest rates drove a 15.3% ", True),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Increased competition caused a 15.3% ", True),
+    (_REVENUE_GROWTH, "Lower costs drove a 15.3% ", True),
+    (_REVENUE_GROWTH, "Lower prices boosted revenue by 15.3% ", True),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher costs weighed on revenue by 15.3% ", True),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher prices boosted revenue by 15.3% ", False),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Higher prices drove revenue up 15.3% ", False),
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Revenue grew 15.3% and drove profits ", False),
+    # "Negative growth" is a fall.
+    ({**_REVENUE_GROWTH, "value": -0.153}, "Revenue saw negative growth of 15.3% ", True),
+    (_REVENUE_GROWTH, "Revenue saw negative growth of 15.3% ", False),
+    # Trillion is a scale word, read at face value (E103); a "t" that begins a word is not one.
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was RMB1.02 trillion ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $1.02 trillion ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $1.02tn ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $1.02T ", True),
+    ({"concept": "revenue", "value": 1.02e12}, "Revenue was $(1.02) trillion ", True),
+    ({"concept": "revenue", "value": 1.2e9}, "Revenue was $1.2 trillion ", False),
+    ({"concept": "revenue", "value": 1.2e9}, "Revenue was 1.2 trillion ", False),
+    ({"concept": "eps_diluted", "value": 2.04}, "Diluted EPS was $2.04 to $2.10 ", True),
+])
+def test_value_guard_sign_rules(fact, window, kept):
+    assert copilot_service._fact_matches_adjacent_number(fact, window) is kept
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("raw, cited, misplaced", [
+    ("Net loss was $1.2 billion [F1], compared with $0.8 billion [F2] in 2023.", 2, 0),
+    ("Net loss widened to $1.2 billion [F1] from $0.8 billion [F2].", 2, 0),
+    ("Net loss by year: 2024 $1.2B [F1]; 2023 $0.8B [F2].", 2, 0),
+    ("The company reported a net loss for fiscal 2024, driven mostly by goodwill impairment and "
+     "restructuring charges, of $1.2 billion [F1].", 1, 0),
+    ("Net loss for the year, reflecting lower interest income and goodwill impairment charges, was "
+     "$1.2 billion [F1].", 1, 0),
+    ("The company posted a net loss in fiscal 2024 as it continued investing in growth and "
+     "profitability initiatives, totaling $1.2 billion [F1].", 1, 0),
+    ("Earnings turned into a $1.2 billion [F1] loss.", 1, 0),
+    ("Higher costs and lower other income left a $1.2 billion [F1] net loss.", 1, 0),
+    ("Net income swung to an approximately US$1.2 billion [F1] loss.", 1, 0),
+    ("Net loss was $1.2 billion [F1], compared with net income of $0.8 billion [F2] in 2023.", 1, 1),
+])
+def test_resolver_keeps_a_loss_chip_unless_its_clause_names_a_profit(raw, cited, misplaced):
+    """Each chip's claim span ends at the previous chip and reaches 64 characters back, so the word
+    "loss" often sits outside it, before an earlier clause, or after the marker. A loss chip keeps
+    its chip unless its own clause calls the figure a profit."""
+    facts = [{**_NET_LOSS, "_marker": "F1"}, {**_NET_LOSS, "value": -800_000_000.0, "period_end": "2023-12-31",
+                                               "fiscal_year": 2023, "_marker": "F2"}]
+    _answer, citations, _grounded, stripped = copilot_service._resolve_citations(raw, {}, facts, None)
+    assert (len(citations), stripped) == (cited, misplaced)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fact, answer", [
+    # The prompt puts the marker right after the figure, so the sign noun often follows it.
+    (_NET_LOSS, "Net income swung to a $1.2 billion [F1] loss in 2024."),
+    ({**_NET_LOSS, "concept": "operating_income", "value": -500_000_000.0},
+     "Operating income was a $500 million [F1] loss."),
+    (_NET_LOSS, "Net income declined to a $1.2 billion [F1] loss."),
+    ({**_NET_LOSS, "unit": "EUR"}, "Net income swung to a roughly €1.2 billion [F1] loss in 2024."),
+    # A profit word in an earlier clause names another item, not the figure.
+    (_NET_LOSS, "The net loss for fiscal 2024, which includes a $250 million income tax valuation allowance, "
+                "was $1.2 billion [F1]."),
+])
+async def test_service_keeps_a_loss_chip_whose_sign_word_is_outside_its_clause(monkeypatch, fact, answer):
+    """Main kept each of these correct loss chips. The profit-name contradiction reads only the
+    figure's own clause, and a figure used attributively states its sign after the marker."""
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id, **scope: dict(fact)
+    )
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools",
+        _tools_stream([fact], f"{answer} ===CITATIONS===\n[]"),
+    )
+
+    events = await _collect(_fake_filing(), "What were the results?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["answer"] == answer.replace("[F1]", "[1]")
+    assert len(complete["citations"]) == 1 and complete["misplaced_fact_markers"] == 0
+
+
+@pytest.mark.unit
+def test_currency_guard_still_checks_a_negative_fact():
+    """The currency guard picks out the fact's figure by magnitude alone, so a loss written with
+    its loss wording but in the wrong currency still loses its chip."""
+    loss = {"concept": "net_income", "value": -1_200_000_000.0, "unit": "USD"}
+    assert not copilot_service._fact_matches_adjacent_currency(loss, "Net loss was €1.2 billion ")
+    assert copilot_service._fact_matches_adjacent_currency(loss, "Net loss was $1.2 billion ")
+
+
 def _growth_fact(value: float, year: int, marker: str) -> dict:
     return {
         "concept": "revenue", "kind": "yoy_growth", "value": value, "unit": "pure",
@@ -1594,6 +2182,8 @@ def test_count_uncited_figures_classifies_tokens():
     figures, uncited = copilot_service.count_uncited_figures(answer)
     assert figures == 3  # $97.69B, $17.45B, 17.9% — not 2024, not 3, not the [1] digit
     assert uncited == 2  # $17.45B and 17.9% sit outside any claim span
+    # "trillion" is a scale suffix too (E103), so a whole-number trillion figure counts.
+    assert copilot_service.count_uncited_figures("Revenue reached RMB1 trillion.") == (1, 1)
 
 
 @pytest.mark.unit
@@ -1648,9 +2238,11 @@ async def test_service_complete_event_carries_coverage_counters(monkeypatch):
 #
 # The endpoint's gate and cap checks are plain reads, so concurrent questions could all pass them.
 # reserve_qa_use (Pro, monthly `qa`) and reserve_qa_taste_use (Free, LIFETIME `qa_taste`) are the
-# serialized decisions: a unit is held under a lease while the answer streams, converted in the
-# metering commit on `complete`, and released on an error event, a raised pipeline error or a
-# metering failure. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
+# serialized decisions: a unit is held under a lease until the provider stream starts (the first
+# non-error event), when the metering commit converts it into a counted unit. A provider-side
+# failure after that (an error event, a raised pipeline error) refunds the unit; a client
+# disconnect does not. A metering failure or an error before the provider started releases the
+# lease. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
 
 @pytest.fixture(autouse=True)
 def _fresh_ask_limiter(monkeypatch):
@@ -1697,14 +2289,18 @@ def _insert_lease(uid, kind, month, *, expired=False):
 
 
 @pytest.mark.requires_db
-def test_endpoint_pro_lease_is_held_while_answering_and_converted_on_complete(client, monkeypatch):
+def test_endpoint_pro_lease_is_converted_when_the_provider_stream_starts(client, monkeypatch):
     import app.routers.summaries as summaries_router
     from app.services.subscription_service import QA_RESERVATION_KIND, get_current_month
 
     seen = []
 
     async def _observing_answer(*, filing, question, history=None):
-        seen.append(_qa_state(_observing_answer.uid))
+        seen.append(_qa_state(_observing_answer.uid))  # before the provider is called
+        yield {"type": "progress", "stage": "reading"}  # the event right before the model call
+        seen.append(_qa_state(_observing_answer.uid))  # still held: the provider has not started
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
+        seen.append(_qa_state(_observing_answer.uid))  # while the provider streams
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
@@ -1712,37 +2308,108 @@ def test_endpoint_pro_lease_is_held_while_answering_and_converted_on_complete(cl
         _observing_answer.uid = uid
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 200
-        assert seen == [([(QA_RESERVATION_KIND, get_current_month())], 0, 0)]  # held, nothing counted
-        assert _qa_state(uid) == ([], 1, 0)  # converted: one counted unit, no lease left
+        assert seen == [
+            ([(QA_RESERVATION_KIND, get_current_month())], 0, 0),  # held until the provider starts
+            ([(QA_RESERVATION_KIND, get_current_month())], 0, 0),  # the pre-call progress meters nothing
+            ([], 1, 0),  # converted at provider start: one counted unit, no lease left
+        ]
+        assert _qa_state(uid) == ([], 1, 0)  # complete settles it
 
 
 @pytest.mark.requires_db
-def test_endpoint_error_event_releases_the_pro_lease(client, monkeypatch):
+def test_endpoint_error_event_after_the_provider_started_refunds_the_unit(client, monkeypatch):
     import app.routers.summaries as summaries_router
+
+    seen = []
 
     async def _failing_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
+        seen.append(_qa_state(_failing_answer.uid))
         yield {"type": "error", "message": "model down"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _failing_answer)
     with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _failing_answer.uid = uid
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
-        assert _qa_state(uid) == ([], 0, 0)
+        assert seen == [([], 1, 0)]  # counted when the provider started
+        assert _qa_state(uid) == ([], 0, 0)  # the provider-side failure refunded it
 
 
 @pytest.mark.requires_db
-def test_endpoint_raised_pipeline_error_releases_the_lease(client, monkeypatch):
+def test_endpoint_error_event_before_the_provider_started_releases_the_lease(client, monkeypatch):
     import app.routers.summaries as summaries_router
+
+    async def _failing_answer(*, filing, question, history=None):
+        yield {"type": "error", "message": "could not build the prompt"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _failing_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
+        assert _qa_state(uid) == ([], 0, 0)  # never metered; the lease was released
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("is_pro", [True, False], ids=["monthly", "lifetime"])
+@pytest.mark.parametrize("start", ["progress", "signal"])
+def test_endpoint_raised_pipeline_error_refunds_the_unit(client, monkeypatch, is_pro, start):
+    """The router refunds escaping ordinary failures, including a not-yet-adopted start signal.
+
+    Ordinary SDK failures already normalize to error events; this exercises the separate raised
+    exception contract. Both scopes must convert exactly one unit and then refund only that unit.
+    """
+    import app.routers.summaries as summaries_router
+    from app.services.ai.provider_requests import signal_provider_start
+
+    metered_states = []
+    original_meter = summaries_router._meter_qa_best_effort
+
+    def _observing_meter(user_id, is_free_taste=False, token=None):
+        scope = original_meter(user_id, is_free_taste, token)
+        metered_states.append(_qa_state(user_id))
+        return scope
 
     async def _exploding_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
+        if start == "progress":
+            yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}
+        else:
+            signal_provider_start()
+            # No await or yield after the signal: its scheduled charge is still pending when
+            # this task raises, and no subsequent event lets the loop adopt the charge first.
         raise RuntimeError("provider down")
 
+    monkeypatch.setattr(summaries_router, "_meter_qa_best_effort", _observing_meter)
     monkeypatch.setattr(summaries_router, "answer_filing_question", _exploding_answer)
-    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+    with _as_user(is_pro=is_pro, free_taste_used=1) as uid, _seed_filing() as fid:
         with pytest.raises(RuntimeError):
             client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
-        assert _qa_state(uid) == ([], 0, 0)  # released now, not after the lease TTL
+        assert metered_states == [([], 1, 1) if is_pro else ([], 0, 2)]
+        assert _qa_state(uid) == ([], 0, 1)  # refund exactly this charge; preserve pre-existing taste
+
+
+@pytest.mark.requires_db
+def test_endpoint_failure_after_the_reading_progress_but_before_the_provider_started_releases_the_lease(
+    client, monkeypatch
+):
+    """The `reading` progress precedes the model call, so a stream that dies between it and the
+    provider's first chunk (a raise here; a client disconnect takes the same path) never meters."""
+    import app.routers.summaries as summaries_router
+
+    seen = []
+
+    async def _dying_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        seen.append(_qa_state(_dying_answer.uid))
+        raise RuntimeError("prompt build failed before the provider was called")
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _dying_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _dying_answer.uid = uid
+        with pytest.raises(RuntimeError):
+            client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert seen[0][1:] == (0, 0)  # nothing counted on the pre-call progress
+        assert _qa_state(uid) == ([], 0, 0)  # the lease was released, not converted
 
 
 @pytest.mark.requires_db
@@ -1770,6 +2437,7 @@ def test_endpoint_pro_serialized_block_returns_429_when_the_read_admits(client, 
         _insert_lease(uid, QA_RESERVATION_KIND, get_current_month())
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429
+        assert resp.json()["code"] == "pro_fair_use_limit"
         assert len(_leases(uid)) == 1  # the blocked request held nothing
 
 
@@ -1782,13 +2450,18 @@ def test_endpoint_free_taste_lease_is_lifetime_scoped_and_converts_to_the_lifeti
 
     async def _observing_answer(*, filing, question, history=None):
         seen.append(_qa_state(_observing_answer.uid))
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
+        seen.append(_qa_state(_observing_answer.uid))
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
     with _as_user(is_pro=False, free_taste_used=1) as uid, _seed_filing() as fid:
         _observing_answer.uid = uid
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
-        assert seen == [([(QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)], 0, 1)]
+        assert seen == [
+            ([(QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)], 0, 1),  # held until the provider starts
+            ([], 0, 2),  # converted at provider start into the lifetime counter
+        ]
         assert _qa_state(uid) == ([], 0, 2)  # lifetime counter 1 → 2, monthly cap untouched
 
 
@@ -1805,6 +2478,7 @@ def test_endpoint_concurrent_free_taste_questions_cannot_exceed_the_allowance(cl
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 403
         assert "free Copilot questions" in resp.json()["detail"]
+        assert resp.json()["code"] == "free_allowance_exhausted"
         monkeypatch.setattr(usage, "get_current_month", lambda: "2000-01")
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 403
         assert len(_leases(uid)) == 1
@@ -1866,8 +2540,10 @@ def _wire_events(sent):
 
 @pytest.mark.requires_db
 @pytest.mark.asyncio
-async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, monkeypatch):
-    """Disconnect while the real service buffers prose closes the upstream and releases quota."""
+async def test_endpoint_client_disconnect_mid_answer_keeps_the_counted_unit(client, monkeypatch):
+    """Disconnect while the real service buffers prose closes the upstream but keeps the unit
+    counted when the provider stream started: the provider bill accrued, and a refund here would
+    let a client sample answers for free by leaving before ``complete``."""
     streaming, closed = asyncio.Event(), asyncio.Event()
 
     async def _slow_stream(*_args, **_kwargs):
@@ -1888,7 +2564,7 @@ async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, 
         assert sent[0]["status"] == 200
         assert closed.is_set()
         assert all(event["type"] == "progress" for event in _wire_events(sent))
-        assert _qa_state(uid) == ([], 0, 2)
+        assert _qa_state(uid) == ([], 0, 3)  # no lease left; the unit stays counted
 
 
 @pytest.mark.requires_db
@@ -1917,3 +2593,126 @@ def test_analysis_metering_converts_the_lease_in_the_counter_commit(client, monk
         with SessionLocal() as db:
             assert db.query(UsageReservation).filter_by(user_id=uid).count() == 0
             assert get_user_analysis_count(uid, get_current_month(), db) == 1
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_at_the_provider_request_keeps_the_counted_unit(client, monkeypatch):
+    """The chat layer holds prose back (240 chars) and tool-round output until the round closes, so
+    a provider request can be in flight before any chunk reaches the route. The request dispatcher's
+    provider-start signal starts the metering write at the request itself; a client that leaves at
+    that instant has consumed the unit, and ``finally`` settles the write instead of releasing
+    the lease for a request that was already issued."""
+    from app.services.ai.provider_requests import signal_provider_start
+
+    requested, closed = asyncio.Event(), asyncio.Event()
+
+    async def _request_then_hold(*_args, **_kwargs):
+        try:
+            signal_provider_start()  # the request leaves ...
+            requested.set()          # ... and the client leaves before any chunk is yielded
+            await asyncio.sleep(30)
+            yield "never reached"
+        finally:
+            closed.set()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _request_then_hold)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=requested),
+            timeout=10,
+        )
+        assert sent[0]["status"] == 200
+        assert closed.is_set()
+        assert all(event["type"] == "progress" for event in _wire_events(sent))  # nothing but `reading`
+        assert _qa_state(uid) == ([], 0, 3)  # the request was issued: counted, no lease left
+
+
+@pytest.mark.asyncio
+async def test_chat_layer_fires_the_provider_start_signal_before_the_first_request(monkeypatch):
+    """`stream_chat_with_tools` fires the one-shot provider-start signal immediately before its
+    first provider request, once per armed context, so a caller metering on the signal counts the
+    unit at the request and not after the prose holdback or a tool round."""
+    from types import SimpleNamespace as NS
+
+    from app.services.ai.provider_requests import provider_start_signal
+    from app.services.openai_service import openai_service as svc
+
+    def _chunk(content=None, tool_call=None):
+        delta = NS(content=content, tool_calls=[tool_call] if tool_call else None)
+        return NS(choices=[NS(delta=delta)])
+
+    async def _round(chunks):
+        for c in chunks:
+            yield c
+
+    rounds = iter([
+        _round([_chunk(tool_call=NS(index=0, id="c1", function=NS(name="get_financial_fact", arguments='{"concept":"revenue"}')))]),
+        _round([_chunk(content="Revenue was $10B [F1].")]),
+    ])
+    order: list[str] = []
+
+    async def _fake_create(**_kwargs):
+        order.append("request")
+        return next(rounds)
+
+    monkeypatch.setattr(svc, "client", NS(chat=NS(completions=NS(create=_fake_create))))
+    with provider_start_signal(lambda: order.append("signal")):
+        async for _delta in svc.stream_chat_with_tools(
+            [{"role": "user", "content": "q"}],
+            [{"type": "function", "function": {"name": "get_financial_fact"}}],
+            lambda name, args: {"value": 1, "cite": "F1"},
+        ):
+            pass
+    assert order == ["signal", "request", "request"]  # once, before the first request; not again on the tool round
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_at_the_sdk_boundary_keeps_the_counted_unit(client, monkeypatch):
+    """Real wrapper, fake SDK: the client leaves the moment the completions request is created,
+    while the only chunk so far is short enough for the wrapper's prose holdback, so no wrapper
+    event (and no `generating` marker) ever reaches the route. The provider request was issued,
+    so the unit must be counted: the dispatcher's signal at the request site starts the metering
+    write and the route's shielded finally settles it instead of releasing the lease."""
+    from types import SimpleNamespace as NS
+
+    from app.services.openai_service import openai_service as svc
+
+    requested, closed = asyncio.Event(), asyncio.Event()
+
+    class _HeldStream:
+        """One short chunk (below the 240-char holdback), then nothing until cancelled."""
+
+        def __init__(self):
+            self.sent = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self.sent:
+                self.sent = True
+                return NS(choices=[NS(delta=NS(content="Revenue ", tool_calls=None))], model="deepseek-flash")
+            await asyncio.sleep(30)  # cancelled by the disconnect
+            raise StopAsyncIteration
+
+        async def close(self):
+            closed.set()
+
+    async def _fake_create(**_kwargs):
+        requested.set()  # the provider request leaves; the client disconnects right here
+        return _HeldStream()
+
+    monkeypatch.setattr(svc.client.chat.completions, "create", _fake_create)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=requested),
+            timeout=15,
+        )
+        assert sent[0]["status"] == 200
+        assert closed.is_set()  # the upstream stream was closed on the way out
+        events = _wire_events(sent)
+        assert all(event["type"] == "progress" and event.get("stage") != copilot_service.PROVIDER_STARTED_STAGE
+                   for event in events)  # no wrapper event reached the client: only the pre-call `reading`
+        assert _qa_state(uid) == ([], 0, 3)  # the request was issued: counted, no lease left

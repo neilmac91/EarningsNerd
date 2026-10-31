@@ -1,0 +1,25 @@
+import { countControlClass, cx } from '@/components/ui'
+import { needsSourceCheck, qualityReasons, sourceUrl, type QualityValue } from '@/features/analysis/lib/provenance'
+
+/** Small disclosure under a filing-scoped series (the filing page's financial trends) or a company's sector cohort (the
+ *  company page's Sector peers, E251, which lists there what its footnote says needs a source check). */
+export default function SourceChecks({ values }: { values: (QualityValue & { label: string; source_url?: string | null })[] }) {
+  const issues = values.filter(needsSourceCheck)
+  const unavailable = values.filter((value) => value.provenance?.validation === 'unavailable')
+  const unknown = values.some((value) => !value.provenance || value.provenance.validation === 'unavailable')
+  return (
+    <details className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+      <summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Sources &amp; checks</summary>
+      <div className="mt-2 space-y-2">
+        <p>Figures come from SEC filings; some may be calculated. Source checks describe the data, not an audit of the company’s accounts.</p>
+        {unknown && <p>Detailed validation is unavailable for some saved figures. No verification claim is made for them.</p>}
+        {issues.map((value, index) => <p key={index}>{value.label}: {qualityReasons(value).join(' ')}</p>)}
+        {unavailable.map((value, index) => <p key={`unavailable-${index}`}>{value.label}: unavailable. {qualityReasons(value).join(' ')}</p>)}
+        {values.map((value, index) => {
+          const href = sourceUrl(value.source_url ?? value.provenance?.source_url)
+          return href ? <p key={index}><a href={href} target="_blank" rel="noopener noreferrer" className={cx('rounded', countControlClass('inline'))}>{value.label} · original SEC filing</a></p> : null
+        })}
+      </div>
+    </details>
+  )
+}

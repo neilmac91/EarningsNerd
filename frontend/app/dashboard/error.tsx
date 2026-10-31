@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Sentry from '@sentry/nextjs'
@@ -36,39 +37,46 @@ export default function DashboardError({
 
   if (isAuthError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
         <div className="w-full max-w-md">
           <GuidanceCard
             variant="error"
+            headingLevel="h1"
             icon={<LockSimpleIcon className="h-5 w-5" />}
-            title="Authentication Required"
-            description="Please log in to access your dashboard."
-            action={<Button onClick={() => router.push('/login')}>Go to Login</Button>}
+            title="Log in to see your dashboard"
+            description="You need to be logged in to open it."
+            action={<Button onClick={() => router.push('/login')}>Log in</Button>}
           />
         </div>
-      </div>
+      </main>
     )
   }
 
   // Generic Error UI
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
       <div className="w-full max-w-md">
         <GuidanceCard
           variant="error"
+          headingLevel="h1"
           icon={<WarningCircleIcon className="h-5 w-5" />}
           title="Something went wrong"
-          description="We encountered an unexpected error. Please try again."
+          description="This page didn't load. The error has been logged."
           action={
             <>
-              <Button onClick={reset}>Try Again</Button>
+              <Button onClick={reset}>Try again</Button>
               <Button variant="secondary" onClick={() => router.push('/')}>
-                Go Home
+                Go home
               </Button>
             </>
           }
         />
+        <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          If the problem continues, email{' '}
+          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.support}</a>.
+        </p>
+
       </div>
-    </div>
+    </main>
   )
 }

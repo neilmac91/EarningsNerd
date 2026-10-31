@@ -9,55 +9,76 @@ Usage:
 
     client = EdgarClient()
 
-    # Get company info
-    company = await client.get_company("AAPL")
-
     # Get latest 10-K filing
     filing = await client.get_latest_filing("AAPL", FilingType.FORM_10K)
 """
 
-import asyncio
 import logging
 import threading
 import weakref
 from datetime import datetime, timedelta
 from itertools import islice
-from typing import Dict, List, Optional, Tuple
+from operator import attrgetter
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urljoin
 
-from edgar import Company as EdgarCompany, set_identity, find as edgar_find
+from edgar import Company as EdgarCompany, set_identity
 
 from app.utils.datetimes import utcnow
 from app.utils.sec_urls import build_sec_archive_url
 
 from .async_executor import run_with_circuit_breaker
-from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
+from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS
+from .edgartools_compat import apply_edgartools_backports
 from .exceptions import (
     CompanyNotFoundError,
     FilingNotFoundError,
-    EdgarError,
-    EdgarNetworkError,
-    EdgarTimeoutError,
-    EdgarRateLimitError,
     translate_edgartools_exception,
 )
-from .models import Company, Filing
+from .models import Filing
 
 logger = logging.getLogger(__name__)
 
 # Initialize EdgarTools identity on module load
 set_identity(EDGAR_IDENTITY)
 logger.info(f"EdgarTools initialized with identity: {EDGAR_IDENTITY}")
-
-# Semaphore for search concurrency control
-# Python 3.10+ allows creating Semaphore at module level without active event loop
-_edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
+# Upstream fixes the pinned edgartools release lacks (see edgartools_compat.py).
+apply_edgartools_backports()
 
 # Default cap on filings materialized from the recent submissions window when no explicit limit is
 # given (the company filings-list path). The recent window is already SEC-bounded (~1 year or ~1000
 # filings); this caps memory for very high-volume filers while leaving a generous multi-year slice
-# for the year-grouped UI. Reports (10-K/10-Q/20-F/6-K/40-F) are a few per year, so 50 spans ~10y.
+# for the year-grouped UI. Reports (10-K/10-Q/20-F/40-F) are a few per year, so 50 spans ~10y. A 6-K
+# is not: BP, Shell and HSBC furnish one most business days (buyback notices), filling 50 slots in
+# about ten weeks. So on this path 6-Ks fill a budget of their own of the same size (`_take_recent`),
+# and a 20-F or 40-F filed earlier in the window is still listed.
 RECENT_FILINGS_MATERIALIZE_CAP = 50
+# The 6-K group as FilingType.is_interim defines it (6-K, 6-K/A); filing_list_service.cached_filings
+# budgets the same group on the DB-first serve, so the cold and warm lists agree.
+_SIX_K_FORMS = frozenset(ft.value for ft in FilingType if ft.is_interim)
+
+
+def _take_recent(
+    filings: Iterable[Any], cap: int, six_k_apart: bool, form: Callable[[Any], str] = attrgetter("form")
+) -> List[Any]:
+    """The first ``cap`` filings of a newest-first stream. With ``six_k_apart``, the first ``cap``
+    6-Ks plus the first ``cap`` of the other forms, in stream order. That walk reads the whole
+    stream: a list rarely fills both budgets (a foreign issuer files a few reports a year, a domestic
+    one no 6-K), SEC bounds the recent window, and only the kept rows are held. ``form`` reads a
+    row's form type; the cold filings list passes a stored row's, to cap its response by ``?limit=``."""
+    if not six_k_apart:
+        return list(islice(filings, cap))
+    taken: List[Any] = []
+    six_ks = others = 0
+    for f in filings:
+        if form(f) in _SIX_K_FORMS:
+            if six_ks < cap:
+                six_ks += 1
+                taken.append(f)
+        elif others < cap:
+            others += 1
+            taken.append(f)
+    return taken
 
 # Negative cache for the bounded-fallback path: (ticker/cik, base_forms) that returned NOTHING even
 # after a full-history load — i.e. a company that doesn't file these forms (e.g. precompute a 10-K for
@@ -107,14 +128,15 @@ def get_filing_by_accession(company: EdgarCompany, accession_number: str) -> lis
     return filings
 
 
-# Short-lived, per-CIK EdgarCompany cache for the by-accession summary path. A single summary run
-# resolves the SAME filing twice — the XBRL extraction and the section extraction fire as CONCURRENT
-# tasks (summary_pipeline.py), each on its own edgar-thread-pool thread. Without sharing, an
-# accession older than the recent window full-loads the company's history ONCE PER extraction; with
-# it, the second reuses the first's already-loaded entity (edgartools keeps the loaded submissions
-# on the instance). The cache is deliberately small + short-TTL: it only needs to span a run's
-# concurrent extractions, and a fully-loaded mega-filer entity is tens of MB, so we cap memory
-# hard. Staleness is a non-issue here — we fetch a FIXED historical filing by accession, not "latest".
+# Short-lived, per-CIK EdgarCompany cache for the by-accession summary path. A summary run resolves
+# its filing once, for the XBRL instance extraction (a 6-K resolves it for its exhibit text instead);
+# until E28 the section extraction resolved the SAME filing again, concurrently, and this cache
+# kept that second resolution from full-loading the company's history a second time. It still
+# spans resolutions of one company within its TTL (a regeneration, another filing of the same
+# company), reusing the already-loaded entity (edgartools keeps the loaded submissions on the
+# instance). The cache is deliberately small + short-TTL, and a fully-loaded mega-filer entity is
+# tens of MB, so we cap memory hard. A just-published accession can be absent from an
+# older entity's recent window: the resolver refreshes that snapshot before loading history.
 # NOTE: only the by-accession path uses this. The filings-LIST path (get_filings_multi) keeps building
 # a fresh entity per load so it always sees the newest recent window.
 _COMPANY_CACHE_TTL = timedelta(seconds=120)
@@ -140,17 +162,16 @@ def _get_company_lock(cik: str) -> threading.Lock:
         return lock
 
 
-def _get_or_build_company(cik: str) -> EdgarCompany:
+def _get_or_build_company(cik: str, *, refresh: bool = False) -> EdgarCompany:
     """Return a cached EdgarCompany for the CIK, building one on miss/expiry. The caller MUST hold the
     per-CIK lock so two concurrent same-CIK builds/loads can't race."""
     with _company_cache_lock:
         # Pop-then-reinsert on a hit so the reused entity moves to the back of the eviction queue
         # (LRU, matching _mark_empty_fallback). Without this, a distinct-company burst under
         # concurrency=40 could evict a company BETWEEN its two concurrent extractions — the exact
-        # double-build this cache prevents. Keep the build-time timestamp: the TTL is memory hygiene
-        # only, and staleness doesn't matter for fixed-accession lookups.
+        # double-build this cache prevents. Keep the build-time timestamp on a hit.
         entry = _company_cache.pop(cik, None)
-        if entry is not None and (utcnow() - entry[1]) < _COMPANY_CACHE_TTL:
+        if not refresh and entry is not None and (utcnow() - entry[1]) < _COMPANY_CACHE_TTL:
             _company_cache[cik] = entry
             return entry[0]
     # Build OUTSIDE the global lock (construction hits the network); the per-CIK lock the caller holds
@@ -164,8 +185,8 @@ def _get_or_build_company(cik: str) -> EdgarCompany:
 
 
 def resolve_filing_by_accession(cik: str, accession_number: str) -> Tuple[EdgarCompany, list]:
-    """Resolve a filing by accession, reusing a cached EdgarCompany across a summary's two concurrent
-    extractions so an old filing's full-history load runs once, not per extraction. Thread-safe:
+    """Resolve a filing by accession, reusing a cached EdgarCompany across resolutions of one company
+    within the cache's TTL so an old filing's full-history load runs once, not per call. Thread-safe:
     same-CIK resolutions serialize on a per-CIK lock (edgartools' lazy load mutates the entity).
 
     Callers may read INIT-TIME METADATA (e.g. ``company.sic``, ``is_financial_institution()``) on the
@@ -175,7 +196,19 @@ def resolve_filing_by_accession(cik: str, accession_number: str) -> Tuple[EdgarC
     under the lock, concurrent with an earlier caller still holding the handle. Returns
     ``(company, filings)``. Synchronous — call inside the edgar thread pool."""
     with _get_company_lock(cik):
+        with _company_cache_lock:
+            previous = _company_cache.get(cik)
         company = _get_or_build_company(cik)
+        if previous is not None and company is previous[0]:
+            # A snapshot built before publication cannot gain a new accession by
+            # downloading older shards. Refresh recent submissions once on a cached
+            # miss, under the same CIK lock, before considering historical fallback.
+            # edgartools still owns HTTP freshness/pacing; an upstream/cache lag can
+            # return no filing, allowing the caller's later retry to resolve it.
+            recent = list(company.get_filings(accession_number=accession_number, trigger_full_load=False))
+            if recent:
+                return company, recent
+            company = _get_or_build_company(cik, refresh=True)
         return company, get_filing_by_accession(company, accession_number)
 
 
@@ -184,7 +217,6 @@ class EdgarClient:
     Async client for SEC EDGAR operations using EdgarTools.
 
     This client provides:
-    - Company lookup and search
     - Filing retrieval by type
     - XBRL financial data extraction
     - Clean, typed return values
@@ -200,107 +232,6 @@ class EdgarClient:
             timeout: Default timeout for operations in seconds
         """
         self.timeout = timeout
-
-    async def get_company(self, ticker: str) -> Company:
-        """
-        Get company information by ticker symbol.
-
-        Args:
-            ticker: Stock ticker symbol (e.g., "AAPL")
-
-        Returns:
-            Company object with CIK, name, and other metadata
-
-        Raises:
-            CompanyNotFoundError: If the ticker is not found
-            EdgarError: For other errors
-        """
-        ticker = ticker.upper().strip()
-        logger.debug(f"Getting company info for {ticker}")
-
-        try:
-            edgar_company = await run_with_circuit_breaker(
-                lambda: EdgarCompany(ticker),
-                timeout=self.timeout,
-            )
-
-            return self._transform_company(edgar_company, ticker)
-
-        except Exception as exc:
-            if "not found" in str(exc).lower():
-                raise CompanyNotFoundError(ticker, cause=exc)
-            raise translate_edgartools_exception(exc) from exc
-
-    async def search_company(self, query: str, limit: int = 10) -> List[Company]:
-        """
-        Search for companies by name or ticker.
-
-        Uses EdgarTools' find() function for fuzzy company name search,
-        which matches against company names and tickers in the SEC database.
-
-        Args:
-            query: Search query (ticker, partial name, etc.)
-            limit: Maximum number of results to return (default 10)
-
-        Returns:
-            List of matching Company objects
-        """
-        query = query.strip()
-        if not query:
-            return []
-
-        logger.debug(f"Searching companies for query: {query}")
-
-        # Try exact ticker lookup first (faster for exact matches)
-        try:
-            company = await self.get_company(query)
-            logger.debug(f"Found exact ticker match: {query}")
-            return [company]
-        except CompanyNotFoundError:
-            pass  # Fall through to fuzzy search
-        except EdgarRateLimitError:
-            raise  # Don't fallback for rate limits - propagate to caller
-        except (EdgarTimeoutError, EdgarNetworkError) as e:
-            logger.warning(f"Exact ticker lookup failed for '{query}': {e}, trying fuzzy search")
-            pass  # Fall through to fuzzy search
-
-        # Use EdgarTools find() for fuzzy company name search
-        try:
-            search_results = await run_with_circuit_breaker(
-                lambda: edgar_find(query),
-                timeout=self.timeout,
-            )
-
-            if not search_results or len(search_results) == 0:
-                logger.debug(f"No companies found for query: {query}")
-                return []
-
-            # Get tickers from search results and fetch company details in parallel
-            tickers = search_results.tickers if hasattr(search_results, 'tickers') else []
-            logger.debug(f"Found {len(tickers)} matches for '{query}': {tickers[:5]}")
-
-            async def fetch_company_details(ticker: str) -> Optional[Company]:
-                """Fetch company details, returning None on error."""
-                async with _edgar_search_semaphore:
-                    try:
-                        return await self.get_company(ticker)
-                    except (CompanyNotFoundError, EdgarError) as e:
-                        logger.warning(f"Could not fetch details for ticker {ticker}: {e}")
-                        return None
-
-            # Fetch all companies in parallel using asyncio.gather
-            tasks = [fetch_company_details(ticker) for ticker in tickers[:limit]]
-            company_results = await asyncio.gather(*tasks)
-
-            # Filter out None results (failed fetches)
-            companies = [company for company in company_results if company is not None]
-            return companies
-
-        except EdgarError:
-            raise  # Already translated, don't double-wrap
-        except Exception as exc:
-            logger.error(f"Error searching companies for '{query}': {exc}")
-            raise translate_edgartools_exception(exc) from exc
 
     async def get_filings(
         self,
@@ -350,12 +281,13 @@ class EdgarClient:
         download *per form type* — the cause of the request timeout. The recent window (SEC's
         "greater of ~1000 filings or ~1 year") always contains the newest 10-K/10-Q/20-F for an
         active filer; older history accrues in our DB across loads (see the DB-first serving in
-        app/routers/filings.py). ``islice`` bounds materialization to keep memory flat.
+        app/routers/filings.py). ``_take_recent`` bounds the rows kept to keep memory flat.
 
         Args:
             ticker: Stock ticker OR CIK (callers on this path pass the CIK).
             filing_types: Form types to retrieve (base forms; ``/A`` handled by ``include_amended``).
-            limit: Maximum number of filings to return (None → a bounded recent default).
+            limit: Maximum number of filings to return (None → a bounded recent default, with
+                6-Ks capped apart from the other forms).
             include_amended: Whether to include amended filings (/A).
 
         Returns:
@@ -402,8 +334,11 @@ class EdgarClient:
 
         # Bound materialization. The recent-window filter already bounds the row count for normal
         # filers; this cap protects memory for high-volume filers and keeps a generous multi-year
-        # slice for the year-grouped UI.
+        # slice for the year-grouped UI. On that list path (no limit) 6-Ks take a budget of their own,
+        # so a daily 6-K filer's notices cannot push its 20-F/40-F out; a bounded caller keeps the
+        # newest `limit` across every form.
         materialize_cap = limit if limit is not None else RECENT_FILINGS_MATERIALIZE_CAP
+        six_k_apart = limit is None and not _SIX_K_FORMS.isdisjoint(base_forms)
 
         try:
             edgar_company = await run_with_circuit_breaker(
@@ -413,23 +348,22 @@ class EdgarClient:
 
             # ONE recent-window fetch across all requested forms. trigger_full_load=False skips
             # edgartools' paginated older-filings download (the scaling cost). We filter to
-            # `allowed_forms` INSIDE the (lazy) islice so a superset fetch (base + /A, when amendments
+            # `allowed_forms` INSIDE the (lazy) cap so a superset fetch (base + /A, when amendments
             # were forced on) is trimmed to what the caller asked for before the cap, and so the
             # empty-check below measures "empty for the requested forms" — not raw pre-trim rows.
             filings = await run_with_circuit_breaker(
-                lambda: list(
-                    islice(
-                        (
-                            f
-                            for f in edgar_company.get_filings(
-                                form=base_forms,
-                                amendments=wants_amended,
-                                trigger_full_load=False,
-                            )
-                            if getattr(f, "form", None) in allowed_forms
-                        ),
-                        materialize_cap,
-                    )
+                lambda: _take_recent(
+                    (
+                        f
+                        for f in edgar_company.get_filings(
+                            form=base_forms,
+                            amendments=wants_amended,
+                            trigger_full_load=False,
+                        )
+                        if getattr(f, "form", None) in allowed_forms
+                    ),
+                    materialize_cap,
+                    six_k_apart,
                 ),
                 timeout=self.timeout,
             )
@@ -531,20 +465,6 @@ class EdgarClient:
         return filings[0]
 
     # Private transformation methods
-
-    def _transform_company(self, edgar_company: EdgarCompany, ticker: str) -> Company:
-        """Transform EdgarTools Company to our Company model."""
-        return Company(
-            cik=edgar_company.cik,
-            ticker=ticker,
-            name=edgar_company.name,
-            # NOTE: the model columns are `sic`/`industry`. The previous `sic_code`/`sic_description`
-            # kwargs were not valid columns, so this raised and SIC was never populated — which broke
-            # the Peers cohort and the financial-remediation SIC selection. Write the real columns.
-            sic=str(edgar_company.sic) if getattr(edgar_company, 'sic', None) else None,
-            industry=edgar_company.industry if getattr(edgar_company, 'industry', None) else None,
-            exchange=None,  # EdgarTools doesn't provide this directly
-        )
 
     def _transform_filing(self, edgar_filing, ticker: str, cik: str) -> Filing:
         """Transform EdgarTools Filing to our Filing model."""

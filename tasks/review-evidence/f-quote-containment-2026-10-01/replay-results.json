@@ -1,0 +1,4946 @@
+{
+ "origin_main_sha": "0032bca8118aae7899bdebc46be5fefe42a7979a",
+ "parameters": {
+  "quote_marks": [
+   "0x22",
+   "0x201c",
+   "0x201d",
+   "0x201e"
+  ],
+  "floor": 24,
+  "edge_chars": " \t\r\n .,;:!?…",
+  "marker_re": "\\[(F?\\s*\\d+)\\]",
+  "ellipsis_re": "\\.\\s*\\.\\s*\\.|…",
+  "reasons": [
+   "unbalanced_quotation",
+   "quotation_source_unavailable",
+   "elided_quotation",
+   "quotation_not_in_source"
+  ]
+ },
+ "runs": [
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "artifact": "analysis/skeptic1021/r36500418287/copilot-eval.json",
+   "sha256": "93741077db331a10e32760ffd3d30ab36676dcdcecc77bc6aa641c737304c157",
+   "source_sha": "a1c79c2c2eac1b27bf3e88d0b88701824f395702",
+   "rows": 18,
+   "published": 17,
+   "error_rows": 1,
+   "flagged_rows": [
+    {
+     "row": "BABA viewed-native-revenue-2025 d0",
+     "reasons": [
+      "elided_quotation"
+     ],
+     "spans": [
+      "Revenue ... 996,347"
+     ]
+    },
+    {
+     "row": "BABA viewed-native-revenue-2025 d2",
+     "reasons": [
+      "elided_quotation"
+     ],
+     "spans": [
+      "Revenue ... 996,347"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d0",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d0",
+    "BABA viewed-native-revenue-2025 d0",
+    "BABA viewed-native-revenue-2025 d2"
+   ]
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "artifact": "analysis/skeptic1021/r36511300921/copilot-eval.json",
+   "sha256": "8ea5006e6dc7404cbe4ce56399f1dd0e0d61a03b13b984b489f0fe7581df0d55",
+   "source_sha": "0a6879b4733386296d715a851e310b8ce50ca38a",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d0",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d1",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d0",
+    "ASML us-gaap-sales-net-income-2025 d1"
+   ]
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "artifact": "analysis/skeptic1021/r36516634768/copilot-eval.json",
+   "sha256": "e39c43bd2f6251df6b047cf1ceed81380908d2f587f497f41031f6c436b0ef16",
+   "source_sha": "90de3e4fbfb85467b6d30034714fa7bafae58bde",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [
+    {
+     "row": "BABA viewed-native-revenue-2025 d0",
+     "reasons": [
+      "elided_quotation"
+     ],
+     "spans": [
+      "Revenue ... 996,347"
+     ]
+    },
+    {
+     "row": "BABA viewed-native-revenue-2025 d1",
+     "reasons": [
+      "elided_quotation"
+     ],
+     "spans": [
+      "Revenue ... 996,347"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d1",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d1",
+    "BABA viewed-native-revenue-2025 d0",
+    "BABA viewed-native-revenue-2025 d1"
+   ]
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "artifact": "analysis/skeptic1021/r36519321075/copilot-eval.json",
+   "sha256": "6a1cc858a71bd6e65b2598c0b560167944ac39259d168734a65c5a3ff675f43d",
+   "source_sha": "d512ec9c41ebf4a93fbb9d0f03ecb28a8a25ce59",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [
+    {
+     "row": "BABA viewed-native-revenue-2025 d0",
+     "reasons": [
+      "elided_quotation"
+     ],
+     "spans": [
+      "Revenue ... 996,347"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d0",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d1",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d0",
+    "ASML us-gaap-sales-net-income-2025 d1",
+    "BABA viewed-native-revenue-2025 d0"
+   ]
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "artifact": "analysis/skeptic1021/r36624149908/copilot-eval.json",
+   "sha256": "dd051e3b16a2b503eb9e8a99833616c6f2b52223e90de24b6c51ba8891400e5d",
+   "source_sha": "11674704d555e6008973469c73b98691f8f70d1e",
+   "rows": 18,
+   "published": 17,
+   "error_rows": 1,
+   "flagged_rows": [
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d0",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d1",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d2",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d0",
+    "ASML us-gaap-sales-net-income-2025 d1",
+    "ASML us-gaap-sales-net-income-2025 d2"
+   ]
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "artifact": "analysis/skeptic1021/r36630506944/copilot-eval.json",
+   "sha256": "bf1d3b3462e650f9e55e9a44d17d44cf1d9bec6669dcb4bf4e49b457d88ab252",
+   "source_sha": "005aacaaa9e73514bcef17884cb5c7882aa087d3",
+   "rows": 18,
+   "published": 17,
+   "error_rows": 1,
+   "flagged_rows": [
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d0",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d1",
+     "reasons": [
+      "elided_quotation",
+      "elided_quotation"
+     ],
+     "spans": [
+      "Total net sales 28,262.9 ... 32,667.3",
+      "Net income 7,571.6 ... 9,609.4"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d2",
+     "reasons": [
+      "elided_quotation",
+      "elided_quotation"
+     ],
+     "spans": [
+      "Total net sales 28,262.9 ... 32,667.3",
+      "Net income 7,571.6 ... 9,609.4"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d0",
+    "ASML us-gaap-sales-net-income-2025 d1",
+    "ASML us-gaap-sales-net-income-2025 d2"
+   ]
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "artifact": "analysis/skeptic1021/r36640254449/copilot-eval.json",
+   "sha256": "a94ef795bb383bc676dc6316ef9fed2aa9e342d8191d2d5d01fe0333fb8d14c0",
+   "source_sha": "244ec380b32d5fbc49c26a8a8f33caf9b1a8042c",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d2",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d2"
+   ]
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "artifact": "analysis/skeptic1021/r36754723895/copilot-eval.json",
+   "sha256": "7ea313523cbb8d5905e13c0f2a94cc70e1a20006ad6076a387ef504834ab7087",
+   "source_sha": "b5a7862b446d316351b57183a61437aba16342b5",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [],
+   "audit_rows": []
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "artifact": "copilot-36777581481/copilot-eval.json",
+   "sha256": "8b3084e7afb2c029d5c9a55b62cfea1bbd4215fa79565cad94755029a392a153",
+   "source_sha": "956244b23e4d4e545658223bed728005766dd7d6",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [
+    {
+     "row": "BABA viewed-native-revenue-2025 d0",
+     "reasons": [
+      "elided_quotation"
+     ],
+     "spans": [
+      "Revenue ... 996,347"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "BABA viewed-native-revenue-2025 d0"
+   ]
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "artifact": "copilot-36798834277/copilot-eval.json",
+   "sha256": "e5b927f740ec28afe0911380d42e688221f57a641ed2d82675ef1bf920f8bcd0",
+   "source_sha": "f362485651da4631bbc4179af7fbfb52efdfbafe",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [],
+   "audit_rows": []
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "artifact": "copilot-36800236360/copilot-eval.json",
+   "sha256": "aecf8ec2f624e2ff8e8a8fdb2fe6871fed7ba1d2ca9f8ae0832300e2a41801ab",
+   "source_sha": "46e1fc5e03f7f4523b770dd3f2c9b5fe1cfb354b",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d0",
+     "reasons": [
+      "quotation_not_in_source"
+     ],
+     "spans": [
+      "Total net sales 32,667.3"
+     ]
+    }
+   ],
+   "audit_rows": [
+    "ASML us-gaap-sales-net-income-2025 d0"
+   ]
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "artifact": "copilot-36809122540/copilot-eval.json",
+   "sha256": "9cb7368ec031f6130493e4994ec5ce2179ac78c9a6bb80bfe1cf456491a25cd1",
+   "source_sha": "2ec46bec95bb1fa2c1001b7a3596958590397762",
+   "rows": 18,
+   "published": 18,
+   "error_rows": 0,
+   "flagged_rows": [],
+   "audit_rows": []
+  }
+ ],
+ "confusion_vs_retained_audit": {
+  "both": [
+   "36500418287 BABA viewed-native-revenue-2025 d0",
+   "36500418287 BABA viewed-native-revenue-2025 d2",
+   "36500418287 ASML us-gaap-sales-net-income-2025 d0",
+   "36511300921 ASML us-gaap-sales-net-income-2025 d0",
+   "36511300921 ASML us-gaap-sales-net-income-2025 d1",
+   "36516634768 BABA viewed-native-revenue-2025 d0",
+   "36516634768 BABA viewed-native-revenue-2025 d1",
+   "36516634768 ASML us-gaap-sales-net-income-2025 d1",
+   "36519321075 BABA viewed-native-revenue-2025 d0",
+   "36519321075 ASML us-gaap-sales-net-income-2025 d0",
+   "36519321075 ASML us-gaap-sales-net-income-2025 d1",
+   "36624149908 ASML us-gaap-sales-net-income-2025 d0",
+   "36624149908 ASML us-gaap-sales-net-income-2025 d1",
+   "36624149908 ASML us-gaap-sales-net-income-2025 d2",
+   "36630506944 ASML us-gaap-sales-net-income-2025 d0",
+   "36630506944 ASML us-gaap-sales-net-income-2025 d1",
+   "36630506944 ASML us-gaap-sales-net-income-2025 d2",
+   "36640254449 ASML us-gaap-sales-net-income-2025 d2",
+   "36777581481 BABA viewed-native-revenue-2025 d0",
+   "36800236360 ASML us-gaap-sales-net-income-2025 d0"
+  ],
+  "predicate_only": [],
+  "audit_only": [],
+  "neither": 193
+ },
+ "span_level": {
+  "audit_span_not_flagged": [
+   {
+    "row": "36500418287 ASML us-gaap-sales-net-income-2025 d0",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36511300921 ASML us-gaap-sales-net-income-2025 d0",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36511300921 ASML us-gaap-sales-net-income-2025 d1",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36516634768 ASML us-gaap-sales-net-income-2025 d1",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36519321075 ASML us-gaap-sales-net-income-2025 d0",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36519321075 ASML us-gaap-sales-net-income-2025 d1",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36624149908 ASML us-gaap-sales-net-income-2025 d0",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36624149908 ASML us-gaap-sales-net-income-2025 d1",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36624149908 ASML us-gaap-sales-net-income-2025 d2",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36630506944 ASML us-gaap-sales-net-income-2025 d0",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36640254449 ASML us-gaap-sales-net-income-2025 d2",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   },
+   {
+    "row": "36800236360 ASML us-gaap-sales-net-income-2025 d0",
+    "span": "Net income 9,609.4",
+    "needle_len": 18,
+    "in_scope": false,
+    "row_still_flagged": true
+   }
+  ],
+  "flagged_span_not_in_audit": []
+ },
+ "valid_quote_controls": [
+  {
+   "row": "36500418287 BABA viewed-native-revenue-2025 d1",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36511300921 BABA native-revenue-2026 d2",
+   "spans": [
+    [
+     "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     88,
+     true
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36511300921 BABA viewed-native-revenue-2025 d0",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36511300921 ASML us-gaap-sales-net-income-2025 d2",
+   "spans": [
+    [
+     "32,667.3",
+     8,
+     false
+    ],
+    [
+     "9,609.4",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36516634768 AAPL sales-gross-profit-2025 d0",
+   "spans": [
+    [
+     "Total net sales",
+     15,
+     false
+    ],
+    [
+     "Gross margin",
+     12,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36516634768 BABA viewed-native-revenue-2025 d2",
+   "spans": [
+    [
+     "996,347",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36516634768 ASML us-gaap-sales-net-income-2025 d0",
+   "spans": [
+    [
+     "Total net sales",
+     15,
+     false
+    ],
+    [
+     "€32.7bn",
+     7,
+     false
+    ],
+    [
+     "Net income",
+     10,
+     false
+    ],
+    [
+     "€9.6bn",
+     6,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36516634768 ASML us-gaap-sales-net-income-2025 d2",
+   "spans": [
+    [
+     "Total net sales",
+     15,
+     false
+    ],
+    [
+     "Net income",
+     10,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36519321075 BABA native-revenue-2026 d1",
+   "spans": [
+    [
+     "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     88,
+     true
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36519321075 BABA viewed-native-revenue-2025 d2",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36624149908 BABA native-revenue-2026 d0",
+   "spans": [
+    [
+     "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     88,
+     true
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36624149908 BABA viewed-native-revenue-2025 d0",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36624149908 BABA viewed-native-revenue-2025 d1",
+   "spans": [
+    [
+     "996,347",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36624149908 BABA viewed-native-revenue-2025 d2",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36630506944 AAPL sales-gross-profit-2025 d1",
+   "spans": [
+    [
+     "Gross margin",
+     12,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36630506944 BABA native-revenue-2026 d2",
+   "spans": [
+    [
+     "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     88,
+     true
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36630506944 BABA viewed-native-revenue-2025 d0",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36630506944 BABA viewed-native-revenue-2025 d1",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36754723895 BABA viewed-native-revenue-2025 d1",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36777581481 BABA viewed-native-revenue-2025 d1",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36777581481 BABA viewed-native-revenue-2025 d2",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36800236360 BABA native-revenue-2026 d1",
+   "spans": [
+    [
+     "by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     70,
+     true
+    ]
+   ],
+   "flagged": false
+  },
+  {
+   "row": "36809122540 BABA viewed-native-revenue-2025 d2",
+   "spans": [
+    [
+     "Revenue",
+     7,
+     false
+    ]
+   ],
+   "flagged": false
+  }
+ ],
+ "withheld": {
+  "main_rows": 108,
+  "main_flagged": 3,
+  "main_rate": 0.027777777777777776,
+  "main_runs_with_flag": [
+   "36640254449",
+   "36777581481",
+   "36800236360"
+  ],
+  "old_rows_published": 105,
+  "old_flagged": 17,
+  "all_published": 213,
+  "all_flagged": 20
+ },
+ "floor_sensitivity": [
+  {
+   "floor": 8,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 8,
+   "elision_rule": false,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 10,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 10,
+   "elision_rule": false,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 12,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 12,
+   "elision_rule": false,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 14,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 14,
+   "elision_rule": false,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 16,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 16,
+   "elision_rule": false,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 18,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 18,
+   "elision_rule": false,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 19,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 19,
+   "elision_rule": false,
+   "all_flagged": 14,
+   "main_flagged": 2,
+   "missed_vs_audit": 6,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 20,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 20,
+   "elision_rule": false,
+   "all_flagged": 14,
+   "main_flagged": 2,
+   "missed_vs_audit": 6,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 22,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 22,
+   "elision_rule": false,
+   "all_flagged": 14,
+   "main_flagged": 2,
+   "missed_vs_audit": 6,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 24,
+   "elision_rule": true,
+   "all_flagged": 20,
+   "main_flagged": 3,
+   "missed_vs_audit": 0,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 24,
+   "elision_rule": false,
+   "all_flagged": 14,
+   "main_flagged": 2,
+   "missed_vs_audit": 6,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 25,
+   "elision_rule": true,
+   "all_flagged": 8,
+   "main_flagged": 1,
+   "missed_vs_audit": 12,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 25,
+   "elision_rule": false,
+   "all_flagged": 2,
+   "main_flagged": 0,
+   "missed_vs_audit": 18,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 28,
+   "elision_rule": true,
+   "all_flagged": 8,
+   "main_flagged": 1,
+   "missed_vs_audit": 12,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 28,
+   "elision_rule": false,
+   "all_flagged": 2,
+   "main_flagged": 0,
+   "missed_vs_audit": 18,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 30,
+   "elision_rule": true,
+   "all_flagged": 8,
+   "main_flagged": 1,
+   "missed_vs_audit": 12,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 30,
+   "elision_rule": false,
+   "all_flagged": 2,
+   "main_flagged": 0,
+   "missed_vs_audit": 18,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 36,
+   "elision_rule": true,
+   "all_flagged": 8,
+   "main_flagged": 1,
+   "missed_vs_audit": 12,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 36,
+   "elision_rule": false,
+   "all_flagged": 2,
+   "main_flagged": 0,
+   "missed_vs_audit": 18,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 37,
+   "elision_rule": true,
+   "all_flagged": 8,
+   "main_flagged": 1,
+   "missed_vs_audit": 12,
+   "extra_vs_audit": 0
+  },
+  {
+   "floor": 37,
+   "elision_rule": false,
+   "all_flagged": 0,
+   "main_flagged": 0,
+   "missed_vs_audit": 20,
+   "extra_vs_audit": 0
+  }
+ ],
+ "verifier_equivalence": {
+  "checked": 17,
+  "mismatches": []
+ },
+ "rows": [
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": false,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "service_events": null,
+   "candidate_prose": null,
+   "candidate_reasons": null
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [
+    "Revenue ... 996,347"
+   ],
+   "spans": [
+    {
+     "span": "Revenue ... 996,347",
+     "needle": "revenue... 996,347",
+     "needle_len": 18,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [
+    "Revenue ... 996,347"
+   ],
+   "spans": [
+    {
+     "span": "Revenue ... 996,347",
+     "needle": "revenue... 996,347",
+     "needle_len": 18,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36500418287",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     "needle": "further increased by 3% to rmb1,023,670 million (us$148,401 million) in fiscal year 2026",
+     "needle_len": 88,
+     "elided": false,
+     "in_scope": true,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36511300921",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "32,667.3",
+     "needle": "32,667.3",
+     "needle_len": 8,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    },
+    {
+     "span": "9,609.4",
+     "needle": "9,609.4",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Total net sales",
+     "needle": "total net sales",
+     "needle_len": 15,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    },
+    {
+     "span": "Gross margin",
+     "needle": "gross margin",
+     "needle_len": 12,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [
+    "Revenue ... 996,347"
+   ],
+   "spans": [
+    {
+     "span": "Revenue ... 996,347",
+     "needle": "revenue... 996,347",
+     "needle_len": 18,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [
+    "Revenue ... 996,347"
+   ],
+   "spans": [
+    {
+     "span": "Revenue ... 996,347",
+     "needle": "revenue... 996,347",
+     "needle_len": 18,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "996,347",
+     "needle": "996,347",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Total net sales",
+     "needle": "total net sales",
+     "needle_len": 15,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    },
+    {
+     "span": "€32.7bn",
+     "needle": "€32.7bn",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    },
+    {
+     "span": "Net income",
+     "needle": "net income",
+     "needle_len": 10,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    },
+    {
+     "span": "€9.6bn",
+     "needle": "€9.6bn",
+     "needle_len": 6,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": false
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36516634768",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Total net sales",
+     "needle": "total net sales",
+     "needle_len": 15,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    },
+    {
+     "span": "Net income",
+     "needle": "net income",
+     "needle_len": 10,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     "needle": "further increased by 3% to rmb1,023,670 million (us$148,401 million) in fiscal year 2026",
+     "needle_len": 88,
+     "elided": false,
+     "in_scope": true,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [
+    "Revenue ... 996,347"
+   ],
+   "spans": [
+    {
+     "span": "Revenue ... 996,347",
+     "needle": "revenue... 996,347",
+     "needle_len": 18,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36519321075",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": false,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "service_events": null,
+   "candidate_prose": null,
+   "candidate_reasons": null
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     "needle": "further increased by 3% to rmb1,023,670 million (us$148,401 million) in fiscal year 2026",
+     "needle_len": 88,
+     "elided": false,
+     "in_scope": true,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "996,347",
+     "needle": "996,347",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36624149908",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Gross margin",
+     "needle": "gross margin",
+     "needle_len": 12,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": false,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "error": {
+    "type": "ValueError",
+    "stage": "answer_or_score"
+   },
+   "service_events": [
+    {
+     "type": "error",
+     "message": "I couldn't verify the cited evidence, so I couldn't provide this answer."
+    }
+   ],
+   "candidate_prose": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [F1] and diluted earnings per share of $13.64 [F2].",
+   "candidate_reasons": []
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     "needle": "further increased by 3% to rmb1,023,670 million (us$148,401 million) in fiscal year 2026",
+     "needle_len": 88,
+     "elided": false,
+     "in_scope": true,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 28,262.9 ... 32,667.3",
+    "Net income 7,571.6 ... 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 28,262.9 ... 32,667.3",
+     "needle": "total net sales 28,262.9... 32,667.3",
+     "needle_len": 36,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    },
+    {
+     "span": "Net income 7,571.6 ... 9,609.4",
+     "needle": "net income 7,571.6... 9,609.4",
+     "needle_len": 29,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation",
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36630506944",
+   "code": "old-prompt",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 28,262.9 ... 32,667.3",
+    "Net income 7,571.6 ... 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 28,262.9 ... 32,667.3",
+     "needle": "total net sales 28,262.9... 32,667.3",
+     "needle_len": 36,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    },
+    {
+     "span": "Net income 7,571.6 ... 9,609.4",
+     "needle": "net income 7,571.6... 9,609.4",
+     "needle_len": 29,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation",
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36640254449",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36754723895",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [
+    "Revenue ... 996,347"
+   ],
+   "spans": [
+    {
+     "span": "Revenue ... 996,347",
+     "needle": "revenue... 996,347",
+     "needle_len": 18,
+     "elided": true,
+     "in_scope": true,
+     "reason": "elided_quotation"
+    }
+   ],
+   "reasons": [
+    "elided_quotation"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36777581481",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36798834277",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026",
+     "needle": "by 3% to rmb1,023,670 million (us$148,401 million) in fiscal year 2026",
+     "needle_len": 70,
+     "elided": false,
+     "in_scope": true,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [
+    "Total net sales 32,667.3",
+    "Net income 9,609.4"
+   ],
+   "spans": [
+    {
+     "span": "Total net sales 32,667.3",
+     "needle": "total net sales 32,667.3",
+     "needle_len": 24,
+     "elided": false,
+     "in_scope": true,
+     "reason": "quotation_not_in_source"
+    },
+    {
+     "span": "Net income 9,609.4",
+     "needle": "net income 9,609.4",
+     "needle_len": 18,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [
+    "quotation_not_in_source"
+   ],
+   "flagged": true,
+   "audit_flagged": true,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36800236360",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "AAPL",
+   "question_id": "sales-gross-profit-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 124125,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 0,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 1,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "TSLA",
+   "question_id": "sales-operating-income-2024",
+   "draw": 2,
+   "published": true,
+   "source_chars": 163834,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "MSFT",
+   "question_id": "sales-diluted-eps-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 164767,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 0,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 1,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "native-revenue-2026",
+   "draw": 2,
+   "published": true,
+   "source_chars": 231089,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "BABA",
+   "question_id": "viewed-native-revenue-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 308486,
+   "audit_retained": [],
+   "spans": [
+    {
+     "span": "Revenue",
+     "needle": "revenue",
+     "needle_len": 7,
+     "elided": false,
+     "in_scope": false,
+     "reason": null
+    }
+   ],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 0,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 1,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  },
+  {
+   "run": "36809122540",
+   "code": "main",
+   "ticker": "ASML",
+   "question_id": "us-gaap-sales-net-income-2025",
+   "draw": 2,
+   "published": true,
+   "source_chars": 260154,
+   "audit_retained": [],
+   "spans": [],
+   "reasons": [],
+   "flagged": false,
+   "audit_flagged": false,
+   "passed": true
+  }
+ ]
+}

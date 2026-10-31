@@ -13,11 +13,14 @@ import { describe, expect, it } from 'vitest'
  * declared `undici ^7.25.0`, that raised a floor. jsdom 30 declares `undici ^8.9.0`, so the same
  * unchanged line silently became a ceiling and held undici at 7.29.1 — below what jsdom asks for.
  *
- * The invariant is DIRECTIONAL, and that distinction is the whole gate. Overrides exist to push a
- * package FORWARD past what a dependent declares: six of this repo's overrides do exactly that
- * (the `@lhci/cli` security bumps, and `postcss`, which `next` pins to an exact older patch). A
- * gate that flagged every unsatisfied range would flag all six and be useless. Holding a package
- * BACK below a dependent's declared floor is never intentional — that is the stale-ceiling bug.
+ * The invariant is DIRECTIONAL, and that distinction is the whole gate. Overrides exist to raise a
+ * package's floor, usually FORWARD past what a dependent declares: every override this repo
+ * carries raises a floor, and all but one push past a declared range (the `@lhci/cli` security
+ * bumps, `postcss`, which `next` pins to an exact older patch, and the security bumps that reach
+ * transitive packages such as `basic-ftp`; `ip-address` is the exception, a floor inside
+ * `socks`'s own range). A gate that flagged every unsatisfied range would flag most of them and
+ * be useless. Holding a package BACK below a dependent's declared floor is never intentional —
+ * that is the stale-ceiling bug.
  *
  * So: for every package named as an override target, the version each dependent actually resolves
  * must not be lower than the floor that dependent declares.

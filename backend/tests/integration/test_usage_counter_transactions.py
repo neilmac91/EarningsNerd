@@ -21,12 +21,16 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.config import MIN_SECRET_KEY_LENGTH, Settings, settings
-from app.database import Base
+from app.database import Base, SessionLocal
 from app.models import Summary, UsageReservation, User, UserUsage
 from app.services import subscription_service as usage
 
 
-MONTH = "2026-09"
+# Never the wall-clock month: a case whose outcome depends on the admission month fails at once
+# when it forgets to pin, instead of on a calendar date (MONTH = "2026-09" broke two cases on
+# 2026-10-01). ROLLOVER_MONTH is the different month a rollover case moves the clock to.
+MONTH = "2000-01"
+ROLLOVER_MONTH = "2000-02"
 WRITERS = [(usage.increment_user_usage, "summary_count"),
            (usage.increment_user_qa, "qa_count"), (usage.increment_user_analysis, "analysis_count")]
 TABLES = [User.__table__, UserUsage.__table__, UsageReservation.__table__]
@@ -59,8 +63,15 @@ def postgres_engine():
         engine.dispose()
 
 
+def _session(bind) -> Session:
+    """A session with production's settings (``SessionLocal``'s, which do not autoflush) on this case's engine
+    or connection: an autoflushing one flushes a pending write at its next query, where production waits for
+    the commit, and can serialize two requests that production does not (E132)."""
+    return sessionmaker(**{**SessionLocal.kw, "bind": bind})()
+
+
 def _seed(engine, counts=None):
-    with Session(engine) as db:
+    with _session(engine) as db:
         user = User(email=f"usage-{uuid.uuid4().hex}@example.com")
         db.add(user)
         db.flush()
@@ -71,9 +82,17 @@ def _seed(engine, counts=None):
 
 
 def _rows(engine, user_id):
-    with Session(engine) as db:
+    with _session(engine) as db:
         return [(r.id, r.summary_count, r.qa_count, r.analysis_count)
                 for r in db.query(UserUsage).filter_by(user_id=user_id, month=MONTH).order_by(UserUsage.id)]
+
+
+def test_fixture_months_are_sentinels_the_clock_never_returns():
+    """lessons/test-fixture-months-are-never-the-wall-clock-month.md: a seeded month the clock can
+    return lets an unpinned case pass until the calendar moves past it."""
+    for month in (MONTH, ROLLOVER_MONTH):
+        assert month <= "2000-12" and month != usage.get_current_month()
+    assert MONTH != ROLLOVER_MONTH
 
 
 @pytest.mark.parametrize("value", [0, -1, 10001, 0.5, float("inf"), float("nan")])
@@ -88,7 +107,7 @@ def test_postgres_existing_bucket_retains_parallel_increments_with_stale_session
     ready = threading.Barrier(2, timeout=5)
 
     def complete():
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             stale = db.query(UserUsage).filter_by(user_id=uid, month=MONTH).one()
             ready.wait()
             writer(uid, MONTH, db)
@@ -117,7 +136,7 @@ def test_postgres_parallel_first_use_creates_one_bucket_across_resources(postgre
 
     def complete(writer):
         local.first = True
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             writer(uid, MONTH, db)
 
     event.listen(postgres_engine, "after_cursor_execute", after_read)
@@ -138,13 +157,13 @@ def test_postgres_counter_lock_wait_is_bounded_and_failure_does_not_increment(po
     uid = _seed(postgres_engine, (0, 0, 0) if existing else None)
     monkeypatch.setattr(settings, "USAGE_COUNTER_LOCK_TIMEOUT_MS", 80)
     before = _rows(postgres_engine, uid)
-    holder = Session(postgres_engine)
+    holder = _session(postgres_engine)
     target = UserUsage if existing else User
     predicate = UserUsage.user_id == uid if existing else User.id == uid
     holder.query(target).filter(predicate).with_for_update().first()
 
     def complete():
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             usage.increment_user_usage(uid, MONTH, db)
 
     started = time.monotonic()
@@ -162,7 +181,7 @@ def test_postgres_counter_lock_wait_is_bounded_and_failure_does_not_increment(po
             if not future.done():
                 future.result(timeout=6)
     assert _rows(postgres_engine, uid) == before
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         usage.increment_user_usage(uid, MONTH, db)
     assert _rows(postgres_engine, uid)[0][1:] == (1, 0, 0)
 
@@ -170,9 +189,9 @@ def test_postgres_counter_lock_wait_is_bounded_and_failure_does_not_increment(po
 def test_postgres_existing_bucket_does_not_wait_for_stripe_parent_lock(postgres_engine, monkeypatch):
     uid = _seed(postgres_engine, (0, 0, 0))
     monkeypatch.setattr(settings, "USAGE_COUNTER_LOCK_TIMEOUT_MS", 80)
-    with Session(postgres_engine) as holder:
+    with _session(postgres_engine) as holder:
         holder.query(User).filter_by(id=uid).with_for_update().first()
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             usage.increment_user_usage(uid, MONTH, db)
         assert _rows(postgres_engine, uid)[0][1:] == (1, 0, 0)
 
@@ -182,7 +201,7 @@ def test_postgres_lock_setting_is_local_to_counter_transaction(postgres_engine):
     with postgres_engine.connect() as conn:
         original = conn.scalar(select(func.current_setting("lock_timeout")))
         conn.commit()
-        with Session(bind=conn) as db:
+        with _session(conn) as db:
             usage.increment_user_usage(uid, MONTH, db)
         assert conn.scalar(select(func.current_setting("lock_timeout"))) == original
 
@@ -200,7 +219,7 @@ def test_failed_commit_rolls_back_without_retry(sqlite_engine, existing):
             raise RuntimeError("commit outcome unavailable")
 
     with pytest.raises(RuntimeError, match="commit outcome unavailable"):
-        with FailedCommit(sqlite_engine) as db:
+        with sessionmaker(**{**SessionLocal.kw, "bind": sqlite_engine}, class_=FailedCommit)() as db:
             usage.increment_user_usage(uid, MONTH, db)
     assert calls == ["commit"]
     assert _rows(sqlite_engine, uid) == before
@@ -208,17 +227,17 @@ def test_failed_commit_rolls_back_without_retry(sqlite_engine, existing):
 
 def test_existing_duplicate_history_is_neither_repaired_nor_summed(sqlite_engine):
     uid = _seed(sqlite_engine, (2, 3, 4))
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         db.add(UserUsage(user_id=uid, month=MONTH, summary_count=20, qa_count=30, analysis_count=40))
         db.commit()
         selected = db.query(UserUsage).filter_by(user_id=uid, month=MONTH).first().id
     before = _rows(sqlite_engine, uid)
     for writer, _ in WRITERS:
-        with Session(sqlite_engine) as db:
+        with _session(sqlite_engine) as db:
             writer(uid, MONTH, db)
     expected = [(rid, a + (rid == selected), b + (rid == selected), c + (rid == selected)) for rid, a, b, c in before]
     assert _rows(sqlite_engine, uid) == expected
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         assert usage.get_user_usage_count(uid, MONTH, db) == next(r[1] for r in expected if r[0] == selected)
 
 
@@ -229,19 +248,19 @@ async def test_signed_in_background_cached_summary_keeps_legacy_increment(sqlite
     from tests.support.summary_stream_harness import seed_company_filing
 
     Base.metadata.create_all(sqlite_engine)
-    factory = sessionmaker(bind=sqlite_engine)
+    factory = sessionmaker(**{**SessionLocal.kw, "bind": sqlite_engine})
     monkeypatch.setattr(database, "SessionLocal", factory)
     monkeypatch.setattr(summary_generation_service, "SessionLocal", factory)
     fid = seed_company_filing()
     uid = _seed(sqlite_engine)
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         db.add(Summary(filing_id=fid, business_overview="Already stored"))
         db.commit()
     drain = AsyncMock(side_effect=AssertionError("cached background path regenerated"))
     monkeypatch.setattr(summary_pipeline, "stream_filing_summary", drain)
     await summary_generation_service.generate_summary_background(fid, uid)
     drain.assert_not_called()
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         assert usage.get_user_usage_count(uid, usage.get_current_month(), db) == 1
         assert db.query(Summary).filter_by(filing_id=fid).count() == 1
 
@@ -256,8 +275,13 @@ def _free_limit(monkeypatch, limit):
     monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(monthly_summary_limit=limit))
 
 
+def _pin_month(monkeypatch):
+    """Admission reads get_current_month(); cases that seed MONTH must admit in MONTH."""
+    monkeypatch.setattr(usage, "get_current_month", lambda: MONTH)
+
+
 def _reservations(engine, user_id):
-    with Session(engine) as db:
+    with _session(engine) as db:
         return [(r.token, r.kind) for r in db.query(UsageReservation).filter_by(user_id=user_id).order_by(UsageReservation.id)]
 
 
@@ -266,12 +290,13 @@ def _load_user(db, user_id):
 
 
 def test_postgres_parallel_reservations_admit_exactly_the_remaining_units(postgres_engine, monkeypatch):
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 2)
     uid = _seed(postgres_engine, (0, 0, 0))
     ready = threading.Barrier(3, timeout=5)
 
     def reserve():
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             user = _load_user(db, uid)
             ready.wait()
             return usage.reserve_summary_use(user, db)
@@ -288,9 +313,10 @@ def test_postgres_parallel_reservations_admit_exactly_the_remaining_units(postgr
 
 
 def test_postgres_converted_reservation_blocks_and_released_reservation_readmits(postgres_engine, monkeypatch):
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 1)
     uid = _seed(postgres_engine, (0, 0, 0))
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         admitted, completed, limit, token = usage.reserve_summary_use(_load_user(db, uid), db)
         assert (admitted, completed, limit) == (True, 0, 1) and token
         # The reservation is held, so a second request is blocked before anything completes.
@@ -300,11 +326,11 @@ def test_postgres_converted_reservation_blocks_and_released_reservation_readmits
         usage.increment_user_usage(uid, MONTH, db)
     assert _reservations(postgres_engine, uid) == []
     assert _rows(postgres_engine, uid)[0][1] == 1
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         assert usage.reserve_summary_use(_load_user(db, uid), db) == (False, 1, 1, None)
 
     other = _seed(postgres_engine, (0, 0, 0))
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         _, _, _, token = usage.reserve_summary_use(_load_user(db, other), db)
         assert usage.reserve_summary_use(_load_user(db, other), db)[0] is False
         usage.release_reservation(token, db)  # abandoned generation: give the unit back
@@ -314,9 +340,10 @@ def test_postgres_converted_reservation_blocks_and_released_reservation_readmits
 
 
 def test_postgres_expired_reservation_is_ignored_and_swept(postgres_engine, monkeypatch):
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 1)
     uid = _seed(postgres_engine, (0, 0, 0))
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         db.add(UsageReservation(
             user_id=uid, month=MONTH, kind=usage.SUMMARY_RESERVATION_KIND, token="stale-lease",
             expires_at=usage.utcnow() - timedelta(seconds=1), created_at=usage.utcnow() - timedelta(seconds=400),
@@ -331,11 +358,11 @@ def test_postgres_reservation_lock_wait_is_bounded_and_admits_nothing(postgres_e
     _free_limit(monkeypatch, 5)
     uid = _seed(postgres_engine, (0, 0, 0))
     monkeypatch.setattr(settings, "USAGE_COUNTER_LOCK_TIMEOUT_MS", 80)
-    holder = Session(postgres_engine)
+    holder = _session(postgres_engine)
     holder.execute(select(User.id).where(User.id == uid).with_for_update())
     try:
         started = time.monotonic()
-        with Session(postgres_engine) as db, pytest.raises(DBAPIError) as excinfo:
+        with _session(postgres_engine) as db, pytest.raises(DBAPIError) as excinfo:
             usage.reserve_summary_use(_load_user(db, uid), db)
         assert getattr(excinfo.value.orig, "pgcode", None) == "55P03"
         assert time.monotonic() - started < 1.5
@@ -351,21 +378,22 @@ def test_postgres_conversion_between_admission_reads_blocks_instead_of_over_admi
     was already seen as a lease (conservative block); reading the counter first would see
     neither. The hook reads the counter and only then lets the completion commit, which is the
     one interleaving that tells the two read orders apart."""
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 1)
     uid = _seed(postgres_engine, (0, 0, 0))
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         _, _, _, token = usage.reserve_summary_use(_load_user(db, uid), db)
     real_count = usage.get_user_usage_count
 
     def count_then_convert(user_id, month, db):
         completed = real_count(user_id, month, db)
         # The in-flight generation completes in another session while admission is mid-decision.
-        with Session(postgres_engine) as other:
+        with _session(postgres_engine) as other:
             usage.increment_user_usage(uid, usage.convert_reservation(token, other), other)
         return completed
 
     monkeypatch.setattr(usage, "get_user_usage_count", count_then_convert)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         assert usage.reserve_summary_use(_load_user(db, uid), db)[0] is False
     assert _rows(postgres_engine, uid)[0][1] == 1
     assert _reservations(postgres_engine, uid) == []
@@ -376,9 +404,10 @@ def test_postgres_deleting_the_users_row_cascades_live_and_expired_reservations(
     a crashed worker left behind (swept only on a later admission), must go with it instead of
     failing the deletion on the FK. Core delete bypasses ORM cascades: this proves the database
     constraint (the ORM path is pinned in tests/unit/test_usage_reservation_wiring.py)."""
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 5)
     uid = _seed(postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         assert usage.reserve_summary_use(_load_user(db, uid), db)[0] is True
         db.add(UsageReservation(
             user_id=uid, month=MONTH, kind=usage.SUMMARY_RESERVATION_KIND, token="abandoned-lease",
@@ -386,7 +415,7 @@ def test_postgres_deleting_the_users_row_cascades_live_and_expired_reservations(
         ))
         db.commit()
     assert len(_reservations(postgres_engine, uid)) == 2
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         db.execute(delete(User).where(User.id == uid))
         db.commit()
     assert _reservations(postgres_engine, uid) == []
@@ -397,7 +426,7 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
     a UTC month rollover never lands in the new month (whose admissions did not see it)."""
     uid = _seed(sqlite_engine)
     admitted_month = "2026-08"
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         db.add(UsageReservation(
             user_id=uid, month=admitted_month, kind=usage.SUMMARY_RESERVATION_KIND, token="rollover-lease",
             expires_at=usage.utcnow() + timedelta(seconds=300), created_at=usage.utcnow(),
@@ -409,7 +438,7 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
         assert usage.convert_reservation("rollover-lease", db) == admitted_month
         usage.increment_user_usage(uid, admitted_month, db)  # commits the delete with the increment
     assert _reservations(sqlite_engine, uid) == []
-    with Session(sqlite_engine) as db:
+    with _session(sqlite_engine) as db:
         buckets = {r.month: r.summary_count for r in db.query(UserUsage).filter_by(user_id=uid)}
     assert buckets == {admitted_month: 1}
 
@@ -419,15 +448,11 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
 # proofs above; these pin what is specific to each: the cap each one reads, the completed count
 # it converts into, and the lifetime scope that must survive a month rollover.
 
-def _pin_month(monkeypatch):
-    monkeypatch.setattr(usage, "get_current_month", lambda: MONTH)
-
-
 def _parallel(engine, uid, reserve, workers=3):
     ready = threading.Barrier(workers, timeout=5)
 
     def run():
-        with Session(engine) as db:
+        with _session(engine) as db:
             user = _load_user(db, uid)
             ready.wait()
             return reserve(user, db)
@@ -436,13 +461,14 @@ def _parallel(engine, uid, reserve, workers=3):
         return [f.result(timeout=8) for f in [pool.submit(run) for _ in range(workers)]]
 
 
-@pytest.mark.parametrize("reserve,setting,kind,column", [
-    (usage.reserve_qa_use, "COPILOT_MONTHLY_QUESTION_CAP", usage.QA_RESERVATION_KIND, 2),
-    (usage.reserve_analysis_use, "ANALYSIS_MONTHLY_CAP", usage.ANALYSIS_RESERVATION_KIND, 3),
+@pytest.mark.parametrize("reserve,owner,cap,kind,column", [
+    # Copilot's cap is a setting; Analysis's is a plan constant the usage service reads (D-050).
+    (usage.reserve_qa_use, settings, "COPILOT_MONTHLY_QUESTION_CAP", usage.QA_RESERVATION_KIND, 2),
+    (usage.reserve_analysis_use, usage, "ANALYSIS_MONTHLY_CAP", usage.ANALYSIS_RESERVATION_KIND, 3),
 ])
-def test_postgres_parallel_monthly_reservations_admit_exactly_the_cap(postgres_engine, monkeypatch, reserve, setting, kind, column):
+def test_postgres_parallel_monthly_reservations_admit_exactly_the_cap(postgres_engine, monkeypatch, reserve, owner, cap, kind, column):
     _pin_month(monkeypatch)
-    monkeypatch.setattr(settings, setting, 2)
+    monkeypatch.setattr(owner, cap, 2)
     uid = _seed(postgres_engine, (0, 1, 1))  # one completed use of each kind already counted
     outcomes = _parallel(postgres_engine, uid, reserve)
     admitted = [o for o in outcomes if o[0]]
@@ -457,19 +483,19 @@ def test_postgres_parallel_taste_reservations_admit_exactly_the_lifetime_allowan
     _pin_month(monkeypatch)
     monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(copilot_free_taste=2))
     uid = _seed(postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         db.query(User).filter(User.id == uid).update({User.copilot_free_taste_used: 1})
         db.commit()
     outcomes = _parallel(postgres_engine, uid, usage.reserve_qa_taste_use)
     admitted = [o for o in outcomes if o[0]]
     assert len(admitted) == 1 and [o for o in outcomes if not o[0]] == [(False, 1, 2, None)] * 2
     token = admitted[0][3]
-    with Session(postgres_engine) as db:  # the lease is lifetime-scoped: PostgreSQL accepted the sentinel
+    with _session(postgres_engine) as db:  # the lease is lifetime-scoped: PostgreSQL accepted the sentinel
         assert [(r.kind, r.month) for r in db.query(UsageReservation).filter_by(user_id=uid)] == \
             [(usage.QA_TASTE_RESERVATION_KIND, usage.LIFETIME_SCOPE)]
         # A month rollover between admission and the next question changes nothing for a
         # lifetime allowance: the held lease is still seen, the request is still refused.
-        monkeypatch.setattr(usage, "get_current_month", lambda: "2000-01")
+        monkeypatch.setattr(usage, "get_current_month", lambda: ROLLOVER_MONTH)
         assert usage.reserve_qa_taste_use(_load_user(db, uid), db) == (False, 1, 2, None)
         # Completion converts into the users-row counter; the allowance is then spent for good.
         assert usage.convert_reservation(token, db) == usage.LIFETIME_SCOPE
@@ -484,16 +510,16 @@ def test_postgres_taste_completion_racing_admission_never_over_admits(postgres_e
     the in-flight unit as a lease or as a completed use and refuses."""
     monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(copilot_free_taste=1))
     uid = _seed(postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         _, _, _, token = usage.reserve_qa_taste_use(_load_user(db, uid), db)
 
     def complete():
-        with Session(postgres_engine) as other:
+        with _session(postgres_engine) as other:
             usage.convert_reservation(token, other)
             usage.increment_user_copilot_free_taste(uid, other)
 
     def admit():
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             return usage.reserve_qa_taste_use(_load_user(db, uid), db)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -501,7 +527,7 @@ def test_postgres_taste_completion_racing_admission_never_over_admits(postgres_e
         completion.result(timeout=8)
         outcome = admission.result(timeout=8)
     assert outcome in ((False, 0, 1, None), (False, 1, 1, None))  # lease seen, or completed use seen
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         assert db.query(User.copilot_free_taste_used).filter(User.id == uid).scalar() == 1
         assert usage.reserve_qa_taste_use(_load_user(db, uid), db) == (False, 1, 1, None)
     assert _reservations(postgres_engine, uid) == []

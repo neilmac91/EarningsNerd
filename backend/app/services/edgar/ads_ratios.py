@@ -50,10 +50,10 @@ class ADSRatio:
 # Verified 2026-06-28 against each issuer's 20-F cover / deposit agreement; the same ratios are
 # mirrored in the eval golden set (backend/evals/golden_set.json `ads_ratio`).
 _ADS_RATIOS: Dict[str, ADSRatio] = {
-    "1577552": ADSRatio(8, "2026-06-28", "Alibaba 20-F cover / deposit agreement — 1 ADS = 8 ordinary shares", "BABA"),
-    "1046179": ADSRatio(5, "2026-06-28", "TSMC 20-F cover / deposit agreement — 1 ADS = 5 common shares", "TSM"),
-    "1549802": ADSRatio(2, "2026-06-28", "JD.com 20-F cover / deposit agreement — 1 ADS = 2 Class A ordinary shares", "JD"),
-    "1737806": ADSRatio(4, "2026-06-28", "PDD Holdings 20-F cover / deposit agreement — 1 ADS = 4 ordinary shares", "PDD"),
+    "1577552": ADSRatio(8, "2026-06-28", "Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares", "BABA"),
+    "1046179": ADSRatio(5, "2026-06-28", "TSMC 20-F cover / deposit agreement: 1 ADS = 5 common shares", "TSM"),
+    "1549802": ADSRatio(2, "2026-06-28", "JD.com 20-F cover / deposit agreement: 1 ADS = 2 Class A ordinary shares", "JD"),
+    "1737806": ADSRatio(4, "2026-06-28", "PDD Holdings 20-F cover / deposit agreement: 1 ADS = 4 ordinary shares", "PDD"),
 }
 
 

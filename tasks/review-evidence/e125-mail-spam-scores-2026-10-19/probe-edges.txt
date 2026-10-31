@@ -1,0 +1,45 @@
+LOW     span written closed, then text: 'Pale after a closed span.' #ffffff/#ffffff LOW
+LOW     span written closed with a space: 'Pale after a closed span.' #ffffff/#ffffff LOW
+LOW     bare span written closed: 'Words on black.' #000000/#000000 LOW
+LOW     duplicate style, white first: 'Which style?' #ffffff/#ffffff LOW
+        duplicate style, white last: 'Which style?' #000000/#ffffff
+        xmp holding a span: '<span style="color:#ffffff">' #000000/#ffffff
+        textarea holding a span: '<span style="color:#ffffff">' #000000/#ffffff
+        title holding a span: '<span style="color:#ffffff">' #000000/#ffffff
+        plaintext holding a span: '<span style="color:#ffffff">' #000000/#ffffff
+LOW     noscript holding a span: 'In a noscript.' #ffffff/#ffffff LOW
+        cdata section: '<span style="color:#ffffff">' #000000/#ffffff; 'After.' #000000/#ffffff
+LOW     marked section if: 'Revealed.' #ffffff/#ffffff LOW
+LOW     upper-case tag and attribute: 'Upper case.' #ffffff/#ffffff LOW
+LOW     unquoted style: 'Unquoted.' #ffffff/#ffffff LOW
+LOW     style with an entity: 'Entity.' #ffffff/#ffffff LOW
+    INV colour with important: 'Important.' invalid/#ffffff
+        colour with spaces around colon: 'Spaced.' #000000/#ffffff
+LOW     colour in capitals: 'Capitals.' #ffffff/#ffffff LOW
+LOW     three-digit hex: 'Short hex.' #ffffff/#ffffff LOW
+LOW     named colour: 'Named.' #ffffff/#ffffff LOW
+LOW     rgb colour: 'RGB.' #ffffff/#ffffff LOW
+        a later color part wins: 'Later wins.' #000000/#ffffff
+LOW     inherit keeps the parent: 'Inherit.' #ffffff/#ffffff LOW
+LOW     unclosed span across cells: 'A' #ffffff/#000000; 'B' #ffffff/#ffffff LOW; 'C' #ffffff/#ffffff LOW
+LOW     unclosed td then tr: 'a' #ffffff/#000000; 'Black text, default ink.' #000000/#000000 LOW
+LOW     end tag never opened: 'After a stray end.' #ffffff/#ffffff LOW
+LOW     body text attribute: 'Body text.' #ffffff/#ffffff LOW
+LOW     font color: 'Font colour.' #ffffff/#ffffff LOW
+LOW     font closed by a cell: 'x' #ffffff/#ffffff LOW; 'Pale' #ffffff/#000000
+        whitespace only run: 
+        nbsp only run: 
+LOW     numeric nbsp only run: '\xa0' #ffffff/#ffffff LOW
+LOW     zero-width run: '\u200b' #ffffff/#ffffff LOW
+        text inside a comment: 
+LOW     conditional comment downlevel: 'Shown.' #ffffff/#ffffff LOW
+        script holding markup: 'Dark.' #000000/#ffffff
+        style block holding markup: 'Dark.' #000000/#ffffff
+        namespaced tag: 'Namespaced.' #000000/#ffffff
+        basefont with size: 'After basefont.' #000000/#ffffff
+LOW     basefont without size: 'After basefont.' #ffffff/#ffffff LOW
+LOW     vertical tab in style: 'VT.' #ffffff/#ffffff LOW
+LOW     newline in style: 'NL.' #ffffff/#ffffff LOW
+LOW     near white: 'Near white.' #f4f3ee/#ffffff LOW
+LOW     distance just under 12: 'dark grey' #0f0f0f/#000000 LOW
+        distance just over 12: 'dark grey' #111111/#000000

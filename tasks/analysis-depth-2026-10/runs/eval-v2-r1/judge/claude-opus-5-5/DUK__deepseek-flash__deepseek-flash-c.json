@@ -1,0 +1,106 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "d15c13e5beec2ad67d392dfed686c213d541c27b3eaba174931a27627b5082b3",
+ "y_sha256": "f4c589650d10b811ef9f3e253fc5d1fb1dca5ffba19eb0dbf4d59367639d62f1",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds labelled analysis drawn from adjusted-EPS passages, but it misstates the 0.55x current ratio as the window low when its own source gives 0.53x. Its 'short-term maturities' and 'rather than cost cuts' claims are unsupported, the latter contradicted by the FY2023 lower-O&M passage, and it forecasts rising leverage. A has minor overreach ('peak', 'range since FY2019'), but it discloses the FY2021 restatement and gives concrete watch thresholds."
+   },
+   "cost_usd": 0.134633,
+   "latency_s": 14.658,
+   "backend": "claude_cli",
+   "input_tokens": 14604,
+   "cached_input_tokens": 727,
+   "output_tokens": 1174,
+   "reasoning_tokens": 931,
+   "meta": {
+    "duration_api_ms": 10954,
+    "cache_creation_input_tokens": 13875,
+    "list_cost_usd": 0.079133
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds labelled analysis drawn from adjusted-EPS passages, but it misstates the 0.55x current ratio as the window low when its own source gives 0.53x. Its 'short-term maturities' and 'rather than cost cuts' claims are unsupported, the latter contradicted by the FY2023 lower-O&M passage, and it forecasts rising leverage. A has minor overreach ('peak', 'range since FY2019'), but it discloses the FY2021 restatement and gives concrete watch thresholds.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts apply a net-income passage to explain FY2022 revenue growth. A also wrongly attaches the impairment to revenue. A's unsourced claims ('short-term debt maturities', 'rather than cost cuts', which [37]'s lower O&M contradicts) are the bigger lapse. B overstates its OCF/NI range, which FY2020 and FY2021 fall outside. B adds peer net margin and ROE, cash runway, the FY2021 restatement caveat, and watch items with clear thresholds."
+   },
+   "cost_usd": 0.131057,
+   "latency_s": 14.033,
+   "backend": "claude_cli",
+   "input_tokens": 14602,
+   "cached_input_tokens": 727,
+   "output_tokens": 996,
+   "reasoning_tokens": 751,
+   "meta": {
+    "duration_api_ms": 9670,
+    "cache_creation_input_tokens": 13873,
+    "list_cost_usd": 0.075565
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts apply a net-income passage to explain FY2022 revenue growth. A also wrongly attaches the impairment to revenue. A's unsourced claims ('short-term debt maturities', 'rather than cost cuts', which [37]'s lower O&M contradicts) are the bigger lapse. B overstates its OCF/NI range, which FY2020 and FY2021 fall outside. B adds peer net margin and ROE, cash runway, the FY2021 restatement caveat, and watch items with clear thresholds.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.26569
+}

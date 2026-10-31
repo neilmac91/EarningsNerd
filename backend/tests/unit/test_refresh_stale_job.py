@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app import database
 from app.models import Base, Company, Filing, JobRun, Summary
-from app.routers import admin
+from app.services import admin_summary_service
 from app.services import job_run_service as jobs
 from app.services import summary_refresh
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
@@ -62,7 +62,7 @@ def _last_report(capsys):
 
 
 def test_shared_filter_is_the_admin_endpoints_filter():
-    assert admin._stale_summary_filter is summary_refresh.stale_filter  # one encoding, pinned to is_stale elsewhere
+    assert admin_summary_service._stale_summary_filter is summary_refresh.stale_filter  # one encoding, pinned to is_stale elsewhere
 
 
 def test_dry_run_reports_the_breakdown_records_a_dry_run_and_generates_nothing(sessions, monkeypatch, capsys):

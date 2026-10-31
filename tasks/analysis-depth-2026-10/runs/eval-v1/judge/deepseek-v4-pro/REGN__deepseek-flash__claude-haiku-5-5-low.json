@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, explicitly flags the revenue recast, and ties margin decline to EYLEA erosion. Draft B is solid but less interpretive and misses the recast. Both are well-grounded, but A's extra insight and clearer red flags give it the edge."
+   },
+   "cost_usd": 0.005645,
+   "latency_s": 2.411,
+   "input_tokens": 10641,
+   "output_tokens": 129,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, explicitly flags the revenue recast, and ties margin decline to EYLEA erosion. Draft B is solid but less interpretive and misses the recast. Both are well-grounded, but A's extra insight and clearer red flags give it the edge.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides deeper analysis, including EYLEA HD offset, tax rate, and revenue recast disclosure, with stronger grounding via explicit citations for each claim. It covers more red flags and watch items with numeric thresholds. Draft A is solid but less comprehensive and occasionally lacks causal support."
+   },
+   "cost_usd": 0.005645,
+   "latency_s": 2.711,
+   "input_tokens": 10641,
+   "output_tokens": 129,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B provides deeper analysis, including EYLEA HD offset, tax rate, and revenue recast disclosure, with stronger grounding via explicit citations for each claim. It covers more red flags and watch items with numeric thresholds. Draft A is solid but less comprehensive and occasionally lacks causal support.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.01129
+}

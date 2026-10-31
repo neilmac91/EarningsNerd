@@ -1,0 +1,3 @@
+Message: 'Using selector: %s'
+Arguments: ('EpollSelector',)
+pytest_exit=0

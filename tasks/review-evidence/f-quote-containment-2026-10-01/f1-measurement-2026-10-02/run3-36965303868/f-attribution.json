@@ -1,0 +1,1717 @@
+{
+ "code": {
+  "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+  "service_sha256": "a6fa8ef96500982f33274be08647a2e3440534105e1faab3ed2bd63d1f06af64",
+  "git_head": "89bd1e1277adafb52a4eb31f834ac89369c7b7dd",
+  "git_dirty": false
+ },
+ "runs": [
+  {
+   "run": "36965303868",
+   "file_sha256": "b161b0f6eac3d003c1c02bd61b2d60f71e42f40cb534422c8f117385c3cd9bba",
+   "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+   "tool_code": {
+    "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+    "service_sha256": "a6fa8ef96500982f33274be08647a2e3440534105e1faab3ed2bd63d1f06af64",
+    "git_head": "89bd1e1277adafb52a4eb31f834ac89369c7b7dd",
+    "git_dirty": false
+   },
+   "rows": 18,
+   "with_deltas": 18
+  }
+ ],
+ "rows": [
+  {
+   "run": "36965303868",
+   "row": "AAPL sales-gross-profit-2025 d0",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000320193-25-000079",
+    "chars": 124125,
+    "sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [F1] and gross margin (gross profit) of $195,201 million USD [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did total net sales grow year over year?\", \"What was the total gross margin percentage?\", \"How did Services net sales trend?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total net sales grow year over year?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was the total gross margin percentage?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Services net sales trend?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total net sales grow year over year?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was the total gross margin percentage?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Services net sales trend?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "AAPL sales-gross-profit-2025 d1",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000320193-25-000079",
+    "chars": 124125,
+    "sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [F1] and gross margin (gross profit) of $195,201 million USD [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did total net sales change year over year?\", \"What was the total gross margin percentage?\", \"How did Services net sales trend?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total net sales change year over year?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was the total gross margin percentage?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Services net sales trend?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total net sales change year over year?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was the total gross margin percentage?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Services net sales trend?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "AAPL sales-gross-profit-2025 d2",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000320193-25-000079",
+    "chars": 124125,
+    "sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [F1] and gross margin (gross profit) of $195,201 million USD [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did total net sales grow year over year?\", \"What was the total gross margin percentage?\", \"How did Services net sales trend?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total net sales grow year over year?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was the total gross margin percentage?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Services net sales trend?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the fiscal year ended September 27, 2025, Apple reported total net sales of $416,161 million USD [1] and gross margin (gross profit) of $195,201 million USD [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total net sales grow year over year?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was the total gross margin percentage?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Services net sales trend?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "TSLA sales-operating-income-2024 d0",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001628280-25-003063",
+    "chars": 163834,
+    "sha256": "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the year ended December 31, 2024, Tesla reported total revenues of $97.69 billion [F1] and income from operations of $7.08 billion [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income trend in 2024?\", \"What drove the change in gross margin?\", \"How did energy segment revenue grow?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2024, Tesla reported total revenues of $97.69 billion [1] and income from operations of $7.08 billion [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend in 2024?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in gross margin?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did energy segment revenue grow?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2024, Tesla reported total revenues of $97.69 billion [1] and income from operations of $7.08 billion [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend in 2024?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in gross margin?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did energy segment revenue grow?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "TSLA sales-operating-income-2024 d1",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001628280-25-003063",
+    "chars": 163834,
+    "sha256": "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the year ended December 31, 2024, Tesla reported total revenues of $97,690 million (USD) [F1] and income from operations of $7,076 million (USD) [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income trend in 2024?\", \"What drove the change in gross margin?\", \"How did operating cash flow compare to 2023?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2024, Tesla reported total revenues of $97,690 million (USD) [1] and income from operations of $7,076 million (USD) [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend in 2024?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in gross margin?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow compare to 2023?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2024, Tesla reported total revenues of $97,690 million (USD) [1] and income from operations of $7,076 million (USD) [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend in 2024?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in gross margin?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow compare to 2023?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "TSLA sales-operating-income-2024 d2",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001628280-25-003063",
+    "chars": 163834,
+    "sha256": "c672b174e4fc6440d475b329b40ab89fb3792f75d5797071a4af253b3593a79e"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the year ended December 31, 2024, Tesla reported total revenues of $97.69 billion [F1] and income from operations of $7.08 billion [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did total gross margin trend in 2024?\", \"What drove the change in net income?\", \"How did energy segment revenue grow?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2024, Tesla reported total revenues of $97.69 billion [1] and income from operations of $7.08 billion [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total gross margin trend in 2024?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in net income?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did energy segment revenue grow?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2024, Tesla reported total revenues of $97.69 billion [1] and income from operations of $7.08 billion [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did total gross margin trend in 2024?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in net income?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did energy segment revenue grow?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "MSFT sales-diluted-eps-2025 d0",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000950170-25-100235",
+    "chars": 164767,
+    "sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [F1] and diluted earnings per share of $13.64 [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income and operating income trend?\", \"What drove the increase in cost of revenue?\", \"How did each segment's revenue perform?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income and operating income trend?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in cost of revenue?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did each segment's revenue perform?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income and operating income trend?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in cost of revenue?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did each segment's revenue perform?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "MSFT sales-diluted-eps-2025 d1",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000950170-25-100235",
+    "chars": 164767,
+    "sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [F1] and diluted earnings per share of $13.64 [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income and operating income trend?\", \"What drove the increase in cost of revenue?\", \"How did each segment perform in fiscal 2025?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income and operating income trend?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in cost of revenue?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did each segment perform in fiscal 2025?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income and operating income trend?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in cost of revenue?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did each segment perform in fiscal 2025?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "MSFT sales-diluted-eps-2025 d2",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000950170-25-100235",
+    "chars": 164767,
+    "sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [F1] and diluted earnings per share of $13.64 [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income and operating income trend?\", \"What drove the change in gross margin?\", \"How did each segment perform in fiscal 2025?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income and operating income trend?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in gross margin?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did each segment perform in fiscal 2025?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended June 30, 2025, Microsoft reported total revenue of $281,724 million (USD) [1] and diluted earnings per share of $13.64 [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income and operating income trend?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in gross margin?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did each segment perform in fiscal 2025?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "BABA native-revenue-2026 d0",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001193125-26-231755",
+    "chars": 231089,
+    "sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [F1].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income trend across fiscal 2024-2026?\", \"What drove the change in operating income in fiscal 2026?\", \"How did Cloud Intelligence Group revenue grow?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend across fiscal 2024-2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in operating income in fiscal 2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Cloud Intelligence Group revenue grow?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend across fiscal 2024-2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in operating income in fiscal 2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Cloud Intelligence Group revenue grow?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "BABA native-revenue-2026 d1",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001193125-26-231755",
+    "chars": 231089,
+    "sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [F1].",
+    "reason": null,
+    "followups_envelope": "[\"How did revenue trend across fiscal 2024-2026?\", \"What drove the change in net income in fiscal 2026?\", \"How did Cloud Intelligence Group revenue grow?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did revenue trend across fiscal 2024-2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in net income in fiscal 2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Cloud Intelligence Group revenue grow?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did revenue trend across fiscal 2024-2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in net income in fiscal 2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Cloud Intelligence Group revenue grow?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "BABA native-revenue-2026 d2",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001193125-26-231755",
+    "chars": 231089,
+    "sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [F1].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income trend across fiscal 2024-2026?\", \"What drove the change in operating income in fiscal 2026?\", \"How did Cloud Intelligence Group revenue grow?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend across fiscal 2024-2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in operating income in fiscal 2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Cloud Intelligence Group revenue grow?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the year ended March 31, 2026 was RMB1,023,670 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend across fiscal 2024-2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the change in operating income in fiscal 2026?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did Cloud Intelligence Group revenue grow?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "BABA viewed-native-revenue-2025 d0",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000950170-25-090161",
+    "chars": 308486,
+    "sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [F1].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income trend over fiscal 2023-2025?\", \"What was operating income in fiscal 2025?\", \"How did operating cash flow change year over year?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend over fiscal 2023-2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was operating income in fiscal 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow change year over year?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend over fiscal 2023-2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was operating income in fiscal 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow change year over year?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "BABA viewed-native-revenue-2025 d1",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000950170-25-090161",
+    "chars": 308486,
+    "sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [F1].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income trend over the three years?\", \"What was operating income in fiscal 2025?\", \"How did operating cash flow change year over year?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend over the three years?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was operating income in fiscal 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow change year over year?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend over the three years?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was operating income in fiscal 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow change year over year?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "BABA viewed-native-revenue-2025 d2",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0000950170-25-090161",
+    "chars": 308486,
+    "sha256": "be44997693273e8c0853ac9f787471f05cc23300d349b8677ee8841eb0912af3"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [F1].",
+    "reason": null,
+    "followups_envelope": "[\"How did net income trend over fiscal 2023-2025?\", \"What was operating income in fiscal 2025?\", \"How did operating cash flow change year over year?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend over fiscal 2023-2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was operating income in fiscal 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow change year over year?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Consolidated revenue for the fiscal year ended March 31, 2025 was RMB996,347 million [1].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did net income trend over fiscal 2023-2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What was operating income in fiscal 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "How did operating cash flow change year over year?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "ASML us-gaap-sales-net-income-2025 d0",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001628280-26-011378",
+    "chars": 260154,
+    "sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Total net sales for the year ended December 31, 2025 were €32,667.3 million [F1], and net income was €9,609.4 million [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did gross margin trend in 2025?\", \"What drove the increase in net sales?\", \"What is the 2026 revenue outlook?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Total net sales for the year ended December 31, 2025 were €32,667.3 million, and net income was €9,609.4 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did gross margin trend in 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in net sales?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "What is the 2026 revenue outlook?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Total net sales for the year ended December 31, 2025 were €32,667.3 million [1], and net income was €9,609.4 million [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did gross margin trend in 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in net sales?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "What is the 2026 revenue outlook?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "ASML us-gaap-sales-net-income-2025 d1",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001628280-26-011378",
+    "chars": 260154,
+    "sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "For the year ended December 31, 2025, ASML reported total net sales of €32,667.3 million [F1] and net income of €9,609.4 million [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did gross margin trend in 2025?\", \"What drove the increase in net income?\", \"What is the 2026 revenue outlook?\"]"
+   },
+   "unrecorded_tool_calls": [],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2025, ASML reported total net sales of €32,667.3 million [1] and net income of €9,609.4 million [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did gross margin trend in 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in net income?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "What is the 2026 revenue outlook?",
+     "reasons": []
+    }
+   ],
+   "fidelity": true,
+   "fidelity_matches": [
+    "without F",
+    "with F"
+   ],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "For the year ended December 31, 2025, ASML reported total net sales of €32,667.3 million [1] and net income of €9,609.4 million [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did gross margin trend in 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in net income?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "What is the 2026 revenue outlook?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  },
+  {
+   "run": "36965303868",
+   "row": "ASML us-gaap-sales-net-income-2025 d2",
+   "run_outcome": "published",
+   "run_error": null,
+   "source_binding": {
+    "field": "content_cache.critical_excerpt (inputs.source_text)",
+    "accession": "0001628280-26-011378",
+    "chars": 260154,
+    "sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80"
+   },
+   "mode": "replayed from candidate deltas",
+   "raw": {
+    "answer": "Total net sales for the year ended December 31, 2025 were €32,667.3 million [F1], and net income was €9,609.4 million [F2].",
+    "reason": null,
+    "followups_envelope": "[\"How did gross margin trend in 2025?\", \"What drove the increase in net sales?\", \"What is the 2026 revenue outlook?\"]"
+   },
+   "unrecorded_tool_calls": [
+    {
+     "name": "get_financial_fact",
+     "args": {
+      "concept": "revenue"
+     },
+     "served_from_trace": false
+    }
+   ],
+   "replay_logged": [],
+   "terminal": {
+    "replay": "complete",
+    "retained": "complete"
+   },
+   "check_reached": true,
+   "replay_surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Total net sales for the year ended December 31, 2025 were €32,667.3 million, and net income was €9,609.4 million.",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did gross margin trend in 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in net sales?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "What is the 2026 revenue outlook?",
+     "reasons": []
+    }
+   ],
+   "fidelity": false,
+   "fidelity_matches": [],
+   "surfaces": [
+    {
+     "surface": "answer",
+     "index": null,
+     "text": "Total net sales for the year ended December 31, 2025 were €32,667.3 million [1], and net income was €9,609.4 million [2].",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 0,
+     "text": "How did gross margin trend in 2025?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 1,
+     "text": "What drove the increase in net sales?",
+     "reasons": []
+    },
+    {
+     "surface": "chip",
+     "index": 2,
+     "text": "What is the 2026 revenue outlook?",
+     "reasons": []
+    }
+   ],
+   "verdict_source": "retained final strings",
+   "replay_agrees": true,
+   "mismatch_cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step",
+   "chips_with_double_quotes": 0,
+   "failed": [],
+   "withheld_by_f": false
+  }
+ ],
+ "summary": {
+  "code": {
+   "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+   "service_sha256": "a6fa8ef96500982f33274be08647a2e3440534105e1faab3ed2bd63d1f06af64",
+   "git_head": "89bd1e1277adafb52a4eb31f834ac89369c7b7dd",
+   "git_dirty": false
+  },
+  "runs": [
+   {
+    "run": "36965303868",
+    "source_sha": "f80e288db3ba2734e07333511503c2b5c736bfe6",
+    "rows": 18,
+    "with_deltas": 18
+   }
+  ],
+  "rows": 18,
+  "replayed": 18,
+  "answer_only": 0,
+  "replay_mismatches": [
+   {
+    "row": "BABA native-revenue-2026 d0 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   },
+   {
+    "row": "BABA native-revenue-2026 d1 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   },
+   {
+    "row": "BABA native-revenue-2026 d2 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   },
+   {
+    "row": "BABA viewed-native-revenue-2025 d0 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   },
+   {
+    "row": "BABA viewed-native-revenue-2025 d1 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   },
+   {
+    "row": "BABA viewed-native-revenue-2025 d2 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   },
+   {
+    "row": "ASML us-gaap-sales-net-income-2025 d0 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   },
+   {
+    "row": "ASML us-gaap-sales-net-income-2025 d2 @36965303868",
+    "cause": "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step"
+   }
+  ],
+  "replay_mismatch_causes": {
+   "unrecorded server-side get_financial_fact lookup in the uncited-claim repair step": 8
+  },
+  "replay_verdict_disagreements": [],
+  "published_by_run": {
+   "rows": 18,
+   "f_would_withhold": 0,
+   "by_surface": {
+    "answer": 0,
+    "reason": 0,
+    "chip": 0
+   }
+  },
+  "withheld_or_errored_by_run": {
+   "rows": 0,
+   "F-withheld": [],
+   "other reason": [],
+   "UNEXPLAINED": []
+  },
+  "not_disclosed_rows": 0,
+  "rows_with_chips": 18,
+  "chips_checked": 54,
+  "rows_with_double_quoted_chips": 0,
+  "chips_with_double_quotes": 0,
+  "failing_chips": 0
+ }
+}

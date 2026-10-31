@@ -5,7 +5,7 @@ import PaneResizer from '@/features/filings/components/copilot/PaneResizer'
 describe('PaneResizer', () => {
   it('exposes window-splitter ARIA', () => {
     render(<PaneResizer width={420} min={360} max={640} onResize={() => {}} />)
-    const sep = screen.getByRole('separator', { name: /resize copilot/i })
+    const sep = screen.getByRole('separator', { name: /resize source pane/i })
     expect(sep).toHaveAttribute('aria-orientation', 'vertical')
     expect(sep).toHaveAttribute('aria-valuemin', '360')
     expect(sep).toHaveAttribute('aria-valuemax', '640')

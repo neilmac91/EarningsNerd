@@ -1,0 +1,17 @@
+"""E125: keep each mail's score, size and the symbols that score points, with their points, from score_options.py's
+output, and of the 0-point measurement symbol X_URLS the count URI_COUNT_ODD reads and the top-level type. The
+0-point symbols left out are listed once, under "zero_point_symbols"."""
+import json
+import sys
+
+out = json.load(open(sys.argv[1]))
+zero = sorted({k for rows in out.values() for row in rows.values() for k, v in row["symbols"].items()
+               if not v[0] and k != "X_URLS"})
+trimmed = {"zero_point_symbols": zero}
+for option, rows in out.items():
+    trimmed[option] = {
+        name: {"score": row["score"], "bytes": row["bytes"],
+               "symbols": {k: (v[1][:2] if k == "X_URLS" else v[0]) for k, v in row["symbols"].items() if v[0] or k == "X_URLS"}}
+        for name, row in rows.items()
+    }
+json.dump(trimmed, open(sys.argv[2], "w"), indent=1, ensure_ascii=False)

@@ -1,0 +1,99 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "VRTX",
+ "split": "holdout",
+ "claims": 7,
+ "output_sha256": "30d0c3bf3bc8b2282b758b66a0dc09a26d8d4e3a0de2a7c78ca2bf5bc3ca3386",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2020 step came from the U.S. launch of TRIKAFTA in the fourth quarter of 2019 and KAFTRIO in the EU in the third quarter of 2020 .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2020, our net product revenues increased by $2.04 billion as compared to 2019. In 2019, our net product revenues increased by $1.12 billion as compared to 2018. The increase in total net product revenues in 2020 was primarily due to the launch of TRIKAFTA in the U.S in the fourth quarter of 2019 and KAFTRIO in the E.U. in the third quarter of 2020. Decreases in revenues for our other products were the result of patients in the U.S. switching from these medicines to TRIKAFTA, partially offset by label expansions and expanded access to our medicines in ex-U.S. markets. The increase in total net product revenues in 2019 was primarily due to the increasing number of patients being treated with SYMDEKO/SYMKEVI, the October 2019 approval of TRIKAFTA in the U.S., label expansions for KALYDECO and ORKAMBI and expanded access to our medicines in ex-U.S. markets. In 2020, 2019 and 2018, our net product revenues included product revenues of $1.4 billion, $1.1 billion and $682.4 million, respectively, from ex-U.S. markets."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states 2020 increase was primarily due to TRIKAFTA U.S. launch and KAFTRIO EU launch."
+  },
+  {
+   "sentence": "FY2024 broke the trend with an operating loss of $233 million, as $4.6 billion of AIPR&D, including $4.4 billion for Alpine, hit operating expenses .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our total research and development (\u201cR&D\u201d), and selling, general and administrative (\u201cSG&A\u201d) expenses increased to $5.1 billion in 2024 as compared to $4.3 billion in 2023, primarily due to continued investment to support additional therapies in mid-to-late stage development and increased commercial investments to support launches of our therapies globally. In 2024, total acquired in-process research and development expenses (\u201cAIPR&D\u201d) of $4.6 billion included $4.4 billion related to our acquisition of Alpine Immune Sciences, Inc. (\u201cAlpine\u201d). Cost of sales were 14% of our net product revenues in 2024 as compared to 13% in 2023, with the increase primarily due to costs associated with CASGEVY."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states $4.6B AIPR&D including $4.4B Alpine, and operating loss context."
+  },
+  {
+   "sentence": "Net product revenues rose $950.5 million, or 9%, in 2025 on continued demand, while Europe grew only 0.2% .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2025, our net product revenues increased $950.5 million, or 9%, as compared to 2024, primarily due to continued"
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports revenue increase and continued demand, but Europe growth not mentioned."
+  },
+  {
+   "sentence": "Cost of sales held at 13.8% of revenue in 2025 as a lower overall royalty rate for the CF medicines offset other costs .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "13.8% in 2025 as a result of a lower overall royalty rate for our CF medicines, partially offset by"
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states 13.8% due to lower royalty rate, partially offset by other costs."
+  },
+  {
+   "sentence": "Operating cash flow was primarily due to income from operations of $4.2 billion .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities was $3.6 billion in 2025, primarily due to income from operations of $4.2 billion"
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating cash flow primarily due to income from operations of $4.2B."
+  },
+  {
+   "sentence": "Cash and investments rose to $12.3 billion from $11.2 billion primarily due to increased cash and marketable securities from product revenue .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "from $6.0 billion as of December 31, 2024, primarily due to increased cash and marketable securities due to product revenue"
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage mentions increase due to product revenue, but not specific cash and investments figures."
+  },
+  {
+   "sentence": "The FY2024 rate reflected $4.4 billion of non-deductible AIPR&D from Alpine, so the FY2025 rate is the normalised level rather than a new benefit .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our provision for income taxes was $784.1 million for 2024 and $760.2 million for 2023. In 2024, our 315.5% effective tax rate was materially different than the U.S. statutory rate primarily due to the $4.4\u00a0billion of non-deductible AIPR&D resulting from our acquisition of Alpine, which significantly lowered our pre-tax income. The non-deductible AIPR&D was partially offset by a benefit from a research and development tax credit study that was completed in 2024 and excess tax benefits related to stock-based compensation."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states 315.5% rate due to $4.4B non-deductible AIPR&D from Alpine."
+  }
+ ],
+ "cost_usd": 0.001466,
+ "backend": "openai_compat",
+ "input_tokens": 1258,
+ "cached_input_tokens": 0,
+ "output_tokens": 321
+}

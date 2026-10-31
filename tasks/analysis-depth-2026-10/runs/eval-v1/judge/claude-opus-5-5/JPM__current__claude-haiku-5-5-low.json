@@ -1,0 +1,86 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A is accurate but only restates table figures and flags negative operating cash flow without a bank caveat. Draft B has real flaws: it uses a segment passage to explain firmwide FY2023 interest income, presents criticized exposure as the stated cause of higher provisions, and has an unlabeled watch item. Still, most of its drivers, peer comparisons, capital returns and the proxy-data disclosure are well sourced, so its far greater depth outweighs A's thin accuracy."
+   },
+   "cost_usd": 0.089465,
+   "latency_s": 12.26,
+   "input_tokens": 10083,
+   "output_tokens": 724,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A is accurate but only restates table figures and flags negative operating cash flow without a bank caveat. Draft B has real flaws: it uses a segment passage to explain firmwide FY2023 interest income, presents criticized exposure as the stated cause of higher provisions, and has an unlabeled watch item. Still, most of its drivers, peer comparisons, capital returns and the proxy-data disclosure are well sourced, so its far greater depth outweighs A's thin accuracy.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains segment drivers, cost lines, the FY2021 provision swing, peer efficiency and ROE, buybacks, and flags proxy-sourced data. It does stretch some sources: it uses segment-level passages for firmwide NII moves and links the provision rise to criticized exposure, whose share actually fell. B is fully supported but only restates table values, leaves margins empty, and gives no-threshold watch items. A's minor overreaches don't outweigh its far greater substance."
+   },
+   "cost_usd": 0.096437,
+   "latency_s": 16.455,
+   "input_tokens": 10082,
+   "output_tokens": 1073,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains segment drivers, cost lines, the FY2021 provision swing, peer efficiency and ROE, buybacks, and flags proxy-sourced data. It does stretch some sources: it uses segment-level passages for firmwide NII moves and links the provision rise to criticized exposure, whose share actually fell. B is fully supported but only restates table values, leaves margins empty, and gives no-threshold watch items. A's minor overreaches don't outweigh its far greater substance.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.185902
+}

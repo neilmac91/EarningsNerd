@@ -1,44 +1,62 @@
 import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { Badge } from '@/components/ui/Badge'
-import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, MinusIcon, SparkleIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
+import { EnRef, MarkedCopy, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
+import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
-import { AAPL_FY22_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
+import { Sep } from '@/features/filings/components/FilingIdentity'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
+import { PASSAGE_FOUND } from '@/features/filings/lib/evidenceLabels'
+import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
+import { AAPL_FY25_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
 /**
- * Hero product visual. When the pre-generated example summary is reachable it
- * renders the REAL thing (excerpt, metrics, quality verdict — fetched
- * server-side with hourly ISR), so the preview can never drift from what a
- * click delivers. Falls back to a verified static snapshot of Apple's FY 2022
- * 10-K (filed 2022-10-28; figures checked against the filing's XBRL).
+ * Hero product visual (2026-10 critique, homepage 1d): the example IS the product, on one surface.
+ * The filing's identity in the data face, the summary's opening, a hairline strip of the filing's
+ * figures, and, when the live summary has one, one evidence row: a risk excerpt the server located
+ * in the filing text, headed by its own opening clause, with its chip. No browser-frame mockup, no
+ * card inside the card, no sparkle chip, no tinted call to action.
+ *
+ * When the pre-generated example summary is reachable it renders the REAL thing (fetched
+ * server-side with hourly ISR), so the preview can never drift from what a click delivers. Falls
+ * back to a verified static snapshot of Apple's FY 2025 10-K (filed 2025-10-31; figures checked
+ * against the filing's XBRL on 2026-10-11, docs/brand/00-audit.md §4), which has no evidence row:
+ * its excerpt is not located here.
+ *
+ * The evidence row is the brand device at work (DESIGN.md › Graphic device): the filing's words in
+ * the filing's face inside a marked block, with a bracketed marker whose twin sits in the margin.
  */
 
-// Static fallback — every value verified against Apple's FY 2022 10-K XBRL.
+// Static fallback — every value verified against Apple's FY 2025 10-K XBRL.
 const FALLBACK: ExampleData = {
   filingId: 0,
   ticker: 'AAPL',
   companyName: 'Apple Inc.',
   filingType: '10-K',
-  filingDate: '2022-10-28',
-  secUrl: AAPL_FY22_EDGAR_URL,
+  filingDate: '2025-10-31',
+  secUrl: AAPL_FY25_EDGAR_URL,
   excerpt:
-    'Net sales rose 8% to $394.3B, led by iPhone and Services growth. Gross margin expanded to 43.3%, and operating cash flow reached a record $122.2B.',
+    'Total net sales rose 6.4% to $416.2B with net income of $112.0B and diluted EPS of $7.46, while operating cash flow declined to $111.5B from $118.3B.',
   qualityTier: null,
   metrics: [
-    { label: 'Revenue', value: '$394.3B', deltaPercent: 7.8 },
-    { label: 'Net Income', value: '$99.8B', deltaPercent: 5.4 },
-    { label: 'Diluted EPS', value: '$6.11', deltaPercent: 8.9 },
+    { label: 'Revenue', value: '$416.2B', deltaPercent: 6.4 },
+    { label: 'Net income', value: '$112.0B', deltaPercent: 19.5 },
+    { label: 'EPS (diluted)', value: '$7.46', deltaPercent: 22.7 },
   ],
 }
 
-// XBRL concepts behind the fallback metrics (shown as hover receipts).
+// XBRL concepts behind the fallback metrics: the receipt is text inside each term, visually hidden
+// so every reader reaches it (the hover repeats it for a mouse). Only the fallback carries them: its
+// values were checked against the XBRL by hand, while a live figure is the summary's own financial
+// highlight, which the hero cannot vouch for as an XBRL match.
 const FALLBACK_CONCEPTS: Record<string, string> = {
   Revenue: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
-  'Net Income': 'us-gaap:NetIncomeLoss',
-  'Diluted EPS': 'us-gaap:EarningsPerShareDiluted',
+  'Net income': 'us-gaap:NetIncomeLoss',
+  'EPS (diluted)': 'us-gaap:EarningsPerShareDiluted',
 }
 
 const formatDelta = (delta?: number | null): string | null => {
@@ -46,30 +64,54 @@ const formatDelta = (delta?: number | null): string | null => {
   return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`
 }
 
-// Inside-card eyebrow register (11px uppercase tracked, tertiary on the white field surface).
-const EYEBROW =
-  'text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark'
+const INK = 'text-text-primary-light dark:text-text-primary-dark'
+const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
+const HAIRLINE = 'border-border-light dark:border-white/10'
+/** A fact of the identity line and the middot after it, one item of the wrapping line, spaced as the line is. */
+const FACT = 'flex items-center gap-x-2'
+const GLYPH = { up: '▲', down: '▼', flat: '' } as const
+/** The evidence row's excerpt, cut on a word with an ellipsis: the chip links to the whole passage. */
+const MAX_EXCERPT = 180
 
-function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
+function clip(text: string): string {
+  if (text.length <= MAX_EXCERPT) return text
+  const cut = text.slice(0, MAX_EXCERPT)
+  return `${cut.slice(0, cut.lastIndexOf(' ')).replace(/[\s.,;:]+$/, '')} …`
+}
+
+/**
+ * One figure in the hairline strip: label, value, and its change, direction in a glyph, never colour alone. A figure
+ * takes its own content as its width (flex-auto) in a row that wraps, so where the three do not fit side by side
+ * (a phone under 200% text) a figure moves under the one before it rather than running into it, as the receipt
+ * card's steps read down (lessons/frontend-check-brand-layouts-at-200-percent-text.md); in equal thirds, at 390px under 200% text
+ * each value ran across its 81px cell into the next. A value wider than the whole strip breaks inside rather than
+ * being cut. Its left and top edges are the strip's hairlines, which the strip clips where a figure starts a row or
+ * sits on the first one, so a hairline only ever stands between two figures.
+ */
+function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
-  // Direction never rides on colour alone (financialTone rule): the glyph carries it, and a flat
-  // delta is neither gain nor loss.
   const direction = directionOf(metric.deltaPercent)
-  const DeltaIcon = direction === 'up' ? TrendUpIcon : direction === 'down' ? TrendDownIcon : MinusIcon
+  const concept = isFallback ? FALLBACK_CONCEPTS[metric.label] : undefined
   return (
-    <div
-      className="min-w-0 rounded-lg border border-border-light bg-white p-3 transition-colors duration-fast hover:border-brand-border dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-border-dark"
-      title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
-    >
-      <div className={`truncate ${EYEBROW}`}>{metric.label}</div>
-      <div className="tnum mt-1 whitespace-nowrap font-data text-sm font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-base">
-        {metric.value}
-      </div>
+    <div className={cx('min-w-0 flex-auto border-l border-t py-3 pl-3', HAIRLINE)} title={concept}>
+      {/* relative: the receipt's sr-only span is absolutely positioned, and an overflow clip holds such a box
+          only when the box's containing block is inside it. Without it the span sits at its static place past
+          the truncated label, outside the clip, and at 390px and 200% text the third term's receipt widened
+          the page by 5px (tests/e2e/reflow-200.spec.ts). */}
+      <dt className={cx('relative truncate text-xs', MUTED)}>
+        {metric.label}
+        {concept && <span className="sr-only">, filed tag {concept}</span>}
+      </dt>
+      <dd className={cx('mt-1 break-words font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
       {delta && (
-        <div className={`tnum mt-0.5 flex items-center gap-0.5 font-data text-xs font-medium ${directionText[direction]}`}>
-          <DeltaIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+        <dd className={cx('mt-0.5 break-words font-data text-xs font-medium tabular-nums', directionText[direction])}>
+          {GLYPH[direction] && (
+            <span aria-hidden="true" className="mr-1">
+              {GLYPH[direction]}
+            </span>
+          )}
           {delta}
-        </div>
+        </dd>
       )}
     </div>
   )
@@ -90,95 +132,153 @@ function HeroExample({
 }: HeroExampleProps) {
   const data = example ?? FALLBACK
   const isFallback = example === null
+  // The served name is EDGAR's conformed one, often in capitals; the identity line and its mark print it in its display
+  // casing, as the filing page's identity line does.
+  const name = formatCompanyName(data.companyName)
   // Parse the calendar date only — `new Date('2022-10-28')` is UTC midnight
   // and renders the previous day in negative-offset timezones. Guard against
   // a malformed upstream date: format() throws on invalid dates, which would
   // crash the homepage render; omit the label instead.
   const parsedDate = parseISO(data.filingDate.slice(0, 10))
-  const filedLabel = Number.isNaN(parsedDate.getTime())
+  const filed = Number.isNaN(parsedDate.getTime())
     ? null
-    : format(parsedDate, 'MMM d, yyyy')
+    : { day: format(parsedDate, 'MMM d,'), year: format(parsedDate, 'yyyy') }
+  const evidence = data.evidence ?? null
 
   return (
-    <div className="relative min-w-0 max-w-full">
-      {/* Browser frame: panel + hairline + e3 (DS §7); no title-bar dots, no ambient glow. */}
-      <div className="mockup-frame relative shadow-e3 dark:shadow-none">
-        {/* Title bar: the summary's address + the "AI summary" chip (sparkle lives ONLY here, DS §4). */}
-        <div className="mockup-frame-titlebar flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-4 py-2.5">
-          <span className="min-w-0 truncate font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            {isFallback ? 'earningsnerd.io · example summary' : `earningsnerd.io/filing/${data.filingId}`}
-          </span>
-          <Badge variant="brand" icon={<SparkleIcon className="h-3 w-3" aria-hidden="true" />}>
-            AI summary
-          </Badge>
+    <section
+      aria-label="Example summary"
+      className="min-w-0 max-w-full rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+    >
+      <div className="flex flex-col gap-4 p-cap-5 sm:p-cap-6">
+        {/* The label and the quality badge share a line where they fit. The row wraps, so where they do not the badge
+            goes under the label (E156): on one line at 390px under 200% text it took the page to 422px. Below a 24rem
+            viewport the badge's label may wrap too (Badge's `wrap`), as a Button's does (384px at the default text
+            size, 768px under a 200% text setting): on a line of its own at 320px under 200% text the one-line badge was
+            236px, wider than the card's 222px content box. It breaks only where the badge does not fit, and takes the
+            16px step there (DESIGN.md, the radius scale): a pill on one line, a rounded box once it wraps. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <p className={cx('text-xs font-medium', MUTED)}>Example summary</p>
+          {data.qualityTier === 'full' && (
+            <Badge variant="brand" icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />} wrap>
+              Full summary
+            </Badge>
+          )}
+          {data.qualityTier === 'partial' && <Badge variant="warning">Partial</Badge>}
         </div>
 
-        {/* Page content */}
-        <div className="flex flex-col gap-3.5 p-4 sm:p-5">
-          {/* Header area */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
-              <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {data.companyName}
-              </span>
-              <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">{data.ticker}</span>
-              <Badge variant="neutral">{data.filingType}</Badge>
-              {data.qualityTier === 'full' && (
-                <Badge variant="brand" icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />}>
-                  Full summary
-                </Badge>
-              )}
-              {data.qualityTier === 'partial' && <Badge variant="warning">Partial</Badge>}
-            </div>
-            {filedLabel && (
-              <span className="tnum whitespace-nowrap font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                filed {filedLabel}
+        {/* The filing's identity, as the filing page states it: company, then one data-face line. The line wraps
+            between its facts, each middot held to the fact before it (FACT) so no line starts or stands with one;
+            the form is one run; and the date moves under "filed" whole before it breaks, and then only after its
+            day ("Oct 31," over "2025"). As one nowrap run, "filed Oct 31, 2025" took the page to 329px at 320px
+            under 200% text (tests/e2e/reflow-200.spec.ts). */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <CompanyLogo decorative ticker={data.ticker} name={name} size={24} priority />
+          <span className={cx('min-w-0 break-words text-sm font-semibold', INK)}>{name}</span>
+          <span className={cx('flex flex-wrap items-center gap-x-2 font-data text-xs tabular-nums', MUTED)}>
+            <span className={FACT}>
+              {data.ticker}
+              <Sep />
+            </span>
+            <span className={FACT}>
+              {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
+              <span className={cx('whitespace-nowrap font-semibold', INK)}>{data.filingType}</span>
+              {filed && <Sep />}
+            </span>
+            {filed && (
+              <span>
+                filed{' '}
+                <span className="inline-block">
+                  <span className="whitespace-nowrap">{filed.day}</span> {filed.year}
+                </span>
               </span>
             )}
-          </div>
-
-          {/* Executive snapshot — real summary text */}
-          <div className="rounded-lg border border-border-light bg-white p-4 dark:border-white/10 dark:bg-white/5">
-            <div className={`mb-2 ${EYEBROW}`}>Executive snapshot</div>
-            <p className="text-[13px] leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{data.excerpt}</p>
-          </div>
-
-          {/* Metrics — with the receipt: where the numbers come from */}
-          {data.metrics.length > 0 && (
-            <div className="grid grid-cols-3 gap-2.5">
-              {data.metrics.map((metric) => (
-                <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
-              ))}
-            </div>
-          )}
-          <a
-            href={data.secUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-data text-[11px] text-text-secondary-light underline-offset-2 transition-colors duration-fast hover:text-brand-strong hover:underline dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
-          >
-            <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-            {data.metrics.length > 0
-              ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
-              : 'Source filing · read on SEC EDGAR'}
-          </a>
-
-          {/* Footer CTA into the real example */}
-          <ExampleCtaLink
-            href={ctaHref}
-            placement={ctaPlacement}
-            className="group flex items-center justify-between gap-2 rounded-lg border border-brand-border bg-brand-weak px-4 py-3 transition-colors duration-fast hover:border-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-          >
-            <span className="text-[13px] font-semibold text-brand-strong dark:text-brand-strong-dark">{ctaLabel}</span>
-            <ArrowRightIcon
-              className="h-3.5 w-3.5 shrink-0 text-brand-strong transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0 dark:text-brand-strong-dark"
-              aria-hidden="true"
-            />
-          </ExampleCtaLink>
+          </span>
         </div>
+
+        <p className={cx('text-sm leading-relaxed', MUTED)}>{data.excerpt}</p>
+
+        {/* The filing's figures: one hairline strip, no boxes. The figures wrap inside it (Figure), and the strip clips
+            what a figure draws where it starts a row (its left hairline and the 0.75rem after it, which the list's
+            negative margin puts outside) and on the first row (its top hairline, under the strip's own). */}
+        {data.metrics.length > 0 && (
+          <div className={cx('overflow-hidden border-y', HAIRLINE)}>
+            <dl className="-ml-[calc(0.75rem_+_1px)] -mt-px flex flex-wrap">
+              {data.metrics.map((metric) => (
+                <Figure key={metric.label} metric={metric} isFallback={isFallback} />
+              ))}
+            </dl>
+          </div>
+        )}
+
+        {/* One evidence row, the filing page's own (P-03): the filing's words, located in its text, as
+            a marked block in the filing's face with its margin twin (the brand device). */}
+        {evidence && (
+          <MarkedCopy>
+            <div className={cx('flex flex-col gap-2', markedRowInsetClass)}>
+              <p className={cx('text-sm font-semibold', INK)}>
+                {excerptHeadings([evidence.excerpt])[0]}
+                <EnRef label="[1]" />
+              </p>
+              {/* The filing's words, so they wear quotation marks; the closing one follows the ellipsis. */}
+              <blockquote className={cx('en-marked py-2.5 font-editorial text-base leading-relaxed', markedBlockInsetClass, INK)}>
+                “{clip(evidence.excerpt)}”
+              </blockquote>
+              {evidence.url && (
+                <div>
+                  <a href={evidence.url} target="_blank" rel="noopener noreferrer" className={sourceTraceChipClass()}>
+                    <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    {PASSAGE_FOUND}
+                    <span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          </MarkedCopy>
+        )}
+
+        <a
+          href={data.secUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cx(
+            'inline-flex items-center gap-1 self-start rounded-sm font-data text-xs underline-offset-2 transition-colors duration-fast',
+            'hover:text-brand-strong hover:underline dark:hover:text-brand-strong-dark',
+            'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+            MUTED,
+          )}
+        >
+          <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+          {/* Only the checked fallback says its figures came from the company's filed data; live figures are the
+              summary's, so the link sends the reader to the filing to check them. A no-break space holds the
+              middot to the word before it, so the line breaks only after it: at 1440px under 200% text the
+              receipt's second line began with "·" (tests/e2e/reflow-200.spec.ts). */}
+          {data.metrics.length === 0
+            ? 'Source filing\u00a0· read on SEC.gov'
+            : isFallback
+              ? "Figures from the company's filed data\u00a0· check them on SEC.gov"
+              : 'Source filing\u00a0· check the figures on SEC.gov'}
+        </a>
+
+        {/* Into the real example: a text link (the hero's primary action lives beside the headline). */}
+        <ExampleCtaLink
+          href={ctaHref}
+          placement={ctaPlacement}
+          className={cx(
+            'group -ml-2 inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-2 text-sm font-semibold',
+            'text-brand-strong transition-colors duration-fast hover:bg-brand-weak',
+            'focus-visible:outline-none focus-visible:shadow-ring-brand',
+            'dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark',
+          )}
+        >
+          {ctaLabel}
+          <ArrowRightIcon
+            className="h-3.5 w-3.5 shrink-0 transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
+            aria-hidden="true"
+          />
+        </ExampleCtaLink>
       </div>
-    </div>
+    </section>
   )
 }
 

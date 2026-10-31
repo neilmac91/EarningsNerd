@@ -1,6 +1,6 @@
 """Response schemas for the fundamentals time-series API (P3/F5)."""
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
@@ -16,6 +16,7 @@ class FundamentalPoint(BaseModel):
     # False when the local-invariant reconciliation gate flagged this value (shown with a
     # quality badge rather than hidden). Defaults True for back-compat / pre-gate rows.
     reconciled: bool = True
+    provenance: Optional[dict[str, Any]] = None
 
 
 class FundamentalSeries(BaseModel):

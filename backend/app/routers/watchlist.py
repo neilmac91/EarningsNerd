@@ -1,26 +1,31 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, func
-from sqlalchemy.exc import IntegrityError
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, EmailStr, field_validator
-import jwt
+from sqlalchemy.orm import Session
+from typing import List, Optional, Dict, Any, Tuple
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.database import get_db
-from app.models import Watchlist, Company, User, Filing, Summary, WaitlistSignup
+from app.models import User, Filing, Summary
 from app.routers.auth import get_current_user
-from app.services.summary_generation_service import get_generation_progress_snapshot
-from app.services.summary_placeholders import is_summary_placeholder
-from app.config import settings
+from app.services.summary_generation_service import progress_as_dict, progress_read_status
+from app.services.summary_placeholders import is_stored_summary_ready
+from app.services import filing_list_service, legal_readiness_service, watchlist_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.turnstile import enforce_turnstile
+from app.utils.text import has_control_characters
 from app.services.waitlist_service import (
     REFERRAL_BONUS,
+    WaitlistAlreadyJoined,
+    WaitlistReferralNotFound,
+    WaitlistSignupFailed,
     build_referral_link,
-    build_verification_link,
     calculate_waitlist_position,
-    create_verification_token,
-    generate_unique_referral_code,
+    count_referrals,
+    count_signups,
+    create_signup,
+    find_signup_by_email,
+    mark_welcome_email_sent,
+    SignupView,
 )
 from app.services.email_service import (
     send_referral_success_email,
@@ -33,6 +38,7 @@ router = APIRouter()
 waitlist_router = APIRouter()
 
 WAITLIST_JOIN_LIMITER = RateLimiter(limit=5, window_seconds=60 * 60)
+WAITLIST_STATUS_LIMITER = RateLimiter(limit=10, window_seconds=60)
 logger = logging.getLogger(__name__)
 
 class WatchlistResponse(BaseModel):
@@ -51,37 +57,33 @@ async def add_to_watchlist(
     db: Session = Depends(get_db)
 ):
     """Add company to watchlist"""
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
-    if not company:
+    user_id = current_user.id
+
+    def add() -> Dict[str, Any]:
+        # Each watchlist route's session work is one unit in the thread pool: the reads and writes,
+        # the payload and the release, so no checkout waits on the event loop
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            added = watchlist_service.add_company(db, user_id, ticker)
+            return {
+                "id": added.id,
+                "company_id": added.company_id,
+                "created_at": added.created_at.isoformat() if added.created_at else None,
+                "company": {
+                    "id": added.company_id,
+                    "ticker": added.company_ticker,
+                    "name": added.company_name,
+                }
+            }
+        finally:
+            filing_list_service.release_request_session(db)
+
+    try:
+        return await run_in_threadpool(add)
+    except watchlist_service.WatchlistCompanyNotFound:
         raise HTTPException(status_code=404, detail="Company not found")
-    
-    # Check if already in watchlist
-    existing = db.query(Watchlist).filter(
-        Watchlist.user_id == current_user.id,
-        Watchlist.company_id == company.id
-    ).first()
-    
-    if existing:
+    except watchlist_service.AlreadyOnWatchlist:
         raise HTTPException(status_code=400, detail="Company already in watchlist")
-    
-    watchlist_item = Watchlist(
-        user_id=current_user.id,
-        company_id=company.id
-    )
-    db.add(watchlist_item)
-    db.commit()
-    db.refresh(watchlist_item)
-    
-    return {
-        "id": watchlist_item.id,
-        "company_id": watchlist_item.company_id,
-        "created_at": watchlist_item.created_at.isoformat() if watchlist_item.created_at else None,
-        "company": {
-            "id": company.id,
-            "ticker": company.ticker,
-            "name": company.name,
-        }
-    }
 
 @router.get("/", response_model=List[WatchlistResponse])
 async def get_watchlist(
@@ -89,30 +91,29 @@ async def get_watchlist(
     db: Session = Depends(get_db)
 ):
     """Get user's watchlist"""
-    watchlist_items = (
-        db.query(Watchlist)
-        .options(joinedload(Watchlist.company))
-        .filter(Watchlist.user_id == current_user.id)
-        .order_by(desc(Watchlist.created_at))
-        .all()
-    )
-    
-    result = []
-    for item in watchlist_items:
-        company = item.company
-        if company:
-            result.append({
-                "id": item.id,
-                "company_id": item.company_id,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-                "company": {
-                    "id": company.id,
-                    "ticker": company.ticker,
-                    "name": company.name,
-                }
-            })
-    
-    return result
+    user_id = current_user.id
+
+    def list_for_reader() -> List[Dict[str, Any]]:
+        try:
+            result = []
+            for item in watchlist_service.list_items(db, user_id):
+                company = item.company
+                if company:
+                    result.append({
+                        "id": item.id,
+                        "company_id": item.company_id,
+                        "created_at": item.created_at.isoformat() if item.created_at else None,
+                        "company": {
+                            "id": company.id,
+                            "ticker": company.ticker,
+                            "name": company.name,
+                        }
+                    })
+            return result
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(list_for_reader)
 
 @router.delete("/{ticker}")
 async def remove_from_watchlist(
@@ -121,20 +122,20 @@ async def remove_from_watchlist(
     db: Session = Depends(get_db)
 ):
     """Remove company from watchlist"""
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
-    
-    watchlist_item = db.query(Watchlist).filter(
-        Watchlist.user_id == current_user.id,
-        Watchlist.company_id == company.id
-    ).first()
-    
-    if not watchlist_item:
-        raise HTTPException(status_code=404, detail="Company not in watchlist")
+    user_id = current_user.id
 
-    db.delete(watchlist_item)
-    db.commit()
+    def remove() -> None:
+        try:
+            watchlist_service.remove_company(db, user_id, ticker)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    try:
+        await run_in_threadpool(remove)
+    except watchlist_service.WatchlistCompanyNotFound:
+        raise HTTPException(status_code=404, detail="Company not found")
+    except watchlist_service.NotOnWatchlist:
+        raise HTTPException(status_code=404, detail="Company not in watchlist")
 
     return {"status": "success"}
 
@@ -148,7 +149,15 @@ async def get_earnings_alert_tickers(
 ):
     """Tickers the user has earnings-day alerts enabled for (feeds the calendar's bell state)."""
     from app.services.earnings_alert_service import enabled_tickers
-    return {"tickers": enabled_tickers(db, current_user.id)}
+    user_id = current_user.id
+
+    def tickers_for_reader() -> List[str]:
+        try:
+            return enabled_tickers(db, user_id)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return {"tickers": await run_in_threadpool(tickers_for_reader)}
 
 
 @router.post("/{ticker}/earnings-alert")
@@ -167,8 +176,17 @@ async def enable_earnings_alert(
         EarningsAlertLimitError,
         set_earnings_alert,
     )
+
+    def enable() -> None:
+        # The user row is the request session's own (the auth dependency loaded it there), and the
+        # cap check reads its plan inside this unit.
+        try:
+            set_earnings_alert(db, current_user, ticker, enabled=True)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        set_earnings_alert(db, current_user, ticker, enabled=True)
+        await run_in_threadpool(enable)
     except EarningsAlertLimitError as exc:
         if exc.plan_is_pro:
             return JSONResponse(
@@ -195,7 +213,14 @@ async def disable_earnings_alert(
 ):
     """Disable the earnings-day alert for a company. Always allowed."""
     from app.services.earnings_alert_service import set_earnings_alert
-    set_earnings_alert(db, current_user, ticker, enabled=False)
+
+    def disable() -> None:
+        try:
+            set_earnings_alert(db, current_user, ticker, enabled=False)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    await run_in_threadpool(disable)
     return {"status": "disabled", "ticker": ticker.upper()}
 
 
@@ -230,146 +255,99 @@ async def get_watchlist_insights(
     db: Session = Depends(get_db)
 ):
     """Return enriched status information for the user's watchlist."""
-    watchlist_items = (
-        db.query(Watchlist)
-        .options(joinedload(Watchlist.company))
-        .filter(Watchlist.user_id == current_user.id)
-        .order_by(desc(Watchlist.created_at))
-        .all()
-    )
+    user_id = current_user.id
 
-    insights: List[WatchlistInsightResponse] = []
-    company_ids = [item.company_id for item in watchlist_items if item.company_id]
-    if not company_ids:
-        return insights
+    def insights_for_reader() -> List[WatchlistInsightResponse]:
+        # The rows, the payload built from them and the release, in one unit; the progress rows come
+        # with the insight rows, so the unit needs no second connection
+        # (lessons/ops-one-connection-per-request-unit.md).
+        try:
+            rows = watchlist_service.load_insight_rows(db, user_id)
 
-    latest_dates_subq = (
-        db.query(
-            Filing.company_id,
-            func.max(Filing.filing_date).label("latest_date"),
-        )
-        .filter(Filing.company_id.in_(company_ids))
-        .group_by(Filing.company_id)
-        .subquery()
-    )
+            insights: List[WatchlistInsightResponse] = []
+            if rows is None:
+                return insights
+            latest_filing_by_company = rows.latest_filing_by_company
+            filing_counts = rows.filing_counts
+            summary_by_filing = rows.summary_by_filing
+            progress_by_filing = rows.progress_by_filing
 
-    latest_filings = (
-        db.query(Filing)
-        .join(
-            latest_dates_subq,
-            (Filing.company_id == latest_dates_subq.c.company_id)
-            & (Filing.filing_date == latest_dates_subq.c.latest_date),
-        )
-        .order_by(desc(Filing.id))
-        .all()
-    )
-    # Same-day tie-break: a company that files (e.g.) a 10-K and a 10-Q on the same date matches the
-    # max-date join twice. Order by id desc and keep the FIRST (highest id) so "latest filing" is
-    # deterministic — mirrors the dashboard feed's (filing_date, id) desc tie-break so the insights
-    # page and the "Your companies" rows it powers land on the same filing.
-    latest_filing_by_company: Dict[int, Filing] = {}
-    for filing in latest_filings:
-        latest_filing_by_company.setdefault(filing.company_id, filing)
+            for item in rows.watchlist_items:
+                company = item.company
+                if not company:
+                    continue
 
-    filing_counts = dict(
-        db.query(Filing.company_id, func.count(Filing.id))
-        .filter(Filing.company_id.in_(company_ids))
-        .group_by(Filing.company_id)
-        .all()
-    )
+                latest_filing: Optional[Filing] = latest_filing_by_company.get(company.id)
+                total_filings = int(filing_counts.get(company.id, 0))
 
-    latest_filing_ids = [filing.id for filing in latest_filings]
-    summary_by_filing: Dict[int, Summary] = {}
-    if latest_filing_ids:
-        summaries = (
-            db.query(Summary)
-            .filter(Summary.filing_id.in_(latest_filing_ids))
-            .order_by(desc(Summary.updated_at), desc(Summary.created_at))
-            .all()
-        )
-        for summary in summaries:
-            if summary.filing_id not in summary_by_filing:
-                summary_by_filing[summary.filing_id] = summary
+                filing_snapshot: Optional[WatchlistFilingSnapshot] = None
 
-    for item in watchlist_items:
-        company = item.company
-        if not company:
-            continue
+                if latest_filing:
+                    summary: Optional[Summary] = summary_by_filing.get(latest_filing.id)
 
-        latest_filing: Optional[Filing] = latest_filing_by_company.get(company.id)
-        total_filings = int(filing_counts.get(company.id, 0))
+                    progress_row = progress_by_filing.get(latest_filing.id)
+                    progress_snapshot: Optional[Dict[str, Any]] = None
 
-        filing_snapshot: Optional[WatchlistFilingSnapshot] = None
-
-        if latest_filing:
-            summary: Optional[Summary] = summary_by_filing.get(latest_filing.id)
-
-            progress_snapshot = get_generation_progress_snapshot(latest_filing.id)
-
-            summary_status = "missing"
-            needs_regeneration = True
-            summary_id: Optional[int] = None
-            summary_created_at: Optional[str] = None
-            summary_updated_at: Optional[str] = None
-
-            if summary:
-                summary_id = summary.id
-                summary_created_at = summary.created_at.isoformat() if summary.created_at else None
-                summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
-
-                has_placeholder = is_summary_placeholder(summary.business_overview)
-
-                if has_placeholder:
-                    summary_status = "placeholder"
+                    summary_status = "missing"
                     needs_regeneration = True
-                else:
-                    summary_status = "ready"
-                    needs_regeneration = False
-            elif progress_snapshot:
-                stage = progress_snapshot.get("stage", "generating")
-                if stage == "error":
-                    summary_status = "error"
-                    needs_regeneration = True
-                else:
-                    summary_status = f"generating:{stage}"
-                    needs_regeneration = False
-            else:
-                summary_status = "missing"
-                needs_regeneration = True
+                    summary_id: Optional[int] = None
+                    summary_created_at: Optional[str] = None
+                    summary_updated_at: Optional[str] = None
 
-            filing_snapshot = WatchlistFilingSnapshot(
-                id=latest_filing.id,
-                filing_type=latest_filing.filing_type,
-                filing_date=latest_filing.filing_date.isoformat() if latest_filing.filing_date else None,
-                period_end_date=latest_filing.period_end_date.isoformat() if latest_filing.period_end_date else None,
-                summary_id=summary_id,
-                summary_status=summary_status,
-                summary_created_at=summary_created_at,
-                summary_updated_at=summary_updated_at,
-                needs_regeneration=needs_regeneration,
-                progress=progress_snapshot,
-            )
+                    if summary:
+                        summary_id = summary.id
+                        summary_created_at = summary.created_at.isoformat() if summary.created_at else None
+                        summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
+                        progress_snapshot = progress_as_dict(progress_row) if progress_row else None
 
-        insights.append(
-            WatchlistInsightResponse(
-                company=WatchlistCompany(
-                    id=company.id,
-                    ticker=company.ticker,
-                    name=company.name,
-                ),
-                latest_filing=filing_snapshot,
-                total_filings=total_filings,
-            )
-        )
+                        if is_stored_summary_ready(summary):
+                            summary_status = "ready"
+                            needs_regeneration = False
+                        else:
+                            summary_status = "placeholder"
+                            needs_regeneration = True
+                    else:
+                        # A stalled or ended run is no summary being written (E43), as the dashboard feed reads it.
+                        summary_status, progress_snapshot = progress_read_status(progress_row)
+                        needs_regeneration = not summary_status.startswith("generating:")
 
-    return insights
+                    filing_snapshot = WatchlistFilingSnapshot(
+                        id=latest_filing.id,
+                        filing_type=latest_filing.filing_type,
+                        filing_date=latest_filing.filing_date.isoformat() if latest_filing.filing_date else None,
+                        period_end_date=latest_filing.period_end_date.isoformat() if latest_filing.period_end_date else None,
+                        summary_id=summary_id,
+                        summary_status=summary_status,
+                        summary_created_at=summary_created_at,
+                        summary_updated_at=summary_updated_at,
+                        needs_regeneration=needs_regeneration,
+                        progress=progress_snapshot,
+                    )
+
+                insights.append(
+                    WatchlistInsightResponse(
+                        company=WatchlistCompany(
+                            id=company.id,
+                            ticker=company.ticker,
+                            name=company.name,
+                        ),
+                        latest_filing=filing_snapshot,
+                        total_filings=total_filings,
+                    )
+                )
+
+            return insights
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(insights_for_reader)
 
 
 class WaitlistJoinRequest(BaseModel):
     email: EmailStr
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=100)
     referral_code: Optional[str] = None
-    source: Optional[str] = None
+    source: Optional[str] = Field(None, max_length=100)
     honeypot: Optional[str] = None
 
     @field_validator("email")
@@ -377,12 +355,14 @@ class WaitlistJoinRequest(BaseModel):
     def normalize_email(cls, value: str) -> str:
         return value.strip().lower()
 
-    @field_validator("name")
+    @field_validator("name", "source")
     @classmethod
-    def normalize_name(cls, value: Optional[str]) -> Optional[str]:
+    def normalize_free_text(cls, value: Optional[str]) -> Optional[str]:
         if not value:
             return None
         cleaned = value.strip()
+        if has_control_characters(cleaned):
+            raise ValueError("Must not contain control characters.")
         return cleaned or None
 
     @field_validator("referral_code")
@@ -403,12 +383,10 @@ class WaitlistJoinRequest(BaseModel):
 
 
 class WaitlistStatusResponse(BaseModel):
+    """Public, unauthenticated status: position and referral progress only."""
     position: int
-    referral_code: str
-    referral_link: str
     referrals_count: int
     positions_gained: int
-    email_verified: bool
 
 
 @waitlist_router.post("/join")
@@ -417,6 +395,8 @@ async def join_waitlist(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    if not legal_readiness_service.is_collection_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     enforce_rate_limit(
         request,
         WAITLIST_JOIN_LIMITER,
@@ -431,79 +411,64 @@ async def join_waitlist(
             detail="Invalid submission.",
         )
 
-    existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
-    if existing:
-        return {
-            "success": False,
-            "error": "already_registered",
-            "message": "This email is already on the waitlist!",
-            "position": calculate_waitlist_position(existing.position, existing.priority_score),
-            "referral_code": existing.referral_code,
-            "referral_link": build_referral_link(existing.referral_code),
-        }
-
-    referrer: Optional[WaitlistSignup] = None
-    if payload.referral_code:
-        referrer = (
-            db.query(WaitlistSignup)
-            .filter(WaitlistSignup.referral_code == payload.referral_code)
-            .first()
-        )
-        if not referrer:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "success": False,
-                    "error": "invalid_referral",
-                    "message": "Referral code not recognized.",
-                },
-            )
-        referrer.priority_score += 1
-
-    total_signups = db.query(func.count(WaitlistSignup.id)).scalar() or 0
-    base_position = total_signups + 1
-    referral_code = generate_unique_referral_code(db)
-
-    signup = WaitlistSignup(
-        email=payload.email,
-        name=payload.name,
-        referral_code=referral_code,
-        referred_by=payload.referral_code,
-        source=payload.source,
-        position=base_position,
-        priority_score=0,
-    )
-    db.add(signup)
+    def create() -> Tuple[str, SignupView, Optional[SignupView], Optional[int]]:
+        # One unit in the thread pool: the insert and every value the rest of the route reads,
+        # released before the welcome and referral mails go out, so neither send holds a connection
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            try:
+                joined = create_signup(
+                    db,
+                    email=payload.email,
+                    name=payload.name,
+                    referral_code=payload.referral_code,
+                    source=payload.source,
+                )
+            except WaitlistAlreadyJoined as exc:
+                return "already_registered", SignupView.of(exc.signup), None, None
+            referrer = SignupView.of(joined.referrer) if joined.referrer else None
+            return "joined", SignupView.of(joined.signup), referrer, joined.total_signups
+        finally:
+            filing_list_service.release_request_session(db)
 
     try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
-        if existing:
-            referral_link = build_referral_link(existing.referral_code)
-            position = calculate_waitlist_position(existing.position, existing.priority_score)
-            return {
+        outcome, signup, referrer, total_signups = await run_in_threadpool(create)
+    except legal_readiness_service.CollectionUnavailable:
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE) from None
+    except WaitlistReferralNotFound:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
                 "success": False,
-                "error": "already_registered",
-                "message": "This email is already on the waitlist!",
-                "position": position,
-                "referral_code": existing.referral_code,
-                "referral_link": referral_link,
-            }
+                "error": "invalid_referral",
+                "message": "Referral code not recognized.",
+            },
+        )
+    except WaitlistSignupFailed:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to create waitlist signup.",
         )
 
-    db.refresh(signup)
-    if referrer:
-        db.refresh(referrer)
+    if outcome == "already_registered":
+        return {
+            "success": False,
+            "error": "already_registered",
+            "message": "This email is already on the waitlist.",
+            "position": calculate_waitlist_position(signup.position, signup.priority_score),
+            "referral_code": signup.referral_code,
+            "referral_link": build_referral_link(signup.referral_code),
+        }
 
     position = calculate_waitlist_position(signup.position, signup.priority_score)
     referral_link = build_referral_link(signup.referral_code)
-    verification_token = create_verification_token(signup.email, signup.referral_code)
-    verification_link = build_verification_link(verification_token)
+
+    def mark_sent() -> None:
+        # Its own unit after the send; the release rolls back a flag commit that fails.
+        try:
+            mark_welcome_email_sent(db, signup.id)
+        finally:
+            filing_list_service.release_request_session(db)
 
     email_sent = False
     try:
@@ -512,13 +477,10 @@ async def join_waitlist(
             name=signup.name,
             position=position,
             referral_link=referral_link,
-            verification_link=verification_link,
         )
-        signup.welcome_email_sent = True
-        db.commit()
+        await run_in_threadpool(mark_sent)
         email_sent = True
     except Exception:
-        db.rollback()
         logger.exception("Waitlist welcome email failed for signup %s", signup.id)
 
     if referrer:
@@ -536,7 +498,7 @@ async def join_waitlist(
 
     return {
         "success": True,
-        "message": "You're on the list!",
+        "message": "You're on the waitlist.",
         "position": position,
         "referral_code": signup.referral_code,
         "referral_link": referral_link,
@@ -546,76 +508,47 @@ async def join_waitlist(
 
 
 @waitlist_router.get("/status/{email}", response_model=WaitlistStatusResponse)
-async def get_waitlist_status(email: EmailStr, db: Session = Depends(get_db)):
+async def get_waitlist_status(email: EmailStr, request: Request, db: Session = Depends(get_db)):
+    enforce_rate_limit(
+        request,
+        WAITLIST_STATUS_LIMITER,
+        "waitlist_status",
+        error_detail="Too many status checks. Please try again later.",
+    )
     normalized_email = email.strip().lower()
-    signup = db.query(WaitlistSignup).filter(WaitlistSignup.email == normalized_email).first()
-    if not signup:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Email not found on the waitlist.",
-        )
 
-    referrals_count = (
-        db.query(func.count(WaitlistSignup.id))
-        .filter(WaitlistSignup.referred_by == signup.referral_code)
-        .scalar()
-        or 0
-    )
-    position = calculate_waitlist_position(signup.position, signup.priority_score)
-    return WaitlistStatusResponse(
-        position=position,
-        referral_code=signup.referral_code,
-        referral_link=build_referral_link(signup.referral_code),
-        referrals_count=int(referrals_count),
-        positions_gained=signup.priority_score * REFERRAL_BONUS,
-        email_verified=signup.email_verified,
-    )
+    # The lookups, the response and the session release are one unit off the event loop, so the
+    # pooled connection is back before the route yields to the dependency's finalizer
+    # (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+    def status_for_reader() -> WaitlistStatusResponse:
+        try:
+            signup = find_signup_by_email(db, normalized_email)
+            if not signup:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Email not found on the waitlist.",
+                )
+
+            referrals_count = count_referrals(db, signup.referral_code)
+            position = calculate_waitlist_position(signup.position, signup.priority_score)
+            return WaitlistStatusResponse(
+                position=position,
+                referrals_count=int(referrals_count),
+                positions_gained=signup.priority_score * REFERRAL_BONUS,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(status_for_reader)
 
 
 @waitlist_router.get("/stats")
 async def get_waitlist_stats(db: Session = Depends(get_db)):
-    total_signups = db.query(func.count(WaitlistSignup.id)).scalar() or 0
-    return {"total_signups": int(total_signups)}
+    # The count and the session release are one unit off the event loop, as for the status read.
+    def stats_for_reader() -> dict[str, int]:
+        try:
+            return {"total_signups": int(count_signups(db))}
+        finally:
+            filing_list_service.release_request_session(db)
 
-
-@waitlist_router.post("/verify/{token}")
-async def verify_waitlist_email(token: str, db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-            options={"require": ["exp", "sub", "type"]},
-            leeway=settings.JWT_LEEWAY_SECONDS,
-        )
-    except jwt.PyJWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired token.",
-        ) from exc
-
-    if payload.get("type") != "waitlist_verify":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid verification token.",
-        )
-
-    email = payload.get("sub")
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid verification token.",
-        )
-
-    signup = db.query(WaitlistSignup).filter(WaitlistSignup.email == email).first()
-    if not signup:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Waitlist entry not found.",
-        )
-
-    signup.email_verified = True
-    db.commit()
-
-    return {"success": True, "message": "Email verified."}
-
+    return await run_in_threadpool(stats_for_reader)

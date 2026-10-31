@@ -1,8 +1,9 @@
-import api, { getApiUrl } from '@/lib/api/client'
+import api, { getApiUrl, parseErrorCode, type KnownErrorCode } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FinancialHighlights, MetricItem, RiskFactor } from '@/types/summary'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { getCookiePreferences } from '@/components/CookieConsent'
+import { isSummaryReady } from '../lib/summaryPlaceholder'
 
 // --- Structured content projection (T2) ---------------------------------------------------------
 // `rendered_sections` mirrors the backend's single source of truth
@@ -82,6 +83,8 @@ export interface Summary {
     quality?: {
       tier?: string
       reasons?: string[]
+      covered_count?: number
+      total_count?: number
     }
     writer_error?: string
     writer?: {
@@ -98,8 +101,14 @@ export interface Summary {
 export interface SummaryProgressData {
   // `partial` is a real terminal stage the backend writes (record_progress(..., "partial") on the
   // timeout / low-coverage path) — it was missing here, which is what stranded the L1 poll.
-  stage: 'pending' | 'fetching' | 'parsing' | 'analyzing' | 'summarizing' | 'completed' | 'error' | 'partial'
+  stage: 'pending' | 'queued' | 'fetching' | 'parsing' | 'analyzing' | 'summarizing' | 'completed' | 'error' | 'partial'
   elapsedSeconds: number
+  // Present only when durable generation owns this filing. Legacy polling remains compatible.
+  job_id?: string
+  generation?: number
+  status?: 'dispatch_pending' | 'queued' | 'running' | 'retry_wait' | 'complete' | 'partial' | 'failed'
+  summary_id?: number
+  retry_after_seconds?: number
 }
 
 export interface SavedSummary {
@@ -133,32 +142,88 @@ export interface ProgressData {
   percent?: number
 }
 
-// The free/guest summary quota was reached (the backend surfaces this as the stream error).
-export const isPaywallStreamError = (message: string): boolean => {
-  const m = (message || '').toLowerCase()
-  return m.includes('monthly limit') || m.includes('upgrade to pro')
+// The free/guest summary quota was reached (the backend surfaces this as the stream error). A known code decides
+// first; without one, "Upgrade to Pro", which admission.py's free monthly limit says in its words before and after
+// E37 alike.
+export const isPaywallStreamError = (message: string, code?: KnownErrorCode): boolean => {
+  if (code) return code === 'free_allowance_exhausted'
+  return (message || '').toLowerCase().includes('upgrade to pro')
 }
 
-// Errors that must NOT be auto-retried: retrying can't help and would waste the user's time.
-const isNonRetryableStreamError = (message: string): boolean => {
+// Errors a retry cannot help: the stream makes no automatic second attempt (generateSummaryStream below), and
+// the filing page's card offers no Retry (StreamingSummaryDisplay). Each backend sentence is matched on its own
+// words. Pro's fair-use ceiling (admission.py: "Your account has reached this month's limit for generating
+// summaries, …") holds until the month turns. The stream route's 403s hold whatever the reader retries: a Free
+// reader's force regeneration of a summary the page shows ("Regenerating a summary is a Pro feature.", the
+// route itself) and an inactive account ("This account is inactive. …", get_current_user). A retry of any of them
+// only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the ceiling from admission.py and
+// every 403 the stream endpoint returns, and holds this matcher to each. A known code decides first, but for
+// `auth_required`: a 401 keeps today's handling, its words deciding and its Retry kept (the E31 contract's §3, since a
+// refresh or a sign-in can lift it), so a code on it changes nothing here.
+export const isNonRetryableStreamError = (message: string, code?: KnownErrorCode): boolean => {
+  if (code && code !== 'auth_required') return ['email_verification_required', 'plan_required',
+    'free_allowance_exhausted', 'pro_fair_use_limit', 'generation_paused'].includes(code)
   const m = (message || '').toLowerCase()
   return (
     isPaywallStreamError(message) ||
+    m.includes('limit for generating summaries') ||
+    m.includes('is a pro feature') ||
+    m.includes('account is inactive') ||
     m.includes('permission') ||
-    m.includes('sign in') ||
+    m.includes('log in') ||
     m.includes('authentication')
   )
 }
 
 const STREAM_RETRY_BACKOFF_MS = 1200
 
+export interface SummaryStreamFailure {
+  code?: KnownErrorCode
+  status?: number
+  retryAfterSeconds?: number
+  requestId?: string
+}
+
+export class SummaryStreamError extends Error {
+  constructor(message: string, readonly failure?: SummaryStreamFailure) {
+    super(message)
+    this.name = 'SummaryStreamError'
+  }
+}
+
+interface SummaryStreamOptions {
+  force?: boolean
+  retryFailed?: boolean
+  entryPoint?: string
+  signal?: AbortSignal
+  /** Read authoritative persisted state before retrying a transport or showing a failure. */
+  recover?: () => Promise<Summary | null | undefined>
+}
+
+const abortError = () => new DOMException('Summary reader cancelled', 'AbortError')
+
+/** Retry-After accepts seconds or an HTTP date. Never round down the server's cooldown. */
+export function summaryRetryAfter(value: unknown): number | undefined {
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined
+  const numeric = typeof value === 'number' || /^\d+(?:\.\d+)?$/.test(value) ? Number(value) : NaN
+  const seconds = Number.isFinite(numeric) ? numeric : (Date.parse(String(value)) - Date.now()) / 1000
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : undefined
+}
+
+const waitForRetry = (signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
+  const abort = () => { clearTimeout(timer); reject(abortError()) }
+  const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve() }, STREAM_RETRY_BACKOFF_MS)
+  signal?.addEventListener('abort', abort, { once: true })
+  if (signal?.aborted) abort()
+})
+
 export const generateSummaryStream = async (
   filingId: number,
   onChunk: (chunk: string) => void,
   onProgress: (stage: string, message: string, data?: ProgressData) => void,
   onComplete: (summaryId: number) => void,
-  onError: (error: string) => void,
-  options?: { force?: boolean; entryPoint?: string }
+  onError: (error: string, failure?: SummaryStreamFailure) => void,
+  options?: SummaryStreamOptions
 ): Promise<void> => {
   const MAX_ATTEMPTS = 2 // one automatic retry before surfacing the error to the user
   // A random, in-memory action label; never used as an authorization or idempotency key.
@@ -170,26 +235,48 @@ export const generateSummaryStream = async (
   let deliveredContent = false
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (options?.signal?.aborted) throw abortError()
     const result = await runStreamAttempt(filingId, onChunk, onProgress, onComplete, options, () => {
       deliveredContent = true
     }, logicalRequestId, attempt)
 
     if (result.ok) return
 
+    // An interrupted reader does not prove the shared result failed. Only ordinary recovery may
+    // accept an existing result: explicit regeneration must not announce its old result as new.
+    if (!options?.force && options?.recover) {
+      try {
+        const recovered = await options.recover()
+        if (options.signal?.aborted) throw abortError()
+        if (recovered && isSummaryReady(recovered)) {
+          onComplete(recovered.id)
+          return
+        }
+      } catch (error) {
+        if (options.signal?.aborted) throw error
+        // The original failure is more useful than an unsuccessful recovery read.
+      }
+    }
+
     const canRetry =
       attempt < MAX_ATTEMPTS &&
+      // A lost refresh response may hide a committed result. Replaying force could buy a
+      // second generation; without a job-scoped resume token, leave recovery to an ordinary Retry.
+      !options?.force &&
       !deliveredContent &&
       result.retryable &&
-      !isNonRetryableStreamError(result.error)
+      !isNonRetryableStreamError(result.error, result.failure?.code) &&
+      !result.failure?.retryAfterSeconds
 
     if (!canRetry) {
-      onError(result.error)
-      throw new Error(result.error)
+      if (result.failure?.code || result.failure?.retryAfterSeconds !== undefined || result.failure?.requestId) onError(result.error, result.failure)
+      else onError(result.error)
+      throw new SummaryStreamError(result.error, result.failure)
     }
 
     console.warn(`[summary] ${filingId} stream attempt ${attempt} failed (${result.error}); retrying once...`)
-    onProgress('initializing', 'Connection interrupted. Retrying...')
-    await new Promise((resolve) => setTimeout(resolve, STREAM_RETRY_BACKOFF_MS))
+    onProgress('initializing', 'Connection interrupted. Trying again…')
+    await waitForRetry(options?.signal)
   }
 }
 
@@ -197,6 +284,7 @@ interface StreamAttemptResult {
   ok: boolean
   retryable: boolean
   error: string
+  failure?: SummaryStreamFailure
 }
 
 const runStreamAttempt = async (
@@ -204,7 +292,7 @@ const runStreamAttempt = async (
   onChunk: (chunk: string) => void,
   onProgress: (stage: string, message: string, data?: ProgressData) => void,
   onComplete: (summaryId: number) => void,
-  options: { force?: boolean; entryPoint?: string } | undefined,
+  options: SummaryStreamOptions | undefined,
   markContentDelivered: () => void,
   logicalRequestId: string | undefined,
   clientAttempt: number,
@@ -212,9 +300,15 @@ const runStreamAttempt = async (
   const apiUrl = getApiUrl()
   const params = new URLSearchParams()
   if (options?.force) params.set('force', 'true')
+  // Only the reader's first action may reopen a failed job. A transport replay observes
+  // persisted state even when the first response took longer than that job's cooldown.
+  if (options?.retryFailed && clientAttempt === 1) params.set('retry_failed', 'true')
   if (options?.entryPoint) params.set('entry_point', options.entryPoint)
 
   const controller = new AbortController()
+  const cancelReader = () => controller.abort()
+  options?.signal?.addEventListener('abort', cancelReader, { once: true })
+  if (options?.signal?.aborted) controller.abort()
   const streamStart = performance.now()
   const stageTimeline: Array<{ stage: string; at: number; delta: number; message: string }> = []
   let lastStageMark = streamStart
@@ -292,6 +386,7 @@ const runStreamAttempt = async (
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   let completed = false
   let streamErrorMessage: string | null = null
+  let streamFailure: SummaryStreamFailure | undefined
 
   const consumeLine = (line: string) => {
     if (!line.startsWith('data: ')) return
@@ -326,7 +421,7 @@ const runStreamAttempt = async (
       onProgress(stageName, message, progressData)
     } else if (data.type === 'complete' || data.type === 'partial') {
       if (!Number.isSafeInteger(data.summary_id) || data.summary_id <= 0) {
-        streamErrorMessage = 'The summary stream returned an invalid completion. Please try again.'
+        streamErrorMessage = 'The summary ended with an invalid completion. Try again.'
         return
       }
       completed = true
@@ -335,7 +430,12 @@ const runStreamAttempt = async (
       onComplete(data.summary_id)
     } else if (data.type === 'error') {
       console.warn(`[summary] ${filingId} stream error: ${data.message}`)
-      streamErrorMessage = typeof data.message === 'string' ? data.message : 'Error generating summary'
+      streamErrorMessage = typeof data.message === 'string' ? data.message : 'We could not generate this summary. Try again shortly.'
+      const code = parseErrorCode(data.code, 'stream')
+      const retryAfterSeconds = summaryRetryAfter(data.retry_after_seconds)
+        ?? (code === 'summary_rate_limited' || code === 'sec_rate_limited' ? 60 : undefined)
+      const requestId = typeof data.request_id === 'string' ? data.request_id : undefined
+      if (code || retryAfterSeconds !== undefined || requestId) streamFailure = { code, retryAfterSeconds, requestId }
     } else if (data.type === 'start') {
       const message = typeof data.message === 'string' ? data.message : ''
       recordStageTiming('start', message)
@@ -348,27 +448,42 @@ const runStreamAttempt = async (
     // Keep the existing silent 401 refresh/replay owner, with a bounded handshake.
     const response = await untilAborted(postStreamWithRefresh(postStream))
     if (!response.ok) {
+      // The reader's sentence when the response carries no detail of its own. A 401 is never retried
+      // whatever its text (retryable is set only for a 5xx below); its sentence says what to do.
       let errorMessage = response.status === 401
-        ? 'Authentication error occurred.'
-        : `Request failed with status ${response.status}`
+        ? 'Log in again to generate this summary.'
+        : 'The summary could not start. Try again.'
+      const failure: SummaryStreamFailure = {
+        status: response.status,
+        retryAfterSeconds: summaryRetryAfter(response.headers?.get('Retry-After')),
+        requestId: response.headers?.get('X-Correlation-ID') ?? undefined,
+      }
       try {
         const errorData = await untilAborted(response.json())
+        failure.code = parseErrorCode(errorData?.code, response.status)
+        failure.retryAfterSeconds ??= summaryRetryAfter(errorData?.retry_after_seconds)
         if (typeof errorData?.detail === 'string') errorMessage = errorData.detail
         else if (typeof errorData?.message === 'string') errorMessage = errorData.message
       } catch (error) {
         if (controller.signal.aborted) throw error
-        if (response.status === 403) errorMessage = 'You do not have permission to perform this action.'
-        else if (response.status === 429) errorMessage = 'Rate limit exceeded. Please try again later.'
-        else if (response.status >= 500) errorMessage = 'Server error. Please try again later.'
+        // "permission" stays in the 403 sentence: it is the one place the word isNonRetryableStreamError tests
+        // for is written (no backend message on this route says it), and the matcher gates hold each of its
+        // phrases to a writer (tests/unit/streamErrorCopy.spec.ts). A 403 is never retried in any case.
+        if (response.status === 403) errorMessage = 'Your account does not have permission to generate this summary.'
+        else if (response.status === 429) errorMessage = 'Too many summary requests just now. Try again shortly.'
+        else if (response.status >= 500) errorMessage = 'The server could not start the summary. Try again in a moment.'
       }
-      return { ok: false, retryable: response.status >= 500, error: errorMessage }
+      // A 429 with no stated wait reads as a moment's rate limit; Pro's monthly cap (E31's pro_fair_use_limit) lifts
+      // only when the month turns, so it takes no such wait unless the server states one.
+      if (failure.code !== 'pro_fair_use_limit') failure.retryAfterSeconds ??= response.status === 429 ? 60 : undefined
+      return { ok: false, retryable: response.status >= 500, error: errorMessage, failure }
     }
 
     console.info(
       `[summary] ${filingId} stream opened in ${(performance.now() - streamStart).toFixed(1)} ms`
     )
     reader = response.body?.getReader()
-    if (!reader) return { ok: false, retryable: true, error: 'No reader available' }
+    if (!reader) return { ok: false, retryable: true, error: 'The connection dropped before the summary started. Try again.' }
 
     const decoder = new TextDecoder()
     let buffer = ''
@@ -389,27 +504,35 @@ const runStreamAttempt = async (
     }
 
     if (streamErrorMessage !== null) {
-      return { ok: false, retryable: true, error: streamErrorMessage }
+      // A terminal application error is an answered request, not a broken connection. The
+      // server owns upstream retries; replaying the entire job here spends another admission.
+      return { ok: false, retryable: false, error: streamErrorMessage, failure: streamFailure }
     }
     if (!completed) {
       return {
         ok: false,
         retryable: true,
-        error: 'The connection closed before the summary finished. Please try again.',
+        error: 'The connection closed before the summary finished. Try again.',
       }
     }
     return { ok: true, retryable: false, error: '' }
   } catch (error: unknown) {
+    if (options?.signal?.aborted) throw abortError()
+    // The card prints this result's error, so it is a sentence in the product voice, never the transport's
+    // own text ("Failed to fetch", "Load failed", "NetworkError when attempting to fetch resource."); the
+    // transport's text goes to the console. Both are retryable, so no matcher phrase is involved.
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
       return {
         ok: false,
         retryable: true,
-        error: `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`,
+        error: `The summary timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without progress. Try again.`,
       }
     }
-    return { ok: false, retryable: true, error: errObj?.message || 'Failed to generate summary stream.' }
+    console.warn(`[summary] ${filingId} stream transport failed: ${errObj?.message ?? String(error)}`)
+    return { ok: false, retryable: true, error: 'The connection dropped before the summary finished. Try again.' }
   } finally {
+    options?.signal?.removeEventListener('abort', cancelReader)
     clearTimeoutSafely()
     controller.abort()
     // Cancel without waiting for transport cleanup; the request deadline must stay bounded.
@@ -426,9 +549,9 @@ const runStreamAttempt = async (
   }
 }
 
-export const getSummary = async (filingId: number): Promise<Summary | null> => {
+export const getSummary = async (filingId: number, signal?: AbortSignal): Promise<Summary | null> => {
   try {
-    const response = await api.get(`/api/summaries/filing/${filingId}`)
+    const response = await api.get(`/api/summaries/filing/${filingId}`, { signal })
     // Return null if summary is empty/not generated yet
     if (response.data && !response.data.business_overview) {
       return null
@@ -490,7 +613,8 @@ export interface WhatChangedMetricItem {
   current: number
   prior: number | null
   // Server-computed display string (one delta policy) + design-system tone; rendered verbatim.
-  display: string
+  // null when the prior is zero: no percentage is meaningful, so only the direction is served.
+  display: string | null
   tone: 'gain' | 'loss' | 'flat'
 }
 
@@ -513,19 +637,152 @@ export interface PriorFilingRef {
   period_end_date: string | null
 }
 
+/** One word-level edit inside a modified paragraph; equal segments carry the later filing's typography.
+ *  Segments carry no edge spaces: join them with one space to read the paragraph. */
+export type WordOp = ['equal' | 'delete' | 'insert', string]
+
+/** One change of Item 1A against the prior same-form original, in the later filing's reading order.
+ *  `id` is content-addressed (a stable key; repeated content is numbered). A modified paragraph
+ *  carries only its word ops: the later text is the equal and insert segments, the prior text the
+ *  equal and delete segments. */
+export type SectionChange =
+  | { id: string; kind: 'modified'; index: number; prior_index: number; similarity: number; moved: boolean; ops: WordOp[] }
+  | { id: string; kind: 'added'; index: number; after: string }
+  | { id: string; kind: 'removed'; prior_index: number; before: string }
+  | { id: string; kind: 'moved'; index: number; prior_index: number; after: string }
+
+export interface SectionSide {
+  status: string
+  extracted_at: string | null
+  /** A 10-Q whose Item 1A only refers back to the annual report's risk factors (nothing restated). */
+  reference_only: boolean
+  char_count: number | null
+  paragraph_count: number | null
+}
+
+export interface SectionChangesFilingRef extends PriorFilingRef {
+  accession_number: string
+}
+
+interface SectionChangesBase {
+  section: 'item_1a'
+  section_label: string
+  /** What this viewer got: the counts and the first items (`truncated`), or every item. */
+  access: 'teaser' | 'full'
+  engine_version: number
+  /** The filing the section is compared against, whenever one exists. */
+  prior_filing: SectionChangesFilingRef | null
+}
+
+export interface SectionChangesOk extends SectionChangesBase {
+  status: 'ok'
+  reason: null
+  current: SectionSide
+  prior: SectionSide
+  paragraphs: { prior: number; later: number; prior_excluded: number; later_excluded: number }
+  counts: { unchanged: number; modified: number; added: number; removed: number; moved: number }
+  words: { later_total: number; inserted: number; deleted: number; changed_ratio: number }
+  has_changes: boolean
+  items: SectionChange[]
+  items_total: number
+  truncated: boolean
+}
+
+export interface SectionChangesNotOk extends SectionChangesBase {
+  /** `pending`: a side is not extracted yet and the hourly batch will extract it; `no_prior`: no earlier
+   *  same-form original; `unavailable`: nothing to compare as things stand (`reason` says why:
+   *  form_not_supported, current_<status>, prior_<status>, or a side with no row that the batch will not
+   *  select: current_outside_window / prior_outside_window, current_outside_cohort / prior_outside_cohort). */
+  status: 'pending' | 'no_prior' | 'unavailable'
+  reason: string
+  current?: SectionSide
+  prior?: SectionSide
+}
+
+/** The filing-text wording diff of the change report (Item 1A against the prior same-form original),
+ *  served behind ENABLE_SECTION_CHANGES: null while the feature is off, and absent from a sample or
+ *  an older backend. */
+export type SectionChanges = SectionChangesOk | SectionChangesNotOk
+
 export interface ChangeReport {
   has_prior: boolean
   comparison_basis: string | null
   prior_filing: PriorFilingRef | null
   metrics: WhatChangedMetrics | null
+  /** The filer's as-filed reporting currency ("USD", "JPY", an ISO 4217 code): every metric item's
+   *  current/prior amount is in it. Null (or absent, from an older backend) when unknown. */
+  reporting_currency?: string | null
   risks: RiskDiff | null
   /** @deprecated T1.6: always null — the What-changed lead is now metrics.headline; kept for API compat. */
   key_changes: string | null
+  /** XBRL deltas exist (the metrics block); the wording diff has its own state in `section_changes`. */
   has_changes: boolean
+  section_changes?: SectionChanges | null
 }
 
 export const getWhatChanged = async (filingId: number): Promise<ChangeReport> => {
   const response = await api.get(`/api/summaries/filing/${filingId}/what-changed`)
+  return response.data
+}
+
+// --- The Pro review of the wording changes (E27, PR B) -----------------------------------------
+// A reader labels each change of the section_changes list `reviewed` or `follow_up`; the review is
+// complete when every change carries a label, and the server then freezes a receipt naming the
+// two texts compared. Both endpoints are Pro-only (403 otherwise); labels hang on the changes'
+// content-addressed ids. Read through features/summaries/hooks/useWordingReview.
+
+export type WordingLabel = 'reviewed' | 'follow_up'
+
+export interface WordingReceipt {
+  version: number
+  completed_at: string
+  section: 'item_1a'
+  section_label: string
+  filing: SectionChangesFilingRef
+  prior_filing: SectionChangesFilingRef
+  texts: {
+    current: { sha256: string | null; extractor_version: number | null; extracted_at: string | null }
+    prior: { sha256: string | null; extractor_version: number | null; extracted_at: string | null }
+  }
+  engine_version: number
+  app_version: string
+  paragraphs: SectionChangesOk['paragraphs']
+  counts: SectionChangesOk['counts']
+  words: SectionChangesOk['words']
+  items_total: number
+  labels: { reviewed: number; follow_up: number }
+  follow_up_ids: string[]
+}
+
+export interface WordingReviewState {
+  filing_id: number
+  section: 'item_1a'
+  section_label: string
+  /** `unavailable`: nothing to review yet (no comparison, or the feature is off); no items then. */
+  status: 'ok' | 'unavailable'
+  engine_version: number
+  items_total: number
+  /** Change id to label, for the changes of the current comparison only. */
+  labels: Record<string, WordingLabel>
+  counts: { reviewed: number; follow_up: number; unlabeled: number }
+  /** Set while every change is labelled and the receipt still describes the live comparison. */
+  completed_at: string | null
+  receipt: WordingReceipt | null
+  /** On a label's answer only: this label completed the queue (the transition the completion event counts). */
+  completed_now?: boolean
+}
+
+export const getWordingReview = async (filingId: number): Promise<WordingReviewState> => {
+  const response = await api.get(`/api/summaries/filing/${filingId}/wording-review`)
+  return response.data
+}
+
+export const setWordingLabel = async (
+  filingId: number,
+  itemId: string,
+  label: WordingLabel | null,
+): Promise<WordingReviewState> => {
+  const response = await api.put(`/api/summaries/filing/${filingId}/wording-review/labels`, { item_id: itemId, label })
   return response.data
 }
 

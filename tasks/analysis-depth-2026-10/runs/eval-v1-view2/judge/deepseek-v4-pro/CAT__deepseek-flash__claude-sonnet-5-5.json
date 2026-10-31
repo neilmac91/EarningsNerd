@@ -1,0 +1,86 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, better-supported analysis: it explains segment contributions, margin drivers, cash conversion, and balance sheet with precise citations. Draft B has some unsupported claims (e.g., 'operating costs outgrowing revenue by 4.8pp' without source) and less rigorous grounding. A's coverage is more comprehensive and its red flags are more specific."
+   },
+   "cost_usd": 0.005453,
+   "latency_s": 2.259,
+   "input_tokens": 10419,
+   "output_tokens": 147,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, better-supported analysis: it explains segment contributions, margin drivers, cash conversion, and balance sheet with precise citations. Draft B has some unsupported claims (e.g., 'operating costs outgrowing revenue by 4.8pp' without source) and less rigorous grounding. A's coverage is more comprehensive and its red flags are more specific.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis with specific segment and cost drivers, better peer context, and more actionable watch items. Both are well-grounded, but A's explanations are more precise and useful for investors."
+   },
+   "cost_usd": 0.005385,
+   "latency_s": 3.517,
+   "input_tokens": 10419,
+   "output_tokens": 113,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis with specific segment and cost drivers, better peer context, and more actionable watch items. Both are well-grounded, but A's explanations are more precise and useful for investors.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010838
+}

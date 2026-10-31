@@ -1,0 +1,38 @@
+{
+  "light": {
+    "pdf": {
+      "file": "REGN-analysis-light.pdf",
+      "suggested": "REGN_multi_period_analysis.pdf"
+    },
+    "xlsx": {
+      "file": "REGN-metrics-light.xlsx",
+      "suggested": "REGN_FY2016-FY2025_annual-metrics.xlsx"
+    },
+    "png": {
+      "file": "REGN-chart-revenue-light.png",
+      "suggested": "REGN_FY2016-FY2025_revenue-growth.png"
+    },
+    "pngMargins": {
+      "file": "REGN-chart-margins-light.png",
+      "suggested": "REGN_FY2016-FY2025_margins.png"
+    }
+  },
+  "dark": {
+    "pdf": {
+      "file": "REGN-analysis-dark.pdf",
+      "suggested": "REGN_multi_period_analysis.pdf"
+    },
+    "xlsx": {
+      "file": "REGN-metrics-dark.xlsx",
+      "suggested": "REGN_FY2016-FY2025_annual-metrics.xlsx"
+    },
+    "png": {
+      "file": "REGN-chart-revenue-dark.png",
+      "suggested": "REGN_FY2016-FY2025_revenue-growth.png"
+    },
+    "pngMargins": {
+      "file": "REGN-chart-margins-dark.png",
+      "suggested": "REGN_FY2016-FY2025_margins.png"
+    }
+  }
+}

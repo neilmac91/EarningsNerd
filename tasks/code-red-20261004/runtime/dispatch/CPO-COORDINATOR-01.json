@@ -1,0 +1,167 @@
+{
+  "dispatch_id": "CPO-COORDINATOR-01",
+  "recorded_at": "2026-10-04T14:31:38.292411+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "CPO",
+  "wave": "R2 (administrative readiness only)",
+  "lane": "quality inputs",
+  "role_label": "process_coordinator",
+  "requested_model": "claude-sonnet-5-5",
+  "independent_verifier_requested_model": "claude-fable-5-1",
+  "package_sha256": "14e66f5461144cee3bf7cda92b59c61878635379e9bff8b0278fc20b40a5d3dc",
+  "worker_identity": "recorded after launch in control/APPOINTMENTS.json and the next exclusion successor",
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/cpo/claude-result/R1-R2-ADMISSION-STATUS.json",
+    "tasks/code-red-20261004/runtime/handbacks/cpo/claude-result/PROCESS-HANDBACK.md"
+  ],
+  "allowed_inputs": [
+    {
+      "label": "CPO acknowledgement",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/cpo/ACKNOWLEDGEMENT.md",
+      "sha256": "03f65ac7ddefe9f95a31ee58b6aeb67d915e471e7fd2b18fbc0c7448790a9e10",
+      "bytes": 3185
+    },
+    {
+      "label": "CPO first deliverable (A1\u2013A9 matrix)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/cpo/FIRST-DELIVERABLE.md",
+      "sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9",
+      "bytes": 16374
+    },
+    {
+      "label": "CPO coordinator worker prompt",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/cpo/CLAUDE-IMPLEMENTATION-PROMPT.md",
+      "sha256": "ff7a2ed0b5b4789cef10503dc3ed263fecb6fce240c42970ea43d3221ff5ee3c",
+      "bytes": 10052
+    },
+    {
+      "label": "CPO REQUIRED-FILES.json",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/officer/REQUIRED-FILES.json",
+      "sha256": "a6c5b8ae1b3cc058e2b7095eb8f2031e14fd1f07005d20c6c92d8ce7308eb8d1",
+      "bytes": 9190
+    },
+    {
+      "label": "CEO directive (current)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/CEO-DIRECTIVE.md",
+      "sha256": "5008dbbc240ab9628b0d2f91913a14662e770347174990852eb21563eac0d48b",
+      "bytes": 4979
+    },
+    {
+      "label": "Chief transfer policy",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/CHIEF-TRANSFER-POLICY.md",
+      "sha256": "c6b8dc3a47dfcdc115ac966ec1bf52793627e0fdad43574cba3573680d8b54d3",
+      "bytes": 10803
+    },
+    {
+      "label": "Wave register",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/WAVE-REGISTER.json",
+      "sha256": "55a602dfaa24457553ad324f2dd531c49f9bff27f3fa694447dfbb2f713bd16d",
+      "bytes": 2249
+    },
+    {
+      "label": "Current snapshot (package)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/CURRENT-SNAPSHOT.md",
+      "sha256": "5015c115573443e55b4c92717110161289053b7cb727cdf85c21854349fe95fe",
+      "bytes": 4046
+    },
+    {
+      "label": "Handback contract",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/HANDBACK-CONTRACT.md",
+      "sha256": "cc4d5b743cd78c65998b38efeeadc6cd51ef84939c56905bd6b687f0068f8e32",
+      "bytes": 1370
+    },
+    {
+      "label": "Quality acceptance specification 2026-09-19",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/quality-acceptance-specification-2026-09-19.md",
+      "sha256": "95416298c549890cdd11c5b7b9a5f3ca34eed4429852370cdde40629865ff0fa",
+      "bytes": 36044
+    },
+    {
+      "label": "AI-assisted plan",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted-plan.md",
+      "sha256": "aa60498044e9a7aadedf688edd5d310f746e97c768660163162293beb9f8f15f",
+      "bytes": 6787
+    },
+    {
+      "label": "AI-assisted README",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/README.md",
+      "sha256": "70e492fecffe694a654b2bae2ee06c4bb2fad82e3cddb873df414a64670c0720",
+      "bytes": 12550
+    },
+    {
+      "label": "AI-assisted decision",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/decision.md",
+      "sha256": "0ac0cc2efae570601d6cc3a4f4f555c7a26e8d25487e33f89db3ad0918abd356",
+      "bytes": 6142
+    },
+    {
+      "label": "AI-assisted judge runner",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/judge-runner.md",
+      "sha256": "11b0f444df106f35fa98efea10f16c26fa2318a29de27f4b43186a39a6061878",
+      "bytes": 2934
+    },
+    {
+      "label": "Frozen source contract",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/frozen-source-contract.md",
+      "sha256": "78bb040b7e96edcc44e338eaf111ad855f205cef1157298e86a467090de8f8e1",
+      "bytes": 4655
+    },
+    {
+      "label": "H20 next delivery blocker",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/H20-NEXT-DELIVERY-BLOCKER.md",
+      "sha256": "5b1d8e810356067edb83cccc6400548d1f58975e9bc3233df42c2495c96b467d",
+      "bytes": 3759
+    },
+    {
+      "label": "Exclusion 134 (predecessor)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/source-context-exclusion-134.json",
+      "sha256": "554b94355855651ab14d3be3cca234b48223acec81d69cef0d07ab30e1566ec2",
+      "bytes": 9448
+    },
+    {
+      "label": "CEO-supplied management-only snapshot: TAKEOVER.md",
+      "path": "tasks/code-red-20261004/runtime/TAKEOVER.md",
+      "sha256": "af840e195c5d9a5c1b42d60ae906639d508b1437b93839ac5fe6742082db7e05",
+      "bytes": 6510
+    },
+    {
+      "label": "CEO-supplied management-only snapshot: REPOSITORY-SNAPSHOT.json",
+      "path": "tasks/code-red-20261004/runtime/control/REPOSITORY-SNAPSHOT.json",
+      "sha256": "a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9",
+      "bytes": 2770
+    },
+    {
+      "label": "CEO-supplied exclusion successor 136",
+      "path": "tasks/code-red-20261004/runtime/control/source-context-exclusion-136.json",
+      "sha256": "f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a",
+      "bytes": 9672
+    },
+    {
+      "label": "CEO-supplied ledger access statement",
+      "path": "tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md",
+      "sha256": "9d6143456b4b43c940f684638f9a65ed765bd6a0299084487f3a31aaf68d5e9f",
+      "bytes": 2225
+    },
+    {
+      "label": "CEO-recorded R1 status",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/R1-STATUS.md",
+      "sha256": "fb3d032e41f460ed7e45e39de5bca4a84aeb0061438b490421b98de8018e29b7",
+      "bytes": 3985
+    }
+  ],
+  "entry_condition": "All allowed inputs present with matching hashes; no new evidence required (administrative status, not admission).",
+  "stop_conditions": [
+    "any invented evidence or receipt",
+    "any hash mismatch",
+    "any request to open source/candidate/judge payloads",
+    "any source or judge dispatch",
+    "any network/provider/GitHub/cloud access"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false
+  },
+  "source_dispatch_authorized": false,
+  "judge_dispatch_authorized": false,
+  "one_writer_for_output_paths": true
+}

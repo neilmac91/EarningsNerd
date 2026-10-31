@@ -15,6 +15,15 @@ allowed-tools:
 
 This skill audits UI code for compliance with Vercel's Web Interface Guidelines. Use it when users request design reviews like "check my site against best practices" or "audit my UI design."
 
+## EarningsNerd context
+
+Before the audit, read [DESIGN.md](../../../../DESIGN.md) and
+[frontend/DESIGN_SYSTEM.md](../../../../frontend/DESIGN_SYSTEM.md). Use them for the project's
+visual reference and implementation conventions, with source code authoritative for actual
+tokens and behavior. External guidelines support the audit; generic examples below do not
+define EarningsNerd's palette, components or state handling. Follow
+[CLAUDE.md](../../../../CLAUDE.md#design-documentation) when findings change the documented system.
+
 ## Workflow
 
 1. **Fetch Guidelines** - Retrieve the latest guidelines from the source

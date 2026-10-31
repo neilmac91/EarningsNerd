@@ -1,34 +1,16 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Geist_Mono, Newsreader } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import { inter, geistMono, newsreader } from './fonts'
 import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import CookieConsent from '@/components/CookieConsent'
-import { Analytics } from '@vercel/analytics/next'
+import { PrivateAnalytics } from './private-analytics'
 import { fetchSignupConfig } from '@/lib/serverApi'
 import { resolveAccessMode } from '@/features/marketing/lib/access'
-
-// Type v2 — fixed roles, self-hosted via next/font (zero layout shift; the runtime
-// font switcher is retired). Inter loads WITH the variable opsz axis: that is what
-// gives the SF-style Text↔Display optical cuts (font-optical-sizing: auto in
-// globals.css). -apple-system stays FIRST in --font-body, so Apple users render
-// SF Pro (platform-licensed, zero bytes) and never download Inter; SF Pro / SF Mono /
-// New York must NEVER be embedded as webfonts. globals.css + tailwind.config.js
-// reference the emitted variables (--font-inter / --font-geist-mono / --font-newsreader).
-const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inter' })
-const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
-// axes: opsz — the editorial role promises optical sizing (font-optical-sizing: auto);
-// preload: false — the serif is opt-in for long-form filing reading only, so ~120KB of
-// woff2 must not ride the critical path of every route.
-const newsreader = Newsreader({
-  subsets: ['latin'],
-  style: ['normal', 'italic'],
-  axes: ['opsz'],
-  variable: '--font-newsreader',
-  preload: false,
-})
+import { SOCIAL_CARD } from '@/lib/socialCard'
+import { PublicAccessProvider } from '@/features/marketing/components/PublicAccessProvider'
 
 // Pre-paint theme script — mirrors ThemeProvider (saved 'theme' else light) and sets the
 // .dark class before first paint, so the (theme-responsive) pages don't flash the wrong theme
@@ -41,29 +23,21 @@ const THEME_BOOTSTRAP = `(function(){try{
 }catch(e){}})();`
 
 export const metadata: Metadata = {
-  title: 'EarningsNerd | AI-powered SEC filing analysis',
-  description: 'AI-assisted summaries of SEC filings, with financials, risks, trends, and source context from SEC EDGAR.',
+  // 'Page | EarningsNerd': the page first, the brand last (D-038). A plain string, no template: every
+  // route's own layout or page writes its whole title, and routeMetadata.spec.ts holds the form.
+  title: 'AI summaries of SEC filings | EarningsNerd',
+  description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs from SEC EDGAR, with figures checked against the company’s filed data where they can be.',
   keywords: ['SEC filings', '10-K', '10-Q', 'financial analysis', 'earnings', 'stock analysis', 'AI summaries', 'SEC EDGAR'],
   metadataBase: new URL('https://www.earningsnerd.io'),
+  // No title or description here: Next fills og:title, og:description and the twitter pair from each
+  // page's own title and description, so a shared /pricing link previews as Pricing, not as the site.
   openGraph: {
-    title: 'EarningsNerd | AI-powered SEC filing analysis',
-    description: 'Explore SEC filings with AI-assisted summaries and source context from SEC EDGAR.',
     type: 'website',
-    images: [
-      {
-        // Bump when the committed card changes so social scrapers fetch the current pixels.
-        url: '/og-image.png?v=3',
-        width: 1200,
-        height: 630,
-        alt: 'EarningsNerd - AI-assisted SEC filing summaries with source context',
-      },
-    ],
+    images: [SOCIAL_CARD],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'EarningsNerd | AI-powered SEC filing analysis',
-    description: 'Explore SEC filings with AI-assisted summaries and source context from SEC EDGAR.',
-    images: ['/og-image.png?v=3'],
+    images: [SOCIAL_CARD.url],
   },
   icons: {
     // favicon.ico carries 16/32/48; the self-backgrounded appicon SVG scales
@@ -74,6 +48,8 @@ export const metadata: Metadata = {
     ],
     // Apple ignores SVG touch icons — this must be the PNG tile.
     apple: '/apple-touch-icon.png',
+    // Safari pinned tabs recolour a one-colour mask; the mark is letterboxed in a square.
+    other: [{ rel: 'mask-icon', url: '/assets/earningsnerd-mask-icon.svg', color: '#4F7A63' }],
   },
 }
 
@@ -99,7 +75,8 @@ export default async function RootLayout({
   // The header's account CTA follows the backend's registration gate (invite-only vs open), read
   // through an hourly ISR fetch so a config flip on the service flips the chrome everywhere with
   // no redeploy (this fetch is the ISR floor for every route); unreachable backend = the
-  // conservative invite copy.
+  // conservative invite policy. PublicAccessProvider separately checks current legal readiness;
+  // a cached registration policy alone must never advertise available intake.
   const accessMode = resolveAccessMode(await fetchSignupConfig())
   return (
     // suppressHydrationWarning: the THEME pre-paint script sets the .dark class on
@@ -114,17 +91,19 @@ export default async function RootLayout({
       </head>
       <body>
         <Providers>
-          <SiteHeader accessMode={accessMode} />
-          <VerificationBanner />
-          {/* Skip-link target (SiteChrome.SkipToContent). A div, not <main>: pages render their own
-              single <main> landmark. tabIndex=-1 makes it programmatically focusable only. */}
-          <div id="main" tabIndex={-1} className="outline-none">
-            {children}
-          </div>
-          <SiteFooter />
-          <EmailVerificationModal />
-          <CookieConsent />
-          <Analytics />
+          <PublicAccessProvider>
+            <SiteHeader accessMode={accessMode} />
+            <VerificationBanner />
+            {/* Skip-link target (SiteChrome.SkipToContent). A div, not <main>: pages render their own
+                single <main> landmark. tabIndex=-1 makes it programmatically focusable only. */}
+            <div id="main" tabIndex={-1} className="outline-none">
+              {children}
+            </div>
+            <SiteFooter />
+            <EmailVerificationModal />
+            <CookieConsent />
+            <PrivateAnalytics />
+          </PublicAccessProvider>
         </Providers>
       </body>
     </html>

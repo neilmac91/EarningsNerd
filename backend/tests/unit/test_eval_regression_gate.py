@@ -2,6 +2,12 @@
 
 Deterministic, no network/AI: they prove the per-dimension diff and the hard-fail/warn
 classification are correct independent of any model run."""
+import json
+from pathlib import Path
+
+import pytest
+
+from evals import regression_gate
 from evals.regression_gate import (
     compare_candidate,
     evaluate_report,
@@ -102,7 +108,8 @@ def test_evaluate_report_flags_hard_regression_across_candidates():
     report = _report({"baseline": dict(BASELINE_STATS, mean_coverage=0.80)})
     findings, notes = evaluate_report(report, BASELINE)
     assert _hard(findings) and notes == [
-        "baseline: expected=1 attempted=1 scored=1 errors=0; quality means use scored outputs only"
+        "baseline: expected=1 attempted=1 scored=1 errors=0; quality means use scored outputs only",
+        "baseline: native-section share unavailable (no coverage_inventory); unavailable is not measured zero",
     ]
 
 
@@ -152,3 +159,144 @@ def test_citation_checked_unpinned_baseline_stays_inert():
     # pinned convention every new dimension ships under).
     cand = dict(BASELINE_STATS, mean_citation_checked=0.5)
     assert compare_candidate(BASELINE_STATS, cand) == []
+
+
+# --- Native-section provenance (E28): absolute floors read from `results` -----------------------
+
+GOLDEN = json.loads((Path(regression_gate.__file__).with_name("golden_set.json")).read_text())["filings"]
+PINNED_ON = {**BASELINE, "harness": {"use_edgartools_sections": True}}
+
+
+def _provenance_report(source_for, *, runs=2, flag=True, inventory=True):
+    """A complete report over the golden cohort; ``source_for(filing)`` names each excerpt's source.
+    The inventory is what production's ``excerpt_provenance`` writes, not a hand-built shape."""
+    from app.services.excerpt_provenance import excerpt_provenance
+
+    rows = []
+    for filing in GOLDEN:
+        for run in range(runs):
+            row = {"candidate": "baseline", "ticker": filing["ticker"], "filing_type": filing["filing_type"],
+                   "run": run, "score": {"coverage": 1.0}}
+            if inventory:
+                source = source_for(filing)
+                row["coverage_inventory"] = excerpt_provenance(
+                    "x" * 9000, accession=filing["accession_number"], source=source,
+                    sections={"mda": "m" * 300} if source == "edgartools" else None,
+                )
+            rows.append(row)
+    return {
+        "harness": {"candidates": ["baseline"], "runs_per_candidate": runs, "use_edgartools_sections": flag,
+                    "filings": [{"ticker": f["ticker"], "filing_type": f["filing_type"]} for f in GOLDEN]},
+        "summary": {"baseline": dict(BASELINE_STATS, n=len(rows), scored=len(rows), errors=0)},
+        "results": rows,
+    }
+
+
+def _native_unless(*tickers):
+    return lambda f: ("regex_fallback" if f["filing_type"] == "6-K" or f["ticker"] in tickers else "edgartools")
+
+
+def _native(findings):
+    return [f for f in findings if f.metric.startswith(("native_section", "use_edgartools"))]
+
+
+def test_revived_native_sections_are_clean_and_name_the_known_miss():
+    findings, notes = evaluate_report(_provenance_report(_native_unless("ASML")), PINNED_ON)
+    assert _native(findings) == []
+    assert ("baseline: native-section excerpts 62 of 64 eligible attempts (unavailable=0); "
+            "non-native: ASML 20-F x2") in notes
+
+
+def test_the_e28_collapse_is_a_hard_failure(tmp_path):
+    report = _provenance_report(lambda f: "regex_fallback")
+    findings, _ = evaluate_report(report, PINNED_ON)
+    assert [(f.severity, f.metric, f.candidate_value) for f in _native(findings)] == [("HARD", "native_section_share", 0.0)]
+    path = tmp_path / "eval_20261016T000000Z.json"
+    path.write_text(json.dumps(report))
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps(PINNED_ON))
+    assert regression_gate.main([str(path), "--baseline", str(baseline)]) == 1
+
+
+@pytest.mark.parametrize(("misses", "severity"), [
+    (("ASML", "JPM"), "WARN"),  # one more filing: 60 of 64
+    (("ASML", "JPM", "TSM"), "WARN"),  # two more: 58 of 64
+    (("ASML", "JPM", "TSM", "PLD"), "HARD"),  # three more: 56 of 64
+])
+def test_extra_misses_warn_then_fail(misses, severity):
+    findings, _ = evaluate_report(_provenance_report(_native_unless(*misses)), PINNED_ON)
+    assert [(f.severity, f.metric) for f in _native(findings)] == [(severity, "native_section_share")]
+
+
+def test_a_broken_form_is_a_hard_failure():
+    ten_q_broken = lambda f: "regex_fallback" if f["filing_type"] in ("6-K", "10-Q") or f["ticker"] == "ASML" else "edgartools"  # noqa: E731
+    findings, _ = evaluate_report(_provenance_report(ten_q_broken), PINNED_ON)
+    assert [f.severity for f in _native(findings)] == ["HARD"]
+
+
+def test_sections_off_warns_against_a_pin_measured_on_and_fails_if_rows_contradict_it():
+    findings, _ = evaluate_report(_provenance_report(lambda f: "regex_fallback", flag=False), PINNED_ON)
+    assert [(f.severity, f.metric) for f in _native(findings)] == [("WARN", "use_edgartools_sections")]
+    findings, _ = evaluate_report(_provenance_report(_native_unless("ASML"), flag=False), PINNED_ON)
+    assert ("HARD", "native_section_share") in [(f.severity, f.metric) for f in _native(findings)]
+
+
+def test_reports_without_inventory_or_eligible_forms_get_a_note_not_a_finding():
+    findings, notes = evaluate_report(_provenance_report(lambda f: "regex_fallback", inventory=False), PINNED_ON)
+    assert _native(findings) == []
+    assert "baseline: native-section share unavailable (no coverage_inventory); unavailable is not measured zero" in notes
+    six_k_only = _provenance_report(_native_unless())
+    six_k_only["results"] = [r for r in six_k_only["results"] if r["filing_type"] == "6-K"]
+    findings, notes = evaluate_report(six_k_only, PINNED_ON)
+    assert _native(findings) == []
+    assert "baseline: native sections not applicable (no 10-K/10-Q/20-F attempts)" in notes
+
+
+def test_a_scored_eligible_attempt_without_inventory_is_malformed_evidence():
+    report = _provenance_report(_native_unless("ASML"))
+    eligible = next(r for r in report["results"] if r["filing_type"] == "10-K")
+    del eligible["coverage_inventory"]
+    findings, _ = evaluate_report(report, PINNED_ON)
+    assert ("HARD", "native_section_evidence", 1) in [(f.severity, f.metric, f.candidate_value) for f in findings]
+    errored = _provenance_report(_native_unless("ASML"))
+    failed_grounding = next(r for r in errored["results"] if r["filing_type"] == "10-K")
+    del failed_grounding["coverage_inventory"]
+    failed_grounding["error"] = "grounding failed"
+    assert "native_section_evidence" not in [f.metric for f in evaluate_report(errored, PINNED_ON)[0]]
+
+
+def test_attempts_without_inventory_are_left_out_of_the_share():
+    # Four failed groundings carry no inventory: unavailable, so the share is 58 of 60 (clean), never
+    # 58 of 64 (a WARN).
+    report = _provenance_report(_native_unless("ASML"))
+    for row in [r for r in report["results"] if r["filing_type"] == "10-K"][:4]:
+        del row["coverage_inventory"]
+        row["error"], row["score"] = "grounding failed", None
+    findings, notes = evaluate_report(report, PINNED_ON)
+    assert _native(findings) == []
+    assert ("baseline: native-section excerpts 58 of 60 eligible attempts (unavailable=4); "
+            "non-native: ASML 20-F x2") in notes
+
+
+def test_amended_forms_are_eligible():
+    """Only the amended 10-Ks miss here, so the share is 34 of 64, a HARD failure. A gate that left
+    amendments out would read 34 of 36, a WARN."""
+    report = _provenance_report(lambda f: "regex_fallback" if f["filing_type"] == "10-K" else _native_unless("ASML")(f))
+    for row in report["results"]:
+        if row["filing_type"] == "10-K":
+            row["filing_type"] = "10-K/A"
+    findings, notes = evaluate_report(report, PINNED_ON)
+    assert "native_section_share" in [f.metric for f in _hard(_native(findings))]
+    assert any("native-section excerpts 34 of 64 eligible attempts" in note for note in notes)
+
+
+def test_the_gate_reads_the_label_and_forms_the_producers_write():
+    """The gate's reference values are themselves pinned to their producers (CLAUDE.md rule 12)."""
+    backend = Path(regression_gate.__file__).resolve().parents[1]
+    service = (backend / "app/services/summary_generation_service.py").read_text()
+    runner = (backend / "evals/runner.py").read_text()
+    enrichment = (backend / "app/services/summary_stages/enrichment.py").read_text()
+    assert f'source = "{regression_gate._NATIVE_SECTION_SOURCE}"' in service
+    assert f'excerpt, source = built, "{regression_gate._NATIVE_SECTION_SOURCE}"' in runner
+    assert '{"10-K", "10-Q", "20-F"}' in enrichment
+    assert regression_gate._NATIVE_SECTION_FORMS == {"10-K", "10-Q", "20-F"}

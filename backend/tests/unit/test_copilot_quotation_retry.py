@@ -1,0 +1,576 @@
+"""A narrowly rejected evidence candidate may buy one fresh attempt, never publication or a new quota unit.
+
+These checks compose the real service/admission, native SDK and ASGI quota owners. All
+provider traffic is mocked; the existing quotation verifier and locked contracts stay intact.
+"""
+import asyncio
+import copy
+import json
+from types import SimpleNamespace
+
+import httpx2
+import pytest
+from fastapi.testclient import TestClient
+
+from main import app
+from app.services import copilot_service
+from app.services.copilot import prompt as copilot_prompt
+from app.services.ai import copilot_chat
+from app.services.ai.copilot_chat import merge_chat_usage
+from app.services.ai.provider_requests import signal_provider_start
+from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
+from tests.unit.test_copilot import _as_user, _asgi_post, _qa_state, _seed_filing, _wire_events
+from tests.unit.test_copilot import _fresh_ask_limiter as _fresh_ask_limiter
+from tests.unit.test_provider_resilience import chunk, event, service_for
+
+KNOWN = "Demand remained robust across cloud services."
+SOURCE = "Item 2. Management's Discussion. " + KNOWN + " Capacity investment continued."
+INVENTED = "INVENTED demand phrase absent from every source"
+POISON = "FIRST-ATTEMPT-PRIVATE-CONTEXT"
+ACCESSION = "0000000001-26-000001"
+FOLLOWUPS = ["What supported cloud demand?", "What did capacity investment support?"]
+
+
+def filing():
+    return SimpleNamespace(
+        company_id=1, accession_number=ACCESSION, period_of_report="2026-06-30",
+        filing_type="10-Q", filing_date=None,
+        document_url="https://www.sec.gov/Archives/edgar/data/1/000000000126000001/filing.htm",
+        sec_url="https://www.sec.gov/Archives/edgar/data/1/000000000126000001/",
+        xbrl_data={"reporting_currency": "USD"},
+        company=SimpleNamespace(name="Test Company", ticker="TEST", cik="1"),
+        content_cache=SimpleNamespace(critical_excerpt=SOURCE, markdown_content=None),
+    )
+
+
+def envelope(answer, *, excerpt=KNOWN, followups=FOLLOWUPS, section="Item 2 — MD&A", declarations=None):
+    citations = declarations if declarations is not None else [{"n": 1, "excerpt": excerpt, "section": section}]
+    return (answer + "\n===CITATIONS===\n" + json.dumps(citations)
+            + "\n===FOLLOWUPS===\n" + json.dumps(followups))
+
+
+def rejected(surface="answer"):
+    if surface == "repeated_citations":
+        # copilot-eval's shape (BABA viewed-native-revenue-2025, run 38942183029): a short-excerpt
+        # array, a note correcting it, then a second array.
+        return (f"{INVENTED} [1].\n===CITATIONS===\n"
+                + json.dumps([{"n": 1, "excerpt": "robust", "section": "Item 2 — MD&A"}])
+                + f"\nNote: {INVENTED} is too short, so here is a proper contiguous span instead.\n"
+                + "===CITATIONS===\n" + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
+    if surface == "not_disclosed":
+        return (f'===NOT_DISCLOSED===\nThe filing does not explain "{INVENTED}".'
+                + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
+    if surface == "citation_excerpt":
+        return envelope(f'Management said "{KNOWN}" [1].', excerpt=INVENTED)
+    if surface == "elided_quote":
+        return envelope('The filing said "Demand ... across cloud services" [1].')
+    questions = FOLLOWUPS if surface == "answer" else [f'Why did management say "{INVENTED}"?', FOLLOWUPS[1]]
+    answer = f'Management said "{INVENTED}" [1].' if surface == "answer" else f'Management said "{KNOWN}" [1].'
+    return envelope(answer, followups=questions)
+
+
+def usage(attempt):
+    return {"model": "offline-primary", "prompt_tokens": 10, "completion_tokens": 3,
+            "total_tokens": 13, "estimated_cost_usd": 0.001 * attempt, "call_count": 1}
+
+
+async def collect(selected_filing=None):
+    return [row async for row in copilot_service.answer_filing_question(
+        filing=selected_filing or filing(), question="What did management say about demand?",
+        history=[{"role": "user", "content": "Tell me about this filing."},
+                 {"role": "assistant", "content": "This filing discusses cloud services."}],
+    )]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt", "elided_quote",
+                                     "repeated_citations"])
+async def test_quotation_retry_safety_gate(monkeypatch, surface):
+    """One grouped rule gate: a private mismatch retries fresh, once, with bounded custody."""
+    selected = filing()
+    calls, closed, source_reads, normalizations, markers = [], [], [], [], []
+    select_source, normalize = copilot_service._select_source_text, copilot_service.normalize_for_match
+
+    def select(value):
+        source_reads.append(value)
+        return select_source(value)
+
+    def normalized(value):
+        normalizations.append(value)
+        return normalize(value)
+
+    def fact(_name, args, _company_id, **scope):
+        concept = args["concept"]
+        return {"concept": concept, "raw_tag": "us-gaap:" + concept, "accession": scope["accession_number"],
+                "unit": "USD", "value": 100_000_000_000 if concept == "revenue" else 20_000_000_000,
+                "period_start": "2026-01-01", "period_end": "2026-06-30", "fiscal_year": 2026,
+                "fiscal_period": "Q2"}
+
+    async def stream(messages, _tools, run_tool, **kwargs):
+        attempt = len(calls) + 1
+        calls.append({"messages": copy.deepcopy(messages), "deadline": kwargs.get("deadline"),
+                      "usage_sink": id(kwargs["usage_sink"])})
+        try:
+            result = run_tool("get_financial_fact", {"concept": "revenue" if attempt == 1 else "net_income"})
+            markers.append(result.get("cite"))
+            merge_chat_usage(kwargs["usage_sink"], usage(attempt))
+            if attempt == 1:
+                # The native wrapper mutates messages with tool turns. A new attempt must
+                # rebuild its original conversation rather than reuse this candidate context.
+                messages.append({"role": "assistant", "content": POISON + rejected(surface)})
+                yield rejected(surface)
+                selected.content_cache.critical_excerpt = "UNRELATED CACHE REPLACEMENT"
+            elif surface == "not_disclosed":
+                yield ("===NOT_DISCLOSED===\nThis filing does not disclose monthly demand totals."
+                       + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
+            else:
+                yield envelope(f'Net income was $20.0B [{result["cite"]}]. Management said "{KNOWN}" [1].')
+        finally:
+            closed.append(attempt)
+
+    monkeypatch.setattr(copilot_service, "_select_source_text", select)
+    monkeypatch.setattr(copilot_service, "normalize_for_match", normalized)
+    monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", fact)
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    question_budgets, real_chat_deadline = [], copilot_service.chat_deadline
+
+    def recording_chat_deadline():
+        question_budgets.append(real_chat_deadline())
+        return question_budgets[-1]
+
+    monkeypatch.setattr(copilot_service, "chat_deadline", recording_chat_deadline)
+    before = asyncio.get_running_loop().time()
+    rows = await collect(selected)
+    terminal = [row for row in rows if row["type"] in {"complete", "error"}]
+    assert len(calls) == 2 and closed == [1, 2]
+    assert len(terminal) == 1 and terminal[0]["type"] == "complete"
+    complete = terminal[0]
+    assert complete["kind"] == ("not_disclosed" if surface == "not_disclosed" else "answer")
+    assert all(row["type"] in {"progress", "activity", "not_disclosed", "complete"} for row in rows)
+    assert POISON not in json.dumps(rows) and INVENTED not in json.dumps(rows)
+    assert sum(row.get("stage") == copilot_service.PROVIDER_STARTED_STAGE for row in rows) == 1
+    assert markers == ["F1", "F1"], "retry reused fact markers from its discarded candidate"
+    assert source_reads == [selected] and normalizations.count(SOURCE) == 1
+    assert calls[0]["usage_sink"] == calls[1]["usage_sink"]
+    assert isinstance(calls[0]["deadline"], (int, float))
+    # Both attempts carry the one budget the question fixed (75 s from chat_deadline), compared as
+    # values: an upper bound of `before + 75.1` left 0.1 s of wall clock for the service's awaits.
+    assert before < calls[0]["deadline"] and [calls[0]["deadline"]] == question_budgets
+    assert calls[0]["deadline"] == calls[1]["deadline"]
+    assert SOURCE in json.dumps(calls[1]["messages"])
+    assert "UNRELATED CACHE REPLACEMENT" not in json.dumps(calls[1]["messages"])
+    assert POISON not in json.dumps(calls[1]["messages"]) and INVENTED not in json.dumps(calls[1]["messages"])
+    first_system, retry_system = calls[0]["messages"][0], calls[1]["messages"][0]
+    assert first_system["role"] == retry_system["role"] == "system"
+    # The first generation keeps SYSTEM_PROMPT's bytes. A decision-F retry adds the evidence guidance
+    # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class. Text
+    # after the citation array never reached source matching, so its owned class adds nothing: the
+    # regeneration re-samples with SYSTEM_PROMPT byte-identical, the composition already measured.
+    if surface == "repeated_citations":
+        added = ""
+    else:
+        assert retry_system["content"] != first_system["content"]
+        assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
+        added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+    if surface == "citation_excerpt":
+        added += "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE
+    assert first_system["content"] == copilot_prompt.SYSTEM_PROMPT
+    assert retry_system["content"] == copilot_prompt.SYSTEM_PROMPT + added
+    assert complete["usage"]["total_tokens"] == 26
+    assert complete["usage"]["call_count"] == 2
+    assert complete["usage"]["estimated_cost_usd"] == pytest.approx(0.003)
+    if surface != "not_disclosed":
+        assert complete["grounded"] == 2
+        assert len(complete["citations"]) == 2 and all(c["verified"] is True for c in complete["citations"])
+        assert complete["citations"][0]["excerpt"].find("20") != -1
+        assert "100" not in complete["citations"][0]["excerpt"]
+        assert complete["citations"][1]["excerpt"] == KNOWN
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "cross_cause",
+                                     "repeated_citations"])
+async def test_retry_exhaustion_has_one_terminal_error_without_private_candidates(monkeypatch, surface):
+    calls, closed = [], []
+    surfaces = ("answer", "elided_quote") if surface == "cross_cause" else (surface, surface)
+
+    async def stream(*_args, **kwargs):
+        attempt = len(calls) + 1
+        calls.append(kwargs["deadline"])
+        try:
+            yield rejected(surfaces[min(attempt - 1, 1)])
+        finally:
+            closed.append(attempt)
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect()
+    assert len(calls) == 2 and closed == [1, 2]
+    assert [row for row in rows if row["type"] in {"complete", "error"}] == [
+        {"type": "error", "message": copilot_service._PUBLICATION_ERROR},
+    ]
+    assert all(row["type"] in {"progress", "error"} for row in rows)
+    assert INVENTED not in json.dumps(rows)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("surface", ["answer", "repeated_citations"])
+async def test_a_regeneration_due_after_the_question_budget_is_never_started(monkeypatch, surface):
+    """The retry condition's deadline clause (``answer_filing_question``): a rejection that would buy the
+    regeneration once the question's budget has run out ends with the publication error. No second provider
+    call starts, so the stream never ends in the failure an expired budget would raise inside it."""
+    calls = []
+
+    async def stream(*_args, **kwargs):
+        calls.append(kwargs["deadline"])
+        yield rejected(surface)
+
+    monkeypatch.setattr(copilot_service, "chat_deadline", lambda: asyncio.get_running_loop().time())
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect()
+    assert len(calls) == 1
+    assert [row for row in rows if row["type"] in {"complete", "error"}] == [
+        {"type": "error", "message": copilot_service._PUBLICATION_ERROR},
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", [
+    "malformed", "upstream", "ambiguous", "missing_source",
+    "missing_source_excerpt", "quoted_section", "missing_id",
+    "short_source", "leading_zero_missing", "late_quoted_label",
+    "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id", "fenced_note",
+    "object_with_note", "invalid_declaration_with_note",
+])
+async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case):
+    selected = filing()
+    payload = {
+        "malformed": 'A private answer [1].\n===CITATIONS===[{"n":1,',
+        # A note inside a citation fence is "Unclosed citation fence", not the trailer: still terminal.
+        "fenced_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n```json\n'
+                        + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                        + "\nNote: corrected below.\n```"),
+        # A malformed declaration keeps its own terminal reason whatever text follows it.
+        "object_with_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n'
+                             + json.dumps({"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"})
+                             + "\nNote: corrected below.\n===CITATIONS===\n[]"),
+        "invalid_declaration_with_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n'
+                                          + json.dumps([{"n": "1", "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                                          + "\nNote: corrected below.\n===CITATIONS===\n[]"),
+        "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
+        "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
+        "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
+        "missing_source_excerpt": rejected("citation_excerpt"),
+        "quoted_section": envelope(f'Management said "{KNOWN}" [1].', excerpt=INVENTED,
+                                   section='Item 2 — "Management demand commentary"'),
+        "missing_id": envelope(f'Management said "{KNOWN}" [1]. Capacity investment continued [2].',
+                               excerpt=INVENTED),
+        "short_excerpt_with_quoted_label": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": '"Changed demand"', "section": "Item 2 — MD&A"},
+                {"n": 2, "excerpt": KNOWN, "section": 'Item 2 — "Management demand commentary"'},
+            ],
+        ),
+        "duplicate_id_with_missing_id": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+                {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
+            ],
+        ),
+        "short_source": rejected("citation_excerpt"),
+        "leading_zero_missing": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [01].', excerpt=INVENTED,
+        ),
+        "late_quoted_label": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+                {"n": 2, "excerpt": KNOWN, "section": 'Item 2 — "Management demand commentary"'},
+            ],
+        ),
+    }[case]
+    if case in {"missing_source", "missing_source_excerpt"}:
+        selected.content_cache.critical_excerpt = None
+    elif case == "short_source":
+        selected.content_cache.critical_excerpt = "Demand was robust."
+    calls = []
+
+    async def stream(*_args, **_kwargs):
+        calls.append(True)
+        yield payload
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect(selected)
+    assert len(calls) == 1
+    assert len([row for row in rows if row["type"] == "error"]) == 1
+    assert all(row["type"] in {"progress", "error"} for row in rows)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
+@pytest.mark.parametrize("case", ["short_excerpt", "duplicate_id", "bare_figure"])
+async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance(
+    monkeypatch, case, outcome,
+):
+    """The table-text failures copilot-eval withholds earn the one private regeneration, nothing more.
+
+    The replacement still passes every admission check: a second failure is the same single generic
+    error, and the rejected candidate never reaches the client or the replacement prompt.
+    """
+    first = {
+        "short_excerpt": envelope(f'{POISON}: management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
+        "duplicate_id": envelope(f"{POISON}: the filing supports this claim [1].", declarations=[
+            {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+            {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
+        ]),
+        "bare_figure": envelope(f"{POISON}: demand remained robust [1].", excerpt="robust"),
+    }[case]
+    calls = []
+
+    async def stream(messages, *_args, **_kwargs):
+        calls.append(copy.deepcopy(messages))
+        if len(calls) == 1 or outcome == "exhausted":
+            yield first
+        else:
+            yield envelope(f'Management said "{KNOWN}" [1].')
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect()
+    assert len(calls) == 2
+    assert calls[0][0]["content"] == copilot_prompt.SYSTEM_PROMPT
+    assert calls[1][0]["content"] == (copilot_prompt.SYSTEM_PROMPT + "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+                                      + "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE)
+    assert POISON not in json.dumps(calls[1]) and POISON not in json.dumps(rows)
+    terminal = [row for row in rows if row["type"] in {"complete", "error"}]
+    if outcome == "recovered":
+        assert len(terminal) == 1 and terminal[0]["type"] == "complete"
+        assert [c["excerpt"] for c in terminal[0]["citations"]] == [KNOWN]
+        assert all(c["verified"] is True for c in terminal[0]["citations"])
+    else:
+        assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
+
+
+@pytest.mark.parametrize("tail", [
+    "\n===CITATIONS===\n[]",  # a second array straight after the first
+    "\nNote: the excerpt above is too short.\n===CITATIONS===\n[]",  # copilot-eval's note, then a second array
+    " Contradictory extra prose.",  # prose after the array
+    "\n===FOLLOWU",  # a followups line cut short, as a truncated generation leaves it (RUNBOOK)
+])
+def test_text_after_the_citation_array_buys_a_re_sample_with_no_guidance(tail):
+    """The trailer reason buys the regeneration through its owned class, never through its text.
+
+    The logged reason is unchanged, so copilot-eval's `publication withheld:` label and the triage
+    replay read it as before. Its guidance is empty, not None: nothing was source-matched, so the
+    regeneration re-samples with SYSTEM_PROMPT byte-identical. The same reason on the base class is terminal.
+    """
+    quotations = copilot_service._RETRYABLE_QUOTATION_FAILURES
+    raw = json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}]) + tail
+    with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
+        copilot_service._parse_citations(raw)
+    assert str(caught.value) == "Unexpected citation trailer"
+    assert copilot_prompt._retry_guidance(caught.value, quotations) == ""
+    assert copilot_prompt._retry_guidance(copilot_service._UnpublishableAnswer(str(caught.value)), quotations) is None
+
+
+@pytest.mark.parametrize(("declaration", "reason"), [
+    ({"n": 1, "excerpt": KNOWN}, "Citation declaration is not an array"),
+    ([{"n": "1", "excerpt": KNOWN}], "Invalid citation declaration"),
+])
+def test_only_a_well_formed_array_makes_what_follows_it_a_trailer(declaration, reason):
+    """The declaration checks run before the trailer check, so a malformed array keeps its own
+    terminal reason and buys no regeneration, whatever text follows it."""
+    raw = json.dumps(declaration) + "\nNote: corrected below.\n===CITATIONS===\n[]"
+    with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
+        copilot_service._parse_citations(raw)
+    assert (type(caught.value), str(caught.value)) == (copilot_service._UnpublishableAnswer, reason)
+    assert copilot_prompt._retry_guidance(caught.value, copilot_service._RETRYABLE_QUOTATION_FAILURES) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["cancel", "aclose"])
+async def test_retry_cancellation_closes_the_active_provider_without_terminal_prose(monkeypatch, mode):
+    started = asyncio.Event()
+    calls, closed, rows = [], [], []
+
+    async def stream(*_args, **_kwargs):
+        attempt = len(calls) + 1
+        calls.append(attempt)
+        try:
+            if attempt == 1:
+                yield rejected()
+            else:
+                started.set()
+                yield STREAM_ACTIVITY_SENTINEL + json.dumps({"name": "get_financial_fact", "args": {}, "phase": "start"})
+                await asyncio.Event().wait()
+        finally:
+            closed.append(attempt)
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    generator = copilot_service.answer_filing_question(filing=filing(), question="What did management say?")
+    if mode == "cancel":
+        async def consume():
+            async for row in generator:
+                rows.append(row)
+        task = asyncio.create_task(consume())
+        try:
+            await asyncio.wait_for(started.wait(), 2)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        finally:
+            if not task.done():
+                task.cancel()
+            await generator.aclose()
+    else:
+        async def until_activity():
+            async for row in generator:
+                rows.append(row)
+                if row["type"] == "activity":
+                    return
+        try:
+            await asyncio.wait_for(until_activity(), 2)
+        finally:
+            await generator.aclose()
+    assert calls == [1, 2] and closed == [1, 2]
+    assert all(row["type"] in {"progress", "activity"} for row in rows)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("limit", ["caller", "wrapper", "expired"])
+async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(monkeypatch, limit):
+    # The deadline the wrapper must honour is 30s away (or already past); the one it must not
+    # honour is 60s away. The test records the wrapper's own budget and the deadline the chat path
+    # cuts the stream at (the asyncio.timeout_at it enters), compares those values, and expires the
+    # entered timeout by hand once the first chunk is consumed; before it, an expiry is a retryable
+    # attempt timeout with 30s still left. The request goes out inside that timeout, so a provider
+    # that never answers is bounded by the same deadline. No real deadline races the test: an
+    # elapsed bound told the two apart only with slack to spare on a loaded xdist runner (#1241 saw
+    # 0.34s against a 0.2s bound), and a real 0.5s deadline still covered the SDK's first request,
+    # which detects the platform in a worker thread.
+    honoured, decoy = 30.0, 60.0
+    calls, closed, own, cutoffs, timers, entered, entered_at_request = [], [], [], [], [], [], []
+    first_chunk_consumed = asyncio.Event()
+    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", honoured if limit == "wrapper" else decoy)
+    real_chat_deadline = copilot_chat.chat_deadline
+
+    def recording_chat_deadline():
+        own.append(real_chat_deadline())
+        return own[-1]
+
+    class Entered:  # the timeout the chat path builds, saying when it is entered
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            entered.append(self.timeout)
+            return await self.timeout.__aenter__()
+
+        async def __aexit__(self, *exc):
+            return await self.timeout.__aexit__(*exc)
+
+    def recording_timeout_at(when):
+        cutoffs.append(when)
+        timers.append(asyncio.timeout_at(when))
+        return Entered(timers[-1])
+
+    monkeypatch.setattr(copilot_chat, "chat_deadline", recording_chat_deadline)
+    monkeypatch.setattr(copilot_chat, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout_at": recording_timeout_at}))
+
+    class Body(httpx2.AsyncByteStream):
+        async def __aiter__(self):
+            yield event(chunk("a" * 300))
+            first_chunk_consumed.set()  # the consumer asked for the next one
+            await asyncio.Event().wait()
+
+        async def aclose(self):
+            closed.append(True)
+
+    def handler(request):
+        calls.append(request)
+        entered_at_request.append(len(entered))
+        return httpx2.Response(200, headers={"content-type": "text/event-stream"}, stream=Body())
+
+    async with service_for(handler) as service:
+        before = asyncio.get_running_loop().time()
+        deadline = before + (honoured if limit == "caller" else decoy if limit == "wrapper" else -1)
+        async def receive():
+            return [piece async for piece in service.stream_chat_with_tools(
+                [], [], lambda *_args: {}, deadline=deadline,
+            )]
+        task = asyncio.create_task(receive())
+        if limit != "expired":
+            await asyncio.wait_for(first_chunk_consumed.wait(), 10)  # hang guards only, here and below
+            timers[0].reschedule(asyncio.get_running_loop().time())  # the honoured deadline passes
+        output = await asyncio.wait_for(task, 10)
+    assert output[-1].startswith(STREAM_ERROR_SENTINEL)
+    assert len(calls) == (0 if limit == "expired" else 1)
+    assert entered_at_request == ([] if limit == "expired" else [1])  # the request went out inside the timeout
+    assert len(closed) == len(calls)
+    [own_budget] = own
+    expected = {"caller": [deadline], "wrapper": [own_budget], "expired": []}[limit]  # an expired one enters none
+    assert cutoffs == expected, (cutoffs, deadline, own_budget)
+
+
+@pytest.fixture
+def client():
+    with TestClient(app) as value:
+        yield value
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_pro", [False, True])
+@pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "repeated_citations"])
+async def test_real_asgi_retry_meters_once_and_refunds_only_terminal_failure(
+    client, monkeypatch, is_pro, outcome, surface,
+):
+    from app.routers import summaries as router
+
+    calls, between_attempts, charged, refunded, completed_cost = [], [], [], [], []
+    meter, refund = router._meter_qa_best_effort, router._refund_qa_best_effort
+    user_id = None
+
+    def metering(*args, **kwargs):
+        charged.append(True)
+        return meter(*args, **kwargs)
+
+    def refunding(*args, **kwargs):
+        refunded.append(True)
+        return refund(*args, **kwargs)
+
+    async def stream(*_args, **kwargs):
+        attempt = len(calls) + 1
+        calls.append(attempt)
+        signal_provider_start()
+        if attempt == 2:
+            between_attempts.append(_qa_state(user_id))
+        merge_chat_usage(kwargs["usage_sink"], usage(attempt))
+        yield (envelope(f'Management said "{KNOWN}" [1].')
+               if attempt == 2 and outcome == "recovered" else rejected(surface))
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    monkeypatch.setattr(router, "_meter_qa_best_effort", metering)
+    monkeypatch.setattr(router, "_refund_qa_best_effort", refunding)
+    monkeypatch.setattr(router, "capture_copilot_inference", lambda **kwargs: completed_cost.append(kwargs))
+    with _as_user(is_pro=is_pro, free_taste_used=1) as uid, _seed_filing(source=SOURCE, accession=ACCESSION) as fid:
+        user_id = uid
+        sent = await asyncio.wait_for(_asgi_post(
+            f"/api/summaries/filing/{fid}/ask-stream", {"question": "What did management say about demand?"},
+            disconnect_after=asyncio.Event(),
+        ), 10)
+        rows = _wire_events(sent)
+        terminal = [row for row in rows if row["type"] in {"complete", "error"}]
+        counted = ([], 1, 1) if is_pro else ([], 0, 2)
+        assert sent[0]["status"] == 200 and calls == [1, 2]
+        assert charged == [True] and between_attempts == [counted]
+        assert len(terminal) == 1
+        assert INVENTED not in json.dumps(rows) and all(row["type"] != "token" for row in rows)
+        if outcome == "recovered":
+            assert terminal[0]["type"] == "complete" and _qa_state(uid) == counted
+            assert refunded == [] and len(completed_cost) == 1
+            assert completed_cost[0]["total_tokens"] == 26
+            assert completed_cost[0]["cost_usd"] == pytest.approx(0.003)
+        else:
+            assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
+            assert refunded == [True] and _qa_state(uid) == ([], 0, 1)
+            assert completed_cost == []

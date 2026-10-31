@@ -17,12 +17,18 @@ import main
 def slow_route():
     # A non-streaming route that outlives the (patched-tiny) timeout. Path matches no prefix/suffix
     # in the timeout tables, so it uses the "default" bucket.
+    owned_route = None
     if "/__cors_timeout_probe" not in {getattr(r, "path", None) for r in main.app.routes}:
         @main.app.get("/__cors_timeout_probe")
         async def _probe():  # pragma: no cover - never completes under the patched timeout
             await asyncio.sleep(0.5)
             return {"ok": True}
-    yield
+        owned_route = next(route for route in main.app.routes if getattr(route, "endpoint", None) is _probe)
+    try:
+        yield
+    finally:
+        if owned_route is not None:
+            main.app.router.routes[:] = [route for route in main.app.routes if route is not owned_route]
 
 
 def test_timeout_504_includes_cors_headers(slow_route, monkeypatch):

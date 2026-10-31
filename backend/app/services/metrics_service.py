@@ -13,10 +13,8 @@ Usage:
     metrics = await get_all_metrics()
 """
 
-import asyncio
 from anyio.to_thread import current_default_thread_limiter
 from app.utils.datetimes import utcnow, iso_z
-import time
 from typing import Dict, Any
 import logging
 
@@ -155,78 +153,3 @@ async def get_all_metrics() -> Dict[str, Any]:
 def _get_environment() -> str:
     """Get the current environment name."""
     return settings.ENVIRONMENT
-
-
-async def get_health_summary() -> Dict[str, Any]:
-    """
-    Get a summary health status for monitoring dashboards.
-
-    Returns overall status and component health.
-    """
-    status = "healthy"
-    components = {}
-
-    # Check circuit breaker
-    try:
-        from app.services.edgar.circuit_breaker import edgar_circuit_breaker
-        cb_state = edgar_circuit_breaker.state.value
-        components["sec_edgar_circuit"] = {
-            "healthy": cb_state != "open",
-            "state": cb_state,
-        }
-        if cb_state == "open":
-            status = "degraded"
-    except ImportError:
-        pass
-
-    # Check Redis
-    try:
-        from app.services.redis_service import check_redis_health
-        redis_health = await check_redis_health()
-        components["redis"] = redis_health
-        if not redis_health.get("healthy"):
-            if status == "healthy":
-                status = "degraded"
-    except ImportError:
-        pass
-
-    # Check database (using async to avoid blocking event loop)
-    try:
-        from sqlalchemy import text
-        from app.database import engine
-
-        start = time.perf_counter()
-
-        # Run sync DB check in thread pool to avoid blocking event loop
-        def _sync_db_check():
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-                return True
-
-        loop = asyncio.get_running_loop()
-        await asyncio.wait_for(
-            loop.run_in_executor(None, _sync_db_check),
-            timeout=2.0
-        )
-        latency_ms = (time.perf_counter() - start) * 1000
-        components["database"] = {
-            "healthy": True,
-            "latency_ms": round(latency_ms, 2),
-        }
-    except asyncio.TimeoutError:
-        components["database"] = {
-            "healthy": False,
-            "error": "Database health check timed out",
-        }
-        status = "unhealthy"
-    except Exception as e:
-        components["database"] = {
-            "healthy": False,
-            "error": str(e),
-        }
-        status = "unhealthy"
-
-    return {
-        "status": status,
-        "components": components,
-    }

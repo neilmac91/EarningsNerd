@@ -1,0 +1,86 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is accurate but only restates table values, with no causes, peers or numeric watch thresholds. Its debt flag also mixes two XBRL tags. B explains drivers well: geography, impressions vs pricing, cost lines, SBC, note refinancing and buybacks. But B has unsupported claims: 'subscriber growth' and 'workspaces, not capacity' come from truncated passages, the FY2022 cause is an Adjusted EBITDA cause, and 'debt rose' is unsupported. Its depth narrowly outweighs these lapses."
+   },
+   "cost_usd": 0.117313,
+   "latency_s": 19.995,
+   "input_tokens": 12699,
+   "output_tokens": 1070,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"A is accurate but only restates table values, with no causes, peers or numeric watch thresholds. Its debt flag also mixes two XBRL tags. B explains drivers well: geography, impressions vs pricing, cost lines, SBC, note refinancing and buybacks. But B has unsupported claims: 'subscriber growth' and 'workspaces, not capacity' come from truncated passages, the FY2022 cause is an Adjusted EBITDA cause, and 'debt rose' is unsupported. Its depth narrowly outweighs these lapses.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A has real grounding lapses. Its capex purpose and subscription driver rest on truncated passages that do not state them. It attributes the FY2022 operating-loss cause to an Adjusted EBITDA passage. It says debt 'rose' with no prior figure. Still, A explains the IPO stock-compensation spike, geographic and product mix, cost lines and debt refinancing. B is thinly grounded restatement that mixes two debt tags and offers trivial watch items without thresholds."
+   },
+   "cost_usd": 0.110213,
+   "latency_s": 12.74,
+   "input_tokens": 12699,
+   "output_tokens": 715,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A has real grounding lapses. Its capex purpose and subscription driver rest on truncated passages that do not state them. It attributes the FY2022 operating-loss cause to an Adjusted EBITDA passage. It says debt 'rose' with no prior figure. Still, A explains the IPO stock-compensation spike, geographic and product mix, cost lines and debt refinancing. B is thinly grounded restatement that mixes two debt tags and offers trivial watch items without thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.227526
+}

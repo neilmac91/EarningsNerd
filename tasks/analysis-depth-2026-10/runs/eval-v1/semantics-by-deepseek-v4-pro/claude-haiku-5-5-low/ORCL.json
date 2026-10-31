@@ -1,0 +1,443 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "ORCL",
+ "split": "holdout",
+ "auditor": "deepseek-v4-pro",
+ "cost_usd": 0.00708,
+ "items": [
+  {
+   "sentence": "Revenue compounded from $37.8 billion in FY2017  to $67.4 billion in FY2026 , a 6.6% CAGR .",
+   "claim": "$37.8 billion",
+   "match": "cited: F1 = Revenue, FY2017",
+   "label": "consistent",
+   "reason": "Revenue $37.8B in FY2017 matches cited metric and period."
+  },
+  {
+   "sentence": "Revenue compounded from $37.8 billion in FY2017  to $67.4 billion in FY2026 , a 6.6% CAGR .",
+   "claim": "$67.4 billion",
+   "match": "cited: F10 = Revenue, FY2026",
+   "label": "consistent",
+   "reason": "Revenue $67.4B in FY2026 matches cited metric and period."
+  },
+  {
+   "sentence": "Revenue compounded from $37.8 billion in FY2017  to $67.4 billion in FY2026 , a 6.6% CAGR .",
+   "claim": "6.6%",
+   "match": "cited: F196 = Revenue CAGR, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "6.6% CAGR for revenue FY2017-FY2026 matches cited."
+  },
+  {
+   "sentence": "FY2018 net income fell to $3.59 billion  from $9.45 billion  as the initial U.S. tax reform charge raised the tax provision .",
+   "claim": "$3.59 billion",
+   "match": "cited: F36 = Net income, FY2018",
+   "label": "consistent",
+   "reason": "Net income $3.59B in FY2018 matches cited."
+  },
+  {
+   "sentence": "FY2018 net income fell to $3.59 billion  from $9.45 billion  as the initial U.S. tax reform charge raised the tax provision .",
+   "claim": "$9.45 billion",
+   "match": "cited: F35 = Net income, FY2017",
+   "label": "consistent",
+   "reason": "Net income $9.45B in FY2017 matches cited."
+  },
+  {
+   "sentence": "Operating margin dropped 11.8pp to 25.7% in FY2022  after litigation-related charges were recorded to acquisition-related and other expenses .",
+   "claim": "11.8pp",
+   "match": "cited: D246 = Operating margin change, FY2022",
+   "label": "consistent",
+   "reason": "Operating margin change -11.8pp in FY2022 matches cited."
+  },
+  {
+   "sentence": "Operating margin dropped 11.8pp to 25.7% in FY2022  after litigation-related charges were recorded to acquisition-related and other expenses .",
+   "claim": "25.7%",
+   "match": "cited: F30 = Operating margin, FY2022",
+   "label": "consistent",
+   "reason": "Operating margin 25.7% in FY2022 matches cited."
+  },
+  {
+   "sentence": "Revenue rose 17.7% in FY2023 , primarily from revenue contributions of the Cerner acquisition .",
+   "claim": "17.7%",
+   "match": "cited: D280 = Revenue growth, FY2023",
+   "label": "consistent",
+   "reason": "Revenue growth 17.7% in FY2023 matches cited."
+  },
+  {
+   "sentence": "Cloud Infrastructure added 13.7pp to FY2026 revenue growth , lifting its share of revenue to 26.9% .",
+   "claim": "13.7pp",
+   "match": "cited: D645 = Cloud Infrastructure (product) contribution to revenue growth (pp), FY2026",
+   "label": "consistent",
+   "reason": "Cloud Infrastructure contribution 13.7pp to revenue growth FY2026 matches cited."
+  },
+  {
+   "sentence": "Cloud Infrastructure added 13.7pp to FY2026 revenue growth , lifting its share of revenue to 26.9% .",
+   "claim": "26.9%",
+   "match": "cited: D643 = Cloud Infrastructure (product) share of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Cloud Infrastructure share of revenue 26.9% FY2026 matches cited."
+  },
+  {
+   "sentence": "Cloud Infrastructure revenue grew 76.9%  as customers purchased and renewed cloud contracts .",
+   "claim": "76.9%",
+   "match": "cited: D644 = Cloud Infrastructure (product) growth, FY2026",
+   "label": "consistent",
+   "reason": "Cloud Infrastructure growth 76.9% FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating income grew 16.6%  against 17.3% revenue growth , an incremental operating margin of 29.4% .",
+   "claim": "16.6%",
+   "match": "cited: D422 = Operating income growth, FY2026",
+   "label": "consistent",
+   "reason": "Operating income growth 16.6% FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating income grew 16.6%  against 17.3% revenue growth , an incremental operating margin of 29.4% .",
+   "claim": "17.3%",
+   "match": "cited: D421 = Revenue growth, FY2026",
+   "label": "consistent",
+   "reason": "Revenue growth 17.3% FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating income grew 16.6%  against 17.3% revenue growth , an incremental operating margin of 29.4% .",
+   "claim": "29.4%",
+   "match": "cited: D442 = Incremental operating margin (change in operating income / change in revenue), FY2026",
+   "label": "consistent",
+   "reason": "Incremental operating margin 29.4% FY2026 matches cited."
+  },
+  {
+   "sentence": "Diluted EPS rose 34.3% , below net income growth of 36.5% , because the diluted share count rose 1.7% .",
+   "claim": "34.3%",
+   "match": "cited: D425 = EPS (diluted) growth, FY2026",
+   "label": "consistent",
+   "reason": "EPS growth 34.3% FY2026 matches cited."
+  },
+  {
+   "sentence": "Diluted EPS rose 34.3% , below net income growth of 36.5% , because the diluted share count rose 1.7% .",
+   "claim": "36.5%",
+   "match": "cited: D423 = Net income growth, FY2026",
+   "label": "consistent",
+   "reason": "Net income growth 36.5% FY2026 matches cited."
+  },
+  {
+   "sentence": "Diluted EPS rose 34.3% , below net income growth of 36.5% , because the diluted share count rose 1.7% .",
+   "claim": "1.7%",
+   "match": "cited: D438 = Diluted share count change, FY2026",
+   "label": "consistent",
+   "reason": "Diluted share count change 1.7% FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating margin of 30.6%  sits below the 32.2% window median  and the 37.6% window high .",
+   "claim": "30.6%",
+   "match": "cited: F34 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 30.6% FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating margin of 30.6%  sits below the 32.2% window median  and the 37.6% window high .",
+   "claim": "32.2%",
+   "match": "cited: D788 = Operating margin window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Operating margin window median 32.2% FY2017-FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating margin of 30.6%  sits below the 32.2% window median  and the 37.6% window high .",
+   "claim": "37.6%",
+   "match": "cited: D787 = Operating margin window high (FY2021), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Operating margin window high 37.6% FY2017-FY2026 matches cited."
+  },
+  {
+   "sentence": "In FY2026 the R&D line added +1.9pp to operating margin , while other cost lines subtracted 2.1pp , mainly from higher cloud infrastructure costs .",
+   "claim": "1.9pp",
+   "match": "cited: D444 = Operating-margin effect of R&D (pp), FY2026",
+   "label": "consistent",
+   "reason": "R&D effect +1.9pp on operating margin FY2026 matches cited."
+  },
+  {
+   "sentence": "In FY2026 the R&D line added +1.9pp to operating margin , while other cost lines subtracted 2.1pp , mainly from higher cloud infrastructure costs .",
+   "claim": "2.1pp",
+   "match": "cited: D445 = Operating-margin effect of other lines (residual, pp), FY2026",
+   "label": "consistent",
+   "reason": "Other lines effect -2.1pp on operating margin FY2026 matches cited."
+  },
+  {
+   "sentence": "Non-R&D cost lines accounted for 11.0pp of the 11.8pp FY2022 margin fall .",
+   "claim": "11.0pp",
+   "match": "cited: D259 = Operating-margin effect of other lines (residual, pp), FY2022",
+   "label": "consistent",
+   "reason": "Other lines effect 11.0pp on operating margin FY2022 matches cited."
+  },
+  {
+   "sentence": "Non-R&D cost lines accounted for 11.0pp of the 11.8pp FY2022 margin fall .",
+   "claim": "11.8pp",
+   "match": "cited: D246 = Operating margin change, FY2022",
+   "label": "consistent",
+   "reason": "Operating margin change -11.8pp FY2022 matches cited."
+  },
+  {
+   "sentence": "Net margin of 25.2%  trailed operating margin of 30.6%  as interest expense rose to $4.60 billion  on new senior notes .",
+   "claim": "25.2%",
+   "match": "cited: F54 = Net margin, FY2026",
+   "label": "consistent",
+   "reason": "Net margin 25.2% FY2026 matches cited."
+  },
+  {
+   "sentence": "Net margin of 25.2%  trailed operating margin of 30.6%  as interest expense rose to $4.60 billion  on new senior notes .",
+   "claim": "30.6%",
+   "match": "cited: F34 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 30.6% FY2026 matches cited."
+  },
+  {
+   "sentence": "Net margin of 25.2%  trailed operating margin of 30.6%  as interest expense rose to $4.60 billion  on new senior notes .",
+   "claim": "$4.60 billion",
+   "match": "cited: X92 = Interest expense, FY2026",
+   "label": "consistent",
+   "reason": "Interest expense $4.60B FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating cash flow of $32.0 billion  rose to 1.88x net income  on higher earnings and customer prepayments .",
+   "claim": "$32.0 billion",
+   "match": "cited: F84 = Operating cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Operating cash flow $32.0B FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating cash flow of $32.0 billion  rose to 1.88x net income  on higher earnings and customer prepayments .",
+   "claim": "1.88x",
+   "match": "cited: D408 = Operating cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "Operating cash flow / net income 1.88x FY2026 matches cited."
+  },
+  {
+   "sentence": "Capex of $55.7 billion  pushed free cash flow to -$23.7 billion , or -1.39x net income , as capital expenditure drove investing outflows .",
+   "claim": "$55.7 billion",
+   "match": "cited: F94 = Capital expenditures, FY2026",
+   "label": "consistent",
+   "reason": "Capex $55.7B FY2026 matches cited."
+  },
+  {
+   "sentence": "Capex of $55.7 billion  pushed free cash flow to -$23.7 billion , or -1.39x net income , as capital expenditure drove investing outflows .",
+   "claim": "-$23.7 billion",
+   "match": "cited: F104 = Free cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Free cash flow -$23.7B FY2026 matches cited."
+  },
+  {
+   "sentence": "Capex of $55.7 billion  pushed free cash flow to -$23.7 billion , or -1.39x net income , as capital expenditure drove investing outflows .",
+   "claim": "-1.39x",
+   "match": "cited: D409 = Free cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "Free cash flow / net income -1.39x FY2026 matches cited."
+  },
+  {
+   "sentence": "Free cash flow margin was -35.2%  against a 26.0% window median  and a 34.7% software peer median .",
+   "claim": "-35.2%",
+   "match": "cited: D405 = Free cash flow margin, FY2026",
+   "label": "consistent",
+   "reason": "Free cash flow margin -35.2% FY2026 matches cited."
+  },
+  {
+   "sentence": "Free cash flow margin was -35.2%  against a 26.0% window median  and a 34.7% software peer median .",
+   "claim": "26.0%",
+   "match": "cited: D794 = Free cash flow margin window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Free cash flow margin window median 26.0% FY2017-FY2026 matches cited."
+  },
+  {
+   "sentence": "Free cash flow margin was -35.2%  against a 26.0% window median  and a 34.7% software peer median .",
+   "claim": "34.7%",
+   "match": "cited: D812 = Free cash flow margin: software peer median (n=5), FY2026",
+   "label": "consistent",
+   "reason": "Free cash flow margin software peer median 34.7% FY2026 matches cited."
+  },
+  {
+   "sentence": "Net debt widened to $97.6 billion  from $81.4 billion , while the current ratio recovered to 1.12x  from 0.75x .",
+   "claim": "$97.6 billion",
+   "match": "cited: D414 = Net cash (cash and investments less debt), FY2026",
+   "label": "consistent",
+   "reason": "Net debt $97.6B FY2026 matches cited (net cash negative)."
+  },
+  {
+   "sentence": "Net debt widened to $97.6 billion  from $81.4 billion , while the current ratio recovered to 1.12x  from 0.75x .",
+   "claim": "$81.4 billion",
+   "match": "cited: D367 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net debt $81.4B FY2025 matches cited (net cash negative)."
+  },
+  {
+   "sentence": "Net debt widened to $97.6 billion  from $81.4 billion , while the current ratio recovered to 1.12x  from 0.75x .",
+   "claim": "1.12x",
+   "match": "cited: F184 = Current ratio, FY2026",
+   "label": "consistent",
+   "reason": "Current ratio 1.12x FY2026 matches cited."
+  },
+  {
+   "sentence": "Net debt widened to $97.6 billion  from $81.4 billion , while the current ratio recovered to 1.12x  from 0.75x .",
+   "claim": "0.75x",
+   "match": "cited: F183 = Current ratio, FY2025",
+   "label": "consistent",
+   "reason": "Current ratio 0.75x FY2025 matches cited."
+  },
+  {
+   "sentence": "Net cash was -145.0% of revenue , at the 0th percentile of six software peers , against a peer median of -0.5% .",
+   "claim": "-145.0%",
+   "match": "cited: D415 = Net cash % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Net cash % of revenue -145.0% FY2026 matches cited."
+  },
+  {
+   "sentence": "Net cash was -145.0% of revenue , at the 0th percentile of six software peers , against a peer median of -0.5% .",
+   "claim": "0th percentile",
+   "match": "cited: D815 = Net cash % of revenue: percentile vs software peers (n=6), FY2026",
+   "label": "consistent",
+   "reason": "Percentile 0th vs software peers FY2026 matches cited."
+  },
+  {
+   "sentence": "Net cash was -145.0% of revenue , at the 0th percentile of six software peers , against a peer median of -0.5% .",
+   "claim": "-0.5%",
+   "match": "cited: D816 = Net cash % of revenue: software peer median (n=6), FY2026",
+   "label": "consistent",
+   "reason": "Peer median -0.5% FY2026 matches cited."
+  },
+  {
+   "sentence": "Financing inflows of $40.3 billion  came mainly from senior note issuance , lifting total debt 39.9%  to $130 billion .",
+   "claim": "$40.3 billion",
+   "match": "cited: F124 = Financing cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Financing cash flow $40.3B FY2026 matches cited."
+  },
+  {
+   "sentence": "Financing inflows of $40.3 billion  came mainly from senior note issuance , lifting total debt 39.9%  to $130 billion .",
+   "claim": "39.9%",
+   "match": "cited: D440 = Total debt growth, FY2026",
+   "label": "consistent",
+   "reason": "Total debt growth 39.9% FY2026 matches cited."
+  },
+  {
+   "sentence": "Financing inflows of $40.3 billion  came mainly from senior note issuance , lifting total debt 39.9%  to $130 billion .",
+   "claim": "$130 billion",
+   "match": "cited: D413 = Total debt, FY2026",
+   "label": "consistent",
+   "reason": "Total debt $130B FY2026 matches cited."
+  },
+  {
+   "sentence": "High severity: cash and investments of $31.9 billion  cover 1.3 years of the $23.7 billion FY2026 burn , with capex as the stated driver .",
+   "claim": "$31.9 billion",
+   "match": "cited: D412 = Cash and investments, FY2026",
+   "label": "consistent",
+   "reason": "Cash and investments $31.9B FY2026 matches cited."
+  },
+  {
+   "sentence": "High severity: cash and investments of $31.9 billion  cover 1.3 years of the $23.7 billion FY2026 burn , with capex as the stated driver .",
+   "claim": "1.3 years",
+   "match": "cited: D419 = Years of burn covered by cash and investments, FY2026",
+   "label": "consistent",
+   "reason": "Years of burn covered 1.3 years FY2026 matches cited."
+  },
+  {
+   "sentence": "High severity: cash and investments of $31.9 billion  cover 1.3 years of the $23.7 billion FY2026 burn , with capex as the stated driver .",
+   "claim": "$23.7 billion",
+   "match": "cited: D418 = Cash burn (negative free cash flow), FY2026",
+   "label": "consistent",
+   "reason": "Cash burn $23.7B FY2026 matches cited."
+  },
+  {
+   "sentence": "Medium severity over two years: free cash flow was -0.03x net income in FY2025  and -1.39x in FY2026 , against a 1.06x window median .",
+   "claim": "-0.03x",
+   "match": "cited: D362 = Free cash flow / net income, FY2025",
+   "label": "consistent",
+   "reason": "Free cash flow / net income -0.03x FY2025 matches cited."
+  },
+  {
+   "sentence": "Medium severity over two years: free cash flow was -0.03x net income in FY2025  and -1.39x in FY2026 , against a 1.06x window median .",
+   "claim": "-1.39x",
+   "match": "cited: D409 = Free cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "Free cash flow / net income -1.39x FY2026 matches cited."
+  },
+  {
+   "sentence": "Medium severity over two years: free cash flow was -0.03x net income in FY2025  and -1.39x in FY2026 , against a 1.06x window median .",
+   "claim": "1.06x",
+   "match": "cited: D800 = Free cash flow / net income window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Window median 1.06x FY2017-FY2026 matches cited."
+  },
+  {
+   "sentence": "Medium severity: net debt rose from $81.4 billion  to $97.6 billion , with interest expense up on new senior notes .",
+   "claim": "$81.4 billion",
+   "match": "cited: D367 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net debt $81.4B FY2025 matches cited (net cash negative)."
+  },
+  {
+   "sentence": "Medium severity: net debt rose from $81.4 billion  to $97.6 billion , with interest expense up on new senior notes .",
+   "claim": "$97.6 billion",
+   "match": "cited: D414 = Net cash (cash and investments less debt), FY2026",
+   "label": "consistent",
+   "reason": "Net debt $97.6B FY2026 matches cited (net cash negative)."
+  },
+  {
+   "sentence": "Data quality: FY2026 net income of $17.0 billion  is proxy-sourced, while the 10-K reports $17.1 billion , a gap of up to 0.60% .",
+   "claim": "$17.0 billion",
+   "match": "cited: F44 = Net income, FY2026",
+   "label": "consistent",
+   "reason": "Net income $17.0B FY2026 matches cited proxy-sourced."
+  },
+  {
+   "sentence": "Data quality: FY2026 net income of $17.0 billion  is proxy-sourced, while the 10-K reports $17.1 billion , a gap of up to 0.60% .",
+   "claim": "$17.1 billion",
+   "match": "cited: X20 = Net income as reported in that year's 10-K, FY2026",
+   "label": "consistent",
+   "reason": "Net income $17.1B FY2026 matches cited 10-K reported."
+  },
+  {
+   "sentence": "Data quality: FY2026 net income of $17.0 billion  is proxy-sourced, while the 10-K reports $17.1 billion , a gap of up to 0.60% .",
+   "claim": "0.60%",
+   "match": "passage R5: R5 = red-flag text: Net income for FY2026 in the metrics table comes from the proxy statement's pay-versus-performance table (rounded), not ",
+   "label": "consistent",
+   "reason": "Gap 0.60% matches cited red-flag text."
+  },
+  {
+   "sentence": "Capex intensity was 82.6% of revenue , against 37.0% in FY2025 ; a move back toward 37.0% in the FY2027 10-K would confirm the build-out is peaking.",
+   "claim": "82.6%",
+   "match": "cited: D404 = Capex % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Capex % of revenue 82.6% FY2026 matches cited."
+  },
+  {
+   "sentence": "Capex intensity was 82.6% of revenue , against 37.0% in FY2025 ; a move back toward 37.0% in the FY2027 10-K would confirm the build-out is peaking.",
+   "claim": "37.0%",
+   "match": "cited: D357 = Capex % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Capex % of revenue 37.0% FY2025 matches cited."
+  },
+  {
+   "sentence": "Capex intensity was 82.6% of revenue , against 37.0% in FY2025 ; a move back toward 37.0% in the FY2027 10-K would confirm the build-out is peaking.",
+   "claim": "37.0%",
+   "match": "cited: D357 = Capex % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Capex % of revenue 37.0% FY2025 matches cited."
+  },
+  {
+   "sentence": "Net cash of -145.0% of revenue  would be reversed if it improves in the FY2027 10-K as cash generation catches up with capex.",
+   "claim": "-145.0%",
+   "match": "cited: D415 = Net cash % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Net cash % of revenue -145.0% FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating margin holding at or above 30.6%  as cloud infrastructure scales would confirm the trend; a fall toward the 25.7% window low  would reverse it.",
+   "claim": "30.6%",
+   "match": "cited: F34 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 30.6% FY2026 matches cited."
+  },
+  {
+   "sentence": "Operating margin holding at or above 30.6%  as cloud infrastructure scales would confirm the trend; a fall toward the 25.7% window low  would reverse it.",
+   "claim": "25.7%",
+   "match": "cited: D786 = Operating margin window low (FY2022), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Operating margin window low 25.7% FY2017-FY2026 matches cited."
+  }
+ ]
+}

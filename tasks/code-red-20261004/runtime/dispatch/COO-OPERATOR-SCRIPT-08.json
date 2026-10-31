@@ -1,0 +1,115 @@
+{
+ "recorded_at": "2026-10-05T21:34:07.976419+00:00",
+ "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+ "lane": "beta operations",
+ "requested_model": "inherited (claude-fable-5-1)",
+ "authority": "Founder 2026-10-05 ~21:15Z: 'go with COO recommendations. please proceed with the next stage of implementation' — D1 (O2 founder-operated with a founder-side verification script), D2 (G1 text recorded), D3 (founder-side private store, repository hashes only), D4 (no second export; one offline consumer dry run on the three-row part once D5 is authored), D5 (Option A thin adapter; released consumer byte-unchanged). G3 review 01 recorded rendering ACCEPT and consumer-as-is REJECT on the actual part, which is the condition for authoring the adapter. Nothing here authorizes a customer-data export, a new export of any kind, a PostHog charge, a production or CI change, or any statement that cohort reporting, beta admission or capacity is complete or admitted.",
+ "repository_read_scope": {
+  "commit": "branch claude/vigilant-goodall-633yx3 at ad915c44 (main c780228a; PR #1099 pending merge)",
+  "mode": "read-only repository; no git writes; no edits under /home/user/EarningsNerd; NO network, connector, PostHog or HTTP call; no package install; stdlib only; nothing under tasks/readiness-2026-09-21/acceptance/ or /root/.claude/uploads/; outputs staged outside the repository and placed by the chief"
+ },
+ "spend": {
+  "reservation_usd": "0.000000",
+  "deepseek_calls_authorized": 0,
+  "ledger_written": false,
+  "posthog_charge_authorized": false
+ },
+ "one_writer_for_output_paths": true,
+ "dispatch_id": "COO-OPERATOR-SCRIPT-08",
+ "officer": "COO",
+ "wave": "R3 (D1 option O2: founder-side export operator and verification script; D3 custody layout)",
+ "role_label": "coo-operator-script-writer-01",
+ "measurable_output": [
+  "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/operator/staging/export_operator.py (founder-side script; stdlib only; two legs; never prints a row, key or signed URL)",
+  "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/operator/staging/OPERATOR-RUNBOOK.md (how the founder runs it per readout; the D3 private-store layout and custody TOTAL lines; what goes to the repository)"
+ ],
+ "allowed_inputs": [
+  {
+   "label": "Readout contract revision 3 (file-download route) — §2.0 lifecycle and step-8 completeness rule, §2.3 Option A adapter spec, §3 operator legs",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/coo-file-route-rev3/staging/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md",
+   "sha256": "ad599074e6f27149b6bfb736fccdb45014d1bdc411a2b087165a23d09e9b16dd",
+   "bytes": 47321
+  },
+  {
+   "label": "Founder decisions D1–D5 with recommended answers (adopted by the founder 2026-10-05 ~21:15Z)",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/coo-file-route-rev3/staging/FOUNDER-DECISIONS-FILE-ROUTE.md",
+   "sha256": "7bfe1e63c0b56ffac9bced4161df747ed711e162274e1788571980f854fa906c",
+   "bytes": 14894
+  },
+  {
+   "label": "Released consumer (byte-unchanged; expects columns/results/hasMore)",
+   "path": "tasks/readiness-2026-09-21/beta/readout_v1.py",
+   "sha256": "a9e089cd1d45672833c49cb222c6cdaab52fe9bafbb2a3dddb5c82ae9b82272e",
+   "bytes": 15092
+  },
+  {
+   "label": "Released fixture check (to be extended for the adapter only)",
+   "path": "tasks/readiness-2026-09-21/beta/fixture_check.py",
+   "sha256": "a8aa46d1829f5720dbb29e63ada8d85fb4a1011af989c306cf380d73bfc1add8",
+   "bytes": 28307
+  },
+  {
+   "label": "Released v1 export query shape",
+   "path": "tasks/readiness-2026-09-21/beta/posthog-v1-export.hogql",
+   "sha256": "fa060fe65a078f90d4836d2f60361ff36def4fdf0da34f0eb24b3dbdf0bf47ef",
+   "bytes": 2612
+  },
+  {
+   "label": "Actual capability-test export part (invented literals; three rows)",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/g3/parts/posthog-hogql-01a10d89-1ee8-0000-3e2c-9000712c9502-01a10d89-3a26-0000-56f3-e1f6c4004610.jsonl",
+   "sha256": "67bc4e91db4f1bdc31dd4ffc290efd1864d4babdd6c33bd1e45bfb3fa413c6a5",
+   "bytes": 2092
+  },
+  {
+   "label": "Operator verification record for that part",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/g3/parts/VERIFICATION.json",
+   "sha256": "e5f5c2db2ce12fe7a2a44fcbe899874b8b8088171bc279034dd24364de4ae664",
+   "bytes": 16233
+  },
+  {
+   "label": "G3 independent file-input contract review 01 (rendering accept; consumer-as-is reject; order findings)",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/g3/G3-FILE-INPUT-CONTRACT-REVIEW-01.md",
+   "sha256": "eb21a01378e3364ac8bb7012a14ef4a914bf215085fa65a5bff4f1ea375570e6",
+   "bytes": 18313
+  },
+  {
+   "label": "Export capability run record (exact request shapes as sent to count-rows/create/retrieve; run id; file id)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/export-capability-run.json",
+   "sha256": "328dbd442a7d562ee9cf139a9b03716b6aed1065a4d211c04bcf5050b19a403e",
+   "bytes": 31051
+  },
+  {
+   "label": "September 30 synthetic parameters (for the D4 offline dry run)",
+   "path": "tasks/review-evidence/beta-readout-2026-09-30/parameters.json",
+   "sha256": "6a64e5f39d9bee9fd211e276a437274cd4a041df2531a10e1478d4f152d8eca8",
+   "bytes": 159
+  },
+  {
+   "label": "September 30 consumer output (comparison baseline for D4)",
+   "path": "tasks/review-evidence/beta-readout-2026-09-30/readout.json",
+   "sha256": "086be5e51d29646a92eae14dab628c057a8f665c1fa0154adc4643a299cdfb7e",
+   "bytes": 2430
+  },
+  {
+   "label": "Exact literal-only query the capability export ran",
+   "path": "tasks/review-evidence/beta-readout-2026-09-30/literal-projection.hogql",
+   "sha256": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4",
+   "bytes": 2923
+  }
+ ],
+ "procedure": [
+  "verify every input hash before reading",
+  "implement contract §2.0 lifecycle steps 1–8 as a founder-side script: --host (default https://eu.posthog.com), --project (default 117863), --query <bound.hogql> (private; roster literals), --private-dir <outside any repository>, --label <readout label>; key from env POSTHOG_PERSONAL_API_KEY only (never an argument; never printed); request bodies and response handling mirror export-capability-run.json's recorded calls (count_rows, create with JSONLines/compression null/max_size_mb null and hogql_modifiers convertToProjectTimezone false, retrieve polling at a bounded interval with a timeout); stop verbatim on FailedBilling or any payment/plan/billing/trial/quota text; one create per invocation; n_before < 10000 rule; count after; one GET per files[] id following a single 302 without logging Location; sha256/bytes per part; parse/verify (JSONLines, BOM, CR, key set vs the 21 aliases, order recorded); completeness per step 8 — import file_export_to_v1.file_export_completeness when present beside the script, else implement the identical rule and say so",
+  "write to the private dir: the bound query, every response as returned, every part, VERIFICATION.json, consumer-ready inputs, and a RECEIPT-PUBLIC.json holding only hashes/counts/run id/file ids/status/n_before/n_after/records_completed/rows_parsed/verdict/window/N/exclusion count/labels/UTC times (safe for the public repository); print per-file sha256 and byte length lines and a TOTAL= line per folder in the custody-check style",
+  "provide --offline-verify <part> [<part>...] --run-record <json> --n-before N [--n-after N] to exercise parse/verify/completeness on existing parts with no network (used on the capability part)",
+  "exercise --offline-verify on the staged capability part and record the output in the runbook; python3 -m py_compile; ruff check if available (no install)",
+  "report sha256/bytes of each staged file, every file read, deviations"
+ ],
+ "stop_conditions": [
+  "any network/connector/HTTP call during authoring (the script itself performs HTTP only when the founder runs it)",
+  "any edit to a repository file",
+  "hash mismatch or missing input",
+  "any code path that prints or stores a key, a row or a signed URL",
+  "any statement that cohort reporting, beta admission or capacity is complete or admitted"
+ ]
+}
