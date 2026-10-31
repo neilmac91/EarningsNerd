@@ -30,10 +30,12 @@
    settled and the composer is still out of view (E252; chief design on #1845:
    "Move it once per press or ⌘K. Never move it from a resize or the follow").
    A page move is a call of scroll, scrollTo or scrollBy on the window
-   (`window`, `globalThis`, `self`, or bare) or on the document's scrolling
-   element (`document.documentElement`, `document.scrollingElement`,
-   `document.body`), or a write to that element's scrollTop or scrollLeft; a
-   box's own scroll (highlightInDom's reader) is not one.
+   (`window`, `globalThis`, `self`, their `.window`, or bare), directly or
+   through `.call` or `.apply`, or on the document's scrolling element
+   (`document.documentElement`, `document.scrollingElement`, `document.body`),
+   a write to that element's scrollTop or scrollLeft, or an anchor jump through
+   a write to `location.hash`; a box's own scroll (highlightInDom's reader) is
+   not one.
    Read strictly, and planted: options held in a variable or spread in (a spread
    after `preventScroll: true` can undo it), a shorthand `preventScroll`, and
    `preventScroll: false` do not count as passing.
@@ -55,7 +57,8 @@ const HANDLE = 'composerRef.current'
 const ANCESTOR_SCROLLS = new Set(['scrollIntoView', 'scrollIntoViewIfNeeded'])
 const PAGE_SCROLLS = new Set(['scroll', 'scrollTo', 'scrollBy'])
 const PAGE_OFFSETS = new Set(['scrollTop', 'scrollLeft'])
-const WINDOW = new Set(['window', 'globalThis', 'self'])
+const WINDOW = new Set(['window', 'globalThis', 'self', 'window.window', 'globalThis.window', 'self.window'])
+const LOCATION = new Set([...[...WINDOW].map((w) => `${w}.location`), 'location', 'document.location'])
 const PAGE_ELEMENT = new Set(['document.documentElement', 'document.scrollingElement', 'document.body'])
 /** The one page move, the composer's reveal after a press (E252). */
 const PAGE_MOVES = { [`${PANE}/CopilotComposer.tsx`]: ['window.scrollBy'] }
@@ -139,17 +142,22 @@ function sitesIn(source: string, fileName: string): Sites {
         else if (preventsScroll(node)) sites.prevented += 1
         else sites.unprevented += 1
       }
-      if (callee && PAGE_SCROLLS.has(callee.name)) {
-        const receiver = receiverText(callee.receiver)
-        if (WINDOW.has(receiver) || PAGE_ELEMENT.has(receiver)) sites.pageMoves.push(`${receiver}.${callee.name}`)
+      // `window.scrollBy(...)`, or `window.scrollBy.call(window, ...)` and `.apply`.
+      const borrowed = callee && (callee.name === 'call' || callee.name === 'apply') ? member(callee.receiver) : null
+      const scroll = borrowed ?? callee
+      if (scroll && PAGE_SCROLLS.has(scroll.name)) {
+        const receiver = receiverText(scroll.receiver)
+        if (WINDOW.has(receiver) || PAGE_ELEMENT.has(receiver)) sites.pageMoves.push(`${receiver}.${scroll.name}`)
       }
-      if (ts.isIdentifier(node.expression) && PAGE_SCROLLS.has(node.expression.text)) {
-        sites.pageMoves.push(node.expression.text)
-      }
+      // The bare global, `scrollBy(...)`, or `scrollBy.call(...)` and `.apply`.
+      const bare = callee && (callee.name === 'call' || callee.name === 'apply') ? callee.receiver : node.expression
+      if (ts.isIdentifier(bare) && PAGE_SCROLLS.has(bare.text)) sites.pageMoves.push(bare.text)
     }
     if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
       const offset = pageOffset(node.left)
       if (offset) sites.pageMoves.push(offset)
+      const target = member(node.left)
+      if (target?.name === 'hash' && LOCATION.has(receiverText(target.receiver))) sites.pageMoves.push(`${receiverText(target.receiver)}.hash`)
     }
     if (
       (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
@@ -251,6 +259,11 @@ describe('a focus the pane moves keeps the page (E248)', () => {
       'document.body.scrollTop -= 1',
       'document.documentElement.scrollLeft = 0',
       'document.documentElement.scrollTop++',
+      'window.scrollBy.call(window, 0, 1)',
+      'scrollTo.apply(window, [0, 0])',
+      'globalThis.window.scrollBy({ top: 1 })',
+      "location.hash = '#composer'",
+      "window.location.hash = 'composer'",
     ]) {
       expect(planted(move).pageMoves, move).toHaveLength(1)
     }
@@ -261,6 +274,9 @@ describe('a focus the pane moves keeps the page (E248)', () => {
       'el.scrollTop += by',
       'const y = window.scrollY',
       'const t = document.documentElement.scrollTop',
+      'box.scrollTo.call(box, 0, 0)',
+      "const h = location.hash",
+      "url.hash = '#a'",
     ]) {
       expect(planted(box).pageMoves, box).toEqual([])
     }

@@ -417,6 +417,26 @@ test.describe('a press whose composer is still out of view once the pane settles
     })
   }
 
+  test('at the foot with the pane open, 1100x800 at the default text size, ⌘K: the pane shows its lower part, and the page holds', async ({ page, baseURL }) => {
+    const label = 'at the foot with the pane open, 1100x800, ⌘K'
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await openFiling(page, baseURL!)
+    // Opened at the top, so the reflow is over before the page's foot: there the pane's sticky cell has scrolled up
+    // with the workspace's end, its top above the site header's foot and its composer on screen.
+    await pressSource(page)
+    await expect(composerIn(page), `${label}: the press focuses the composer`).toBeFocused()
+    await settled(page)
+    await toTheFoot(page)
+    const before = await where(page)
+    expect(before.paneTop, `${label}: only the pane's lower part shows, its top at ${r(before.paneTop)}px`).toBeLessThan(before.bandTop)
+    await composerIn(page).evaluate((el: HTMLElement) => el.blur())
+    await page.keyboard.press('ControlOrMeta+k')
+    await expect(composerIn(page), `${label}: ⌘K focuses the composer`).toBeFocused()
+    expect(await settled(page), `${label}: the page holds`).toBe(before.scrollY)
+    expectInView(await where(page), label)
+    expect(await pageMoves(page), `${label}: no page move`).toEqual([])
+  })
+
   // The 38px column at 1100x800, and #1847's short windows, where the pane opens below the fold or shorter than its tabs.
   for (const height of [800, 600, 500]) {
     const label = `at the top, 1100x${height} under 200% text`
@@ -440,6 +460,30 @@ test.describe('a press whose composer is still out of view once the pane settles
       expect(await pageMoves(page), `${label}: once`).toHaveLength(1)
     })
   }
+
+  test.describe('with motion', () => {
+    test.use({ reducedMotion: 'no-preference' })
+
+    test("at the top, 1100x800 under 200% text: the page scrolls smoothly, once, and the composer lands at the window's foot", async ({ page, baseURL }) => {
+      const label = 'at the top, 1100x800 under 200% text, with motion'
+      await page.setViewportSize({ width: 1100, height: 800 })
+      await openFiling(page, baseURL!, { doubled: true })
+      await pressSource(page)
+      await expect(composerIn(page), `${label}: the composer takes focus`).toBeFocused()
+      const end = await settled(page)
+      const moves = await pageMoves(page)
+      expect(moves, `${label}: one page move`).toHaveLength(1)
+      const [move] = moves
+      expect(move.options, `${label}: smooth`).toMatchObject({ behavior: 'smooth' })
+      expect(move.options.top, `${label}: the move is down`).toBeGreaterThan(0)
+      // The scroll runs over frames, the pane's height and the column's follow catching up as it goes: it ends where
+      // one jump would.
+      expectNear(end - move.before, move.options.top, `${label}: the page moved by the distance asked`)
+      const at = await where(page)
+      expectNear(at.shell.bottom + at.shell.marginBottom, at.bandBottom, `${label}: the shell lands at the window's foot`)
+      expectInView(at, label)
+    })
+  })
 
   // #1847's sheet cases: below lg the pane is a fixed sheet, and its column scrolls under 200% text.
   for (const { width, height } of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
