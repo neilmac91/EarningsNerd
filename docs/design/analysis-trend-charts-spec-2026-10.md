@@ -1062,7 +1062,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | `s4` coral | Series 4 (not used by these charts) | `#CF7159` | 58.2 / 3.26 | `#E8927C` (`chart-4-dark`) | −51.9 / 6.17 | final (on the dark card the light hex is −36.9) |
 | `s5` slate-blue | Series 5 (not used) | `#6E7E9C` | 65.1 / 3.92 | `#97A6C2` (`chart-5-dark`) | −50.1 / 5.98 | final (on the dark card the light hex is −30.0) |
 | `s6` periwinkle | Series 6 (not used) | `#8B7BC0` | 61.4 / 3.53 | `#AFA2DE` (`chart-6-dark`) | −52.8 / 6.32 | final (on the dark card the light hex is −33.7) |
-| `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | DS `barCursorProps` |
+| `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | the engine's `cursor` (`charts/theme.ts`) |
 | `tip` | Tooltip surface and border (specified, not yet verified) | DS `chart.tip` | | DS `chart.tip` | | DS |
 
 **Thresholds.**
@@ -1112,10 +1112,11 @@ The landing page's revenue bars take the first series' dark half, the dark label
 takes a review ink. The card's notes (the subtitle, the footnotes, and the band's and the tooltip's letters) keep
 `chart.label.dark` rather than the table's `note-dark` `#D1D5DB`, for the E194 note's reason: their light half is the
 tertiary step, and `note-dark` is the secondary step in dark (§0.5, "The tokens").)
-(E195 (D), 2026-10-30: Recharts left the app, and `components/ui/Chart.tsx`'s kit with it, so the `cursor` row's
-source, the DS's `barCursorProps`, and the tooltip value ink the 2026-10-25 note names in `Chart.tsx` are gone; the
-renderer's `cursor` and `figure` keep their values. The renderer's tooltip takes the Card recipe's surface and border,
-so the `tip` row's `chart.tip`, like `chart.crosshair`, has no reader; E252 retires both tokens.)
+(E195 (D), 2026-10-30: Recharts left the app, and `components/ui/Chart.tsx`'s kit with it: the `cursor` row's source
+was the DS's `barCursorProps` and now names the engine's own `cursor`, and the tooltip value ink the 2026-10-25 note
+names in `Chart.tsx` is gone, so the renderer's `cursor` and `figure` hold those values alone. The renderer's tooltip
+takes the Card recipe's surface and border, so the `tip` row's `chart.tip`, like `chart.crosshair`, has no reader;
+E252 retires both tokens.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,

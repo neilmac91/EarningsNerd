@@ -3035,8 +3035,10 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
 since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
 chart in the app draws with Recharts: the company page's peers chart left with its panel (D-066), and Recharts left
-the app with its chart kit (E195 (D); `tests/unit/rechartsImporters.spec.ts` fails a script that names it or a
-lockfile that installs it). It paints the engine's plan in literal SVG attributes from
+the app with its chart kit (E195 (D); `tests/unit/rechartsImporters.spec.ts` fails any tracked frontend file that
+names the package, a script that loads a module by a computed specifier or a folder, and a lockfile that installs it,
+and `tests/e2e/no-recharts-in-build.spec.ts` any script the production build ships that holds a Recharts class
+name). It paints the engine's plan in literal SVG attributes from
 `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for both themes. Since E195's token fold they name app
 tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the landing page's revenue
 bars take too; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and
