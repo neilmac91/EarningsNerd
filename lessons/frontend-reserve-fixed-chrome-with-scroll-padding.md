@@ -18,8 +18,9 @@ not see. Shrinking the chrome had moved the composer from "off-screen, auto-scro
 `focus()`, `scrollIntoView()` and anchor jump then treats the overlay's strip as not visible and
 scrolls the target clear of it. Chromium honours scroll padding for focus scrolling (measured on the
 composer's old focus scroll: it landed 88px above the bar at 1440x900 and 1280x600). Since E248 the
-composer takes focus without moving the page, and the pane's height keeps it clear of the bar
-(`lessons/frontend-programmatic-focus-never-moves-the-page.md`).
+composer takes focus without moving the page, and the pane's height keeps it clear of the bar; its
+reveals read this padding as the edges of the band they land in, the page's one move after a press
+included (E252, `lessons/frontend-programmatic-focus-never-moves-the-page.md`).
 
 (b) An inset variable that chrome consumes needs a gate line for the scrollport too: the ladder
 gate fails when `globals.css` loses `scroll-padding-bottom: var(--consent-inset, 0px)`.
