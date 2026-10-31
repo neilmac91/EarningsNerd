@@ -719,7 +719,7 @@ async def ask_filing_stream(
                     raise CodedHTTPException(
                         ErrorCode.PRO_FAIR_USE_LIMIT,
                         detail=(
-                            f"You've reached this month's fair-use limit of {cap} Copilot questions. "
+                            f"You've reached this month's fair-use limit of {cap:,} questions. "
                             "It resets at the start of next month."
                         ),
                     )
