@@ -126,12 +126,16 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
   // (spec §3.10), whether or not the other view overflowed, and for a new window. Never on a resize or zoom, which would
   // lose the reader's place: a plot that overflows is planned at its minimum width, so a resize changes none of these. The
   // newest period opens at the scroll's end. A start before it opens with its column centred in the view right of the
-  // gutter, as a keyboard move brings a column into view: the column's centre, less half the gutter, less half the view.
+  // gutter, as a keyboard move brings a column into view (the column's centre, less half the gutter, less half the view),
+  // as far as the scroll goes: an early start opens at the scroll's start, its column in the first view on the plot's own
+  // axis, so with no sticky gutter, which shows once the plot has scrolled.
   const startScroll = start === last ? null : layout.x(model.periods[start].key) - layout.plotLeft / 2
   useLayoutEffect(() => {
     const viewport = viewportRef.current
     if (!viewport || !overflowing) return
-    viewport.scrollLeft = startScroll == null ? viewport.scrollWidth : startScroll - viewport.clientWidth / 2
+    viewport.scrollLeft = startScroll == null
+      ? viewport.scrollWidth
+      : Math.max(0, Math.min(viewport.scrollWidth - viewport.clientWidth, startScroll - viewport.clientWidth / 2))
     syncScroll()
     // The view, the window, the start and the overflow alone: never the layout or its width (the start's scroll holds
     // still while the plot overflows).

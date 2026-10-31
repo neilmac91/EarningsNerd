@@ -470,10 +470,14 @@ says so; everything else follows the spec.
   - A start category: a bar chart can name the category it starts at (`BarChartDef.start`, refused when it names none),
     carried as `ChartModel.start`. The values stop starts there, a new window starts again there, and a plot that
     overflows opens with that column centred in the view right of the gutter, as a keyboard move brings a column into
-    view, so a phone opens on a ranked company chart's subject rather than at its smallest company. Unset, it is the
-    newest period, as before. `trend-charts-v2.spec.tsx` holds the stop's period on mount and after a new window and the
-    column in view; `fixtures/chartChecks.ts`'s "opens at its newest period" is "opens at its start", the newest by
-    default.
+    view, as far as the scroll goes, so a phone opens on a ranked company chart's subject rather than at its smallest
+    company. An early start, whose column the first view holds (a sector's largest company, or the near-equal case's
+    fourth on a phone), opens at the scroll's start, on the plot's own axis with no sticky gutter, which shows only once
+    the plot has scrolled. Unset, it is the newest period, as before. `trend-charts-v2.spec.tsx` holds the stop's period
+    on mount and after a new window, the column in view and the gutter exactly when scrolled, for a first, an early and a
+    middle start; `fixtures/chartChecks.ts`'s "opens at its newest period" is "opens at its start", the caller's
+    (`expectSound(report, { start })`) or the newest, the stop held to it. No page names a start yet, so its first run in a
+    browser is E251's PR 2.
   - Reading words: a bar chart can name its categories (`BarChartDef.reading`, carried as `ChartModel.reading`:
     `{ items, first, last }`), so its scroll region reads "Scroll horizontally to view all {items}." and a step past
     either end says its `first` or `last` words; a ranked company chart says "companies", "First company." and "Last

@@ -11,14 +11,17 @@ import { apcaLc } from '../../unit/apca'
  * - D2: no two text boxes intersect;
  * - D3: inside a plot rect, only a bar label, an A13b label or a gap's "—"/"n/m" on its zero rule;
  * - D5: every y tick label ends left of the plot;
- * - D6: every paint clears its §3.8 APCA floor on the card's computed background (expectInks);
+ * - D6: every paint clears its §3.8 APCA floor on the card's computed background, and none is faded by an opacity, a
+ *   fill or stroke opacity, a filter or a mask, its own or a group's up to the SVG, whatever sets it (expectInks: a computed
+ *   fill leaves a fade as it is, E251);
  * - D8: every string paints at Geist Mono's 0.6 em advance, so the planner's widths are the screen's;
  * - D10: no chart animates under reduced motion;
  * - D14: every bar lies on its value's side of its zero rule, at the page's width;
- * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, opened at its start behind
- *   A7's sticky gutter, which repeats the y axis at the viewport's edge and passes D1, D2 and D8 itself. The start is the
- *   newest period by default; a chart that names one (E251: a ranked company chart's subject) opens with that column in
- *   view, its values stop there.
+ * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, opened at its start, its
+ *   values stop there: the newest period by default, at the scroll's end; a start the chart names (E251: a ranked company
+ *   chart's subject; expectSound's `start`, from the caller's fixture) with its column in view. A7's sticky gutter shows
+ *   once the viewport has scrolled, repeats the y axis at its edge and passes D1, D2 and D8 itself; at the scroll's start
+ *   (an early start) the plot's own axis shows and there is none.
  */
 
 /** The planner's advance: Geist Mono is 0.6 em at 11 px (layout.ts ADVANCE). */
@@ -36,6 +39,8 @@ export interface Paint {
   floor: 'marks' | 'text' | 'values' | 'grid'
   /** The computed colour, `rgb(…)`. */
   colour: string
+  /** What fades it, its own or a group's up to the SVG (an opacity under 1, a filter, a mask), where anything does. */
+  fade?: string
 }
 
 export interface PlotReport extends TextReport {
@@ -49,11 +54,16 @@ export interface PlotReport extends TextReport {
   scrolls: boolean
   /** How far the viewport sits from its newest period (0 there). */
   fromNewest: number
-  /** The values stop's period and its last (aria-valuenow, aria-valuemax): the chart's start until a key moves it. */
+  scrollLeft: number
+  /** The values stop's period and its last (aria-valuenow, aria-valuemax), read off the stop: expectSound holds them to
+   *  the caller's start and the plot's own periods. */
   start: number
   last: number
-  /** How that period's column falls outside the view right of A7's sticky gutter; empty where it is wholly in view. */
-  startHidden: string[]
+  /** The plot's periods, one x tick each, and each one's column in the viewport's coordinates at this scroll. */
+  periods: number
+  columns: { left: number; right: number }[]
+  /** What covers the viewport's left edge: A7's sticky gutter's surface once scrolled, else the plot's own gutter. */
+  cover: number
   keyboardStop: boolean
   /** A7's sticky gutter, while the plot's own has scrolled away: its text, and its left edge against the viewport's. */
   gutter: (TextReport & { offset: number; ticks: string[]; plotTicks: string[] }) | null
@@ -136,39 +146,54 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       const [v, zero, y, h] = ['data-v', 'data-zero', 'y', 'height'].map((name) => Number(rect.getAttribute(name)))
       return (v >= 0 ? y + h <= zero + 1e-9 : y >= zero - 1e-9) ? [] : [`${rect.getAttribute('data-series')} ${rect.getAttribute('data-period')}`]
     })
-    // The values stop's period, the chart's start until a key moves it (E251), and its column against the view: right of the
-    // sticky gutter's cover (its surface, the overlay's first rect) and inside the viewport. An x tick a period, in order.
+    // The values stop as it reads (E251), each period's column in the viewport's coordinates at this scroll, from its x
+    // tick (one a period, in order), and what covers the viewport's left: the sticky gutter's surface (the overlay's first
+    // rect) once scrolled, else the plot's own gutter.
     const stop = viewport.parentElement?.querySelector<HTMLElement>('[data-chart-values]')
     const start = Number(stop?.getAttribute('aria-valuenow') ?? -1)
     const last = Number(stop?.getAttribute('aria-valuemax') ?? -1)
     const centres = [...svg.querySelectorAll('text[data-text="x"]')].map((tick) => Number(tick.getAttribute('x')))
     const slot = panels.length && centres.length ? (panels[0].right - panels[0].left) / centres.length : 0
-    const cover = overlay ? Number(overlay.querySelector('rect')?.getAttribute('width') ?? panels[0]?.left ?? 0) : (panels[0]?.left ?? 0)
-    const columnLeft = (centres[start] ?? NaN) - slot / 2 - viewport.scrollLeft
-    const startHidden = !(start >= 0 && start < centres.length) ? [`no column for period ${start}`] : [
-      ...(columnLeft < cover - 0.5 ? [`its column starts at ${columnLeft.toFixed(1)}, under the gutter to ${cover.toFixed(1)}`] : []),
-      ...(columnLeft + slot > viewport.clientWidth + 0.5 ? [`its column ends at ${(columnLeft + slot).toFixed(1)}, past the view's ${viewport.clientWidth}`] : []),
-    ]
+    const columns = centres.map((centre) => ({ left: centre - slot / 2 - viewport.scrollLeft, right: centre + slot / 2 - viewport.scrollLeft }))
+    const cover = overlay ? Number(overlay.querySelector('rect')?.getAttribute('width') ?? 0) : (panels[0]?.left ?? 0)
     const texts: Record<string, string[]> = {}
     for (const node of all) (texts[role(node)] ??= []).push(`${node.textContent}|${node.getAttribute('fill')}`)
     for (const list of Object.values(texts)) list.sort()
 
-    // D6: each paint's computed colour, with the floor its kind takes.
+    // D6: each paint's computed colour, with the floor its kind takes, and what fades it, which that colour does not show
+    // (E251: the retired peers chart's grey at 45% read as #6B7280 and painted Lc 32.8): an opacity under 1, a filter or a
+    // mask on it or on a group up to the SVG, or its own fill or stroke opacity under 1, from an attribute, a style, a class
+    // or a stylesheet alike.
+    const fadeOf = (node: Element, channel: 'fill' | 'stroke') => {
+      const found: string[] = []
+      for (let at: Element | null = node; at; at = at === svg ? null : at.parentElement) {
+        const style = getComputedStyle(at)
+        if (Number(style.opacity) < 1) found.push(`${at.tagName} opacity ${style.opacity}`)
+        if (style.filter && style.filter !== 'none') found.push(`${at.tagName} filter ${style.filter}`)
+        const mask = style.maskImage || style.getPropertyValue('mask')
+        if (mask && mask !== 'none') found.push(`${at.tagName} mask ${mask}`)
+      }
+      const own = getComputedStyle(node)
+      const opacity = Number(channel === 'fill' ? own.fillOpacity : own.strokeOpacity)
+      if (opacity < 1) found.push(`${channel}-opacity ${opacity}`)
+      return found.length ? found.join(', ') : undefined
+    }
     const TEXT_FLOOR: Record<string, 'marks' | 'text' | 'values'> = {
       caption: 'text', tick: 'text', x: 'text', gap: 'text', 'strip-name': 'text', notes: 'text', note: 'text',
       label: 'values', 'near-zero': 'values', 'off-value': 'values', strip: 'values', 'off-arrow': 'marks',
     }
-    const paints: Array<{ what: string; floor: 'marks' | 'text' | 'values' | 'grid'; colour: string }> = []
-    for (const node of all) paints.push({ what: `${role(node)} "${node.textContent}"`, floor: TEXT_FLOOR[role(node)] ?? 'text', colour: getComputedStyle(node).fill })
+    const paints: Array<{ what: string; floor: 'marks' | 'text' | 'values' | 'grid'; colour: string; fade?: string }> = []
+    for (const node of all) paints.push({ what: `${role(node)} "${node.textContent}"`, floor: TEXT_FLOOR[role(node)] ?? 'text', colour: getComputedStyle(node).fill, fade: fadeOf(node, 'fill') })
     for (const plot of panels) for (const line of plot.group.querySelectorAll('line[stroke]')) {
       // The zero tick's rule and A3b's dashed edge rules are marks; every other ruled line is a gridline. (A break mark's
       // strokes take their group's surface paint, a cut in the bar rather than a paint of its own.)
       const zeroTick = [...plot.group.querySelectorAll('text[data-text="tick"]')].some((tick) => /^[^1-9]*0(?:\.0+)?[%×]?$/.test(tick.textContent ?? '') && Math.abs(Number(tick.getAttribute('y')) - Number(line.getAttribute('y1'))) <= 1)
-      paints.push({ what: `${plot.id} rule at ${line.getAttribute('y1')}`, floor: zeroTick || line.hasAttribute('stroke-dasharray') ? 'marks' : 'grid', colour: getComputedStyle(line).stroke })
+      paints.push({ what: `${plot.id} rule at ${line.getAttribute('y1')}`, floor: zeroTick || line.hasAttribute('stroke-dasharray') ? 'marks' : 'grid', colour: getComputedStyle(line).stroke, fade: fadeOf(line, 'stroke') })
     }
     for (const mark of svg.querySelectorAll('[data-series]:not(text)')) {
       const style = getComputedStyle(mark)
-      paints.push({ what: `mark ${mark.getAttribute('data-series')} ${mark.getAttribute('data-period')}`, floor: 'marks', colour: style.fill === 'none' ? style.stroke : style.fill })
+      const channel = style.fill === 'none' ? 'stroke' : 'fill'
+      paints.push({ what: `mark ${mark.getAttribute('data-series')} ${mark.getAttribute('data-period')}`, floor: 'marks', colour: channel === 'fill' ? style.fill : style.stroke, fade: fadeOf(mark, channel) })
     }
 
     return {
@@ -182,9 +207,12 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       viewportWidth: viewport.clientWidth,
       scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
       fromNewest: viewport.scrollWidth - viewport.clientWidth - viewport.scrollLeft,
+      scrollLeft: viewport.scrollLeft,
       start,
       last,
-      startHidden,
+      periods: centres.length,
+      columns,
+      cover,
       keyboardStop: viewport.tabIndex === 0 && viewport.getAttribute('role') === 'region',
       gutter: overlay && {
         ...textOf(overlay),
@@ -202,7 +230,10 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
   }), ADVANCE)
 }
 
-export function expectSound(report: PlotReport) {
+/** The checks on one measured plot. `start` is the category the chart starts at, by index, as the caller's fixture names
+ *  it (E251: a ranked company chart's subject); without it, the newest period. It is the caller's, never read off the
+ *  values stop under test, so a chart that ignores the start it names fails. */
+export function expectSound(report: PlotReport, { start }: { start?: number } = {}) {
   const { name } = report
   expect(report.outside, `${name}: D1, text outside the SVG`).toEqual([])
   expect(report.collisions, `${name}: D2, text boxes that intersect`).toEqual([])
@@ -212,20 +243,33 @@ export function expectSound(report: PlotReport) {
   expect(report.advances, `${name}: D8, text not at Geist Mono's advance`).toEqual([])
   expect(report.animations, `${name}: D10, animations under reduced motion`).toBe(0)
   expect(report.wrongSide, `${name}: D14, bars across their zero rule`).toEqual([])
+  // The values stop spans the plot's periods and starts at the chart's start.
+  const expected = start ?? report.periods - 1
+  expect(report.last, `${name}: the values stop spans the plot's ${report.periods} periods`).toBe(report.periods - 1)
+  expect(report.start, `${name}: the values stop starts at the chart's start, period ${expected}`).toBe(expected)
   // M6: the plot is laid out at its card's whole-pixel width, or at its wider minimum, and then scrolls in its card.
   expect(report.svgWidth, `${name}: the plot is at least its card's width`).toBeGreaterThanOrEqual(Math.floor(report.viewportWidth))
   expect(report.scrolls, `${name}: scrolls exactly when it is wider than its card`).toBe(report.svgWidth > report.viewportWidth + 1)
   expect(report.keyboardStop, `${name}: a scrolling plot is a keyboard stop, and only then`).toBe(report.scrolls)
-  // A plot that scrolls opens at its start, behind A7's sticky gutter: by default its newest period, the one the legend and
-  // the metrics table quote, at the scroll's end; a start the chart names (E251), with that column wholly in view right of
-  // the gutter. The gutter sits at the viewport's left edge, its text sound, its tick labels the plot's own.
+  // A plot that scrolls opens at its start: the newest period, the one the legend and the metrics table quote, at the
+  // scroll's end; a start the chart names (E251) with its column wholly in view, right of what covers the viewport's left.
+  // A7's sticky gutter shows exactly once the viewport has scrolled (TrendChartPlot): an early start opens at the scroll's
+  // start, on the plot's own axis, with none. The gutter sits at the viewport's left edge, its text sound, its tick labels
+  // the plot's own.
   if (!report.scrolls) {
     expect(report.gutter, `${name}: no gutter overlay on a plot that fits`).toBeNull()
     return
   }
-  if (report.start === report.last) expect(report.fromNewest, `${name}: opens at its start, its newest period`).toBeLessThanOrEqual(1)
-  expect(report.startHidden, `${name}: opens with its start's column in view`).toEqual([])
-  expect(report.gutter, `${name}: the sticky gutter repeats the y axis`).not.toBeNull()
+  if (expected === report.periods - 1) expect(report.fromNewest, `${name}: opens at its newest period`).toBeLessThanOrEqual(1)
+  const column = report.columns[expected]
+  expect(column, `${name}: a column for period ${expected}`).toBeDefined()
+  expect(column.left, `${name}: opens with its start's column clear of the gutter`).toBeGreaterThanOrEqual(report.cover - 0.5)
+  expect(column.right, `${name}: opens with its start's column inside the view`).toBeLessThanOrEqual(report.viewportWidth + 0.5)
+  if (report.scrollLeft <= 0) {
+    expect(report.gutter, `${name}: no sticky gutter at the scroll's start`).toBeNull()
+    return
+  }
+  expect(report.gutter, `${name}: the sticky gutter repeats the y axis once scrolled`).not.toBeNull()
   const gutter = report.gutter!
   expect(Math.abs(gutter.offset), `${name}: the gutter sticks to the viewport's left edge`).toBeLessThanOrEqual(0.5)
   expect(gutter.outside, `${name}: D1 in the gutter`).toEqual([])
@@ -244,12 +288,14 @@ export function hexOf(colour: string): string {
 /** §3.8's floors, |Lc| on the card: marks and the zero rule 45, must-read text 60, printed values 75, gridlines 10–25. */
 export const FLOORS = { marks: [45, Infinity], text: [60, Infinity], values: [75, Infinity], grid: [10, 25] } as const
 
-/** D6: every paint clears its floor on `ground`, the card's computed background. */
+/** D6: every paint clears its floor on `ground`, the card's computed background, and none is faded, which its computed
+ *  colour would not show. */
 export function expectInks(name: string, paints: Paint[], ground: string) {
-  const short = paints.flatMap(({ what, floor, colour }) => {
+  const short = paints.flatMap(({ what, floor, colour, fade }) => {
+    if (fade) return [`${what}: faded (${fade}), which its computed colour ${colour} does not show`]
     const lc = Math.abs(apcaLc(hexOf(colour), hexOf(ground)))
     const [low, high] = FLOORS[floor]
     return lc >= low && lc <= high ? [] : [`${what}: ${colour} is Lc ${lc.toFixed(1)}, ${floor} take ${low}${high === Infinity ? '+' : `–${high}`}`]
   })
-  expect(short, `${name}: D6, paints off their floor`).toEqual([])
+  expect(short, `${name}: D6, paints off their floor or faded`).toEqual([])
 }

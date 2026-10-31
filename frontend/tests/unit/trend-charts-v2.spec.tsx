@@ -181,18 +181,27 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
     if (node.closest('[data-strip]')) continue
     expect([node.getAttribute('data-series'), node.getAttribute('data-period')].every(Boolean), `${node.tagName} in a series colour names its data`).toBe(true)
   }
-  // Literal paint only: the export serialises the plot without the page's CSS or variables. And no mark fades by opacity
-  // (E251): D6 in a browser reads a computed fill, which an opacity leaves as it is, so a faded bar would pass it while it
-  // paints under its floor (the retired peers chart's grey at 45%, Lc 32.8 and −16.7). A paler ink is a token of its own.
+  // Literal paint only: the export serialises the plot without the page's CSS or variables. And nothing in the plot fades
+  // (E251): D6 in a browser reads a computed fill, which a fade leaves as it is, so a faded bar would pass it while it paints
+  // under its floor (the retired peers chart's grey at 45%, Lc 32.8 and −16.7). A paler ink is a token of its own. So no
+  // node, the SVG's own included, carries an opacity, a fill or stroke opacity, a filter or a mask, as an attribute or in
+  // its style; a paint's rgba is opaque; no class but the shapes' own visx- classes, which paint nothing (a utility class
+  // such as opacity-45 fades a mark where this check's attributes and the export cannot see it, and Tailwind emits it
+  // from features/); and no filter, mask or SMIL animation element. A stylesheet rule this spec cannot read is D6's, in
+  // a browser: it fails a paint whose computed opacity, its own or a group's, is under 1 (fixtures/chartChecks.ts).
   for (const node of [svg, ...svg.querySelectorAll('*')]) {
     for (const name of ['fill', 'stroke']) {
       const paint = node.getAttribute(name)
       if (paint != null) expect(paint, `${node.tagName} ${name}`).toMatch(/^(#[0-9A-F]{6}|rgba\([^)]*\)|none)$/)
+      if (paint?.startsWith('rgba')) expect(Number(paint.slice(5, -1).split(',')[3]), `${node.tagName} ${name}: an opaque rgba`).toBe(1)
     }
-    for (const name of ['opacity', 'fill-opacity', 'stroke-opacity']) expect(node.hasAttribute(name), `${node.tagName} ${name}: a mark fades by a token, never an opacity`).toBe(false)
+    for (const name of ['opacity', 'fill-opacity', 'stroke-opacity', 'filter', 'mask']) expect(node.hasAttribute(name), `${node.tagName} ${name}: nothing in a plot fades`).toBe(false)
     const style = node.getAttribute('style') ?? ''
     expect(style).not.toContain('var(')
-    expect(style, `${node.tagName} style: a mark fades by a token, never an opacity`).not.toMatch(/opacity/i)
+    expect(style, `${node.tagName} style: nothing in a plot fades`).not.toMatch(/opacity|filter|mask/i)
+    const classes = (node.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
+    expect(classes.filter((token) => !/^visx-[a-z]+(?:-[a-z]+)*$/.test(token)), `${node.tagName} class: no class paints or fades a mark`).toEqual([])
+    expect(['animate', 'animatemotion', 'animatetransform', 'set', 'filter', 'mask'], `${node.tagName}: no filter, mask or SMIL animation`).not.toContain(node.tagName.toLowerCase())
   }
   // D5: no axis domain, tick line or tag: every line is a gridline, an off-scale rule or a break stroke.
   expect(svg.querySelectorAll('line').length).toBe(
@@ -1143,7 +1152,7 @@ describe('a ranked company chart (E251): the subject in chart-1, every other com
     })
   })
 
-  it('starts at its subject: the values stop on mount and after a new window, and a plot that scrolls opens with its column in view', () => {
+  it('starts at its subject: the values stop on mount and after a new window, and a plot that scrolls opens with its column in view, its sticky gutter exactly when scrolled', () => {
     const viewportWidth = 300
     const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.hasAttribute('data-analysis-chart-scroll') ? Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
@@ -1152,34 +1161,45 @@ describe('a ranked company chart (E251): the subject in chart-1, every other com
       return this.hasAttribute('data-analysis-chart-scroll') ? viewportWidth : 0
     })
     const startOf = (model: ChartModel) => model.periods.findIndex((period) => period.key === model.start)
-    /** The start's column lies wholly in the view, right of A7's sticky gutter: a phone opens on the subject, not on the
-     *  company at either end. */
-    const expectStartInView = (viewport: HTMLElement, model: ChartModel) => {
+    /** The start's column lies wholly in the view, right of what covers its left edge, and the sticky gutter shows exactly
+     *  once the plot has scrolled: an early start opens at the scroll's start, on the plot's own axis. */
+    const expectStartInView = (card: HTMLElement, model: ChartModel) => {
+      const viewport = card.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
       const layout = layoutChart(model, viewportWidth, 'card')
       expect(layout.width, 'the plot scrolls in its card').toBeGreaterThan(viewportWidth)
       expect(viewport).toHaveAttribute('role', 'region')
+      expect(viewport.scrollLeft, 'inside the scroll’s range').toBeGreaterThanOrEqual(0)
+      expect(viewport.scrollLeft, 'inside the scroll’s range').toBeLessThanOrEqual(layout.width - viewportWidth)
       const column = columnOf(layout, model.periods[startOf(model)].key)
       const left = column.left - viewport.scrollLeft
       expect(left, 'clear of the sticky gutter').toBeGreaterThanOrEqual(gutterCover(layout, viewport.scrollLeft) - 1e-9)
       expect(left + column.width, 'inside the view').toBeLessThanOrEqual(viewportWidth + 1e-9)
+      expect(card.querySelector('[data-chart-gutter]') != null, 'the sticky gutter exactly when scrolled').toBe(viewport.scrollLeft > 0)
+      return viewport.scrollLeft
     }
     try {
       const spread = peer('spread')
       expect(startOf(spread), 'the subject sixth of eleven').toBe(5)
-      const { container, rerender } = render(frame(spread))
+      const { container, rerender, unmount } = render(frame(spread))
       const stop = within(container).getByRole('slider', { name: `${spread.title} chart values` })
-      const viewport = container.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
       expect(stop).toHaveAttribute('aria-valuenow', '5')
       expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(spread)[5].announcement)
-      expectStartInView(viewport, spread)
-      // The keyboard moves on; a new window starts again at its own subject, and opens there.
+      expect(expectStartInView(container, spread), 'a mid start: scrolled, its column centred').toBeGreaterThan(0)
+      // The keyboard moves on; a new window starts again at its own subject, and opens there: the near-equal case's fourth
+      // company, in the first view, so at the scroll's start with no gutter.
       fireEvent.keyDown(stop, { key: 'End' })
       expect(stop).toHaveAttribute('aria-valuenow', String(spread.periods.length - 1))
       const nearEqual = peer('near-equal')
       rerender(frame(nearEqual))
       expect(stop).toHaveAttribute('aria-valuenow', String(startOf(nearEqual)))
       expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(nearEqual)[startOf(nearEqual)].announcement)
-      expectStartInView(viewport, nearEqual)
+      expect(expectStartInView(container, nearEqual), 'an early start: at the scroll’s start').toBe(0)
+      unmount()
+      // A start at the first company, a sector's largest: the scroll's start too, on the plot's own axis.
+      const first = buildBarChart({ ...structuredClone(PEERS.find(([name]) => name === 'spread')![1]), start: spread.periods[0].key })
+      const fresh = render(frame(first)).container
+      expect(within(fresh).getByRole('slider', { name: `${first.title} chart values` })).toHaveAttribute('aria-valuenow', '0')
+      expect(expectStartInView(fresh, first), 'the first company: at the scroll’s start').toBe(0)
     } finally {
       scroll.mockRestore()
       width.mockRestore()

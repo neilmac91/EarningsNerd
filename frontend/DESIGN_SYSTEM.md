@@ -3114,8 +3114,11 @@ quote, unless a bar chart names another (E251: a ranked company chart's subject)
 and Down/Up step a period, Home/End jump, and a step past either end says "Oldest period." or "Newest period." in a
 status line, or a chart's own words where it names them, as its scroll region does (a ranked company chart's "First
 company." and "Last company.", and "Scroll horizontally to view all companies."; E251). A plot opens scrolled to its start whenever its view or window starts to overflow, never on a resize: the
-newest period at the scroll's end, a start a chart names with its column centred in the view, behind A7's sticky gutter (`aria-hidden`, outside the exported node), which repeats the y axis, the captions
-and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis. Hover, a tap or the keyboard paints the
+newest period at the scroll's end, a start a chart names with its column centred in the view as far as the scroll goes,
+so an early start (a sector's largest company) opens at the scroll's start on the plot's own axis. Once the plot has
+scrolled, A7's sticky gutter (`aria-hidden`, outside the exported node) repeats the y axis, the captions
+and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis; at the
+scroll's start there is none. Hover, a tap or the keyboard paints the
 period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
 flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
 is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
