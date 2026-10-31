@@ -954,6 +954,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         )
     for step_name, statement_ms in (
         ("Run committed detection SQL (read-only snapshots)", 600_000),
+        ("Count the stored excerpts by builder (E28)", 120_000),
         ("Run ticker repair script", 120_000),
         ("Run fiscal-year relabel script", 120_000),
         ("Run quarterly fact repair script", 120_000),
