@@ -3119,8 +3119,10 @@ the 16px step, as the hero example's badge does (E156): on a line of its own the
 card under 200% text. Gates: `tests/unit/fundamentals-trend-chart.spec.tsx` and `tests/e2e/filing-fundamentals-chart.spec.ts`
 (the mount, the engine's drawing and the DOM checks for one card in both themes at 390 and 1280 px; the card landing
 where its bones stood, its fetch held, in both themes, with the fixture at 1280, 390 and 320 px and under 200% text at
-530, 640, 767, 768 and 1080 px, and with every featured metric at 320 px and under 200% text at 600 px; and every series
-at 390, 360 and 320 px under 200% text).
+530, 640, 767, 768 and 1080 px, and with every featured metric at 320 px and under 200% text at 600 px; every label the
+picker offers fitting its one width, with every featured metric at 1280 px at both text sizes, each read from a hidden
+clone of the select holding that label alone, sized to its content; and every series at 390, 360 and 320 px under 200%
+text).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

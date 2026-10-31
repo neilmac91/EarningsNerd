@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { CHART_TOKENS } from '../../features/analysis/lib/charts/theme'
+import { FEATURED } from '../../features/fundamentals/lib/featuredMetrics'
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
 import { answerApi, API_ORIGIN, FUNDAMENTALS, type Theme } from './fixtures/filing3Api'
 
@@ -38,7 +39,10 @@ import { answerApi, API_ORIGIN, FUNDAMENTALS, type Theme } from './fixtures/fili
  * picker takes a row of its own and the footnote two lines. Then, while the select took its widest option's width and
  * its bone 10rem, their rows wrapped apart: under 200% text the fixture's card shrank 32 to 56px as it landed at those
  * five widths, and every featured metric's grew 28px at 320px and 56px at 600px under 200% text. The picker now takes
- * one width, 14rem, and its bone the same (E253). CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
+ * one width, 14rem, and its bone the same (E253). And that width holds every label the picker offers: with every
+ * featured metric (the answer built from the card's own list), at 1280px at the default size and under 200% text, a
+ * hidden clone of the select holding each label alone, sized to its content, is no wider than the field.
+ * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
  */
 
 const VIEWPORTS = [
@@ -84,25 +88,21 @@ const widths = (page: Page) =>
     return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, past }
   })
 
-/** Every metric the card features, in its picker's order (FundamentalsTrendChart.tsx's FEATURED). */
-const EVERY_FEATURED = [
-  'revenue', 'net_interest_income', 'noninterest_income', 'premiums_earned', 'net_investment_income', 'net_income',
-  'gross_profit', 'operating_income', 'operating_cash_flow', 'investing_cash_flow', 'financing_cash_flow',
-  'free_cash_flow', 'eps_diluted', 'earnings_per_share', 'gross_margin', 'operating_margin', 'net_margin',
-  'total_assets', 'current_assets', 'current_liabilities', 'working_capital', 'current_ratio', 'shareholders_equity',
-]
+/** Every metric the card features, in its picker's order: the card's own list (features/fundamentals/lib/featuredMetrics.ts),
+ *  so a metric added there is offered here, and its label measured, the moment it ships. */
+const EVERY_FEATURED = FEATURED.map((metric) => metric.key)
 /** An answer to the card's fetch offering every featured metric, its widest labels ("Net investment income") among them,
  *  each carrying revenue's first two points from the fixture, so the card still lands on revenue, with no source check. */
 const REVENUE = SERIES.find((series) => series.concept === 'revenue')!
 const EVERY_METRIC = { ...FUNDAMENTALS, concepts: EVERY_FEATURED.map((concept) => ({ ...REVENUE, concept, points: REVENUE.points.slice(0, 2) })) }
 
 /** Consent answered and the first-run coachmark seen (neither belongs to this card), the theme chosen, then the page.
- *  Given `held`, the card's fetch waits for it, then takes `answer`, or the fixture's without one; given `doubled`, the
- *  page opens under 200% text, so its loading card lays out at that size too. */
+ *  Given `held`, the card's fetch waits for it; given `answer`, it takes that answer, and otherwise the fixture's; given
+ *  `doubled`, the page opens under 200% text, so its loading card lays out at that size too. */
 async function openFiling(page: Page, baseURL: string, theme: Theme, { held, answer, doubled = false }: { held?: Promise<void>; answer?: unknown; doubled?: boolean } = {}) {
   await answerApi(page, baseURL, 'anon')
   // Registered after answerApi, so it runs first, and answers or hands the request on to the fixture's answer.
-  if (held) {
+  if (held || answer !== undefined) {
     const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
     await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/filings/3/fundamentals', async (route) => {
       await held
@@ -236,6 +236,29 @@ async function settledHeight(page: Page, card: Locator) {
   return card.evaluate((section) => section.getBoundingClientRect().height)
 }
 
+/** The room each label the picker offers needs, read from the page's own options as chief design read it for E253: a
+ *  hidden clone of the picker's select holding that label as its only option, sized to its content (`width:
+ *  max-content`, its cap at the row lifted), set in the select's own row, so it takes the select's font, weight, padding
+ *  and chevron room. Beside them, the select's width, and a whole clone's with the cap lifted, to show the row leaves
+ *  the field its own width where it is read. */
+const labelRoom = (picker: Locator) =>
+  picker.evaluate((select: HTMLSelectElement) => {
+    const probe = (style: string, label?: string) => {
+      const clone = select.cloneNode(label === undefined) as HTMLSelectElement
+      if (label !== undefined) clone.append(new Option(label))
+      clone.style.cssText = `position:absolute;visibility:hidden;${style}`
+      select.after(clone)
+      const width = clone.getBoundingClientRect().width
+      clone.remove()
+      return width
+    }
+    return {
+      field: select.getBoundingClientRect().width,
+      uncapped: probe('max-width:none'),
+      labels: [...select.options].map((option) => ({ label: option.text, needs: probe('width:max-content;max-width:none', option.text) })),
+    }
+  })
+
 test.describe.configure({ mode: 'parallel' })
 // Full font hinting, headless Chrome's default (CI's): D1 and D8 run in the case that can break them.
 test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
@@ -305,6 +328,31 @@ for (const { width, doubled, every } of LANDINGS) {
         expect(Math.abs(loaded - loading), `the card is ${loading}px loading and ${loaded}px loaded`).toBeLessThanOrEqual(0.5)
       })
     }
+  })
+}
+
+// The picker's one width holds every label it offers (chief design on E253: 14rem is "the smallest step that holds every
+// FEATURED label"), at 1280px, where the row leaves the field its own width, at the default size and under 200% text.
+// One theme: a label's room is its type and the field's padding, which the theme does not change.
+for (const doubled of [false, true]) {
+  test.describe(`Financial trends on /filing/3 at 1280px${doubled ? ' under 200% text' : ''}, every featured metric`, () => {
+    test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' })
+
+    test('light: the picker’s one width holds every label it offers', async ({ page, baseURL }) => {
+      const card = await openFiling(page, baseURL!, 'light', { answer: EVERY_METRIC, doubled })
+      const picker = card.getByRole('combobox', { name: /^Metric\b/ })
+      await expect(picker).toHaveValue('revenue')
+      const offered = await picker.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))
+      expect([...offered].sort(), 'the picker offers every featured metric').toEqual([...EVERY_FEATURED].sort())
+      await page.evaluate(() => document.fonts.ready)
+
+      const { field, uncapped, labels } = await labelRoom(picker)
+      expect(Math.abs(field - uncapped), `the row leaves the field its own width here (${field}px; ${uncapped}px uncapped)`).toBeLessThanOrEqual(0.5)
+      const needs = labels.map((label) => label.needs)
+      expect(Math.max(...needs) - Math.min(...needs), 'each clone takes its own label’s width, not the field’s').toBeGreaterThan(1)
+      const tooWide = labels.filter((label) => label.needs > field).map((label) => `"${label.label}" needs ${label.needs.toFixed(2)}px`)
+      expect(tooWide, `every label the picker offers fits its ${field}px field`).toEqual([])
+    })
   })
 }
 
