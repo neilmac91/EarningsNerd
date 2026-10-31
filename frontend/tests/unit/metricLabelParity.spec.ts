@@ -13,9 +13,10 @@ import { FEATURED } from '@/features/fundamentals/lib/featuredMetrics'
  * the picker and in What changed while /analysis wrote "Noninterest income" (chief design's note on #1817). This spec
  * reads the Python and holds every label the picker or What changed shares with /analysis to /analysis's.
  *
- * The EPS lines are the recorded exception: the picker and What changed write "Diluted EPS" and "EPS" where /analysis
- * writes "EPS (diluted)" and "EPS (basic)". Each is held to its exact pair, so changing either side, or giving the two
- * one name, is a deliberate edit here.
+ * The EPS lines take /analysis's names too, "EPS (diluted)" and "EPS (basic)" (chief design's ruling on #1862). The
+ * picker wrote "Diluted EPS" and "EPS" and takes them in full. What changed's one EPS line, the basic figure, still
+ * writes "EPS": it is the recorded exception, held to its exact pair until E259 settles which EPS figure What changed
+ * shows, so changing either side is a deliberate edit here.
  */
 
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -36,11 +37,7 @@ function whatChangedLabels(source: string): [string, string][] {
 }
 
 type Pair = { surface: string; analysis: string }
-/** Each surface's EPS line beside /analysis's name for it. */
-const PICKER_EXCEPTIONS: Record<string, Pair> = {
-  eps_diluted: { surface: 'Diluted EPS', analysis: 'EPS (diluted)' },
-  earnings_per_share: { surface: 'EPS', analysis: 'EPS (basic)' },
-}
+/** What changed's EPS line beside /analysis's name for it, until E259. The picker has no exception. */
 const WHAT_CHANGED_EXCEPTIONS: Record<string, Pair> = {
   earnings_per_share: { surface: 'EPS', analysis: 'EPS (basic)' },
 }
@@ -60,7 +57,7 @@ const analysis = analysisLabels(service('trend_analysis/periods.py'))
 const picker: [string, string][] = FEATURED.map((m) => [m.key, m.label])
 const whatChanged = whatChangedLabels(service('dashboard_feed_service.py'))
 
-describe('one name per metric across the picker, What changed and /analysis (E249)', () => {
+describe('one name per metric across the picker, What changed and /analysis (E249, E259)', () => {
   it('reads every label each table holds', () => {
     // A reader that missed lines would pass the comparisons below vacuously, so each table is read whole: every concept
     // the picker names is one /analysis names, and What changed's list is read entry by entry.
@@ -71,33 +68,27 @@ describe('one name per metric across the picker, What changed and /analysis (E24
   })
 
   it("names each of the picker's metrics as /analysis does", () => {
-    expect(mismatches(picker, analysis, PICKER_EXCEPTIONS)).toEqual([])
+    expect(mismatches(picker, analysis, {})).toEqual([])
   })
 
   it("names each of What changed's metrics as /analysis does, its headline included", () => {
     expect(mismatches(whatChanged, analysis, WHAT_CHANGED_EXCEPTIONS)).toEqual([])
   })
 
-  it('holds the EPS lines to their recorded pairs, so a change to either side is made here', () => {
-    const recorded = (labels: [string, string][], exceptions: Record<string, Pair>) =>
-      Object.entries(exceptions).map(([concept, pair]) => ({
-        concept,
-        surface: labels.find(([key]) => key === concept)?.[1],
-        analysis: analysis[concept],
-        pair,
-      }))
-    for (const { concept, surface, analysis: name, pair } of [
-      ...recorded(picker, PICKER_EXCEPTIONS),
-      ...recorded(whatChanged, WHAT_CHANGED_EXCEPTIONS),
-    ]) {
-      expect({ concept, surface, analysis: name }).toEqual({ concept, surface: pair.surface, analysis: pair.analysis })
+  it("holds What changed's EPS line to its recorded pair, so a change to either side is made here", () => {
+    for (const [concept, pair] of Object.entries(WHAT_CHANGED_EXCEPTIONS)) {
+      const surface = whatChanged.find(([key]) => key === concept)?.[1]
+      expect({ concept, surface, analysis: analysis[concept] }).toEqual({ concept, ...pair })
     }
   })
 
-  it("fails a label that leaves /analysis's name, a hyphen included (planted)", () => {
-    const planted: [string, string][] = [['noninterest_income', 'Non-interest income'], ['net_income', 'Net income']]
+  it("fails a label that leaves /analysis's name, a hyphen or a word order included (planted)", () => {
+    const planted: [string, string][] = [
+      ['noninterest_income', 'Non-interest income'], ['eps_diluted', 'Diluted EPS'], ['net_income', 'Net income'],
+    ]
     expect(mismatches(planted, analysis, {})).toEqual([
       'noninterest_income: "Non-interest income" (analysis: "Noninterest income")',
+      'eps_diluted: "Diluted EPS" (analysis: "EPS (diluted)")',
     ])
     expect(() => analysisLabels('_CONCEPT_LABELS = {}\n')).toThrow('no _CONCEPT_LABELS dict')
     expect(() => whatChangedLabels('DELTA = []\n')).toThrow('no _DELTA_METRICS list')

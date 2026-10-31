@@ -2023,15 +2023,15 @@ def _replaced_at_the_winners_identity(db, monkeypatch, ticker="NSB", parsed=18_6
 
 
 
-def _replaced_below_a_later_winner(db, monkeypatch, ticker="LTX"):
-    """A sync before the fix stored the proxies' rows, and a later 10-K (K27) gives FY2025 as the FY2026 10-K did:
-    the year's winner is K27's, which the harness's sync makes current, so the FY2026 10-K's replaced comparative is
-    neither current nor at the winner's identity."""
+def _replaced_below_a_later_winner(db, monkeypatch, ticker="LTX", fy2025=18_600e6):
+    """A sync before the fix stored the proxies' rows, and a later 10-K (K27) gives FY2025 as ``fy2025`` (as the FY2026
+    10-K did, unless given): the year's winner is K27's, which the harness's sync makes current, so the FY2026 10-K's
+    replaced comparative is neither current nor at the winner's identity."""
     company = _company(db, ticker)
     payload, filing = _restated_and_quoted_as_first_reported(db, monkeypatch, company, old_sync=True)
     _items(payload).extend(_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=_accn(company, "K27"), fy=2027,
                                  filed="2028-02-25")
-                           for year, value in ((2025, 18_600e6), (2026, 19_000e6), (2027, 20_000e6)))
+                           for year, value in ((2025, fy2025), (2026, 19_000e6), (2027, 20_000e6)))
     return company, payload, filing
 
 
@@ -2120,6 +2120,38 @@ def test_a_row_below_a_later_winner_a_history_row_backs_is_restored_where_the_10
         [history] = [r for r in _rows(states[True][0], states[True][1], concept="net_income",
                                       period_end=date(2025, 12, 31)) if r.accession == _accn(states[True][1], "K25")]
         assert (history.is_latest, history.filing_id, float(history.value)) == (False, None, 18_254e6)
+
+
+def test_a_row_below_a_later_winner_whose_original_the_10k_contradicts_is_listed_and_detection_leaves_it(monkeypatch):
+    # LTX's shape with K27 restating FY2025 again (18,900), so today's 10-K figure contradicts the recorded original
+    # (18,600) too and SF-B restores nothing. A sync before the fix stored the proxies' rows, so P27's stored row
+    # witnesses the filing row's 18,254 for detection's set 4. Since #1682 the FY2025 10-K's history row holds that
+    # figure: set 4 leaves the row (not the company's current figure: K27's is) and lists it with that backer, and
+    # detection, by the same report-row rule, leaves it unlisted, before the apply and after; here the backer alone
+    # decides it. Synced as before #1682, no report row backs it, and set 4's own test refuses the original. (Review of
+    # #1840, rounds 8 and 9: the pin LTX's listing test held, where a stored proxy row makes the backer decide.)
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _replaced_below_a_later_winner(
+            db, monkeypatch, "LTC", fy2025=RESTATED_AGAIN)) as states:
+        (old, company, payload, _filing), (new, *_rest) = states[False], states[True]
+        [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        assert (row.is_latest, row.source, float(row.value), _check(row)["original_value"]) == (
+            False, "companyfacts", 18_254e6, 18_600e6)
+        [p27] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31))
+                 if r.accession == _accn(company, "P27")]
+        [history] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31))
+                     if r.accession == _accn(company, "K25")]
+        assert (p27.form, history.is_latest, history.filing_id, float(history.value)) == ("DEF 14A", False, None, 18_254e6)
+        stored = repair.snapshot(row)
+        since = _preview(new, company, payload)["proxy"]
+        assert [(e["fact_id"], e["set"], e["authority"], [b["fact_id"] for b in e["backed_by"]])
+                for e in since["left_report_backed"]] == [(row.id, 4, RESTATED_AGAIN, [history.id])]
+        applied = _apply(new, company, payload)["proxy"]
+        assert (since["detection_listed"], applied["detection_listed"]) == ([], [])  # the backer decides it
+        found = _detection(new, {company.ticker: payload})
+        assert (found[4], found[5]) == ([], [])
+        assert repair.snapshot(new.get(FinancialFact, row.id)) == stored
+        assert row.id not in {r.fact_id for r in new.query(FinancialFactRevision)}
+        _refuses(old, company, payload, _refusal(old, (row.id, SET4_OWN)))
 
 
 def _replaced_where_the_own_report_gave_another_figure(db, monkeypatch, ticker="UNB"):
@@ -2532,6 +2564,27 @@ def test_the_cli_totals_count_the_rows_each_listing_holds(db, monkeypatch, tmp_p
     assert (report["proxy_totals"]["left_report_backed"], report["proxy_totals"]["scale_up_retained"]) == (2, 2)
 
 
+def _listing_block(left, retained):
+    """A company's ``proxy`` block with every counter at zero, ``left`` rows in ``left_report_backed`` and ``retained``
+    in ``scale_up_retained``."""
+    return {**dict.fromkeys(proxy.COUNTERS, 0), "other_planned_updates": 0, "other_planned_inserts": 0,
+            "other_updates_by_kind": dict.fromkeys(proxy.OTHER_KINDS, 0), "other_inserts_by_concept": {},
+            "left_report_backed": [{"fact_id": n} for n in range(left)],
+            "scale_up_retained": [{"fact_id": n} for n in range(retained)]}
+
+
+@pytest.mark.parametrize(("blocks", "expected"), [
+    ([(2, 0), (0, 1), (1, 0)], (3, 1)), ([(0, 2)], (0, 2)), ([(0, 0), (1, 3)], (1, 3)),
+], ids=["two_rows_in_one_listing", "retained_rows_alone", "both_listings_in_one_company"])
+def test_proxy_totals_count_each_listings_rows_apart(blocks, expected):
+    # A pure test of ``totals`` (review of #1840, round 9): each listing's total is the number of rows the companies'
+    # blocks list there, its own listing's alone, rows and not companies. The CLI test's batch is symmetric (two
+    # companies with one row in each listing), so these batches are not: a company listing two rows in one listing, a
+    # batch whose only rows are retained, and a company in both listings.
+    out = proxy.totals([_listing_block(left, retained) for left, retained in blocks])
+    assert (out["left_report_backed"], out["scale_up_retained"]) == expected
+
+
 @pytest.mark.parametrize("exit_", ["filing-stored-first", "per-filing-write", "synced-first"])
 def test_a_sync_clears_the_current_figure_refusal_only_after_the_later_10ks_filing(monkeypatch, exit_):
     # NSB's company, synced since #1682, with K27 filed after its last sync, restating FY2025 again (18,900 million), so
@@ -2736,6 +2789,7 @@ def test_a_mirrored_scale_error_takes_set_4s_ordinary_path(monkeypatch, scale, g
     (-4_092e9, -4_092e6, -4_153_380_000.0, "refused"),
     (-4_092e12, -4_092e6, -4_092e6, "restored"),
     (19_000e6, 19_000e3, 19_500e6, "exempt"),
+    (-19_000e6, -19_000e3, -19_500e6, "exempt"),
     (4_092e6, 4_092.0, 4_092e6 * 1.3, "exempt"),
     (4_092e9, 4_092e3, 4_092e6, "refused"),
     (4_092e6, 4_092e3, 4_092e9, "refused"),
@@ -2756,6 +2810,7 @@ def test_a_mirrored_scale_error_takes_set_4s_ordinary_path(monkeypatch, scale, g
     (4_092e9, 4_092e6, 4_092e9 / 40, "refused"),
     (4_092e9, 4_092e6, 4_092e9 / 10, "exempt"),
 ], ids=["negative-x1000-0.5pct", "negative-x1000-1.5pct", "negative-x1000000", "k28-restated-true-scale-up",
+        "a-loss-restated-on-its-scale-step",
         "true-scale-up-restated-30pct", "x1000000-10k-a-step-between", "x1000-10k-a-step-above-the-value",
         "opposite-sign-on-the-originals-scale", "opposite-sign-on-the-values-scale",
         "negative-value-a-profit-on-its-scale", "zero-10k-figure", "31x-under-the-value-within-half-a-step",
@@ -3084,7 +3139,9 @@ def test_principal_review_5718798403_item_3_a_left_row_is_listed_with_its_backer
                 "filing_id": None, "source": "companyfacts"}]}]
         applied = _apply(new, company, payload)["proxy"]
         assert applied["left_report_backed"] == since["left_report_backed"]
-        assert (since["detection_listed"], applied["detection_listed"]) == ([], [])  # backed: detection leaves it too
+        # No stored proxy row witnesses the row here (the proxy's figure is a payload item alone), so detection cannot
+        # list it, backed or not; LTX's contradicted test above pins the case where the backer decides.
+        assert (since["detection_listed"], applied["detection_listed"]) == ([], [])
         found = _detection(new, {company.ticker: payload})
         assert (found[4], found[5]) == ([], [])
         assert repair.snapshot(new.get(FinancialFact, row.id)) == stored and _snapshots(new, company) == planted
@@ -3223,46 +3280,79 @@ def test_principal_review_5718798403_item_2_a_retained_scale_up_off_the_10k_figu
             assert row.id not in {r.fact_id for r in db.query(FinancialFactRevision)}
 
 
-def _retained_at_the_winners_identity(db, monkeypatch, ticker, fy2026):
+THIRD_TAG = "NetIncomeLossAvailableToCommonStockholdersBasic"  # a net-income tag the normalizer reads, the authority not
+
+
+def _retained_at_the_winners_identity(db, monkeypatch, ticker, fy2026, *, tag="NetIncomeLoss"):
     """FedEx's FY2026 10-K, read in units (4,433 for 4,433 million), which the backfill before the fix scaled up to P26's
     figure, 4,433 million; a sync before the fix left P26's row current at FY2026. The FY2026 10-K, the year's only one,
-    tags FY2026 at ``fy2026``, on the value's scale step but more than 1% off it: the year's winner, at the identity the
-    filing row holds."""
+    tags FY2026 at ``fy2026``, on the value's scale step: the year's winner, at the identity the filing row holds.
+    ``tag``: the tag every 10-K uses for net income (P26's items stay under NetIncomeLoss); under ``THIRD_TAG``, which
+    the normalizer reads and today's authority (``extract_authoritative_values``) does not, the authority gives no
+    figure for any year, while the normalizer's winner is still the 10-K's."""
     payload = _fdx_with_proxy({})
     for item in _items(payload):
         if item["form"] == "10-K" and item["end"] == "2026-05-31":
             item["val"] = fy2026
+    if tag != "NetIncomeLoss":
+        usgaap = payload["facts"]["us-gaap"]
+        usgaap[tag] = {"units": {"USD": [item for item in _items(payload) if item["form"] == "10-K"]}}
+        usgaap["NetIncomeLoss"]["units"]["USD"] = [item for item in _items(payload) if item["form"] != "10-K"]
     return _cross_checked(db, monkeypatch, ticker, payload, 4_433.0, period=("2026-05-31", "2025-06-01", "2026-07-20"))
 
 
-@pytest.mark.parametrize("fy2026", [4_500e6, 44_330e6], ids=["10k_1.5pct_off", "10k_10x_the_value"])
-def test_principal_review_5718798403_item_2_a_retained_scale_up_at_the_winners_identity_behind_a_proxy_row_refuses(
-        monkeypatch, fy2026):
-    # Principal review 5718798403, item 2, and the review of #1840, round 8: a retained scale-up is not out of the step's
-    # reach. Set 4 leaves the FY2026 10-K's row, the exemption standing (today's 10-K figure is on the value's scale
-    # step), and lists it off_10k_figure. But the row holds the year's 10-K winner's identity behind P26's current row:
-    # set 2, retiring P26's row, would promote it, and its agreement test refuses the company on value, naming the row,
-    # as for any filing row the 10-K contradicts there. The listing never reaches a preview. Alike since #1682.
+@pytest.mark.parametrize(("fy2026", "tag", "listed"), [
+    (4_500e6, "NetIncomeLoss", "off_10k_figure"), (44_330e6, "NetIncomeLoss", "off_10k_figure"),
+    (4_433e6, "NetIncomeLoss", None), (4_433e6 * 1.005, "NetIncomeLoss", None), (4_433e6, THIRD_TAG, "no_10k_figure"),
+], ids=["10k_1.5pct_off", "10k_10x_the_value", "10k_equals_the_value", "10k_0.5pct_off",
+        "10k_under_a_tag_the_authority_does_not_read"])
+def test_principal_review_5718798403_item_2_set_2_judges_a_retained_scale_up_at_the_winners_identity(
+        monkeypatch, fy2026, tag, listed):
+    # Principal review 5718798403, item 2, and the review of #1840, rounds 8 and 9: a scale-up set 4 leaves is not out of
+    # the step's reach. The FY2026 10-K's row holds the year's 10-K winner's identity behind P26's current row, so set 2,
+    # retiring P26's row, would promote it, and its agreement test judges it against the 10-K winner, as any filing row
+    # there. More than 1% off the winner (1.5%, or the 10-K at ten times the value), the company is refused on value,
+    # naming the row; set 4 had listed it off_10k_figure, and that listing never reaches a preview. Where the winner
+    # confirms it (equal, or 0.5% off), set 2 promotes it, nothing is listed, and the apply leaves it current. Where the
+    # 10-Ks tag net income only under a tag the authority does not read, the authority gives no figure: set 4 lists the
+    # row no_10k_figure, and set 2 promotes it, since it agrees with the normalizer's winner; the listing reaches the
+    # preview beside the promotion. Alike before #1682 and since.
     with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _retained_at_the_winners_identity(
-            db, monkeypatch, "PRW", fy2026)) as states:
+            db, monkeypatch, "PRW", fy2026, tag=tag)) as states:
         for db, company, payload, filing in states.values():
             row = _filing_row(db, filing)
             [p26] = _rows(db, company, concept="net_income", period_end=date(2026, 5, 31), is_latest=True)
             assert (row.is_latest, row.accession, row.source, float(row.value), _check(row)["original_value"],
                     p26.form) == (False, _accn(company, "K26"), "companyfacts", 4_433e6, 4_433.0, "DEF 14A")
-            assert svc.extract_authoritative_values(payload)[("net_income", date(2026, 5, 31))] == fy2026
-            listed = []
-            refuse = proxy._Planner.refuse
+            assert svc.extract_authoritative_values(payload).get(("net_income", date(2026, 5, 31))) == (
+                fy2026 if tag == "NetIncomeLoss" else None)
+            if listed == "off_10k_figure":
+                seen = []
+                refuse = proxy._Planner.refuse
 
-            def spy(self, row_id, why):
-                listed.append([(e["fact_id"], e["reason"], e["gap"]) for e in self.retained])
-                return refuse(self, row_id, why)
+                def spy(self, row_id, why):
+                    seen.append([(e["fact_id"], e["reason"], e["gap"]) for e in self.retained])
+                    return refuse(self, row_id, why)
 
-            with monkeypatch.context() as patch:
-                patch.setattr(proxy._Planner, "refuse", spy)
-                _refuses(db, company, payload, _refusal(db, (p26.id, f"the filing row holding the 10-K's identity (fact "
-                                                                     f"{row.id}) disagrees with the 10-K on: value")))
-            assert listed[0] == [(row.id, "off_10k_figure", round(4_433e6 / fy2026, 6))]
+                with monkeypatch.context() as patch:
+                    patch.setattr(proxy._Planner, "refuse", spy)
+                    _refuses(db, company, payload, _refusal(db, (p26.id, f"the filing row holding the 10-K's identity "
+                                                                         f"(fact {row.id}) disagrees with the 10-K on: "
+                                                                         "value")))
+                assert seen[0] == [(row.id, "off_10k_figure", round(4_433e6 / fy2026, 6))]
+                continue
+            plan = _preview(db, company, payload)["proxy"]
+            assert [(e["fact_id"], e["reason"]) for e in plan["scale_up_retained"]] == (
+                [] if listed is None else [(row.id, listed)])
+            assert (plan["promoted"], plan["filing_rows_restored"], plan["left_report_backed"]) == (1, 0, [])
+            assert [(e["fact_id"], e["winner_accession"], e["winner_value"]) for e in plan["rows"]
+                    if e["action"] == "promoted"] == [(p26.id, row.accession, "4433000000")]
+            applied = _apply(db, company, payload)["proxy"]
+            assert applied["scale_up_retained"] == plan["scale_up_retained"]
+            promoted = _filing_row(db, filing)
+            assert (promoted.is_latest, promoted.source, float(promoted.value)) == (True, "companyfacts", 4_433e6)
+            found = _detection(db, {company.ticker: payload})
+            assert (found[2], found[4], found[5]) == ([], [], [])
 
 
 @pytest.mark.parametrize("witnessed", [True, False], ids=["a_proxy_figure_holds_it", "no_proxy_figure_holds_it"])

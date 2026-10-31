@@ -210,14 +210,14 @@ async def test_usage_block_yields_error_logs_and_funnel_without_touching_a_slot(
         )
     started = call(str(user_id), EVENT_GENERATION_STARTED, entry_point="generate_button", surface="filing_page")
     if mode == "monthly_quota":
-        assert events == [INITIALIZING, {"type": "error", "message": QUOTA_MESSAGE}]
+        assert events == [INITIALIZING, {"type": "error", "message": QUOTA_MESSAGE, "code": "free_allowance_exhausted"}]
         assert (logging.WARNING, f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit (5).") in _pipeline_logs(caplog)
         assert capture.call_args_list == [
             started,
             call(str(user_id), EVENT_PAYWALL_HIT, entry_point="generate_button", limit=5, summaries_used=5),
         ]
     else:
-        assert events == [INITIALIZING, {"type": "error", "message": FAIR_USE_MESSAGE}]
+        assert events == [INITIALIZING, {"type": "error", "message": FAIR_USE_MESSAGE, "code": "pro_fair_use_limit"}]
         assert (logging.WARNING, f"[stream:{filing_id}] Pro user {user_id} hit summary fair-use ceiling (50).") in _pipeline_logs(caplog)
         assert capture.call_args_list == [started]
     summarize.assert_not_called()

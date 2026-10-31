@@ -230,11 +230,11 @@ describe('FundamentalsTrendChart', () => {
     expect(revenue.printed('label')).toEqual(['CN¥0.941T', 'CN¥0.996T'])
     expect(screen.getByText(/Annual figures from SEC filings \(XBRL\), reported in CNY\./)).toBeInTheDocument()
 
-    pick(picker, 'Diluted EPS')
-    const eps = await drawn('Diluted EPS')
+    pick(picker, 'EPS (diluted)')
+    const eps = await drawn('EPS (diluted)')
     expect(eps.printed('label')).toEqual(['CN¥3.13', 'CN¥5.66'])
-    expect(screen.getByRole('slider', { name: 'Diluted EPS chart values' }))
-      .toHaveAttribute('aria-valuetext', 'FY2025, year ended December 31, 2025. Diluted EPS: CN¥5.66.')
+    expect(screen.getByRole('slider', { name: 'EPS (diluted) chart values' }))
+      .toHaveAttribute('aria-valuetext', 'FY2025, year ended December 31, 2025. EPS (diluted): CN¥5.66.')
   })
 
   it('says only that values don’t fit where no label tier fits the card’s width: no metrics table here lists the years', async () => {
@@ -359,7 +359,7 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
       'Revenue', 'Net interest income', 'Noninterest income', 'Premiums earned', 'Net investment income', 'Net income',
       'Gross profit', 'Operating income', 'Operating cash flow', 'Investing cash flow', 'Financing cash flow',
-      'Free cash flow', 'Diluted EPS', 'EPS', 'Gross margin', 'Operating margin', 'Net margin', 'Total assets',
+      'Free cash flow', 'EPS (diluted)', 'EPS (basic)', 'Gross margin', 'Operating margin', 'Net margin', 'Total assets',
       'Current assets', 'Current liabilities', 'Working capital', 'Current ratio', "Shareholders' equity",
     ])
     fireEvent.change(picker, { target: { value: 'free_cash_flow' } })

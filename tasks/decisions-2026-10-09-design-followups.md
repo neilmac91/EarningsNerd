@@ -312,6 +312,10 @@ the merged stack had not been looked at in production.
    measurements: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/`.
 2. **Change report EPS:** label the figure "EPS (basic)", or prefer diluted EPS
    (`facts_service` keys `earnings_per_share` to `EarningsPerShareBasic` first).
+   **Ruled on 2026-10-31 by chief design, on #1862:** both, as names. `earnings_per_share` reads "EPS (basic)"
+   and `eps_diluted` "EPS (diluted)" wherever a reader sees them. **Recommended with it:** What changed, the
+   change report's metrics, carries the diluted line. The trend picker and the Sector peers panel took the names
+   first; What changed's move, with the constraints a review of it found, is `tasks/todo.md` E259.
 3. **Dark-mode logos:** give a loaded logo a light chip in dark mode.
 4. **Layout shift:** reserve the header's signed-out actions' width while `/me` resolves; read the demo
    flag where the server can see it.

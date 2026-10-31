@@ -200,8 +200,8 @@ describe('the Sector peers panel (E251)', () => {
     const answer = answerOf('pair plus withheld')
     expect(answer.peer_count).toBe(3)
     const section = await openOn('pair plus withheld')
-    await plotOf(section, 'Diluted EPS')
-    expect(within(section).getByText(/ranks #/).closest('p')).toHaveTextContent('PPWB ranks #2 of 2 on diluted EPS')
+    await plotOf(section, 'EPS (diluted)')
+    expect(within(section).getByText(/ranks #/).closest('p')).toHaveTextContent('PPWB ranks #2 of 2 on EPS (diluted)')
     expect(section).not.toHaveTextContent(/of 3/)
   })
 
@@ -347,7 +347,7 @@ describe('the Sector peers panel (E251)', () => {
     const select = picker(section)
     expect([...select.options].map((option) => [option.value, option.textContent])).toEqual([
       ['revenue', 'Revenue'], ['net_income', 'Net income'], ['gross_profit', 'Gross profit'], ['operating_income', 'Operating income'],
-      ['net_margin', 'Net margin'], ['operating_margin', 'Operating margin'], ['gross_margin', 'Gross margin'], ['eps_diluted', 'Diluted EPS'],
+      ['net_margin', 'Net margin'], ['operating_margin', 'Operating margin'], ['gross_margin', 'Gross margin'], ['eps_diluted', 'EPS (diluted)'],
       ['total_assets', 'Total assets'],
     ])
     expect(select.className.split(/\s+/)).toContain('w-56')
@@ -376,7 +376,7 @@ describe('the Sector peers panel (E251)', () => {
     expect(held(), 'a bone over the held line while it loads').toBe(1)
 
     await act(async () => answer(answerOf('withheld peer')))
-    expect((await inPlace(section)).textContent).toBe('Too few sector peers have diluted EPS figures to compare.')
+    expect((await inPlace(section)).textContent).toBe('Too few sector peers have EPS (diluted) figures to compare.')
     expect(held(), 'the room held, with no rank to give').toBe(0)
 
     fireEvent.change(picker(section), { target: { value: 'operating_income' } })
@@ -392,9 +392,9 @@ describe('the Sector peers panel (E251)', () => {
   // Each reason a metric picked draws no chart, in plain words: the company's own figure missing or withheld; no other
   // company with a figure; a metric the panel cannot name.
   it.each([
-    ['withheld subject, with peers', 'WSPX’s diluted EPS is unavailable, so it can’t be ranked.'],
+    ['withheld subject, with peers', 'WSPX’s EPS (diluted) is unavailable, so it can’t be ranked.'],
     ['no gross profit, with peers', 'NGPX’s gross profit is unavailable, so it can’t be ranked.'],
-    ['withheld peer', 'Too few sector peers have diluted EPS figures to compare.'],
+    ['withheld peer', 'Too few sector peers have EPS (diluted) figures to compare.'],
   ])('%s, picked: says in the plot’s place "%s"', async (name, line) => {
     const section = await openOn(name)
     const place = await inPlace(section)

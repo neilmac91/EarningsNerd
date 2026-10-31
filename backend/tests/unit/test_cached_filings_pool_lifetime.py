@@ -4475,8 +4475,8 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
             detail = {
                 "missing": "Filing not found",
                 "taste_refused": "You've used your 3 free Copilot questions.",
-                "cap_refused": "You've reached this month's fair-use limit of 0 Copilot questions.",
-                "cap_lease_refused": "You've reached this month's fair-use limit of 1 Copilot questions.",
+                "cap_refused": "You've reached this month's fair-use limit of 0 questions.",
+                "cap_lease_refused": "You've reached this month's fair-use limit of 1 questions.",
             }[case]
             assert all(response.json()["detail"].startswith(detail) for response in responses)
         with sessions() as db:
@@ -4636,7 +4636,9 @@ async def test_summary_exports_release_their_connection_off_the_loop(monkeypatch
                 "no_summary": "Summary not found",
                 "no_filing": "Filing not found",
             }[case]
-            assert [response.json() for response in responses] == [{"detail": detail}] * 8
+            # E31's code beside the unchanged words of the plan gate (an additive contract change); a 404 has none.
+            body = {"detail": detail, "code": "plan_required"} if case == "free" else {"detail": detail}
+            assert [response.json() for response in responses] == [body] * 8
             assert renders == []
     finally:
         engine.dispose()

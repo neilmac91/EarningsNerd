@@ -85,16 +85,12 @@ const PLAN_CARD_CODES: ReadonlySet<KnownErrorCode> = new Set<KnownErrorCode>(
 // The question hit a plan gate (403 Pro-only or a spent free allowance, or the Pro fair-use 429). Used
 // by the UI to show the quiet plan card instead of the Retry button, since retrying can't help. A known code
 // decides first (E31): PLAN_CARD_CODES are the gate, and every other code, a pause or a rate limit, keeps Retry.
+// Without a code the server's own words decide; a 429 whose body this client cannot read takes RATE_LIMITED,
+// which names no plan, so it keeps Retry and never offers a Pro reader an upgrade (E37).
 export const isCopilotPaywallError = (message: string, code?: KnownErrorCode): boolean => {
   if (code) return PLAN_CARD_CODES.has(code)
   const m = (message || '').toLowerCase()
-  return (
-    isCopilotFairUseLimit(m) ||
-    m.includes('pro feature') ||
-    m.includes('upgrade to pro') ||
-    m.includes('monthly limit') ||
-    m.includes('limit reached')
-  )
+  return isCopilotFairUseLimit(m) || m.includes('pro feature') || m.includes('upgrade to pro')
 }
 
 /** A refused request's words, and its E31 code when the body carries one this client knows on this status. */
@@ -114,8 +110,13 @@ const parseErrorDetail = async (
   return { message: fallback }
 }
 
+// Twins of copilot_service.py's _PUBLICATION_ERROR and _STREAM_FAILURE, word for word, so a failed answer reads one
+// way whoever writes it (tests/unit/copilotErrorTwins.spec.ts).
 const PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
-const STREAM_ERROR = 'The answer could not be completed. Please try again.'
+const STREAM_ERROR = "I couldn't complete this answer. Try again."
+/** A 429 whose body names nothing: a moment's limit, which a retry can lift, never a plan to sell. The route's own
+    burst limiter's words (routers/summaries.py, ask_filing_stream), held equal by copilotErrorTwins.spec.ts. */
+const RATE_LIMITED = 'Too many questions. Try again shortly.'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -238,10 +239,11 @@ export const askFilingStream = async (
       let refused: { message: string; code?: KnownErrorCode } | null
       if (response.status === 401) refused = { message: 'Log in to ask this filing a question.' }
       else if (response.status === 403 || response.status === 429) {
-        // Preserve application-owned entitlement/rate-limit details and their existing upgrade UI.
+        // The server's own words for its gates and limits; a body that names nothing takes the reader's sentence: a 403
+        // the plan's gate, a 429 a moment's limit (RATE_LIMITED), never a plan to sell (E37).
         refused = await Promise.race([
           parseErrorDetail(response, response.status === 403
-            ? 'This is a Pro feature.' : 'Monthly limit reached. Please try again later.'),
+            ? 'This is a Pro feature.' : RATE_LIMITED),
           cancelled,
         ])
       } else refused = { message: STREAM_ERROR }

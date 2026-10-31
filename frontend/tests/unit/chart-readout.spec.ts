@@ -236,7 +236,7 @@ describe('the core reads any model through a describer: every bar chart case (ba
       .toBe('FY2025, year ended September 27, 2025. Current ratio: 0.89 times, calculated.')
     const eps = coreReadouts(model('Penny diluted EPS'), financialTrends('Penny diluted EPS'))
     expect(eps.map((readout) => readout.rows[0].text)).toEqual(['$0.31', 'Unavailable', '−$0.12'])
-    expect(eps[2].announcement).toBe('FY2025, year ended December 31, 2025. Diluted EPS: minus $0.12.')
+    expect(eps[2].announcement).toBe('FY2025, year ended December 31, 2025. EPS (diluted): minus $0.12.')
     expect(coreReadouts(model('Extreme net margin'), financialTrends('Extreme net margin'))[0].rows[0].text).toBe('−18,093% (off scale) · Calculated')
   })
 

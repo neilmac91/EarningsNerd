@@ -19,6 +19,7 @@ from app.services.trend_analysis.periods import (
 )
 from app.services.trend_analysis.series import _series_map, _valued_points
 from app.services.trend_analysis.source_documents import filing_documents, folder_links
+from app.services.trend_analysis.units import UnitConflict, keep_one_unit, one_unit, series_unit
 from app.utils.datetimes import ensure_utc, iso_z
 
 # Balance-sheet (point-in-time) concepts + their derived metrics: matched by period_end in
@@ -111,14 +112,13 @@ def _index_facts(
     )
 
     # Indexes: flows by (fiscal_year, fiscal_period); instants ALSO by period_end (D2c).
-    by_fy_fp: dict[tuple[int, str, str], FinancialFact] = {}
-    instant_by_end: dict[tuple[str, date], FinancialFact] = {}
+    by_fy_fp: dict[tuple[int, str, str], FinancialFact | UnitConflict] = {}
+    instant_by_end: dict[tuple[str, date], FinancialFact | UnitConflict] = {}
     for row in rows:
-        if row.fiscal_year is None:
-            continue
-        by_fy_fp[(row.fiscal_year, row.fiscal_period, row.concept)] = row
-        if row.concept in INSTANT_CONCEPTS:
-            instant_by_end[(row.concept, row.period_end)] = row
+        if row.fiscal_year is not None:  # A period whose current facts name two units is marked (E102).
+            keep_one_unit(by_fy_fp, (row.fiscal_year, row.fiscal_period, row.concept), row)
+            if row.concept in INSTANT_CONCEPTS:
+                keep_one_unit(instant_by_end, (row.concept, row.period_end), row)
     return rows, by_fy_fp, instant_by_end
 
 
@@ -204,7 +204,7 @@ def _attach_growth(
     points: list[dict[str, Any]], periods: list[dict[str, Any]], mode: str, concept: str,
 ) -> tuple[str, bool]:
     """Attach the existing comparisons with the concept's percentage convention."""
-    unit = next((p["unit"] for p in points if p.get("unit")), "USD")
+    unit = series_unit(points)  # One unit per series before any comparison (E102).
     is_percent = concept in _PERCENT_CONCEPTS
     # Percent-unit series (margins) report YoY/QoQ as percentage-POINT deltas — the
     # convention finance readers expect for a ratio already expressed as a percentage — never
@@ -285,14 +285,14 @@ def _append_series(
 
 def _series_points(
     db: Session, company: Company, mode: str, periods: list[dict[str, Any]],
-    by_fy_fp: dict[tuple[int, str, str], FinancialFact],
-    instant_by_end: dict[tuple[str, date], FinancialFact],
+    by_fy_fp: dict[tuple[int, str, str], FinancialFact | UnitConflict],
+    instant_by_end: dict[tuple[str, date], FinancialFact | UnitConflict],
 ) -> list[dict[str, Any]]:
     """Align each concept's points, linked to the filing documents they cite, and attach comparisons and window figures."""
     def _row_for(concept: str, bucket: dict[str, Any]) -> Optional[FinancialFact]:
         if mode == "quarterly" and concept in INSTANT_CONCEPTS:
-            return instant_by_end.get((concept, bucket["period_end"]))
-        return by_fy_fp.get((bucket["fiscal_year"], bucket["fiscal_period"], concept))
+            return one_unit(instant_by_end.get((concept, bucket["period_end"])))
+        return one_unit(by_fy_fp.get((bucket["fiscal_year"], bucket["fiscal_period"], concept)))
 
     documents = filing_documents(db, company.id, (_row_for(c, b) for c in DATASET_CONCEPT_ORDER for b in periods))
     series_list: list[dict[str, Any]] = []
