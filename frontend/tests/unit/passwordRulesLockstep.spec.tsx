@@ -1370,7 +1370,7 @@ describe('the password rule moves in lockstep with the backend', () => {
     ])
   })
 
-  it('every password field of the auth schemas is a bare str whose validator only calls validate_password_strength', () => {
+  it('every password field of the auth schemas is a bare str whose validator only calls validate_password_strength, or bound_checked_password for a checked one', () => {
     const router = backend('app/routers/auth.py')
     // A constraint on the field itself (Field(min_length=…), a pattern) would be a rule too.
     const fields = router.split('\n').flatMap((line) => line.match(/^ {4}(\w*password\w*)\s*:\s*(.+?)\s*$/)?.slice(1, 3).join(': ') ?? [])
@@ -1394,6 +1394,14 @@ describe('the password rule moves in lockstep with the backend', () => {
     expect(backend('app/services/password_utils.py'), 'the checked bound must stay past what a policy let in').toMatch(
       /^CHECKED_PASSWORD_MAX_LENGTH = 8 \* PASSWORD_MAX_LENGTH$/m,
     )
+    // Its whole body is pinned, as is_valid_unicode's is, so a policy added inside it fails here too.
+    const bound = pythonBody(backend('app/services/password_utils.py'), /^def bound_checked_password\b/)
+    if (!bound) throw new Error('bound_checked_password not found in backend/app/services/password_utils.py')
+    expect(bound, 'a rule inside bound_checked_password would refuse a password a policy let in: keep it the bound alone').toEqual([
+      'if value is not None and len(value) > CHECKED_PASSWORD_MAX_LENGTH:',
+      'raise ValueError(f"Password must be at most {CHECKED_PASSWORD_MAX_LENGTH} characters.")',
+      'return value',
+    ])
   })
 
   it('names the breach check only while it defaults on and the routes behind the sentence call it, and never a refusal the fail-open lookup cannot keep', () => {

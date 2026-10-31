@@ -1330,7 +1330,11 @@ def _home_reach(source: str) -> list[int]:
     for statement in tree.body:
         target = statement.targets[0] if isinstance(statement, ast.Assign) and len(statement.targets) == 1 else (
             statement.target if isinstance(statement, ast.AnnAssign) else None)
-        visit(statement, f"<module:{target.id}>" if isinstance(target, ast.Name) else "<module>")
+        scope = f"<module:{target.id}>" if isinstance(target, ast.Name) else "<module>"
+        if scope != "<module>":
+            # The anchored assignment binds its target alone: a walrus inside it would bind a second name.
+            lines.extend(node.lineno for node in ast.walk(statement) if isinstance(node, ast.NamedExpr))
+        visit(statement, scope)
     return lines
 
 
@@ -1341,6 +1345,8 @@ HOME_FORMS = [
     ("second-hasher-at-module-scope",
      "_CHEAP = PasswordHasher(time_cost=1, memory_cost=8)\ndef quick(p):\n    return _CHEAP.hash(p)", "flag"),
     ("hasher-copied-at-module-scope", "_SAME = _ARGON2\ndef quick(p):\n    return _SAME.hash(p)", "flag"),
+    ("walrus-inside-the-hasher", "_ARGON2 = (_WEAK := PasswordHasher(time_cost=1, memory_cost=8))\n"
+     "def quick(p):\n    return _WEAK.hash(p)", "flag"),
     ("argon2-module-import", "import argon2", "flag"),
     ("argon2-aliased-import", "from argon2 import PasswordHasher as PH", "flag"),
     ("argon2-low-level", "from argon2.low_level import hash_secret", "flag"),
