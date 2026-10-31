@@ -1698,7 +1698,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  inputClasses({ select: true, density: 'compact', autoWidth: true, className: 'w-56' }),
                  one width, 14rem, the smallest step that holds its widest label ("Net investment income"),
                  capped at its row, so its loading card's bone can hold its room (§10, E253),
-                 options in sentence case; the insider window (three codes) keeps the control. At a
+                 options in sentence case; the company page's Sector peers picker (nine options) is the same
+                 select at the same width (§10, E251); the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
                  every name whole and nothing overflows (E34).
@@ -2990,7 +2991,8 @@ operands and the applicable note; a calculated figure carries no dagger, and onl
 questions the number marks its figure (`noteMarksFigure`, D-061). The report-level disclosure
 groups concerns by reason and counts figures separately from inherited comparisons. Chart and
 narrative Notes controls open the same note and name marked letters only; filing fundamentals
-retains its own source-check presentation. No mark takes warning ink. Legacy concerns remain
+retains its own source-check presentation, and the company page's Sector peers carries no badge: its
+footnote says when a drawn value needs a source check, and Sources & checks lists it (E251). No mark takes warning ink. Legacy concerns remain
 until their stored validation changes, unmarked but listed in the data notes and read in the dialog;
 missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
 Unavailable table values use — with an empty gutter and read “Unavailable” in the evidence view,
@@ -3077,9 +3079,10 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
-since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
-chart in the app draws with Recharts: the company page's peers chart left with its panel (D-066), and Recharts left
-the app with its chart kit (E195 (D)). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
+since E195, D-064) draws those four charts, the filing page's Financial trends and the company page's Sector peers
+(below; E195 (D), D-067, E251), so no chart in the app draws with Recharts: the company page's Recharts peers chart left
+with its panel (D-066), Recharts left the app with its chart kit (E195 (D)), and the panel returned on the engine
+(E251). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
 text names the package (the lockfile aside, and the gate itself, which plants its forms), a script outside
 the test homes whose strings name it once their escapes are decoded or that loads a module by a computed specifier
 or a folder, and a lockfile entry that installs it; `tests/e2e/no-recharts-in-build.spec.ts` fails a script under the
@@ -3169,6 +3172,66 @@ themes at 390 and 1280 px; the card landing where its bones stood, its fetch hel
 under 200% text at 600 px; every label the picker offers fitting its one width, with every featured metric at 1280 px at
 both text sizes, each read from a hidden clone of the select holding that label alone, sized to its content; and every
 series at 390, 360 and 320 px under 200% text).
+
+**Sector peers** (the company page's panel, `features/peers/components/SectorPeersCard.tsx`, loaded by the small gate the
+page imports, `SectorPeers.tsx`) draws through the same engine (E251): `features/peers/lib/peerChart.ts` models a cohort
+the peers endpoint answers as a one-metric bar chart of the companies with a value, in the answer's order (value
+descending), as many as its eleven slots hold, never leaving out a company a slot could hold but for a tie at the cut: a
+cohort of eleven or fewer whole; a larger one the top eleven where the subject ranks among them, else the top ten and
+then the subject. The top never parts a tie: a cut that would separate two companies of one rank moves up to the first
+of them and leaves the slot empty, so the top is always the companies ranked that high. The footnote then says what the
+chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", "the top 11 of the 14 companies
+ranked", "the top 9 …" where a tie sits at the tenth), counted as the rank line counts, and where one rank fills every
+slot, so no top can be named, the count alone ("The chart shows 11 of the 12 companies ranked."). The company the page is about is
+chart-1 at the bar's full width and every other company a context bar, the context ink at the growth bars' narrower width,
+the cue colour alone cannot give; every value prints on its bar (A4); a slot is as wide as its ticker; the values stop
+starts at the subject, and a plot that scrolls opens with the subject's column centred as far as the scroll goes, as
+§10's start rule above sets it: a sector's largest company opens at the scroll's start on the plot's own axis, with no
+sticky gutter, and a subject near the end at the scroll's end; and the scroll region and the end-of-range status name
+companies. The tooltip heads a company with its ticker, since the reader hovered its bar, then its name, which no tick or
+label prints (two companies can answer one ticker), its rank, and its own fiscal year, since fiscal years differ by
+company ("AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025"), wrapping inside the plot's visible width
+with the rank kept on one line (no-break spaces);
+the values stop says the same in its own order, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year ended
+September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
+ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
+option, the plot's name, the rank line, the footnote and the readout. The card: the heading, `h2` at `text-xl`; the rank
+line in the secondary ink ("AAPL ranks #3 of 9 on revenue", over the companies with a value, never `peer_count`, which
+counts withheld entries; no percentile); the picker, the retired panel's nine metrics, their labels and formats from
+FEATURED, the compact select at Financial trends' one width (`w-56`); the footnote in the tertiary ink ("Companies with the
+same SEC industry code, each with its most recent annual {metric} from SEC filings (XBRL), reported in CNY. Fiscal years
+can differ by company.", the currency only where it is not the dollar), which adds what the chart shows where a cohort
+is larger than its slots, and "Some figures here need a source check. Sources & checks lists them." where a drawn value
+needs one (no badge: the badge's gate keeps it to Financial
+trends); and Sources & checks, listing every company drawn and every one whose value is withheld, which draws no bar,
+in every state (with no chart, the withheld ones alone, a withheld subject the plot's place names among them), each
+named in its lines and its "original SEC filing" link as the tooltip names it, the ticker first ("DUPX · Synthetic
+Duplicate One Inc · 2025"). It
+shows itself only once the default metric's answer is a cohort: a metric the panel names and formats, the subject's own
+figure and at least one other company's (`features/peers/lib/cohort.ts` `noCohort`, engine-free); until then the gate
+renders nothing and the card's chunk, the engine with it, is never asked for, so the company page's first load keeps the
+engine out. Production stores no SIC codes until the
+founder's backfill, so every company answers itself alone there and the panel shows nothing. A metric picked holds the
+plot's height with bones while it loads, and the rank line's room with the default answer's line laid out invisible, a
+bone over it while it loads; where its answer draws no chart, the plot's place says why, the first reason `noCohort`
+finds: "{ticker}’s {metric} is unavailable, so it can’t be ranked." (the company's own figure missing or withheld),
+"Too few sector peers have {metric} figures to compare." (no other company has one) or "Sector peers for {metric} can’t
+be shown here." (a metric the panel cannot name); and "Couldn’t load sector peers for {metric}. Try another metric."
+where its read fails. It is the last section of the page's `<main>`, after
+the filings, so its arrival never moves them, inside a `ChartErrorBoundary` keyed by the ticker (the boundary never
+resets on its own), whose card stands where the panel would, with its spacing; the gate makes its lazy card as it
+mounts, so a card chunk that failed to load is asked for again on the next company (React.lazy keeps a rejected import
+for good). Gates: `tests/unit/sector-peers.spec.tsx`, `tests/unit/company-sector-peers-mount.spec.tsx`,
+`tests/unit/sector-peers-chunk.spec.tsx`, `tests/e2e/company-sector-peers.spec.ts` (the mount on a production
+build, the computed inks by role, every printed value the fixture's and the DOM checks for one card, the context ink among
+D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; the heading row's height while a
+metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer; and the
+start in a browser at 300, 390 and 1280 px, the subject first, near-equal's fourth, the spread's sixth and its tenth, each
+opening where the rule puts it, its sticky gutter exactly when scrolled),
+`tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
+holds what only a module of the engine the card pulls in, or the card, holds, and the page's own chunk is among the
+scripts read) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is
+built on is what the service answers).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

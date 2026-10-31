@@ -57,6 +57,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurr
 vi.mock('@/features/dashboard/api/dashboard-api', () => ({ getDashboardFeed: api.getDashboardFeed }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
+  ENABLE_FINANCIAL_CHARTS: false,
   ENABLE_INSIDER_ACTIVITY: false,
 }))
 vi.mock('@/lib/analytics', () => ({
