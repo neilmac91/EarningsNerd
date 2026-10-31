@@ -1494,6 +1494,163 @@
         "peers": []
       }
     },
+    "no fact, with peers": {
+      "case": "synthetic: a subject with no annual revenue fact, nor a net interest income one (so the service keeps revenue), whose industry code’s other companies hold one: the shape USB, PNC and SCHW would answer once the SIC backfill gives their codes companies with a revenue fact; peer_count 3, a synthesised subject (value, rank and provenance null) and three companies ranked; the panel shows nothing; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "NFWP",
+        "company_name": "Synthetic No Fact With Peers Corp",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 3,
+        "subject": {
+          "ticker": "NFWP",
+          "company_name": "Synthetic No Fact With Peers Corp",
+          "value": null,
+          "period_end": null,
+          "fiscal_year": null,
+          "is_subject": true,
+          "rank": null,
+          "percentile": null,
+          "reconciled": true,
+          "provenance": null
+        },
+        "peers": [
+          {
+            "ticker": "NFPA",
+            "company_name": "Synthetic No Fact Peer A Inc",
+            "value": 84200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NFPB",
+            "company_name": "Synthetic No Fact Peer B Corp",
+            "value": 47500000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 50.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NFPC",
+            "company_name": "Synthetic No Fact Peer C Co",
+            "value": 12900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "no gross profit, with peers": {
+      "case": "synthetic: a subject that holds no gross profit fact (a company whose income statement shows none), asked for gross profit, so a synthesised subject and the two companies of its industry code that hold one; picked in the card, the plot’s place says the subject’s figure is unavailable; every company and figure invented",
+      "metric": "gross_profit",
+      "response": {
+        "ticker": "NGPX",
+        "company_name": "Synthetic No Gross Profit Corp",
+        "sic": "9999",
+        "concept": "gross_profit",
+        "unit": "USD",
+        "peer_count": 2,
+        "subject": {
+          "ticker": "NGPX",
+          "company_name": "Synthetic No Gross Profit Corp",
+          "value": null,
+          "period_end": null,
+          "fiscal_year": null,
+          "is_subject": true,
+          "rank": null,
+          "percentile": null,
+          "reconciled": true,
+          "provenance": null
+        },
+        "peers": [
+          {
+            "ticker": "NGPA",
+            "company_name": "Synthetic Gross Profit A Inc",
+            "value": 31400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NGPB",
+            "company_name": "Synthetic Gross Profit B Corp",
+            "value": 18800000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
     "withheld peer": {
       "case": "synthetic: a pair whose peer’s value is withheld (a derived diluted EPS, which the service withholds), so peer_count 2 and one company with a value; the panel shows nothing; every company and figure invented",
       "metric": "eps_diluted",
@@ -1631,6 +1788,108 @@
           {
             "ticker": "WHSB",
             "company_name": "Synthetic Withheld Subject B Corp",
+            "value": null,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": null,
+            "percentile": null,
+            "reconciled": false,
+            "provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "unavailable",
+              "reasons": [
+                "unsupported_eps_calculation"
+              ],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "withheld subject, with peers": {
+      "case": "synthetic: two companies with a value and a subject whose value is withheld (a derived diluted EPS), so peer_count 3 and the subject unranked; the panel shows nothing, and picked in the card the plot’s place says the subject’s figure is unavailable; every company and figure invented",
+      "metric": "eps_diluted",
+      "response": {
+        "ticker": "WSPX",
+        "company_name": "Synthetic Withheld With Peers Corp",
+        "sic": "9999",
+        "concept": "eps_diluted",
+        "unit": "USD/shares",
+        "peer_count": 3,
+        "subject": {
+          "ticker": "WSPX",
+          "company_name": "Synthetic Withheld With Peers Corp",
+          "value": null,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": null,
+          "percentile": null,
+          "reconciled": false,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "unavailable",
+            "reasons": [
+              "unsupported_eps_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "WSPA",
+            "company_name": "Synthetic Withheld With Peers A Inc",
+            "value": 5.21,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "WSPB",
+            "company_name": "Synthetic Withheld With Peers B Corp",
+            "value": 2.47,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "WSPX",
+            "company_name": "Synthetic Withheld With Peers Corp",
             "value": null,
             "period_end": "2025-12-31",
             "fiscal_year": 2025,
@@ -2396,6 +2655,1665 @@
             "fiscal_year": 2025,
             "is_subject": false,
             "rank": 14,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "cap, subject eleventh": {
+      "case": "synthetic: the cap case’s fourteen companies with the eleventh the subject, the last the eleven slots hold among the top, so the panel draws the top eleven and its footnote says the chart shows the top 11 of the 14; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "CAPK",
+        "company_name": "Synthetic Capped K Inc",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 14,
+        "subject": {
+          "ticker": "CAPK",
+          "company_name": "Synthetic Capped K Inc",
+          "value": 38200000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 11,
+          "percentile": 23.1,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "CAPA",
+            "company_name": "Synthetic Capped A Inc",
+            "value": 98400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPB",
+            "company_name": "Synthetic Capped B Inc",
+            "value": 91200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 92.3,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPC",
+            "company_name": "Synthetic Capped C Inc",
+            "value": 86700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 84.6,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPD",
+            "company_name": "Synthetic Capped D Inc",
+            "value": 80300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 76.9,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPE",
+            "company_name": "Synthetic Capped E Inc",
+            "value": 74900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 69.2,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPF",
+            "company_name": "Synthetic Capped F Inc",
+            "value": 69100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 61.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPG",
+            "company_name": "Synthetic Capped G Inc",
+            "value": 62800000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 53.8,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPH",
+            "company_name": "Synthetic Capped H Inc",
+            "value": 57500000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 46.2,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPI",
+            "company_name": "Synthetic Capped I Inc",
+            "value": 51000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 38.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPJ",
+            "company_name": "Synthetic Capped J Inc",
+            "value": 44600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 30.8,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPK",
+            "company_name": "Synthetic Capped K Inc",
+            "value": 38200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 11,
+            "percentile": 23.1,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPL",
+            "company_name": "Synthetic Capped L Inc",
+            "value": 31700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 12,
+            "percentile": 15.4,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPM",
+            "company_name": "Synthetic Capped M Inc",
+            "value": 25300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 13,
+            "percentile": 7.7,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPN",
+            "company_name": "Synthetic Capped N Inc",
+            "value": 18900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 14,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "cap, subject twelfth": {
+      "case": "synthetic: the cap case’s fourteen companies with the twelfth the subject, the first past the top eleven, so the panel draws the top ten and the subject and its footnote says so, naming CAPL; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "CAPL",
+        "company_name": "Synthetic Capped L Inc",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 14,
+        "subject": {
+          "ticker": "CAPL",
+          "company_name": "Synthetic Capped L Inc",
+          "value": 31700000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 12,
+          "percentile": 15.4,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "CAPA",
+            "company_name": "Synthetic Capped A Inc",
+            "value": 98400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPB",
+            "company_name": "Synthetic Capped B Inc",
+            "value": 91200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 92.3,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPC",
+            "company_name": "Synthetic Capped C Inc",
+            "value": 86700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 84.6,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPD",
+            "company_name": "Synthetic Capped D Inc",
+            "value": 80300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 76.9,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPE",
+            "company_name": "Synthetic Capped E Inc",
+            "value": 74900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 69.2,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPF",
+            "company_name": "Synthetic Capped F Inc",
+            "value": 69100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 61.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPG",
+            "company_name": "Synthetic Capped G Inc",
+            "value": 62800000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 53.8,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPH",
+            "company_name": "Synthetic Capped H Inc",
+            "value": 57500000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 46.2,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPI",
+            "company_name": "Synthetic Capped I Inc",
+            "value": 51000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 38.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPJ",
+            "company_name": "Synthetic Capped J Inc",
+            "value": 44600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 30.8,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPK",
+            "company_name": "Synthetic Capped K Inc",
+            "value": 38200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 11,
+            "percentile": 23.1,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPL",
+            "company_name": "Synthetic Capped L Inc",
+            "value": 31700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 12,
+            "percentile": 15.4,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPM",
+            "company_name": "Synthetic Capped M Inc",
+            "value": 25300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 13,
+            "percentile": 7.7,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPN",
+            "company_name": "Synthetic Capped N Inc",
+            "value": 18900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 14,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "cap, tie at the tenth": {
+      "case": "synthetic: the cap case’s fourteen companies with the tenth and eleventh tied (CAPJ and CAPK, both ranked 10) and the subject thirteenth, so the cut above the subject stops before the tie and the panel draws the top nine and the subject, its footnote saying the top 9; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "CAPM",
+        "company_name": "Synthetic Capped M Inc",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 14,
+        "subject": {
+          "ticker": "CAPM",
+          "company_name": "Synthetic Capped M Inc",
+          "value": 25300000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 13,
+          "percentile": 7.7,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "CAPA",
+            "company_name": "Synthetic Capped A Inc",
+            "value": 98400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPB",
+            "company_name": "Synthetic Capped B Inc",
+            "value": 91200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 92.3,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPC",
+            "company_name": "Synthetic Capped C Inc",
+            "value": 86700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 84.6,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPD",
+            "company_name": "Synthetic Capped D Inc",
+            "value": 80300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 76.9,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPE",
+            "company_name": "Synthetic Capped E Inc",
+            "value": 74900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 69.2,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPF",
+            "company_name": "Synthetic Capped F Inc",
+            "value": 69100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 61.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPG",
+            "company_name": "Synthetic Capped G Inc",
+            "value": 62800000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 53.8,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPH",
+            "company_name": "Synthetic Capped H Inc",
+            "value": 57500000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 46.2,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPI",
+            "company_name": "Synthetic Capped I Inc",
+            "value": 51000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 38.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPJ",
+            "company_name": "Synthetic Capped J Inc",
+            "value": 44600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 23.1,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPK",
+            "company_name": "Synthetic Capped K Inc",
+            "value": 44600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 23.1,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPL",
+            "company_name": "Synthetic Capped L Inc",
+            "value": 31700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 12,
+            "percentile": 15.4,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPM",
+            "company_name": "Synthetic Capped M Inc",
+            "value": 25300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 13,
+            "percentile": 7.7,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPN",
+            "company_name": "Synthetic Capped N Inc",
+            "value": 18900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 14,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "cap, tie at the eleventh": {
+      "case": "synthetic: the cap case’s first twelve companies with the eleventh and twelfth tied (CAPK and CAPL, both ranked 11) and the subject second, so the eleven slots stop before the tie and the panel draws the top ten, a slot left empty, its footnote saying the top 10 of the 12; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "CAPB",
+        "company_name": "Synthetic Capped B Inc",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 12,
+        "subject": {
+          "ticker": "CAPB",
+          "company_name": "Synthetic Capped B Inc",
+          "value": 91200000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 2,
+          "percentile": 90.9,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "CAPA",
+            "company_name": "Synthetic Capped A Inc",
+            "value": 98400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPB",
+            "company_name": "Synthetic Capped B Inc",
+            "value": 91200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 2,
+            "percentile": 90.9,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPC",
+            "company_name": "Synthetic Capped C Inc",
+            "value": 86700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 81.8,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPD",
+            "company_name": "Synthetic Capped D Inc",
+            "value": 80300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 72.7,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPE",
+            "company_name": "Synthetic Capped E Inc",
+            "value": 74900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 63.6,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPF",
+            "company_name": "Synthetic Capped F Inc",
+            "value": 69100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 54.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPG",
+            "company_name": "Synthetic Capped G Inc",
+            "value": 62800000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 45.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPH",
+            "company_name": "Synthetic Capped H Inc",
+            "value": 57500000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 36.4,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPI",
+            "company_name": "Synthetic Capped I Inc",
+            "value": 51000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 27.3,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPJ",
+            "company_name": "Synthetic Capped J Inc",
+            "value": 44600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 18.2,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPK",
+            "company_name": "Synthetic Capped K Inc",
+            "value": 38200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 11,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPL",
+            "company_name": "Synthetic Capped L Inc",
+            "value": 38200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 11,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "cap, all tied": {
+      "case": "synthetic: twelve companies of one value, all ranked 1, the subject last in the answer’s ticker order, so no cut keeps a rank whole: the panel draws the first ten and the subject, and its footnote gives the count alone, 11 of the 12; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "CAPL",
+        "company_name": "Synthetic Capped L Inc",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 12,
+        "subject": {
+          "ticker": "CAPL",
+          "company_name": "Synthetic Capped L Inc",
+          "value": 52000000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 1,
+          "percentile": 0.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "CAPA",
+            "company_name": "Synthetic Capped A Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPB",
+            "company_name": "Synthetic Capped B Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPC",
+            "company_name": "Synthetic Capped C Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPD",
+            "company_name": "Synthetic Capped D Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPE",
+            "company_name": "Synthetic Capped E Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPF",
+            "company_name": "Synthetic Capped F Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPG",
+            "company_name": "Synthetic Capped G Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPH",
+            "company_name": "Synthetic Capped H Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPI",
+            "company_name": "Synthetic Capped I Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPJ",
+            "company_name": "Synthetic Capped J Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPK",
+            "company_name": "Synthetic Capped K Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CAPL",
+            "company_name": "Synthetic Capped L Inc",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 1,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "capital expenditures": {
+      "case": "synthetic: a cohort ranked on capital expenditures, a concept the service answers (facts/concepts.py) and FEATURED does not name, so the panel can neither label nor format it and shows nothing, though the subject and two other companies hold a value; every company and figure invented",
+      "metric": "capital_expenditures",
+      "response": {
+        "ticker": "CPXB",
+        "company_name": "Synthetic Capex B Corp",
+        "sic": "9999",
+        "concept": "capital_expenditures",
+        "unit": "USD",
+        "peer_count": 3,
+        "subject": {
+          "ticker": "CPXB",
+          "company_name": "Synthetic Capex B Corp",
+          "value": 6100000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 2,
+          "percentile": 50.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "CPXA",
+            "company_name": "Synthetic Capex A Inc",
+            "value": 9800000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CPXB",
+            "company_name": "Synthetic Capex B Corp",
+            "value": 6100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 2,
+            "percentile": 50.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CPXC",
+            "company_name": "Synthetic Capex C Co",
+            "value": 2400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
             "percentile": 0.0,
             "reconciled": true,
             "provenance": {

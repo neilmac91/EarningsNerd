@@ -56,12 +56,25 @@ export interface PeerFixture {
   cases: Record<string, { case: string; metric: string; response: PeerComparisonResponse & { sic: string | null } }>
 }
 
-/** Every peers case the Sector peers panel shows (cohort.ts `shows`), as the bar chart it draws: the panel's own builder
- *  (features/peers/lib/peerChart.ts), so the sweeps read the charts the page draws. The cases it does not show (a
- *  company ranked alone, one with no fact, a withheld subject or peer in a pair) draw no chart; its own spec holds that
- *  (sector-peers.spec.tsx). */
+/** The peers cases the Sector peers panel shows, by name, in the fixture's order: pinned here rather than read from
+ *  `shows`, the code under test, so a change to it that drops a cohort the sweeps read, or one that starts drawing a case
+ *  it should not, fails every sweep instead of shrinking or growing it unseen. The cases it does not show (a company
+ *  ranked alone, a subject with no figure or a withheld one, a withheld peer in a pair, a concept FEATURED does not
+ *  name) draw no chart; its own spec holds that (sector-peers.spec.tsx). */
+export const PEER_SHOWING = [
+  'pair', 'spread', 'near-equal', 'six-glyph', 'net margin', 'diluted EPS', 'CNY revenue', 'duplicate ticker',
+  'pair plus withheld', 'cap', 'cap, subject fifth', 'cap, subject eleventh', 'cap, subject twelfth',
+  'cap, tie at the tenth', 'cap, tie at the eleventh', 'cap, all tied', 'bank',
+]
+
+/** Every case of PEER_SHOWING as the bar chart the panel draws: the panel's own builder (features/peers/lib/peerChart.ts),
+ *  so the sweeps read the charts the page draws. Throws where `shows` picks out any other list from the fixture. */
 export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
-  return Object.entries(fixture.cases).flatMap(([name, { response }]) => (shows(response) ? [[name, peerChartDef(response)] as [string, BarChartDef]] : []))
+  const showing = Object.entries(fixture.cases).filter(([, { response }]) => shows(response)).map(([name]) => name)
+  if (showing.join('\n') !== PEER_SHOWING.join('\n')) {
+    throw new Error(`peerBarCases: the panel shows ${JSON.stringify(showing)}, not the pinned ${JSON.stringify(PEER_SHOWING)}`)
+  }
+  return PEER_SHOWING.map((name) => [name, peerChartDef(fixture.cases[name].response)])
 }
 
 /** A dataset whose record-only review notes (legacy_calculation, such as REGNPN's nine simulated flags) question the

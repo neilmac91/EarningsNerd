@@ -29,36 +29,61 @@ export const metricOf = (concept: string): Metric | null => FEATURED.find((metri
 /** The companies with a value, in the answer's order (value descending, the ticker breaking a tie). */
 const valued = (answer: PeerComparisonResponse) => answer.peers.filter((entry) => entry.value != null)
 
-/** What the chart draws: the companies with a value, in the answer's order, as many as its eleven slots hold, so it
- *  never leaves out a company a slot could hold. Where the subject ranks eleventh or better, the top eleven; where it
- *  ranks lower, the top ten and then the subject. A cohort of eleven or fewer draws every company with a value. A
- *  withheld value draws nothing; Sources & checks lists it. */
-export function drawn(answer: PeerComparisonResponse): PeerEntry[] {
-  const withValue = valued(answer)
-  const subject = withValue.findIndex((entry) => entry.is_subject)
-  return subject < SLOTS ? withValue.slice(0, SLOTS) : [...withValue.slice(0, SLOTS - 1), withValue[subject]]
+/** How many of the top companies `limit` slots hold without parting a rank: a cut that would separate two companies of
+ *  one rank (a tie, which the server ranks alike) moves up to the first of them, so "the top N" is always the companies
+ *  ranked N or better. Null where one rank fills every slot and more, so no cut keeps it whole. */
+function topWithin(withValue: PeerEntry[], limit: number): number | null {
+  if (withValue.length <= limit) return withValue.length
+  let top = limit
+  while (top > 0 && withValue[top].rank === withValue[top - 1].rank) top -= 1
+  return top > 0 ? top : null
 }
+
+/** The chart's companies, as many as its eleven slots hold, and what it leaves out: every company with a value where
+ *  there are eleven or fewer; otherwise the top companies (the top eleven where the subject ranks among them, else the
+ *  top ten and then the subject), never parting a rank, so a tie at the cut leaves a slot empty rather than show one of
+ *  two companies of one rank. Where one rank fills the slots, the cut goes by the answer's order and names no top. */
+function cut(answer: PeerComparisonResponse) {
+  const withValue = valued(answer)
+  const at = withValue.findIndex((entry) => entry.is_subject)
+  const top = topWithin(withValue, SLOTS)
+  if (at < (top ?? SLOTS)) return { shown: withValue.slice(0, top ?? SLOTS), top, subject: null, of: withValue.length }
+  const above = topWithin(withValue, SLOTS - 1)
+  return { shown: [...withValue.slice(0, above ?? SLOTS - 1), withValue[at]], top: above, subject: withValue[at], of: withValue.length }
+}
+
+/** What the chart draws: the companies with a value, in the answer's order, as many as its eleven slots hold, so it
+ *  never leaves out a company a slot could hold but for a tie at the cut. Where the subject ranks among the top eleven,
+ *  the top eleven; where it ranks lower, the top ten and then the subject. A cohort of eleven or fewer draws every
+ *  company with a value. A withheld value draws nothing; Sources & checks lists it. */
+export const drawn = (answer: PeerComparisonResponse): PeerEntry[] => cut(answer).shown
 
 /** What the chart leaves out, for the card to say so: null where it draws every company with a value; otherwise how
- *  many of the top it draws, of how many companies ranked (the rank line's count), and the subject where it is drawn
- *  after them, from below. */
-export function croppedOf(answer: PeerComparisonResponse): { top: number; of: number; subject: PeerEntry | null } | null {
-  const withValue = valued(answer)
-  const shown = drawn(answer)
-  if (shown.length === withValue.length) return null
-  const last = shown[shown.length - 1]
-  const below = last.is_subject && withValue.indexOf(last) >= SLOTS
-  return { top: below ? shown.length - 1 : shown.length, of: withValue.length, subject: below ? last : null }
+ *  many it draws, of how many companies ranked (the rank line's count), the top it draws (null where one rank fills
+ *  the slots, so no top can be named), and the subject where it is drawn after them, from below. */
+export function croppedOf(answer: PeerComparisonResponse): { shown: number; of: number; top: number | null; subject: PeerEntry | null } | null {
+  const { shown, of, top, subject } = cut(answer)
+  return shown.length === of ? null : { shown: shown.length, of, top, subject }
 }
 
-/** Whether an answer is a cohort the panel shows: the subject holds a value and at least one other company does, on a
- *  metric it can name. Never `peer_count`, which counts withheld entries: a pair with one withheld value would draw a
- *  chart of one bar. */
-export function shows(answer: PeerComparisonResponse | undefined): answer is PeerComparisonResponse {
-  if (!answer || !metricOf(answer.concept)) return false
+/** Why an answer draws no chart: it ranks a metric the panel cannot name or format ('concept'); the subject's own figure
+ *  is missing, where the service synthesises a subject that holds no fact, or withheld ('subject'); or fewer than two
+ *  companies have a value ('few'). */
+export type NoCohort = 'concept' | 'subject' | 'few'
+
+/** The first reason, in that order, an answer is no cohort the panel shows, or null where it is one. Never `peer_count`,
+ *  which counts withheld entries: a pair with one withheld value would draw a chart of one bar. */
+export function noCohort(answer: PeerComparisonResponse): NoCohort | null {
+  if (!metricOf(answer.concept)) return 'concept'
   const withValue = valued(answer)
-  return withValue.length >= 2 && withValue.some((entry) => entry.is_subject)
+  if (!withValue.some((entry) => entry.is_subject)) return 'subject'
+  if (withValue.length < 2) return 'few'
+  return null
 }
+
+/** Whether an answer is a cohort the panel shows: a metric it names, the subject's own figure and at least one other
+ *  company's (no reason of noCohort's stops it). */
+export const shows = (answer: PeerComparisonResponse | undefined): answer is PeerComparisonResponse => answer != null && noCohort(answer) == null
 
 /** The subject's rank over the companies with a value, the rank's own population, never `peer_count`; null without
  *  one. */

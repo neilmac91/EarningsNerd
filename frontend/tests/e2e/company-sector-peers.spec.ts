@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { CHART_TOKENS } from '../../features/analysis/lib/charts/theme'
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
+import { MARKERS, servedHolding } from './fixtures/companyBuild'
 import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
 
 /**
@@ -21,9 +22,12 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * the marks, D8 at full hinting, D10 under reduced motion, D14 and M6, opening with the subject's column in view); at
  * 390px the plot scrolls inside its card, a region named "Revenue chart. Scroll horizontally to view all companies.";
  * and the page does not scroll sideways. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
- * the heading, the rank line and the picker stay inside the card. With production's own answer, a company ranked alone
- * (peer_count 1, JPM's on 2026-10-31), once that answer has landed, the panel shows nothing and the filings render.
- * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
+ * the heading, the rank line and the picker stay inside the card. While a metric picked loads, and once its answer
+ * draws no chart, the heading row keeps its height, at 390 and 1280px. With production's own answer, a company ranked
+ * alone (peer_count 1, JPM's on 2026-10-31), the panel never asks for the card's chunk: once the page has handled that
+ * answer (a mark the read's own end leaves, see settled below), no script holding the card is in the document or was
+ * requested, the panel shows nothing and the filings render; the spread, at the same mark, has asked for it, so the
+ * mark comes after the gate's decision. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
  */
 
 const VIEWPORTS = [
@@ -179,18 +183,104 @@ for (const width of [390, 360, 320]) {
   })
 }
 
+/** Marks, on the page's window, the moment the page has handled its peers read's answer: the client's handler is the
+ *  XHR's `onloadend`, set before `send` (axios), so a listener added at `send` runs after it, once the microtasks it
+ *  starts have put the answer in the query's cache and queued the query's notify, a zero timeout; a zero timeout this
+ *  listener queues runs after that notify and the render it starts, in which the gate decides and, for a cohort, asks
+ *  for the card's chunk (the runtime appends its script there and then). */
+function markPeersSettled() {
+  const open = XMLHttpRequest.prototype.open
+  const send = XMLHttpRequest.prototype.send
+  const peers = new WeakSet<XMLHttpRequest>()
+  XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, ...args: unknown[]) {
+    if (/\/api\/companies\/[^/]+\/peers(?:\?|$)/.test(String(args[1]))) peers.add(this)
+    return (open as (...rest: unknown[]) => void).apply(this, args)
+  }
+  XMLHttpRequest.prototype.send = function (this: XMLHttpRequest, ...args: unknown[]) {
+    if (peers.has(this)) this.addEventListener('loadend', () => setTimeout(() => { (window as { peersSettled?: boolean }).peersSettled = true }, 0))
+    return (send as (...rest: unknown[]) => void).apply(this, args)
+  }
+}
+
+/** The card's chunk, by the build's own scripts: those holding its string, which the browser would ask for. */
+function cardChunks() {
+  const chunks = servedHolding(MARKERS.card)
+  expect(chunks.length, 'the build holds the Sector peers card in a script of its own').toBeGreaterThan(0)
+  return chunks
+}
+
+/** Every script the page asked for and every script element in it, once the page has handled its peers answer. */
+async function scriptsWhenSettled(page: Page, asked: string[]) {
+  await page.waitForFunction(() => (window as { peersSettled?: boolean }).peersSettled === true)
+  const present = await page.evaluate(() => [...document.querySelectorAll<HTMLScriptElement>('script[src]')].map((script) => new URL(script.src).pathname))
+  return { present, asked: [...asked] }
+}
+
 test.describe('Sector peers with production’s own answer, a company ranked alone', () => {
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' })
 
-  test('once the answer has landed, the panel shows nothing and the filings render', async ({ page, baseURL }) => {
+  test('once the page has handled the answer, the card’s chunk was never asked for, the panel shows nothing and the filings render', async ({ page, baseURL }) => {
     const answer = PEERS.cases['production single'].response
     expect([answer.sic, answer.peer_count], 'production’s answer: no SIC code, the subject alone').toEqual([null, 1])
+    const card = cardChunks()
+    const asked: string[] = []
+    page.on('request', (request) => asked.push(new URL(request.url()).pathname))
+    await page.addInitScript(markPeersSettled)
     const landed = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/companies/${answer.ticker}/peers`)
     await openCompany(page, baseURL!, 'production single', 'light')
     expect((await landed).status()).toBe(200)
+    const settled = await scriptsWhenSettled(page, asked)
+    expect(settled.present.filter((script) => card.includes(script)), 'a script of the card’s in the document').toEqual([])
+    expect(settled.asked.filter((script) => card.includes(script)), 'a request for the card’s chunk').toEqual([])
     await expect(page.getByRole('heading', { level: 2, name: 'SEC filings', exact: true })).toBeVisible()
-    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
     await expect(page.getByRole('heading', { level: 2, name: 'Sector peers', exact: true })).toHaveCount(0)
     await expect(page.getByText('This chart could not be drawn.')).toHaveCount(0)
   })
+
+  test('the mark is after the gate’s decision: at it, the spread’s card has asked for its chunk', async ({ page, baseURL }) => {
+    const card = cardChunks()
+    const asked: string[] = []
+    page.on('request', (request) => asked.push(new URL(request.url()).pathname))
+    await page.addInitScript(markPeersSettled)
+    await openCompany(page, baseURL!, 'spread', 'light')
+    const settled = await scriptsWhenSettled(page, asked)
+    expect(settled.present.filter((script) => card.includes(script)).sort(), 'the card’s scripts in the document at the mark').toEqual([...card].sort())
+    await expect(sectorPeers(page)).toBeVisible()
+  })
+})
+
+test.describe('Sector peers while a metric picked loads', () => {
+  for (const { width, isMobile } of [{ width: 390, isMobile: true }, { width: 1280, isMobile: false }]) {
+    test.describe(`at ${width}px`, () => {
+      test.use({ viewport: { width, height: 900 }, isMobile, hasTouch: isMobile, reducedMotion: 'reduce' })
+
+      test('the heading row keeps its height while the answer loads and once it draws no chart', async ({ page, baseURL }) => {
+        let release!: () => void
+        const held = new Promise<void>((resolve) => { release = resolve })
+        const withheld = held.then(() => PEERS.cases['withheld peer'].response)
+        await openCompany(page, baseURL!, 'spread', 'light', { more: { eps_diluted: withheld } })
+        const card = sectorPeers(page)
+        await expect(card.getByTestId('peers-chart').getByRole('img', { name: 'Revenue chart', exact: true })).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        // The heading row: the heading and the rank line (or its held room) beside, or above, the picker.
+        const row = () => card.evaluate((section) => {
+          const box = section.querySelector('h2')!.parentElement!.parentElement!.getBoundingClientRect()
+          const next = section.querySelector('h2')!.parentElement!.parentElement!.nextElementSibling!.getBoundingClientRect()
+          return { height: box.height, below: next.top - box.top }
+        })
+        const opened = await row()
+        await card.getByRole('combobox', { name: /^Metric\b/ }).selectOption('eps_diluted')
+        await expect(card.getByRole('status', { name: 'Loading sector peers', exact: true })).toBeVisible()
+        await expect(card.locator('[data-held-rank]')).toHaveCount(1)
+        const loading = await row()
+        release()
+        await expect(card.getByText('Too few sector peers have diluted EPS figures to compare.', { exact: true })).toBeVisible()
+        const none = await row()
+        for (const [state, measured] of [['loading', loading], ['no chart', none]] as const) {
+          expect(Math.abs(measured.height - opened.height), `${state}: the row's ${measured.height}px against ${opened.height}px`).toBeLessThanOrEqual(0.5)
+          expect(Math.abs(measured.below - opened.below), `${state}: what follows the row starts ${measured.below}px below its top, against ${opened.below}px`).toBeLessThanOrEqual(0.5)
+        }
+      })
+    })
+  }
 })

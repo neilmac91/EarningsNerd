@@ -58,13 +58,13 @@ export function asCompany(response: PeerComparisonResponse, ticker: string, name
 
 /** Answers the company page of a case's subject: its company, its filings, the legal readiness the shell reads, a
  *  guest's session, and its peers by the metric each request names (the case's own metric its answer, and `more` for
- *  the others); every other path 404. */
-export async function answerCompany(page: Page, baseURL: string, name: string, more: Record<string, PeerComparisonResponse> = {}) {
+ *  the others, an answer or a promise of one, which holds the request until it settles); every other path 404. */
+export async function answerCompany(page: Page, baseURL: string, name: string, more: Record<string, PeerComparisonResponse | Promise<PeerComparisonResponse>> = {}) {
   const { metric, response } = PEERS.cases[name]
-  const peers: Record<string, PeerComparisonResponse> = { ...more, [metric]: response }
+  const peers: Record<string, PeerComparisonResponse | Promise<PeerComparisonResponse>> = { ...more, [metric]: response }
   const ticker = response.ticker
   const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
-  await page.route((url) => url.origin === API_ORIGIN, (route) => {
+  await page.route((url) => url.origin === API_ORIGIN, async (route) => {
     const url = new URL(route.request().url())
     const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
     switch (url.pathname) {
@@ -75,7 +75,7 @@ export async function answerCompany(page: Page, baseURL: string, name: string, m
       case `/api/filings/company/${ticker}`:
         return json(200, filingsOf(response))
       case `/api/companies/${ticker}/peers`: {
-        const answer = peers[url.searchParams.get('metric') ?? 'revenue']
+        const answer = await peers[url.searchParams.get('metric') ?? 'revenue']
         return answer ? json(200, answer) : json(404, { detail: 'Not found' })
       }
       case '/api/auth/me':
@@ -90,7 +90,7 @@ export async function answerCompany(page: Page, baseURL: string, name: string, m
 /** Consent answered and the first-run coachmark seen (neither belongs to the panel), the theme chosen, then the page of
  *  a case's subject. Given `doubled`, the page opens under 200% text (Chromium's own text setting, as reflow-200.spec.ts
  *  doubles it). */
-export async function openCompany(page: Page, baseURL: string, name: string, theme: Theme, { more, doubled = false }: { more?: Record<string, PeerComparisonResponse>; doubled?: boolean } = {}) {
+export async function openCompany(page: Page, baseURL: string, name: string, theme: Theme, { more, doubled = false }: { more?: Record<string, PeerComparisonResponse | Promise<PeerComparisonResponse>>; doubled?: boolean } = {}) {
   const response = await answerCompany(page, baseURL, name, more)
   if (doubled) await (await page.context().newCDPSession(page)).send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
   await page.addInitScript((chosen: Theme) => {

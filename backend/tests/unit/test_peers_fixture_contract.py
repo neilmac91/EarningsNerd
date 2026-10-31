@@ -19,7 +19,8 @@ a fixture the service would never answer would gate a panel production never dra
 3. No fixture case, response or entry carries a key ``PeerComparisonResponse`` or ``PeerEntry`` does not define (the
    retired client's phantom ``PeerEntry.source_url``, which the endpoint never sent).
 4. The client's types (``frontend/features/peers/api/peers-api.ts``) name the schema's fields and only those:
-   ``PeerEntry`` all of them, ``PeerComparisonResponse`` all but ``sic``, which no copy prints (E251).
+   ``PeerEntry`` all of them, ``PeerComparisonResponse`` all but ``sic``, which no copy prints (E251). Every member of
+   each interface is read, two on one line among them, and a member this reader cannot read fails it.
 """
 from __future__ import annotations
 
@@ -109,8 +110,11 @@ def _answer(db, case: dict[str, Any]) -> dict[str, Any]:
 
 def test_the_fixture_holds_the_panels_cases():
     # The panel's gates read these by name; a renamed or dropped case fails here before it fails there.
-    assert {"pair", "spread", "near-equal", "net margin", "production single", "no facts", "withheld peer",
-            "withheld subject", "pair plus withheld", "cap", "cap, subject fifth", "bank"} <= set(CASES)
+    assert {"pair", "spread", "near-equal", "net margin", "production single", "no facts", "no fact, with peers",
+            "no gross profit, with peers", "withheld peer", "withheld subject", "withheld subject, with peers",
+            "pair plus withheld", "cap", "cap, subject fifth", "cap, subject eleventh", "cap, subject twelfth",
+            "cap, tie at the tenth", "cap, tie at the eleventh", "cap, all tied", "capital expenditures",
+            "bank"} <= set(CASES)
 
 
 @pytest.mark.parametrize("name", list(CASES))
@@ -148,17 +152,38 @@ def test_no_case_carries_a_key_the_endpoint_does_not_serve(name):
         assert not extra, f"{name}, {entry['ticker']}: PeerEntry defines no {sorted(extra)}"
 
 
+# One interface member, whole: a name, an optional mark, and a type holding no colon (a function or object type, or a
+# second member after a comma, has one, and fails the read rather than hiding a name).
+MEMBER = re.compile(r"(\w+)\??\s*:\s*[^:]+")
+
+
+def _members(body: str) -> list[str]:
+    """Each member of an interface's body, its comments stripped: TypeScript ends a member at a line's end or at a
+    semicolon, so two members on one line are two."""
+    body = re.sub(r"/\*.*?\*/|//[^\n]*", "", body, flags=re.S)
+    assert "{" not in body, "a nested type this reader cannot follow"
+    return [member.strip() for line in body.splitlines() for member in line.split(";") if member.strip()]
+
+
 def _client_fields(interface: str) -> set[str]:
-    """The field names of one `export interface` in the client, a field a line, its doc comments skipped."""
+    """The field names of one `export interface` in the client, every member read, its doc comments skipped."""
     source = CLIENT.read_text(encoding="utf-8")
     match = re.search(rf"export interface {interface} \{{\n(.*?)\n\}}", source, re.S)
     assert match, f"{CLIENT.name} declares `export interface {interface}`"
-    body = re.sub(r"/\*.*?\*/|//[^\n]*", "", match.group(1), flags=re.S)
-    assert "{" not in body, f"{interface}: a nested type this reader cannot follow"
-    lines = [line.strip() for line in body.splitlines() if line.strip()]
-    fields = [re.match(r"^(\w+)\??\s*:", line) for line in lines]
-    assert all(fields), f"{interface}: a line this reader cannot read: {[line for line, f in zip(lines, fields) if not f]}"
+    members = _members(match.group(1))
+    fields = [MEMBER.fullmatch(member) for member in members]
+    assert all(fields), f"{interface}: a member this reader cannot read: {[m for m, f in zip(members, fields) if not f]}"
     return {field.group(1) for field in fields}
+
+
+def test_the_client_reader_reads_every_member():
+    # Two members on one line are two, the second a field the schema may not define; a member it cannot read fails.
+    assert _members("  ticker: string; source_url: string | null\n  /** a note */\n  rank?: number | null;\n") == [
+        "ticker: string", "source_url: string | null", "rank?: number | null",
+    ]
+    assert [bool(MEMBER.fullmatch(m)) for m in ["ticker: string, source_url: string", "onPick: (key: string) => void"]] == [
+        False, False,
+    ]
 
 
 def test_the_client_reads_what_the_endpoint_serves():

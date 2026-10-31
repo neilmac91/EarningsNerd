@@ -502,18 +502,21 @@ says so; everything else follows the spec.
 - **The Sector peers panel (E251).** The company page's ranked company chart, drawn on the seams above.
   `features/peers/lib/peerChart.ts` turns a peers answer into a `BarChartDef`: the companies with a value in the
   answer's order, as many as eleven slots hold (`cohort.ts` `drawn`: a cohort of eleven or fewer whole; a larger one the
-  top eleven where the subject ranks among them, else the top ten and then the subject, the card's footnote then saying
-  what the chart shows, `croppedOf`), each slot keyed by its ticker
+  top eleven where the subject ranks among them, else the top ten and then the subject, the top never parting a tie, so
+  it is always the companies ranked that high, the card's footnote then saying what the chart shows, `croppedOf`, and
+  giving the count alone where one rank fills every slot), each slot keyed by its ticker
   or by its place where two companies answer one (`Company.ticker` is not unique), ticked and named by the ticker; every
   company but the subject `context`; `start` at the subject; `COMPANY_READING` ("companies", "First company.", "Last
   company."); the answered `concept`'s label (a bank asked for revenue answers net interest income) and its axis by the
   metric's kind in the answer's `unit`. Its describer heads each company with its ticker and its own fiscal year
   (`AAPL · FY2025 · year ended Sep 27, 2025`), speaks its name, its ticker, "this company" for the subject and its rank
   over the companies with a value, and reads calculated from `provenance.method`. `features/peers/lib/cohort.ts` decides,
-  engine-free, whether the panel shows at all (the subject and at least one other company with a value, never
-  `peer_count`), so the page loads the card, and the engine with it, only for a cohort. `chartPlan.ts`'s peer cases are
-  the panel's own builder over every cohort it shows, so the model, reading and sticky-gutter sweeps, the renderer's role
-  checks and the readout sweep (through the panel's describer) read the charts the page draws.
+  engine-free, whether the panel shows at all (`noCohort`: a metric FEATURED names, the subject's own figure and at least
+  one other company's, never `peer_count`), so the page loads the card, and the engine with it, only for a cohort, which
+  `tests/e2e/company-first-load.spec.ts` holds on the build's manifests. `chartPlan.ts`'s peer cases are the panel's own
+  builder over the cohorts it shows, pinned by name (`PEER_SHOWING`, the list `shows` must pick out), so the model,
+  reading and sticky-gutter sweeps, the renderer's role checks and the readout sweep (through the panel's describer)
+  read the charts the page draws.
   `backend/tests/unit/test_peers_fixture_contract.py` holds every fixture case to what `peers_service.get_peers` answers,
   and `tests/e2e/company-sector-peers.spec.ts` holds the panel on a production build: the named SVG, the subject's bar in
   chart-1 and every other company's in the context ink (computed), each printed value the fixture's, the values stop

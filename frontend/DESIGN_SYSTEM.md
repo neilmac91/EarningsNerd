@@ -3176,10 +3176,13 @@ series at 390, 360 and 320 px under 200% text).
 **Sector peers** (the company page's panel, `features/peers/components/SectorPeersCard.tsx`, loaded by the small gate the
 page imports, `SectorPeers.tsx`) draws through the same engine (E251): `features/peers/lib/peerChart.ts` models a cohort
 the peers endpoint answers as a one-metric bar chart of the companies with a value, in the answer's order (value
-descending), as many as its eleven slots hold, never leaving out a company a slot could hold: a cohort of eleven or fewer
-whole; a larger one the top eleven where the subject ranks among them, else the top ten and then the subject, and the
-footnote then says what the chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", or "the top
-11 of the 14 companies ranked"), counted as the rank line counts. The company the page is about is
+descending), as many as its eleven slots hold, never leaving out a company a slot could hold but for a tie at the cut: a
+cohort of eleven or fewer whole; a larger one the top eleven where the subject ranks among them, else the top ten and
+then the subject. The top never parts a tie: a cut that would separate two companies of one rank moves up to the first
+of them and leaves the slot empty, so the top is always the companies ranked that high. The footnote then says what the
+chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", "the top 11 of the 14 companies
+ranked", "the top 9 …" where a tie sits at the tenth), counted as the rank line counts, and where one rank fills every
+slot, so no top can be named, the count alone ("The chart shows 11 of the 12 companies ranked."). The company the page is about is
 chart-1 at the bar's full width and every other company a context bar, the context ink at the growth bars' narrower width,
 the cue colour alone cannot give; every value prints on its bar (A4); a slot is as wide as its ticker; a plot that scrolls
 opens with the subject's column in view and the values stop starts there; and the scroll region and the end-of-range
@@ -3196,18 +3199,26 @@ can differ by company.", the currency only where it is not the dollar), which ad
 is larger than its slots, and "Some figures here need a source check. Sources & checks lists them." where a drawn value
 needs one (no badge: the badge's gate keeps it to Financial
 trends); and Sources & checks, listing every company drawn and every one whose value is withheld, which draws no bar. It
-shows itself only once the default metric's answer is a cohort, the subject and at least one other company with a value
-(`features/peers/lib/cohort.ts`, engine-free); until then the gate renders nothing and the card's chunk, the engine with
-it, never loads, so the company page's first load keeps the engine out. Production stores no SIC codes until the
+shows itself only once the default metric's answer is a cohort: a metric the panel names and formats, the subject's own
+figure and at least one other company's (`features/peers/lib/cohort.ts` `noCohort`, engine-free); until then the gate
+renders nothing and the card's chunk, the engine with it, is never asked for, so the company page's first load keeps the
+engine out. Production stores no SIC codes until the
 founder's backfill, so every company answers itself alone there and the panel shows nothing. A metric picked holds the
-plot's height with bones while it loads, and says in the plot's place "Too few sector peers report {metric} to compare."
-or "Couldn’t load sector peers for {metric}. Try another metric.". It is the last section of the page's `<main>`, after
+plot's height with bones while it loads, and the rank line's room with the default answer's line laid out invisible, a
+bone over it while it loads; where its answer draws no chart, the plot's place says why, the first reason `noCohort`
+finds: "{ticker}’s {metric} is unavailable, so it can’t be ranked." (the company's own figure missing or withheld),
+"Too few sector peers have {metric} figures to compare." (no other company has one) or "Sector peers for {metric} can’t
+be shown here." (a metric the panel cannot name); and "Couldn’t load sector peers for {metric}. Try another metric."
+where its read fails. It is the last section of the page's `<main>`, after
 the filings, so its arrival never moves them, inside a `ChartErrorBoundary` keyed by the ticker (the boundary never
 resets on its own), whose card stands where the panel would, with its spacing. Gates: `tests/unit/sector-peers.spec.tsx`,
 `tests/unit/company-sector-peers-mount.spec.tsx`, `tests/e2e/company-sector-peers.spec.ts` (the mount on a production
 build, the computed inks by role, every printed value the fixture's and the DOM checks for one card, the context ink among
-D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px) and
-`backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is built on is what the service answers).
+D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; the heading row's height while a
+metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer),
+`tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
+holds the engine, the plot or the card) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is
+built on is what the service answers).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
