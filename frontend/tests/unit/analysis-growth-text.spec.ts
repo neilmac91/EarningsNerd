@@ -21,12 +21,14 @@ const table: CaseTable = JSON.parse(
 const cases = table.groups.flatMap(({ rule, cases: rows }) => rows.map(([value, percent, text]) => [rule, value, percent, text] as const))
 
 describe('the growth as first reported, as the page prints it', () => {
-  it('reads a table with cases for each part of the rule, and runs every case', () => {
+  it('reads a table with cases for each part of the rule, and collects a test for every case', ({ task }) => {
     // backend/tests/unit/test_export_later_filings.py holds the files' copy to the same counts.
     expect(table.groups).toHaveLength(9)
     expect(table.groups.every((group) => group.cases.length > 0)).toBe(true)
-    expect(cases).toHaveLength(table.groups.reduce((total, group) => total + group.cases.length, 0))
-    expect(cases).toHaveLength(33)
+    expect(cases).toHaveLength(34)
+    // The runner's count, not the list's: the tests this suite collected, one for each case of the table.
+    const collected = task.suite?.tasks.filter((test) => test.type === 'test' && test.name.includes(': formatGrowth('))
+    expect(collected).toHaveLength(table.groups.reduce((total, group) => total + group.cases.length, 0))
   })
 
   it.each(cases)('%s: formatGrowth(%j, %j) prints %j', (_rule, value, percent, text) => {

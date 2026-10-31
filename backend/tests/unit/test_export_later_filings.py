@@ -20,17 +20,21 @@ the producer sends it; and evidence on inputs alone), through the real builders:
 4. No letter. Evidence marks nothing: each file draws exactly the case's marked letters.
 5. Parts the payload lacks are left out, never invented.
 6. Inert until the producer: a dataset without the fields prints none of it, and exports byte for byte as it does with
-   each of the builders' later-filing seams switched off, as main had them. What the comparison cannot see: a change
-   outside those seams that alters a dataset without the fields alike in both runs; the byte comparison against main's
-   builders is the pull request's.
+   each of the builders' later-filing seams switched off, as main had them. The datasets include a quarterly run the
+   producer builds from companyfacts, and two quarterly runs print every place the seams reach. What the comparison
+   cannot see: a change outside those seams that alters a dataset without the fields alike in both runs; the byte
+   comparison against main's builders is the pull request's.
 """
 from __future__ import annotations
 
+import asyncio
+import functools
 import html as html_lib
 import io
 import json
 import math
 import re
+import uuid
 import zipfile
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -44,6 +48,9 @@ import app.services.analysis_export_metadata as export_metadata
 import app.services.excel_export_service as excel_export_service
 import app.services.export_service as export_service
 
+from app.database import SessionLocal
+from app.models import Company, FinancialFact
+from app.services import trend_analysis_service
 from app.services.analysis_export_metadata import (
     BASIS_CHANGE_CAUSE, LATER_FILING_EVIDENCE, LATER_FILING_MESSAGE, NOT_MEANINGFUL_CAUSES, PDF_CLOSING, WORKBOOK_CLOSING,
     disagreement_sentence, evidence_lines, first_reported_sentence, growth_text, later_filing_entry, pdf_closing,
@@ -51,6 +58,7 @@ from app.services.analysis_export_metadata import (
 )
 from app.services.excel_export_service import _LINE_PANELS, build_analysis_workbook
 from app.services.export_service import ExportService
+from app.services.facts_service import ingest_companyfacts
 from app.services.trend_analysis.data_notes import data_notes, marks_figure
 from tests.unit.test_export_note_marks import pdf_letters, workbook_letters
 
@@ -224,15 +232,108 @@ def _quarterly_with_growth_inputs() -> dict:
     return {**case, "name": "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m"}
 
 
-# The page's chart fixtures, real SEC-built runs of both modes: their quarterly runs build operand rows, a YoY or QoQ
-# that reads n/m and chart sheets. Their stored data notes are left out, as the exports read the dataset's own.
+# A calendar-year filer's companyfacts as a filer reports them: each 10-Q gives its quarter (a cash flow's only in Q1)
+# and from Q2 its year to date, the 10-K its year, and every report its balances at its period end.
+_QUARTERS = {"Q1": ("01-01", "03-31"), "Q2": ("04-01", "06-30"), "Q3": ("07-01", "09-30")}
+
+
+def _report(year: int, fp: str) -> dict:
+    """The report that gives a fiscal period of the year: three 10-Qs, then the 10-K."""
+    number, form, filed = {"Q1": (1, "10-Q", f"{year}-05-02"), "Q2": (2, "10-Q", f"{year}-08-01"),
+                           "Q3": (3, "10-Q", f"{year}-10-31"), "FY": (4, "10-K", f"{year + 1}-02-06")}[fp]
+    return {"accn": f"0000990001-{(year + (fp == 'FY')) % 100:02d}-00000{number}", "fy": year, "fp": fp, "form": form,
+            "filed": filed}
+
+
+def _flow(quarters: dict[int, tuple], *, cash: bool = False) -> list[dict]:
+    """A flow's items from its four quarters of each year. No report gives Q4, so the ingest computes it (the year less
+    its first nine months), and a cash flow's Q2 and Q3 from its years to date."""
+    items = []
+    for year, values in quarters.items():
+        for index, (fp, (start, end)) in enumerate(_QUARTERS.items()):
+            if index == 0 or not cash:
+                items.append({"val": values[index], "start": f"{year}-{start}", "end": f"{year}-{end}",
+                              **_report(year, fp)})
+            if index:
+                items.append({"val": sum(values[:index + 1]), "start": f"{year}-01-01", "end": f"{year}-{end}",
+                              **_report(year, fp)})
+        items.append({"val": sum(values), "start": f"{year}-01-01", "end": f"{year}-12-31", **_report(year, "FY")})
+    return items
+
+
+def _companyfacts() -> dict:
+    """2023 and 2024. In 2024 Q2 net income and EPS turn negative, and in Q3 operating cash flow does, so a QoQ and a
+    YoY read n/m, Cash generation's among them; the ingest derives the margins and free cash flow."""
+    def usd(items: list[dict]) -> dict:
+        return {"units": {"USD": items}}
+
+    eps = [{"val": value, "start": f"{year}-{start}", "end": f"{year}-{end}", **_report(year, fp)}
+           for year, values in {2023: (0.99, 1.19, 1.29), 2024: (1.24, -0.8, 1.39)}.items()
+           for (fp, (start, end)), value in zip(_QUARTERS.items(), values)]  # the ingest computes no Q4 of EPS
+    balances = {
+        "CashAndCashEquivalentsAtCarryingValue": {2023: (500e6, 520e6, 540e6, 600e6), 2024: (610e6, 580e6, 560e6, 650e6)},
+        "LongTermDebtNoncurrent": {2023: (1000e6, 1000e6, 990e6, 980e6), 2024: (970e6, 1200e6, 1190e6, 1180e6)},
+        "StockholdersEquity": {2023: (2500e6, 2600e6, 2700e6, 2850e6), 2024: (2950e6, 2850e6, 2980e6, 3100e6)},
+    }
+    return {"cik": 990001, "entityName": "A QUARTERLY FILER", "facts": {"us-gaap": {
+        "RevenueFromContractWithCustomerExcludingAssessedTax": usd(_flow({2023: (1000e6, 1100e6, 1200e6, 1300e6),
+                                                                          2024: (1150e6, 1250e6, 1300e6, 1400e6)})),
+        "GrossProfit": usd(_flow({2023: (400e6, 450e6, 480e6, 520e6), 2024: (460e6, 500e6, 530e6, 570e6)})),
+        "NetIncomeLoss": usd(_flow({2023: (100e6, 120e6, 130e6, 150e6), 2024: (125e6, -80e6, 140e6, 160e6)})),
+        "NetCashProvidedByUsedInOperatingActivities": usd(_flow({2023: (200e6, 220e6, 230e6, 250e6),
+                                                                 2024: (210e6, 240e6, -50e6, 300e6)}, cash=True)),
+        "PaymentsToAcquirePropertyPlantAndEquipment": usd(_flow({2023: (50e6, 50e6, 50e6, 60e6),
+                                                                 2024: (60e6, 60e6, 50e6, 70e6)}, cash=True)),
+        **{tag: usd([{"val": value, "end": f"{year}-{end}", **_report(year, fp)} for year, values in ends.items()
+                     for (fp, end), value in zip((("Q1", "03-31"), ("Q2", "06-30"), ("Q3", "09-30"), ("FY", "12-31")),
+                                                 values)])
+           for tag, ends in balances.items()},
+        "EarningsPerShareDiluted": {"units": {"USD/shares": eps}},
+    }}}
+
+
+@functools.cache
+def _quarterly_run_the_producer_builds() -> dict:
+    """_companyfacts() through the companyfacts ingest and build_dataset, once a process, in its test database, the
+    company's rows removed once built. Its margins compare in points; a margin's YoY and QoQ list inputs three levels
+    down (the two margins, their revenue and income, and a computed Q4's year and first nine months); QoQ and YoY read
+    n/m with their two inputs; Q4 is computed and every chart sheet is built: what a stored quarterly run holds and
+    the fixtures here lack."""
+    with SessionLocal() as db:
+        token = uuid.uuid4().hex
+        company = Company(cik=str(int(token[:7], 16)), ticker=f"Q{token[:5]}".upper(), name="A quarterly filer")
+        db.add(company)
+        db.commit()
+
+        async def fetch(_cik: str) -> dict:
+            return _companyfacts()
+
+        try:
+            asyncio.run(ingest_companyfacts(db, company, force=True, fetcher=fetch))
+            return trend_analysis_service.build_dataset(db, company, "quarterly", "2023Q1", "2024Q4")
+        finally:
+            db.rollback()
+            db.query(FinancialFact).filter_by(company_id=company.id).delete()
+            db.delete(company)
+            db.commit()
+
+
+# The page's chart fixtures, SEC-built runs of both modes slimmed of their QoQ fields and provenance operands: they add
+# real companies' chart sheets, line panels included. Their stored data notes are version 1, which the exports refuse,
+# so they are left out and the exports derive their own.
 CHARTS = json.loads((Path(__file__).resolve().parents[3] / "frontend" / "tests" / "unit" / "fixtures"
                      / "chart-datasets.json").read_text())["datasets"]
 INERT = [*WIDER, *(case for case in NOTES if case["name"] != "portable_reason_identity_utf16_ascii"),
          _quarterly_with_growth_inputs(),
+         {"name": "a_quarterly_run_the_producer_builds", "build": _quarterly_run_the_producer_builds},
          *({"name": name, "dataset": {key: value for key, value in entry["dataset"].items() if key != "data_notes"}}
            for name, entry in CHARTS.items())]
 INERT_IDS = [case["name"] for case in INERT]
+
+
+def _inert(case: dict) -> dict:
+    """An inert case's dataset; the producer's run is built when a test first reads it, once the database is up."""
+    return case["build"]() if "build" in case else case["dataset"]
 
 
 # ---- 1. The line ----------------------------------------------------------------------------------------------------
@@ -389,7 +490,8 @@ def test_the_evidence_words_are_the_pages():
     growth = _page("components/SourceValue.tsx", r"\{comparison\.laterFiling\?\.asFirstReported && <p[^>]*>([^<]*)<GrowthText "
                    r"text=\{comparison\.laterFiling\.asFirstReported\} /></p>\}", "growth as first reported")
     # The dialog words its evidence through the two templates above, so a sentence written inline there fails here.
-    _page("components/SourceValue.tsx", r"const finding = disagreementSentence\(first, value\)\n", "dialog's finding")
+    _page("components/SourceValue.tsx", r"const finding = disagreementSentence\(first, value\)\n\s*const ownFiling = ",
+          "dialog's finding")
     _page("components/SourceValue.tsx", r"<p>\{firstReportedSentence\(first, value, figure\)\}</p>\s*"
           r"\{finding && <p>\{finding\}</p>\}", "dialog's evidence sentence")
 
@@ -458,9 +560,11 @@ GROWTH_TEXT = [(group["rule"], value, percent, text) for group in GROWTH_TABLE["
 
 
 def test_every_case_of_the_growth_table_runs():
-    # analysis-growth-text.spec.ts holds the page's copy to the same counts.
-    assert len(GROWTH_TABLE["groups"]) == 9 and len(GROWTH_TEXT) == sum(len(group["cases"])
-                                                                      for group in GROWTH_TABLE["groups"]) == 33
+    # analysis-growth-text.spec.ts holds the page's copy to the same counts, and its runner to every case.
+    assert len(GROWTH_TABLE["groups"]) == 9 and len(GROWTH_TEXT) == 34
+    mark = next(mark for mark in test_the_growth_as_first_reported_reads_as_the_page_prints_it.pytestmark
+                if mark.name == "parametrize")
+    assert mark.args[1] is GROWTH_TEXT
 
 
 @pytest.mark.parametrize(("rule", "value", "percent", "text"), GROWTH_TEXT,
@@ -476,10 +580,10 @@ def test_a_growth_that_is_not_finite_prints_nothing_and_a_huge_one_never_raises(
     and the files print only the cause; a JSON integer past a double's range is Infinity on the page. A huge finite
     growth prints every digit, as the shared table holds. The page's decoder refuses a growth that is not finite, so
     none of the first is reachable today."""
-    for value in (math.nan, math.inf, -math.inf, 1e307, 10 ** 400):  # 1e307 times 100 is inf
+    for value in (math.nan, math.inf, -math.inf, 1e307, 10 ** 400, -(10 ** 400)):  # 1e307 times 100 is inf
         assert growth_text(value, False) == ""
         assert evidence_lines({"first_reported_growth": value, "percent": False}) == [BASIS_CHANGE_CAUSE]
-    for value in (math.nan, math.inf, -math.inf, 10 ** 400):
+    for value in (math.nan, math.inf, -math.inf, 10 ** 400, -(10 ** 400)):
         assert growth_text(value, True) == ""
     assert growth_text(1e307, True).endswith(".0pp") and len(growth_text(1e307, True)) == 415
 
@@ -603,21 +707,60 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
              LATER_FILING_EVIDENCE, "first-reported value")
 
 
-def test_the_inert_gate_reads_quarterly_runs_that_build_every_place_the_files_print():
-    # A quarterly run never carries evidence, yet its files build operand rows, a QoQ and a YoY that read n/m, and
-    # chart sheets: the seams must print nothing there either.
-    quarterly = [_strip(case["dataset"]) for case in INERT if case["dataset"]["mode"] == "quarterly"]
-    growths = {growth for dataset in quarterly for series in dataset["series"] for point in series["points"]
-               for growth in ("yoy", "qoq") if point.get(growth) == "nm"}
-    books = [_workbook(dataset) for dataset in quarterly]
-    entries = {str(row[2].value) for book in books for row in book["Sources & methods"].iter_rows() if row[2].value}
-    charts = {sheet.title for book in books for sheet in book.worksheets} - {"Overview", "Metrics", "Sources & methods"}
-    assert growths == {"yoy", "qoq"} and any(entry.startswith("Input") for entry in entries) and charts
+# Each place a quarterly run's files print that the seams reach, and the runs of INERT that print it. The gate's reach
+# rests on these two alone: the page's chart fixtures are rebuilt with chart work.
+PLACES = ("an input", "an input two levels down", "a QoQ in points", "a QoQ that reads n/m, with its inputs",
+          "a YoY that reads n/m, with its inputs", "the top line's YoY reads n/m", "a line panel's figure whose YoY reads n/m",
+          "a computed Q4", *(title for title, _ in _LINE_PANELS))
+REACH = {
+    "a_quarterly_run_the_producer_builds": set(PLACES) - {"the top line's YoY reads n/m"},
+    # The producer never reads the top line n/m: revenue is never negative there (NON_NEGATIVE_CONCEPTS).
+    "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m": {"an input", "a YoY that reads n/m, with its inputs",
+                                                         "the top line's YoY reads n/m"},
+}
+
+
+def _places(dataset: dict) -> set[str]:
+    """The places of PLACES that a run's files print, read from its workbook: Sources & methods' rows in order (a
+    growth's inputs follow it), the top line's growth cells, the line panels drawn and the Overview's computed Q4."""
+    book = _workbook(dataset)
+    rows = _sources(book)
+    sheets = {sheet.title: sheet for sheet in book.worksheets[3:]}
+    panels = [concept for title, concepts in _LINE_PANELS if title in sheets for concept, _ in concepts]
+    shown = [point for series in dataset["series"] if series["concept"] in panels for point in series["points"]]
+    printed = {
+        "an input": any(re.fullmatch(r"Input \d+", str(row["Entry"])) for row in rows),
+        "an input two levels down": any(re.fullmatch(r"Input \d+(\.\d+)+", str(row["Entry"])) for row in rows),
+        "a QoQ in points": any(row["Entry"] == "QOQ" and row["Unit"] == "percentage points"
+                               and isinstance(row["Value (raw)"], (int, float)) for row in rows),
+        **{f"a {growth} that reads n/m, with its inputs": any(
+            (row["Entry"], row["Value (raw)"], after["Entry"]) == (growth.upper(), "nm", "Input 1")
+            and (after["Metric"], after["Period"]) == (row["Metric"], row["Period"]) for row, after in zip(rows, rows[1:]))
+           for growth in ("QoQ", "YoY")},
+        "the top line's YoY reads n/m": any(cell.value == "n/m" for title, sheet in sheets.items()
+                                            if title.endswith(" & growth") for cell in sheet["C"]),
+        "a line panel's figure whose YoY reads n/m": any(point["value"] is not None and point.get("yoy") == "nm"
+                                                         for point in shown),
+        "a computed Q4": any("calculated from annual totals" in line for line in _overview(book)),
+        **{title: title in sheets for title, _ in _LINE_PANELS},
+    }
+    return {place for place, held in printed.items() if held}
+
+
+def test_the_inert_gate_reads_quarterly_runs_that_print_every_place_the_seams_reach():
+    # A quarterly run never carries evidence (D5), yet its files print every place the seams reach: each run of REACH
+    # prints its places, and together they print them all.
+    inert = {case["name"]: case for case in INERT}
+    for name, places in REACH.items():
+        dataset = _strip(_inert(inert[name]))
+        missing = places - _places(dataset)
+        assert dataset["mode"] == "quarterly" and not missing, (name, missing)
+    assert set().union(*REACH.values()) == set(PLACES)
 
 
 @pytest.mark.parametrize("case", INERT, ids=INERT_IDS)
 def test_a_dataset_without_the_fields_prints_none_of_it(case):
-    dataset = _strip(case["dataset"])
+    dataset = _strip(_inert(case))
     html = html_lib.unescape(_pdf(dataset))
     book = _workbook(dataset)
     texts = [str(cell.value) for sheet in book.worksheets for row in sheet.iter_rows() for cell in row if cell.value]
@@ -663,7 +806,7 @@ def _switched_off(monkeypatch) -> None:
 
 @pytest.mark.parametrize("case", INERT, ids=INERT_IDS)
 def test_a_dataset_without_the_fields_exports_as_it_does_with_the_seams_switched_off(case, monkeypatch):
-    dataset = _strip(case["dataset"])
+    dataset = _strip(_inert(case))
     monkeypatch.setattr(export_service, "utcnow", lambda: EXPORTED)
     printed = _files(dataset)
     _switched_off(monkeypatch)
