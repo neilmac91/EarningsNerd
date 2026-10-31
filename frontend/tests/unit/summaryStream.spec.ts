@@ -124,10 +124,10 @@ describe('generateSummaryStream', () => {
       await run
       return { requests: fetchMock.mock.calls.length, shown: errorSpy.mock.calls }
     }
-    const pause =
-      "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
-      'Please try again later or contact support.'
-    expect(await attempts(pause)).toEqual({ requests: 1, shown: [[pause]] })
+    const ceiling =
+      "Your account has reached this month's limit for generating summaries, regenerations included. " +
+      'It resets next month. Contact support with any questions.'
+    expect(await attempts(ceiling)).toEqual({ requests: 1, shown: [[ceiling]] })
     expect(await attempts('Provider unavailable')).toEqual({ requests: 1, shown: [['Provider unavailable']] })
   })
 
@@ -164,7 +164,7 @@ describe('generateSummaryStream', () => {
     ['an unknown code', { code: 'quota_v9' }],
     ['an HTTP-only code on the stream', { code: 'plan_required' }],
   ])('reads %s on the stream as none, and the words decide', async (_, extra) => {
-    const quota = "You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries."
+    const quota = "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
     const { calls } = await refusedOnStream({ message: quota, ...extra })
     expect(calls).toEqual([[quota]])
     expect(isPaywallStreamError(quota)).toBe(true)

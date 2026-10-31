@@ -34,7 +34,7 @@ it is and is registered in §3.
 **SSE.** A stream's error event may carry the same field beside its unchanged keys:
 
 ```json
-{"type": "error", "message": "You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries.", "code": "free_allowance_exhausted"}
+{"type": "error", "message": "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries.", "code": "free_allowance_exhausted"}
 ```
 
 Frames stay `data: <json>\n\n` with no `event:` line (`summary_pipeline.to_sse`), `type` stays the discriminator,
@@ -83,7 +83,7 @@ now keyed on the code, except where the row says otherwise.
 | `email_verification_required` | 403 | **B**: `routers/subscriptions.py::create_checkout_session` ("Verify your email address before you subscribe.") | Dispatch `EMAIL_VERIFICATION_REQUIRED_EVENT` (the verification modal), then surface the detail as today |
 | `plan_required` | 403 | **A**: `dependencies.py::require_entitlement`, `require_pro`, and `require_copilot_or_taste` when the taste allowance is 0 (its words from `copilot_taste_exhausted_detail`). **C**: `routers/summaries.py` regenerate ("Regenerating a summary is a Pro feature.") and the PDF/CSV export refusals, and the serialized Copilot admission when the taste allowance is 0 (the same split as A's); `routers/analysis.py` PDF export | Show the plan or upgrade card for the surface; never offer Retry |
 | `free_allowance_exhausted` | 403 (HTTP); SSE `error` | **A**: `require_copilot_or_taste` with allowance > 0. **C**: the serialized Copilot admission in `routers/summaries.py` with allowance > 0, which raises the same words (both build them with `copilot_taste_exhausted_detail`). **C**: `summary_stages/admission.py`, the free monthly summary limit (SSE) | Show the upgrade card (Free's allowance is used up); never offer Retry; the summary surface also fires `paywallPromptShown` |
-| `pro_fair_use_limit` | 429 (HTTP); SSE `error` | **C**: `summary_stages/admission.py`'s Pro ceiling (SSE; its sentence says "paused", but it is the monthly fair-use cap, not a transient pause), the Copilot cap 429 in `routers/summaries.py`, the analysis cap 429 in `routers/analysis.py` | Show the plan card **without** an upgrade button (the user already has Pro) and the reset timing; never offer Retry. A 429 **without** this code stays a plain rate limit (`Retry-After`), retryable as today |
+| `pro_fair_use_limit` | 429 (HTTP); SSE `error` | **C**: `summary_stages/admission.py`'s Pro ceiling (SSE; the monthly fair-use cap, in the page's words since E37: "this month's limit for generating summaries"; before E37 its sentence said "paused"), the Copilot cap 429 in `routers/summaries.py`, the analysis cap 429 in `routers/analysis.py` | Show the plan card **without** an upgrade button (the user already has Pro) and the reset timing; never offer Retry. A 429 **without** this code stays a plain rate limit (`Retry-After`), retryable as today |
 | `generation_paused` | 503 (HTTP); SSE `error` | **Reserved: no producer on `086de72`.** No kill switch or generation-level flag exists. The candidates are C's: the chat provider-admission wait (`services/ai/provider_admission.py`) and a future operator pause. Whether either emits it is C's decision in its own pull request | Show a transient "try again shortly" state with Retry; never an upgrade card; never counted as a plan limit |
 | `earnings_alert_limit` | 403 | Existing: `routers/watchlist.py` free earnings-alert cap (the calendar's own reader keeps it) | Unchanged: `features/calendar` keeps its own `validateStatus` reader |
 | `summary_rate_limited` | 429 (HTTP); SSE `error` | Summary request abuse limit (HTTP) or new-generation leader admission (SSE) | Retain the result/read path; respect Retry-After or `retry_after_seconds` before requesting new work; never an upgrade card |
@@ -146,7 +146,8 @@ headers and no code, so the order is safe in both directions.
   paywall shown to another.
 - **E**: the `main.py` handler of §4.
 - **No owner** rewrites a `detail` or `message` in the pull request that adds its code. Copy changes follow under
-  their own items once §6 passes.
+  their own items once §6 passes for their surface, its producer and its reader both coded: E37's summary sentences
+  follow C's summary slice (#1869 on #1848), and its Copilot sentences the Copilot slice (#1863 on #1843).
 
 **Locked expectations.** Several existing tests compare whole bodies or whole events, so an added `code` key
 changes them. Each producer's pull request names its rows as an accepted contract change (CLAUDE.md rule 6,
@@ -157,7 +158,9 @@ Neil's 2026-10-25 acceptance of additive codes) and edits only the added key:
 - `backend/tests/unit/test_cached_filings_pool_lifetime.py`: the export and Pro-gate body equalities (the
   `[{"detail": ...}] * 8` forms). Its editing lease is serialized between A (E121, F19) and C (E171).
 - Substring pins (`test_expired_trial_gating.py`, also a locked anchor, `test_excel_export.py`,
-  `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message` and stay untouched.
+  `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message`, and the code-adding pull requests leave them
+  untouched. E37's copy change moves two of them to the new words: `test_expired_trial_gating.py` under the
+  founder's 2026-10-31 approval of that anchor change, and `test_force_regenerate_keeps_xbrl.py`.
   `test_summary_unready_refresh.py`'s regenerate 403 pin now reads the whole body, its code included (C's summary
   slice).
 
