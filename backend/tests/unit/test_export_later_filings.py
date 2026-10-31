@@ -20,10 +20,11 @@ the producer sends it; and evidence on inputs alone), through the real builders:
 4. No letter. Evidence marks nothing: each file draws exactly the case's marked letters.
 5. Parts the payload lacks are left out, never invented.
 6. Inert until the producer: a dataset without the fields prints none of it, and exports byte for byte as it does with
-   each of the builders' later-filing seams switched off, as main had them. The datasets include a quarterly run the
-   producer builds from companyfacts, and two quarterly runs print every place the seams reach. What the comparison
-   cannot see: a change outside those seams that alters a dataset without the fields alike in both runs; the byte
-   comparison against main's builders is the pull request's.
+   each of the builders' later-filing seams switched off, as main had them. The datasets include two quarterly runs
+   the producer builds from companyfacts, a company's and a bank's, and a reach test holds three quarterly runs to
+   exactly the places they print. What the comparison cannot see: a change outside those seams that alters a dataset
+   without the fields alike in both runs, and a place no run prints; the byte comparison against main's builders is the
+   pull request's.
 """
 from __future__ import annotations
 
@@ -232,9 +233,10 @@ def _quarterly_with_growth_inputs() -> dict:
     return {**case, "name": "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m"}
 
 
-# A calendar-year filer's companyfacts as a filer reports them: each 10-Q gives its quarter (a cash flow's only in Q1)
-# and from Q2 its year to date, the 10-K its year, and every report its balances at its period end.
+# A calendar-year filer's companyfacts as filers report them: each 10-Q gives its flows' quarter and from Q2 their year
+# to date (a cash flow its year to date alone), the 10-K its year, and every report its balances at its period end.
 _QUARTERS = {"Q1": ("01-01", "03-31"), "Q2": ("04-01", "06-30"), "Q3": ("07-01", "09-30")}
+_PERIOD_ENDS = (("Q1", "03-31"), ("Q2", "06-30"), ("Q3", "09-30"), ("FY", "12-31"))
 
 
 def _report(year: int, fp: str) -> dict:
@@ -245,68 +247,81 @@ def _report(year: int, fp: str) -> dict:
             "filed": filed}
 
 
-def _flow(quarters: dict[int, tuple], *, cash: bool = False) -> list[dict]:
-    """A flow's items from its four quarters of each year. No report gives Q4, so the ingest computes it (the year less
-    its first nine months), and a cash flow's Q2 and Q3 from its years to date."""
+def _flow(quarters: dict[int, tuple], *, filed: str = "quarters and to date") -> list[dict]:
+    """A flow's items from its four quarters of each year, filed as quarters and to date, "to date" alone (a cash flow,
+    whose Q1 is both) or as "quarters" alone. No report gives Q4, so the ingest computes it, as the year less its first
+    nine months or less its three quarters; and a cash flow's Q2 and Q3 from its years to date."""
     items = []
     for year, values in quarters.items():
         for index, (fp, (start, end)) in enumerate(_QUARTERS.items()):
-            if index == 0 or not cash:
+            if index == 0 or filed != "to date":
                 items.append({"val": values[index], "start": f"{year}-{start}", "end": f"{year}-{end}",
                               **_report(year, fp)})
-            if index:
+            if index and filed != "quarters":
                 items.append({"val": sum(values[:index + 1]), "start": f"{year}-01-01", "end": f"{year}-{end}",
                               **_report(year, fp)})
         items.append({"val": sum(values), "start": f"{year}-01-01", "end": f"{year}-12-31", **_report(year, "FY")})
     return items
 
 
-def _companyfacts() -> dict:
-    """2023 and 2024. In 2024 Q2 net income and EPS turn negative, and in Q3 operating cash flow does, so a QoQ and a
-    YoY read n/m, Cash generation's among them; the ingest derives the margins and free cash flow."""
+def _balances(ends: dict[int, tuple]) -> dict:
+    """A balance's items, as each report gives it at its period's end."""
+    return {"units": {"USD": [{"val": value, "end": f"{year}-{end}", **_report(year, fp)} for year, values in ends.items()
+                              for (fp, end), value in zip(_PERIOD_ENDS, values)]}}
+
+
+def _companyfacts(*, bank: bool = False) -> dict:
+    """2023 and 2024 of a company or of a bank. The company's net income turns negative in 2023 Q4 and 2024 Q2, its EPS
+    and equity in 2024 Q2 and its operating cash flow in 2024 Q3, so QoQ and YoY read n/m on and against computed
+    quarters, Cash generation's and Balance sheet's among them. Its gross profit is filed as quarters alone, so its Q4 is
+    the year less three quarters, a calculation of four inputs; the ingest derives the margins and free cash flow. The
+    bank's net interest income, its top line, turns negative in 2024 Q2."""
     def usd(items: list[dict]) -> dict:
         return {"units": {"USD": items}}
 
+    if bank:
+        return {"cik": 990002, "entityName": "A QUARTERLY BANK", "facts": {"us-gaap": {
+            "InterestIncomeExpenseNet": usd(_flow({2023: (300e6, 320e6, 310e6, 330e6), 2024: (290e6, -20e6, 300e6, 310e6)})),
+            "NetIncomeLoss": usd(_flow({2023: (90e6, 95e6, 92e6, 98e6), 2024: (85e6, 20e6, 88e6, 91e6)})),
+            "StockholdersEquity": _balances({2023: (4000e6, 4050e6, 4100e6, 4150e6), 2024: (4200e6, 4120e6, 4180e6, 4240e6)}),
+        }}}
     eps = [{"val": value, "start": f"{year}-{start}", "end": f"{year}-{end}", **_report(year, fp)}
            for year, values in {2023: (0.99, 1.19, 1.29), 2024: (1.24, -0.8, 1.39)}.items()
            for (fp, (start, end)), value in zip(_QUARTERS.items(), values)]  # the ingest computes no Q4 of EPS
-    balances = {
-        "CashAndCashEquivalentsAtCarryingValue": {2023: (500e6, 520e6, 540e6, 600e6), 2024: (610e6, 580e6, 560e6, 650e6)},
-        "LongTermDebtNoncurrent": {2023: (1000e6, 1000e6, 990e6, 980e6), 2024: (970e6, 1200e6, 1190e6, 1180e6)},
-        "StockholdersEquity": {2023: (2500e6, 2600e6, 2700e6, 2850e6), 2024: (2950e6, 2850e6, 2980e6, 3100e6)},
-    }
     return {"cik": 990001, "entityName": "A QUARTERLY FILER", "facts": {"us-gaap": {
         "RevenueFromContractWithCustomerExcludingAssessedTax": usd(_flow({2023: (1000e6, 1100e6, 1200e6, 1300e6),
                                                                           2024: (1150e6, 1250e6, 1300e6, 1400e6)})),
-        "GrossProfit": usd(_flow({2023: (400e6, 450e6, 480e6, 520e6), 2024: (460e6, 500e6, 530e6, 570e6)})),
-        "NetIncomeLoss": usd(_flow({2023: (100e6, 120e6, 130e6, 150e6), 2024: (125e6, -80e6, 140e6, 160e6)})),
+        "GrossProfit": usd(_flow({2023: (400e6, 450e6, 480e6, 520e6), 2024: (460e6, 500e6, 530e6, 570e6)},
+                                 filed="quarters")),
+        "NetIncomeLoss": usd(_flow({2023: (100e6, 120e6, 130e6, -50e6), 2024: (125e6, -80e6, 140e6, 160e6)})),
         "NetCashProvidedByUsedInOperatingActivities": usd(_flow({2023: (200e6, 220e6, 230e6, 250e6),
-                                                                 2024: (210e6, 240e6, -50e6, 300e6)}, cash=True)),
+                                                                 2024: (210e6, 240e6, -50e6, 300e6)}, filed="to date")),
         "PaymentsToAcquirePropertyPlantAndEquipment": usd(_flow({2023: (50e6, 50e6, 50e6, 60e6),
-                                                                 2024: (60e6, 60e6, 50e6, 70e6)}, cash=True)),
-        **{tag: usd([{"val": value, "end": f"{year}-{end}", **_report(year, fp)} for year, values in ends.items()
-                     for (fp, end), value in zip((("Q1", "03-31"), ("Q2", "06-30"), ("Q3", "09-30"), ("FY", "12-31")),
-                                                 values)])
-           for tag, ends in balances.items()},
+                                                                 2024: (60e6, 60e6, 50e6, 70e6)}, filed="to date")),
+        "CashAndCashEquivalentsAtCarryingValue": _balances({2023: (500e6, 520e6, 540e6, 600e6),
+                                                            2024: (610e6, 580e6, 560e6, 650e6)}),
+        "LongTermDebtNoncurrent": _balances({2023: (1000e6, 1000e6, 990e6, 980e6), 2024: (970e6, 1200e6, 1190e6, 1180e6)}),
+        "StockholdersEquity": _balances({2023: (2500e6, 2600e6, 2700e6, 2850e6), 2024: (2950e6, -100e6, 2980e6, 3100e6)}),
         "EarningsPerShareDiluted": {"units": {"USD/shares": eps}},
     }}}
 
 
 @functools.cache
-def _quarterly_run_the_producer_builds() -> dict:
-    """_companyfacts() through the companyfacts ingest and build_dataset, once a process, in its test database, the
-    company's rows removed once built. Its margins compare in points; a margin's YoY and QoQ list inputs three levels
-    down (the two margins, their revenue and income, and a computed Q4's year and first nine months); QoQ and YoY read
-    n/m with their two inputs; Q4 is computed and every chart sheet is built: what a stored quarterly run holds and
-    the fixtures here lack."""
+def _quarterly_run_the_producer_builds(bank: bool = False) -> dict:
+    """_companyfacts() through the companyfacts ingest and build_dataset, once a process, in its test database (a bank
+    under a bank's SIC code), the company's rows removed once built. The company's margins compare in points; a margin's
+    YoY and QoQ list inputs three levels down (the two margins, their revenue and income, and a computed Q4's year and
+    first nine months); QoQ and YoY read n/m with their two inputs; Q2 to Q4 are computed and every chart sheet is
+    built: what a stored quarterly run holds and the fixtures here lack."""
     with SessionLocal() as db:
         token = uuid.uuid4().hex
-        company = Company(cik=str(int(token[:7], 16)), ticker=f"Q{token[:5]}".upper(), name="A quarterly filer")
+        company = Company(cik=str(int(token[:7], 16)), ticker=f"Q{token[:5]}".upper(), name="A quarterly filer",
+                          sic="6021" if bank else None)
         db.add(company)
         db.commit()
 
         async def fetch(_cik: str) -> dict:
-            return _companyfacts()
+            return _companyfacts(bank=bank)
 
         try:
             asyncio.run(ingest_companyfacts(db, company, force=True, fetcher=fetch))
@@ -318,14 +333,18 @@ def _quarterly_run_the_producer_builds() -> dict:
             db.commit()
 
 
-# The page's chart fixtures, SEC-built runs of both modes slimmed of their QoQ fields and provenance operands: they add
-# real companies' chart sheets, line panels included. Their stored data notes are version 1, which the exports refuse,
-# so they are left out and the exports derive their own.
-CHARTS = json.loads((Path(__file__).resolve().parents[3] / "frontend" / "tests" / "unit" / "fixtures"
-                     / "chart-datasets.json").read_text())["datasets"]
+# The page's fixtures. Its chart fixtures are SEC-built runs of both modes, slimmed of their QoQ fields and provenance
+# operands: they add real companies' chart sheets, line panels included. Their stored data notes are version 1, which
+# the exports refuse, so they are left out and the exports derive their own. The notes tests' capture of META's stored
+# quarterly run keeps its quality fields alone: a real computed Q4 whose YoY reads n/m, and a QoQ n/m against it.
+FIXTURES = Path(__file__).resolve().parents[3] / "frontend" / "tests" / "unit" / "fixtures"
+CHARTS = json.loads((FIXTURES / "chart-datasets.json").read_text())["datasets"]
 INERT = [*WIDER, *(case for case in NOTES if case["name"] != "portable_reason_identity_utf16_ascii"),
          _quarterly_with_growth_inputs(),
          {"name": "a_quarterly_run_the_producer_builds", "build": _quarterly_run_the_producer_builds},
+         {"name": "a_banks_quarterly_run_the_producer_builds",
+          "build": functools.partial(_quarterly_run_the_producer_builds, bank=True)},
+         {"name": "metas_captured_quarterly_run", "dataset": json.loads((FIXTURES / "meta-data-notes.json").read_text())["dataset"]},
          *({"name": name, "dataset": {key: value for key, value in entry["dataset"].items() if key != "data_notes"}}
            for name, entry in CHARTS.items())]
 INERT_IDS = [case["name"] for case in INERT]
@@ -707,40 +726,70 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
              LATER_FILING_EVIDENCE, "first-reported value")
 
 
-# Each place a quarterly run's files print that the seams reach, and the runs of INERT that print it. The gate's reach
-# rests on these two alone: the page's chart fixtures are rebuilt with chart work.
-PLACES = ("an input", "an input two levels down", "a QoQ in points", "a QoQ that reads n/m, with its inputs",
-          "a YoY that reads n/m, with its inputs", "the top line's YoY reads n/m", "a line panel's figure whose YoY reads n/m",
-          "a computed Q4", *(title for title, _ in _LINE_PANELS))
+# Each place a quarterly run's files print that the seams reach, and the runs of INERT that print exactly the places
+# listed. The gate's reach rests on these three, whatever the page's fixtures come to hold.
+PLACES = ("an input", "an input two levels down", "an input three levels down", "a calculation's third input",
+          "a QoQ in points", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
+          "a computed Q2 or Q3's growth reads n/m", "a computed Q4's growth reads n/m",
+          "a Q1's QoQ reads n/m against a computed Q4", "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m",
+          "a Balance sheet figure whose YoY reads n/m", "a computed Q2 or Q3", "a computed Q4",
+          *(title for title, _ in _LINE_PANELS))
 REACH = {
     "a_quarterly_run_the_producer_builds": set(PLACES) - {"the top line's YoY reads n/m"},
-    # The producer never reads the top line n/m: revenue is never negative there (NON_NEGATIVE_CONCEPTS).
+    # The producer reads the top line n/m only where it can turn negative, as a bank's net interest income can; revenue
+    # never does (NON_NEGATIVE_CONCEPTS).
+    "a_banks_quarterly_run_the_producer_builds": {
+        "an input", "an input two levels down", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
+        "the top line's YoY reads n/m", "a computed Q4", "Cash generation", "Balance sheet"},
     "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m": {"an input", "a YoY that reads n/m, with its inputs",
                                                          "the top line's YoY reads n/m"},
 }
 
 
 def _places(dataset: dict) -> set[str]:
-    """The places of PLACES that a run's files print, read from its workbook: Sources & methods' rows in order (a
-    growth's inputs follow it), the top line's growth cells, the line panels drawn and the Overview's computed Q4."""
+    """The places of PLACES that a run's files print, read from its workbook (Sources & methods' rows in order, a
+    growth's inputs after it; the top line's growth cells; the line panels drawn; the Overview's computed Q4) and from
+    the points behind them: a computed quarter is derived or carries period_calculation in its provenance, and a QoQ's
+    second input is the quarter before."""
     book = _workbook(dataset)
     rows = _sources(book)
+    entries = [str(row["Entry"]) for row in rows]
     sheets = {sheet.title: sheet for sheet in book.worksheets[3:]}
-    panels = [concept for title, concepts in _LINE_PANELS if title in sheets for concept, _ in concepts]
-    shown = [point for series in dataset["series"] if series["concept"] in panels for point in series["points"]]
+    panel = {concept: title for title, concepts in _LINE_PANELS if title in sheets for concept, _ in concepts}
+    points = [(series["concept"], point) for series in dataset["series"] for point in series["points"]]
+
+    def computed(record: dict | None) -> bool:
+        return bool((record or {}).get("derived") or ((record or {}).get("provenance") or {}).get("period_calculation"))
+
+    def before(point: dict) -> dict | None:
+        inputs = (point.get("qoq_provenance") or {}).get("inputs") or []
+        return inputs[1] if len(inputs) > 1 else None
+
+    def quarter(point: dict) -> str:
+        return str(point.get("period"))[-2:]
+
     printed = {
-        "an input": any(re.fullmatch(r"Input \d+", str(row["Entry"])) for row in rows),
-        "an input two levels down": any(re.fullmatch(r"Input \d+(\.\d+)+", str(row["Entry"])) for row in rows),
+        "an input": any(re.fullmatch(r"Input \d+", entry) for entry in entries),
+        "an input two levels down": any(re.fullmatch(r"Input \d+\.\d+", entry) for entry in entries),
+        "an input three levels down": any(re.fullmatch(r"Input \d+\.\d+\.\d+", entry) for entry in entries),
+        "a calculation's third input": any(re.fullmatch(r"Input (\d+\.)*([3-9]|\d\d+)", entry) for entry in entries),
         "a QoQ in points": any(row["Entry"] == "QOQ" and row["Unit"] == "percentage points"
                                and isinstance(row["Value (raw)"], (int, float)) for row in rows),
         **{f"a {growth} that reads n/m, with its inputs": any(
             (row["Entry"], row["Value (raw)"], after["Entry"]) == (growth.upper(), "nm", "Input 1")
             and (after["Metric"], after["Period"]) == (row["Metric"], row["Period"]) for row, after in zip(rows, rows[1:]))
            for growth in ("QoQ", "YoY")},
+        **{f"a computed {name}'s growth reads n/m": any(
+            computed(point) and quarter(point) in quarters and "nm" in (point.get("yoy"), point.get("qoq"))
+            for _, point in points) for name, quarters in (("Q2 or Q3", ("Q2", "Q3")), ("Q4", ("Q4",)))},
+        "a Q1's QoQ reads n/m against a computed Q4": any(quarter(point) == "Q1" and point.get("qoq") == "nm"
+                                                          and computed(before(point)) for _, point in points),
         "the top line's YoY reads n/m": any(cell.value == "n/m" for title, sheet in sheets.items()
                                             if title.endswith(" & growth") for cell in sheet["C"]),
-        "a line panel's figure whose YoY reads n/m": any(point["value"] is not None and point.get("yoy") == "nm"
-                                                         for point in shown),
+        **{f"a {title} figure whose YoY reads n/m": any(panel.get(concept) == title and point["value"] is not None
+                                                        and point.get("yoy") == "nm" for concept, point in points)
+           for title in ("Cash generation", "Balance sheet")},
+        "a computed Q2 or Q3": any(computed(point) and quarter(point) in ("Q2", "Q3") for _, point in points),
         "a computed Q4": any("calculated from annual totals" in line for line in _overview(book)),
         **{title: title in sheets for title, _ in _LINE_PANELS},
     }
@@ -748,13 +797,13 @@ def _places(dataset: dict) -> set[str]:
 
 
 def test_the_inert_gate_reads_quarterly_runs_that_print_every_place_the_seams_reach():
-    # A quarterly run never carries evidence (D5), yet its files print every place the seams reach: each run of REACH
-    # prints its places, and together they print them all.
+    # A quarterly run never carries evidence (D5), yet its files print every place of PLACES: each run of REACH prints
+    # exactly its places, so a reading of _places that finds too much fails too, and together they print them all.
     inert = {case["name"]: case for case in INERT}
     for name, places in REACH.items():
         dataset = _strip(_inert(inert[name]))
-        missing = places - _places(dataset)
-        assert dataset["mode"] == "quarterly" and not missing, (name, missing)
+        printed = _places(dataset)
+        assert dataset["mode"] == "quarterly" and printed == places, (name, places - printed, printed - places)
     assert set().union(*REACH.values()) == set(PLACES)
 
 
