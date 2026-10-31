@@ -9,7 +9,10 @@
      0 or 1 bars (an answer whose subject or second company holds no value renders nothing, and the card never mounts,
      whatever `peer_count` says); the rank's denominator is the companies with a value, never `peer_count`.
    - Its behaviour: every cohort the panel shows draws the subject in chart-1 and every other company in the context ink,
-     in both themes; fourteen companies draw eleven, the subject last; the values stop starts at the subject and says
+     in both themes; the chart draws every company its eleven slots hold (a cohort of eleven or fewer whole, the spread's
+     eleventh among them), and fourteen draw the top ten and the subject, or the top eleven where the subject is among
+     them, the footnote saying what the chart shows, and nothing where it shows every company; the values stop starts
+     at the subject and says
      who it is; the footnote names a currency other than the dollar and a drawn value that needs a source check; the
      picker offers the nine metrics FEATURED names at one width; a metric picked holds the plot's room while it loads,
      and says in its place when too few companies report it or its read fails.
@@ -158,7 +161,32 @@ describe('the Sector peers panel (E251)', () => {
     expect(section).not.toHaveTextContent(/of 3/)
   })
 
-  it('draws the top ten companies and then the subject: fourteen companies draw eleven, the subject last', async () => {
+  // The chart's eleven slots: it never leaves out a company a slot could hold, and where a cohort is larger than its slots
+  // the footnote says what the chart shows, so the bars never contradict the rank line's count unexplained.
+  it('draws every company its eleven slots hold: the spread’s eleven, TNYX, the eleventh, among them, and says nothing of a cut', async () => {
+    const answer = answerOf('spread')
+    expect(answer.peers.filter((entry) => entry.value != null), 'eleven companies with a value').toHaveLength(11)
+    renderPanel({ revenue: answer })
+    const section = await panelCard()
+    const { svg, bars } = await plotOf(section, 'Revenue')
+    expect(bars.map((bar) => bar.getAttribute('data-period'))).toEqual(answer.peers.map((entry) => entry.ticker))
+    expect([...svg.querySelectorAll('text[data-text="x"]')].map((tick) => tick.textContent)).toContain('TNYX')
+    expect(within(section).getByText(/ranks #/).closest('p')).toHaveTextContent('SUBX ranks #6 of 11 on revenue')
+    expect(footnote(section)).not.toHaveTextContent('The chart shows')
+  })
+
+  it.each(SHOWING.filter((name) => FIXTURE.cases[name].response.peers.filter((entry) => entry.value != null).length <= 11))(
+    '%s: a cohort of eleven or fewer draws every company ranked, and its footnote says nothing of a cut',
+    async (name) => {
+      const answer = answerOf(name)
+      const section = await openOn(name)
+      const { bars } = await plotOf(section, peerChartDef(answer).title)
+      expect(bars, 'a bar a company ranked').toHaveLength(answer.peers.filter((entry) => entry.value != null).length)
+      expect(footnote(section)).not.toHaveTextContent('The chart shows')
+    },
+  )
+
+  it('draws the top ten and then the subject where it ranks below them: fourteen companies draw eleven, the subject last, and the footnote says so', async () => {
     const answer = answerOf('cap')
     renderPanel({ revenue: answer })
     const section = await panelCard()
@@ -166,6 +194,17 @@ describe('the Sector peers panel (E251)', () => {
     expect(bars.map((bar) => bar.getAttribute('data-period'))).toEqual([...'ABCDEFGHIJ'].map((letter) => `CAP${letter}`).concat('CAPM'))
     expect([...svg.querySelectorAll('text[data-text="x"]')].map((tick) => tick.textContent)).toEqual([...'ABCDEFGHIJ'].map((letter) => `CAP${letter}`).concat('CAPM'))
     expect(within(section).getByText(/ranks #/).closest('p')).toHaveTextContent('CAPM ranks #13 of 14 on revenue')
+    expect(footnote(section)).toHaveTextContent(/Fiscal years can differ by company\. The chart shows the top 10 of the 14 companies ranked, and CAPM\.$/)
+  })
+
+  it('draws the top eleven where the subject ranks among them, and the footnote says so', async () => {
+    const answer = answerOf('cap, subject fifth')
+    renderPanel({ revenue: answer })
+    const section = await panelCard()
+    const { bars } = await plotOf(section, 'Revenue')
+    expect(bars.map((bar) => bar.getAttribute('data-period'))).toEqual([...'ABCDEFGHIJK'].map((letter) => `CAP${letter}`))
+    expect(within(section).getByText(/ranks #/).closest('p')).toHaveTextContent('CAPE ranks #5 of 14 on revenue')
+    expect(footnote(section)).toHaveTextContent(/Fiscal years can differ by company\. The chart shows the top 11 of the 14 companies ranked\.$/)
   })
 
   it('starts the values stop at the subject, which it names as this company, with its rank and its own fiscal year', async () => {

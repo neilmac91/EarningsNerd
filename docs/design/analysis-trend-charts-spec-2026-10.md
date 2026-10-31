@@ -501,7 +501,9 @@ says so; everything else follows the spec.
     beside `VALUES_DONT_FIT`, for any card no metrics table sits beside, so the peers panel reads the same constant.
 - **The Sector peers panel (E251).** The company page's ranked company chart, drawn on the seams above.
   `features/peers/lib/peerChart.ts` turns a peers answer into a `BarChartDef`: the companies with a value in the
-  answer's order, the top ten and then the subject where it ranks lower (eleven at most), each slot keyed by its ticker
+  answer's order, as many as eleven slots hold (`cohort.ts` `drawn`: a cohort of eleven or fewer whole; a larger one the
+  top eleven where the subject ranks among them, else the top ten and then the subject, the card's footnote then saying
+  what the chart shows, `croppedOf`), each slot keyed by its ticker
   or by its place where two companies answer one (`Company.ticker` is not unique), ticked and named by the ticker; every
   company but the subject `context`; `start` at the subject; `COMPANY_READING` ("companies", "First company.", "Last
   company."); the answered `concept`'s label (a bank asked for revenue answers net interest income) and its axis by the

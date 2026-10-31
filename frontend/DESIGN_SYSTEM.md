@@ -3176,7 +3176,10 @@ series at 390, 360 and 320 px under 200% text).
 **Sector peers** (the company page's panel, `features/peers/components/SectorPeersCard.tsx`, loaded by the small gate the
 page imports, `SectorPeers.tsx`) draws through the same engine (E251): `features/peers/lib/peerChart.ts` models a cohort
 the peers endpoint answers as a one-metric bar chart of the companies with a value, in the answer's order (value
-descending), the top ten and then the subject where it ranks lower, eleven bars at most. The company the page is about is
+descending), as many as its eleven slots hold, never leaving out a company a slot could hold: a cohort of eleven or fewer
+whole; a larger one the top eleven where the subject ranks among them, else the top ten and then the subject, and the
+footnote then says what the chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", or "the top
+11 of the 14 companies ranked"), counted as the rank line counts. The company the page is about is
 chart-1 at the bar's full width and every other company a context bar, the context ink at the growth bars' narrower width,
 the cue colour alone cannot give; every value prints on its bar (A4); a slot is as wide as its ticker; a plot that scrolls
 opens with the subject's column in view and the values stop starts there; and the scroll region and the end-of-range
@@ -3189,8 +3192,9 @@ line in the secondary ink ("AAPL ranks #3 of 9 on revenue", over the companies w
 counts withheld entries; no percentile); the picker, the retired panel's nine metrics, their labels and formats from
 FEATURED, the compact select at Financial trends' one width (`w-56`); the footnote in the tertiary ink ("Companies with the
 same SEC industry code, each with its most recent annual {metric} from SEC filings (XBRL), reported in CNY. Fiscal years
-can differ by company.", the currency only where it is not the dollar), which adds "Some figures here need a source
-check. Sources & checks lists them." where a drawn value needs one (no badge: the badge's gate keeps it to Financial
+can differ by company.", the currency only where it is not the dollar), which adds what the chart shows where a cohort
+is larger than its slots, and "Some figures here need a source check. Sources & checks lists them." where a drawn value
+needs one (no badge: the badge's gate keeps it to Financial
 trends); and Sources & checks, listing every company drawn and every one whose value is withheld, which draws no bar. It
 shows itself only once the default metric's answer is a cohort, the subject and at least one other company with a value
 (`features/peers/lib/cohort.ts`, engine-free); until then the gate renders nothing and the card's chunk, the engine with

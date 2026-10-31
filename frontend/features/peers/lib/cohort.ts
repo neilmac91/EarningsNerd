@@ -19,8 +19,8 @@ export const METRICS: Metric[] = [
   'eps_diluted', 'total_assets',
 ].map((key) => FEATURED.find((metric) => metric.key === key)!)
 
-/** How many companies the chart draws by value before the subject: the top ten, then the subject wherever it ranks. */
-export const TOP = 10
+/** The most companies the chart draws: the eleven slots the 502 px desktop card holds (E251's plan, §2 item 5). */
+export const SLOTS = 11
 
 /** The metric an answer ranks on, from its `concept`, not the metric asked: a bank asked for revenue answers net
  *  interest income. Null for a concept the panel cannot name or format. */
@@ -29,14 +29,26 @@ export const metricOf = (concept: string): Metric | null => FEATURED.find((metri
 /** The companies with a value, in the answer's order (value descending, the ticker breaking a tie). */
 const valued = (answer: PeerComparisonResponse) => answer.peers.filter((entry) => entry.value != null)
 
-/** What the chart draws: the companies with a value, the top ten in the answer's order and then the subject where it
- *  ranks lower (eleven bars at most, the retired panel's rule). A withheld value draws nothing; Sources & checks lists
- *  it. */
+/** What the chart draws: the companies with a value, in the answer's order, as many as its eleven slots hold, so it
+ *  never leaves out a company a slot could hold. Where the subject ranks eleventh or better, the top eleven; where it
+ *  ranks lower, the top ten and then the subject. A cohort of eleven or fewer draws every company with a value. A
+ *  withheld value draws nothing; Sources & checks lists it. */
 export function drawn(answer: PeerComparisonResponse): PeerEntry[] {
   const withValue = valued(answer)
-  const top = withValue.slice(0, TOP)
-  const subject = withValue.find((entry) => entry.is_subject)
-  return subject && !top.includes(subject) ? [...top, subject] : top
+  const subject = withValue.findIndex((entry) => entry.is_subject)
+  return subject < SLOTS ? withValue.slice(0, SLOTS) : [...withValue.slice(0, SLOTS - 1), withValue[subject]]
+}
+
+/** What the chart leaves out, for the card to say so: null where it draws every company with a value; otherwise how
+ *  many of the top it draws, of how many companies ranked (the rank line's count), and the subject where it is drawn
+ *  after them, from below. */
+export function croppedOf(answer: PeerComparisonResponse): { top: number; of: number; subject: PeerEntry | null } | null {
+  const withValue = valued(answer)
+  const shown = drawn(answer)
+  if (shown.length === withValue.length) return null
+  const last = shown[shown.length - 1]
+  const below = last.is_subject && withValue.indexOf(last) >= SLOTS
+  return { top: below ? shown.length - 1 : shown.length, of: withValue.length, subject: below ? last : null }
 }
 
 /** Whether an answer is a cohort the panel shows: the subject holds a value and at least one other company does, on a

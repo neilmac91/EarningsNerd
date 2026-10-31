@@ -1,6 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { CHART_TOKENS } from '../../features/analysis/lib/charts/theme'
-import { drawn } from '../../features/peers/lib/cohort'
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
 import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
 
@@ -13,10 +12,10 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * flag, or without the mount, the cases that draw it fail.
  *
  * On /company/SUBX, answered by fixtures/companyPeersApi.ts with the fixture's spread (eleven companies from $416.0B to
- * $5.1B, the subject sixth, so the panel draws the top ten; tests/unit/fixtures/peers-cohorts.json, which the backend's
- * contract test holds to the service), in both themes at 390 and 1280px: the heading and the SVG of the role img named
- * "Revenue chart" mount; the
- * subject's bar computes chart-1's token and every other bar the context token; every printed value is one of the
+ * $5.1B, the subject sixth, all of which the panel's eleven slots draw; tests/unit/fixtures/peers-cohorts.json, which the
+ * backend's contract test holds to the service), in both themes at 390 and 1280px: the heading and the SVG of the role
+ * img named "Revenue chart" mount; the subject's bar computes chart-1's token and every other bar the context token; a
+ * bar a company, TNYX, the eleventh, among them; every printed value is one of the
  * fixture's, to the digit it prints; the values stop opens at the subject, and the spec's DOM checks for one card hold
  * (fixtures/chartChecks.ts: D1, D2, D3, D5, D6 at each paint's floor on the card's computed ground, the context ink among
  * the marks, D8 at full hinting, D10 under reduced motion, D14 and M6, opening with the subject's column in view); at
@@ -111,8 +110,10 @@ for (const { width, height, isMobile, hasTouch } of VIEWPORTS) {
           bars: [...root.querySelectorAll('rect[data-series]')].map((bar) => ({ period: bar.getAttribute('data-period'), fill: getComputedStyle(bar).fill })),
           labels: [...root.querySelectorAll('text[data-text="label"]')].map((text) => text.textContent ?? ''),
         }))
-        const companies = drawn(SPREAD)
-        expect(drawing.bars.map((bar) => bar.period), 'a bar a company, in the answer’s order').toEqual(companies.map((entry) => entry.ticker))
+        // Every company of the eleven, each a slot of its own: the answer's own list, not the panel's rule for it.
+        const companies = SPREAD.peers
+        expect(companies, 'eleven companies, each with a value').toHaveLength(11)
+        expect(drawing.bars.map((bar) => bar.period), 'a bar a company, all eleven, in the answer’s order').toEqual(companies.map((entry) => entry.ticker))
         for (const bar of drawing.bars) {
           expect(hexOf(bar.fill), `${bar.period}'s computed fill`).toBe(bar.period === SUBJECT ? tokens.series[0] : tokens.context)
         }
@@ -135,7 +136,7 @@ for (const { width, height, isMobile, hasTouch } of VIEWPORTS) {
         expectSound({ ...report, name })
         expect(report.start, `${name}: the values stop opens at the subject`).toBe(5)
         if (width < 768) {
-          expect(report.scrolls, `${name}: the spread's ten bars, the top ten of eleven, scroll inside the card on a phone`).toBe(true)
+          expect(report.scrolls, `${name}: the spread's eleven bars scroll inside the card on a phone`).toBe(true)
           await expect(card.getByRole('region', { name: 'Revenue chart. Scroll horizontally to view all companies.', exact: true })).toBeVisible()
         }
         const ground = await card.evaluate((section) => getComputedStyle(section).backgroundColor)

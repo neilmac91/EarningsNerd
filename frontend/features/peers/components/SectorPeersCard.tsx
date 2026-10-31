@@ -5,8 +5,9 @@
  * through the trend charts' engine in the analysis charts' look (features/peers/lib/peerChart.ts): every value printed
  * on its bar (A4), the company the page is about in chart-1 and every other company a context bar in the context ink at
  * the narrower width, the plot opening at the subject, and one values stop reading a company at a time beside the
- * column-wash tooltip. Around it: the heading, the subject's rank over the companies with a value, the metric picker,
- * the footnote and Sources & checks. A metric picked holds the plot's room with bones while it loads, and says so in
+ * column-wash tooltip, as many companies as its eleven slots hold (cohort.ts `drawn`). Around it: the heading, the
+ * subject's rank over the companies with a value, the metric picker, the footnote (which says what the chart shows where
+ * a cohort is larger than its slots) and Sources & checks. A metric picked holds the plot's room with bones while it loads, and says so in
  * the plot's place when too few companies report it or its read fails. No source-check badge (the badge's gate keeps
  * it to Financial trends): where a drawn value needs a check, the footnote says so and Sources & checks lists it.
  */
@@ -22,7 +23,7 @@ import { chartTokens } from '@/features/analysis/lib/charts/theme'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import type { PeerComparisonResponse, PeerEntry } from '@/features/peers/api/peers-api'
 import { usePeers } from '@/features/peers/hooks/usePeers'
-import { DEFAULT_METRIC, drawn, METRICS, metricOf, rankOf, shows } from '@/features/peers/lib/cohort'
+import { croppedOf, DEFAULT_METRIC, drawn, METRICS, metricOf, rankOf, shows } from '@/features/peers/lib/cohort'
 import { peerChart } from '@/features/peers/lib/peerChart'
 import { inSentence } from '@/lib/format'
 
@@ -35,6 +36,11 @@ const ranksOn = (rank: number, of: number, label: string) => ` ranks #${rank} of
  *  company's latest annual figure (its latest FY fact), and no promise of coverage. */
 const footnoteOf = (label: string, currency: string | null) =>
   `Companies with the same SEC industry code, each with its most recent annual ${inSentence(label)} from SEC filings (XBRL)${currency && currency !== 'USD' ? `, reported in ${currency}` : ''}. Fiscal years can differ by company.`
+/** Added to the footnote where the cohort ranks more companies than the chart's eleven slots draw, so a reader who
+ *  counts the bars against the rank line's count is told why: the top it draws, of the companies ranked (the rank line's
+ *  count, never peer_count's withheld entries), and the subject where it is drawn after the top ten, from below. */
+const croppedLine = ({ top, of, subject }: { top: number; of: number; subject: PeerEntry | null }) =>
+  `The chart shows the top ${top} of the ${of} companies ranked${subject ? `, and ${subject.ticker}` : ''}.`
 /** Added to the footnote where a drawn value needs a source check. */
 const NEEDS_A_CHECK = 'Some figures here need a source check. Sources & checks lists them.'
 /** In the plot's place, for a metric picked that too few companies report. */
@@ -76,6 +82,9 @@ export default function SectorPeersCard({ ticker, answer, className }: {
   const rank = chart ? rankOf(chart.answer) : null
   // An amount's reporting currency (CNY), named in the footnote; a margin or a multiple has none.
   const currency = chart && (ranked?.fmt === 'usd' || ranked?.fmt === 'eps') ? unitCurrency(chart.answer.unit ?? '').currency : null
+  // Where the cohort is larger than the chart's slots, the footnote says what the chart shows; nothing where it draws
+  // every company ranked.
+  const cropped = chart ? croppedOf(chart.answer) : null
   const needsCheck = !!chart?.entries.some(needsSourceCheck)
   // Sources & checks: every company drawn, and every company whose value is withheld, which draws no bar.
   const checked = chart ? [...chart.entries, ...chart.answer.peers.filter((entry) => entry.provenance?.validation === 'unavailable')] : []
@@ -150,7 +159,7 @@ export default function SectorPeersCard({ ticker, answer, className }: {
         </div>
       )}
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-        {footnoteOf(label, currency)}{needsCheck ? ` ${NEEDS_A_CHECK}` : ''}
+        {footnoteOf(label, currency)}{cropped ? ` ${croppedLine(cropped)}` : ''}{needsCheck ? ` ${NEEDS_A_CHECK}` : ''}
       </p>
       <SourceChecks values={checked.map((entry) => ({ ...entry, label: checkLabel(entry) }))} />
     </Card>

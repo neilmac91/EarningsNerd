@@ -110,7 +110,7 @@ def _answer(db, case: dict[str, Any]) -> dict[str, Any]:
 def test_the_fixture_holds_the_panels_cases():
     # The panel's gates read these by name; a renamed or dropped case fails here before it fails there.
     assert {"pair", "spread", "near-equal", "net margin", "production single", "no facts", "withheld peer",
-            "withheld subject", "pair plus withheld", "cap", "bank"} <= set(CASES)
+            "withheld subject", "pair plus withheld", "cap", "cap, subject fifth", "bank"} <= set(CASES)
 
 
 @pytest.mark.parametrize("name", list(CASES))
