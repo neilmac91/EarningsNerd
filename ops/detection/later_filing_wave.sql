@@ -12,10 +12,11 @@
 -- Population: a cell is (company, concept, fiscal year) for a reported concept (not the six calculated ones), its
 -- current FY row (is_latest), and a non-current FY row in the same concept, period end, unit and span (a missing start
 -- matches only on a balance) at another accession, whose accession is an annual report's (an FY row of an annual form
--- is stored there) and whose latest FY row stored there ends on the cell's period end, not withheld (validation
--- unavailable), finite, and more than 0.1% of its own value off the current row (any difference where it is 0).
--- That is an upper bound on the cells B gives evidence: the reader also ranks the figure's own filing among the
--- year's own reports and drops a filing whose filing row reports a later year, and both only remove cells.
+-- is stored there, or its filing row is an annual report's, as the reader admits either) and whose latest FY row stored
+-- there ends on the cell's period end, not withheld (validation unavailable), finite, and more than 0.1% of its own
+-- value off the current row (any difference where it is 0). That is an upper bound on the cells B gives evidence: the
+-- reader also ranks the figure's own filing among the year's own reports and drops a filing whose filing row reports a
+-- later year, and both only remove cells.
 -- Growth n/m and the inputs' evidence follow these cells, so they add no company.
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so every set shares one snapshot. Each statement gets 120 s
@@ -54,6 +55,9 @@ WITH params AS (
     WHERE ff.fiscal_period = 'FY'
 ), annual AS (
     SELECT DISTINCT fy.company_id, fy.acc FROM fy CROSS JOIN params p WHERE fy.form = ANY (p.annual_forms)
+    UNION
+    SELECT f.company_id, replace(f.accession_number, '-', '') FROM filings f CROSS JOIN params p
+    WHERE f.filing_type = ANY (p.annual_forms)
 ), own_end AS (
     SELECT fy.company_id, fy.acc, max(fy.period_end) AS end_date
     FROM fy JOIN annual a ON a.company_id = fy.company_id AND a.acc = fy.acc CROSS JOIN params p
