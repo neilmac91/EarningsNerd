@@ -23,8 +23,9 @@ export interface ChartTokens {
   /** chart-1…6, taken in order over the series present (A8). */
   series: readonly [string, string, string, string, string, string]
   /** A bar chart's context bars (E251): every bar it sets beside the one it is about, such as a sector's other companies.
-   *  A solid ink, never an opacity, which the browser's contrast check (D6) cannot see; held to the marks floor on the card
-   *  and under the column wash. No series colour, so it claims no palette slot (A8, M9). */
+   *  A solid ink, never an opacity: a fade paints the ink blended with whatever lies behind it, which no token holds to a
+   *  floor, and the plot's checks fail one (D6). Held to the marks floor on the card and under the column wash. No series
+   *  colour, so it claims no palette slot (A8, M9). */
   context: string
   /** The hover and focus column wash (TrendChartPlot, E193). */
   cursor: string

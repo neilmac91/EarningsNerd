@@ -182,26 +182,32 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
     expect([node.getAttribute('data-series'), node.getAttribute('data-period')].every(Boolean), `${node.tagName} in a series colour names its data`).toBe(true)
   }
   // Literal paint only: the export serialises the plot without the page's CSS or variables. And nothing in the plot fades
-  // (E251): D6 in a browser reads a computed fill, which a fade leaves as it is, so a faded bar would pass it while it paints
-  // under its floor (the retired peers chart's grey at 45%, Lc 32.8 and −16.7). A paler ink is a token of its own. So no
-  // node, the SVG's own included, carries an opacity, a fill or stroke opacity, a filter or a mask, as an attribute or in
-  // its style; a paint's rgba is opaque; no class but the shapes' own visx- classes, which paint nothing (a utility class
-  // such as opacity-45 fades a mark where this check's attributes and the export cannot see it, and Tailwind emits it
-  // from features/); and no filter, mask or SMIL animation element. A stylesheet rule this spec cannot read is D6's, in
-  // a browser: it fails a paint whose computed opacity, its own or a group's, is under 1 (fixtures/chartChecks.ts).
+  // (E251): a fade paints a mark's ink blended with whatever lies behind it, which no token holds to its floor (the
+  // retired peers chart's grey at 45% painted Lc 32.8 and −16.7, under the marks floor). A paler ink is a token of its
+  // own. This loop holds what the DOM states, on every node, the SVG's own included: no opacity, fill or stroke opacity,
+  // filter or mask attribute; no opacity, filter, mask, blend mode or paint in a style (a paint is an attribute, held
+  // literal here, and a tspan takes its text's, which the role check below reads); an opaque rgba; no class but those the
+  // visx shapes the renderer draws emit (Group, Bar and LinePath, @visx/group and @visx/shape 4.0.0), which paint nothing
+  // (a utility class such as opacity-45 fades a mark where these attributes and the export cannot see it, and Tailwind
+  // emits it from features/); and no style, filter, mask or SMIL element. What a stylesheet sets, this spec cannot read:
+  // D6 holds the computed result in a browser, each tspan's included, and fails a paint that a computed opacity, filter,
+  // mask or blend mode fades, its own or a group's (fixtures/chartChecks.ts).
+  const VISX_CLASSES = new Set(['visx-group', 'visx-bar', 'visx-linepath'])
   for (const node of [svg, ...svg.querySelectorAll('*')]) {
     for (const name of ['fill', 'stroke']) {
       const paint = node.getAttribute(name)
       if (paint != null) expect(paint, `${node.tagName} ${name}`).toMatch(/^(#[0-9A-F]{6}|rgba\([^)]*\)|none)$/)
       if (paint?.startsWith('rgba')) expect(Number(paint.slice(5, -1).split(',')[3]), `${node.tagName} ${name}: an opaque rgba`).toBe(1)
     }
+    if (node.tagName.toLowerCase() === 'tspan') expect(['fill', 'stroke'].filter((name) => node.hasAttribute(name)), 'a tspan paints in its text’s ink').toEqual([])
     for (const name of ['opacity', 'fill-opacity', 'stroke-opacity', 'filter', 'mask']) expect(node.hasAttribute(name), `${node.tagName} ${name}: nothing in a plot fades`).toBe(false)
     const style = node.getAttribute('style') ?? ''
     expect(style).not.toContain('var(')
-    expect(style, `${node.tagName} style: nothing in a plot fades`).not.toMatch(/opacity|filter|mask/i)
+    expect(style, `${node.tagName} style: nothing in a plot fades`).not.toMatch(/opacity|filter|mask|mix-blend-mode/i)
+    expect(style, `${node.tagName} style: a paint is an attribute, never a style`).not.toMatch(/(?:^|;)\s*(?:fill|stroke)\s*:/i)
     const classes = (node.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
-    expect(classes.filter((token) => !/^visx-[a-z]+(?:-[a-z]+)*$/.test(token)), `${node.tagName} class: no class paints or fades a mark`).toEqual([])
-    expect(['animate', 'animatemotion', 'animatetransform', 'set', 'filter', 'mask'], `${node.tagName}: no filter, mask or SMIL animation`).not.toContain(node.tagName.toLowerCase())
+    expect(classes.filter((token) => !VISX_CLASSES.has(token)), `${node.tagName} class: no class paints or fades a mark`).toEqual([])
+    expect(['animate', 'animatemotion', 'animatetransform', 'set', 'filter', 'mask', 'style'], `${node.tagName}: no style, filter, mask or SMIL element`).not.toContain(node.tagName.toLowerCase())
   }
   // D5: no axis domain, tick line or tag: every line is a gridline, an off-scale rule or a break stroke.
   expect(svg.querySelectorAll('line').length).toBe(
@@ -1162,7 +1168,8 @@ describe('a ranked company chart (E251): the subject in chart-1, every other com
     })
     const startOf = (model: ChartModel) => model.periods.findIndex((period) => period.key === model.start)
     /** The start's column lies wholly in the view, right of what covers its left edge, and the sticky gutter shows exactly
-     *  once the plot has scrolled: an early start opens at the scroll's start, on the plot's own axis. */
+     *  once the plot has scrolled. The column opens centred as far as the scroll goes: a start whose centred scroll falls
+     *  before 0 opens at the scroll's start, on the plot's own axis, and one past the scroll's end at that end. */
     const expectStartInView = (card: HTMLElement, model: ChartModel) => {
       const viewport = card.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
       const layout = layoutChart(model, viewportWidth, 'card')
@@ -1184,9 +1191,10 @@ describe('a ranked company chart (E251): the subject in chart-1, every other com
       const stop = within(container).getByRole('slider', { name: `${spread.title} chart values` })
       expect(stop).toHaveAttribute('aria-valuenow', '5')
       expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(spread)[5].announcement)
+      // Its column lies in the first view, yet it opens centred: scrolled 74 px at 300, the sticky gutter shown.
       expect(expectStartInView(container, spread), 'a mid start: scrolled, its column centred').toBeGreaterThan(0)
       // The keyboard moves on; a new window starts again at its own subject, and opens there: the near-equal case's fourth
-      // company, in the first view, so at the scroll's start with no gutter.
+      // company, whose centred scroll falls before the scroll's start (−6 px at 300), so it opens there with no gutter.
       fireEvent.keyDown(stop, { key: 'End' })
       expect(stop).toHaveAttribute('aria-valuenow', String(spread.periods.length - 1))
       const nearEqual = peer('near-equal')
@@ -1197,9 +1205,16 @@ describe('a ranked company chart (E251): the subject in chart-1, every other com
       unmount()
       // A start at the first company, a sector's largest: the scroll's start too, on the plot's own axis.
       const first = buildBarChart({ ...structuredClone(PEERS.find(([name]) => name === 'spread')![1]), start: spread.periods[0].key })
-      const fresh = render(frame(first)).container
-      expect(within(fresh).getByRole('slider', { name: `${first.title} chart values` })).toHaveAttribute('aria-valuenow', '0')
-      expect(expectStartInView(fresh, first), 'the first company: at the scroll’s start').toBe(0)
+      const fresh = render(frame(first))
+      expect(within(fresh.container).getByRole('slider', { name: `${first.title} chart values` })).toHaveAttribute('aria-valuenow', '0')
+      expect(expectStartInView(fresh.container, first), 'the first company: at the scroll’s start').toBe(0)
+      fresh.unmount()
+      // A start near the end, the tenth company: its centred scroll (222 px at 300) runs past the scroll's end (156 px), so
+      // it opens at that end, its column in view right of the gutter.
+      const late = buildBarChart({ ...structuredClone(PEERS.find(([name]) => name === 'spread')![1]), start: spread.periods[9].key })
+      const lateCard = render(frame(late)).container
+      expect(within(lateCard).getByRole('slider', { name: `${late.title} chart values` })).toHaveAttribute('aria-valuenow', '9')
+      expect(expectStartInView(lateCard, late), 'a late start: at the scroll’s end').toBe(layoutChart(late, viewportWidth, 'card').width - viewportWidth)
     } finally {
       scroll.mockRestore()
       width.mockRestore()

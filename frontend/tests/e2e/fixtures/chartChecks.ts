@@ -11,9 +11,9 @@ import { apcaLc } from '../../unit/apca'
  * - D2: no two text boxes intersect;
  * - D3: inside a plot rect, only a bar label, an A13b label or a gap's "—"/"n/m" on its zero rule;
  * - D5: every y tick label ends left of the plot;
- * - D6: every paint clears its §3.8 APCA floor on the card's computed background, and none is faded by an opacity, a
- *   fill or stroke opacity, a filter or a mask, its own or a group's up to the SVG, whatever sets it (expectInks: a computed
- *   fill leaves a fade as it is, E251);
+ * - D6: every paint, each tspan read as its own, clears its §3.8 APCA floor on the card's computed background, and none
+ *   is faded by an opacity, a fill or stroke opacity, a filter, a mask or a blend mode, its own or a group's up to the
+ *   SVG, whatever sets it (expectInks: a computed fill leaves a fade as it is, E251);
  * - D8: every string paints at Geist Mono's 0.6 em advance, so the planner's widths are the screen's;
  * - D10: no chart animates under reduced motion;
  * - D14: every bar lies on its value's side of its zero rule, at the page's width;
@@ -39,7 +39,8 @@ export interface Paint {
   floor: 'marks' | 'text' | 'values' | 'grid'
   /** The computed colour, `rgb(…)`. */
   colour: string
-  /** What fades it, its own or a group's up to the SVG (an opacity under 1, a filter, a mask), where anything does. */
+  /** What fades it, its own or a group's up to the SVG (an opacity under 1, a filter, a mask, a blend mode), where
+   *  anything does. */
   fade?: string
 }
 
@@ -161,9 +162,9 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
     for (const list of Object.values(texts)) list.sort()
 
     // D6: each paint's computed colour, with the floor its kind takes, and what fades it, which that colour does not show
-    // (E251: the retired peers chart's grey at 45% read as #6B7280 and painted Lc 32.8): an opacity under 1, a filter or a
-    // mask on it or on a group up to the SVG, or its own fill or stroke opacity under 1, from an attribute, a style, a class
-    // or a stylesheet alike.
+    // (E251: the retired peers chart's grey at 45% read as #6B7280 and painted Lc 32.8): an opacity under 1, a filter, a
+    // mask or a blend mode other than normal on it or on a group up to the SVG, or its own fill or stroke opacity under 1,
+    // from an attribute, a style, a class or a stylesheet alike.
     const fadeOf = (node: Element, channel: 'fill' | 'stroke') => {
       const found: string[] = []
       for (let at: Element | null = node; at; at = at === svg ? null : at.parentElement) {
@@ -172,6 +173,7 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
         if (style.filter && style.filter !== 'none') found.push(`${at.tagName} filter ${style.filter}`)
         const mask = style.maskImage || style.getPropertyValue('mask')
         if (mask && mask !== 'none') found.push(`${at.tagName} mask ${mask}`)
+        if (style.mixBlendMode && style.mixBlendMode !== 'normal') found.push(`${at.tagName} mix-blend-mode ${style.mixBlendMode}`)
       }
       const own = getComputedStyle(node)
       const opacity = Number(channel === 'fill' ? own.fillOpacity : own.strokeOpacity)
@@ -183,7 +185,11 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       label: 'values', 'near-zero': 'values', 'off-value': 'values', strip: 'values', 'off-arrow': 'marks',
     }
     const paints: Array<{ what: string; floor: 'marks' | 'text' | 'values' | 'grid'; colour: string; fade?: string }> = []
-    for (const node of all) paints.push({ what: `${role(node)} "${node.textContent}"`, floor: TEXT_FLOOR[role(node)] ?? 'text', colour: getComputedStyle(node).fill, fade: fadeOf(node, 'fill') })
+    // A text paints its string, or its tspans paint its lines (an x tick's), each able to carry a paint or a fade of its
+    // own that its text's computed style does not show: so each is a paint, at its text's floor.
+    for (const text of all) for (const node of text.querySelector('tspan') ? [...text.querySelectorAll('tspan')] : [text]) {
+      paints.push({ what: `${role(text)} "${node.textContent}"`, floor: TEXT_FLOOR[role(text)] ?? 'text', colour: getComputedStyle(node).fill, fade: fadeOf(node, 'fill') })
+    }
     for (const plot of panels) for (const line of plot.group.querySelectorAll('line[stroke]')) {
       // The zero tick's rule and A3b's dashed edge rules are marks; every other ruled line is a gridline. (A break mark's
       // strokes take their group's surface paint, a cut in the bar rather than a paint of its own.)
@@ -253,9 +259,9 @@ export function expectSound(report: PlotReport, { start }: { start?: number } = 
   expect(report.keyboardStop, `${name}: a scrolling plot is a keyboard stop, and only then`).toBe(report.scrolls)
   // A plot that scrolls opens at its start: the newest period, the one the legend and the metrics table quote, at the
   // scroll's end; a start the chart names (E251) with its column wholly in view, right of what covers the viewport's left.
-  // A7's sticky gutter shows exactly once the viewport has scrolled (TrendChartPlot): an early start opens at the scroll's
-  // start, on the plot's own axis, with none. The gutter sits at the viewport's left edge, its text sound, its tick labels
-  // the plot's own.
+  // A7's sticky gutter shows exactly once the viewport has scrolled (TrendChartPlot): a start whose centred scroll falls
+  // before 0 opens at the scroll's start, on the plot's own axis, with none. The gutter sits at the viewport's left edge,
+  // its text sound, its tick labels the plot's own.
   if (!report.scrolls) {
     expect(report.gutter, `${name}: no gutter overlay on a plot that fits`).toBeNull()
     return

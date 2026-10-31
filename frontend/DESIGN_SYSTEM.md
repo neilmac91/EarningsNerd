@@ -3035,12 +3035,17 @@ series colors** (direction only) and **sage never appears inside a plot area**. 
 `lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`. The context ink,
 `chart.context` (`#968A78` / `#AFA391`, the engine's `context`), paints a bar chart's context bars, every bar it sets
 beside the one it is about (E251, a ranked company chart's other companies): a solid warm stone at a data mark's floor
-on the card and under the column wash in both themes, never an opacity, which D6's computed `fill` cannot see (the retired
-peers chart's grey at 45% painted Lc 32.8 and −16.7). It is no series colour, so it claims no palette slot and leaves the
+on the card and under the column wash in both themes, never an opacity: a fade paints the ink blended with whatever lies
+behind it, which no token holds to a floor (the retired peers chart's grey at 45% painted Lc 32.8 and −16.7 while its
+computed `fill` read the full grey). It is no series colour, so it claims no palette slot and leaves the
 sequence alone. Colour alone cannot tell it from chart-1 for a colour-blind reader (deutan 17 / protan 9 ΔE76 in light,
 15 / 9 in dark), so a context bar also takes the growth bars' narrower width, and the bar the chart is about keeps the full
-one. No mark fades by opacity: `tests/unit/trend-charts-v2.spec.tsx` fails an `opacity`, `fill-opacity` or
-`stroke-opacity` anywhere in a plot. Chart chrome (gridlines,
+one. Nothing in a plot fades. `tests/unit/trend-charts-v2.spec.tsx` fails, on any node of a plot's SVG, an `opacity`,
+`fill-opacity`, `stroke-opacity`, `filter` or `mask` attribute; an opacity, filter, mask, blend mode or paint in a style;
+a translucent rgba; a tspan's own paint; any class but the visx shapes' `visx-group`, `visx-bar` and `visx-linepath`;
+and a `<style>`, filter, mask or SMIL element. In a browser, D6 fails a paint, each tspan's included, that a computed
+opacity, filter, mask or blend mode fades, its own or a group's up to the SVG, whatever sets it
+(`tests/e2e/fixtures/chartChecks.ts`). Chart chrome (gridlines,
 the zero rule, labels, the tooltip's inks) takes the `chart.grid/ref/label` sub-tokens and the text inks through the
 engine's `chartTokens(dark)` (`features/analysis/lib/charts/theme.ts`, below) — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).

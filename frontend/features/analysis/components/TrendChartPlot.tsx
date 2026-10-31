@@ -2,9 +2,10 @@
 /**
  * One trend chart's plot under the spec renderer, and the ways to read it (docs/design/analysis-trend-charts-spec-
  * 2026-10.md §3.7 A7, §3.9, §3.13; DESIGN_SYSTEM.md §10; E193). The plot scrolls inside its card's viewport, a named
- * region and Tab stop only while it overflows, and opens at its start, behind A7's sticky gutter, which repeats the y axis
- * once the plot's own has scrolled away: by default the newest period, the one the legend and the metrics table quote,
- * and for a chart that names its start (`model.start`, E251: a ranked company chart's subject) that category's column.
+ * region and Tab stop only while it overflows, and opens at its start: by default the newest period, the one the legend
+ * and the metrics table quote, at the scroll's end; for a chart that names its start (`model.start`, E251: a ranked
+ * company chart's subject), that category's column, centred in the view as far as the scroll goes. A7's sticky gutter
+ * repeats the y axis once the plot has scrolled and its own axis has gone; at the scroll's start there is none.
  *
  * One values stop reads the chart a period at a time: a slider over the periods whose value text is the period's
  * readout (lib/charts/readout.ts), so a screen reader speaks it on focus and on every move. It is a transparent layer
@@ -127,8 +128,8 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
   // lose the reader's place: a plot that overflows is planned at its minimum width, so a resize changes none of these. The
   // newest period opens at the scroll's end. A start before it opens with its column centred in the view right of the
   // gutter, as a keyboard move brings a column into view (the column's centre, less half the gutter, less half the view),
-  // as far as the scroll goes: an early start opens at the scroll's start, its column in the first view on the plot's own
-  // axis, so with no sticky gutter, which shows once the plot has scrolled.
+  // clamped to the scroll's range: a start whose centred scroll falls before 0 opens at the scroll's start, on the plot's
+  // own axis with no sticky gutter (which shows once the plot has scrolled), and one past the end at the scroll's end.
   const startScroll = start === last ? null : layout.x(model.periods[start].key) - layout.plotLeft / 2
   useLayoutEffect(() => {
     const viewport = viewportRef.current

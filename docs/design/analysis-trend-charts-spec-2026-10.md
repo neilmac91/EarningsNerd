@@ -307,7 +307,9 @@ says so; everything else follows the spec.
       x = 0.
     - D3's "on the zero rule" is a gap's baseline 3 px above its panel's zero line (A11's placement), within a pixel.
     - D6 measures each paint's computed colour against the card's computed background, itself held to «t.surface»;
-      each role takes its §3.8 floor, the ↑ and ↓ arrows a mark's. The column wash is held at the token level only.
+      each role takes its §3.8 floor, the ↑ and ↓ arrows a mark's, and each tspan is a paint of its own. A paint that a
+      computed opacity, filter, mask or blend mode fades fails, its colour notwithstanding (E251). The column wash is held
+      at the token level only.
     - D9's "before and after hydration": no chart is in the server's HTML (the page draws them after a run), so each
       card's heights are recorded from the moment it is inserted, and it keeps one.
     - M19 lets an item break inside only when it is wider than its legend's whole line: no wrapping avoids that
@@ -468,18 +470,27 @@ says so; everything else follows the spec.
     swatch in the context ink, so a tooltip's swatch is the hovered bar's own paint (E236, as the retired peers chart's
     `swatchOf` did). The mark stays chart-1, so M9 and the golden plans are unmoved. `trend-charts-v2.spec.tsx` draws every
     peer case through `ChartPlotFrame` in both themes, holds each bar's paint and width to its role and each tooltip
-    swatch to its bar, and fails an `opacity`, `fill-opacity` or `stroke-opacity` anywhere in a plot: D6 reads a
-    computed `fill`, which an opacity leaves as it is.
+    swatch to its bar, and fails whatever the DOM states that fades a paint, on any node of a plot's SVG: an `opacity`,
+    `fill-opacity`, `stroke-opacity`, `filter` or `mask` attribute; an opacity, filter, mask, blend mode or paint in a
+    style; a translucent rgba; a tspan's own paint; any class but the visx shapes' (`visx-group`, `visx-bar`,
+    `visx-linepath`); a `<style>`, filter, mask or SMIL element. A fade paints the ink blended with whatever lies behind
+    it, which no token holds to its floor, and the computed `fill` D6 reads leaves it as it is, so D6 also fails a paint,
+    each tspan's included, that a computed opacity, filter, mask or blend mode fades, its own or a group's up to the SVG
+    (`fixtures/chartChecks.ts`; §6).
   - A start category: a bar chart can name the category it starts at (`BarChartDef.start`, refused when it names none),
     carried as `ChartModel.start`. The values stop starts there, a new window starts again there, and a plot that
     overflows opens with that column centred in the view right of the gutter, as a keyboard move brings a column into
-    view, as far as the scroll goes, so a phone opens on a ranked company chart's subject rather than at its smallest
-    company. An early start, whose column the first view holds (a sector's largest company, or the near-equal case's
-    fourth on a phone), opens at the scroll's start, on the plot's own axis with no sticky gutter, which shows only once
-    the plot has scrolled. Unset, it is the newest period, as before. `trend-charts-v2.spec.tsx` holds the stop's period
-    on mount and after a new window, the column in view and the gutter exactly when scrolled, for a first, an early and a
-    middle start; `fixtures/chartChecks.ts`'s "opens at its newest period" is "opens at its start", the caller's
-    (`expectSound(report, { start })`) or the newest, the stop held to it. No page names a start yet, so its first run in a
+    view, so a phone opens on a ranked company chart's subject rather than at its smallest company: scrolled to the
+    column's centre less half the gutter less half the view, clamped to the scroll's range (`TrendChartPlot`). A start
+    whose centred scroll falls before 0 (a sector's largest company; the near-equal case's fourth at 300 px, −6 px)
+    opens at the scroll's start, on the plot's own axis with no sticky gutter, which shows only once the plot has
+    scrolled; one whose centred scroll runs past the end (the spread's tenth at 300 px, 222 px against 156) opens at the
+    end. A start whose column the first view holds may still open scrolled: the spread's sixth opens at 74 px at 300 px,
+    centred. Unset, it is the newest period, as before. `trend-charts-v2.spec.tsx` holds the stop's period on mount and
+    after a new window, the column in view and the gutter exactly when scrolled, for a first, an early, a middle and a
+    late start; `fixtures/chartChecks.ts`'s `expectSound(report, { start })` holds the values stop to the caller's start,
+    else the newest period ("the values stop starts at the chart's start"), and asks "opens at its newest period" of the
+    newest start alone. No page names a start yet, so its first run in a
     browser is E251's PR 2.
   - Reading words: a bar chart can name its categories (`BarChartDef.reading`, carried as `ChartModel.reading`:
     `{ items, first, last }`), so its scroll region reads "Scroll horizontally to view all {items}." and a step past
@@ -1168,9 +1179,10 @@ E255 retires both tokens.)
 (E255, 2026-10-31: `chart.crosshair` and `chart.tip` are retired from `tailwind.config.js`, and the `tip` row names
 the Card recipe the renderer's tooltip takes. The built CSS held no class of either token before or after.)
 (E251, 2026-10-31: the `context` row is new, `chart.context` in `tailwind.config.js`, for the ranked company chart's other
-companies. It is a solid ink because a fade by opacity escapes D6, which reads a computed `fill`, while it really paints
-lower: the retired Sector peers panel's `flat` at 45% composited to `#BABDC1` (Lc 32.8 on the card, 26.7 under the wash)
-and `#57606D` (−16.7, −13.4). The marks floor holds it on the card and under the column wash in both themes
+companies. It is a solid ink because a fade paints the ink blended with whatever lies behind it, which no token holds to
+a floor: the retired Sector peers panel's `flat` at 45% composited to `#BABDC1` (Lc 32.8 on the card, 26.7 under the
+wash) and `#57606D` (−16.7, −13.4), while its computed `fill`, all D6 then read, showed the full grey. D6 now fails a
+fade (§6). The marks floor holds it on the card and under the column wash in both themes
 (`chart-apca.spec.ts`), with 52.2 and −46.4 under the wash; in light it is lighter and greyer than chart-1 (OKLCH chroma
 0.030 against 0.080), and in dark it measures chart-1-dark's Lc, since the floor sits about 1 Lc under it there, so it
 differs by chroma and hue alone. It is 3.24:1 on the light card and 3.05:1 on cream, the 3:1 a non-text mark needs (DS §1),
@@ -1908,7 +1920,7 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | D3 | DOM | No note glyph (band letters, †) and no ↑/↓ inside any plot rect; text inside a plot rect is limited to bar labels, A13b labels and the `—`/`n/m` state glyphs on the zero rule | stacked "a" markers |
 | D4 | DOM | Every element with a series-colour or context-ink fill or stroke has `data-series` and `data-period` (marks, off-scale arrows), or is a legend or strip swatch; count of others = 0 | coloured right-axis bar |
 | D5 | DOM | Every y tick label's right edge < G_L; no text right of the plot except the right pad; no axis domain path, tick line or tag element exists | second axis, spine, tag |
-| D6 | DOM | Computed colours meet the §3.8 APCA thresholds against «t.surface» in both themes, including the card's HTML subtitle, legend and footnotes | low contrast |
+| D6 | DOM | Computed colours meet the §3.8 APCA thresholds against «t.surface» in both themes, including the card's HTML subtitle, legend and footnotes, each `tspan` read as a paint of its own; and no paint in a plot is faded: a computed opacity under 1, a filter, a mask or a blend mode other than `normal` on it or on a group up to the SVG, or its own fill or stroke opacity under 1, fails whatever sets it (E251) | low contrast; a faded mark its computed colour does not show |
 | D7 | DOM | Marker count = valued and zero in-domain points on line series; isolated points visible | invisible points |
 | D8 | DOM | For every `<text>`, `getComputedTextLength()` = 0.6 × 11 × chars ± 0.5 px | fallback font |
 | D9 | DOM | Card heights identical before and after hydration and across each grid row; no sideways page scroll at 390 px | layout shift |

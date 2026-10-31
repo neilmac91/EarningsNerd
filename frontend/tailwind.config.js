@@ -167,10 +167,11 @@ module.exports = {
           '6-dark': '#AFA2DE', // periwinkle  — Lc −52.8
           // ---- The context ink (E251) ----
           // A bar chart's context bars: every bar it sets beside the one it is about (a sector's other companies). A solid
-          // warm stone, never an opacity, which the browser's contrast check cannot see. APCA Lc at the marks' 45 on the card
-          // and under the column wash (tests/unit/chart-apca.spec.ts): light 58.3 / 52.2 (3.2:1 on the card), dark −49.7 /
-          // −46.4 (chart-1-dark's own Lc on the card; the light hex is −36.8 there). No series colour: it claims no palette
-          // slot, so the sequence above is untouched.
+          // warm stone, never an opacity: a fade paints the ink blended with whatever lies behind it, which no token holds
+          // to a floor, and the charts' checks fail one. APCA Lc at the marks' 45 on the card and under the column wash
+          // (tests/unit/chart-apca.spec.ts): light 58.3 / 52.2 (3.2:1 on the card), dark −49.7 / −46.4 (chart-1-dark's own
+          // Lc on the card; the light hex is −36.8 there). No series colour: it claims no palette slot, so the sequence
+          // above is untouched.
           context: { light: '#968A78', dark: '#AFA391' },
           // ---- Chart chrome sub-tokens ----
           // Gridlines: Lc 16.8 / −15.0 on the card, visible enough to read a value across, quieter than the zero rule
