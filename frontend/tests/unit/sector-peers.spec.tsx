@@ -48,12 +48,14 @@ import type { PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import SectorPeers from '@/features/peers/components/SectorPeers'
 import { drawn, noCohort } from '@/features/peers/lib/cohort'
 import { peerChartDef } from '@/features/peers/lib/peerChart'
-import { peerBarCases, type PeerFixture } from './chartPlan'
+import { PEER_SHOWING, type PeerFixture } from './chartPlan'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture
 const answerOf = (name: string): PeerComparisonResponse => structuredClone(FIXTURE.cases[name].response)
-/** Every cohort the panel shows, by the pinned list (chartPlan.ts PEER_SHOWING, which peerBarCases holds `shows` to). */
-const SHOWING = peerBarCases(FIXTURE).map(([name]) => name)
+/** Every cohort the panel shows, by the pinned list (chartPlan.ts PEER_SHOWING), read as it stands rather than through
+ *  peerBarCases, whose check of `shows` would stop this file's collection: here a case `shows` gets wrong fails as that
+ *  case, below. */
+const SHOWING = PEER_SHOWING
 /** Every case it does not show, with the first reason it does not (cohort.ts noCohort), each reason alone deciding
  *  one at least: production's single and a withheld peer only that fewer than two companies have a figure; a subject
  *  with no fact or a withheld one beside companies with a value only the subject's own figure; capital expenditures
