@@ -5,10 +5,10 @@
  * names, the subject's own figure and at least one other company's). Only then does the card load, in a chunk of its
  * own, so the trend charts' engine stays out of the company page's first load and reaches only a company with a cohort,
  * as Financial trends keeps it out of the filing page's (SummaryDisplay.tsx; tests/e2e/company-first-load.spec.ts holds
- * it on the build). Production stores no SIC codes until the founder's backfill, so every company answers itself alone
- * there and the panel shows nothing. Visibility rides on the default answer, never on a latch: a metric picked in the
- * card that draws no chart keeps the card and says why. The page keys the panel's boundary by ticker, so a soft
- * navigation to another company starts it afresh, its card chunk included.
+ * it on the build). Production answers cohorts since the founder's SIC backfill of 2026-10-31. Visibility rides on the
+ * default answer, never on a latch: a metric picked in the card that draws no chart keeps the card and says why. The
+ * page keys the panel's boundary by ticker, so a soft navigation to another company starts it afresh, its card chunk
+ * included.
  */
 import { lazy, Suspense, useState } from 'react'
 import { usePeers } from '@/features/peers/hooks/usePeers'
