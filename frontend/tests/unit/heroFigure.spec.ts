@@ -47,4 +47,38 @@ describe('the live hero’s figures', () => {
     const example = await fetchExampleData()
     expect(example?.metrics.map(({ label, value }) => `${label} ${value}`)).toEqual(['Revenue $416.2B', 'Net income $112.0B'])
   })
+
+  it('fills the EPS tile only from a row that says diluted, and else shows the other two figures', async () => {
+    const folder = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
+    const shown = async (rows: { metric: string; currentPeriod: string; deltaPercent: number }[]) => {
+      vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
+        ok: true,
+        json: async () => url.endsWith('/api/filings/3')
+          ? { id: 3, company: { ticker: 'AAPL', name: 'Apple Inc.' }, filing_type: '10-K', filing_date: '2025-10-31', sec_url: folder, document_url: `${folder}aapl-20250927.htm` }
+          : { business_overview: 'Net sales rose on iPhone and Services.', financial_highlights: { normalized: { metrics: rows } } },
+      })))
+      return (await fetchExampleData())?.metrics.map(({ label, value }) => `${label} ${value}`)
+    }
+    const base = [
+      { metric: 'Total net sales', currentPeriod: '$416.2B', deltaPercent: 6.4 },
+      { metric: 'Net income', currentPeriod: '$112.0B', deltaPercent: 19.5 },
+    ]
+    // The tile says "EPS (diluted)" (chief design on #1876): it takes the row that says diluted, though a basic row comes first.
+    expect(await shown([
+      ...base,
+      { metric: 'Basic earnings per share', currentPeriod: '$7.49', deltaPercent: 22.8 },
+      { metric: 'Diluted earnings per share', currentPeriod: '$7.46', deltaPercent: 22.7 },
+    ])).toEqual(['Revenue $416.2B', 'Net income $112.0B', 'EPS (diluted) $7.46'])
+    for (const name of ['EPS (diluted)', 'Diluted EPS', 'Basic and diluted EPS']) {
+      expect(await shown([...base, { metric: name, currentPeriod: '$7.46', deltaPercent: 22.7 }]), name).toEqual([
+        'Revenue $416.2B', 'Net income $112.0B', 'EPS (diluted) $7.46',
+      ])
+    }
+    // No row says diluted: the hero shows its other two figures, never a basic or a bare EPS under the diluted name.
+    for (const name of ['EPS (basic)', 'Basic EPS', 'EPS', 'Earnings per share']) {
+      expect(await shown([...base, { metric: name, currentPeriod: '$7.49', deltaPercent: 22.8 }]), name).toEqual([
+        'Revenue $416.2B', 'Net income $112.0B',
+      ])
+    }
+  })
 })

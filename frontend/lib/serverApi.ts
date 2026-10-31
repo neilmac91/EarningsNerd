@@ -114,7 +114,9 @@ export const toExcerpt = (markdown: string): string => {
 const METRIC_MATCHERS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'Revenue', pattern: /revenue|net sales/i },
   { label: 'Net income', pattern: /net income/i },
-  { label: 'Diluted EPS', pattern: /eps|earnings per share/i },
+  // The tile says diluted, so only a row that says diluted EPS fills it (chief design on #1876): a basic or a bare "EPS"
+  // row leaves the hero its other two figures rather than putting another figure under this name.
+  { label: 'EPS (diluted)', pattern: /^(?=.*\bdiluted\b)(?=.*\b(?:eps|earnings per share)\b)/i },
 ]
 
 // A figure the server wrote whole from the filing's data, as a replaced figure is ("$133,050,000,000", "EUR
