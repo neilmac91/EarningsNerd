@@ -40,8 +40,10 @@ import { bindingResolver, containerEscape } from './astBindings'
  * (30s)"), the scan stops: the words before it are the label's start. A face with no words (an icon) is the label's
  * alone. A label the scan cannot read on a control that shows words fails closed, as UNREAD lists.
  *
- * RESIDUE lists the controls that fail today, UNREAD the labels the scan cannot read, each per file with the reason it
- * waits; each list's size equals its cap, so a fix lowers the count and the cap in the same commit (allowlistCapsAreEqualities).
+ * No control fails: the residue this gate opened with on #1884 was fixed one control at a time, each with the words chief
+ * design ruled there, so a control that fails is fixed in the change that brings it, never listed. UNREAD lists the labels
+ * the scan cannot read, per file with the reason; its size equals its cap, so a fix lowers the count and the cap in the
+ * same commit (allowlistCapsAreEqualities).
  *
  * Out of reach: a label or a face a prop or a parameter hands in, which goes to UNREAD (planted below); what a caller
  * hands a component of another module that sets its control's label and face from props (ChartControl's and
@@ -351,12 +353,6 @@ const SOURCES = execFileSync('git', ['ls-files', '*.tsx', '*.jsx'], { cwd: FRONT
   .split('\n')
   .filter((rel) => rel && !rel.startsWith('tests/'))
 
-/** The controls that fail today, per file, each with what waits on its fix (E68 (3)). Chief design ruled each fix's words on
-    #1884 (comments 6550067628 and 6550409876); each lands in its own pull request, which lowers its line and the cap. */
-const RESIDUE: Record<string, number> = {
-  'features/feedback/components/FeedbackWidget.tsx': 1, // the launcher shows "Feedback" from sm and is named "Send feedback" or "Close feedback", where aria-expanded already says which
-}
-const RESIDUE_MAX = { files: 1, controls: 1 }
 /** The labels the scan cannot read on a control that shows words, per file, with why. */
 const UNREAD: Record<string, number> = {
   'features/admin/components/FeedbackRow.tsx': 1, // admin: the row's link opens with the message's preview, data, then shows "View details", and is named "View details for feedback N"
@@ -373,22 +369,24 @@ describe('label in name: a control that shows words keeps them at the start of i
     const file = path.join(FRONTEND, rel)
     return { rel, findings: labelInName(readFileSync(file, 'utf8'), rel, exportedTextFrom(file)) }
   })
-  it('every control in the app, but for RESIDUE and UNREAD', () => {
+  it('no control in the app fails, and UNREAD lists every label it cannot read', () => {
     const problems: string[] = []
-    for (const [kind, list] of [['fail', RESIDUE], ['unread', UNREAD]] as const) {
-      const found = new Map<string, string[]>()
-      for (const { rel, findings } of scan) for (const f of findings) if (f.kind === kind) found.set(rel, [...(found.get(rel) ?? []), `${rel}:${f.line} ${f.detail}`])
-      for (const [rel, lines] of found) {
-        const allowed = list[rel] ?? 0
-        if (lines.length > allowed) problems.push(`${lines.length} ${kind} in ${rel}, ${allowed} listed:\n  ${lines.join('\n  ')}`)
-        else if (lines.length < allowed) problems.push(`${lines.length} ${kind} in ${rel}, ${allowed} listed: lower its count`)
+    const unread = new Map<string, string[]>()
+    for (const { rel, findings } of scan) {
+      for (const f of findings) {
+        if (f.kind === 'fail') problems.push(`${rel}:${f.line} ${f.detail}: its label must begin with the words it shows`)
+        else if (f.kind === 'unread') unread.set(rel, [...(unread.get(rel) ?? []), `${rel}:${f.line} ${f.detail}`])
       }
-      for (const rel of Object.keys(list)) if (!found.has(rel)) problems.push(`${rel} has no ${kind} left: delete its line`)
     }
+    for (const [rel, lines] of unread) {
+      const allowed = UNREAD[rel] ?? 0
+      if (lines.length > allowed) problems.push(`${lines.length} unread in ${rel}, ${allowed} listed:\n  ${lines.join('\n  ')}`)
+      else if (lines.length < allowed) problems.push(`${lines.length} unread in ${rel}, ${allowed} listed: lower its count`)
+    }
+    for (const rel of Object.keys(UNREAD)) if (!unread.has(rel)) problems.push(`${rel} has no unread left: delete its line`)
     expect(problems, problems.join('\n')).toEqual([])
   })
-  it('each list is as long as its cap', () => {
-    expect({ files: Object.keys(RESIDUE).length, controls: Object.values(RESIDUE).reduce((a, b) => a + b, 0) }).toEqual(RESIDUE_MAX)
+  it('UNREAD is as long as its cap', () => {
     expect({ files: Object.keys(UNREAD).length, labels: Object.values(UNREAD).reduce((a, b) => a + b, 0) }).toEqual(UNREAD_MAX)
   })
 })
