@@ -1309,6 +1309,17 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  (its classes equal brand's, the dot in its ink, the label on the interactive Card at rest and
                  pressed in both themes) and tests/unit/designSnapshotParity.spec.ts (DESIGN.md's badge-new
                  paints what the variant paints).
+                 <Badge wrap>: below a 24rem viewport (384px at the default text size, 768px under a 200% text
+                 setting) the label may wrap where the chip does not fit, and the chip takes the 16px step, a
+                 pill on one line and a rounded box once it wraps (the radius rule below), as Button's narrow
+                 state does for a button's label: on a line of its own the one-line chip can be wider than a
+                 phone's card under 200% text (the hero example's quality badge, E156; the filing page's source
+                 check, SourceCheckBadge). Its two classes, [@media(max-width:24rem)]:whitespace-normal and
+                 [@media(max-width:24rem)]:rounded-xl, come after BASE's whitespace-nowrap and rounded-full in
+                 the stylesheet, so they win there, where a whitespace-normal or rounded-xl className alone loses
+                 to BASE (gates: the hero's markup, tests/e2e/fixtures/hero-example-live-badge.html, held by
+                 tests/unit/hero-example-surface.spec.tsx and laid in by tests/e2e/hero-example-badge.spec.ts;
+                 the source check's two classes in tests/unit/fundamentals-trend-chart.spec.tsx).
 
 Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
                  <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
@@ -2537,7 +2548,7 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
   Chips are full while they keep to one line (Badge); a chip whose label can wrap takes 16
   (`rounded-xl`) instead, a pill on one line and a rounded box once it wraps, since a 9999px radius
   turns a wrapped chip into a capsule whose curve crosses its text (SourceTrace's provenance chip, the
-  admin email chip in EmailChipsInput).
+  admin email chip in EmailChipsInput, and `<Badge wrap>` below a 24rem viewport).
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
