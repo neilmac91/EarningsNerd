@@ -326,8 +326,9 @@ def _no_mock_left_on_generation_singletons():
     the harness mock back after the harness restored production, for the rest of the process
     (``test_sec_rate_limiter`` then read the mock's canned text). Undo such overrides first, with
     ``monkeypatch.context()`` inside the block. A leak fails the leaking test's teardown and is
-    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it. A method that
-    monkeypatch's undo left pinned on a singleton is cleared too, covered by an ordered probe pair there.
+    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it. A method left
+    pinned on a singleton (an assigned bound method; before pytest 9.2.0, also monkeypatch's undo) is
+    cleared too, covered by an ordered probe pair there.
     """
     before = [(target, dict(vars(target))) for target in _generation_singletons()]
     seen = {id(target) for target, _ in before}
@@ -717,7 +718,7 @@ def _offline_stream_enrichment(request):
 
     with ExitStack() as stack:
         for seam in ("get_xbrl_data", "get_filing_sections"):
-            # patch.object (not monkeypatch) deletes the instance attribute on exit, so nothing
-            # is left behind on the shared xbrl_service singleton.
+            # patch.object deletes the instance attribute on exit (as monkeypatch does from pytest
+            # 9.2.0), so nothing is left behind on the shared xbrl_service singleton.
             stack.enter_context(patch.object(summary_pipeline.xbrl_service, seam, AsyncMock(return_value=None)))
         yield
