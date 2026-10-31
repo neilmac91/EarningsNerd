@@ -178,8 +178,9 @@ describe('generateSummaryStream', () => {
 
   // The E31 contract's §3, code by code: whether the card withholds its Retry for a refusal carrying the code, which
   // decides first whatever the words. Each rule below is read by hand from §3's "Client behaviour" cell, and pinned to
-  // that cell by a hash of its text: any edit to the cell fails here until its rule is read again, so a rule written
-  // in any words (a settlement of the disagreement below among them) is never missed. No prose is parsed.
+  // that cell by a hash of its text: any edit to the cell fails here until its rule is read again, so a rule the row's
+  // cell states, in any words (a settlement of the disagreement below among them), is never missed. No prose is
+  // parsed. A rule §3 states outside a row's cell (a note under the table) is not pinned: write it in the row.
   const SECTION_3 = (() => {
     const doc = readFileSync(path.join(REPO, 'docs/audit/contracts/error-codes.md'), 'utf8')
     const section = doc.slice(doc.indexOf('## 3.'), doc.indexOf('## 4.'))
@@ -205,7 +206,7 @@ describe('generateSummaryStream', () => {
   }
   // #1824 ships `generation_paused` as non-retryable, where §3's row gives it a Retry: reported on #1848 for the
   // contract's owner to settle. Named so that any other disagreement fails, and so does this one once it is settled:
-  // in the reader by the verdict below, in §3 by its cell's hash.
+  // in the reader by the verdict below, in §3's row by its cell's hash.
   const DISAGREES_WITH_SECTION_3: KnownErrorCode[] = ['generation_paused']
 
   it('holds each known code\'s §3 row to the cell its Retry rule was read from', () => {
