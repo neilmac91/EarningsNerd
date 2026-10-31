@@ -18,7 +18,8 @@ import { BUILD, firstLoadOf, MARKERS, staticScripts } from './fixtures/companyBu
  * load must hold at least FLOOR scripts. A missing build fails rather than skips.
  */
 const ROUTE = '/company/[ticker]/page'
-/** The fewest scripts a real first load of the route holds: the build of 2026-10-31 loads 19. */
+/** The fewest scripts a real first load of the route holds: the build of 2026-10-31 names 22, 19 of them the page's and
+ *  the root's and 3 its boundaries'. */
 const FLOOR = 10
 
 /** The first-load scripts holding a part's string, as "file: part". */

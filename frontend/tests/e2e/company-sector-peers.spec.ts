@@ -25,7 +25,7 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * the heading, the rank line and the picker stay inside the card. While a metric picked loads, and once its answer
  * draws no chart, the heading row keeps its height, at 390 and 1280px. With production's own answer, a company ranked
  * alone (peer_count 1, JPM's on 2026-10-31), the panel never asks for the card's chunk: once the page has handled that
- * answer (a mark the read's own end leaves, see settled below), no script holding the card is in the document or was
+ * answer (markPeersSettled below, a mark the read's own end leaves), no script holding the card is in the document or was
  * requested, the panel shows nothing and the filings render; the spread, at the same mark, has asked for it, so the
  * mark comes after the gate's decision. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
  */
