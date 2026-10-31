@@ -372,9 +372,9 @@ The mark's words and ink belong to this notation system (§2.2).
 
 **As shipped (WP5a-B).** WP5a ships as three pull requests, deployed in the order of the WP5a brief's D13, F1 → X → B:
 the page's readers (F1, #1776), then the exports' later-filing line and evidence (X, #1866, recorded in §5's "As
-shipped (WP5a-X)"), inert until the producer, then the producer (B), so no surface states a false cause in between.
-The producer is `backend/app/services/trend_analysis/first_reports.py`, built on the recommendations of the WP5a
-decision brief, each held in one named constant or function a review can overturn:
+shipped (WP5a-X, 2026-10-31)"), inert until the producer, then the producer (B), so no surface states a false cause in
+between. The producer is `backend/app/services/trend_analysis/first_reports.py`, built on the recommendations of the
+WP5a decision brief, each held in one named constant or function a review can overturn:
 - D1: a figure carries its own report's value where the two differ by more than 0.1% of the own value
   (`EVIDENCE_TOLERANCE`); growth reads n/m where the two years' shown-to-first-reported ratios differ by more than 1%
   (`BASIS_TOLERANCE`), a year without evidence at ratio 1.
@@ -384,21 +384,23 @@ decision brief, each held in one named constant or function a review can overtur
 - D4: margins, free cash flow, working capital and the current ratio read n/m where an input changed basis
   (`BASIS_INPUTS`), read from the recorded operand, else from the input's own figure for a calculation stored before
   operands were recorded; item 5's evidence sits on the recorded operands.
-- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E260, E261).
+- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E263, E261).
 - D6: any own row the publication policy shows gives evidence; only one that passed its checks grounds the mark
   (`grounds_a_mark`).
 
 The own report is ingest's rule replayed on stored rows: an accession's own year is the latest fiscal-year row stored
 there, a balance included, unless its filing row's period of report lies further on, and a test holds the reader to
-the history row the sync stores for each of WP5b's own-report shapes. Every record that lists a reported figure lists
-its evidence with it: a calculated figure's inputs (item 5), and the figures a YoY, CAGR or window change compares
-(`fact_provenance.fact_operand`). So a CAGR that keeps its number across a change of basis (D5) still shows the
-changed endpoint's own report in its dialog. Growth as first reported is n/m across a sign or scale finding in either
-year's evidence, an input's included. On WP5b's REGN shape: revenue FY2018 and FY2019 and total assets FY2018 carry
-evidence (3 figures at 0.1%, not the 2 the 1% wording above gives); revenue growth FY2018–FY2020 reads n/m
-with +14.3%, +17.2% and +8.1% as first reported, and the net margin's changes with +16.0pp, −9.5pp and +14.4pp; FY2021
-keeps +89.1%. The data notes' line takes its places from the points (the page's `laterFilingPlaces`, and its backend
-twin in X), so the envelope is unchanged.
+the own report ingest's `_own_report` picks, over sync sequences that leave several own candidates in a cell (demoted
+former winners, an amendment kept non-current, an own report filed again), the figure's own filing ranked among them.
+Every record that lists a reported figure lists its evidence with it: a calculated figure's inputs (item 5), and the
+figures a YoY or CAGR compares (`fact_provenance.fact_operand`); a window change compares margins, whose evidence sits
+on their inputs. So a CAGR that keeps its number across a change of basis (D5) still shows the changed endpoint's own
+report in its dialog. Growth as first reported is n/m across a sign or scale finding in either year's evidence, an
+input's included. On WP5b's REGN shape: revenue FY2018 and FY2019 and total assets FY2018 carry evidence (3 figures at
+0.1%, not the 2 the 1% wording above gives); revenue growth FY2018–FY2020 reads n/m with +14.3%, +17.2% and +8.1% as
+first reported, and the net margin's changes with +16.0pp, −9.5pp and +14.4pp; FY2021 keeps +89.1%. The data notes'
+line takes its places from the points (the page's `laterFilingPlaces`, and its backend twin in X), so the envelope is
+unchanged.
 
 The rebuild wave comes in two parts, since the reader takes a year's own report from any non-current row in the cell.
 At B's deploy, every company whose stored rows already hold one beside a later filing's value (a demoted former
