@@ -29,6 +29,7 @@ from __future__ import annotations
 import html as html_lib
 import io
 import json
+import math
 import re
 import zipfile
 from copy import deepcopy
@@ -197,6 +198,11 @@ def _evidence_on_inputs_alone() -> dict:
 LOCAL_CASES = [_deeper_evidence(), _evidence_on_inputs_alone()]
 WIDER = [*CASES, *LOCAL_CASES]
 WIDER_IDS = [case["name"] for case in WIDER]
+# The shared notes fixture's datasets, which carry no evidence: its quarterly ones never will (D5), so their files stay
+# main's for good. portable_reason_identity_utf16_ascii holds a lone surrogate no workbook can store.
+NOTES = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "analysis_data_notes.json").read_text())["cases"]
+INERT = [*WIDER, *(case for case in NOTES if case["name"] != "portable_reason_identity_utf16_ascii")]
+INERT_IDS = [case["name"] for case in INERT]
 
 
 # ---- 1. The line ----------------------------------------------------------------------------------------------------
@@ -338,7 +344,8 @@ def _page(path: str, pattern: str, what: str) -> re.Match:
 def test_the_evidence_words_are_the_pages():
     """The words the files print of a figure's evidence are the page dialog's (D11, D12), read from its sources:
     laterFilings.ts firstReportedSentence and filingParts, disagreementSentence's two findings, and SourceValue.tsx's
-    cause and "As first reported:". Only the values differ, as chief design approved on #1866: exact figures for the
+    cause and "As first reported:", and the dialog's evidence block printing through the first and the findings. Only
+    the values differ, as chief design approved on #1866: exact figures for the
     page's compact ones, and days as stored for "7 Feb 2019". A reworded page fails here until the files follow."""
     sentence = _page("lib/laterFilings.ts", r"return `(First reported as )\$\{own\}( in its own annual report)\$\{ownFiling && `"
                      r"( \()\$\{ownFiling\}(\))`\}(\. A later filing)\$\{laterFiled && `( \(filed )\$\{laterFiled\}(\))`\}"
@@ -351,6 +358,10 @@ def test_the_evidence_words_are_the_pages():
     cause = _page("components/SourceValue.tsx", r"\{comparison\.laterFiling && <p>([^<]*)</p>\}", "basis cause")
     growth = _page("components/SourceValue.tsx", r"\{comparison\.laterFiling\?\.asFirstReported && <p[^>]*>([^<]*)<GrowthText "
                    r"text=\{comparison\.laterFiling\.asFirstReported\} /></p>\}", "growth as first reported")
+    # The dialog words its evidence through the two templates above, so a sentence written inline there fails here.
+    _page("components/SourceValue.tsx", r"const finding = disagreementSentence\(first, value\)", "dialog's finding")
+    _page("components/SourceValue.tsx", r"<p>\{firstReportedSentence\(first, value, figure\)\}</p>\s*"
+          r"\{finding && <p>\{finding\}</p>\}", "dialog's evidence sentence")
 
     def page_sentence(own: str, filing: list[str], later_filed: str | None, later: str) -> str:
         own_filing = parts[2].join(filing)
@@ -422,6 +433,17 @@ def test_the_growth_as_first_reported_reads_as_the_page_prints_it(rule, value, p
     """The page's formatGrowth (growth.ts) over the table both copies run; frontend/tests/unit/analysis-growth-text.spec.ts
     runs the page's own copy on it, so the table cannot drift from the page."""
     assert growth_text(value, percent) == text, rule
+
+
+def test_a_growth_that_is_not_finite_prints_nothing_and_a_huge_one_never_raises():
+    """formatGrowth prints nothing for a number format.ts refuses, so the page's comparisonLaterFiling gives no line
+    and the files print only the cause. Past 1e27 the two copies part (Intl prints a float's binary digits), but
+    neither raises. The page's decoder refuses a growth that is not finite, so none of this is reachable today."""
+    for value in (math.nan, math.inf, -math.inf, 1e307):  # 1e307 times 100 is inf
+        assert growth_text(value, False) == ""
+        assert evidence_lines({"first_reported_growth": value, "percent": False}) == [BASIS_CHANGE_CAUSE]
+    assert growth_text(math.nan, True) == ""
+    assert growth_text(1e25, False).startswith("+1,000,000,000,000,000,") and growth_text(1e307, True).endswith(".0pp")
 
 
 def test_the_files_print_the_growth_through_the_pages_rule():
@@ -543,7 +565,15 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
              LATER_FILING_EVIDENCE, "first-reported value")
 
 
-@pytest.mark.parametrize("case", WIDER, ids=WIDER_IDS)
+def test_the_inert_gate_reads_quarterly_datasets_with_a_qoq_that_reads_n_m():
+    # A quarterly run never carries evidence, yet its QoQ can read n/m from a sign change: the seams must print nothing
+    # there either.
+    quarterly = [case for case in INERT if case["dataset"]["mode"] == "quarterly"]
+    assert len(quarterly) == 3 and any(point.get("qoq") == "nm" for case in quarterly
+                                       for series in case["dataset"]["series"] for point in series["points"])
+
+
+@pytest.mark.parametrize("case", INERT, ids=INERT_IDS)
 def test_a_dataset_without_the_fields_prints_none_of_it(case):
     dataset = _strip(case["dataset"])
     html = html_lib.unescape(_pdf(dataset))
@@ -589,7 +619,7 @@ def _switched_off(monkeypatch) -> None:
         monkeypatch.setattr(owner, name, pre_x)
 
 
-@pytest.mark.parametrize("case", WIDER, ids=WIDER_IDS)
+@pytest.mark.parametrize("case", INERT, ids=INERT_IDS)
 def test_a_dataset_without_the_fields_exports_as_it_does_with_the_seams_switched_off(case, monkeypatch):
     dataset = _strip(case["dataset"])
     monkeypatch.setattr(export_service, "utcnow", lambda: EXPORTED)

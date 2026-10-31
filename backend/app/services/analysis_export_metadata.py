@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from datetime import datetime, timezone
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Context, Decimal
 import math
 import re
 from typing import Any, NamedTuple
@@ -328,19 +328,26 @@ def evidence_lines(figure: Mapping[str, Any]) -> list[str]:
     if "first_reported_growth" not in figure:
         return []
     growth = figure["first_reported_growth"]
-    return [BASIS_CHANGE_CAUSE, *([] if growth is None else [f"As first reported: {growth_text(growth, figure['percent'])}"])]
+    # As comparisonLaterFiling: no line where the growth prints nothing (null, or a number that is not finite).
+    text = None if growth is None else growth_text(growth, figure["percent"])
+    return [BASIS_CHANGE_CAUSE, *([f"As first reported: {text}"] if text else [])]
 
 
 def growth_text(value: Any, percent: bool) -> str:
     """A growth as the page's dialog prints it (growth.ts formatGrowth, through format.ts fmtPercent and
     fmtPercentPoints): "n/m" for anything but a number; else one decimal, grouped ("+1,234.5%"), rounded half away from
-    zero from the value's shortest decimal form as Intl does ("+0.3%" for 0.0025), a plus only above zero ("0.0%", never
-    "+0.0%"), and points for a percent series ("-9.5pp"). Not the prompt's formatting._fmt_growth, which signs zero,
-    groups nothing and rounds half to even. backend/tests/fixtures/analysis_growth_text.json holds the two equal."""
+    zero from the value's shortest decimal form as Intl does ("+0.3%" for 0.0025), after the times 100 in binary
+    ("+0.4%" for 0.0045, whose product is 0.44999999999999996), a plus only above zero ("0.0%" for zero, "+0.0%" for a
+    growth too small to show), and points for a percent series ("-9.5pp"); nothing ("") for a number that is not finite,
+    which format.ts parseNumeric refuses. Not the prompt's formatting._fmt_growth, which signs zero, groups nothing and
+    rounds half to even. backend/tests/fixtures/analysis_growth_text.json holds the two equal for every finite value
+    below 1e27 (past it Intl prints a float's binary digits); a wide context keeps any larger one from raising."""
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return "n/m"
     number = value if percent else value * 100
-    rounded = Decimal(repr(number)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    if not math.isfinite(number):
+        return ""
+    rounded = Decimal(repr(number)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP, context=Context(prec=400))
     return f"{'+' if number > 0 else ''}{rounded:,.1f}{'pp' if percent else '%'}"
 
 

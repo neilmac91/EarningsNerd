@@ -145,6 +145,43 @@
       ]
     },
     {
+      "rule": "a fraction is times 100 in binary before it rounds",
+      "why": "The page multiplies before Intl rounds, so a tie in the fraction rounds as its product does: 0.0045 * 100 is 0.44999999999999996 and 0.1425 * 100 is 14.249999999999998, so both round down; an exact decimal times 100 would round them up.",
+      "cases": [
+        [
+          0.0045,
+          false,
+          "+0.4%"
+        ],
+        [
+          -0.0045,
+          false,
+          "-0.4%"
+        ],
+        [
+          0.1425,
+          false,
+          "+14.2%"
+        ]
+      ]
+    },
+    {
+      "rule": "negative zero keeps its sign",
+      "why": "Intl's default sign display prints a minus on negative zero, and the files' copy keeps the sign the value has. No growth the producer computes is negative zero; the case pins the two copies together.",
+      "cases": [
+        [
+          -0.0,
+          false,
+          "-0.0%"
+        ],
+        [
+          -0.0,
+          true,
+          "-0.0pp"
+        ]
+      ]
+    },
+    {
       "rule": "n/m for anything but a number",
       "cases": [
         [
