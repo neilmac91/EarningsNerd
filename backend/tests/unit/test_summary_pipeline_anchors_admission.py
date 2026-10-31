@@ -181,10 +181,10 @@ async def test_content_cache_with_null_timestamps_is_treated_as_fresh(caplog):
 
 # ----------------------------------------- A4: quota block without evidence (+ the fair-use twin)
 
-QUOTA_MESSAGE = "You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries."
+QUOTA_MESSAGE = "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
 FAIR_USE_MESSAGE = (
-    "We've temporarily paused new summary generation on your account due "
-    "to unusually high recent volume. Please try again later or contact support."
+    "Your account has reached this month's limit for generating summaries, regenerations "
+    "included. It resets next month. Contact support with any questions."
 )
 
 

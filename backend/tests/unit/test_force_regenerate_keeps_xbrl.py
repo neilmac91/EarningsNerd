@@ -124,7 +124,7 @@ def test_a_regenerate_that_ends_before_fresh_xbrl_keeps_the_snapshot_and_its_ver
     refused = ending == "fair_use_refusal"
     if refused:
         _at_the_fair_use_ceiling(pro_user.id, monkeypatch)
-        fetch, expected = AsyncMock(return_value=FRESH), "temporarily paused new summary generation"
+        fetch, expected = AsyncMock(return_value=FRESH), "this month's limit for generating summaries"
     else:
         fetch, expected = _still_fetching, "We could not generate this summary"
 
@@ -226,7 +226,7 @@ def test_the_progress_row_the_route_clears_is_invisible_while_the_summary_exists
     with TestClient(app) as client:
         before = client.get(f"/api/summaries/filing/{filing_id}/progress").json()
         with stream_boundaries(patch_usage_limit=False), real_xbrl_lookup(AsyncMock(return_value=FRESH)):
-            assert "temporarily paused new summary generation" in _regenerate(client, filing_id).text
+            assert "this month's limit for generating summaries" in _regenerate(client, filing_id).text
         after = client.get(f"/api/summaries/filing/{filing_id}/progress").json()
 
     with SessionLocal() as db:
