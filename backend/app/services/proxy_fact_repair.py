@@ -7,20 +7,21 @@ repair_company`` runs this step after its calendar relabels and before its same-
 four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
 
 1. Set 4. A filing row the old cross-check replaced with a proxy's figure is restored to its recorded
-   ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row
-   that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
-   10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed,
-   unless the 10-K's figure confirms its recorded original while its value is more than 1% off, as where the
-   backer is the year's own report as first reported: that row is restored to its original as above. Left
-   so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
-   company (sets 4 and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own
-   unit fix and left first only where today's 10-K figure is of the value's sign and on its scale step
-   (strictly within half a step, about 31.6 times, of it) or there is none; a row so left is listed in
-   ``scale_up_retained`` where there is none, or where the 10-K's figure is more than 1% off its value.
-   Otherwise, as where the proxy was tagged at the wrong scale over a right parse, or the 10-K's figure is
-   of the other sign or zero, the row takes set 4's ordinary path (restored where the original is within 1%
-   of the 10-K's figure, refused beyond; left and listed, or refused when current, where a report row holds
-   its value).
+   ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row that
+   already holds the 10-K's figure is kept; one with no recorded original, or whose original the 10-K
+   contradicts, refuses the company. A row whose figure another report row holds is left, and listed, unless
+   the 10-K's figure confirms its recorded original while its value is more than 1% off, as where the backer
+   is the year's own report as first reported: that row is restored to its original as above. Left so, a row
+   that is the company's current figure and more than 1% off today's 10-K figure refuses the company (sets 4
+   and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own unit fix and left
+   first only where today's 10-K figure is of the value's sign and on its scale step (strictly within half a
+   step, about 31.6 times, of it, read exactly) or there is none; a row so left that a proxy figure holds is
+   listed in ``scale_up_retained`` where there is none, or where the 10-K's figure is more than 1% off its
+   value. Set 4 writes no such row, but set 2 still reaches one at the 10-K winner's identity behind a current
+   proxy row, and its agreement test refuses the company there. Otherwise, as where the proxy was tagged at
+   the wrong scale over a right parse, or the 10-K's figure is of the other sign or zero, the row takes set
+   4's ordinary path (restored where the original is within 1% of the 10-K's figure, refused beyond; left and
+   listed, or refused when current, where a report row holds its value).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
