@@ -274,6 +274,23 @@ describe('before_send', () => {
     expect(privacy.beforeSendPostHog(client, { event: '$snapshot', properties: {} } as unknown as CaptureResult)).toBeNull()
     expect(JSON.stringify(client.persistence?.props)).not.toContain(CANARY)
   })
+
+  it('drops every event of a client whose guard failed, though analytics is allowed', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const choose = await choices()
+    choose(true)
+    const { PostHog } = await import('posthog-js')
+    const privacy = await import('@/lib/posthogPrivacy')
+    const guard = await import('@/lib/posthogConsent')
+    const client = new PostHog()
+    clients.push(client)
+    client.init(KEY, { ...SDK_OPTIONS, autocapture: false, capture_pageview: false, capture_pageleave: false })
+    const event = { event: 'allowed-event', properties: {} } as unknown as CaptureResult
+    expect(privacy.beforeSendPostHog(client, event)).not.toBeNull() // The accept case.
+    // Called directly: its own is_capturing would otherwise stop the event before before_send.
+    guard.failPostHogClosed(client, new Error('planted guard failure'))
+    expect(privacy.beforeSendPostHog(client, event)).toBeNull()
+  })
 })
 
 /** The app's provider and an account-readiness probe, on `client` or, with none, on the package entry's singleton. */
@@ -399,6 +416,25 @@ describe('the provider when PostHog cannot run under its guard', () => {
     expect([client.is_capturing(), ready(), sent('after-loaded-throw')]).toEqual([false, 'false', 0])
     expect(sentry.captureException).toHaveBeenCalledTimes(1)
     expect(sentry.captureException.mock.calls[0][0]).toBe(planted)
+  })
+
+  it('turns PostHog off and not ready when its guard stops holding on a later choice', async () => {
+    const { PostHog } = await import('posthog-js')
+    const { findPostHogQueues } = await import('@/lib/posthogConsent')
+    const client = new PostHog()
+    clients.push(client)
+    const { choose, ready } = await renderProvider(client)
+    untouchedBeforeConsent(client, choose)
+    act(() => choose(true))
+    expect(ready()).toBe('true')
+    // Planted after a healthy load: the SDK now keeps its queues where the guard cannot see them, so the next
+    // application returns false (no throw) and only that answer can lower readiness.
+    const { retry, batch } = findPostHogQueues(client)!
+    hide(client, retry, batch)
+    act(() => choose(true))
+    expect([ready(), client.is_capturing()]).toEqual(['false', false])
+    expect(sentry.captureException).toHaveBeenCalledTimes(1)
+    expect(sentry.captureException.mock.calls[0][0]).toMatchObject({ name: 'PostHogConsentGuardError' })
   })
 
   it('turns PostHog off and reports a throw while applying a later refusal', async () => {
