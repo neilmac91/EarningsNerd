@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { generateSummaryStream, isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { ERROR_CODES, type KnownErrorCode } from '@/lib/api/client'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
+
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 
 declare global {
   var fetch: typeof fetch
@@ -170,30 +175,46 @@ describe('generateSummaryStream', () => {
     expect(isNonRetryableStreamError('Regenerating a summary is a Pro feature.', 'plan_required')).toBe(true)
   })
 
-  // The E31 contract's §3, code by code: whether the card withholds its Retry for a refusal carrying the code, which
-  // decides first whatever the words. `auth_required` keeps today's 401 handling, its words deciding. §3 states no
-  // Retry rule for `email_verification_required` (a gate the checkout raises) or `earnings_alert_limit` (the calendar's
-  // own reader), so those rows hold the reader's verdict. The Record's type classifies every known code, so a new
-  // one fails tsc until it is classified here.
-  const WITHHOLDS_RETRY: Record<KnownErrorCode, boolean> = {
-    auth_required: false,
+  // The E31 contract's §3, code by code, read from its own table: whether the card withholds its Retry for a refusal
+  // carrying the code, which decides first whatever the words. A row's "Client behaviour" cell that says "never offer
+  // Retry" withholds it; one that keeps a Retry, waits out a Retry-After or a cooldown, or lets a retry follow keeps
+  // it (`auth_required`'s "Retry included": today's 401 handling, its words deciding).
+  const SECTION_3 = (() => {
+    const doc = readFileSync(path.join(REPO, 'docs/audit/contracts/error-codes.md'), 'utf8')
+    const section = doc.slice(doc.indexOf('## 3.'), doc.indexOf('## 4.'))
+    return new Map(section.split('\n').filter((line) => line.startsWith('| `')).map((line) => {
+      const cells = line.split('|').slice(1, -1).map((cell) => cell.trim())
+      if (cells.length !== 4) throw new Error(`§3 row with ${cells.length} cells: ${line.slice(0, 60)}`)
+      return [cells[0].replace(/`/g, ''), cells[3]] as const
+    }))
+  })()
+  const section3Withholds = (cell: string): boolean | null =>
+    /never offer Retry/.test(cell) ? true : /\bRetry\b|\bretry\b|cooldown/.test(cell) ? false : null
+  // §3 states no Retry rule for these, so they hold the reader's verdict: a gate the checkout raises, and the
+  // calendar's own reader's code.
+  const READER_VERDICT_WHERE_SECTION_3_IS_SILENT: Partial<Record<KnownErrorCode, boolean>> = {
     email_verification_required: true,
-    plan_required: true,
-    free_allowance_exhausted: true,
-    pro_fair_use_limit: true,
-    generation_paused: false,
     earnings_alert_limit: false,
-    summary_rate_limited: false,
-    sec_rate_limited: false,
-    filing_source_unavailable: false,
   }
   // #1824 ships `generation_paused` as non-retryable, where §3's row gives it a Retry: reported on #1848 for the
-  // contract's owner to settle. Named so that any other disagreement fails, and so does this one once it is settled.
+  // contract's owner to settle. Named so that any other disagreement fails, and so does this one once it is settled,
+  // in the reader or in §3.
   const DISAGREES_WITH_SECTION_3: KnownErrorCode[] = ['generation_paused']
 
-  it.each(Object.keys(ERROR_CODES) as KnownErrorCode[])('withholds Retry for %s as the contract says', (code) => {
+  it('reads a Retry rule, or names the silence, for every known code in §3', () => {
+    expect([...SECTION_3.keys()].sort(), '§3 has a row for each known code, and only those').toEqual(Object.keys(ERROR_CODES).sort())
+    const silent = [...SECTION_3].filter(([, cell]) => section3Withholds(cell) === null).map(([code]) => code)
+    expect(silent.sort(), 'a §3 row with no Retry rule takes the reader verdict here, and only such a row')
+      .toEqual(Object.keys(READER_VERDICT_WHERE_SECTION_3_IS_SILENT).sort())
+  })
+
+  it.each(Object.keys(ERROR_CODES) as KnownErrorCode[])('gives %s the Retry verdict of the contract\'s §3', (code) => {
+    const contract = section3Withholds(SECTION_3.get(code) ?? '') ?? READER_VERDICT_WHERE_SECTION_3_IS_SILENT[code]
+    expect(contract, `classify ${code}: give §3's row a Retry rule, or name the reader's verdict here`).toBeTypeOf('boolean')
     const verdict = isNonRetryableStreamError('A sentence no matcher reads.', code)
-    expect(verdict).toBe(DISAGREES_WITH_SECTION_3.includes(code) ? !WITHHOLDS_RETRY[code] : WITHHOLDS_RETRY[code])
+    expect(verdict, DISAGREES_WITH_SECTION_3.includes(code)
+      ? `${code} now agrees with §3: drop it from DISAGREES_WITH_SECTION_3`
+      : `${code}'s verdict disagrees with §3`).toBe(DISAGREES_WITH_SECTION_3.includes(code) ? !contract : contract)
   })
 
   const refusedOnHttp = async (status: number, body: Record<string, unknown>, headers: Record<string, string> = {}) => {
