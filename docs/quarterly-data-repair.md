@@ -246,10 +246,12 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
   against), today's 10-K figure (`authority`) and `backed_by`, each backing row's fact id, accession,
   form, `is_latest`, `filing_id` and source. The listing is for reading only: it writes, journals and
   checks nothing, and no counter of the proxy block or residual counts its entries; `proxy_totals`
-  reports how many (below). The rows it names are not out of the step's reach, though. Set 2 still
-  promotes a listed row in place where it holds the 10-K winner's identity and a proxy row is retired at
-  its key: the row is then written (`is_latest` only), journaled under `proxy-repair-v1` and counted in
-  `promoted`. And every row `detection_listed` names with the verdict `report_backed` is listed here too.
+  reports how many (below). The rows it names are not out of the step's reach, though. Where a listed
+  row holds the 10-K winner's identity and a proxy row is retired at its key, set 2 promotes it in place
+  where it agrees with the 10-K winner: the row is then written (`is_latest` only), journaled under
+  `proxy-repair-v1` and counted in `promoted`. Where it does not agree, set 2's agreement test refuses
+  the company, naming the row. And every row `detection_listed` names with the verdict `report_backed` is
+  listed here too.
   A listed row is not the company's current figure at its key, or is within 1% of today's 10-K figure
   whatever its start or fiscal year, or has no 10-K figure (a year only a proxy tags); otherwise the
   company is refused. A scale-up set 4 leaves is never listed here: set 4 leaves it before it asks
@@ -264,8 +266,10 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
   reads, takes only the payload's non-proxy items under the concept's headline tags (net income:
   `NetIncomeLoss`, then `ProfitLoss`), in USD (a duration's over a span within 30 days of a year), so the
   payload can still carry the year's 10-K figure under a tag only the normalizer reads (net income's
-  `NetIncomeLossAvailableToCommonStockholdersBasic`), and set 2 then judges the row against that winner
-  (below). With no figure to read a scale from, the step cannot tell a parse read in units that the
+  `NetIncomeLossAvailableToCommonStockholdersBasic`). Where the row holds that winner's identity behind a
+  current proxy row, set 2 judges it against that winner (below); a row at another accession is never
+  judged, so a `no_10k_figure` entry is not a check against the normalizer's winner. With no figure to read
+  a scale from, the step cannot tell a parse read in units that the
   cross-check scaled up (the replacement the check exists for) from a right parse a proxy tagged 1,000
   times too large replaced; `gap` is null. `off_10k_figure`: the 10-K's figure is on the value's scale
   step, so the exemption stands, but more than 1% off the value (set 4's own test), as where a later
@@ -277,7 +281,8 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
   holds the 10-K winner's identity behind a current proxy row, set 2, retiring that row, promotes it in
   place where it agrees with the 10-K winner (the normalizer's, under any tag it reads): the row is then
   written (`is_latest` only), journaled under `proxy-repair-v1` and counted in `promoted`, and stays
-  listed. Where it does not agree, set 2's agreement test refuses the company, as for any filing row the
+  listed, its `is_latest` as stored before the step. Where it does not agree, set 2's agreement test refuses
+  the company, as for any filing row the
   10-K contradicts there: `the filing row holding the 10-K's identity (fact N) disagrees with the 10-K
   on: value`, naming the row.
 
