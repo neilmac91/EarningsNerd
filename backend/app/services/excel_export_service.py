@@ -66,8 +66,9 @@ from app.utils.datetimes import ensure_utc, utcnow
 # (openpyxl can't rasterize SVG; the PNG is committed so the backend needs no SVG toolchain).
 _MARK_PNG = Path(__file__).resolve().parent.parent / "assets" / "brand" / "earningsnerd-mark.png"
 
-# frontend/components/ui/Chart.tsx CHART_SERIES — positional 1→N, never re-sorted, so workbook
-# charts pair series→color exactly like the on-page panels (openpyxl hex carries no '#').
+# The chart-1…chart-6 tokens (frontend/tailwind.config.js), positional 1→N, never re-sorted, so workbook charts
+# pair series→color as the page's trend charts do (openpyxl hex carries no '#'); test_export_palette_parity.py holds
+# each to its token.
 CHART_SERIES: tuple[str, ...] = ("3E8E84", "B8812F", "5B7CC0", "CF7159", "6E7E9C", "8B7BC0")
 
 _TAB_COLOR = PALETTE["brand"].lstrip("#")
