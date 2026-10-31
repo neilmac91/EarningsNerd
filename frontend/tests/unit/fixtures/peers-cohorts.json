@@ -1,0 +1,1407 @@
+{
+  "source": "The peers endpoint’s answers, as GET /api/companies/{ticker}/peers serves them (PeerComparisonResponse, backend/app/schemas/peers.py), each case labelled. The pair is production’s own entries, joined; every other case is synthetic, its companies and figures invented for the case. Each envelope is computed as backend/app/services/peers_service.py computes it: value descending with the ticker as tie-break, competition ranks, percentile round(below / (m − 1) × 100, 1), peer_count the entries, subject the subject’s own entry.",
+  "cases": {
+    "pair": {
+      "case": "production: JPM’s and BAC’s single-company answers of 2026-10-31 08:35 UTC (GET /api/companies/{JPM,BAC}/peers, each sic null and peer_count 1), joined into the pair the service answers for JPM once both hold SIC 6021 (the committed census’s code, unverified against EDGAR): each entry as served, ranked and counted as the service would",
+      "response": {
+        "ticker": "JPM",
+        "company_name": "JPMORGAN CHASE & CO",
+        "sic": "6021",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 2,
+        "subject": {
+          "ticker": "JPM",
+          "company_name": "JPMORGAN CHASE & CO",
+          "value": 182447000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 1,
+          "percentile": 100.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null,
+            "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/"
+          }
+        },
+        "peers": [
+          {
+            "ticker": "JPM",
+            "company_name": "JPMORGAN CHASE & CO",
+            "value": 182447000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null,
+              "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/"
+            }
+          },
+          {
+            "ticker": "BAC",
+            "company_name": "BANK OF AMERICA CORP /DE/",
+            "value": 113097000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null,
+              "source_url": "https://www.sec.gov/Archives/edgar/data/70858/000007085826000157/"
+            }
+          }
+        ]
+      }
+    },
+    "spread": {
+      "case": "synthetic: eleven companies spread from $416.0B to $5.1B, the subject sixth, so a phone opens mid-plot; two five-glyph tickers, one with a dot (as GOOGL and BRK.B, the committed universe’s widest), and one company a fiscal year ahead; every company and figure invented",
+      "response": {
+        "ticker": "SUBX",
+        "company_name": "Synthetic Subject Corp",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 11,
+        "subject": {
+          "ticker": "SUBX",
+          "company_name": "Synthetic Subject Corp",
+          "value": 113200000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 6,
+          "percentile": 50.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "MEGAX",
+            "company_name": "Synthetic Mega Corp",
+            "value": 416000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "LRGX",
+            "company_name": "Synthetic Large Inc",
+            "value": 331500000000.0,
+            "period_end": "2026-06-30",
+            "fiscal_year": 2026,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 90.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "WDE.B",
+            "company_name": "Synthetic Wide Holdings Class B",
+            "value": 248900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 80.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MIDX",
+            "company_name": "Synthetic Middle Co",
+            "value": 182000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 70.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "HLDX",
+            "company_name": "Synthetic Holdings Ltd",
+            "value": 150400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 60.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "SUBX",
+            "company_name": "Synthetic Subject Corp",
+            "value": 113200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 6,
+            "percentile": 50.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "QX",
+            "company_name": "Synthetic Q Co",
+            "value": 85100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 40.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "RTLX",
+            "company_name": "Synthetic Retail Inc",
+            "value": 61700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 30.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "SMLX",
+            "company_name": "Synthetic Small Corp",
+            "value": 34300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 20.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MCRX",
+            "company_name": "Synthetic Micro Inc",
+            "value": 12600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 10.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "TNYX",
+            "company_name": "Synthetic Tiny Co",
+            "value": 5100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 11,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "near-equal": {
+      "case": "synthetic: eleven near-equal companies, $4.85B to $4.95B, the dense case lessons/frontend-verify-chart-annotations-on-dense-data.md asks for; every company and figure invented",
+      "response": {
+        "ticker": "NEQD",
+        "company_name": "Synthetic Near Equal D Inc",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 11,
+        "subject": {
+          "ticker": "NEQD",
+          "company_name": "Synthetic Near Equal D Inc",
+          "value": 4920000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 4,
+          "percentile": 70.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "NEQA",
+            "company_name": "Synthetic Near Equal A Inc",
+            "value": 4950000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQB",
+            "company_name": "Synthetic Near Equal B Inc",
+            "value": 4940000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 90.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQC",
+            "company_name": "Synthetic Near Equal C Inc",
+            "value": 4930000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 80.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQD",
+            "company_name": "Synthetic Near Equal D Inc",
+            "value": 4920000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 4,
+            "percentile": 70.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQE",
+            "company_name": "Synthetic Near Equal E Inc",
+            "value": 4910000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 60.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQF",
+            "company_name": "Synthetic Near Equal F Inc",
+            "value": 4900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 50.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQG",
+            "company_name": "Synthetic Near Equal G Inc",
+            "value": 4890000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 40.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQH",
+            "company_name": "Synthetic Near Equal H Inc",
+            "value": 4880000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 30.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQI",
+            "company_name": "Synthetic Near Equal I Inc",
+            "value": 4870000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 20.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQJ",
+            "company_name": "Synthetic Near Equal J Inc",
+            "value": 4860000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 10.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "NEQK",
+            "company_name": "Synthetic Near Equal K Inc",
+            "value": 4850000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 11,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "six-glyph": {
+      "case": "synthetic: a six-glyph ticker among nine companies (no ticker in the committed 518-ticker universe is longer than five glyphs, but the endpoint answers any company row); every company and figure invented",
+      "response": {
+        "ticker": "SUBY",
+        "company_name": "Synthetic Subject Holdings",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 9,
+        "subject": {
+          "ticker": "SUBY",
+          "company_name": "Synthetic Subject Holdings",
+          "value": 28000000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 5,
+          "percentile": 50.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "BIGX",
+            "company_name": "Synthetic Big Co",
+            "value": 52000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "ARCX",
+            "company_name": "Synthetic Arc Inc",
+            "value": 47500000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 87.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "WIDEST",
+            "company_name": "Synthetic Widest Ticker Corp",
+            "value": 40100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 75.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "COLX",
+            "company_name": "Synthetic Column Co",
+            "value": 33300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 62.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "SUBY",
+            "company_name": "Synthetic Subject Holdings",
+            "value": 28000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 5,
+            "percentile": 50.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "DOTX",
+            "company_name": "Synthetic Dot Inc",
+            "value": 21900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 37.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "EDGX",
+            "company_name": "Synthetic Edge Corp",
+            "value": 14200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 25.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "FNX",
+            "company_name": "Synthetic Fine Co",
+            "value": 9800000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 12.5,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "GX",
+            "company_name": "Synthetic G Ltd",
+            "value": 3400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "net margin": {
+      "case": "synthetic: a margin cohort, unit pure, in percentage points, each value calculated and needing review (reconciled false), as production’s margins answer; one negative; every company and figure invented",
+      "response": {
+        "ticker": "MRGC",
+        "company_name": "Synthetic Margin C Co",
+        "sic": "9999",
+        "concept": "net_margin",
+        "unit": "pure",
+        "peer_count": 6,
+        "subject": {
+          "ticker": "MRGC",
+          "company_name": "Synthetic Margin C Co",
+          "value": 18.4,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 3,
+          "percentile": 60.0,
+          "reconciled": false,
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "MRGA",
+            "company_name": "Synthetic Margin A Inc",
+            "value": 31.2,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": false,
+            "provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "legacy_calculation"
+              ],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MRGB",
+            "company_name": "Synthetic Margin B Corp",
+            "value": 26.9,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 80.0,
+            "reconciled": false,
+            "provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "legacy_calculation"
+              ],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MRGC",
+            "company_name": "Synthetic Margin C Co",
+            "value": 18.4,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 3,
+            "percentile": 60.0,
+            "reconciled": false,
+            "provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "legacy_calculation"
+              ],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MRGD",
+            "company_name": "Synthetic Margin D Ltd",
+            "value": 9.7,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 40.0,
+            "reconciled": false,
+            "provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "legacy_calculation"
+              ],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MRGE",
+            "company_name": "Synthetic Margin E Inc",
+            "value": 2.1,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 20.0,
+            "reconciled": false,
+            "provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "legacy_calculation"
+              ],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MRGF",
+            "company_name": "Synthetic Margin F Corp",
+            "value": -4.6,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 0.0,
+            "reconciled": false,
+            "provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "legacy_calculation"
+              ],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "diluted EPS": {
+      "case": "synthetic: a per-share cohort, unit USD/shares, one loss; every company and figure invented",
+      "response": {
+        "ticker": "EPSD",
+        "company_name": "Synthetic Per Share D Ltd",
+        "sic": "9999",
+        "concept": "eps_diluted",
+        "unit": "USD/shares",
+        "peer_count": 6,
+        "subject": {
+          "ticker": "EPSD",
+          "company_name": "Synthetic Per Share D Ltd",
+          "value": 2.31,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 4,
+          "percentile": 40.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "EPSA",
+            "company_name": "Synthetic Per Share A Inc",
+            "value": 9.84,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "EPSB",
+            "company_name": "Synthetic Per Share B Corp",
+            "value": 6.95,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 80.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "EPSC",
+            "company_name": "Synthetic Per Share C Co",
+            "value": 5.12,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 60.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "EPSD",
+            "company_name": "Synthetic Per Share D Ltd",
+            "value": 2.31,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 4,
+            "percentile": 40.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "EPSE",
+            "company_name": "Synthetic Per Share E Inc",
+            "value": 0.84,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 20.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "EPSF",
+            "company_name": "Synthetic Per Share F Corp",
+            "value": -0.12,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "CNY revenue": {
+      "case": "synthetic: a cohort reporting in CNY, which the service ranks only against other CNY filers (its currency guard), so amounts print in CN¥; every company and figure invented",
+      "response": {
+        "ticker": "CNYB",
+        "company_name": "Synthetic Renminbi B Ltd",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "CNY",
+        "peer_count": 4,
+        "subject": {
+          "ticker": "CNYB",
+          "company_name": "Synthetic Renminbi B Ltd",
+          "value": 480100000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 2,
+          "percentile": 66.7,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "CNYA",
+            "company_name": "Synthetic Renminbi A Ltd",
+            "value": 612300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CNYB",
+            "company_name": "Synthetic Renminbi B Ltd",
+            "value": 480100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 2,
+            "percentile": 66.7,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CNYC",
+            "company_name": "Synthetic Renminbi C Ltd",
+            "value": 95700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 33.3,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "CNYD",
+            "company_name": "Synthetic Renminbi D Ltd",
+            "value": 41000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "duplicate ticker": {
+      "case": "synthetic: two companies answering one ticker (Company.ticker is indexed, not unique; cik is), so a chart keys its slots by place, since buildBarChart refuses a key given twice; every company and figure invented",
+      "response": {
+        "ticker": "UNQX",
+        "company_name": "Synthetic Unique Co",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 4,
+        "subject": {
+          "ticker": "UNQX",
+          "company_name": "Synthetic Unique Co",
+          "value": 40000000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 3,
+          "percentile": 33.3,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "DUPX",
+            "company_name": "Synthetic Duplicate One Inc",
+            "value": 64000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "DUPX",
+            "company_name": "Synthetic Duplicate Two Corp",
+            "value": 58500000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 66.7,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "UNQX",
+            "company_name": "Synthetic Unique Co",
+            "value": 40000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 3,
+            "percentile": 33.3,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "ALNX",
+            "company_name": "Synthetic Alone Ltd",
+            "value": 22200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    }
+  }
+}

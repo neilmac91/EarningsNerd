@@ -574,8 +574,12 @@ class TestStreamRouteMetering:
         from app import dependencies
         from app.routers import analysis as analysis_router
 
+        from app.api_errors import CodedHTTPException, coded_http_exception_handler
+
         app = FastAPI()
         app.include_router(analysis_router.router, prefix="/api/analysis")
+        # main.py's handler, so a coded refusal answers with its code (E31).
+        app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
         pro = SimpleNamespace(id=42, is_pro=True, subscription=None)
         app.dependency_overrides[dependencies._resolve_current_user] = lambda: pro
         app.dependency_overrides[analysis_router.get_current_user] = lambda: pro
@@ -713,10 +717,16 @@ class TestStreamRouteMetering:
         monkeypatch.setattr(analysis_router, "check_analysis_limit", lambda user, db: (False, 1000, 1000))
         response = client.post("/api/analysis/TST/stream", json=self.BODY)
         assert response.status_code == 429
-        assert response.json()["detail"] == (
-            "You've reached this month's fair-use limit of 1,000 analysis generations, regenerations included. "
-            "It resets at the start of next month."
-        )
+        # The words unchanged, and the code the reader keys on beside them (E31): the cap, not a rate limit, so no
+        # Retry-After rides with it.
+        assert response.json() == {
+            "detail": (
+                "You've reached this month's fair-use limit of 1,000 analysis generations, regenerations included. "
+                "It resets at the start of next month."
+            ),
+            "code": "pro_fair_use_limit",
+        }
+        assert "retry-after" not in response.headers
 
     def test_reservation_block_429s_after_read_side_admits(self, monkeypatch):
         # The unserialized read admits, the serialized lease refuses (a parallel request took
@@ -729,6 +739,7 @@ class TestStreamRouteMetering:
         )
         response = client.post("/api/analysis/TST/stream", json=self.BODY)
         assert response.status_code == 429
+        assert response.json()["code"] == "pro_fair_use_limit"
         assert metered == []
         assert released == []
 

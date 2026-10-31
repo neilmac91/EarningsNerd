@@ -43,8 +43,9 @@ export function StripSwatch({ swatch, marker, x, y, color, ring }: { swatch: 'ba
 }
 
 /** A legend item's 16×10 swatch (§3.6), and a tooltip row's: its line with the marker centred, a 10×10 bar square, or
- *  for an absent series a neutral dashed line that claims no palette slot. */
-export function LegendSwatch({ item, tokens }: { item: Pick<LegendItem, 'color' | 'swatch' | 'marker'> & { absent?: boolean }; tokens: ChartTokens }) {
+ *  for an absent series a neutral dashed line that claims no palette slot. A context bar's row (E251) takes the context
+ *  ink, so a tooltip's swatch is the hovered bar's own paint (E236). */
+export function LegendSwatch({ item, tokens }: { item: Pick<LegendItem, 'color' | 'swatch' | 'marker'> & { absent?: boolean; context?: boolean }; tokens: ChartTokens }) {
   if (item.absent || item.color == null) {
     return (
       <svg width={16} height={10} aria-hidden="true" className="shrink-0">
@@ -52,7 +53,7 @@ export function LegendSwatch({ item, tokens }: { item: Pick<LegendItem, 'color' 
       </svg>
     )
   }
-  const color = tokens.series[item.color]
+  const color = item.context ? tokens.context : tokens.series[item.color]
   return (
     <svg width={16} height={10} aria-hidden="true" className="shrink-0">
       {item.swatch === 'bar'

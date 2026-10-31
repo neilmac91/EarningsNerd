@@ -7,7 +7,9 @@
    role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
    dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
-   and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
+   and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. A
+   ranked company chart (E251): its context bars in the context ink, the tooltip swatch the bar's own paint, the chart
+   starting at its subject, and its own words for its companies. Text
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
@@ -29,16 +31,18 @@ vi.mock('sonner', async (importOriginal) => {
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
+import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
 import { bonesPlan, CARD_BONES, TrendChartsSkeleton } from '@/features/analysis/components/TrendChartBones'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
-import { plannedByRole, questioned, withMixedNotes } from './chartPlan'
+import { peerBarCases, plannedByRole, questioned, withMixedNotes, type PeerFixture } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
-import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { buildBarChart, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
+import { ADVANCE, CARD_HEIGHT, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { moneyPrefix } from '@/features/analysis/lib/charts/scale'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
-import { chartReadouts } from '@/features/analysis/lib/charts/readout'
+import { chartReadouts, readouts as coreReadouts } from '@/features/analysis/lib/charts/readout'
 import { noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import analytics from '@/lib/analytics'
@@ -168,21 +172,42 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
     }
   })
 
-  // D4: a series colour paints only marks bound to their data, off-scale arrows, and the strip's swatches.
-  const seriesColours = new Set(tokens.series)
+  // D4: a series colour, or the context ink (E251), paints only marks bound to their data, off-scale arrows, and the
+  // strip's swatches.
+  const seriesColours = new Set([...tokens.series, tokens.context])
   const coloured = [...svg.querySelectorAll('*')].filter((node) => seriesColours.has(node.getAttribute('fill') ?? '') || seriesColours.has(node.getAttribute('stroke') ?? ''))
   expect(coloured.length).toBeGreaterThan(0)
   for (const node of coloured) {
     if (node.closest('[data-strip]')) continue
     expect([node.getAttribute('data-series'), node.getAttribute('data-period')].every(Boolean), `${node.tagName} in a series colour names its data`).toBe(true)
   }
-  // Literal paint only: the export serialises the plot without the page's CSS or variables.
-  for (const node of svg.querySelectorAll('*')) {
+  // Literal paint only: the export serialises the plot without the page's CSS or variables. And nothing in the plot fades
+  // (E251): a fade paints a mark's ink blended with whatever lies behind it, which no token holds to its floor (the
+  // retired peers chart's grey at 45% painted Lc 32.8 and −16.7, under the marks floor). A paler ink is a token of its
+  // own. This loop holds what the DOM states, on every node, the SVG's own included: no opacity, fill or stroke opacity,
+  // filter or mask attribute; no opacity, filter, mask, blend mode or paint in a style (a paint is an attribute, held
+  // literal here, and a tspan takes its text's, which the role check below reads); an opaque rgba; no class but those the
+  // visx shapes the renderer draws emit (Group, Bar and LinePath, @visx/group and @visx/shape 4.0.0), which paint nothing
+  // (a utility class such as opacity-45 fades a mark where these attributes and the export cannot see it, and Tailwind
+  // emits it from features/); and no style, filter, mask or SMIL element. What a stylesheet sets, this spec cannot read:
+  // D6 holds the computed result in a browser, each tspan's included, and fails a paint that a computed opacity, filter,
+  // mask or blend mode fades, its own or a group's (fixtures/chartChecks.ts).
+  const VISX_CLASSES = new Set(['visx-group', 'visx-bar', 'visx-linepath'])
+  for (const node of [svg, ...svg.querySelectorAll('*')]) {
     for (const name of ['fill', 'stroke']) {
       const paint = node.getAttribute(name)
       if (paint != null) expect(paint, `${node.tagName} ${name}`).toMatch(/^(#[0-9A-F]{6}|rgba\([^)]*\)|none)$/)
+      if (paint?.startsWith('rgba')) expect(Number(paint.slice(5, -1).split(',')[3]), `${node.tagName} ${name}: an opaque rgba`).toBe(1)
     }
-    expect(node.getAttribute('style') ?? '').not.toContain('var(')
+    if (node.tagName.toLowerCase() === 'tspan') expect(['fill', 'stroke'].filter((name) => node.hasAttribute(name)), 'a tspan paints in its text’s ink').toEqual([])
+    for (const name of ['opacity', 'fill-opacity', 'stroke-opacity', 'filter', 'mask']) expect(node.hasAttribute(name), `${node.tagName} ${name}: nothing in a plot fades`).toBe(false)
+    const style = node.getAttribute('style') ?? ''
+    expect(style).not.toContain('var(')
+    expect(style, `${node.tagName} style: nothing in a plot fades`).not.toMatch(/opacity|filter|mask|mix-blend-mode/i)
+    expect(style, `${node.tagName} style: a paint is an attribute, never a style`).not.toMatch(/(?:^|;)\s*(?:fill|stroke)\s*:/i)
+    const classes = (node.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
+    expect(classes.filter((token) => !VISX_CLASSES.has(token)), `${node.tagName} class: no class paints or fades a mark`).toEqual([])
+    expect(['animate', 'animatemotion', 'animatetransform', 'set', 'filter', 'mask', 'style'], `${node.tagName}: no style, filter, mask or SMIL element`).not.toContain(node.tagName.toLowerCase())
   }
   // D5: no axis domain, tick line or tag: every line is a gridline, an off-scale rule or a break stroke.
   expect(svg.querySelectorAll('line').length).toBe(
@@ -1080,6 +1105,156 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
       expect(card).toHaveClass('row-span-3', 'grid', 'grid-cols-1', 'grid-rows-subgrid', 'gap-y-0')
       const flow = [...card.children].filter((child) => !child.classList.contains('sr-only'))
       expect(flow, 'three rows in flow').toHaveLength(3)
+    }
+  })
+})
+
+describe('a ranked company chart (E251): the subject in chart-1, every other company a context bar', () => {
+  // The peers fixture's cases as a ranked company chart draws them (chartPlan.ts peerBarCases).
+  const PEERS = peerBarCases(JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture)
+  const peer = (name: string) => buildBarChart(structuredClone(PEERS.find(([caseName]) => caseName === name)![1]))
+  /** A chart's plot as any card draws it, through ChartPlotFrame, its font in: at the desktop card's width in jsdom. */
+  const frame = (model: ChartModel, theme: 'light' | 'dark' = 'light') => (
+    <ChartPlotFrame model={model} readouts={coreReadouts(model)} tokens={CHART_TOKENS[theme]} fontReady view="card">
+      {({ plot }) => <section>{plot}</section>}
+    </ChartPlotFrame>
+  )
+  const drawPeers = (def: BarChartDef, theme: 'light' | 'dark') => {
+    const model = buildBarChart(structuredClone(def))
+    const utils = render(frame(model, theme))
+    return { ...utils, model, stop: within(utils.container).getByRole('slider', { name: `${model.title} chart values` }) }
+  }
+
+  describe.each(PEERS)('%s', (_name, def) => {
+    it.each(['light', 'dark'] as const)('%s: the plan drawn, each bar in its role’s ink and width, each tooltip swatch the bar’s own paint (E236)', (theme) => {
+      const tokens = CHART_TOKENS[theme]
+      const { container, model, stop } = drawPeers(def, theme)
+      const layout = layoutChart(model, DEFAULT_WIDTH, 'card')
+      const svg = container.querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!
+      // The renderer's checks on the plan, D4 with the context ink and no opacity among them.
+      expectDrawsPlan(svg, model, layout, tokens)
+      const [mark] = model.panels[0].marks
+      expect(mark.color, 'the mark stays chart-1: a context bar claims no palette slot (M9)').toBe(0)
+      const context = new Map(mark.points.map((point) => [point.period, Boolean(point.context)]))
+      const bars = [...svg.querySelectorAll('rect[data-series]')]
+      expect(bars, 'a bar a valued company').toHaveLength(mark.points.filter((point) => point.value != null).length)
+      expect(bars.some((bar) => context.get(bar.getAttribute('data-period')!)), 'a context bar drawn').toBe(true)
+      expect(bars.some((bar) => !context.get(bar.getAttribute('data-period')!)), 'the subject’s bar drawn').toBe(true)
+      for (const bar of bars) {
+        const period = bar.getAttribute('data-period')!
+        // A context bar: the context ink, never a series colour, at the growth bars' narrower width, the cue colour alone
+        // cannot give a colour-blind reader (layout.ts contextBarWidth); the subject keeps chart-1 and the full width.
+        expect([bar.getAttribute('fill'), num(bar, 'width')], period)
+          .toEqual(context.get(period) ? [tokens.context, layout.growthBarWidth] : [tokens.series[0], layout.barWidth])
+      }
+      // The values stop on each company: the tooltip row's swatch is that bar's own paint.
+      const swatch = () => container.querySelector('[data-chart-tooltip] li svg rect')?.getAttribute('fill')
+      model.periods.forEach((period, i) => {
+        fireEvent.keyDown(stop, { key: 'Home' })
+        for (let step = 0; step < i; step++) fireEvent.keyDown(stop, { key: 'ArrowRight' })
+        expect(stop).toHaveAttribute('aria-valuenow', String(i))
+        expect(swatch(), `${period.key}’s swatch`).toBe(context.get(period.key) ? tokens.context : tokens.series[0])
+      })
+    })
+  })
+
+  it('starts at its subject: the values stop on mount and after a new window, and a plot that scrolls opens with its column in view, its sticky gutter exactly when scrolled', () => {
+    const viewportWidth = 300
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
+    })
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? viewportWidth : 0
+    })
+    const startOf = (model: ChartModel) => model.periods.findIndex((period) => period.key === model.start)
+    /** The start's column lies wholly in the view, right of what covers its left edge, and the sticky gutter shows exactly
+     *  once the plot has scrolled. The column opens centred as far as the scroll goes: a start whose centred scroll falls
+     *  before 0 opens at the scroll's start, on the plot's own axis, and one past the scroll's end at that end. */
+    const expectStartInView = (card: HTMLElement, model: ChartModel) => {
+      const viewport = card.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
+      const layout = layoutChart(model, viewportWidth, 'card')
+      expect(layout.width, 'the plot scrolls in its card').toBeGreaterThan(viewportWidth)
+      expect(viewport).toHaveAttribute('role', 'region')
+      expect(viewport.scrollLeft, 'inside the scroll’s range').toBeGreaterThanOrEqual(0)
+      expect(viewport.scrollLeft, 'inside the scroll’s range').toBeLessThanOrEqual(layout.width - viewportWidth)
+      const column = columnOf(layout, model.periods[startOf(model)].key)
+      const left = column.left - viewport.scrollLeft
+      expect(left, 'clear of the sticky gutter').toBeGreaterThanOrEqual(gutterCover(layout, viewport.scrollLeft) - 1e-9)
+      expect(left + column.width, 'inside the view').toBeLessThanOrEqual(viewportWidth + 1e-9)
+      expect(card.querySelector('[data-chart-gutter]') != null, 'the sticky gutter exactly when scrolled').toBe(viewport.scrollLeft > 0)
+      return viewport.scrollLeft
+    }
+    try {
+      const spread = peer('spread')
+      expect(startOf(spread), 'the subject sixth of eleven').toBe(5)
+      const { container, rerender, unmount } = render(frame(spread))
+      const stop = within(container).getByRole('slider', { name: `${spread.title} chart values` })
+      expect(stop).toHaveAttribute('aria-valuenow', '5')
+      expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(spread)[5].announcement)
+      // Its column lies in the first view, yet it opens centred: scrolled 74 px at 300, the sticky gutter shown.
+      expect(expectStartInView(container, spread), 'a mid start: scrolled, its column centred').toBeGreaterThan(0)
+      // The keyboard moves on; a new window starts again at its own subject, and opens there: the near-equal case's fourth
+      // company, whose centred scroll falls before the scroll's start (−6 px at 300), so it opens there with no gutter.
+      fireEvent.keyDown(stop, { key: 'End' })
+      expect(stop).toHaveAttribute('aria-valuenow', String(spread.periods.length - 1))
+      const nearEqual = peer('near-equal')
+      rerender(frame(nearEqual))
+      expect(stop).toHaveAttribute('aria-valuenow', String(startOf(nearEqual)))
+      expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(nearEqual)[startOf(nearEqual)].announcement)
+      expect(expectStartInView(container, nearEqual), 'an early start: at the scroll’s start').toBe(0)
+      unmount()
+      // A start at the first company, a sector's largest: the scroll's start too, on the plot's own axis.
+      const first = buildBarChart({ ...structuredClone(PEERS.find(([name]) => name === 'spread')![1]), start: spread.periods[0].key })
+      const fresh = render(frame(first))
+      expect(within(fresh.container).getByRole('slider', { name: `${first.title} chart values` })).toHaveAttribute('aria-valuenow', '0')
+      expect(expectStartInView(fresh.container, first), 'the first company: at the scroll’s start').toBe(0)
+      fresh.unmount()
+      // A start near the end, the tenth company: its centred scroll (222 px at 300) runs past the scroll's end (156 px), so
+      // it opens at that end, its column in view right of the gutter.
+      const late = buildBarChart({ ...structuredClone(PEERS.find(([name]) => name === 'spread')![1]), start: spread.periods[9].key })
+      const lateCard = render(frame(late)).container
+      expect(within(lateCard).getByRole('slider', { name: `${late.title} chart values` })).toHaveAttribute('aria-valuenow', '9')
+      expect(expectStartInView(lateCard, late), 'a late start: at the scroll’s end').toBe(layoutChart(late, viewportWidth, 'card').width - viewportWidth)
+    } finally {
+      scroll.mockRestore()
+      width.mockRestore()
+    }
+  })
+
+  it('says its own words: its region names its companies, and a step past either end says "First company." or "Last company."; a period chart keeps its own', async () => {
+    const viewportWidth = 300
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
+    })
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? viewportWidth : 0
+    })
+    try {
+      const spread = peer('spread')
+      const { container, unmount } = render(frame(spread))
+      expect(container.querySelector('[data-analysis-chart-scroll]')).toHaveAttribute('aria-label', 'Revenue chart. Scroll horizontally to view all companies.')
+      const stop = within(container).getByRole('slider', { name: `${spread.title} chart values` })
+      const status = within(container).getByRole('status')
+      fireEvent.keyDown(stop, { key: 'End' })
+      fireEvent.keyDown(stop, { key: 'ArrowRight' })
+      await waitFor(() => expect(status).toHaveTextContent('Last company.'))
+      fireEvent.keyDown(stop, { key: 'Home' })
+      fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+      await waitFor(() => expect(status).toHaveTextContent('First company.'))
+      unmount()
+      // A chart that names no words keeps its periods': REGN's top line, which scrolls at this width too.
+      const ds = dataset('REGN_annual')
+      const topline = buildChartModel('topline', ds, resolveDataNotes(ds))
+      expect(topline.reading, 'an analysis chart names none').toBeUndefined()
+      const periods = render(frame(topline)).container
+      expect(periods.querySelector('[data-analysis-chart-scroll]')).toHaveAttribute('aria-label', `${topline.title} chart. Scroll horizontally to view all periods.`)
+      const periodStop = within(periods).getByRole('slider')
+      fireEvent.keyDown(periodStop, { key: 'End' })
+      fireEvent.keyDown(periodStop, { key: 'ArrowRight' })
+      await waitFor(() => expect(within(periods).getByRole('status')).toHaveTextContent('Newest period.'))
+    } finally {
+      scroll.mockRestore()
+      width.mockRestore()
     }
   })
 })
