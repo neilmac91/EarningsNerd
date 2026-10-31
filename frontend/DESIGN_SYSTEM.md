@@ -261,10 +261,11 @@ A control that shows words keeps them at the start of its accessible name (WCAG 
 `lessons/frontend-hidden-name-tails-bring-their-own-space.md`). An `aria-label` replaces what a control shows, so a
 control with words takes none, and where its name needs more than it shows it adds a visually hidden tail after a
 written space (`Open filing{' '}<span className="sr-only">(10-K, …)</span>`), or it takes a label that begins with its
-words. A keyboard hint (`kbd`) stays out of the name, and so may a status the name already says, marked
-`aria-hidden`. An icon alone is named by its label. Gate: `tests/unit/labelInName.spec.ts`, over every control the
-app's source writes, its RESIDUE the controls whose words wait on chief design (E68 (3)) and its UNREAD the labels it
-cannot read (a prop, data).
+words. A keyboard hint (`kbd`) stays out of the name, and so may a status the name already says, a count or a glyph
+marked `aria-hidden`. `aria-hidden` never takes a control's words out of its label, since a speech user still sees them.
+An icon alone is named by its label. Gate: `tests/unit/labelInName.spec.ts`, over every control whose label the app's
+source writes in an attribute or a plain object spread, its RESIDUE the controls whose words wait on chief design
+(E68 (3)) and its UNREAD the labels it cannot read (a prop, data).
 
 A Retry of a failed query is
 `<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef} />`, never a hand-rolled

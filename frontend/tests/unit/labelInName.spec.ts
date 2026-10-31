@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { bindingResolver } from './astBindings'
+import { bindingResolver, containerEscape } from './astBindings'
 
 /**
  * Label in name (WCAG 2.5.3; E68 (3); lessons/frontend-hidden-name-tails-bring-their-own-space.md rule (c)): a control
@@ -19,13 +19,20 @@ import { bindingResolver } from './astBindings'
  *    menuitem, tab, checkbox, radio, switch, option, treeitem). Not a field (`select` and the DS `Select`, whose
  *    children are its options, match none of these) and not a container a handler alone marks (a `radiogroup`'s name
  *    is no content of its own).
- *  - Its `aria-label`, and its face: the words it shows, read through wrapper elements and fragments. Not face: a
- *    visually hidden span (`sr-only`), an element `aria-hidden` marks, a keyboard hint (`kbd`, whose shortcut is no part
- *    of the name), and a component that closes itself (an icon).
+ *  - Its `aria-label`: the last written of the attribute and an `'aria-label'` entry of a plain spread (an object written
+ *    in place, or a same-file const holding one, of named entries that nothing writes after it is made, as the ring scan
+ *    reads one), since React applies props in order. The Source chip and the Copilot's citation chip name themselves
+ *    that way.
+ *  - Its face: the words it shows, read through wrapper elements and fragments. Not face: a visually hidden span
+ *    (`sr-only`, unless a `not-sr-only` variant shows it), a keyboard hint (`kbd`, whose shortcut is no part of the
+ *    name), a component that closes itself (an icon), and what `aria-hidden` marks where it is a status the name may say
+ *    in words of its own: digits and glyphs, or a value the label names (inView()). Words `aria-hidden` marks are still
+ *    face: a speech user sees them, and they are the label the name must begin with.
  *  - Both as words and values: a string, a template's chunks, and a const that holds one, in the file (by scope,
  *    `astBindings`) or exported by another module of the app (`@/…` or a relative import); any other expression is a
- *    value, the same value wherever it is written the same way. A conditional is read as its two branches, and two
- *    conditionals on one condition, one in the label and one in the face, take the same branch together.
+ *    value, the same value wherever it is written the same way. A conditional is read as its two branches (`cond && x`
+ *    as x and nothing), and two conditionals on one condition, one in the label and one in the face, take the same
+ *    branch together.
  *
  * The rule, for every pair of a label's and a face's branches: where the face shows words, the label's words begin with
  * them, a value matching only the same value. Past a face's value the label does not repeat (a countdown in "Resend
@@ -38,7 +45,8 @@ import { bindingResolver } from './astBindings'
  * Out of reach: a label or a face a prop or a parameter hands in, which goes to UNREAD (planted below); what a caller
  * hands a component of another module that sets its control's label and face from props (ChartControl's and
  * WordingChanges' own controls are in UNREAD; the DS Button passes `aria-label` through, which this reads where it is
- * written); and a name `aria-labelledby` points at.
+ * written); a label a spread it cannot read may set (a props spread, an object built elsewhere, planted below); and a
+ * name `aria-labelledby` points at.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -47,7 +55,8 @@ const CONTROL_ROLES = new Set(['button', 'link', 'menuitem', 'menuitemcheckbox',
 const CONTROL_NAME = /^(?:Link|\w*Button|\w+Link)$/
 
 type Element = ts.JsxElement | ts.JsxSelfClosingElement
-type Token = { word: string } | { value: string }
+/** A word or a value; `hidden` where `aria-hidden` marks what shows it (see inView()). */
+type Token = ({ word: string } | { value: string }) & { hidden?: true }
 /** One branch of a label or a face: its tokens, and the condition branches it was read under. */
 interface Branch { tokens: Token[]; when: Map<string, boolean> }
 /** What a control's label or face reads as: its branches, or null where the scan cannot read it. */
@@ -100,6 +109,33 @@ function merge(a: Map<string, boolean>, b: Map<string, boolean>): Map<string, bo
   return out
 }
 const one = (tokens: Token[]): Reading => [{ tokens, when: new Map() }]
+/** A conditional's reading: each side's branches under its value of the condition, or null where a side is unread. Two
+    sides that show nothing read as nothing, so a control of many `cond && <Icon />` keeps one branch. */
+function branches(cond: string, yes: Reading, no: Reading): Reading {
+  const side = (r: Reading, value: boolean): Reading => r && r.flatMap((b) => {
+    const when = merge(b.when, new Map([[cond, value]]))
+    return when ? [{ tokens: b.tokens, when }] : []
+  })
+  const both = [side(yes, true), side(no, false)]
+  if (!both[0] || !both[1]) return null
+  const all = [...both[0], ...both[1]]
+  return all.every((b) => b.tokens.length === 0) ? one([]) : all
+}
+/** A class list that hides an element from sight at every width: a bare `sr-only` no `not-sr-only` variant undoes
+    (`sr-only sm:not-sr-only` shows from sm, so its words are face). */
+const visuallyHidden = (cls: string) => /(?<![\w:-])sr-only(?![\w-])/.test(cls) && !/not-sr-only/.test(cls)
+/** Whether `aria-hidden` hides an element: written bare, as "true" or as {true}. */
+function ariaHidden(el: Element): boolean {
+  const attr = attrOf(el, 'aria-hidden')
+  if (!attr) return false
+  if (!attr.initializer) return true
+  if (ts.isStringLiteral(attr.initializer)) return attr.initializer.text === 'true'
+  const e = attr.initializer.expression && unwrap(attr.initializer.expression)
+  return !!e && (e.kind === ts.SyntaxKind.TrueKeyword || (ts.isStringLiteralLike(e) && e.text === 'true'))
+}
+/** A plain object's key as React reads it: an identifier's text or a string literal's. undefined for any other key. */
+const keyOf = (prop: ts.ObjectLiteralElementLike): string | undefined =>
+  prop.name && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)) ? prop.name.text : undefined
 
 /**
  * Whether a label begins with a face's words. A face's value matches only the same value; past a value the label
@@ -123,6 +159,17 @@ function judge(label: Token[], face: Token[]): 'ok' | 'fail' | 'unread' {
   return 'ok'
 }
 
+/**
+ * The face a label is judged against. What `aria-hidden` marks drops out where it is a status the name may say in words
+ * of its own: digits and glyphs (a count, "9+"), and a value the label itself names (the bell's count, in "Notifications
+ * ({unread} unread)"). Its words stay: a reader sees them, and they are the control's label (FilingIndex's "SEC.gov").
+ * The scan cannot tell a value that holds words from a count, so a hidden value the label names drops out either way
+ * (planted as a gap). With no label to hand (`label` null), a hidden value stays.
+ */
+function inView(face: Token[], label: Token[] | null): Token[] {
+  return face.filter((t) => !t.hidden || ('word' in t ? /\p{L}/u.test(t.word) : !label?.some((l) => 'value' in l && l.value === t.value)))
+}
+
 /** Reads one source's controls. `exportedText` gives a string another module exports, or null. */
 export function labelInName(source: string, file: string, exportedText: (specifier: string, name: string) => string | null): { line: number; kind: 'fail' | 'unread'; detail: string }[] {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('.jsx') ? ts.ScriptKind.JSX : ts.ScriptKind.TSX)
@@ -141,16 +188,7 @@ export function labelInName(source: string, file: string, exportedText: (specifi
     if (ts.isTemplateExpression(e)) {
       return seq([one(words(e.head.text)), ...e.templateSpans.flatMap((span) => [read(span.expression, seen), one(words(span.literal.text))])])
     }
-    if (ts.isConditionalExpression(e)) {
-      const cond = e.condition.getText()
-      const branch = (r: Reading, value: boolean): Reading => r && r.flatMap((b) => {
-        const when = merge(b.when, new Map([[cond, value]]))
-        return when ? [{ tokens: b.tokens, when }] : []
-      })
-      const yes = branch(read(e.whenTrue, seen), true)
-      const no = branch(read(e.whenFalse, seen), false)
-      return yes && no ? [...yes, ...no] : null
-    }
+    if (ts.isConditionalExpression(e)) return branches(e.condition.getText(), read(e.whenTrue, seen), read(e.whenFalse, seen))
     if (ts.isIdentifier(e) && !seen.has(e)) {
       const binding = resolve(e)
       if (binding?.init && ts.isVariableDeclaration(binding.decl) && binding.decl.parent.flags & ts.NodeFlags.Const) {
@@ -166,6 +204,13 @@ export function labelInName(source: string, file: string, exportedText: (specifi
     return one([{ value: e.getText().replace(/\s+/g, ' ') }])
   }
 
+  /** What one expression in a face shows: JSX its face, null nothing, anything else as read() reads it. */
+  const shown = (x: ts.Expression): Reading => {
+    const u = unwrap(x)
+    if (ts.isJsxElement(u) || ts.isJsxSelfClosingElement(u) || ts.isJsxFragment(u)) return face([u as ts.JsxChild])
+    if (u.kind === ts.SyntaxKind.NullKeyword) return one([])
+    return read(u)
+  }
   /** A face's reading: the words and values its children show. */
   const face = (nodes: readonly ts.JsxChild[]): Reading =>
     seq(nodes.map((node): Reading => {
@@ -173,28 +218,9 @@ export function labelInName(source: string, file: string, exportedText: (specifi
       if (ts.isJsxExpression(node)) {
         if (!node.expression) return one([])
         const e = unwrap(node.expression)
-        // `cond && <Icon />` or `cond && 'x'`: the right side, or nothing.
-        if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
-          const right = unwrap(e.right)
-          if (ts.isJsxElement(right) || ts.isJsxSelfClosingElement(right) || ts.isJsxFragment(right)) return face([right as ts.JsxChild])
-          return read(right)
-        }
-        if (ts.isConditionalExpression(e)) {
-          const jsxOr = (x: ts.Expression): Reading => {
-            const u = unwrap(x)
-            if (ts.isJsxElement(u) || ts.isJsxSelfClosingElement(u) || ts.isJsxFragment(u)) return face([u as ts.JsxChild])
-            if (u.kind === ts.SyntaxKind.NullKeyword) return one([])
-            return read(u)
-          }
-          const cond = e.condition.getText()
-          const tag = (r: Reading, value: boolean): Reading => r && r.flatMap((b) => {
-            const when = merge(b.when, new Map([[cond, value]]))
-            return when ? [{ tokens: b.tokens, when }] : []
-          })
-          const yes = tag(jsxOr(e.whenTrue), true)
-          const no = tag(jsxOr(e.whenFalse), false)
-          return yes && no ? [...yes, ...no] : null
-        }
+        // `cond && x`: x where the condition holds, nothing where it does not.
+        if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return branches(e.left.getText(), shown(e.right), one([]))
+        if (ts.isConditionalExpression(e)) return branches(e.condition.getText(), shown(e.whenTrue), shown(e.whenFalse))
         // A same-file const holding JSX (`const chipInner = (<>…</>)`) is the face it holds.
         if (ts.isIdentifier(e)) {
           const binding = resolve(e)
@@ -205,13 +231,45 @@ export function labelInName(source: string, file: string, exportedText: (specifi
       }
       if (ts.isJsxFragment(node)) return face(node.children)
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-        const tag = openingOf(node).tagName.getText()
-        if (/\bsr-only\b/.test(classText(node)) || attrOf(node, 'aria-hidden') || tag === 'kbd') return one([])
+        if (openingOf(node).tagName.getText() === 'kbd' || visuallyHidden(classText(node))) return one([])
         if (ts.isJsxSelfClosingElement(node)) return one([])
-        return face(node.children)
+        const inner = face(node.children)
+        // What aria-hidden marks is read as inView() decides, against each label.
+        if (ariaHidden(node)) return inner && inner.map((b) => ({ tokens: b.tokens.map((t): Token => ({ ...t, hidden: true })), when: b.when }))
+        return inner
       }
       return one([])
     }))
+
+  /** A props spread the scan reads: an object written in place, or a same-file const holding one, of named entries only
+      (no spread of its own, no computed key), that nothing writes after it is made (containerEscape), as the ring scan
+      reads one. undefined: a spread it cannot read (a prop, an object built elsewhere). */
+  const plainSpread = (spread: ts.JsxSpreadAttribute): ts.ObjectLiteralExpression | undefined => {
+    let held: ts.Expression | undefined = unwrap(spread.expression)
+    if (ts.isIdentifier(held)) {
+      const binding = resolve(held)
+      held = binding?.init && ts.isVariableDeclaration(binding.decl) && ts.getCombinedNodeFlags(binding.decl) & ts.NodeFlags.Const ? unwrap(binding.init) : undefined
+    }
+    if (!held || !ts.isObjectLiteralExpression(held)) return undefined
+    const named = held.properties.every((p) => (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p) || ts.isMethodDeclaration(p)) && keyOf(p) !== undefined)
+    return named && !containerEscape(held, sf, resolve) ? held : undefined
+  }
+  /** The aria-label a control is given: the last written of its attribute and a plain spread's entry, as React applies
+      props in order. null where none is written, or the last is empty. */
+  const labelOf = (el: Element): ts.Expression | null => {
+    let label: ts.Expression | null = null
+    for (const p of openingOf(el).attributes.properties) {
+      if (ts.isJsxAttribute(p) && p.name.getText() === 'aria-label') {
+        label = !p.initializer ? null : ts.isStringLiteral(p.initializer) ? p.initializer : p.initializer.expression ?? null
+      } else if (ts.isJsxSpreadAttribute(p)) {
+        for (const entry of plainSpread(p)?.properties ?? []) {
+          if (keyOf(entry) !== 'aria-label') continue
+          label = ts.isPropertyAssignment(entry) ? entry.initializer : ts.isShorthandPropertyAssignment(entry) ? entry.name : null
+        }
+      }
+    }
+    return label
+  }
 
   const isControl = (el: Element): boolean => {
     const tag = openingOf(el).tagName.getText().split('.').pop()!
@@ -224,23 +282,23 @@ export function labelInName(source: string, file: string, exportedText: (specifi
   const show = (tokens: Token[]) => tokens.map((t) => ('word' in t ? t.word : `{${t.value}}`)).join(' ')
   const visit = (node: ts.Node): void => {
     if ((ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) && isControl(node)) {
-      const label = attrOf(node, 'aria-label')
-      if (label?.initializer) {
+      const labelExpr = labelOf(node)
+      if (labelExpr) {
         const line = sf.getLineAndCharacterOfPosition(node.getStart()).line + 1
         const faces = ts.isJsxElement(node) ? face(node.children) : one([])
-        const labelExpr = ts.isStringLiteral(label.initializer) ? label.initializer : label.initializer.expression
-        const labels = labelExpr ? read(labelExpr) : null
-        const shows = faces === null || faces.some((b) => b.tokens.length > 0)
+        const labels = read(labelExpr)
+        const shows = faces === null || faces.some((b) => inView(b.tokens, null).length > 0)
         if (shows) {
-          if (!faces || !labels) findings.push({ line, kind: 'unread', detail: `label ${label.initializer.getText().slice(0, 80)}` })
+          if (!faces || !labels) findings.push({ line, kind: 'unread', detail: `label ${labelExpr.getText().slice(0, 80)}` })
           else {
             // One finding a control: the first pair of branches that fails, else the first the scan cannot judge.
             let failed: string | null = null
             let unjudged: string | null = null
             for (const l of labels) for (const f of faces) {
-              if (!merge(l.when, f.when) || f.tokens.length === 0) continue
-              const verdict = judge(l.tokens, f.tokens)
-              const detail = `shows "${show(f.tokens)}", named "${show(l.tokens)}"`
+              const visible = inView(f.tokens, l.tokens)
+              if (!merge(l.when, f.when) || visible.length === 0) continue
+              const verdict = judge(l.tokens, visible)
+              const detail = `shows "${show(visible)}", named "${show(l.tokens)}"`
               if (verdict === 'fail') failed ??= detail
               else if (verdict === 'unread') unjudged ??= detail
             }
@@ -288,12 +346,14 @@ const RESIDUE: Record<string, number> = {
   'features/analysis/components/DataNotesLink.tsx': 1, // the Notes chip shows "Notes a, b" and is named "Review data notes a, b" (D-061's chip)
   'features/analysis/components/NarrativePane.tsx': 1, // the citation chip shows "[1]" and is named "Citation 1: …", which says what the number is before it
   'features/feedback/components/FeedbackWidget.tsx': 1, // the launcher shows "Feedback" from sm and is named "Send feedback" or "Close feedback", where aria-expanded already says which
-  'features/filings/components/SourceTrace.tsx': 1, // the Source chip's link shows its label ("Quote found in filing") and is named "Source: … (opens in a new tab)"; the demo below copies it
+  'features/filings/components/FilingIndex.tsx': 1, // the filing row's SEC.gov link shows "SEC.gov" from 48rem (its only words, marked aria-hidden) and is named "View the 10-K filed … on SEC.gov (opens in a new tab)"
+  'features/filings/components/SourceTrace.tsx': 4, // the Source chip's four triggers (the sheet's, the in-app jump, the link, the popover's) show its label ("Quote found in filing") and are named "Source: …", the link adding "(opens in a new tab)"; the demo below copies it
+  'features/filings/components/copilot/CitationChip.tsx': 3, // the Copilot's citation chip (its jump, its link, its popover trigger) shows "[1]" and is named "Citation 1: …", as NarrativePane's is
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // the landing's demo chip shows "Quote found in filing" and is named "Source: Quote found in filing", as SourceTrace's link is
-  'features/notifications/components/NotificationBell.tsx': 1, // the bell's count badge ("3", "9+") is face and the name opens "Notifications (3 unread)"; the badge is a status the name already counts, so aria-hidden on it is the likely fix
+  'features/notifications/components/NotificationBell.tsx': 1, // the bell's count badge ("3", "9+") is face and the name opens "Notifications (3 unread)"; the badge is a status the name already counts, so aria-hidden on it is the likely fix (inView())
   'features/watchlist/components/PopularTickerChips.tsx': 1, // the chip shows the ticker and is named "Add AAPL to your watchlist"
 }
-const RESIDUE_MAX = { files: 7, controls: 7 }
+const RESIDUE_MAX = { files: 9, controls: 14 }
 /** The labels the scan cannot read on a control that shows words, per file, with why. */
 const UNREAD: Record<string, number> = {
   'features/admin/components/FeedbackRow.tsx': 1, // admin: the row's link opens with the message's preview, data, then shows "View details", and is named "View details for feedback N"
@@ -347,6 +407,13 @@ describe('the label-in-name reader, on planted controls', () => {
     ['a hidden span left out of the face', '<button aria-label="Open filing">Open filing<span className="sr-only">, 10-K</span></button>', 'ok'],
     ['a keyboard hint left out of the name', '<button aria-label="Ask this Filing">Ask this Filing<kbd>⌘K</kbd></button>', 'ok'],
     ['a count marked aria-hidden', '<button aria-label="Notifications, 3 unread"><BellIcon /><span aria-hidden="true">3</span></button>', 'ok'],
+    ['words marked aria-hidden, still the face', '<a href="/x" aria-label="View the filing on SEC.gov"><span aria-hidden="true">SEC.gov</span><ArrowIcon /></a>', 'fail'],
+    ['a hidden value the label names, a count it says', '<button aria-label={`Notifications (${t} unread)`}><BellIcon /><span aria-hidden="true">{t}</span></button>', 'ok'],
+    ['a hidden value the label names, though it may hold words (a gap)', '<button aria-label={`Add ${t} to your watchlist`}><span aria-hidden="true">{t}</span></button>', 'ok'],
+    ['a hidden value the label does not name', '<button aria-label="Open the list"><span aria-hidden="true">{t}</span></button>', 'unread'],
+    ['a word shown only under a condition', "<button aria-label=\"Hide notes\">{open && 'Hide'} notes</button>", 'fail'],
+    ['a condition the label and an && share', "<button aria-label={open ? 'Hide notes' : 'Notes'}>{open && 'Hide'} notes</button>", 'ok'],
+    ['a hidden span a not-sr-only variant shows', '<button aria-label="Return to the list"><ArrowIcon /><span className="sr-only sm:not-sr-only">Back</span></button>', 'fail'],
     ['a template that repeats the value', '<button aria-label={`Remove ${name}`}>Remove {name}</button>', 'ok'],
     ['a label that puts words before the value shown', '<button aria-label={`Add ${t} to your watchlist`}>{t}</button>', 'fail'],
     ['words before a value the label does not repeat (a countdown)', "<button aria-label=\"Resend invite\">Resend {s > 0 ? `(${s}s)` : ''}</button>", 'ok'],
@@ -372,6 +439,17 @@ describe('the label-in-name reader, on planted controls', () => {
     expect(verdict('<button aria-label="Quote found in filing, opens the source">{LABEL}</button>', "import { LABEL } from '@/lib/labels'")).toBe('ok')
     expect(verdict('<button aria-label="Open the source">{LABEL}</button>', "import { LABEL } from '@/lib/labels'")).toBe('fail')
     expect(verdict('<button aria-label="Open the source">{OTHER}</button>', "import { OTHER } from '@/lib/labels'")).toBe('unread')
+  })
+
+  it('reads a label a plain spread sets, the last written winning', () => {
+    const head = "const common = { 'aria-label': 'Close dialog', className: 'chip' }"
+    expect(verdict('<button {...common}>Cancel</button>', head)).toBe('fail')
+    expect(verdict('<button {...common} aria-label="Cancel and close">Cancel</button>', head)).toBe('ok')
+    expect(verdict('<button aria-label="Cancel and close" {...common}>Cancel</button>', head)).toBe('fail')
+    expect(verdict("<button {...{ 'aria-label': 'Close dialog' }}>Cancel</button>")).toBe('fail')
+    // Out of reach, planted: a props spread, and an object something writes after it is made.
+    expect(verdict('<button {...props}>Cancel</button>')).toBe('ok')
+    expect(verdict('<button {...common}>Cancel</button>', `${head}\ncommon.className = 'other'`)).toBe('ok')
   })
 
   // Out of reach, planted: the scan cannot read a face a prop hands in, so the control goes to UNREAD whatever its label says.
