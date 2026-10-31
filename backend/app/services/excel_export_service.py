@@ -53,9 +53,9 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, NOT_MEANINGFUL_CAUSES, SummaryClause, basis_not_meaningful, calculated_sentence,
-    count_label, derived_q4_sentence, detail_entries, display_instant, evidence_lines, export_points, fine_print_summary,
-    formula_text, growth_point, later_filing_entry, note_index, operand_records, period_label, point_method, point_notes,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, SummaryClause, calculated_sentence, count_label, derived_q4_sentence,
+    detail_entries, display_instant, evidence_lines, export_points, fine_print_summary, formula_text, growth_point,
+    later_filing_entry, not_meaningful_lines, note_index, operand_records, period_label, point_method, point_notes,
     workbook_closing,
 )
 from app.services.trend_analysis.data_notes import marks_figure, resolve_data_notes
@@ -269,7 +269,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         "Sources & methods lists reported inputs, formulas, source links and any limitations for each figure.",
         "Sources & methods preserves raw dataset values: a margin of 55.8% is recorded there as 55.8 with unit percent.",
         # Where some growth reads n/m across a change of basis, both causes of an n/m (D12).
-        *([NOT_MEANINGFUL_CAUSES] if basis_not_meaningful(dataset) else []),
+        *not_meaningful_lines(dataset),
         FCF_DEFINITION,
     ]
     if sentence := calculated_sentence(dataset):

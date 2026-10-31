@@ -263,6 +263,12 @@ def basis_not_meaningful(dataset: Mapping[str, Any]) -> bool:
     return bool(later_filing_places(dataset)["comparisons"])
 
 
+def not_meaningful_lines(dataset: Mapping[str, Any]) -> list[str]:
+    """The files' n/m sentence, as the lines each file adds: the one sentence where some growth of the run reads n/m
+    across a change of basis (basis_not_meaningful), else none."""
+    return [NOT_MEANINGFUL_CAUSES] if basis_not_meaningful(dataset) else []
+
+
 def pdf_closing(later_filing: bool) -> str:
     """The PDF's closing line: where Sources & methods keeps a figure's evidence, and, where the line prints, that it
     keeps what each year's own annual report first reported."""

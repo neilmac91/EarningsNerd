@@ -2,22 +2,27 @@
 
 The page reads it since WP5a-F1 (frontend/features/analysis/lib/laterFilings.ts); the producer (WP5a-B) sends it. These
 run every case of the shared fixture backend/tests/fixtures/analysis_later_filings.json, which the page's
-later-filings.spec.tsx reads too, through the real builders:
+later-filings.spec.tsx reads too, and two local cases (evidence two levels down, under a growth and a window change, as
+the producer sends it; and evidence on inputs alone), through the real builders:
 
 1. The line. Each file prints the later-filing line exactly where the case's expected places hold a figure: one entry
    after the notes, with no letter and no anchor, naming those figures and, where growth reads n/m across the change,
    those growths, in the fixture's order. Its words are read from the page in test_export_note_marks.py.
-2. The evidence. Every figure and input of the window that carries its own annual report's value gives the dialog's
+2. The evidence. Every figure and input that carries its own annual report's value, at any depth, gives the dialog's
    sentence in both files, with any finding: in the PDF under its Sources & methods row, with that report's accession
-   and link; in the workbook in the comment of each cell that shows the figure and in a "First reported" row of Sources
-   & methods. Every growth that reads n/m across the change gives its cause, then its growth as first reported, none
-   where the own reports give none: in both Sources & methods and in the top line's growth comment.
+   and link; in the workbook in the comment of each cell that shows the figure (an input's in a row alone) and in a
+   "First reported" row of Sources & methods. Every growth that reads n/m across the change gives its cause, then its
+   growth as first reported as the page prints it, none where the own reports give none: in both Sources & methods and
+   in the top line's growth comment. The words are read from the page's sources, the growth's rule from the table both
+   copies run (analysis_growth_text.json).
 3. The sentences. The closing line's evidence sentence and the workbook's comment clause print exactly where the line
-   does; Sources & methods' n/m sentence exactly where some growth reads n/m across the change.
+   does; the n/m sentence exactly where some growth reads n/m across the change.
 4. No letter. Evidence marks nothing: each file draws exactly the case's marked letters.
 5. Parts the payload lacks are left out, never invented.
-6. Inert until the producer: a dataset without the fields prints none of it. (The byte comparison of both files
-   against main's, for datasets without the fields, is the pull request's.)
+6. Inert until the producer: a dataset without the fields prints none of it, and exports byte for byte as it does with
+   each of the builders' later-filing seams switched off, as main had them. What the comparison cannot see: a change
+   outside those seams that alters a dataset without the fields alike in both runs; the byte comparison against main's
+   builders is the pull request's.
 """
 from __future__ import annotations
 
@@ -25,12 +30,18 @@ import html as html_lib
 import io
 import json
 import re
+import zipfile
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from openpyxl import load_workbook
+
+import app.services.analysis_export_metadata as export_metadata
+import app.services.excel_export_service as excel_export_service
+import app.services.export_service as export_service
 
 from app.services.analysis_export_metadata import (
     BASIS_CHANGE_CAUSE, LATER_FILING_EVIDENCE, LATER_FILING_MESSAGE, NOT_MEANINGFUL_CAUSES, PDF_CLOSING, WORKBOOK_CLOSING,
@@ -530,7 +541,7 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
              LATER_FILING_EVIDENCE, "first-reported value")
 
 
-@pytest.mark.parametrize("case", CASES, ids=IDS)
+@pytest.mark.parametrize("case", WIDER, ids=WIDER_IDS)
 def test_a_dataset_without_the_fields_prints_none_of_it(case):
     dataset = _strip(case["dataset"])
     html = html_lib.unescape(_pdf(dataset))
@@ -539,3 +550,60 @@ def test_a_dataset_without_the_fields_prints_none_of_it(case):
     texts += [cell.comment.text for sheet in book.worksheets for row in sheet.iter_rows() for cell in row if cell.comment]
     assert [words for words in NEW_WORDS if words in html or any(words in text for text in texts)] == []
     assert f'<p class="fine-print">{PDF_CLOSING}</p>' in html and WORKBOOK_CLOSING in texts
+
+
+EXPORTED = datetime(2026, 10, 31, 12, 0, tzinfo=timezone.utc)
+# The builders' later-filing seams, each as main had it (WP5a-X added them): no evidence under a row, no n/m sentence,
+# no line, main's closing lines, every Sources & methods record without evidence words, a growth's figure without its
+# growth as first reported, and no evidence in a comment.
+PRE_X = {
+    (export_service.ExportService, "_analysis_evidence"): lambda self, figure: "",
+    (export_service.ExportService, "_analysis_nm_causes"): lambda self, dataset: "",
+    (export_service, "later_filing_entry"): lambda dataset: None,
+    (export_service, "pdf_closing"): lambda later_filing: PDF_CLOSING,
+    (excel_export_service, "later_filing_entry"): lambda dataset: None,
+    (excel_export_service, "workbook_closing"): lambda later_filing: WORKBOOK_CLOSING,
+    (excel_export_service, "not_meaningful_lines"): lambda dataset: [],
+    (excel_export_service, "_with_first_reported"): lambda records: ((label, record, []) for label, record in records),
+    (excel_export_service, "growth_point"): lambda point, growth, percent: {
+        "provenance": point.get(f"{growth}_provenance"), "reconciled": point.get(f"{growth}_reconciled")},
+    (export_metadata, "evidence_lines"): lambda figure: [],
+    (export_metadata, "growth_point"): lambda point, growth, percent: {
+        "period": point.get("period"), "value": point.get(growth), "provenance": point.get(f"{growth}_provenance"),
+        "reconciled": point.get(f"{growth}_reconciled")},
+}
+
+
+def _files(dataset: dict) -> tuple[str, dict[str, bytes]]:
+    """Both files whole: the PDF's HTML, and every part of the workbook's archive but the one stamped with its save
+    time (docProps/core.xml): cells, comments, styles, sizes, merges and charts."""
+    with zipfile.ZipFile(io.BytesIO(build_analysis_workbook(deepcopy(dataset), exported_at=EXPORTED))) as archive:
+        parts = {name: archive.read(name) for name in archive.namelist() if name != "docProps/core.xml"}
+    return _pdf(dataset), parts
+
+
+def _switched_off(monkeypatch) -> None:
+    for (owner, name), pre_x in PRE_X.items():
+        monkeypatch.setattr(owner, name, pre_x)
+
+
+@pytest.mark.parametrize("case", WIDER, ids=WIDER_IDS)
+def test_a_dataset_without_the_fields_exports_as_it_does_with_the_seams_switched_off(case, monkeypatch):
+    dataset = _strip(case["dataset"])
+    monkeypatch.setattr(export_service, "utcnow", lambda: EXPORTED)
+    printed = _files(dataset)
+    _switched_off(monkeypatch)
+    assert _files(dataset) == printed
+
+
+def test_the_switched_off_seams_print_nothing_of_the_evidence(monkeypatch):
+    """The seams hold all X prints: switched off, the deepest evidence case prints none of its words, so the comparison
+    above compares X's output with none of it."""
+    _switched_off(monkeypatch)
+    dataset = _deeper_evidence()["dataset"]
+    book = _workbook(dataset)
+    texts = [html_lib.unescape(_pdf(dataset))]
+    texts += [str(cell.value) for sheet in book.worksheets for row in sheet.iter_rows() for cell in row if cell.value]
+    texts += [cell.comment.text for sheet in book.worksheets for row in sheet.iter_rows() for cell in row if cell.comment]
+    assert [words for words in (*NEW_WORDS, "As first reported") if any(words in text for text in texts)] == []
+

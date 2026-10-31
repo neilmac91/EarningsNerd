@@ -8,10 +8,10 @@ from html import escape
 from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, PDF_OPTIONS, render_branded_pdf
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, NOT_MEANINGFUL_CAUSES, QUARTER_LEGEND, basis_not_meaningful,
-    calculated_sentence, derived_quarters, detail_entries, display_instant, evidence_lines, export_points,
-    fine_print_summary, formula_text, later_filing_entry, note_index, operand_records, pdf_closing, period_label,
-    point_method, raw_value_text, source_urls,
+    ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, QUARTER_LEGEND, calculated_sentence, derived_quarters,
+    detail_entries, display_instant, evidence_lines, export_points, fine_print_summary, formula_text, later_filing_entry,
+    not_meaningful_lines, note_index, operand_records, pdf_closing, period_label, point_method, raw_value_text,
+    source_urls,
 )
 from app.services.trend_analysis.data_notes import (
     citation_data_notes, marks_figure, note_for_quality, resolve_data_notes,
@@ -455,6 +455,11 @@ class ExportService:
             text += f" · {link}"
         return f'<ul class="operands"><li>{text}</li></ul>'
 
+    def _analysis_nm_causes(self, dataset: dict) -> str:
+        """What Sources & methods' footnote adds after its own sentences: where some growth reads n/m across a change of
+        basis, the files' n/m sentence naming both causes (D12), after a space; else nothing."""
+        return "".join(f" {escape(line)}" for line in not_meaningful_lines(dataset))
+
     def _analysis_methods(self, dataset: dict, indexed: dict) -> str:
         sections = []
         periods = [p.get("key", "") for p in dataset.get("periods", [])]
@@ -561,8 +566,7 @@ class ExportService:
         # A citation's own concern that no report figure carries lists under its sources, as on the page.
         report_keys = {note["key"] for note in report_notes["notes"]}
         supplements = self._analysis_notes_list([note for note in notes["notes"] if note["key"] not in report_keys])
-        # Where some growth reads n/m across a change of basis, Sources & methods names both causes of an n/m (D12).
-        causes = f" {escape(NOT_MEANINGFUL_CAUSES)}" if basis_not_meaningful(dataset) else ""
+        causes = self._analysis_nm_causes(dataset)
         body_html = f"""
             {narrative}
             <section class="metrics-landscape">
