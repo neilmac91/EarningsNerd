@@ -501,7 +501,8 @@ class _Planner:
         A set-4 row a report row backs whose recorded ``original`` today's 10-K figure confirms, within 1%, while
         its value is more than 1% off it, is not left: the backer (a year's own report as first reported, which a
         later report restated) says nothing of this filing's parse, and set 4's ordinary path restores the row to
-        its own original through today's cross-check, as it restores an unbacked one. Set 5 records no original.
+        its own original through today's cross-check, as it restores an unbacked one. Set 5 passes no ``original``
+        (its check confirmed the row's value rather than replacing it), so a set-5 row is never restored here.
         Any other row left report-backed is listed in ``left_report_backed`` (its ``figure`` a decimal string, as
         rows carry values). One that is the company's current figure at its key and more than 1% off today's 10-K
         figure (``_authority``, which the rest of sets 4 and 5 read) refuses the company: left, the company's figure
