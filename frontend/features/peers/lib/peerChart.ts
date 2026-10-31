@@ -69,13 +69,16 @@ export function peerDescriber(answer: PeerComparisonResponse, entries: PeerEntry
 
 /** The answer as the engine's bar chart: the drawn companies in order, the answered metric's label (a bank's "Net
  *  interest income"), its axis by the metric's kind in the answer's unit, starting at the subject. Only for an answer
- *  the panel shows (cohort.ts `shows`). */
+ *  the panel shows (cohort.ts `shows`): it refuses a metric FEATURED does not name and a subject that draws no bar (one
+ *  with no fact, which the service lists only as `subject`, outside `peers`, or a withheld one), since a ranked company
+ *  chart starts at its subject, as the engine's sweeps refused one before this builder (E251's PR 1). */
 export function peerChartDef(answer: PeerComparisonResponse): BarChartDef {
   const metric = metricOf(answer.concept)
   if (!metric) throw new Error(`peerChartDef: no metric names "${answer.concept}"`)
   const entries = drawn(answer)
   const categories = slotsOf(entries)
   const subject = entries.findIndex((entry) => entry.is_subject)
+  if (subject < 0) throw new Error(`peerChartDef: the subject ${answer.subject.ticker} draws no bar on ${answer.concept}, so a chart that starts at it draws none`)
   return {
     id: 'sector-peers',
     // The plot announces "{title} chart", and its values stop "{title} chart values".
@@ -83,7 +86,7 @@ export function peerChartDef(answer: PeerComparisonResponse): BarChartDef {
     categories,
     series: { key: answer.concept, label: metric.label, values: entries.map((entry) => entry.value) },
     axis: axisOf(metric.fmt, answer.unit),
-    ...(subject >= 0 ? { start: categories[subject].key } : {}),
+    start: categories[subject].key,
     reading: COMPANY_READING,
   }
 }

@@ -62,9 +62,10 @@ export interface PeerFixture {
  *  ranked alone, a subject with no figure or a withheld one, a withheld peer in a pair, a concept FEATURED does not
  *  name) draw no chart; its own spec holds that (sector-peers.spec.tsx). */
 export const PEER_SHOWING = [
-  'pair', 'spread', 'near-equal', 'six-glyph', 'net margin', 'diluted EPS', 'CNY revenue', 'duplicate ticker',
-  'pair plus withheld', 'cap', 'cap, subject fifth', 'cap, subject eleventh', 'cap, subject twelfth',
-  'cap, tie at the tenth', 'cap, tie at the eleventh', 'cap, all tied', 'bank',
+  'pair', 'spread', 'spread, subject first', 'spread, subject tenth', 'near-equal', 'six-glyph', 'net margin',
+  'diluted EPS', 'CNY revenue', 'duplicate ticker', 'pair plus withheld', 'cap', 'cap, subject fifth',
+  'cap, subject eleventh', 'cap, subject twelfth', 'cap, tie at the tenth', 'cap, tie at the eleventh', 'cap, all tied',
+  'bank',
 ]
 
 /** Every case of PEER_SHOWING as the bar chart the panel draws: the panel's own builder (features/peers/lib/peerChart.ts),

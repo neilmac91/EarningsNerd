@@ -166,6 +166,14 @@ describe('the Sector peers panel (E251)', () => {
     expect(SHOWING.filter((name) => noCohort(answerOf(name)) != null)).toEqual([])
   })
 
+  // The builder refuses what the gate keeps out, so no chart draws without its subject or its metric's name (the refusal
+  // the engine's sweeps held before the builder, E251's PR 1).
+  it('builds no chart whose subject draws no bar, nor one on a metric FEATURED does not name', () => {
+    expect(() => peerChartDef(answerOf('no fact, with peers'))).toThrow('peerChartDef: the subject NFWP draws no bar on revenue')
+    expect(() => peerChartDef(answerOf('withheld subject, with peers'))).toThrow('peerChartDef: the subject WSPX draws no bar on eps_diluted')
+    expect(() => peerChartDef(answerOf('capital expenditures'))).toThrow('peerChartDef: no metric names "capital_expenditures"')
+  })
+
   // A pair whose subject or second company holds no value has peer_count 2 and one bar: the retired panel drew it. A
   // subject with no figure beside companies with one would draw a chart without the company the page is about, and a
   // concept FEATURED cannot name would break the card's label.

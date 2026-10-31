@@ -490,8 +490,11 @@ says so; everything else follows the spec.
     after a new window, the column in view and the gutter exactly when scrolled, for a first, an early, a middle and a
     late start; `fixtures/chartChecks.ts`'s `expectSound(report, { start })` holds the values stop to the caller's start,
     else the newest period ("the values stop starts at the chart's start"), and asks "opens at its newest period" of the
-    newest start alone. No page names a start yet, so its first run in a
-    browser is E251's PR 2.
+    newest start alone. Its first run in a browser is E251's PR 2: `tests/e2e/company-sector-peers.spec.ts` opens the
+    Sector peers panel with its subject first, fourth (near-equal), sixth and tenth at 300, 390 and 1280 px, each
+    through `expectSound(report, { start })` and the rule's own scroll from the plot's geometry; a page 300 px wide
+    gives the plot a 230 px view, where near-equal's fourth falls after 0 (+29 px) and opens scrolled, and 390 px a
+    309 px view, where it opens at the scroll's start (−10.5 px).
   - Reading words: a bar chart can name its categories (`BarChartDef.reading`, carried as `ChartModel.reading`:
     `{ items, first, last }`), so its scroll region reads "Scroll horizontally to view all {items}." and a step past
     either end says its `first` or `last` words; a ranked company chart says "companies", "First company." and "Last
@@ -521,7 +524,9 @@ says so; everything else follows the spec.
   and `tests/e2e/company-sector-peers.spec.ts` holds the panel on a production build: the named SVG, the subject's bar in
   chart-1 and every other company's in the context ink (computed), each printed value the fixture's, the values stop
   opening at the subject and the DOM checks of `fixtures/chartChecks.ts` for one card, the context ink among D6's marks,
-  in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px.
+  in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; and the start above, a first, an early,
+  a middle and a late subject, at 300, 390 and 1280 px. `peerChartDef` refuses a subject that draws no bar, the refusal
+  `chartPlan.ts`'s first `peerBarCases` held.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

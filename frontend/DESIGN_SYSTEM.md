@@ -3184,9 +3184,11 @@ chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.",
 ranked", "the top 9 …" where a tie sits at the tenth), counted as the rank line counts, and where one rank fills every
 slot, so no top can be named, the count alone ("The chart shows 11 of the 12 companies ranked."). The company the page is about is
 chart-1 at the bar's full width and every other company a context bar, the context ink at the growth bars' narrower width,
-the cue colour alone cannot give; every value prints on its bar (A4); a slot is as wide as its ticker; a plot that scrolls
-opens with the subject's column in view and the values stop starts there; and the scroll region and the end-of-range
-status name companies. The tooltip heads a company with its ticker and its own fiscal year ("AAPL · FY2025 · year ended
+the cue colour alone cannot give; every value prints on its bar (A4); a slot is as wide as its ticker; the values stop
+starts at the subject, and a plot that scrolls opens with the subject's column centred as far as the scroll goes, as
+§10's start rule above sets it: a sector's largest company opens at the scroll's start on the plot's own axis, with no
+sticky gutter, and a subject near the end at the scroll's end; and the scroll region and the end-of-range status name
+companies. The tooltip heads a company with its ticker and its own fiscal year ("AAPL · FY2025 · year ended
 Sep 27, 2025"), since fiscal years differ by company, and the values stop says "Apple Inc., AAPL, this company, rank 3 of 9,
 FY2025, year ended September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
 ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
@@ -3215,7 +3217,9 @@ resets on its own), whose card stands where the panel would, with its spacing. G
 `tests/unit/company-sector-peers-mount.spec.tsx`, `tests/e2e/company-sector-peers.spec.ts` (the mount on a production
 build, the computed inks by role, every printed value the fixture's and the DOM checks for one card, the context ink among
 D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; the heading row's height while a
-metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer),
+metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer; and the
+start in a browser at 300, 390 and 1280 px, the subject first, near-equal's fourth, the spread's sixth and its tenth, each
+opening where the rule puts it, its sticky gutter exactly when scrolled),
 `tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
 holds the engine, the plot or the card) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is
 built on is what the service answers).

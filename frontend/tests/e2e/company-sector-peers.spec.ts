@@ -18,10 +18,14 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * img named "Revenue chart" mount; the subject's bar computes chart-1's token and every other bar the context token; a
  * bar a company, TNYX, the eleventh, among them; every printed value is one of the
  * fixture's, to the digit it prints; the values stop opens at the subject, and the spec's DOM checks for one card hold
- * (fixtures/chartChecks.ts: D1, D2, D3, D5, D6 at each paint's floor on the card's computed ground, the context ink among
- * the marks, D8 at full hinting, D10 under reduced motion, D14 and M6, opening with the subject's column in view); at
- * 390px the plot scrolls inside its card, a region named "Revenue chart. Scroll horizontally to view all companies.";
- * and the page does not scroll sideways. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
+ * (fixtures/chartChecks.ts: D1, D2, D3, D5, D6 at each paint's floor on the card's computed ground, none faded, the
+ * context ink among the marks, D8 at full hinting, D10 under reduced motion, D14 and M6, the values stop and the open
+ * column held to the subject's index in the fixture); at 390px the plot scrolls inside its card, a region named "Revenue
+ * chart. Scroll horizontally to view all companies."; and the page does not scroll sideways. The start in a browser
+ * (E251's PR 1 rule, TrendChartPlot): at 300 and 390px a subject's column opens centred as far as the scroll goes, the
+ * spread's first company at the scroll's start on the plot's own axis with no sticky gutter, its sixth scrolled with the
+ * gutter shown, its tenth at the scroll's end, and near-equal's fourth at the scroll's start at 390px and scrolled at
+ * 300px, whose plot's view is 230px; at 1280px each fits its card. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
  * the heading, the rank line and the picker stay inside the card. While a metric picked loads, and once its answer
  * draws no chart, the heading row keeps its height, at 390 and 1280px. With production's own answer, a company ranked
  * alone (peer_count 1, JPM's on 2026-10-31), the panel never asks for the card's chunk: once the page has handled that
@@ -137,8 +141,7 @@ for (const { width, height, isMobile, hasTouch } of VIEWPORTS) {
         // computed ground.
         const [report] = await measurePlots(card)
         const name = `Sector peers (${theme}, ${width}px)`
-        expectSound({ ...report, name })
-        expect(report.start, `${name}: the values stop opens at the subject`).toBe(5)
+        expectSound({ ...report, name }, { start: SPREAD.peers.findIndex((entry) => entry.is_subject) })
         if (width < 768) {
           expect(report.scrolls, `${name}: the spread's eleven bars scroll inside the card on a phone`).toBe(true)
           await expect(card.getByRole('region', { name: 'Revenue chart. Scroll horizontally to view all companies.', exact: true })).toBeVisible()
@@ -153,6 +156,62 @@ for (const { width, height, isMobile, hasTouch } of VIEWPORTS) {
 
         const { scrollWidth, clientWidth, past } = await widths(page)
         expect(scrollWidth, `scrollWidth ${scrollWidth}px against clientWidth ${clientWidth}px; past the edge: ${past.join('; ') || 'nothing'}`).toBeLessThanOrEqual(clientWidth)
+      })
+    }
+  })
+}
+
+/** Where each start opens on a phone, by PR 1's rule (TrendChartPlot): its column's centre, less half the plot's own
+ *  gutter, less half the view, clamped to the scroll's range. "start" is the scroll's start, on the plot's own axis
+ *  with no sticky gutter; "end" the scroll's end; "scrolled" between, the gutter shown. A start the fixture names, by the
+ *  subject's index in its answer, never read off the page under test. */
+type Opens = 'start' | 'scrolled' | 'end'
+const STARTS: { name: string; opens: Record<300 | 390, Opens> }[] = [
+  // A sector's largest company: its centred scroll falls before 0.
+  { name: 'spread, subject first', opens: { 300: 'start', 390: 'start' } },
+  // Near-equal's fourth: before 0 in the 390px page's 309px view (−10.5 px, as PR 1 measured −6 px in a 300px view), so
+  // at the scroll's start; the 300px page's view is 230px, where it falls after 0 (+29 px) and opens scrolled.
+  { name: 'near-equal', opens: { 300: 'scrolled', 390: 'start' } },
+  // The spread's sixth: its column fits the first view, yet it opens centred, scrolled.
+  { name: 'spread', opens: { 300: 'scrolled', 390: 'scrolled' } },
+  // The spread's tenth: its centred scroll runs past the scroll's end.
+  { name: 'spread, subject tenth', opens: { 300: 'end', 390: 'end' } },
+]
+
+for (const width of [300, 390, 1280] as const) {
+  test.describe(`Sector peers' start at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' })
+
+    for (const { name, opens } of STARTS) {
+      const start = PEERS.cases[name].response.peers.findIndex((entry) => entry.is_subject)
+      const where = width === 1280 ? 'fits its card' : { start: 'opens at the scroll’s start, no sticky gutter', scrolled: 'opens scrolled, its column centred, the sticky gutter shown', end: 'opens at the scroll’s end' }[opens[width]]
+      test(`${name}: the values stop and the open column are the subject's, company ${start + 1}; it ${where}`, async ({ page, baseURL }) => {
+        await openCompany(page, baseURL!, name, 'light')
+        const card = sectorPeers(page)
+        const plot = card.getByTestId('peers-chart')
+        await expect(plot.getByRole('img', { name: 'Revenue chart', exact: true })).toBeVisible()
+        await expect(plot).not.toHaveAttribute('aria-busy')
+        await page.evaluate(() => document.fonts.ready)
+        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+        const [report] = await measurePlots(card)
+        const label = `${name} at ${width}px`
+        expectSound({ ...report, name: label }, { start })
+        if (width === 1280) {
+          expect(report.scrolls, `${label}: fits its card`).toBe(false)
+          return
+        }
+        expect(report.scrolls, `${label}: scrolls inside its card`).toBe(true)
+        // The rule, from the plot's own geometry: the column's centre in the scroll's coordinates, the plot's own gutter
+        // (its plot rect's left, data-plot), the view and the scroll's range.
+        const plotLeft = await plot.locator('[data-plot]').first().evaluate((group) => Number(group.getAttribute('data-plot')!.split(' ')[0]))
+        const column = report.columns[start]
+        const range = report.scrollLeft + report.fromNewest
+        const centred = (column.left + column.right) / 2 + report.scrollLeft - plotLeft / 2 - report.viewportWidth / 2
+        const rule = Math.max(0, Math.min(range, centred))
+        expect(Math.abs(report.scrollLeft - rule), `${label}: opens at ${report.scrollLeft}px, the rule's ${rule.toFixed(1)} (centred ${centred.toFixed(1)}, range ${range})`).toBeLessThanOrEqual(1)
+        const opened: Opens = report.scrollLeft <= 0 ? 'start' : report.fromNewest <= 1 ? 'end' : 'scrolled'
+        expect(opened, `${label}: where it opens`).toBe(opens[width])
+        expect(report.gutter != null, `${label}: the sticky gutter exactly when scrolled`).toBe(opened !== 'start')
       })
     }
   })

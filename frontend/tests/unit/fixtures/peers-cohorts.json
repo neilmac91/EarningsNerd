@@ -347,6 +347,538 @@
         ]
       }
     },
+    "spread, subject first": {
+      "case": "synthetic: the spread’s eleven companies with the first, MEGAX, the subject, a sector’s largest company: its column’s centred scroll falls before the scroll’s start, so a plot that scrolls opens there, on its own axis with no sticky gutter; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "MEGAX",
+        "company_name": "Synthetic Mega Corp",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 11,
+        "subject": {
+          "ticker": "MEGAX",
+          "company_name": "Synthetic Mega Corp",
+          "value": 416000000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 1,
+          "percentile": 100.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "MEGAX",
+            "company_name": "Synthetic Mega Corp",
+            "value": 416000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "LRGX",
+            "company_name": "Synthetic Large Inc",
+            "value": 331500000000.0,
+            "period_end": "2026-06-30",
+            "fiscal_year": 2026,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 90.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "WDE.B",
+            "company_name": "Synthetic Wide Holdings Class B",
+            "value": 248900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 80.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MIDX",
+            "company_name": "Synthetic Middle Co",
+            "value": 182000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 70.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "HLDX",
+            "company_name": "Synthetic Holdings Ltd",
+            "value": 150400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 60.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "SUBX",
+            "company_name": "Synthetic Subject Corp",
+            "value": 113200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 50.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "QX",
+            "company_name": "Synthetic Q Co",
+            "value": 85100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 40.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "RTLX",
+            "company_name": "Synthetic Retail Inc",
+            "value": 61700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 30.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "SMLX",
+            "company_name": "Synthetic Small Corp",
+            "value": 34300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 20.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MCRX",
+            "company_name": "Synthetic Micro Inc",
+            "value": 12600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 10,
+            "percentile": 10.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "TNYX",
+            "company_name": "Synthetic Tiny Co",
+            "value": 5100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 11,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
+    "spread, subject tenth": {
+      "case": "synthetic: the spread’s eleven companies with the tenth, MCRX, the subject: on a phone its column’s centred scroll runs past the scroll’s end, so the plot opens at that end, its column in view; every company and figure invented",
+      "metric": "revenue",
+      "response": {
+        "ticker": "MCRX",
+        "company_name": "Synthetic Micro Inc",
+        "sic": "9999",
+        "concept": "revenue",
+        "unit": "USD",
+        "peer_count": 11,
+        "subject": {
+          "ticker": "MCRX",
+          "company_name": "Synthetic Micro Inc",
+          "value": 12600000000.0,
+          "period_end": "2025-12-31",
+          "fiscal_year": 2025,
+          "is_subject": true,
+          "rank": 10,
+          "percentile": 10.0,
+          "reconciled": true,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": [],
+            "calculation_version": null,
+            "filed_at": null
+          }
+        },
+        "peers": [
+          {
+            "ticker": "MEGAX",
+            "company_name": "Synthetic Mega Corp",
+            "value": 416000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 1,
+            "percentile": 100.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "LRGX",
+            "company_name": "Synthetic Large Inc",
+            "value": 331500000000.0,
+            "period_end": "2026-06-30",
+            "fiscal_year": 2026,
+            "is_subject": false,
+            "rank": 2,
+            "percentile": 90.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "WDE.B",
+            "company_name": "Synthetic Wide Holdings Class B",
+            "value": 248900000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 3,
+            "percentile": 80.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MIDX",
+            "company_name": "Synthetic Middle Co",
+            "value": 182000000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 4,
+            "percentile": 70.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "HLDX",
+            "company_name": "Synthetic Holdings Ltd",
+            "value": 150400000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 5,
+            "percentile": 60.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "SUBX",
+            "company_name": "Synthetic Subject Corp",
+            "value": 113200000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 6,
+            "percentile": 50.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "QX",
+            "company_name": "Synthetic Q Co",
+            "value": 85100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 7,
+            "percentile": 40.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "RTLX",
+            "company_name": "Synthetic Retail Inc",
+            "value": 61700000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 8,
+            "percentile": 30.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "SMLX",
+            "company_name": "Synthetic Small Corp",
+            "value": 34300000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 9,
+            "percentile": 20.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "MCRX",
+            "company_name": "Synthetic Micro Inc",
+            "value": 12600000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": true,
+            "rank": 10,
+            "percentile": 10.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          },
+          {
+            "ticker": "TNYX",
+            "company_name": "Synthetic Tiny Co",
+            "value": 5100000000.0,
+            "period_end": "2025-12-31",
+            "fiscal_year": 2025,
+            "is_subject": false,
+            "rank": 11,
+            "percentile": 0.0,
+            "reconciled": true,
+            "provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": [],
+              "calculation_version": null,
+              "filed_at": null
+            }
+          }
+        ]
+      }
+    },
     "near-equal": {
       "case": "synthetic: eleven near-equal companies, $4.85B to $4.95B, the dense case lessons/frontend-verify-chart-annotations-on-dense-data.md asks for; every company and figure invented",
       "metric": "revenue",

@@ -110,7 +110,8 @@ def _answer(db, case: dict[str, Any]) -> dict[str, Any]:
 
 def test_the_fixture_holds_the_panels_cases():
     # The panel's gates read these by name; a renamed or dropped case fails here before it fails there.
-    assert {"pair", "spread", "near-equal", "net margin", "production single", "no facts", "no fact, with peers",
+    assert {"pair", "spread", "spread, subject first", "spread, subject tenth", "near-equal", "net margin",
+            "production single", "no facts", "no fact, with peers",
             "no gross profit, with peers", "withheld peer", "withheld subject", "withheld subject, with peers",
             "pair plus withheld", "cap", "cap, subject fifth", "cap, subject eleventh", "cap, subject twelfth",
             "cap, tie at the tenth", "cap, tie at the eleventh", "cap, all tied", "capital expenditures",
