@@ -148,6 +148,10 @@ def _stream(
     fallback_block: bool = False, input_transformations: bool = False, server_tool_block: bool = False,
     stream_tool_block: bool = False, extra_null_delta: bool = False, block_after_delta: bool = False,
     trailing_stream_event: bool = False, assistant_extra_block: str | None = None,
+    omit_block_bracket: bool = False, start_index: Any = "same", delta_index: Any = "same", omit_block_stop: bool = False,
+    duplicate_block_start: bool = False, duplicate_block_stop: bool = False, late_delta: bool = False,
+    block_type: str = "text", leading_thinking_block: bool = False, finish_parent: bool = False,
+    delta_before_start: bool = False,
 ) -> bytes:
     """A synthetic ``claude -p --output-format stream-json --verbose --include-partial-messages`` stream.
 
@@ -156,6 +160,7 @@ def _stream(
     message finish (``stop_reason``) is reported both on the assistant event and in ``message_delta``;
     ``delta_stop_reason`` diverges the two, ``partial=False`` drops the bracket (the schema 1 shape
     of the retained 2.1.273 stream), and the remaining knobs break one bracket rule each.
+    ``leading_thinking_block`` puts a well-formed thinking block at index 0 and the text block at 1.
     """
     init = {"type": "system", "subtype": "init", "model": model, "tools": None if tools is None else list(tools),
             "session_id": STREAM_SESSION, "cwd": "/elsewhere", "apiKeySource": "none"}
@@ -169,6 +174,8 @@ def _stream(
                        "compact_metadata": {"trigger": "auto", "pre_tokens": 12}})
     text = result_text if assistant_text is None else assistant_text
     content: list[dict[str, Any]] = [{"type": "text", "text": text}]
+    if leading_thinking_block:
+        content.insert(0, {"type": "thinking", "thinking": "opaque", "signature": "sig"})
     if tool_use:
         content.append({"type": "tool_use", "id": "tu_1", "name": "Read", "input": {"file_path": "/x"}})
     if assistant_extra_block is not None:
@@ -197,20 +204,42 @@ def _stream(
             events.append(_stream_event({"kind": "no type field"}))
         if stream_error:
             events.append(_stream_event({"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}))
-        events.append(_stream_event({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": initial_text}}))
+        text_index = 0
+        if leading_thinking_block:
+            text_index = 1
+            events.append(_stream_event({"type": "content_block_start", "index": 0,
+                                         "content_block": {"type": "thinking", "thinking": "", "signature": ""}}))
+            events.append(_stream_event({"type": "content_block_delta", "index": 0,
+                                         "delta": {"type": "thinking_delta", "thinking": "opaque"}}))
+            events.append(_stream_event({"type": "content_block_delta", "index": 0,
+                                         "delta": {"type": "signature_delta", "signature": "sig"}}))
+            events.append(_stream_event({"type": "content_block_stop", "index": 0}))
+        block_start = _stream_event({"type": "content_block_start", "index": text_index if start_index == "same" else start_index,
+                                     "content_block": {"type": block_type, "text": initial_text}})
+        if not omit_block_bracket:
+            events.append(block_start)
+            if duplicate_block_start:
+                events.append(dict(block_start))
         streamed = text if delta_text is None else delta_text
         if initial_text and delta_text is None:
             assert streamed.startswith(initial_text)
             streamed = streamed[len(initial_text):]
         halves = (streamed[: len(streamed) // 2], streamed[len(streamed) // 2:])
-        for chunk in halves:
-            events.append(_stream_event({"type": "content_block_delta", "index": 0,
-                                         "delta": {"type": "text_delta", "text": chunk}}, parent="tu_0" if stream_parent else None))
+        deltas = [_stream_event({"type": "content_block_delta", "index": text_index if delta_index == "same" else delta_index,
+                                 "delta": {"type": "text_delta", "text": chunk}}, parent="tu_0" if stream_parent else None)
+                  for chunk in halves]
+        events.extend(deltas[:1] if late_delta else deltas)
         if not omit_assistant and not assistant_after_stop:
             events.append(assistant)  # the CLI emits the complete block before that block's content_block_stop
         if second_message:
             events.append(second)
-        events.append(_stream_event({"type": "content_block_stop", "index": 0}))
+        block_stop = _stream_event({"type": "content_block_stop", "index": text_index})
+        if not (omit_block_bracket or omit_block_stop):
+            events.append(block_stop)
+            if duplicate_block_stop:
+                events.append(dict(block_stop))
+        if late_delta:  # the second text delta arrives after its block's content_block_stop
+            events.append(deltas[1])
         for extra_type, present in (("fallback", fallback_block), ("server_tool_use", server_tool_block), ("tool_use", stream_tool_block)):
             if present:  # a second block with no deltas, as the docs describe a fallback boundary
                 events.append(_stream_event({"type": "content_block_start", "index": 1, "content_block": {"type": extra_type}}))
@@ -219,7 +248,8 @@ def _stream(
         delta: dict[str, Any] = {"stop_sequence": None}
         if finish != "absent":
             delta["stop_reason"] = finish
-        message_delta = _stream_event({"type": "message_delta", "delta": delta, "usage": {"output_tokens": 3}})
+        message_delta = _stream_event({"type": "message_delta", "delta": delta, "usage": {"output_tokens": 3}},
+                                      parent="tu_0" if finish_parent else None)
         if input_transformations:
             message_delta["event"]["input_transformations"] = [{"type": "model_fallback", "from": model, "to": "claude-other"}]
         message_stop = _stream_event({"type": "message_stop"})
@@ -234,6 +264,9 @@ def _stream(
             tail.append(message_stop)
         if reorder:
             tail.reverse()
+        if delta_before_start and not omit_message_delta:  # the finish moved ahead of its message_start
+            tail.remove(message_delta)
+            events.insert(events.index(start), message_delta)
         events.extend(tail)
         if ping:
             events.append(_stream_event({"type": "ping"}))
@@ -454,6 +487,31 @@ def test_dispatch_binds_exact_stdin_and_output_and_settles_through_the_journal(t
         (dict(stream_error=True), "failed", "failed", "stream_error_event"),
         (dict(stream_parent=True), "failed", "failed", "stream_schema:stream_event_parent"),
         (dict(invalid_stream_event=True), "failed", "failed", "stream_schema:stream_event_type"),
+        # Content blocks (review thread r4243048152): a text delta counts only inside an opened `text`
+        # block at its own index, and every block is closed before message_delta. The first two rows
+        # are the review's reproductions, on the 2.1.273 assistant shape where only the bracket finishes.
+        (dict(leading_thinking_block=True), "complete", "eligible", None),
+        (dict(omit_block_bracket=True, stop_reason=None, delta_stop_reason="end_turn"), "failed", "failed",
+         ("stream_schema:content_block_lifecycle:unopened", "stream_binding:text_mismatch")),
+        (dict(delta_index=7, stop_reason=None, delta_stop_reason="end_turn"), "failed", "failed",
+         ("stream_schema:content_block_lifecycle:unopened", "stream_binding:text_mismatch")),
+        (dict(delta_index="0"), "failed", "failed", "stream_schema:content_block_lifecycle:index"),
+        (dict(start_index="0"), "failed", "failed",
+         ("stream_schema:content_block_lifecycle:index", "stream_schema:content_block_lifecycle:unopened")),
+        (dict(delta_index=True), "failed", "failed", "stream_schema:content_block_lifecycle:index"),
+        (dict(late_delta=True), "failed", "failed",
+         ("stream_schema:content_block_lifecycle:closed", "stream_binding:text_mismatch")),
+        (dict(duplicate_block_stop=True), "failed", "failed", "stream_schema:content_block_lifecycle:closed"),
+        (dict(duplicate_block_start=True), "failed", "failed", "stream_schema:content_block_lifecycle:restarted"),
+        (dict(omit_block_stop=True), "failed", "failed",
+         ("stream_schema:content_block_lifecycle:open_at_message_delta", "stream_schema:content_block_lifecycle:unclosed")),
+        (dict(block_type="thinking"), "failed", "failed",
+         ("stream_schema:content_block_lifecycle:text_delta_block_type", "stream_binding:text_mismatch")),
+        # The bracket around the finish (review thread r4243048154): a finish ahead of its message_start,
+        # or one carrying a parent tool use, is not bound to the identified assistant message.
+        (dict(delta_before_start=True, stop_reason=None, delta_stop_reason="end_turn"), "failed", "failed",
+         "stream_schema:stream_event_order"),
+        (dict(finish_parent=True), "failed", "failed", "stream_schema:stream_event_parent"),
     ],
 )
 def test_outcomes_classify_fail_closed_and_settle_only_terminal_statuses(
@@ -1056,6 +1114,44 @@ def test_assistant_completion_is_coherent_and_classifier_2_refuses_the_bracket()
         classified = classify(broken)
         assert classified["outcome"] == "failed", classified["reasons"]
         assert classified["assistant_completion"]["observed"] is False and classified["finish_metadata_observed"] is False
+    # The finish carries no message id of its own, so the bracket around it is part of its binding
+    # (review thread r4243048154): on the 2.1.273 assistant shape, where only the bracket finishes, a
+    # broken order, closure or origin leaves the finish recorded and failed, never observed. So does a
+    # malformed content block (review thread r4243048152), which breaks the text binding.
+    bracket_only = dict(stop_reason=None, delta_stop_reason="end_turn")
+    for knob, reason in (("delta_before_start", "stream_schema:stream_event_order"),
+                         ("reorder", "stream_schema:stream_event_order"),
+                         ("omit_message_stop", "stream_schema:stream_event_order"),
+                         ("assistant_after_stop", "stream_schema:stream_event_order"),
+                         ("block_after_delta", "stream_schema:stream_event_order"),
+                         ("trailing_stream_event", "stream_schema:stream_event_order"),
+                         ("finish_parent", "stream_schema:stream_event_parent"),
+                         ("stream_parent", "stream_schema:stream_event_parent"),
+                         ("omit_block_bracket", "stream_schema:content_block_lifecycle:unopened"),
+                         ("omit_block_stop", "stream_schema:content_block_lifecycle:unclosed"),
+                         ("duplicate_block_stop", "stream_schema:content_block_lifecycle:closed"),
+                         ("duplicate_block_start", "stream_schema:content_block_lifecycle:restarted")):
+        classified = classify(_stream(**bracket_only, **{knob: True}))
+        assert classified["outcome"] == "failed" and reason in classified["reasons"], (knob, classified["reasons"])
+        assert classified["finish_metadata_observed"] is False, knob
+        assert classified["assistant_completion"] == {"source": "stream_event:message_delta", "message_id": "msg_1",
+                                                      "model": MODEL, "stop_reason": "end_turn", "observed": False}, knob
+    moved = classify(_stream(**bracket_only, delta_index=7))
+    assert moved["outcome"] == "failed" and moved["assistant_completion"]["observed"] is False
+    assert "stream_schema:content_block_lifecycle:unopened" in moved["reasons"]
+    # An accurately bound max_tokens finish stays observed while the outcome is truncated; the same
+    # finish ahead of its message_start does not.
+    bound_truncation = classify(_stream(stop_reason=None, delta_stop_reason="max_tokens"))
+    assert bound_truncation["outcome"] == "truncated" and bound_truncation["finish_metadata_observed"] is True
+    assert bound_truncation["assistant_completion"] == {"source": "stream_event:message_delta", "message_id": "msg_1",
+                                                        "model": MODEL, "stop_reason": "max_tokens", "observed": True}
+    unbound_truncation = classify(_stream(stop_reason=None, delta_stop_reason="max_tokens", delta_before_start=True))
+    assert unbound_truncation["outcome"] == "truncated" and "stream_schema:stream_event_order" in unbound_truncation["reasons"]
+    assert unbound_truncation["finish_metadata_observed"] is False
+    # A well-formed thinking block ahead of the text block is still a complete, observed finish.
+    thinking = classify(_stream(**bracket_only, leading_thinking_block=True))
+    assert thinking["outcome"] == "complete" and thinking["finish_metadata_observed"] is True
+    assert thinking["observed"]["stream_events"]["content_block_faults"] == []
     conflict = classify(_stream(delta_stop_reason="max_tokens"))
     assert conflict["outcome"] == "truncated" and "stream_binding:stop_reason_conflict" in conflict["reasons"]
     assert conflict["assistant_completion"] == {"source": "stream_event:message_delta", "message_id": "msg_1", "model": MODEL,

@@ -11,9 +11,17 @@ criterion and additionally checks every assistant-reported model against the fro
 Schema 2 adds `--include-partial-messages` to the argv so the CLI forwards the raw API stream
 events, and classifier 3 takes the finish from that bracket, bound to the identified assistant
 message (below). The result event's `stop_reason` is never consulted. Schema 1 ledgers remain
-readable and are re-derived with classifier 2. Schema 2 has **not** been dispatched: the bracket
-shape is documentation-derived (`code.claude.com/docs/en/headless`, "Stream responses";
-`platform.claude.com/docs/en/api/messages-streaming`, event flow) and unmeasured on any build.
+readable and are re-derived with classifier 2. The bracket shape is documentation-derived
+(`code.claude.com/docs/en/headless`, "Stream responses"; `platform.claude.com/docs/en/api/messages-streaming`,
+event flow). Schema 2 was dispatched once, in a second synthetic engineering probe on 2026-10-01
+against the same CLI 2.1.273: exit 0, `complete`, all four requested lines matched, and classifier 3
+observed the assistant-bound `end_turn`. Its stream carried one `message_start`, one `message_delta`,
+one `message_stop`, one `content_block_start`/`content_block_stop` pair and 23 `content_block_delta`
+events. That establishes the small-call bracket on that build, not provider ingestion, native-bundle
+capacity or source readiness. Classifier 3 was tightened afterwards, from the two review threads on
+#1035: the content-block lifecycle and the bracket's part in `observed`, below. The tightened rules
+refuse only malformed shapes, which that stream, as its recorded counts describe it, does not have;
+the private stream itself was not re-read for the revision.
 
 `backend/evals/acceptance_source_review_delivery.py` fills the gap the
 [execution-custody slice](source-review-execution.md) left at step 3: `reserve_attempt` retains the
@@ -116,16 +124,25 @@ present, equal to it (`stream_binding:stop_reason_conflict`); exactly one `messa
 < `message_delta` < `message_stop`, with every assistant event inside the bracket and `message_stop`
 the last non-ping stream event (`stream_schema:stream_event_order`); no `parent_tool_use_id`
 (`stream_schema:stream_event_parent`), no untyped stream event (`stream_schema:stream_event_type`),
-no `error` event (`stream_error_event`); the text block's initial text plus the concatenated
-`text_delta` text equal to the assistant text (`stream_binding:text_mismatch`); every content block,
+no `error` event (`stream_error_event`); every content block opened by a `content_block_start` at an
+integer index, its deltas and its `content_block_stop` naming that index, and closed before
+`message_delta` (`stream_schema:content_block_lifecycle:<fault>`, the fault one of `index`,
+`unopened`, `closed`, `restarted`, `text_delta_block_type`, `open_at_message_delta` and `unclosed`);
+the text of the open `text` blocks (initial text plus `text_delta` text, in arrival order) equal to
+the assistant text (`stream_binding:text_mismatch`), so a text delta outside an opened `text` block
+never counts toward it; every content block,
 on the stream and in the assistant event, one of `text`/`thinking`/`redacted_thinking`/`tool_use`
 (`stream_schema:content_block_type:<type>`); and no server-side fallback signal — no `fallback` block
 and no `input_transformations` on `message_start`/`message_delta` (`stream_binding:server_side_fallback`),
 because a server-side model switch would otherwise bind to the contract model named in `message_start`.
 The receipt records the result as `assistant_completion` (`source`, `message_id`, `model`,
 `stop_reason`, `observed`); `observed` is true only when the finish is a string and no identity,
-finish or text binding reason was recorded, including absent, ambiguous or mismatched assistant
-identity/model fields. The result event's `stop_reason` is recorded but never used. A stream with no bracket at all (the retained 2.1.273 stream) is `failed` with
+finish, bracket or text binding reason was recorded: absent, ambiguous or mismatched assistant
+identity/model fields; a broken bracket order or closure (`stream_schema:stream_event_order`, which
+also requires exactly one `message_start` and one `message_stop`); a stream event with a parent tool
+use (`stream_schema:stream_event_parent`); or a content-block lifecycle fault. The finish carries no
+message id of its own, so the bracket around it is its only link to the assistant message. A bound
+`max_tokens` finish stays observed while the outcome is `truncated`. The result event's `stop_reason` is recorded but never used. A stream with no bracket at all (the retained 2.1.273 stream) is `failed` with
 `stream_schema:message_start_count:0` and `stop_reason_unobserved`;
 the real stream and its sanitized derivative remain in the private custody ledger. Synthetic
 `partial=False` rows in the delivery owner test preserve this regression without publishing
@@ -194,7 +211,9 @@ reports discovered skills, while `tools` is empty. That discovery list alone doe
 model-visible skill content.
 Its route-reported cost estimate was USD 0.162903 across Fable and auxiliary Haiku usage; one CLI
 dispatch is established, while the number of physical provider requests and cash charge are
-unobserved. The raw stream stays local because it contains an absolute home path. Classifier 1
+unobserved. The raw stream stays local because it contains an absolute home path. The second probe
+(2026-10-01, above) ran with `--include-partial-messages`; its raw stream is held privately too,
+since it carries transport and session metadata. Classifier 1
 receipts remain sealed historical evidence and are not rewritten or silently upgraded by
 classifier 2.
 Full L004 controls remain absent; nothing here confers source-role readiness.

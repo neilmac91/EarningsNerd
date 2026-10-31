@@ -58,6 +58,15 @@ _LEDGER_CLASSIFIERS = {1: 2, SCHEMA_VERSION: CLASSIFIER_VERSION}
 # that it keeps its own verbatim reason (`tool_use_observed`). Anything else (`fallback` from a
 # server-side model switch, `server_tool_use`, `web_search_tool_result`, unknown kinds) fails closed.
 _CONTENT_BLOCK_TYPES = frozenset({"text", "thinking", "redacted_thinking", "tool_use"})
+# Classifier 3 reasons that break the evidence binding a finish to the identified assistant message:
+# its identity and model, the one finish, the bracket that encloses it, and the text it closes.
+# stream_event_order also covers closure: it requires exactly one message_start and one message_stop.
+_BINDING_REASON_PREFIXES = (
+    "stream_schema:message_start", "stream_schema:stop_reason_ambiguous", "stream_schema:message_delta_stop_reason",
+    "stream_schema:stream_event_order", "stream_schema:stream_event_parent", "stream_schema:content_block_lifecycle",
+    "stream_binding:", "stream_schema:assistant_missing", "stream_schema:message_id", "stream_schema:assistant_model",
+    "assistant_model_mismatch", "multiple_assistant_messages",
+)
 ROUTE = "claude_code_cli_print"
 ROUTE_PROVIDER = "anthropic-claude-code-cli"
 # Fixed route overhead: replaces the CLI's default agent system prompt so the model-visible input is
@@ -596,6 +605,32 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
     delta_text_parts: list[str] = []
     stream_block_types: list[str] = []
     assistant_block_types: list[str] = []
+    # Content blocks by index, as the messages-streaming event flow defines them: content_block_start
+    # opens the block at its index, each delta and the content_block_stop name that index, and every
+    # block is closed before message_delta. Only a text delta inside an open block declared `text`
+    # counts toward the streamed text, kept in arrival order. A fault is recorded, never repaired, so
+    # the classifier can refuse the stream.
+    blocks: dict[int, dict[str, Any]] = {}
+    block_faults: list[str] = []
+
+    def block_fault(kind: str) -> None:
+        if kind not in block_faults:
+            block_faults.append(kind)
+
+    def open_block(index: Any) -> dict[str, Any] | None:
+        """The open block a delta or stop names, or None with the reason recorded."""
+        if type(index) is not int:  # bool is not an index
+            block_fault("index")
+            return None
+        block = blocks.get(index)
+        if block is None:
+            block_fault("unopened")
+            return None
+        if not block["open"]:
+            block_fault("closed")
+            return None
+        return block
+
     # Server-side fallback (messages-streaming: a `fallback` content block at each model boundary and
     # `input_transformations` on message_start/message_delta) means part of the reply was served by
     # another model; both signals are recorded so classifier 3 can refuse the attempt.
@@ -626,21 +661,41 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                     fallback_signals += 1
             elif inner_type in ("content_block_start", "content_block_delta", "content_block_stop"):
                 content_block_span = [position, position] if content_block_span is None else [content_block_span[0], position]
-                block = inner.get("content_block") if inner_type == "content_block_start" else None
-                if type(block) is dict:
-                    block_type = block.get("type") if type(block.get("type")) is str else "invalid"
+                index = inner.get("index")
+                if inner_type == "content_block_start":
+                    block = inner.get("content_block")
+                    block_type = "invalid"
+                    initial_text = ""
+                    if type(block) is dict:
+                        block_type = block.get("type") if type(block.get("type")) is str else "invalid"
+                        if block_type == "tool_use":
+                            tool_use = True
+                        if block_type == "fallback":
+                            fallback_signals += 1
+                        if block_type == "text" and type(block.get("text")) is str:
+                            initial_text = block["text"]  # documented as "", carried if ever non-empty
                     stream_block_types.append(block_type)
-                    if block_type == "tool_use":
-                        tool_use = True
-                    if block_type == "fallback":
-                        fallback_signals += 1
-                    if block_type == "text" and type(block.get("text")) is str:
-                        delta_text_parts.append(block["text"])  # documented as "", carried if ever non-empty
-                elif inner_type == "content_block_start":
-                    stream_block_types.append("invalid")
-                delta = inner.get("delta") if inner_type == "content_block_delta" else None
-                if type(delta) is dict and delta.get("type") == "text_delta" and type(delta.get("text")) is str:
-                    delta_text_parts.append(delta["text"])
+                    if type(index) is not int:
+                        block_fault("index")
+                    elif index in blocks:
+                        block_fault("restarted")
+                    else:
+                        blocks[index] = {"type": block_type, "open": True}
+                        if block_type == "text":
+                            delta_text_parts.append(initial_text)
+                elif inner_type == "content_block_delta":
+                    target = open_block(index)
+                    delta = inner.get("delta")
+                    if (target is not None and type(delta) is dict and delta.get("type") == "text_delta"
+                            and type(delta.get("text")) is str):
+                        if target["type"] == "text":
+                            delta_text_parts.append(delta["text"])
+                        else:
+                            block_fault("text_delta_block_type")
+                else:
+                    target = open_block(index)
+                    if target is not None:
+                        target["open"] = False
             elif inner_type == "message_delta":
                 delta = inner.get("delta")
                 delta = delta if type(delta) is dict else {}
@@ -648,6 +703,8 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                 message_delta_positions.append(position)
                 if "input_transformations" in delta or "input_transformations" in inner:
                     fallback_signals += 1
+                if any(block["open"] for block in blocks.values()):
+                    block_fault("open_at_message_delta")
             elif inner_type == "message_stop":
                 message_stop_positions.append(position)
             elif inner_type == "error":
@@ -689,6 +746,8 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                             "num_turns": event.get("num_turns"), "usage": event.get("usage"),
                             "total_cost_usd": event.get("total_cost_usd"), "stop_reason": event.get("stop_reason"),
                             "permission_denials": event.get("permission_denials")})
+    if any(block["open"] for block in blocks.values()):
+        block_fault("unclosed")
     delta_text = "".join(delta_text_parts)
     return {"event_type_counts": counts, "unparseable_lines": unparseable, "init": init, "results": results,
             "assistant_message_ids": assistant_ids, "assistant_message_ids_missing": assistant_ids_missing,
@@ -704,7 +763,8 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                               "message_stop_positions": message_stop_positions,
                               "content_block_span": content_block_span, "last_position": last_stream_position,
                               "parent_tool_use_id_nonnull": stream_parents, "error_events": stream_errors,
-                              "content_block_types": stream_block_types, "fallback_signals": fallback_signals,
+                              "content_block_types": stream_block_types, "content_block_faults": block_faults,
+                              "fallback_signals": fallback_signals,
                               "text_delta_sha256": _sha(delta_text.encode("utf-8", errors="replace")),
                               "text_delta_byte_length": len(delta_text.encode("utf-8", errors="replace"))},
             "text_delta_text": delta_text}
@@ -754,9 +814,11 @@ def classify_stream(
     ``end_turn`` finish; any absent field is a ``failed`` reason. Classifier 3 (the default) takes
     the finish from the ``stream_event`` bracket: exactly one ``message_start`` whose id and model
     equal the assistant message and the contract, exactly one ``message_delta`` carrying
-    ``stop_reason``, one closing ``message_stop``, and text deltas equal to the assistant text. The
-    ``result`` event's own ``stop_reason`` is never consulted. Classifier 2 (schema 1 ledgers) keeps
-    the released rule: the finish is the assistant event's own ``stop_reason``.
+    ``stop_reason``, one closing ``message_stop``, every content block opened, carried and closed at
+    its own index before ``message_delta``, and text deltas, each inside an open ``text`` block, equal
+    to the assistant text. The ``result`` event's own ``stop_reason`` is never consulted. The finish
+    is ``observed`` only while that whole binding holds, the enclosing bracket included. Classifier 2
+    (schema 1 ledgers) keeps the released rule: the finish is the assistant event's own ``stop_reason``.
     """
     if classifier_version is None:
         classifier_version = CLASSIFIER_VERSION
@@ -870,19 +932,19 @@ def classify_stream(
                 reason = f"stream_schema:content_block_type:{block_type}"
                 if block_type not in _CONTENT_BLOCK_TYPES and reason not in reasons:
                     reasons.append(reason)
+            for fault in stream["content_block_faults"]:
+                reasons.append(f"stream_schema:content_block_lifecycle:{fault}")
             if stream["fallback_signals"]:
                 reasons.append("stream_binding:server_side_fallback")
             if output is not None and observed["text_delta_text"] != observed["assistant_text"]:
                 reasons.append("stream_binding:text_mismatch")
             finish_stop_reasons.append(bound_stop)
             # The completion is "observed" only when the finish is bound to an identified message: a
-            # string stop_reason from the single message_delta, no identity/text/finish binding miss.
-            binding_intact = not any(reason.startswith(("stream_schema:message_start", "stream_schema:stop_reason_ambiguous",
-                                                        "stream_schema:message_delta_stop_reason", "stream_binding:",
-                                                        "stream_schema:assistant_missing", "stream_schema:message_id",
-                                                        "stream_schema:assistant_model", "assistant_model_mismatch",
-                                                        "multiple_assistant_messages"))
-                                     for reason in reasons)
+            # string stop_reason from the single message_delta, and no reason that breaks that binding.
+            # The finish carries no message id of its own, so the bracket around it is part of the
+            # binding: a broken order, closure or origin, or a malformed content block, leaves it
+            # recorded but unobserved. A bound max_tokens finish stays observed (outcome truncated).
+            binding_intact = not any(reason.startswith(_BINDING_REASON_PREFIXES) for reason in reasons)
             finish_observed = type(bound_stop) is str and binding_intact
         for reason in observed["stop_reasons"]:
             if reason is not None and reason != "end_turn":
