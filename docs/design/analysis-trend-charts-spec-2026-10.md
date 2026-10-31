@@ -239,7 +239,7 @@ says so; everything else follows the spec.
     brand ring rings the viewport whatever the plot's scroll (an inset ring on the scrolled plot would leave the view
     and lie under the gutter), and a touch screen reader finds it anywhere on the chart. Down and Up step too, and Home and End jump to the
     oldest and newest; a step past either end, which changes no value, says "Oldest period." or "Newest period." in a
-    status line. A pointer's tooltip announces nothing: only the keyboard speaks.
+    status line (a bar chart's own words where it names them, E251). A pointer's tooltip announces nothing: only the keyboard speaks.
   - It starts at the newest period, the one the legend and the metrics table quote, and a plot opens scrolled there
     whenever its view or window starts to overflow: on first layout, after expanding or collapsing (§3.10), whether or
     not the other view overflowed, and for a new window. (A bar chart can name another start, E251: then the stop starts
@@ -474,6 +474,11 @@ says so; everything else follows the spec.
     newest period, as before. `trend-charts-v2.spec.tsx` holds the stop's period on mount and after a new window and the
     column in view; `fixtures/chartChecks.ts`'s "opens at its newest period" is "opens at its start", the newest by
     default.
+  - Reading words: a bar chart can name its categories (`BarChartDef.reading`, carried as `ChartModel.reading`:
+    `{ items, first, last }`), so its scroll region reads "Scroll horizontally to view all {items}." and a step past
+    either end says its `first` or `last` words; a ranked company chart says "companies", "First company." and "Last
+    company.". Unset, the periods' words (`PERIOD_READING`). `trend-charts-v2.spec.tsx` holds a peer chart's region
+    and end words, and an analysis chart's periods'.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

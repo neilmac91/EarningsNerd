@@ -8,8 +8,8 @@
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
    dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. A
-   ranked company chart (E251): its context bars in the context ink, the tooltip swatch the bar's own paint, and the
-   chart starting at its subject. Text
+   ranked company chart (E251): its context bars in the context ink, the tooltip swatch the bar's own paint, the chart
+   starting at its subject, and its own words for its companies. Text
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
@@ -1180,6 +1180,43 @@ describe('a ranked company chart (E251): the subject in chart-1, every other com
       expect(stop).toHaveAttribute('aria-valuenow', String(startOf(nearEqual)))
       expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(nearEqual)[startOf(nearEqual)].announcement)
       expectStartInView(viewport, nearEqual)
+    } finally {
+      scroll.mockRestore()
+      width.mockRestore()
+    }
+  })
+
+  it('says its own words: its region names its companies, and a step past either end says "First company." or "Last company."; a period chart keeps its own', async () => {
+    const viewportWidth = 300
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
+    })
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? viewportWidth : 0
+    })
+    try {
+      const spread = peer('spread')
+      const { container, unmount } = render(frame(spread))
+      expect(container.querySelector('[data-analysis-chart-scroll]')).toHaveAttribute('aria-label', 'Revenue chart. Scroll horizontally to view all companies.')
+      const stop = within(container).getByRole('slider', { name: `${spread.title} chart values` })
+      const status = within(container).getByRole('status')
+      fireEvent.keyDown(stop, { key: 'End' })
+      fireEvent.keyDown(stop, { key: 'ArrowRight' })
+      await waitFor(() => expect(status).toHaveTextContent('Last company.'))
+      fireEvent.keyDown(stop, { key: 'Home' })
+      fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+      await waitFor(() => expect(status).toHaveTextContent('First company.'))
+      unmount()
+      // A chart that names no words keeps its periods': REGN's top line, which scrolls at this width too.
+      const ds = dataset('REGN_annual')
+      const topline = buildChartModel('topline', ds, resolveDataNotes(ds))
+      expect(topline.reading, 'an analysis chart names none').toBeUndefined()
+      const periods = render(frame(topline)).container
+      expect(periods.querySelector('[data-analysis-chart-scroll]')).toHaveAttribute('aria-label', `${topline.title} chart. Scroll horizontally to view all periods.`)
+      const periodStop = within(periods).getByRole('slider')
+      fireEvent.keyDown(periodStop, { key: 'End' })
+      fireEvent.keyDown(periodStop, { key: 'ArrowRight' })
+      await waitFor(() => expect(within(periods).getByRole('status')).toHaveTextContent('Newest period.'))
     } finally {
       scroll.mockRestore()
       width.mockRestore()

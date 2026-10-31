@@ -9,7 +9,7 @@
  * (docs/design/analysis-trend-charts-spec-2026-10.md §0.5). Pure and SSR-safe.
  */
 import { currencySymbol } from '@/lib/format'
-import { AXIS_CAPS, percentPanel, type ChartModel, type ChartPeriod, type Footnote, type ModelMark, type ModelPanel } from './model'
+import { AXIS_CAPS, percentPanel, type ChartModel, type ChartPeriod, type ChartReading, type Footnote, type ModelMark, type ModelPanel } from './model'
 import { valueAxis } from './scale'
 
 /** One bar's slot. */
@@ -46,6 +46,9 @@ export interface BarChartDef {
   /** The category the chart starts at, by key (E251; a ranked company chart's subject): its values stop starts there, and
    *  a plot that overflows opens with its column in view. Unset, the last category. */
   start?: string
+  /** What the plot calls its categories (E251; a ranked company chart's companies): its scroll region's name and the
+   *  status a step past either end says. Unset, its periods. */
+  reading?: ChartReading
 }
 
 /** A1's interval cap: the top line's, the one panel of labelled bars on /analysis. */
@@ -89,6 +92,7 @@ export function buildBarChart(def: BarChartDef): ChartModel {
   const frame = {
     id: def.id, title: def.title, subtitle: def.subtitle ?? '', mode: 'annual' as const, periods, legend: [], notesBand: null, strip: [],
     ...(def.start != null ? { start: def.start } : {}),
+    ...(def.reading ? { reading: def.reading } : {}),
   }
   if (def.unavailable) return { ...frame, panels: [], footnotes: [], unavailable: def.unavailable }
   // chart-1 whatever the metric: one series, so the first slot of A8's order.

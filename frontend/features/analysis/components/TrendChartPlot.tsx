@@ -10,8 +10,9 @@
  * readout (lib/charts/readout.ts), so a screen reader speaks it on focus and on every move. It is a transparent layer
  * laid over the viewport, after it in the Tab order: the pointer passes through it to the plot, its brand ring rings the
  * viewport whatever the plot's scroll, and a touch screen reader finds it anywhere on the chart. Left/Right (Down/Up) step a
- * period, Home/End jump to the oldest and newest, and a step past either end says so in a status line. It starts at the
- * chart's start and keeps its period when focus leaves. Hover, a tap, or the keyboard paints the period's column wash
+ * period, Home/End jump to the oldest and newest, and a step past either end says so in a status line, in the chart's own
+ * words (`model.reading`, E251: a ranked company chart's companies), its periods' by default. It starts at the chart's
+ * start and keeps its period when focus leaves. Hover, a tap, or the keyboard paints the period's column wash
  * across the plot and shows its tooltip; pointing at a period takes over from the keyboard without moving focus or the
  * scroll, and the next key resumes the keyboard's own period. The tooltip stays while the pointer rests on it, and
  * Escape dismisses it before it collapses an expanded card (WCAG 1.4.13).
@@ -28,7 +29,7 @@ import { cx } from '@/components/ui'
 import { useContentIn } from '@/hooks/useContentIn'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import { columnOf, gutterCover, gutterCuts, slotAt, type ChartLayout } from '@/features/analysis/lib/charts/layout'
-import type { ChartModel, ChartView } from '@/features/analysis/lib/charts/model'
+import { PERIOD_READING, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import type { PeriodReadout } from '@/features/analysis/lib/charts/readout'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { LegendSwatch } from './chartMarks'
@@ -67,8 +68,10 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
   const viewportRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const tipRef = useRef<HTMLDivElement>(null)
+  // What the plot calls its categories: its own words where it names them (E251), its periods' by default.
+  const reading = model.reading ?? PERIOD_READING
   const { overflowing, regionProps } = useOverflowRegion(viewportRef, {
-    label: `${model.title} chart. Scroll horizontally to view all periods.`,
+    label: `${model.title} chart. Scroll horizontally to view all ${reading.items}.`,
   })
   const last = model.periods.length - 1
   // Where the chart starts (E251): the category it names, else its newest period. The values stop starts there, and a plot
@@ -225,7 +228,7 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
     // A step past either end changes no value, so the slider says nothing: the status line does, fresh each press.
     cancelEdge()
     if (next !== to) {
-      const message = to < 0 ? 'Oldest period.' : 'Newest period.'
+      const message = to < 0 ? reading.first : reading.last
       edgeFrame.current = requestAnimationFrame(() => setEdge(message))
     }
   }

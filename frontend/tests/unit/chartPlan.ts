@@ -10,7 +10,7 @@ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
 import type { BarCategory, BarChartDef } from '@/features/analysis/lib/charts/barChart'
 import { noteGlyphs, type ChartLayout } from '@/features/analysis/lib/charts/layout'
-import type { ChartModel } from '@/features/analysis/lib/charts/model'
+import type { ChartModel, ChartReading } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import type { FundamentalSeries, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { FEATURED } from '@/features/fundamentals/lib/featuredMetrics'
@@ -68,10 +68,14 @@ export interface PeerFixture {
   }>
 }
 
+/** A ranked company chart's words for its categories (E251's defaults): its scroll region and end-of-range status name
+ *  companies, not periods. */
+export const COMPANY_READING: ChartReading = { items: 'companies', first: 'First company.', last: 'Last company.' }
+
 /** Every peers case as the bar chart a ranked company chart draws (E251): a slot per company in the answer's order, its
  *  tick and long name the ticker, keyed by place where a ticker repeats, as slotsOf keys a year two points share
  *  (Company.ticker is not unique, and buildBarChart refuses a key given twice); the subject a plain bar and every other
- *  company a context bar, the chart starting at the subject; the metric's own label, and its axis by its kind in the
+ *  company a context bar, the chart starting at the subject and naming companies in its own words; the metric's own label, and its axis by its kind in the
  *  answer's unit, a unit naming no currency printing no sign. E251's second pull request replaces this with the panel's
  *  own builder. */
 export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
@@ -87,6 +91,7 @@ export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
       title: metric.label,
       categories,
       start: categories[response.peers.findIndex((entry) => entry.is_subject)].key,
+      reading: COMPANY_READING,
       series: { key: response.concept, label: metric.label, values: response.peers.map((entry) => entry.value) },
       axis: metric.fmt === 'pct' ? { kind: 'percent' } : metric.fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit: response.unit ?? '' },
     }]
