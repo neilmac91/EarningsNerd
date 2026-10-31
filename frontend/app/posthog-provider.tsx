@@ -89,12 +89,14 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
               if (guarded) setInitialized(true)
               setAnalyticsAllowed(browserAnalyticsAllowed())
             } catch (error) {
+              // Every throw here comes before setInitialized(true), so the page never reads ready.
               failPostHogClosed(posthog, error)
             }
           },
         })
       } catch (error) {
         failPostHogClosed(posthog, error)
+        setInitialized(false)
       }
     }
     // Subscribe before init: synchronous loaded callbacks and concurrent choices follow one store.

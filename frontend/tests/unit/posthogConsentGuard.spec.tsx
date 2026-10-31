@@ -4,7 +4,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 import { act, cleanup, render, screen } from '@testing-library/react'
-import type { PostHog, PostHogConfig } from 'posthog-js'
+import type { CaptureResult, PostHog, PostHogConfig } from 'posthog-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PostHogQueues } from '@/lib/posthogConsent'
 
@@ -13,9 +13,10 @@ import type { PostHogQueues } from '@/lib/posthogConsent'
  * (Vitest resolves `main`) and the `module` build that Next bundles into the app. Both rename the client's private
  * members. The guard once read `_send_retriable_request` and `_retryQueue` by name, so it threw "Cannot read
  * properties of undefined (reading 'bind')" before posthog.init on every page and production PostHog never started.
- * Each failure the guard must survive is planted on a real client at `loaded`, as a later build might ship it: the
- * client must then send nothing for the rest of the page, report once, and leave the consent posthog-js stores for
- * every tab alone. The provider runs on real clients too, with each of its failure paths planted.
+ * Each failure the guard must survive is planted on a real client at `loaded`, as a later build might ship it, with
+ * its flag requests on and its persistence in browser storage. The client must then send nothing for the rest of the
+ * page, store no credential URL, report once, and keep the consent posthog-js stores for every tab at the visitor's
+ * choice. The provider runs on real clients too, with each of its failure paths planted.
  *
  * posthog-js binds fetch and XMLHttpRequest when its module first runs, so both are replaced before any import: every
  * request the SDK makes is answered by the stand-in fetch, and without `withCredentials` the SDK keeps no XHR
@@ -61,6 +62,8 @@ wire.decode = async (body) => {
 
 const KEY = 'phc_synthetic_consent_guard_test'
 const INGEST = 'https://ingest.invalid'
+const CANARY = 'synthetic-reset-canary'
+const stored = () => JSON.stringify(Array.from({ length: localStorage.length }, (_, i) => [localStorage.key(i), localStorage.getItem(localStorage.key(i)!)]))
 const sent = (event: string) => wire.calls.filter(call => call.events.includes(event)).length
 
 // The package's `module` entry, read from its package.json as a bundler reads it.
@@ -101,7 +104,7 @@ afterEach(async () => {
 const SDK_OPTIONS = { api_host: INGEST, persistence: 'memory', disable_external_dependency_loading: true, advanced_disable_flags: true } as const
 
 /** A real client, guarded and initialized as the provider does; `plant` changes it at `loaded`, as a later build might. */
-async function start(sdk: Sdk, plant?: (client: PostHog, queues: PostHogQueues) => void) {
+async function start(sdk: Sdk, plant?: (client: PostHog, queues: PostHogQueues) => void, overrides: Partial<PostHogConfig> = {}) {
   const consent = await import('@/lib/browserConsent')
   const guard = await import('@/lib/posthogConsent')
   const privacy = await import('@/lib/posthogPrivacy')
@@ -118,6 +121,7 @@ async function start(sdk: Sdk, plant?: (client: PostHog, queues: PostHogQueues) 
     ...SDK_OPTIONS,
     autocapture: false, capture_pageview: false, capture_pageleave: false,
     opt_out_capturing_by_default: true, request_batching: true,
+    ...overrides,
     loaded: (loaded) => {
       capturingAtLoad = loaded.is_capturing()
       if (plant) plant(loaded, guard.findPostHogQueues(loaded)!)
@@ -128,11 +132,17 @@ async function start(sdk: Sdk, plant?: (client: PostHog, queues: PostHogQueues) 
   return { client, guard, applied, capturingAtLoad }
 }
 
-/** Another tab's SDK: a client on the same key, sharing posthog-js's consent store through localStorage. */
+/**
+ * Another tab's SDK, configured as the provider configures one: the same key, so it shares posthog-js's consent store
+ * through localStorage, and off by default, so a cleared store reads as off. Its own host keeps its requests apart.
+ */
 function otherTab(sdk: Sdk) {
   const tab = new sdk.PostHog()
   clients.push(tab)
-  tab.init(KEY, { ...SDK_OPTIONS, autocapture: false, capture_pageview: false, capture_pageleave: false })
+  tab.init(KEY, {
+    ...SDK_OPTIONS, api_host: 'https://other-tab.invalid',
+    autocapture: false, capture_pageview: false, capture_pageleave: false, opt_out_capturing_by_default: true,
+  })
   return tab
 }
 
@@ -209,7 +219,7 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     expect(sentry.captureException).not.toHaveBeenCalled()
   })
 
-  it.each(PLANTED_FAILURES)('turns a client with %s off for the page, reports once and leaves other tabs alone', async (_plant, plant) => {
+  it.each(PLANTED_FAILURES)('turns a client with %s off for the page, reports once and keeps every tab\'s consent at the choice', async (_plant, plant) => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const choose = await choices()
     choose(true)
@@ -217,24 +227,52 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     // Another tab opts in through posthog-js's consent store, which every tab on the origin shares.
     const tab = otherTab(sdk)
     tab.opt_in_capturing({ captureEventName: false })
-    const { client, guard, applied, capturingAtLoad } = await start(sdk, plant)
+    const { client, guard, applied, capturingAtLoad } = await start(sdk, plant, { advanced_disable_flags: false, persistence: 'localStorage' })
     expect(capturingAtLoad).toBe(true) // The shared opt-in reached this client: only its own failed state can stop it.
     expect(applied).toBe(false)
-    // The failed client never writes the shared consent, so the other tab keeps capturing through both choices.
-    choose(false)
-    choose(true)
-    expect(tab.is_capturing()).toBe(true)
-    // That tab's opt-in does not revive the failed client either: nothing it captures leaves, sent at once, batched
-    // or on pagehide through its unguarded retry queue.
-    expect(client.is_capturing()).toBe(true)
+    expect(client.is_capturing()).toBe(false)
+
+    // Nothing the failed client captures or requests leaves, sent at once, batched, as flags after an identify or on
+    // pagehide through its unguarded retry queue; and on a credential URL it stores nothing it sees.
+    window.history.replaceState(null, '', `/reset-password?token=${CANARY}`)
     client.capture('failed-client-instant', {}, { send_instantly: true })
     client.capture('failed-client-batched')
+    client.identify('synthetic-account-7')
+    client.reloadFeatureFlags()
     client._handle_unload()
     await new Promise(resolve => setTimeout(resolve, 50))
-    expect([sent('failed-client-instant'), sent('failed-client-batched')]).toEqual([0, 0])
+    window.history.replaceState(null, '', '/')
+    expect(wire.calls.filter(call => call.url.startsWith(INGEST))).toEqual([])
+    expect(stored()).not.toContain(CANARY)
+
+    // It keeps the shared store at the visitor's choice, as a healthy tab does: the other tab follows a refusal and an
+    // allow, and a logout's reset(), which clears the store, does not leave it cleared.
+    choose(false)
+    expect(tab.is_capturing()).toBe(false)
+    choose(true)
+    expect(tab.is_capturing()).toBe(true)
+    client.reset()
+    guard.applyPostHogConsent(client)
+    expect([tab.is_capturing(), client.is_capturing()]).toEqual([true, false])
     expect(sentry.captureException).toHaveBeenCalledTimes(1)
     expect(sentry.captureException.mock.calls[0][0]).toBeInstanceOf(guard.PostHogConsentGuardError)
     expect(sentry.captureException.mock.calls[0][1]).toEqual({ tags: { posthog_js: client.version } })
+  })
+})
+
+describe('before_send', () => {
+  it('cleans stored attribution even for an event it drops', async () => {
+    const choose = await choices()
+    choose(true)
+    const { PostHog } = await import('posthog-js')
+    const privacy = await import('@/lib/posthogPrivacy')
+    const client = new PostHog()
+    clients.push(client)
+    client.init(KEY, { ...SDK_OPTIONS, autocapture: false, capture_pageview: false, capture_pageleave: false })
+    // posthog-js stores the raw page URL as session attribution before it calls before_send.
+    client.register({ $client_session_props: { props: { u: `https://example.test/reset-password?token=${CANARY}` } } })
+    expect(privacy.beforeSendPostHog(client, { event: '$snapshot', properties: {} } as unknown as CaptureResult)).toBeNull()
+    expect(JSON.stringify(client.persistence?.props)).not.toContain(CANARY)
   })
 })
 
@@ -326,10 +364,13 @@ describe('the provider when PostHog cannot run under its guard', () => {
     untouchedBeforeConsent(client, choose)
     act(() => choose(true))
     expect([client.__loaded, ready()]).toEqual([true, 'false'])
-    // GlobalErrorBoundary's "Try again" mounts the provider again over the loaded client.
+    // GlobalErrorBoundary's "Try again" mounts the provider again over the loaded client. Seeded not ready, the page-view
+    // tracker never mounts, not even for the first commit.
+    const capture = vi.spyOn(client, 'capture')
     view.unmount()
     render(page())
     expect(ready()).toBe('false')
+    expect(capture.mock.calls.map(([event]) => event)).toEqual([])
     client.capture('after-guard-failure', {}, { send_instantly: true })
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(sent('after-guard-failure')).toBe(0)
@@ -350,11 +391,17 @@ describe('the provider when PostHog cannot run under its guard', () => {
     untouchedBeforeConsent(client, choose)
     act(() => choose(true))
     expect([client.__loaded, ready()]).toEqual([true, 'false'])
+    // Off, not only reported: later choices never opt it in, and nothing it captures leaves.
+    act(() => choose(false))
+    act(() => choose(true))
+    client.capture('after-loaded-throw', {}, { send_instantly: true })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect([client.is_capturing(), ready(), sent('after-loaded-throw')]).toEqual([false, 'false', 0])
     expect(sentry.captureException).toHaveBeenCalledTimes(1)
     expect(sentry.captureException.mock.calls[0][0]).toBe(planted)
   })
 
-  it('turns PostHog off and reports a throw while applying a later choice', async () => {
+  it('turns PostHog off and reports a throw while applying a later refusal', async () => {
     const { PostHog } = await import('posthog-js')
     const client = new PostHog()
     clients.push(client)
@@ -368,11 +415,34 @@ describe('the provider when PostHog cannot run under its guard', () => {
     act(() => choose(false))
     act(() => choose(true))
     expect(ready()).toBe('false')
-    // The refusal never reached the SDK's consent, which still reads opted in: only the failed state stops it now.
-    expect(client.is_capturing()).toBe(true)
+    // The shared store reads opted in (the refusal never stored, and the allow mirrored), so only the client's own
+    // failed state stops it now.
+    expect([client.consent.isOptedIn(), client.is_capturing()]).toEqual([true, false])
     client.capture('after-failed-refusal', {}, { send_instantly: true })
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(sent('after-failed-refusal')).toBe(0)
+    expect(sentry.captureException).toHaveBeenCalledTimes(1)
+    expect(sentry.captureException.mock.calls[0][0]).toBe(planted)
+  })
+
+  it('turns PostHog off, not ready, and drops what was already queued after a throw while applying a later allow', async () => {
+    const { PostHog } = await import('posthog-js')
+    const client = new PostHog()
+    clients.push(client)
+    const { choose, ready } = await renderProvider(client)
+    untouchedBeforeConsent(client, choose)
+    act(() => choose(true))
+    expect(ready()).toBe('true')
+    client.capture('queued-before-failure')
+    // The SDK throws while it applies the visitor's allow again (saved again here, or another tab's allow).
+    const planted = new Error('planted: consent storage is unavailable')
+    vi.spyOn(client, 'opt_in_capturing').mockImplementation(() => { throw planted })
+    act(() => choose(true))
+    expect([ready(), client.is_capturing()]).toEqual(['false', false])
+    // The batch queued while it was healthy leaves through the guard on pagehide, and the failed client drops it.
+    client._handle_unload()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(sent('queued-before-failure')).toBe(0)
     expect(sentry.captureException).toHaveBeenCalledTimes(1)
     expect(sentry.captureException.mock.calls[0][0]).toBe(planted)
   })

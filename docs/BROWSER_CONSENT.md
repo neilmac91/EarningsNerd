@@ -40,10 +40,13 @@ among them the three the guard once read, so it finds the retry and batch queues
 never by those names. On withdrawal it drains batches, retry queues and pending DOM-ready
 requests through denial guards. A request generation prevents a late failed request from retrying
 after a subsequent allow. PostHog starts only after the guard is installed. A client whose guard
-cannot hold sends no events for the rest of the page: its `before_send` drops every one, whatever
-another tab stores in posthog-js's own consent, which all tabs share and which the failed client
-never writes. The failure reaches Sentry once. The adapter uses SDK internals; rerun the actual
-transport tests and review those entry points on SDK upgrades.
+cannot hold sends nothing after the failure. Its own `is_capturing` reads false, so the SDK
+captures and stores nothing for it. Its `before_send` drops any event that still arrives. The
+guard's wrappers drop every request, flags and remote configuration included. A request already on
+the wire is not recalled. posthog-js keeps its own consent in a store that all tabs share and that
+`reset()` clears. A failed client keeps that store at the visitor's choice, as every healthy tab
+does, and never reads it. The failure reaches Sentry once. The adapter uses SDK internals; rerun
+the actual transport tests and review those entry points on SDK upgrades.
 
 A request already dispatched cannot be recalled, and withdrawal does not erase previously
 received provider data. There is no claim of historical erasure here. Native transport work
@@ -65,11 +68,14 @@ do not certify every version of Vercel's remotely served script or recall its di
 - [posthogConsentGuard.spec.tsx](../frontend/tests/unit/posthogConsentGuard.spec.tsx) runs the guard
   on real clients from the package entry and the `module` build. Allowed sends leave. A withdrawn
   choice's queued and retried requests do not, nor does the retry of one already in flight. It
-  plants each failure the guard must survive: such a client sends nothing, whatever another tab
-  stores, leaves other tabs' consent alone and reaches Sentry once. It runs the provider on real
-  clients: off before an allow, on after it, off after a refusal, with each failure path planted.
-- [posthogShippedMembers.spec.ts](../frontend/tests/unit/posthogShippedMembers.spec.ts) fails any
-  underscore posthog-js member that code or a test stand-in reaches and the `module` build lacks.
+  plants each failure the guard must survive, with flag requests on and a credential URL. Such a
+  client sends nothing, stores no credential URL, keeps the store every tab shares at the visitor's
+  choice through a logout's reset, and reaches Sentry once. It runs the provider on real clients:
+  off before an allow, on after it, off after a refusal, with each failure path planted.
+- [posthogShippedMembers.spec.ts](../frontend/tests/unit/posthogShippedMembers.spec.ts) reads every
+  file under `frontend/` that names posthog-js. It fails an underscore member that code, a test
+  stand-in or a script held in a string reaches and the `module` build lacks. It also fails a test
+  that loads another posthog-js build. Its header lists what stays out of its reach.
 - [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) runs the package's
   `module` build, the one Next bundles, in Chromium. Every request is fulfilled or blocked locally,
   including remote configuration, and the SDK's lazy-loaded extensions come from the package's own

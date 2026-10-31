@@ -78,7 +78,8 @@ export function installPostHogConsentGuard(client: PostHog): void {
   const permitted = (options: ConsentRequest) => {
     options.__earningsnerdConsentGeneration ??= generation
     syncWithdrawal()
-    return !discarding && browserAnalyticsAllowed() && options.__earningsnerdConsentGeneration === generation
+    // A failed client sends nothing more through either wrapper: queued batches, retries, flags, remote configuration.
+    return !discarding && !failed.has(client) && browserAnalyticsAllowed() && options.__earningsnerdConsentGeneration === generation
   }
   const dropped = (options: QueuedRequestWithOptions) => {
     // Terminal denial: do not report a successful delivery or schedule another retry.
@@ -126,20 +127,39 @@ export function installPostHogConsentGuard(client: PostHog): void {
   attach()
 }
 
-/** Whether this client's guard has failed: it sends no events for the rest of the page (posthogPrivacy's before_send). */
+/** Whether this client's guard has failed: it then sends nothing for the rest of the page (failPostHogClosed). */
 export const postHogGuardFailed = (client: PostHog) => failed.has(client)
 
 /**
+ * posthog-js keeps its consent in a store every tab on the origin shares, and reset() clears it. A failed client keeps
+ * that store at the visitor's choice, as every healthy tab does, so it never switches another tab off or leaves the
+ * store cleared. It never reads the store itself: its own is_capturing stays false.
+ */
+const mirrorChoice = (client: PostHog) => {
+  if (!client.__loaded) return
+  try {
+    if (browserAnalyticsAllowed()) client.opt_in_capturing({ captureEventName: false })
+    else client.opt_out_capturing()
+  } catch {
+    // The SDK's consent persistence can throw. The failed client is off either way.
+  }
+}
+
+/**
  * Turns this client off for the rest of the page and reports why, once. Without its guard a withdrawal could not stop
- * queued or retried requests, so a failed client sends no events: posthogPrivacy's before_send drops every one, per
- * client. posthog-js's own opt-out is not used for this. All tabs share that store, so another tab's opt-in would
- * revive the failed client, and the failed client's opt-out would switch healthy tabs off. Nor does it stop silently:
- * the report is a Sentry issue. #1552's guard threw before init and left only a console line, which Sentry kept as a
- * log and raised no issue for.
+ * queued or retried requests, so a failed client sends nothing after the failure, held per client on four layers:
+ * - its own is_capturing reads false (a public name every build keeps), so posthog-js captures nothing and stores
+ *   nothing for it;
+ * - posthogPrivacy's before_send drops any event that still arrives;
+ * - the guard's wrappers drop every request, flags and remote configuration included;
+ * - posthog-js's own opt-out is not relied on, since every tab shares that store (mirrorChoice).
+ * A request already on the wire is not recalled. Nor does the failure pass silently: the report is a Sentry issue.
+ * #1552's guard threw before init and left only a console line, which Sentry kept as a log, raising no issue.
  */
 export function failPostHogClosed(client: PostHog, error: unknown): void {
   if (failed.has(client)) return
   failed.add(client)
+  client.is_capturing = () => false
   console.error('PostHog: analytics is off on this page', error)
   try {
     Sentry.captureException(error, { tags: { posthog_js: String(client.version) } })
@@ -151,14 +171,18 @@ export function failPostHogClosed(client: PostHog, error: unknown): void {
 /**
  * Applies the visitor's current choice under the guard; before init it only installs the guard. Returns false, with
  * the client turned off and the failure reported, when the guard cannot hold (failPostHogClosed). Never throws for
- * that. A failed client's SDK consent is left alone, since every tab shares it.
+ * that. A failed client only mirrors the choice into the store every tab shares (mirrorChoice).
  */
 export function applyPostHogConsent(client: PostHog): boolean {
-  if (failed.has(client)) return false
+  if (failed.has(client)) {
+    mirrorChoice(client)
+    return false
+  }
   try {
     installPostHogConsentGuard(client)
   } catch (error) {
     failPostHogClosed(client, error)
+    mirrorChoice(client)
     return false
   }
   if (!client.__loaded) return true

@@ -71,6 +71,8 @@ function helperScript(): string {
 
 // Every page a test opens through fixture(); test.afterEach reads each one's Sentry reports.
 const fixturePages: Page[] = []
+// SDK extension scripts the package could not serve (route above); test.afterEach fails on any.
+const unservedAssets: string[] = []
 
 async function fixture(page: Page, initialPath: string, batching = false) {
   fixturePages.push(page)
@@ -96,9 +98,16 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     if (url.origin !== INGEST) return route.abort('blockedbyclient')
     // This build lazy-loads its extensions, the session recorder among them, from /static on the assets host, which
     // is the api host here, under a version segment (/static/1.440.0/lazy-recorder.js). Serve the package's own
-    // copies as PostHog's CDN does, so a recorder the configuration failed to disable could really start.
+    // copies as PostHog's CDN does. With replay off in both the app's configuration and the consent application's
+    // stopSessionRecording, no case asks for one; with both off at once, the recorder really loads and starts, and
+    // the replay checks fail. An extension the package cannot serve fails its test (test.afterEach), so a renamed
+    // file cannot quietly turn the recorder back into a JSON response.
     const asset = /^\/static\/(?:[\w.-]+\/)?[\w.-]+\.js$/.test(url.pathname) ? path.join(POSTHOG_PACKAGE, 'dist', path.basename(url.pathname)) : null
     if (asset && existsSync(asset)) return route.fulfill({ contentType: 'text/javascript', body: readFileSync(asset) })
+    if (asset) {
+      unservedAssets.push(url.pathname)
+      return route.abort('failed')
+    }
     wire.push({ url: request.url(), payload: decodeRequest(request) })
     if (url.pathname.startsWith('/e') && holdEvent) {
       await new Promise<void>(resolve => { releaseHeld = resolve })
@@ -175,6 +184,7 @@ test.afterEach(async () => {
   for (const page of fixturePages.splice(0)) {
     expect(await page.evaluate(() => (window as unknown as HarnessWindow).sentryReports)).toEqual([])
   }
+  expect(unservedAssets.splice(0)).toEqual([])
 })
 
 // The build renames the client's queue fields; the guard's own lookup finds them by shape.
