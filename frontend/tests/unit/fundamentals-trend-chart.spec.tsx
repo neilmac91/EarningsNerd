@@ -357,7 +357,7 @@ describe('FundamentalsTrendChart', () => {
 
     const picker = await metricPicker()
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
-      'Revenue', 'Net interest income', 'Non-interest income', 'Premiums earned', 'Net investment income', 'Net income',
+      'Revenue', 'Net interest income', 'Noninterest income', 'Premiums earned', 'Net investment income', 'Net income',
       'Gross profit', 'Operating income', 'Operating cash flow', 'Investing cash flow', 'Financing cash flow',
       'Free cash flow', 'Diluted EPS', 'EPS', 'Gross margin', 'Operating margin', 'Net margin', 'Total assets',
       'Current assets', 'Current liabilities', 'Working capital', 'Current ratio', "Shareholders' equity",
