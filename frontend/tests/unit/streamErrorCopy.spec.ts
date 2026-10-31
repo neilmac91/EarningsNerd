@@ -48,13 +48,13 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     from the error it streams in the block under `if user_is_unlimited:` (the billing-unlimited caller its
  *     usage gate blocked), and every 403 the endpoint answers with (a plan or account gate: a Free reader's
  *     force regeneration of a summary the page shows, an inactive account) must match
- *     isNonRetryableStreamError in its own words, and by each code a coded 403 can carry, so the stream never
- *     retries them and the card offers no Retry; the endpoint's 401 (a retry after a refresh or a sign-in can
+ *     isNonRetryableStreamError in its own words, and by each code a coded 403 the scanner reads can carry (the
+ *     durable route's aliased 403s are opaque), so the stream never retries them and the card offers no Retry; the endpoint's 401 (a retry after a refresh or a sign-in can
  *     help), its 404 (kept retryable since round 3), its 429 and its 503 must not, and a status the table does
  *     not classify fails. No 401 is read today (get_current_user's comes from `_not_logged_in()`, and the
  *     durable route's is opaque); summaryStream.spec.ts and summaryStreamAuthRefresh.spec.ts pin a coded
  *     401's Retry. The words are what a page reads with no known code; a known code decides first, and
- *     summaryStream.spec.ts holds each one to the E31 contract's §3. A reworded sentence fails here
+ *     summaryStream.spec.ts holds each one to the E31 contract's §3, or to a named silence or disagreement. A reworded sentence fails here
  *     until the matcher follows it.
  *  4. Voice: what the page shows has no em-dash, no exclamation mark and no "please", and reads as a sentence, a line of the map
  *     or an endpoint answer the map passes through as the backend wrote it (the account check's, since E45); a
@@ -751,8 +751,8 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(unclassified.map((answer) => `${answer.file}:${answer.line} ${answer.status}`), 'say here whether a retry can help this status').toEqual([])
     // The words alone, as a page before E31 reads every answer and the page reads one with no known code. A coded
     // answer's verdict on the page is its code's (a known code decides first): that follows the contract's §3 code
-    // by code, not the status (a coded fair-use 429 never offers Retry), and summaryStream.spec.ts holds each known
-    // code to it.
+    // by code, not the status (a coded fair-use 429 withholds its Retry), and summaryStream.spec.ts holds each known
+    // code to it, or to a named silence or disagreement.
     const misread = answers
       .filter((answer) => isNonRetryableStreamError(answer.text) !== NO_RETRY_HELPS.has(answer.status))
       .map((answer) => `${answer.file}:${answer.line} ${answer.status} "${answer.text}"`)

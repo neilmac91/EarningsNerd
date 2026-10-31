@@ -177,19 +177,25 @@ describe('generateSummaryStream', () => {
 
   // The E31 contract's §3, code by code, read from its own table: whether the card withholds its Retry for a refusal
   // carrying the code, which decides first whatever the words. A row's "Client behaviour" cell that says "never offer
-  // Retry" withholds it; one that keeps a Retry, waits out a Retry-After or a cooldown, or lets a retry follow keeps
-  // it (`auth_required`'s "Retry included": today's 401 handling, its words deciding).
+  // Retry" withholds it, the one phrase that does: any other negation of Retry ("do not offer Retry", "no Retry",
+  // "Retry is never offered") fails rather than reads as a kept Retry. A cell that keeps a Retry, waits out a
+  // Retry-After or a cooldown, or lets a retry follow keeps it (`auth_required`'s "Retry included": today's 401
+  // handling, its words deciding).
   const SECTION_3 = (() => {
     const doc = readFileSync(path.join(REPO, 'docs/audit/contracts/error-codes.md'), 'utf8')
     const section = doc.slice(doc.indexOf('## 3.'), doc.indexOf('## 4.'))
     return new Map(section.split('\n').filter((line) => line.startsWith('| `')).map((line) => {
-      const cells = line.split('|').slice(1, -1).map((cell) => cell.trim())
+      const cells = line.split(/(?<!\\)\|/).slice(1, -1).map((cell) => cell.trim()) // GFM escapes a cell's own pipe
       if (cells.length !== 4) throw new Error(`§3 row with ${cells.length} cells: ${line.slice(0, 60)}`)
       return [cells[0].replace(/`/g, ''), cells[3]] as const
     }))
   })()
-  const section3Withholds = (cell: string): boolean | null =>
-    /never offer Retry/.test(cell) ? true : /\bRetry\b|\bretry\b|cooldown/.test(cell) ? false : null
+  const NEGATED_RETRY = /\b(?:no|not|never|without)\b[^.;,:]{0,25}\bretr(?:y|ies)\b|\bretr(?:y|ies)\b[^.;,:]{0,25}\b(?:never|not)\b/i
+  const section3Withholds = (code: string, cell: string): boolean | null => {
+    if (/never offer Retry/.test(cell)) return true
+    if (NEGATED_RETRY.test(cell)) throw new Error(`§3's ${code} row negates Retry in other words: write "never offer Retry"`)
+    return /\bRetry\b|\bretry\b|cooldown/.test(cell) ? false : null
+  }
   // §3 states no Retry rule for these, so they hold the reader's verdict: a gate the checkout raises, and the
   // calendar's own reader's code.
   const READER_VERDICT_WHERE_SECTION_3_IS_SILENT: Partial<Record<KnownErrorCode, boolean>> = {
@@ -203,13 +209,13 @@ describe('generateSummaryStream', () => {
 
   it('reads a Retry rule, or names the silence, for every known code in §3', () => {
     expect([...SECTION_3.keys()].sort(), '§3 has a row for each known code, and only those').toEqual(Object.keys(ERROR_CODES).sort())
-    const silent = [...SECTION_3].filter(([, cell]) => section3Withholds(cell) === null).map(([code]) => code)
+    const silent = [...SECTION_3].filter(([code, cell]) => section3Withholds(code, cell) === null).map(([code]) => code)
     expect(silent.sort(), 'a §3 row with no Retry rule takes the reader verdict here, and only such a row')
       .toEqual(Object.keys(READER_VERDICT_WHERE_SECTION_3_IS_SILENT).sort())
   })
 
-  it.each(Object.keys(ERROR_CODES) as KnownErrorCode[])('gives %s the Retry verdict of the contract\'s §3', (code) => {
-    const contract = section3Withholds(SECTION_3.get(code) ?? '') ?? READER_VERDICT_WHERE_SECTION_3_IS_SILENT[code]
+  it.each(Object.keys(ERROR_CODES) as KnownErrorCode[])('holds %s\'s Retry verdict to §3, its named silence or its named disagreement', (code) => {
+    const contract = section3Withholds(code, SECTION_3.get(code) ?? '') ?? READER_VERDICT_WHERE_SECTION_3_IS_SILENT[code]
     expect(contract, `classify ${code}: give §3's row a Retry rule, or name the reader's verdict here`).toBeTypeOf('boolean')
     const verdict = isNonRetryableStreamError('A sentence no matcher reads.', code)
     expect(verdict, DISAGREES_WITH_SECTION_3.includes(code)
