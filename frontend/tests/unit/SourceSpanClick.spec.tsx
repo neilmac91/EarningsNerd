@@ -44,7 +44,7 @@ describe('source_span_click instrumentation (item 1.8)', () => {
       </FilingViewerProvider>,
     )
     // In-app chip is a button (it drives requestHighlight); clicking it = verifying the claim.
-    fireEvent.click(screen.getByRole('button', { name: /citation 1: item 7 — md&a/i }))
+    fireEvent.click(screen.getByRole('button', { name: /1\. citation: item 7 — md&a/i }))
 
     const calls = sourceSpanCalls()
     expect(calls).toHaveLength(1)
@@ -65,7 +65,7 @@ describe('source_span_click instrumentation (item 1.8)', () => {
         <CitationChip citation={{ ...xbrlCitation, fact: undefined }} />
       </FilingViewerProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: /citation f1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /f1\. citation/i }))
 
     expect(sourceSpanCalls()).toHaveLength(1)
     expect(sourceSpanCalls()[0][1]).toMatchObject({ citation_index: 'F1', citation_kind: 'text' })
@@ -77,7 +77,7 @@ describe('source_span_click instrumentation (item 1.8)', () => {
         <CitationChip citation={xbrlCitation} />
       </FilingViewerProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: /citation f1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /f1\. citation/i }))
 
     const calls = sourceSpanCalls()
     expect(calls).toHaveLength(1)
@@ -97,7 +97,7 @@ describe('source_span_click instrumentation (item 1.8)', () => {
     )
     // The provider is still mounted, so the chip is the in-app button and the highlight still
     // fires — but with no filingId there is nothing to attribute, so no event is emitted.
-    fireEvent.click(screen.getByRole('button', { name: /citation 1: item 7 — md&a/i }))
+    fireEvent.click(screen.getByRole('button', { name: /1\. citation: item 7 — md&a/i }))
     expect(sourceSpanCalls()).toHaveLength(0)
   })
 })
