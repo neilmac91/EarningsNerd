@@ -24,25 +24,33 @@ import { queryKeys } from '@/lib/queryKeys'
  * mounts again after the SDK has loaded (GlobalErrorBoundary's "Try again").
  */
 
-const sdk = vi.hoisted(() => ({
-  mode: 'sync' as 'sync' | 'deferred',
-  isPro: true,
-  setSentryUser: vi.fn(),
-  finishLoad: undefined as (() => void) | undefined,
-  client: {
+const sdk = vi.hoisted(() => {
+  const client = {
     __loaded: false,
     init: (() => undefined) as (key: string, options: { loaded?: (client: unknown) => void }) => void,
     capture: () => undefined,
     _send_request: () => undefined,
-    _send_retriable_request: () => undefined,
     opt_in_capturing: () => undefined,
     opt_out_capturing: () => undefined,
     startSessionRecording: () => undefined,
     stopSessionRecording: () => undefined,
     debug: () => undefined,
     identify: (() => undefined) as (id: string, traits?: Record<string, unknown>) => void,
-  },
-}))
+  }
+  // As in posthog-js's npm builds: no _send_retriable_request, and the queue fields renamed. The consent guard
+  // finds the queues by shape (lib/posthogConsent.ts); tests/unit/posthogConsentGuard.spec.tsx runs the real builds.
+  Object.assign(client, {
+    mangledRetryQueue: { _instance: client, retriableRequest: () => undefined, resume: () => undefined, unload: () => undefined },
+    mangledBatchQueue: { enqueue: () => undefined, enable: () => undefined, unload: () => undefined },
+  })
+  return {
+    mode: 'sync' as 'sync' | 'deferred',
+    isPro: true,
+    setSentryUser: vi.fn(),
+    finishLoad: undefined as (() => void) | undefined,
+    client,
+  }
+})
 vi.mock('posthog-js', async (original) => ({ ...(await original<object>()), default: sdk.client }))
 vi.mock('@sentry/nextjs', async (original) => ({ ...(await original<object>()), setUser: sdk.setSentryUser }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/contact', useSearchParams: () => new URLSearchParams() }))

@@ -12,6 +12,11 @@ import type { analytics } from '../../lib/analytics'
 
 // A browser transport test, independent of Next/backend and production environment variables.
 // Every request is fulfilled locally, including the SDK's config, flags, events and replay.
+// It runs the package's `module` entry, the build Next bundles into the app. That build renames the client's private
+// members, as `main` does; the CDN-style array builds keep them, so a guard that read them passed here and threw in
+// production before PostHog could start.
+const POSTHOG_PACKAGE = path.resolve(__dirname, '../../node_modules/posthog-js')
+const POSTHOG_MODULE = path.join(POSTHOG_PACKAGE, (JSON.parse(readFileSync(path.join(POSTHOG_PACKAGE, 'package.json'), 'utf8')) as { module: string }).module)
 const SITE = 'https://telemetry-fixture.invalid'
 const INGEST = 'https://telemetry-ingest.invalid'
 const PROJECT_KEY = 'phc_synthetic_privacy_network_test'
@@ -26,6 +31,8 @@ interface HarnessWindow extends Window {
   analytics: typeof analytics
   heldConsentEvents?: StorageEventInit[]
   releaseConsentEvents?: () => void
+  guardApplied?: boolean
+  sentryReports: string[]
 }
 
 interface WireRequest { url: string; payload: unknown }
@@ -50,12 +57,13 @@ function helperScript(): string {
   return `(() => {
     const modules = {};
     const load = (name, execute) => { const exports = {}; execute(exports, id => modules[id]); modules[name] = exports; return exports; };
+    window.sentryReports = [];
+    modules['@sentry/nextjs'] = { setUser: () => {}, captureException: error => { window.sentryReports.push(String(error)); } };
     window.consent = load('./browserConsent', function(exports, require) { ${compile('browserConsent')} });
     window.consentGuard = load('./posthogConsent', function(exports, require) { ${compile('posthogConsent')} });
     window.privacy = load('./telemetryPrivacy', function(exports, require) { ${compile('telemetryPrivacy')} });
     window.posthogPrivacy = load('./posthogPrivacy', function(exports, require) { ${compile('posthogPrivacy')} });
     modules['posthog-js'] = { __esModule: true, get default() { return window.posthog; } };
-    modules['@sentry/nextjs'] = { setUser: () => {} };
     modules['@/components/CookieConsent'] = window.consent;
     window.analytics = load('./analytics', function(exports, require) { ${compile('analytics')} }).analytics;
   })();`
@@ -73,6 +81,9 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     if (url.origin === SITE && url.pathname === '/api/auth/reset-password') {
       authRequests.push(request.postData() || '')
       return route.fulfill({ contentType: 'application/json', body: '{"success":true}' })
+    }
+    if (url.origin === SITE && url.pathname === '/posthog-module.mjs') {
+      return route.fulfill({ contentType: 'text/javascript', body: readFileSync(POSTHOG_MODULE) })
     }
     if (url.origin === SITE && request.isNavigationRequest()) {
       return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Telemetry fixture</title><main><h1>Safe page</h1><button>Interact</button></main>' })
@@ -106,7 +117,8 @@ async function fixture(page: Page, initialPath: string, batching = false) {
       $referrer: `${site}/login?token=${stored}`,
     }))
   }, { stored: CANARIES[3], person: CANARIES[2], site: SITE })
-  await page.addScriptTag({ path: path.resolve(__dirname, '../../node_modules/posthog-js/dist/array.full.no-external.js') })
+  await page.addScriptTag({ type: 'module', content: `import posthog from '${SITE}/posthog-module.mjs'; window.posthog = posthog` })
+  await page.waitForFunction(() => Boolean((window as unknown as HarnessWindow).posthog))
   await page.addScriptTag({ content: helperScript() })
   await page.evaluate(({ key, host, batching }) => {
     const w = window as unknown as HarnessWindow
@@ -126,7 +138,7 @@ async function fixture(page: Page, initialPath: string, batching = false) {
       request_batching: batching,
       loaded: client => {
         w.posthogPrivacy.initializePostHogPrivacy(client)
-        w.consentGuard.applyPostHogConsent(w.posthog)
+        w.guardApplied = w.consentGuard.applyPostHogConsent(w.posthog)
       },
     })
     w.posthog.capture('$pageview', { $current_url: window.location.href })
@@ -135,6 +147,11 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     w.posthog.setPersonPropertiesForFlags(w.privacy.sanitizeTelemetry({ landing: window.location.href }))
     w.posthog.reloadFeatureFlags()
   }, { key: PROJECT_KEY, host: INGEST, batching })
+  // The guard holds on this build: nothing kept PostHog off or reached Sentry.
+  expect(await page.evaluate(() => {
+    const w = window as unknown as HarnessWindow
+    return { applied: w.guardApplied, reports: w.sentryReports }
+  })).toEqual({ applied: true, reports: [] })
   return {
     wire, authRequests,
     fail: (value: boolean) => { failEvents = value },
@@ -142,6 +159,21 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     release: () => { holdEvent = false; releaseHeld?.() },
   }
 }
+
+// The build renames the client's queue fields; the guard's own lookup finds them by shape.
+const retryLength = (page: Page) => page.evaluate(() => {
+  const w = window as unknown as HarnessWindow
+  return w.consentGuard.findPostHogQueues(w.posthog)!.retry.length
+})
+
+// The batch queue's fields are renamed too: its pending requests are its one array field.
+const pendingBatch = (page: Page) => page.evaluate(() => {
+  const w = window as unknown as HarnessWindow
+  const queue = w.consentGuard.findPostHogQueues(w.posthog)!.batch as unknown as Record<string, unknown>
+  const arrays = Object.values(queue).filter(Array.isArray) as Array<Array<{ data?: { event?: string } }>>
+  if (arrays.length !== 1) throw new Error(`expected one array of pending requests on the batch queue, found ${arrays.length}`)
+  return arrays[0].map(request => request.data?.event)
+})
 
 function events(wire: WireRequest[]): Array<Record<string, unknown>> {
   return wire.filter(request => /\/(?:e|s)\/?$/.test(new URL(request.url).pathname))
@@ -274,11 +306,11 @@ test('offline retries are discarded on withdrawal and do not return after reconn
   await expect.poll(() => events(state.wire).map(event => event.event)).toContain('$pageview')
   state.fail(true)
   await capture(page, 'failed-before-offline', true)
-  await expect.poll(() => page.evaluate(() => (window as unknown as HarnessWindow).posthog._retryQueue?.length)).toBeGreaterThan(0)
+  await expect.poll(() => retryLength(page)).toBeGreaterThan(0)
   await context.setOffline(true)
   await page.clock.fastForward(12000)
   await choose(page, false)
-  expect(await page.evaluate(() => (window as unknown as HarnessWindow).posthog._retryQueue?.length)).toBe(0)
+  expect(await retryLength(page)).toBe(0)
   await choose(page, true)
   state.fail(false)
   await context.setOffline(false)
@@ -298,7 +330,7 @@ test('an already dispatched request cannot be recalled, but its late failure can
   await choose(page, false)
   await choose(page, true)
   state.release()
-  await expect.poll(() => page.evaluate(() => (window as unknown as HarnessWindow).posthog._retryQueue?.length)).toBeGreaterThan(0)
+  await expect.poll(() => retryLength(page)).toBeGreaterThan(0)
   await page.clock.fastForward(12000)
   await capture(page, 'fresh-after-late-failure', true)
   await expect.poll(() => events(state.wire).map(event => event.event)).toContain('fresh-after-late-failure')
@@ -371,12 +403,7 @@ for (const withdrawal of ['deny', 'clear'] as const) {
     expect(await page.evaluate(() => (window as unknown as HarnessWindow).consent.getCookiePreferences()?.analytics)).toBe(true)
     // A late-installed window listener cannot suspend earlier storage subscribers.
     // Verify our early hold actually preserved accepted work until history is released.
-    expect(await page.evaluate(() => {
-      const queue = (window as unknown as HarnessWindow).posthog._requestQueue as unknown as {
-        _queue: Array<{ data: { event?: string } }>
-      }
-      return queue._queue.map(request => request.data.event)
-    })).toContain('queued-before-remote-history')
+    expect(await pendingBatch(page)).toContain('queued-before-remote-history')
     await page.evaluate(() => (window as unknown as HarnessWindow).releaseConsentEvents?.())
     // This marker shares the next batch with any surviving old events. Waiting for
     // it observes that batch's asynchronous compression and transport completion.

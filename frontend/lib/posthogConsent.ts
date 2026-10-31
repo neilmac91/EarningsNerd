@@ -1,25 +1,77 @@
+import * as Sentry from '@sentry/nextjs'
 import type { PostHog, QueuedRequestWithOptions } from 'posthog-js'
 import { getCookiePreferences, getCookieWithdrawalRevision } from './browserConsent'
 
 type ConsentRequest = QueuedRequestWithOptions & { __earningsnerdConsentGeneration?: number }
-const guards = new WeakMap<PostHog, { withdraw: () => void; attachRetry: () => void; syncWithdrawal: () => boolean }>()
+/** The client's retry queue and batch queue. posthog-js declares both classes but does not export them. */
+export interface PostHogQueues {
+  retry: NonNullable<PostHog['_retryQueue']>
+  batch: NonNullable<PostHog['_requestQueue']>
+}
+interface Guard { attach: () => void; withdraw: () => void; syncWithdrawal: () => boolean; resume: () => void }
+
+const guards = new WeakMap<PostHog, Guard>()
+// Clients whose guard could not hold: analytics stays off on them for the rest of the page.
+const failed = new WeakSet<PostHog>()
+
+/** posthog-js no longer has a request path the consent guard holds. */
+export class PostHogConsentGuardError extends Error {
+  constructor(message: string) {
+    super(`PostHog consent guard: ${message}`)
+    this.name = 'PostHogConsentGuardError'
+  }
+}
 
 export const browserAnalyticsAllowed = () => getCookiePreferences()?.analytics === true
 
+const hasMethods = (value: unknown, names: readonly string[]) =>
+  typeof value === 'object' && value !== null
+  && names.every(name => typeof (value as Record<string, unknown>)[name] === 'function')
+
 /**
- * posthog-js 1.438.12 runs before_send at capture, not when queued/retried requests leave.
- * Its RetryQueue calls sendRequest directly, bypassing client._send_request. Keep the three
- * typed SDK entry points here, with real-SDK transport tests; recheck them on SDK upgrades.
- * The generation is request metadata, never event data/headers. Late failures retain it when
- * the SDK copies request options for retry, so a new opt-in cannot revive withdrawn work.
+ * Finds the client's two request queues by their shape. posthog-js's npm builds (the `module` entry Next bundles,
+ * and `main`) rename the client's private members, so `_retryQueue`, `_requestQueue` and `_send_retriable_request`
+ * are undefined at run time although its typings declare them. The queues' own methods, and the retry queue's
+ * `_instance`, keep their names. `init` builds both queues; before it there are none. A loaded client without
+ * exactly one of each throws, so an SDK that moves them fails loudly instead of leaving a queue unguarded.
+ */
+export function findPostHogQueues(client: PostHog): PostHogQueues | undefined {
+  const retry: PostHogQueues['retry'][] = []
+  const batch: PostHogQueues['batch'][] = []
+  for (const key of Object.keys(client)) {
+    const value: unknown = Object.getOwnPropertyDescriptor(client, key)?.value
+    if (hasMethods(value, ['retriableRequest', 'resume', 'unload']) && (value as { _instance?: unknown })._instance === client) {
+      retry.push(value as PostHogQueues['retry'])
+    } else if (hasMethods(value, ['enqueue', 'enable', 'unload'])) {
+      batch.push(value as PostHogQueues['batch'])
+    }
+  }
+  if (!client.__loaded && !retry.length && !batch.length) return undefined
+  if (retry.length !== 1 || batch.length !== 1) {
+    throw new PostHogConsentGuardError(`expected one retry queue and one batch queue on the loaded client, found ${retry.length} and ${batch.length}`)
+  }
+  return { retry: retry[0], batch: batch[0] }
+}
+
+/**
+ * posthog-js 1.440.0 runs before_send at capture, not when queued/retried requests leave. Its RetryQueue calls
+ * sendRequest directly, bypassing client._send_request. Every request leaves through client._send_request (a name
+ * every build keeps) or the retry queue's retriableRequest (batches, unbatched captures and retries alike), so the
+ * guard wraps those two and finds the queue by its shape, never by a private name the build renames. It throws a
+ * PostHogConsentGuardError when it cannot hold; applyPostHogConsent then keeps PostHog off. Gated against the real
+ * builds by tests/unit/posthogConsentGuard.spec.tsx and tests/e2e/telemetry-network.spec.ts; rerun both on SDK
+ * upgrades. The generation is request metadata, never event data/headers. Late failures retain it when the SDK
+ * copies request options for retry, so a new opt-in cannot revive withdrawn work.
  */
 export function installPostHogConsentGuard(client: PostHog): void {
   const existing = guards.get(client)
-  if (existing) { existing.attachRetry(); return }
+  if (existing) { existing.attach(); return }
+  if (typeof client._send_request !== 'function') throw new PostHogConsentGuardError('the client has no _send_request')
   let generation = 0
   let withdrawalRevision = getCookieWithdrawalRevision()
   let discarding = false
-  let guardedRetry: PostHog['_retryQueue']
+  let queues: PostHogQueues | undefined
+  const guardedRetries = new WeakSet<object>()
   const permitted = (options: ConsentRequest) => {
     options.__earningsnerdConsentGeneration ??= generation
     syncWithdrawal()
@@ -30,26 +82,24 @@ export function installPostHogConsentGuard(client: PostHog): void {
     // This is a local drop, not an HTTP response from the provider.
     options.callback?.({ statusCode: 403 })
   }
-  const attachRetry = () => {
-    const queue = client._retryQueue
-    if (!queue || queue === guardedRetry) return
-    guardedRetry = queue
-    const send = queue.retriableRequest.bind(queue)
-    queue.retriableRequest = (options, transport) => {
-      if (!permitted(options)) { dropped(options); return }
-      send(options, transport)
+  const attach = () => {
+    const found = findPostHogQueues(client)
+    if (!found) return
+    const { retry } = found
+    if (!guardedRetries.has(retry)) {
+      const send = retry.retriableRequest.bind(retry)
+      retry.retriableRequest = (options, transport) => {
+        if (!permitted(options)) { dropped(options); return }
+        send(options, transport)
+      }
+      guardedRetries.add(retry)
     }
+    queues = found
   }
   const send = client._send_request.bind(client)
   client._send_request = options => {
     if (!permitted(options)) { dropped(options); return }
     send(options)
-  }
-  const retriable = client._send_retriable_request.bind(client)
-  client._send_retriable_request = (options, transport) => {
-    attachRetry()
-    if (!permitted(options)) { dropped(options); return }
-    retriable(options, transport)
   }
   const withdraw = () => {
     generation += 1
@@ -58,8 +108,8 @@ export function installPostHogConsentGuard(client: PostHog): void {
       // These SDK drain methods empty both queues. Our dispatch guards drop their payloads;
       // they must never be called unguarded as an opt-out cleanup (unload normally sends).
       client.__request_queue = []
-      client._requestQueue?.unload()
-      client._retryQueue?.unload()
+      queues?.batch.unload()
+      queues?.retry.unload()
     } finally { discarding = false }
   }
   const syncWithdrawal = () => {
@@ -69,22 +119,64 @@ export function installPostHogConsentGuard(client: PostHog): void {
     withdraw()
     return true
   }
-  guards.set(client, { attachRetry, withdraw, syncWithdrawal })
-  attachRetry()
+  guards.set(client, { attach, withdraw, syncWithdrawal, resume: () => queues?.retry.resume() })
+  attach()
 }
 
-export function applyPostHogConsent(client: PostHog): void {
-  installPostHogConsentGuard(client)
-  if (!client.__loaded) return
+const keepOff = (client: PostHog) => {
+  try {
+    if (client.__loaded) client.opt_out_capturing()
+  } catch {
+    // Opting out stores the choice through SDK persistence that can throw; the failure is reported either way.
+  }
+}
+
+/**
+ * Keeps PostHog off on this client for the rest of the page and reports why, once. Without its guard a withdrawal
+ * could not stop queued or retried requests, so PostHog never runs unguarded; and it never stops silently: the
+ * report is a Sentry issue, not only a console line (#1552's guard threw before init and analytics stayed off,
+ * logged to the console only).
+ */
+export function failPostHogClosed(client: PostHog, error: unknown): void {
+  keepOff(client)
+  if (failed.has(client)) return
+  failed.add(client)
+  console.error('PostHog: analytics is off on this page', error)
+  try {
+    Sentry.captureException(error, { tags: { posthog_js: String(client.version) } })
+  } catch {
+    /* monitoring must never break the app */
+  }
+}
+
+/**
+ * Applies the visitor's current choice under the guard; before init it only installs the guard. Returns false, with
+ * PostHog kept off and the failure reported, when the guard cannot hold (failPostHogClosed). Never throws for that.
+ */
+export function applyPostHogConsent(client: PostHog): boolean {
+  if (failed.has(client)) {
+    // reset() clears the SDK's own consent with the identity, so opt out again on every application.
+    keepOff(client)
+    return false
+  }
+  try {
+    installPostHogConsentGuard(client)
+  } catch (error) {
+    failPostHogClosed(client, error)
+    return false
+  }
+  if (!client.__loaded) return true
+  const guard = guards.get(client)!
   // Invalidate an intervening cross-tab refusal before applying the latest allow. Reading only
   // today's storage value would miss deny -> allow events delivered together to a suspended tab.
-  const withdrew = guards.get(client)?.syncWithdrawal()
+  const withdrew = guard.syncWithdrawal()
   client.stopSessionRecording()
   if (browserAnalyticsAllowed()) {
-    client._retryQueue?.resume()
+    guard.resume()
     client.opt_in_capturing({ captureEventName: false })
   } else {
     // Drain even if the SDK's independent persistence throws while storing its opt-out.
-    try { client.opt_out_capturing() } finally { if (!withdrew) guards.get(client)?.withdraw() }
+    try { client.opt_out_capturing() } finally { if (!withdrew) guard.withdraw() }
   }
+  return true
 }

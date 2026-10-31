@@ -32,12 +32,16 @@ PostHog loads after analytics consent. Recording is disabled in application conf
 `$snapshot` payloads are rejected even on otherwise safe routes. Sentry replay remains disabled;
 its error diagnostics and data-scrubbing configuration are separate from browser analytics.
 
-With the locked `posthog-js` 1.438.12, `before_send` runs when an event is captured, not when an
+With the locked `posthog-js` 1.440.0, `before_send` runs when an event is captured, not when an
 earlier batch or retry leaves. [posthogConsent.ts](../frontend/lib/posthogConsent.ts) therefore
-guards the SDK's typed request and retry entry points. On withdrawal it drains batches, retry
-queues and pending DOM-ready requests through denial guards. A request generation prevents a
-late failed request from retrying after a subsequent allow. The adapter uses SDK internals;
-rerun the actual transport tests and review those entry points on SDK upgrades.
+guards the two places every request leaves through: `_send_request` and the retry queue's
+`retriableRequest`. The npm builds the app ships rename the client's other private members, so
+the guard finds the retry and batch queues by their shape, never by those names. On withdrawal it
+drains batches, retry queues and pending DOM-ready requests through denial guards. A request
+generation prevents a late failed request from retrying after a subsequent allow. PostHog starts
+only after the guard is installed. A guard that cannot hold keeps PostHog off for the page and
+reports the failure to Sentry once. The adapter uses SDK internals; rerun the actual transport
+tests and review those entry points on SDK upgrades.
 
 A request already dispatched cannot be recalled, and withdrawal does not erase previously
 received provider data. There is no claim of historical erasure here. Native transport work
@@ -56,10 +60,15 @@ do not certify every version of Vercel's remotely served script or recall its di
   page state and identity fallback. They also cover truthful save failure and deferred initialization.
 - [telemetryPrivacy.spec.tsx](../frontend/tests/unit/telemetryPrivacy.spec.tsx) retains real-SDK
   credential sanitization and Sentry-envelope checks; replay payloads are always rejected.
-- [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) uses the locked real
-  PostHog browser bundle. Every request is fulfilled or blocked locally, including remote
-  configuration. It checks queued batches, unload, offline retry, late failure, two-tab withdrawal
-  and disabled replay even when fixture configuration enables it.
+- [posthogConsentGuard.spec.tsx](../frontend/tests/unit/posthogConsentGuard.spec.tsx) runs the guard
+  on real clients from the package entry and the `module` build: allowed sends leave; queued,
+  retried and in-flight requests of a withdrawn choice do not. It runs the provider on a real client
+  (off before an allow, on after it, off after a refusal). It also plants a client the guard cannot
+  hold: that client stays off and the failure reaches Sentry once.
+- [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) runs the package's
+  `module` build, the one Next bundles, in Chromium. Every request is fulfilled or blocked locally,
+  including remote configuration. It checks queued batches, unload, offline retry, late failure,
+  two-tab withdrawal and disabled replay even when fixture configuration enables it.
 
 These tests do not prove production network configuration, processor agreements, retention or
 international-transfer compliance. Check the deployed network before release; no provider

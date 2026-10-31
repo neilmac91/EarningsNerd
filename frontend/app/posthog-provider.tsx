@@ -5,7 +5,7 @@ import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState } from 'react'
 import { subscribeCookiePreferences } from '@/lib/browserConsent'
-import { applyPostHogConsent, browserAnalyticsAllowed, installPostHogConsentGuard } from '@/lib/posthogConsent'
+import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed } from '@/lib/posthogConsent'
 import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
 import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
 import { PostHogReadyContext } from '@/lib/posthogReady'
@@ -58,13 +58,16 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       const allowed = browserAnalyticsAllowed()
       setAnalyticsAllowed(allowed)
       if (!key) return // Identification can still mirror the account id into Sentry after consent.
+      // Every failure below keeps PostHog off and reaches Sentry (failPostHogClosed), never only the console.
       try {
-        installPostHogConsentGuard(posthog)
         if (posthog.__loaded) {
           applyPostHogConsent(posthog)
           return
         }
         if (!allowed || starting) return
+        // Start PostHog only under its consent guard, installed here before init: unguarded, a withdrawal could
+        // not stop queued or retried requests.
+        if (!applyPostHogConsent(posthog)) return
         starting = true
         posthog.init(key, {
           api_host: host,
@@ -75,19 +78,22 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           ...postHogPrivacyConfig(posthog),
           bootstrap: { featureFlags: {} },
           loaded: () => {
-            // Initialization may finish after a refusal/clear in this or another tab. Never use
-            // the choice captured by the init closure to opt back in or start recording.
-            initializePostHogPrivacy(posthog)
-            applyPostHogConsent(posthog)
-            if (active) {
-              setInitialized(true)
+            // posthog-js swallows a throw from `loaded` and carries on, so none may leave it. Initialization may
+            // finish after a refusal/clear in this or another tab. Never use the choice captured by the init
+            // closure to opt back in or start recording.
+            try {
+              initializePostHogPrivacy(posthog)
+              const guarded = applyPostHogConsent(posthog)
+              if (!active) return
+              if (guarded) setInitialized(true)
               setAnalyticsAllowed(browserAnalyticsAllowed())
+            } catch (error) {
+              failPostHogClosed(posthog, error)
             }
           },
         })
       } catch (error) {
-        starting = false
-        console.error('PostHog: Failed to initialize or update PostHog', error)
+        failPostHogClosed(posthog, error)
       }
     }
     // Subscribe before init: synchronous loaded callbacks and concurrent choices follow one store.
