@@ -11,6 +11,9 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 import demo from '@/features/analysis/demo/demo-analysis.json'
 import AnalysisTeaser from '@/features/analysis/components/AnalysisTeaser'
+// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load;
+// next/dynamic still renders its loading grid first, so the waits stay. The chunk spec checks loading.
+import '@/features/analysis/components/TrendChartsV2'
 import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import KpiStrip from '@/features/analysis/components/KpiStrip'

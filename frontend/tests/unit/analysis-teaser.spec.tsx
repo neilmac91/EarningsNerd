@@ -19,6 +19,9 @@ vi.mock('@/features/analysis/demo/demo-analysis.json', async importOriginal => {
 
 import demo from '@/features/analysis/demo/demo-analysis.json'
 import AnalysisTeaser from '@/features/analysis/components/AnalysisTeaser'
+// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load;
+// next/dynamic still renders its loading grid first, so the waits stay. The chunk spec checks loading.
+import '@/features/analysis/components/TrendChartsV2'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 
 const originalFetch = global.fetch

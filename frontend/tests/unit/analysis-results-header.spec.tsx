@@ -16,6 +16,9 @@ vi.mock('@/features/analysis/api/analysis-api', async (original) => ({ ...await 
 import { Card } from '@/components/ui'
 import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
 import AnalysisTeaser from '@/features/analysis/components/AnalysisTeaser'
+// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load;
+// next/dynamic still renders its loading grid first, so the waits stay. The chunk spec checks loading.
+import '@/features/analysis/components/TrendChartsV2'
 import ResultsHeader from '@/features/analysis/components/ResultsHeader'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 import { getAnalysisDataset, streamAnalysis, type AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -133,13 +136,12 @@ describe('on the analysis page', () => {
     expect(results).toHaveClass('flex', 'flex-col', 'gap-4', 'sm:gap-6')
     expect(results.firstElementChild).toBe(block)
     // The modules' headings stay h2, under the page's one h1, and the header is none. The trend charts' cards come in
-    // their own chunk (TrendCharts.tsx's dynamic import), after the region: the headings are read once theirs are in.
-    const levels = await waitFor(() => {
-      const found = within(results).getAllByRole('heading').map((heading) => heading.tagName)
-      expect(found.length).toBeGreaterThan(2)
-      return found
-    })
+    // their own chunk (TrendCharts.tsx's dynamic import), after the region: the headings are read once the chunk has
+    // drawn its plots, so its cards' headings are among them.
+    await waitFor(() => expect(results.querySelectorAll('[data-analysis-chart] > svg').length).toBeGreaterThan(0))
     expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Multi-Period Analysis'])
+    const levels = within(results).getAllByRole('heading').map((heading) => heading.tagName)
+    expect(levels.length).toBeGreaterThan(2)
     expect(new Set(levels)).toEqual(new Set(['H2']))
     expect(within(results).getByRole('heading', { name: 'Metrics by period' }).tagName).toBe('H2')
   })
