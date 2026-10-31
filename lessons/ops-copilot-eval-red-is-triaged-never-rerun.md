@@ -29,17 +29,18 @@ and the other four conditions. Record the outcome in a PR comment either way.
 
 Never draw again on the same code to get a green result:
 - **Re-run, toggle, reopen.** Never re-run the job, toggle the PR from draft to ready, or close and
-  reopen it on an unchanged head. The workflow refuses all three: it draws once per head commit, and
-  a later run on a head that already drew reports that draw's verdict and spends nothing. Nothing in
-  the PR body exempts a head.
+  reopen it on an unchanged head that already drew. The workflow refuses all three: it draws once per
+  head commit, and a later run on a head that already drew reports that draw's verdict and spends
+  nothing. Nothing in the PR body exempts a head.
 - **A run that drew nothing.** An attempt whose runner step never started, on a head that has not
-  drawn, drew nothing: an install failure, an SEC outage, a "Source refused" from the preparation
-  step's source check (E80, the founder's decision of 31 October 2026), or the draw gate's failed read
-  of earlier runs. The triage rule does not apply to it. Diagnose its error, and re-run it once the
-  cause is outside the pull request. A refusal the pull request causes refuses on every re-run, until
-  a push. An attempt whose runner step started is the head's draw, even one cancelled or refused by
-  the runner's own preflight. A run the gate stopped because the head already drew carries that
-  draw's verdict: triage the draw.
+  drawn, drew nothing. An install failure ends an attempt that way, and so do an SEC outage, the draw
+  gate's failed read of earlier runs, and a "Source refused" from the preparation step's source check
+  (E80, the founder's decision of 31 October 2026). The triage rule does not apply to such an
+  attempt. Diagnose its error. When the cause lies outside the pull request, re-run it after the
+  cause clears. A refusal the pull request causes refuses on every re-run, until a push. An attempt
+  whose runner step started is the head's draw, even one cancelled or refused by the runner's own
+  preflight. A run the gate stopped because the head already drew carries that draw's verdict: triage
+  the draw.
 - **A toggle right after a push.** A draft-to-ready toggle or a re-run made while a push's own draw is still
   running cancels that draw, and a cancelled draw counts as the head's draw, never as a green one. On #1673, the
   push of b1a8587 started its draw (run 40404764572, created 21:29:18Z). A toggle at 21:29:23-24Z, made to request

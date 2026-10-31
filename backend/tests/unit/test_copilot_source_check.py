@@ -114,10 +114,19 @@ def test_the_check_run_as_the_step_runs_it_fails_the_step_on_a_refusal(tmp_path)
 
 
 def test_a_long_reason_is_cut_as_the_runner_cuts_it(tmp_path, monkeypatch):
+    # The same over-long refusal through both callers: the check's reason is the one the runner reports.
     def refuse(preparation, cases):
         raise ValueError("x" * 300)
+    path = tmp_path / "preparation.json"
     monkeypatch.setattr(check, "validate_preparation", refuse)
-    assert check.refusal(tmp_path / "preparation.json") == "x" * 200
+    monkeypatch.setattr(runner, "validate_preparation", refuse)
+    monkeypatch.setenv("GITHUB_SHA", "1" * 40)
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setattr(sys, "argv", ["copilot_runner", "--preparation", str(path), "--output", str(tmp_path / "out")])
+    assert runner.main() == 1
+    report = json.loads((tmp_path / "out" / "copilot-eval.json").read_text())
+    assert report["failures"] == ["preflight failed: " + check.refusal(path)]
+    assert check.refusal(path) == "x" * 200
 
 
 def test_a_reason_is_written_as_one_workflow_command_value(monkeypatch, capsys):
@@ -159,7 +168,6 @@ def test_the_runner_still_refuses_a_source_the_check_would_refuse_before_any_pro
                                                                                           monkeypatch):
     # The backstop: with the check skipped or removed, the runner's own preflight refuses each damage before its run
     # starts, so no provider is called (and the head's draw is spent, the cost the check avoids).
-    import sys
     from app.config import settings
     cases, data = preparation(tmp_path)
     DAMAGES[damage](data, cases)
@@ -176,6 +184,30 @@ def test_the_runner_still_refuses_a_source_the_check_would_refuse_before_any_pro
     monkeypatch.setattr(sys, "argv", ["copilot_runner", "--preparation", str(path), "--output", str(tmp_path / "out")])
     assert runner.main() == 1 and called == []
     report = json.loads((tmp_path / "out" / "copilot-eval.json").read_text())
+    assert report["failures"] == ["preflight failed: " + check.refusal(path)]
+
+
+def test_the_runner_run_as_the_step_runs_it_refuses_before_any_setting_loads(tmp_path):
+    # The backstop's order, in a fresh process with no setting or credential in its environment, as the runner step
+    # runs: the preflight refuses before main() loads settings (app.config) or checks the credential. Settings loaded
+    # before main() points DATABASE_URL at the prepared database would bind the default database, and a credential
+    # checked first would report itself instead of the refused source.
+    cases, data = preparation(tmp_path)
+    DAMAGES["fallback"](data, cases)
+    path = _written(tmp_path, data)
+    output = tmp_path / "out"
+    env = {"PATH": os.environ.get("PATH", os.defpath), "HOME": str(tmp_path), "GITHUB_SHA": "1" * 40}
+    if os.environ.get("LD_LIBRARY_PATH"):  # setup-python's shared libpython on CI runners
+        env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH"]
+    code = ('import runpy, sys\n'
+            f'sys.argv = ["copilot_runner", "--preparation", {str(path)!r}, "--output", {str(output)!r}]\n'
+            'try:\n    runpy.run_module("evals.copilot_runner", run_name="__main__")\n'
+            'except SystemExit as stop:\n    assert stop.code == 1, stop.code\n'
+            '    print(sorted(m for m in sys.modules if m in ("app.config", "app.database")))')
+    result = subprocess.run([sys.executable, "-c", code], cwd=Path(runner.__file__).resolve().parents[1], env=env,
+                            capture_output=True, text=True, timeout=60)
+    assert (result.returncode, result.stdout.splitlines()[-1:]) == (0, ["[]"]), result.stdout + result.stderr
+    report = json.loads((output / "copilot-eval.json").read_text())
     assert report["failures"] == ["preflight failed: " + check.refusal(path)]
 
 
