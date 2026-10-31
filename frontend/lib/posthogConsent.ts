@@ -48,7 +48,7 @@ export function findPostHogQueues(client: PostHog): PostHogQueues | undefined {
   }
   if (!client.__loaded && !retry.length && !batch.length) return undefined
   if (retry.length !== 1 || batch.length !== 1) {
-    throw new PostHogConsentGuardError(`expected one retry queue and one batch queue on the loaded client, found ${retry.length} and ${batch.length}`)
+    throw new PostHogConsentGuardError(`expected one RetryQueue and one RequestQueue on the loaded client, found ${retry.length} and ${batch.length}`)
   }
   return { retry: retry[0], batch: batch[0] }
 }
