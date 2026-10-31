@@ -1878,6 +1878,38 @@ def test_a_history_row_holding_a_proxy_figure_backs_a_filing_row_as_any_report_r
         assert repair.snapshot(_filing_row(new, filing)) == {**stored, "is_latest": True}  # promoted, its check as it was
 
 
+CONTRADICTED = 17_000e6  # a parse of FY2025 the 10-K's 18,600 contradicts (8.6% off): SF-B restores nothing
+SET4_OWN = "the 10-K's figure disagrees with the recorded original value by more than 1%, and the filing row holds neither"
+
+
+def _replaced_behind_the_proxy_row(db, monkeypatch, ticker="LRC", parsed=CONTRADICTED):
+    """A sync before the fix stored the proxies' rows, P27's current at FY2025; the backfill before the fix replaced the
+    FY2026 10-K's parse of FY2025 (``parsed``) with P27's figure, and the filing row, at the year's 10-K winner's
+    identity, sits behind P27's row."""
+    company = _company(db, ticker)
+    payload, filing = _restated_and_quoted_as_first_reported(db, monkeypatch, company, old_sync=True, parsed=parsed)
+    return company, payload, filing
+
+
+def test_a_backed_row_behind_a_current_proxy_row_whose_original_the_10k_contradicts_is_refused_by_set_2(monkeypatch):
+    # The FY2026 10-K's comparative, parsed 17,000 (the 10-K's own figure is 18,600) and replaced with P27's 18,254,
+    # holds the year's 10-K winner's identity behind P27's current row. Since #1682 the FY2025 10-K's history row backs
+    # 18,254, so set 4 leaves the row (its original is contradicted too); set 2, retiring P27's row, would promote it at
+    # the winner's identity, and its agreement test refuses the company on value, naming the row: promoted, the
+    # proxy's figure would be the company's current figure (principal review 5718798403, item 1). Synced as before,
+    # set 4's own test refuses the original first, and set 2 refuses the same row. (Review of #1840, round 8: the
+    # restore of LTR's replaced row removed the only test of set 2's agreement test on a row the old check replaced.)
+    with _synced_before_and_since_1682(monkeypatch, _replaced_behind_the_proxy_row) as states:
+        (old, company, payload, _filing), (new, *_rest) = states[False], states[True]
+        [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        [p27] = [r for r in _rows(new, company, is_latest=True) if r.accession == _accn(company, "P27")]
+        assert (row.is_latest, row.source, float(row.value), _check(row)["original_value"], p27.form) == (
+            False, "companyfacts", 18_254e6, CONTRADICTED, "DEF 14A")
+        disagrees = f"the filing row holding the 10-K's identity (fact {row.id}) disagrees with the 10-K on: value"
+        _refuses(new, company, payload, _refusal(new, (p27.id, disagrees)))
+        _refuses(old, company, payload, _refusal(old, (row.id, SET4_OWN), (p27.id, disagrees)))
+
+
 def _fetched_after_the_sync(states, payload):
     """``states`` with the repair's payload fetched after their last sync: ``payload(company, synced)``."""
     return {since: (db, company, payload(company, synced), *rest) for since, (db, company, synced, *rest) in states.items()}
@@ -1980,13 +2012,15 @@ def _restated_and_quoted_as_first_reported(db, monkeypatch, company, *, old_sync
     return payload, filing
 
 
-def _replaced_at_the_winners_identity(db, monkeypatch, ticker="NSB"):
+def _replaced_at_the_winners_identity(db, monkeypatch, ticker="NSB", parsed=18_600e6):
     """No sync before the fix: the FY2026 10-K's replaced FY2025 comparative is the only row at FY2025 and current,
-    at the identity of the year's 10-K winner (the FY2026 10-K's), which a fixed sync then skipped."""
+    at the identity of the year's 10-K winner (the FY2026 10-K's), which a fixed sync then skipped. ``parsed``: the
+    per-filing writer's read of that comparative, the recorded original (the 10-K's own 18,600 unless given)."""
     company = _company(db, ticker)
-    payload, filing = _restated_and_quoted_as_first_reported(db, monkeypatch, company, old_sync=False)
+    payload, filing = _restated_and_quoted_as_first_reported(db, monkeypatch, company, old_sync=False, parsed=parsed)
     _sync(db, monkeypatch, company, payload)
     return company, payload, filing
+
 
 
 def _replaced_below_a_later_winner(db, monkeypatch, ticker="LTX"):
@@ -2020,6 +2054,25 @@ def test_a_current_row_a_history_row_backs_is_restored_where_the_10k_confirms_it
             assert (restored.is_latest, restored.source, float(restored.value)) == (True, "edgar_xbrl", 18_600e6)
         assert [float(r.value) for r in _rows(states[True][0], states[True][1], concept="net_income",
                                               period_end=date(2025, 12, 31), filing_id=None)] == [18_254e6]
+
+
+def test_a_current_backed_row_at_the_winners_identity_whose_original_the_10k_contradicts_is_refused(monkeypatch):
+    # NSB's shape with the recorded original contradicted too (parse 17,000 against the 10-K's 18,600): the row is
+    # FY2025's current row at the year's 10-K winner's identity. Synced as before #1682 set 4's own test refuses the
+    # original; since, the FY2025 10-K's history row backs the proxy's 18,254, so set 4 leaves the row, and left, the
+    # company's figure would stay the proxy's, 1.9% off the 10-K, at the winner's identity: the current-figure refusal.
+    # (Review of #1840, round 8: NSB's restore removed the only test of the refusal at the winner's identity.)
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _replaced_at_the_winners_identity(
+            db, monkeypatch, "NSC", parsed=CONTRADICTED)) as states:
+        (old, company, payload, _filing), (new, *_rest) = states[False], states[True]
+        [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        assert (row.is_latest, row.accession, float(row.value), _check(row)["original_value"]) == (
+            True, _accn(company, "K26"), 18_254e6, CONTRADICTED)
+        assert [(r.accession, float(r.value)) for r in _rows(new, company, concept="net_income",
+                                                             period_end=date(2025, 12, 31), filing_id=None)] == [
+            (_accn(company, "K25"), 18_254e6)]
+        _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("18254000000", "18600000000"))))
+        _refuses(old, company, payload, _refusal(old, (row.id, SET4_OWN)))
 
 
 def test_a_row_below_a_later_winner_a_history_row_backs_is_restored_where_the_10k_confirms_its_original(monkeypatch):
@@ -2173,11 +2226,12 @@ def test_a_set5_row_left_as_the_companys_current_figure_refuses_the_company(monk
         _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("18300000000", "18600000000"))))
 
 
-def _behind_a_stale_own_report(db, monkeypatch, ticker="DWB"):
+def _behind_a_stale_own_report(db, monkeypatch, ticker="DWB", parsed=18_600e6):
     """A fixed sync while the FY2025 10-K was the newest stored its FY2025 row (18,254), current. The FY2026 10-K
     restates FY2025 (18,600) and P27 quotes 18,254. The backfill before the fix replaced the FY2026 10-K's FY2025
     comparative with P27's figure (a payload witness), and stored it behind the FY2025 10-K's current row (no local
-    Filing for it); a fixed sync then skips the winner's identity, which the filing row holds."""
+    Filing for it); a fixed sync then skips the winner's identity, which the filing row holds. ``parsed``: the per-filing
+    writer's read of that comparative (the 10-K's own 18,600 unless given)."""
     company = _company(db, ticker)
     payload = _for(company, _mrk_payload())
     _items(payload).extend([
@@ -2193,7 +2247,7 @@ def _behind_a_stale_own_report(db, monkeypatch, ticker="DWB"):
     filing = _filing(db, company, "K26", "2026-12-31", "2027-02-25")
     with _before_the_fix(monkeypatch):
         svc.process_filing_facts(db, filing, authoritative=svc.extract_authoritative_values(payload), standardized={
-            "net_income": {"series": [{"period": "2025-12-31", "period_start": "2025-01-01", "value": 18_600e6,
+            "net_income": {"series": [{"period": "2025-12-31", "period_start": "2025-01-01", "value": parsed,
                                        "fiscal_period": "FY", "fiscal_year": 2025}]}})
     _sync(db, monkeypatch, company, payload)
     return company, payload, filing
@@ -2217,6 +2271,29 @@ def test_a_backed_row_not_current_whose_original_the_10k_confirms_is_restored_be
             restored = _filing_row(db, filing)
             assert (restored.is_latest, restored.source, float(restored.value)) == (False, "edgar_xbrl", 18_600e6)
             assert repair.snapshot(db.get(FinancialFact, backer.id)) == stale
+
+
+def test_a_backed_row_not_current_at_the_winners_identity_whose_original_the_10k_contradicts_is_listed(monkeypatch):
+    # DWB's shape with the recorded original contradicted too (parse 17,000 against the 10-K's 18,600): the FY2026
+    # 10-K's comparative holds the year's 10-K winner's identity, but the FY2025 10-K's stale row, which backs its
+    # figure, is current. The current-figure refusal reads the company's current figure only, not the winner's
+    # identity, so in both states set 4 leaves the row and lists it, and refuses nothing. (Review of #1840, round 8:
+    # DWB's restore removed the only test of a non-current left row at the winner's identity.)
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _behind_a_stale_own_report(
+            db, monkeypatch, "DWC", parsed=CONTRADICTED)) as states:
+        for db, company, payload, filing in states.values():
+            row = _filing_row(db, filing)
+            assert (row.is_latest, row.accession, float(row.value), _check(row)["original_value"]) == (
+                False, _accn(company, "K26"), 18_254e6, CONTRADICTED)
+            [backer] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31),
+                                         fiscal_period="FY", filing_id=None) if r.accession == _accn(company, "K25")]
+            assert backer.is_latest
+            stored = repair.snapshot(row)
+            applied = _apply(db, company, payload)["proxy"]
+            assert (applied["filing_rows_restored"], applied["detection_listed"]) == (0, [])
+            assert [(e["fact_id"], e["set"], e["authority"], [b["fact_id"] for b in e["backed_by"]])
+                    for e in applied["left_report_backed"]] == [(row.id, 4, 18_600e6, [backer.id])]
+            assert repair.snapshot(_filing_row(db, filing)) == stored
 
 
 @pytest.mark.parametrize(("start", "fiscal_year", "parsed"), [
