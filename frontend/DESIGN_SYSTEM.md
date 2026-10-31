@@ -29,7 +29,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle · the context ink `chart.context.light` `#968A78` | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) · `chart.context.dark` `#AFA391` | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted. The context ink paints a bar chart's context bars (E251, §10): no series, no palette slot, never an opacity |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -538,8 +538,8 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  app-wide field describe in tests/unit/siteChromeFocusRing.spec.ts). Every Tab stop
                  in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
                  covers the raw controls of every route's page and the feature modules it reaches, plus the
-                 shared Switch, but for a residue that only shrinks (RING_RESIDUE: Markdown and chart
-                 renderers' props spreads); field recipes retain
+                 shared Switch, but for a residue that only shrinks (RING_RESIDUE: Markdown renderers'
+                 props spreads); field recipes retain
                  their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
@@ -1261,7 +1261,10 @@ Locked preview   <PeekLocked feature preview="full|screen"> (features/subscripti
                  320x640 under a 200% text setting, both themes: the action within one screen of the
                  teaser's top, the window no taller than the screen and holding no scroll of its own, the
                  pill and the action centred in it, the preview's mask opaque to transparent over its last
-                 quarter, top to bottom, and none around the action, no sideways scroll).
+                 quarter, top to bottom, and none around the action, no sideways scroll). The same spec
+                 walks Tab through the teaser from the top of /analysis at 390x844 and 1440x900: it
+                 reaches the action, and no stop before the action or after it lands inside the preview,
+                 whose controls only `inert` takes out of the tab order.
 
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
@@ -1309,6 +1312,17 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  (its classes equal brand's, the dot in its ink, the label on the interactive Card at rest and
                  pressed in both themes) and tests/unit/designSnapshotParity.spec.ts (DESIGN.md's badge-new
                  paints what the variant paints).
+                 <Badge wrap>: below a 24rem viewport (384px at the default text size, 768px under a 200% text
+                 setting) the label may wrap where the chip does not fit, and the chip takes the 16px step, a
+                 pill on one line and a rounded box once it wraps (the radius rule below), as Button's narrow
+                 state does for a button's label: on a line of its own the one-line chip can be wider than a
+                 phone's card under 200% text (the hero example's quality badge, E156; the filing page's source
+                 check, SourceCheckBadge). Its two classes, [@media(max-width:24rem)]:whitespace-normal and
+                 [@media(max-width:24rem)]:rounded-xl, come after BASE's whitespace-nowrap and rounded-full in
+                 the stylesheet, so they win there, where a whitespace-normal or rounded-xl className alone loses
+                 to BASE (gates: the hero's markup, tests/e2e/fixtures/hero-example-live-badge.html, held by
+                 tests/unit/hero-example-surface.spec.tsx and laid in by tests/e2e/hero-example-badge.spec.ts;
+                 the source check's two classes in tests/unit/fundamentals-trend-chart.spec.tsx).
 
 Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
                  <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
@@ -1679,9 +1693,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
-                 A long option set is not a segmented control: the company page's peer metric picker (nine
-                 options) and the filing page's trend metric picker (up to 23) are a raw compact select beside
-                 a visible "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 A long option set is not a segmented control: the filing page's trend metric picker (up to 23
+                 options) is a raw compact select beside a visible "Metric" label,
+                 inputClasses({ select: true, density: 'compact', autoWidth: true, className: 'w-56' }),
+                 one width, 14rem, the smallest step that holds its widest label ("Net investment income"),
+                 capped at its row, so its loading card's bone can hold its room (§10, E253),
                  options in sentence case; the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
@@ -2422,9 +2438,33 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
                  where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
                  Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
-                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). The launcher and
-                 the coachmark's Try leave with the open, so a keyboard press on either hands focus to the
-                 selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in the pane.
+                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). That move, ⌘K's, a
+                 starter's hand-off and a pre-fill never move the page while the pane settles: the composer takes
+                 focus with preventScroll and is brought into view inside the rail's column only, at the column's
+                 part on screen (below the site header, above the fold and the consent bar), as a citation jump
+                 scrolls only its own boxes (CopilotComposer's revealInScrollBox; chief design on #1813: "A press on
+                 Source should never move the page under the reader"). The desktop pane's height follows its top a
+                 frame late, so its lower part can sit below the fold, and a focus's own scroll moved the page there.
+                 As the column settles or a pre-fill grows the field, the focused composer follows to the column's
+                 foot from each reveal; a reader who scrolls it out of view stops the follow, and no resize restarts
+                 it. Once the pane has settled, the press that opened it on Ask or pre-filled it (Source, ⌘K or "/",
+                 "Ask about this") moves the page once, by the least distance, when the composer's shell is still not
+                 wholly in view below the site header, its ring included: at the foot of a long page under 200% text
+                 the pane opens above the screen, and at the page's top in a short window below the fold
+                 (revealOnPage; chief design on #1845, E252: "Move it once per press or ⌘K. Never move it from a
+                 resize or the follow"). Never in the sheet, never for a starter's hand-off or a tab pressed or
+                 switched back (an open on Filing arms nothing), and not once the reader has moved on: a wheel, a
+                 touch or a click before the pane settles, or a key before the composer takes focus. Gates:
+                 tests/e2e/source-press-keeps-the-page.spec.ts (Source, ⌘K, a pre-fill and a starter with the
+                 composer below the fold until the pane settles; a column that settles shorter; a pre-fill into a
+                 short column; under 200% text the page's foot, its top in short windows and the sheet; the foot at
+                 100% text); tests/unit/copilotFocusKeepsThePage.spec.ts (every focus the pane's code moves passes
+                 preventScroll, or is pinned with why it keeps the browser's scroll; the page moves from one site);
+                 tests/unit/CopilotComposer.spec.tsx and tests/unit/AskCopilotRail.spec.tsx (each path's focus, what
+                 scrolls, and the one page move).
+                 The launcher and the coachmark's Try leave with the open, so a keyboard press on either hands
+                 focus to the selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands
+                 in the pane.
                  Below lg the sheet's trap (useSheetFocusTrap) focuses its first stop, Close, which precedes the
                  tabs, as the sheet opens, whatever opened it; the launcher's or Try's hand-off then finds focus
                  placed and leaves it. For a visitor who can ask, focus moves twice (the tab, or Close below lg,
@@ -2537,7 +2577,7 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
   Chips are full while they keep to one line (Badge); a chip whose label can wrap takes 16
   (`rounded-xl`) instead, a pill on one line and a rounded box once it wraps, since a 9999px radius
   turns a wrapped chip into a capsule whose curve crosses its text (SourceTrace's provenance chip, the
-  admin email chip in EmailChipsInput).
+  admin email chip in EmailChipsInput, and `<Badge wrap>` below a 24rem viewport).
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
@@ -2941,7 +2981,7 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
   indicator itself (a bar, a ring, a tick) takes the sage; a step's number or a percentage beside it
   rests in the ink (D-030).
 
-## 10. Charts (recharts)
+## 10. Charts
 
 **Financial source states (October 2026).** Consume the server’s separate `provenance.method`
 and `provenance.validation`; a calculated figure is not an error. Multi-period analysis uses
@@ -2949,8 +2989,8 @@ lettered data notes with `SourceValue` buttons opening the shared Modal with sou
 operands and the applicable note; a calculated figure carries no dagger, and only a note that
 questions the number marks its figure (`noteMarksFigure`, D-061). The report-level disclosure
 groups concerns by reason and counts figures separately from inherited comparisons. Chart and
-narrative Notes controls open the same note and name marked letters only; filing fundamentals and
-peers retain their own source-check presentation. No mark takes warning ink. Legacy concerns remain
+narrative Notes controls open the same note and name marked letters only; filing fundamentals
+retains its own source-check presentation. No mark takes warning ink. Legacy concerns remain
 until their stored validation changes, unmarked but listed in the data notes and read in the dialog;
 missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
 Unavailable table values use — with an empty gutter and read “Unavailable” in the evidence view,
@@ -2984,40 +3024,48 @@ plot needs it stops with an error toast rather than paint a fallback (gate, in C
 Firefox are unchecked). Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
-period count and axis space, so a narrow screen never overlaps labels or widens the page.
+period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
+as wide as six glyphs keeps its column; E251), so a narrow screen never overlaps labels or widens the page.
 
-Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through `seriesColor(i, dark)`
-(E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a data mark's 45) — a
-CVD-validated **sequence** (blue↔yellow axis alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5
-series add direct labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
-(direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
-`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`; `chartTheme` carries the
-gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart chrome (grid and baseline, labels,
-crosshair, tooltip) uses the `chart.grid/label/crosshair/ref/tip` sub-tokens — theme-aware via
+Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through the engine's
+`chartTokens(dark).series` (E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a
+data mark's 45) — a CVD-validated **sequence** (blue↔yellow axis alternates early), taken 1→N in order, never skipped
+or re-sorted. At ≥5 series add direct labels/markers — color no longer carries alone. **Gain/loss never appear as
+series colors** (direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`. The context ink,
+`chart.context` (`#968A78` / `#AFA391`, the engine's `context`), paints a bar chart's context bars, every bar it sets
+beside the one it is about (E251, a ranked company chart's other companies): a solid warm stone at a data mark's floor
+on the card and under the column wash in both themes, never an opacity: a fade paints the ink blended with whatever lies
+behind it, which no token holds to a floor (the retired peers chart's grey at 45% painted Lc 32.8 and −16.7 while its
+computed `fill` read the full grey). It is no series colour, so it claims no palette slot and leaves the
+sequence alone. Colour alone cannot tell it from chart-1 for a colour-blind reader (deutan 17 / protan 9 ΔE76 in light,
+15 / 9 in dark), so a context bar also takes the growth bars' narrower width, and the bar the chart is about keeps the full
+one. Nothing in a plot fades. `tests/unit/trend-charts-v2.spec.tsx` fails, on any node of a plot's SVG, an `opacity`,
+`fill-opacity`, `stroke-opacity`, `filter` or `mask` attribute; an opacity, filter, mask, blend mode or paint in a style;
+a translucent rgba; a tspan's own paint; any class but the visx shapes' `visx-group`, `visx-bar` and `visx-linepath`;
+and a `<style>`, filter, mask or SMIL element. In a browser, D6 fails a paint, each tspan's included, that a computed
+opacity, filter, mask or blend mode fades, its own or a group's up to the SVG, whatever sets it
+(`tests/e2e/fixtures/chartChecks.ts`). Chart chrome (gridlines,
+the zero rule, labels, the tooltip's inks) takes the `chart.grid/ref/label` sub-tokens and the text inks through the
+engine's `chartTokens(dark)` (`features/analysis/lib/charts/theme.ts`, below) — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).
+No chart chrome token names a crosshair or a tooltip surface (E255 retired `chart.crosshair` and `chart.tip`, unread
+since Recharts left the app): the tooltip takes the Card recipe's surface and the hover the column wash, below.
 Gridlines are `chart.grid`, `#DCD9D0` / `#525C6B`, Lc 16.8 / −15.0 on the card: visible enough to read a value
-across, quieter than the zero rule (the hairline they replaced measured Lc 0). The Recharts baseline takes
-`chart.grid` too: Recharts draws a gridline at each edge of the plot and the x-axis line over the bottom one, and in
-the hairline `#E5E7EB` (Lc 8.8 on the light card) the light baseline would have been the quietest rule
-(`chartThemeTokens.spec.ts`). The landing page's revenue bars draw their tick rules in `chart.grid` too, Lc 19.9 /
-−16.8 on their card, where the hairline `chart.axis` measured 11.8 / 0.0 (under APCA's low clip in dark): they are
-the homepage's gridlines, and `chart.axis` is retired (chief design on #1771; `chartThemeTokens.spec.ts`). Axis
-labels: 11–12px data face + tabular-nums; dark labels use `chart.label.dark` `#B8BEC7`, Lc −63.6 on the dark card, a
-step above the tertiary dark ink `#9CA3AF` (−48.6, under the 60 that 11–12px text needs), chrome still quieter than
-the secondary ink. The tooltip's series names follow secondary, `#D1D5DB` in dark, and its values primary:
-`chartTheme` carries them as `nameInk` (`text.secondary`) and `valueInk` (`text.primary`), and
-`tests/unit/chartThemeTokens.spec.ts` holds every `chartTheme` ink to the tailwind token it copies, per theme. The
-chart export's secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
-`tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its mark's paint: `ChartTooltip` takes the row's `color`,
-else the series colour of its position. Recharts gives a row its series' own `fill`, so the peers chart, whose bars
-take their paint from their Cells, passes `swatchOf`, which paints each row's swatch as its bar: a peer's grey at 45%,
-the subject's `chart.1` (`tests/unit/peer-comparison-panel.spec.tsx`).
-Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
-left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
-is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
-A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
-paint (FundamentalsTrendChart): a currency printed by its code ("CHF 800.0B", "KRW 800.0T"; fmtCurrency prints
-KRW, VND and XOF by code, E203) outgrew the fixed 70px it had.
+across, quieter than the zero rule (the hairline they replaced measured Lc 0). The landing page's revenue bars draw
+their tick rules in `chart.grid` too, Lc 19.9 / −16.8 on their card, where the hairline `chart.axis` measured
+11.8 / 0.0 (under APCA's low clip in dark): they are the homepage's gridlines, and `chart.axis` is retired (chief
+design on #1771; `chartThemeTokens.spec.ts`). Axis labels: 11–12px data face + tabular-nums; dark labels use
+`chart.label.dark` `#B8BEC7`, Lc −63.6 on the dark card, a step above the tertiary dark ink `#9CA3AF` (−48.6, under
+the 60 that 11–12px text needs), chrome still quieter than the secondary ink. The tooltip's series names follow
+secondary, `#D1D5DB` in dark, and its values primary: the engine's `name` (`text.secondary`) and `figure`
+(`text.primary`), which `tests/unit/chart-theme.spec.ts` holds to those tokens in both themes. The chart export's
+secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
+`tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its series' legend swatch (`LegendSwatch`), in its
+mark's paint, or for a context bar in the context ink: the hovered bar's own paint (E236). The hover and focus cursor is the spec renderer's column wash (`cursor`, chart.1 teal @ 8% light / 16%
+dark), a fill over the period's column, not a hairline.
+The engine's value axis takes its widest tick label's width (`layout.ts`), so a currency printed by its code
+("CHF 800B", "KRW 800T"; KRW, VND and XOF print by code, E203) widens the axis, where a fixed 70px once cut it.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
 one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a
@@ -3029,12 +3077,18 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
-since E195, D-064) draws those four charts, and only those: filing fundamentals and peers stay on Recharts. It paints the
-engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
-both themes. Since E195's token fold they name app tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the
-grid `chart.grid`, which the Recharts charts and the landing page's revenue bars take too (the peers chart draws no
-grid); the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and `chart.label.dark` in
-dark (the Recharts ticks take `chart.label`, the flat `#6B7280` in light); and the printed values `text.secondary` in
+since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
+chart in the app draws with Recharts: the company page's peers chart left with its panel (D-066), and Recharts left
+the app with its chart kit (E195 (D)). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
+text names the package (the lockfile aside, and the gate itself, which plants its forms), a script outside
+the test homes whose strings name it once their escapes are decoded or that loads a module by a computed specifier
+or a folder, and a lockfile entry that installs it; `tests/e2e/no-recharts-in-build.spec.ts` fails a script under the
+production build's `.next/static` or `.next/server` that holds a Recharts class name. It paints the engine's plan in
+literal SVG attributes from
+`features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for both themes. Since E195's token fold they name app
+tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the landing page's revenue
+bars take too; the context ink `chart.context`; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and
+`chart.label.dark` in dark; and the printed values `text.secondary` in
 light and the figure ink `text.primary` in dark (D-063). The dark notes (the subtitle, the footnotes, and the band's
 and the tooltip's letters) keep `chart.label.dark` rather than the figure surfaces' `note-dark` `#D1D5DB`: they take
 the tertiary step, as light's notes do, and `note-dark` is dark's secondary, the legend names' ink. So in dark a
@@ -3042,11 +3096,11 @@ note's letter reads `#D1D5DB` in the table and `#B8BEC7` in a chart's band, wher
 The review ink is retired: since D-061 no letter takes it. The raw-colour lint rule exempts that
 file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config, `tests/unit/chart-theme.spec.ts` holds
 each field to the spec's table and its own token, and `tests/unit/chart-apca.spec.ts` holds each ink to the spec's
-APCA floor (marks and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and under the column
-wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
+APCA floor (marks, the context ink and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and
+under the column wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
 take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
-latin and latin-ext faces are in, or 1,500 ms pass (G4): `TrendChartsV2.tsx` loads and checks `11px "Geist Mono"` with
+latin and latin-ext faces are in, or 1,500 ms pass (G4): `useChartFont.ts` loads and checks `11px "Geist Mono"` with
 the text `0₹₪₱`, since with no text the Font Loading API takes the latin face alone, so no sign a plot prints swaps on
 it (G3) and no route preloads latin-ext (spec §0.5). No plot prints † (D-061, E194). Past the wait a plot paints in the loader's monospace fallback (§8),
 whose glyphs share one advance as the plan's widths assume. Every chart keeps its 320 px card,
@@ -3060,11 +3114,16 @@ layer over the viewport after it in the Tab order, ringing the viewport whatever
 period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4
 significant figures or 1 dp, its state, "calculated" and its data note, in words a screen reader says, with no ·, —,
 n/m, unit letter or U+2212. So the reading is spoken on focus and on every move, and no live status repeats it; a
-pointer's tooltip says nothing. It starts at the newest period, the one the legend and the table quote. Left/Right
+pointer's tooltip says nothing. It starts at the chart's start: the newest period, the one the legend and the table
+quote, unless a bar chart names another (E251: a ranked company chart's subject). Left/Right
 and Down/Up step a period, Home/End jump, and a step past either end says "Oldest period." or "Newest period." in a
-status line. A plot opens scrolled to its newest period whenever its view or window starts to overflow, never on a
-resize, behind A7's sticky gutter (`aria-hidden`, outside the exported node), which repeats the y axis, the captions
-and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis. Hover, a tap or the keyboard paints the
+status line, or a chart's own words where it names them, as its scroll region does (a ranked company chart's "First
+company." and "Last company.", and "Scroll horizontally to view all companies."; E251). A plot opens scrolled to its start whenever its view or window starts to overflow, never on a resize: the
+newest period at the scroll's end, a start a chart names with its column centred in the view as far as the scroll goes,
+so an early start (a sector's largest company) opens at the scroll's start on the plot's own axis. Once the plot has
+scrolled, A7's sticky gutter (`aria-hidden`, outside the exported node) repeats the y axis, the captions
+and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis; at the
+scroll's start there is none. Hover, a tap or the keyboard paints the
 period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
 flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
 is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
@@ -3073,6 +3132,43 @@ toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
 themes, 1280 and 390 px) and `tests/e2e/analysis-layout.spec.ts`. CI's required `e2e-tests` job runs all three
 unconditionally after E195 retires the separate chart job and its flag guards (F67).
+
+**Financial trends** (the filing page's card, `features/fundamentals/components/FundamentalsTrendChart.tsx`) draws
+through the same engine in the analysis charts' full look (E195 (D), D-067): `buildBarChart` (`lib/charts/barChart.ts`)
+models the chosen metric's annual series, `ChartPlotFrame` lays it out at the card's width, `useChartFont` holds G4's
+wait, and the readouts' core reads each year through the card's own describer. So the plot is the 320 px card plot with
+11 px ticks; every metric is chart-1, never a colour per picker position; every value prints on its bar (A4); a withheld
+year keeps its slot and prints "—"; a margin bar the percent axis clips is broken, prints its true value and adds the
+engine's footnote; and the values stop and the column-wash tooltip read each year ("FY2025 · year ended Sep 27, 2025"),
+a figure the backend derived marked "· Calculated". A metric whose every year is withheld says so at the plot's height,
+and where no label tier fits even at the widest slot (amounts in thousands of trillions of won, on a phone) the card
+says only "Values don’t fit at this width.", since no metrics table on the filing page lists the series' years.
+The card keeps its own chrome: the heading and its source-check badge, the subtitle, the compact metric picker, the
+footnote and Sources & checks (the source-check presentation above), and it has no PNG export. While its fetch runs it
+holds bones in the shapes of what replaces them, each `aria-hidden`, with one status ("Loading financial trends") on
+the plot's, so a default series that needs no source check lands where they stood (§11, Loading): the picker's (its label's word and the
+field's own box: its one width and the compact field's heights, 44 px on a phone, where the picker takes a row of its
+own, and 36 px from sm), the plot's 320 px, then the footnote's and Sources & checks' lines, each holding its room with
+its own text laid out invisible in its own type and spacing, so it wraps as its line will at any width and text size
+(the footnote as it reads for revenue, the picker's first metric). The field has one width the loading card can know,
+`w-56` (14rem) capped at its row, the smallest step that holds every FEATURED label (the widest, "Net investment
+income", is 212 px at the default size and 397 px under 200% text), and its bone takes the same class (chief design on
+E253): a select as wide as its widest option wrapped its row under its label as the data landed where its bone's did
+not. So a filing with short labels gets a wider field, and at 320 px every filing's field sits under its label.
+Before, the bones held the plot alone, and the card grew 56 px as it landed at 1280 px and 128 px at 390 and 320 px.
+What comes only with the data can still move it, as E253 accepted: the footnote's metric and currency (its bone reads
+as revenue in dollars, so a bank's first metric or a currency named in the line can take another line); the lines with
+no bone (the engine's footnotes under the plot and the values-don't-fit line); and a badged default, which moves the
+card down by the badge's row on a phone, where the badge goes beneath the heading once the data says so. Its heading
+row wraps, so under 200% text the badge goes beneath the heading, and below a 24rem viewport the badge's label may wrap
+too (Badge's `wrap`), in the 16px step, as the hero example's badge does (E156): on a line of its own the one-line badge
+is wider than a phone's card under 200% text. Gates: `tests/unit/fundamentals-trend-chart.spec.tsx` and
+`tests/e2e/filing-fundamentals-chart.spec.ts` (the mount, the engine's drawing and the DOM checks for one card in both
+themes at 390 and 1280 px; the card landing where its bones stood, its fetch held, in both themes, with the fixture at
+1280, 390 and 320 px and under 200% text at 530, 640, 767, 768 and 1080 px, and with every featured metric at 320 px and
+under 200% text at 600 px; every label the picker offers fitting its one width, with every featured metric at 1280 px at
+both text sizes, each read from a hidden clone of the select holding that label alone, sized to its content; and every
+series at 390, 360 and 320 px under 200% text).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
@@ -3127,8 +3223,7 @@ timers and rAF loops, which need numbers). **No raw ms or bezier strings anywher
   spinner becomes its static glyph,
   a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
   `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
-  value, the Recharts bars draw without their grow-in (`isAnimationActive`'s default, `'auto'`, reads the
-  preference), `scroll-behavior` is `auto`. Gates: the
+  value, `scroll-behavior` is `auto`. Gates: the
   `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
   for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
   motion on the home, sign-in and sign-up pages or in the dashboard loading states.
@@ -3174,8 +3269,10 @@ timers and rAF loops, which need numbers). **No raw ms or bezier strings anywher
    `adjustFontFallback: false` and `fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']`
    (E199), so `--font-geist-mono` is `'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace` and
    the data role never paints in a proportional face; the generic `monospace` ends it, so the mono
-   stacks' literals after the var serve only where the var is unset. Five sanctioned exceptions, all
-   of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
+   stacks' literals after the var are never reached, and they cannot stand in for an unset var either:
+   a `var()` with no fallback whose variable is unset makes the whole declaration invalid at
+   computed-value time, so the property takes its inherited (or initial) value. Five sanctioned
+   exceptions, all of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
    with the var ahead of the `'Inter'` literal; `fontFamily.sans` is `['var(--font-body)', …]`
    and `--font-active` is `var(--font-body)`, both reaching `--font-inter` one hop later;
    `fontFamily.figure` leads with `"EN Figure Minus"`, the one-glyph `@font-face` in `globals.css`

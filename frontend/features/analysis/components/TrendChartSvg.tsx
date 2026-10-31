@@ -15,8 +15,7 @@
 import { memo } from 'react'
 import { Group } from '@visx/group'
 import { Bar, LinePath } from '@visx/shape'
-import { CHART_FONT } from '@/components/ui/Chart'
-import { CAPTION, captionBacking, FONT_PX, gutterOverlayWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, STRIP_LABEL_X, STRIP_MARKER_X, type ChartLayout, type GutterCut, type PanelBox } from '@/features/analysis/lib/charts/layout'
+import { CAPTION, captionBacking, CHART_FONT, FONT_PX, gutterOverlayWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, STRIP_LABEL_X, STRIP_MARKER_X, type ChartLayout, type GutterCut, type PanelBox } from '@/features/analysis/lib/charts/layout'
 import type { ChartModel, ModelMark, ModelPoint, StripRow } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { BreakMark, MarkerShape, StripSwatch } from './chartMarks'
@@ -119,7 +118,8 @@ function Bars({ box, tokens, marks }: { box: PanelBox; tokens: ChartTokens; mark
         const cx = bar.x + bar.width / 2
         return (
           <g key={`${bar.seriesKey}:${bar.period}`}>
-            <Bar x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx={mark.kind === 'growth' ? 0 : 2} fill={tokens.series[mark.color]}
+            {/* A context bar (E251) paints the context ink, never its series' colour: its mark keeps chart-1. */}
+            <Bar x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx={mark.kind === 'growth' ? 0 : 2} fill={bar.context ? tokens.context : tokens.series[mark.color]}
               data-series={bar.seriesKey} data-period={bar.period} data-v={bar.value} data-zero={bar.zero} />
             {/* A growth bar past the axis is broken 6 px inside its clipped end (§4.1). */}
             {bar.clipped && <BreakMark cx={cx} width={bar.width} y={bar.value >= 0 ? bar.y + 6 : bar.y + bar.height - 9} surface={tokens.surface} />}
