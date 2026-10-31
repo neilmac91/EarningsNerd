@@ -25,7 +25,7 @@ export interface BarCategory {
    *  colour-blind reader (layout.ts). Its mark stays chart-1, so M9's order is the series' own. */
   context?: true
   /** The chart's run breaks before this category (E258): categories it leaves out stand between it and the one before,
-   *  so the layout sets half a slot of empty plot before its slot (layout.ts `SEAM`), and even spacing never reads as an
+   *  so the layout sets three quarters of a slot of empty plot before its slot (layout.ts `SEAM`), and even spacing never reads as an
    *  unbroken run. A ranked company chart's subject drawn after the top companies, past ones it leaves out. Never on the
    *  first category, before which there is no run to break. */
   gapBefore?: true

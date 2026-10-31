@@ -27,8 +27,9 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * gutter shown, its tenth at the scroll's end, and near-equal's fourth at the scroll's start at 390px and scrolled at
  * 300px, whose plot's view is 230px; at 1280px each fits its card. A broken run (E258), at 390 and 1280px: where the chart leaves
  * out a company ranked above the subject it draws after the top ('cap', 'cap, tie at the tenth'), the step to the subject's
- * tick is half a slot wider than every other; where it leaves out none ranked above it, a tie included ('cap, subject
- * eleventh', 'cap, all tied'), every step is a slot; and the DOM checks hold over each. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
+ * tick is three quarters of a slot wider than every other; where it leaves out none ranked above it, a tie included ('cap, subject
+ * eleventh', 'cap, all tied'), every step is a slot; the DOM checks hold over each; and at 1280px the subject's column as
+ * the checks read it is the one its hover wash paints. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
  * the heading, the rank line and the picker stay inside the card. While a metric picked loads, and once its answer
  * draws no chart, the heading row keeps its height, at 390 and 1280px. With production's own answer, a company ranked
  * alone (peer_count 1, JPM's on 2026-10-31), the panel never asks for the card's chunk: once the page has handled that
@@ -220,8 +221,8 @@ for (const width of [300, 390, 1280] as const) {
   })
 }
 
-// E258: where the chart leaves out a company ranked above the subject it draws after the top, a gap of half a slot stands
-// before the subject, so the bars never read it as next in rank; a cut that leaves out no company ranked above it, a tie
+// E258: where the chart leaves out a company ranked above the subject it draws after the top, a gap of three quarters of
+// a slot stands before the subject, so the bars never read it as next in rank; a cut that leaves out no company ranked above it, a tie
 // included, draws its bars a slot apart. The companies each case draws are written out, so the check reads the plot's
 // own ticks against them rather than the panel's own logic.
 const BREAKS: { name: string; drawn: string; gap: boolean }[] = [
@@ -238,7 +239,7 @@ for (const width of [390, 1280] as const) {
     for (const { name, drawn, gap } of BREAKS) {
       const tickers = [...drawn].map((letter) => `CAP${letter}`)
       const subject = PEERS.cases[name].response.subject.ticker
-      test(`${name}: ${gap ? `half a slot more before ${subject}, drawn after the top` : 'its bars a slot apart'}, and the plot sound`, async ({ page, baseURL }) => {
+      test(`${name}: ${gap ? `three quarters of a slot more before ${subject}, drawn after the top` : 'its bars a slot apart'}, and the plot sound`, async ({ page, baseURL }) => {
         await openCompany(page, baseURL!, name, 'light')
         const card = sectorPeers(page)
         const plot = card.getByTestId('peers-chart')
@@ -255,7 +256,24 @@ for (const width of [390, 1280] as const) {
         const steps = ticks.slice(1).map((tick, i) => tick.x - ticks[i].x)
         const slot = Math.min(...steps)
         expect(steps.map((step) => Math.round((step / slot) * 100) / 100), `${label}: each step between neighbouring ticks, in slots`)
-          .toEqual(steps.map((_, i) => (gap && i === steps.length - 1 ? 1.5 : 1)))
+          .toEqual(steps.map((_, i) => (gap && i === steps.length - 1 ? 1.75 : 1)))
+        // The subject's column as the checks read it (fixtures/chartChecks.ts: a slot is the narrowest step between ticks)
+        // is the one its hover wash paints; the plot's width over its ticks would miss it on each side across a seam. A
+        // hover needs a pointer, so the desktop width alone runs it, where the plot fits its card.
+        if (width === 1280) {
+          const svg = plot.getByRole('img', { name: 'Revenue chart', exact: true })
+          await svg.scrollIntoViewIfNeeded()
+          const box = (await svg.boundingBox())!
+          const at = tickers.indexOf(subject)
+          await page.mouse.move(box.x + ticks[at].x, box.y + box.height / 2)
+          const wash = plot.locator('[data-chart-wash]')
+          await expect(wash).toBeVisible()
+          const [hovered] = await measurePlots(card)
+          const viewport = (await plot.locator('[data-analysis-chart-scroll]').boundingBox())!
+          const painted = (await wash.boundingBox())!
+          expect(Math.abs(hovered.columns[at].left - (painted.x - viewport.x)), `${label}: the subject's column starts where its wash does`).toBeLessThanOrEqual(0.5)
+          expect(Math.abs(hovered.columns[at].right - (painted.x + painted.width - viewport.x)), `${label}: and ends where it does`).toBeLessThanOrEqual(0.5)
+        }
       })
     }
   })

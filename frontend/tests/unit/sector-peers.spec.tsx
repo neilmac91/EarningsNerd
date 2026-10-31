@@ -104,8 +104,8 @@ const plotOf = async (scope: HTMLElement, label: string) => {
   const svg = await within(scope).findByRole('img', { name: `${label} chart` })
   return { svg, bars: [...svg.querySelectorAll('rect[data-series]')] }
 }
-/** Each step between neighbouring bars' centres, in the narrowest step's units to two places: 1 a slot, 1.5 where a gap
- *  seam stands between them (E258). */
+/** Each step between neighbouring bars' centres, in the narrowest step's units to two places: 1 a slot, 1.75 where a
+ *  gap seam stands between them (E258). */
 const stepsOf = (bars: Element[]) => {
   const centres = bars.map((bar) => Number(bar.getAttribute('x')) + Number(bar.getAttribute('width')) / 2)
   const steps = centres.slice(1).map((centre, i) => centre - centres[i])
@@ -241,8 +241,8 @@ describe('the Sector peers panel (E251)', () => {
   // A cohort larger than the eleven slots: the top eleven where the subject ranks among them, else the top ten and the
   // subject, either side of the slots' edge (the eleventh drawn among the top, the twelfth after the top ten); the top
   // never parts a tie, so it is the companies ranked that high, and where one rank fills the slots the footnote gives
-  // the count alone. Where the chart leaves out a company ranked above the subject drawn after the top, a gap of half a
-  // slot stands before it (E258), so the bars never read it as next in rank; every other step is one slot.
+  // the count alone. Where the chart leaves out a company ranked above the subject drawn after the top, a gap of three
+  // quarters of a slot stands before it (E258), so the bars never read it as next in rank; every other step is one slot.
   it.each([
     { name: 'cap', top: 'ABCDEFGHIJ', after: 'CAPM', gap: true, ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPM.' },
     { name: 'cap, subject fifth', top: 'ABCDEFGHIJK', after: null, gap: false, ranks: 'CAPE ranks #5 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
@@ -262,7 +262,7 @@ describe('the Sector peers panel (E251)', () => {
     expect([...svg.querySelectorAll('text[data-text="x"]')].map((tick) => tick.textContent)).toEqual(companies)
     expect([rankLine(section).tagName, rankLine(section).textContent]).toEqual(['P', ranks])
     expect(footnote(section).textContent!.endsWith(`Fiscal years can differ by company. ${cut}`), footnote(section).textContent!).toBe(true)
-    expect(stepsOf(bars), 'each step between neighbouring bars, in slots').toEqual(companies.slice(1).map((_, i) => (gap && i === companies.length - 2 ? 1.5 : 1)))
+    expect(stepsOf(bars), 'each step between neighbouring bars, in slots').toEqual(companies.slice(1).map((_, i) => (gap && i === companies.length - 2 ? 1.75 : 1)))
     // The words never contradict the ranks: "the top N" is every company ranked N or better, and only those.
     const named = /the top (\d+) of/.exec(cut)
     if (named) {

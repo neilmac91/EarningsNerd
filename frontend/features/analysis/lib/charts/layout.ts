@@ -45,9 +45,11 @@ export const MIN_SLOT = 36
  *  at its minimum, its card says they don't fit. */
 export const LABELLED_MAX_SLOT = 42
 /** A gap seam's width, in slots (E258): the empty plot before a period whose run breaks there (`ChartPeriod.gapBefore`),
- *  half a slot, so the gap reads as a break at any width and costs the other slots little. It belongs to no slot: a
- *  pointer over it hovers nothing, and A7's sticky gutter cuts no column there. A chart with none lays out as before. */
-export const SEAM = 0.5
+ *  three quarters of a slot (chief design on #1880): the step to the next period, 1.75 slots, nearly doubles the run's
+ *  own gaps, so it reads as a break at a glance, and stays short of the two slots that one company left out would leave.
+ *  It belongs to no slot: a pointer over it hovers nothing, and A7's sticky gutter cuts no column there. A chart with
+ *  none lays out as before. */
+export const SEAM = 0.75
 /** The value strip's row: its series' swatch centred at STRIP_MARKER_X, then its short name from STRIP_LABEL_X. */
 export const STRIP_MARKER_X = 6
 export const STRIP_LABEL_X = 14
@@ -271,8 +273,8 @@ const seamsOf = (model: ChartModel): number[] => model.periods.flatMap((period, 
  *  pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
-  // A seam's half slot can leave half a pixel (a 37 px slot over 11.5 slots), and the plan is in whole pixels, as the PNG
-  // export draws it (TrendChartPlot), so the width rounds up; with no seam it is a whole number already.
+  // A seam's fraction of a slot can leave part of a pixel (a 37 px slot over 11.75 slots is 434.75), and the plan is in
+  // whole pixels, as the PNG export draws it (TrendChartPlot), so the width rounds up; with no seam it is whole already.
   const at = (slot: number) => Math.ceil(gutter + RIGHT_PAD + slot * (model.periods.length + SEAM * seamsOf(model).length))
   const fits = (width: number) => !plan(model, width, view).valuesDontFit
   if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)

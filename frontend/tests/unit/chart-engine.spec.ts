@@ -759,10 +759,10 @@ describe('a gap seam, where a chart’s run breaks (E258)', () => {
   it('widens the narrowest chart by SEAM of its narrowest slot, and the bones still draw a bar a period', () => {
     const [broken, even] = [buildBarChart(def(true)), buildBarChart(def(false))]
     expect(minChartWidth(broken) - minChartWidth(even)).toBeCloseTo(SEAM * minSlotOf(even), 9)
-    // A five-glyph tick's slot is 37 px, and 37 × 11.5 is 425.5: the width rounds up to the plan's whole pixel.
+    // A five-glyph tick's slot is 37 px, and 37 × 11.75 is 434.75: the width rounds up to the plan's whole pixel.
     const fiveGlyph = (gap: boolean) => buildBarChart({ ...def(gap), categories: def(gap).categories.map((slot) => ({ ...slot, tick: `${slot.key}XYZ` })) })
     expect(minSlotOf(fiveGlyph(true))).toBe(37)
-    expect(minChartWidth(fiveGlyph(true)) - minChartWidth(fiveGlyph(false))).toBe(19)
+    expect(minChartWidth(fiveGlyph(true)) - minChartWidth(fiveGlyph(false))).toBe(28)
     expect(layoutChart(fiveGlyph(true), 0, 'card').slot).toBeGreaterThanOrEqual(37)
     expect(bonesPlan(layoutChart(broken, 342, 'card')).slots).toBe(11)
     // An unbroken run is laid out as before E258: no seam, and the plot shared by its periods alone.

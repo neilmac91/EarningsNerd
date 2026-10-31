@@ -3027,7 +3027,7 @@ Firefox are unchecked). Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
-as wide as six glyphs keeps its column; E251), with half a slot more for each break in a ranked chart's run (E258), so
+as wide as six glyphs keeps its column; E251), with three quarters of a slot more for each break in a ranked chart's run (E258), so
 a narrow screen never overlaps labels or widens the page.
 
 Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through the engine's
@@ -3181,7 +3181,7 @@ descending), as many as its eleven slots hold, never leaving out a company a slo
 cohort of eleven or fewer whole; a larger one the top eleven where the subject ranks among them, else the top ten and
 then the subject. The top never parts a tie: a cut that would separate two companies of one rank moves up to the first
 of them and leaves the slot empty, so the top is always the companies ranked that high. Where the chart draws the
-subject after the top and leaves out a company ranked above it, a gap of half a slot stands before its bar, the engine's
+subject after the top and leaves out a company ranked above it, a gap of three quarters of a slot stands before its bar, the engine's
 gap seam (E258, `cohort.ts` `breaksBefore`), since even spacing would read it as next in rank (CAPM, thirteenth, as the
 eleventh company); a company left out that ties with the subject breaks no run, since the subject still stands at its
 own rank. The footnote then says what the
@@ -3233,7 +3233,7 @@ D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 a
 metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer; and the
 start in a browser at 300, 390 and 1280 px, the subject first, near-equal's fourth, the spread's sixth and its tenth, each
 opening where the rule puts it, its sticky gutter exactly when scrolled; and a broken run at 390 and 1280 px, the step
-to the subject's tick half a slot wider where the chart leaves out a company ranked above it, and no step wider where it
+to the subject's tick three quarters of a slot wider where the chart leaves out a company ranked above it, and no step wider where it
 leaves out none, a tie included, with the DOM checks over each),
 `tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
 holds what only a module of the engine the card pulls in, or the card, holds, and the page's own chunk is among the

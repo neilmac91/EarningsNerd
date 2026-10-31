@@ -536,9 +536,10 @@ says so; everything else follows the spec.
   byte: the six golden plans are unchanged, and the sweeps over every analysis dataset, bar case and peer case pass as
   before.
   - A `BarCategory` can be `gapBefore` (`barChart.ts`), carried as `ChartPeriod.gapBefore`; `buildBarChart` refuses one
-    before the first category, where no run breaks. The layout (`layout.ts`) sets `SEAM`, half a slot, of empty plot
-    before that period's slot: the slots share the plot with each seam (the plot over n periods and half a slot a
-    seam), each period from a seam on moves `SEAM` slots right, the last column still closes the plot, and
+    before the first category, where no run breaks. The layout (`layout.ts`) sets `SEAM`, three quarters of a slot, of
+    empty plot before that period's slot (chief design on #1880: the step to the subject, 1.75 slots, nearly doubles
+    the run's own gaps and stays short of the two slots one company left out would leave; half a slot read as uneven
+    spacing). The slots share the plot with each seam (the plot over n periods and three quarters of a slot a seam), each period from a seam on moves `SEAM` slots right, the last column still closes the plot, and
     `minChartWidth` widens by `SEAM` of a slot a seam, rounded up to the plan's whole pixel. The gap is no slot's: `slotAt` reads none over it, and A7's
     sticky gutter cuts no column there (`gutterCover` keeps the gutter's own width). The plan carries `count` and
     `seams`, and the bones draw a bar a period from `count`, since the plot's width over its slot also counts a seam.
@@ -549,7 +550,7 @@ says so; everything else follows the spec.
   - Gates: `chart-engine.spec.ts` (the seam's geometry at three widths, its gap read by no slot and cut by no gutter,
     the narrowest width, the bones' count and the refusal; the reading sweep now pins the cover to the exact edge of
     the column the gutter's own edge cuts, and scrolls a broken run into each seam and the column past it);
-    `sector-peers.spec.tsx` (the cap table's step between each pair of bars, half a slot more before the subject in
+    `sector-peers.spec.tsx` (the cap table's step between each pair of bars, three quarters of a slot more before the subject in
     'cap', 'cap, subject twelfth' and 'cap, tie at the tenth' and none in the four other cases, and a subject tied with
     the companies left out); and `tests/e2e/company-sector-peers.spec.ts` (four cap cases at 390 and 1280 px, each step
     read from the plot's own x ticks, with the DOM checks over each). `fixtures/chartChecks.ts` reads a slot as the
