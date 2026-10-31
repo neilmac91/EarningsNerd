@@ -34,7 +34,7 @@ from app.services.filing_section_service import (
     wording_change_summaries,
 )
 from app.services.section_review_service import review_progress
-from app.services.summary_generation_service import progress_as_dict
+from app.services.summary_generation_service import progress_read_status
 from app.services.summary_placeholders import is_stored_summary_ready
 
 logger = logging.getLogger(__name__)
@@ -56,12 +56,12 @@ def _feed_form_types() -> tuple[str, ...]:
     return FEED_FORM_TYPES
 
 # (xbrl_data key, human label) in headline priority order. The financial-institution component keys
-# are self-gating: a bank's xbrl_data carries net/non-interest income (not "revenue"), while a
+# are self-gating: a bank's xbrl_data carries net/noninterest income (not "revenue"), while a
 # non-financial filer carries "revenue" (not the components), so only the applicable rows render.
 _DELTA_METRICS = [
     ("revenue", "Revenue"),
     ("net_interest_income", "Net interest income"),
-    ("noninterest_income", "Non-interest income"),
+    ("noninterest_income", "Noninterest income"),
     ("net_income", "Net income"),
     ("earnings_per_share", "EPS"),
 ]
@@ -217,20 +217,16 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
 
 # --------------------------------------------------------------------------- summary status
 
-def _summary_status(summary: Optional[Summary], progress: Optional[dict]) -> dict:
+def _summary_status(summary: Optional[Summary], progress: Optional[SummaryGenerationProgress]) -> dict:
     """Mirror the watchlist-insights status taxonomy (ready/placeholder/generating/error/missing).
-    ``progress`` is the filing's generation-progress snapshot, consulted only without a summary."""
+    ``progress`` is the filing's generation-progress row, consulted only without a summary, through the
+    insights' own reading of it (``progress_read_status``)."""
     if summary is not None:
         ready = is_stored_summary_ready(summary)
         return {"summary_id": summary.id, "summary_status": "ready" if ready else "placeholder"}
 
-    if progress:
-        stage = progress.get("stage", "generating")
-        return {
-            "summary_id": None,
-            "summary_status": "error" if stage == "error" else f"generating:{stage}",
-        }
-    return {"summary_id": None, "summary_status": "missing"}
+    status, _snapshot = progress_read_status(progress)
+    return {"summary_id": None, "summary_status": status}
 
 
 def _prior_same_form(company_filings_desc: list[Filing], current: Filing) -> Optional[Filing]:
@@ -346,10 +342,10 @@ def compose_feed(
     # its own session per filing would need a second pooled connection while this one is held, and
     # four such requests deadlock the four-slot pool (lessons/ops-one-connection-per-request-unit.md).
     pending_ids = [fid for fid in filing_ids if fid not in summary_by_filing]
-    progress_by_filing: dict[int, dict] = {}
+    progress_by_filing: dict[int, SummaryGenerationProgress] = {}
     if pending_ids:
         progress_by_filing = {
-            progress.filing_id: progress_as_dict(progress)
+            progress.filing_id: progress
             for progress in db.query(SummaryGenerationProgress)
             .filter(SummaryGenerationProgress.filing_id.in_(pending_ids))
             .all()

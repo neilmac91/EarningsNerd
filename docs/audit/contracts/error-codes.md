@@ -79,10 +79,10 @@ now keyed on the code, except where the row says otherwise.
 
 | Code | Status (HTTP) / channel | Producer sites today | Client behaviour |
 | --- | --- | --- | --- |
-| `auth_required` | 401 | **A**: `routers/auth.py::get_current_user` ("You are not logged in."), reached through `dependencies._resolve_current_user`; `routers/auth.py::logout_all` raises the same refusal through the same `_not_logged_in` (E157 (2)). **C**: the PDF and CSV export 401s in `routers/summaries.py` ("Authentication required"). Not in v1: `admin.py::_require_admin`, and the refresh and login 401s, which are session and credential answers, not feature gates | Keep the existing silent refresh and replay on 401. When the refresh is refused with 401 (`sessionLossConfirmed`), or the path is not refreshable, show the log-in state; a refresh refused any other way (429, 5xx, network) is not session loss. The dashboard boundary routes to `/login`. Today it tests words that no message reaching it carries (`backendMessageMatches.spec.ts`'s UNSOURCED rows), so this is E31's fix, not a restatement. The stream readers keep today's 401 handling, Retry included: `streamErrorCopy.spec.ts` pins that no 401 reads as non-retryable |
+| `auth_required` | 401 | **A**: `routers/auth.py::get_current_user` ("You are not logged in."), reached through `dependencies._resolve_current_user`; `routers/auth.py::logout_all` raises the same refusal through the same `_not_logged_in` (E157 (2)). **C**: the PDF and CSV export 401s in `routers/summaries.py` ("Authentication required"). Not in v1: `admin.py::_require_admin`, and the refresh and login 401s, which are session and credential answers, not feature gates | Keep the existing silent refresh and replay on 401. When the refresh is refused with 401 (`sessionLossConfirmed`), or the path is not refreshable, show the log-in state; a refresh refused any other way (429, 5xx, network) is not session loss. The dashboard boundary routes to `/login`. Today it tests words that no message reaching it carries (`backendMessageMatches.spec.ts`'s UNSOURCED rows), so this is E31's fix, not a restatement. The stream readers keep today's 401 handling, Retry included: `summaryStream.spec.ts` and `summaryStreamAuthRefresh.spec.ts` pin that a 401 keeps its Retry, coded or not |
 | `email_verification_required` | 403 | **B**: `routers/subscriptions.py::create_checkout_session` ("Verify your email address before you subscribe.") | Dispatch `EMAIL_VERIFICATION_REQUIRED_EVENT` (the verification modal), then surface the detail as today |
-| `plan_required` | 403 | **A**: `dependencies.py::require_entitlement`, `require_pro`, and `require_copilot_or_taste` when the taste allowance is 0 (its words from `copilot_taste_exhausted_detail`). **C**: `routers/summaries.py` regenerate ("Regenerating a summary is a Pro feature.") and the PDF/CSV export refusals; `routers/analysis.py` PDF export | Show the plan or upgrade card for the surface; never offer Retry |
-| `free_allowance_exhausted` | 403 (HTTP); SSE `error` | **A**: `require_copilot_or_taste` with allowance > 0. **C**: the serialized Copilot admission in `routers/summaries.py`, which raises the same words (both build them with `copilot_taste_exhausted_detail`). **C**: `summary_stages/admission.py`, the free monthly summary limit (SSE) | Show the upgrade card (Free's allowance is used up); never offer Retry; the summary surface also fires `paywallPromptShown` |
+| `plan_required` | 403 | **A**: `dependencies.py::require_entitlement`, `require_pro`, and `require_copilot_or_taste` when the taste allowance is 0 (its words from `copilot_taste_exhausted_detail`). **C**: `routers/summaries.py` regenerate ("Regenerating a summary is a Pro feature.") and the PDF/CSV export refusals, and the serialized Copilot admission when the taste allowance is 0 (the same split as A's); `routers/analysis.py` PDF export | Show the plan or upgrade card for the surface; never offer Retry |
+| `free_allowance_exhausted` | 403 (HTTP); SSE `error` | **A**: `require_copilot_or_taste` with allowance > 0. **C**: the serialized Copilot admission in `routers/summaries.py` with allowance > 0, which raises the same words (both build them with `copilot_taste_exhausted_detail`). **C**: `summary_stages/admission.py`, the free monthly summary limit (SSE) | Show the upgrade card (Free's allowance is used up); never offer Retry; the summary surface also fires `paywallPromptShown` |
 | `pro_fair_use_limit` | 429 (HTTP); SSE `error` | **C**: `summary_stages/admission.py`'s Pro ceiling (SSE; its sentence says "paused", but it is the monthly fair-use cap, not a transient pause), the Copilot cap 429 in `routers/summaries.py`, the analysis cap 429 in `routers/analysis.py` | Show the plan card **without** an upgrade button (the user already has Pro) and the reset timing; never offer Retry. A 429 **without** this code stays a plain rate limit (`Retry-After`), retryable as today |
 | `generation_paused` | 503 (HTTP); SSE `error` | **Reserved: no producer on `086de72`.** No kill switch or generation-level flag exists. The candidates are C's: the chat provider-admission wait (`services/ai/provider_admission.py`) and a future operator pause. Whether either emits it is C's decision in its own pull request | Show a transient "try again shortly" state with Retry; never an upgrade card; never counted as a plan limit |
 | `earnings_alert_limit` | 403 | Existing: `routers/watchlist.py` free earnings-alert cap (the calendar's own reader keeps it) | Unchanged: `features/calendar` keeps its own `validateStatus` reader |
@@ -139,7 +139,11 @@ headers and no code, so the order is safe in both directions.
   keeping status and old-client fallback), `get_current_user`'s 401, `client.ts`, `types.ts` and
   `app/dashboard/error.tsx`.
 - **B**: `create_checkout_session`'s 403 and any other entitlement or billing refusal B owns, as rows of §3.
-- **C**: the admission SSE errors, the summary, analysis and Copilot HTTP refusals, and the three readers.
+- **C**: the admission SSE errors, the summary, analysis and Copilot HTTP refusals, and the three readers. An
+  admission refusal carries its account code on a reader's own stream only: a durable worker's job belongs to the
+  filing, `summary_job_store.finish_job` stores its terminal event's code and `summary_jobs.observe_job` replays it
+  to every later observer, so there the refusal stays code-less (`summary_generation_failed`), never one account's
+  paywall shown to another.
 - **E**: the `main.py` handler of §4.
 - **No owner** rewrites a `detail` or `message` in the pull request that adds its code. Copy changes follow under
   their own items once §6 passes.
@@ -153,8 +157,9 @@ Neil's 2026-10-25 acceptance of additive codes) and edits only the added key:
 - `backend/tests/unit/test_cached_filings_pool_lifetime.py`: the export and Pro-gate body equalities (the
   `[{"detail": ...}] * 8` forms). Its editing lease is serialized between A (E121, F19) and C (E171).
 - Substring pins (`test_expired_trial_gating.py`, also a locked anchor, `test_excel_export.py`,
-  `test_summary_unready_refresh.py`, `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message` and stay
-  untouched.
+  `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message` and stay untouched.
+  `test_summary_unready_refresh.py`'s regenerate 403 pin now reads the whole body, its code included (C's summary
+  slice).
 
 **Telemetry note.** `code` is an exact key of the Sentry `EventScrubber` denylist (for Apple's form-posted OAuth
 code, `app/utils/telemetry_bootstrap.py`). A request body's `code` key is withheld from Sentry events. Response
@@ -171,9 +176,10 @@ once with a known code on the wrong status:
 2. **A**: backend tests for `api_errors.py`, the `dependencies.py` emitters and `get_current_user`, through real
    ASGI requests: status, headers, `detail` byte-identical, `code` present.
 3. **B**: `create_checkout_session`'s 403 through ASGI, with and without the handler registered.
-4. **C**: `summaryStream.contract.spec.ts` (a locked anchor; additive fixture rows only, documented),
-   `summaryStreamAuthRefresh.spec.ts`, the Copilot and analysis reader specs, and the admission SSE events with
-   `code`.
+4. **C**: `summaryStream.spec.ts` (the summary reader's coded frames and HTTP refusals; the locked
+   `summaryStream.contract.spec.ts` holds success frames only and stays untouched), `summaryStreamAuthRefresh.spec.ts`,
+   the Copilot and analysis reader specs, and the admission SSE events with `code` (`test_summary_refusal_codes.py`,
+   with the anchor in `test_summary_pipeline_anchors_admission.py`).
 5. **E**: the registered handler's ASGI test against `main.app`.
 
 Shared parser tests alone do not close E31. Only producer-to-consumer output from every owner does.

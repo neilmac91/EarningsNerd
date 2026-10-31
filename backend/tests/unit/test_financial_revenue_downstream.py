@@ -47,6 +47,9 @@ def test_what_changed_emits_bank_component_chips():
     assert "revenue" not in metrics  # a bank has no single revenue
     assert metrics["net_interest_income"]["direction"] == "up"
     assert metrics["noninterest_income"]["direction"] == "down"
+    # The bank line's one name is /analysis's (trend_analysis/periods.py), in the chips and in the headline (E249).
+    assert metrics["noninterest_income"]["label"] == "Noninterest income"
+    assert out["headline"] == "Net interest income up 19.8%; Noninterest income down 52.2%"
 
 
 def test_what_changed_flip_guard_drops_mismatched_concept():
