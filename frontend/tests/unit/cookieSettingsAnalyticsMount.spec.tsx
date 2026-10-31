@@ -30,6 +30,7 @@ const sdk = vi.hoisted(() => {
     init: (() => undefined) as (key: string, options: { loaded?: (client: unknown) => void }) => void,
     capture: () => undefined,
     _send_request: () => undefined,
+    __request_queue: [] as unknown[],
     opt_in_capturing: () => undefined,
     opt_out_capturing: () => undefined,
     startSessionRecording: () => undefined,

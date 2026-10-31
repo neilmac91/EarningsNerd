@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Request } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import ts from 'typescript'
@@ -69,7 +69,11 @@ function helperScript(): string {
   })();`
 }
 
+// Every page a test opens through fixture(); test.afterEach reads each one's Sentry reports.
+const fixturePages: Page[] = []
+
 async function fixture(page: Page, initialPath: string, batching = false) {
+  fixturePages.push(page)
   let failEvents = false
   let releaseHeld: (() => void) | undefined
   let holdEvent = false
@@ -90,6 +94,11 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     }
     // Do not continue any request: a new SDK endpoint must remain inside this fixture too.
     if (url.origin !== INGEST) return route.abort('blockedbyclient')
+    // This build lazy-loads its extensions, the session recorder among them, from /static on the assets host, which
+    // is the api host here. Serve the package's own copies as PostHog's CDN does, so a recorder the configuration
+    // failed to disable could really start.
+    const asset = /^\/static\/[\w.-]+\.js$/.test(url.pathname) ? path.join(POSTHOG_PACKAGE, 'dist', path.basename(url.pathname)) : null
+    if (asset && existsSync(asset)) return route.fulfill({ contentType: 'text/javascript', body: readFileSync(asset) })
     wire.push({ url: request.url(), payload: decodeRequest(request) })
     if (url.pathname.startsWith('/e') && holdEvent) {
       await new Promise<void>(resolve => { releaseHeld = resolve })
@@ -159,6 +168,14 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     release: () => { holdEvent = false; releaseHeld?.() },
   }
 }
+
+// A guard that fails partway through stops sending, which every refusal-only assertion here would also accept, so
+// each page a test opened must end with nothing kept PostHog off or reached Sentry.
+test.afterEach(async () => {
+  for (const page of fixturePages.splice(0)) {
+    expect(await page.evaluate(() => (window as unknown as HarnessWindow).sentryReports)).toEqual([])
+  }
+})
 
 // The build renames the client's queue fields; the guard's own lookup finds them by shape.
 const retryLength = (page: Page) => page.evaluate(() => {
@@ -318,6 +335,13 @@ test('offline retries are discarded on withdrawal and do not return after reconn
   await capture(page, 'fresh-online', true)
   await expect.poll(() => events(state.wire).map(event => event.event)).toContain('fresh-online')
   expect(events(state.wire).filter(event => event.event === 'failed-before-offline')).toHaveLength(1)
+  // The allow resumed the retry queue the withdrawal unloaded, while offline: a send that fails now is retried once due.
+  state.fail(true)
+  await capture(page, 'failed-after-reallow', true)
+  await expect.poll(() => retryLength(page)).toBeGreaterThan(0)
+  state.fail(false)
+  await page.clock.fastForward(12000)
+  await expect.poll(() => events(state.wire).filter(event => event.event === 'failed-after-reallow')).toHaveLength(2)
 })
 
 test('an already dispatched request cannot be recalled, but its late failure cannot retry after withdrawal and re-allow', async ({ page }) => {
@@ -360,7 +384,6 @@ test('another tab’s refusal, storage clear and failed-write broadcast stop the
     await capture(page, `blocked-cross-tab-${action}`, true)
   }
   expect(events(wire).map(event => event.event).filter(name => String(name).startsWith('blocked-cross-tab'))).toEqual([])
-  await other.close()
 })
 
 for (const withdrawal of ['deny', 'clear'] as const) {
@@ -411,6 +434,5 @@ for (const withdrawal of ['deny', 'clear'] as const) {
     await page.clock.fastForward(6000)
     await expect.poll(() => events(wire).map(event => event.event)).toContain('fresh-after-remote-history')
     expect(events(wire).map(event => event.event)).not.toContain('queued-before-remote-history')
-    await other.close()
   })
 }

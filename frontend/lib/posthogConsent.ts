@@ -50,6 +50,8 @@ export function findPostHogQueues(client: PostHog): PostHogQueues | undefined {
   if (retry.length !== 1 || batch.length !== 1) {
     throw new PostHogConsentGuardError(`expected one RetryQueue and one RequestQueue on the loaded client, found ${retry.length} and ${batch.length}`)
   }
+  // Withdrawal clears the DOM-ready queue by its name, which every build keeps; renamed, that clear would do nothing.
+  if (!Array.isArray(client.__request_queue)) throw new PostHogConsentGuardError('the loaded client has no __request_queue')
   return { retry: retry[0], batch: batch[0] }
 }
 
@@ -58,10 +60,11 @@ export function findPostHogQueues(client: PostHog): PostHogQueues | undefined {
  * sendRequest directly, bypassing client._send_request. Every request leaves through client._send_request (a name
  * every build keeps) or the retry queue's retriableRequest (batches, unbatched captures and retries alike), so the
  * guard wraps those two and finds the queue by its shape, never by a private name the build renames. It throws a
- * PostHogConsentGuardError when it cannot hold; applyPostHogConsent then keeps PostHog off. Gated against the real
- * builds by tests/unit/posthogConsentGuard.spec.tsx and tests/e2e/telemetry-network.spec.ts; rerun both on SDK
- * upgrades. The generation is request metadata, never event data/headers. Late failures retain it when the SDK
- * copies request options for retry, so a new opt-in cannot revive withdrawn work.
+ * PostHogConsentGuardError when it cannot hold; applyPostHogConsent then turns the client off (failPostHogClosed).
+ * Gated against the real builds by tests/unit/posthogConsentGuard.spec.tsx and tests/e2e/telemetry-network.spec.ts,
+ * and every name it reaches by tests/unit/posthogShippedMembers.spec.ts; rerun them on SDK upgrades. The generation
+ * is request metadata, never event data/headers. Late failures retain it when the SDK copies request options for
+ * retry, so a new opt-in cannot revive withdrawn work.
  */
 export function installPostHogConsentGuard(client: PostHog): void {
   const existing = guards.get(client)
@@ -123,22 +126,18 @@ export function installPostHogConsentGuard(client: PostHog): void {
   attach()
 }
 
-const keepOff = (client: PostHog) => {
-  try {
-    if (client.__loaded) client.opt_out_capturing()
-  } catch {
-    // Opting out stores the choice through SDK persistence that can throw; the failure is reported either way.
-  }
-}
+/** Whether this client's guard has failed: it sends no events for the rest of the page (posthogPrivacy's before_send). */
+export const postHogGuardFailed = (client: PostHog) => failed.has(client)
 
 /**
- * Keeps PostHog off on this client for the rest of the page and reports why, once. Without its guard a withdrawal
- * could not stop queued or retried requests, so PostHog never runs unguarded; and it never stops silently: the
- * report is a Sentry issue, not only a console line (#1552's guard threw before init and analytics stayed off,
- * logged to the console only).
+ * Turns this client off for the rest of the page and reports why, once. Without its guard a withdrawal could not stop
+ * queued or retried requests, so a failed client sends no events: posthogPrivacy's before_send drops every one, per
+ * client. posthog-js's own opt-out is not used for this. All tabs share that store, so another tab's opt-in would
+ * revive the failed client, and the failed client's opt-out would switch healthy tabs off. Nor does it stop silently:
+ * the report is a Sentry issue. #1552's guard threw before init and left only a console line, which Sentry kept as a
+ * log and raised no issue for.
  */
 export function failPostHogClosed(client: PostHog, error: unknown): void {
-  keepOff(client)
   if (failed.has(client)) return
   failed.add(client)
   console.error('PostHog: analytics is off on this page', error)
@@ -151,14 +150,11 @@ export function failPostHogClosed(client: PostHog, error: unknown): void {
 
 /**
  * Applies the visitor's current choice under the guard; before init it only installs the guard. Returns false, with
- * PostHog kept off and the failure reported, when the guard cannot hold (failPostHogClosed). Never throws for that.
+ * the client turned off and the failure reported, when the guard cannot hold (failPostHogClosed). Never throws for
+ * that. A failed client's SDK consent is left alone, since every tab shares it.
  */
 export function applyPostHogConsent(client: PostHog): boolean {
-  if (failed.has(client)) {
-    // reset() clears the SDK's own consent with the identity, so opt out again on every application.
-    keepOff(client)
-    return false
-  }
+  if (failed.has(client)) return false
   try {
     installPostHogConsentGuard(client)
   } catch (error) {

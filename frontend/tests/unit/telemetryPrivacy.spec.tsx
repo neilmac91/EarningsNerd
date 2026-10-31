@@ -9,7 +9,7 @@ const mockPostHog = vi.hoisted(() => {
     __loaded: false,
     init: vi.fn(), capture: vi.fn(), opt_in_capturing: vi.fn(), opt_out_capturing: vi.fn(),
     startSessionRecording: vi.fn(), stopSessionRecording: vi.fn(), debug: vi.fn(),
-    _send_request: vi.fn(),
+    _send_request: vi.fn(), __request_queue: [] as unknown[],
   }
   // As in posthog-js's npm builds: no _send_retriable_request, and the queue fields renamed. The consent guard
   // finds the queues by shape (lib/posthogConsent.ts); tests/unit/posthogConsentGuard.spec.tsx runs the real builds.

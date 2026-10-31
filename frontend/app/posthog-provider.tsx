@@ -5,7 +5,7 @@ import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState } from 'react'
 import { subscribeCookiePreferences } from '@/lib/browserConsent'
-import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed } from '@/lib/posthogConsent'
+import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed, postHogGuardFailed } from '@/lib/posthogConsent'
 import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
 import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
 import { PostHogReadyContext } from '@/lib/posthogReady'
@@ -44,8 +44,9 @@ function PostHogPageViewWrapper() {
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   // Seeded from the SDK, for a provider that mounts again after PostHog has loaded (GlobalErrorBoundary's "Try
   // again", a global-error reset): a second init is a no-op that never calls `loaded`, so nothing else would set it.
-  // The server render and the first hydration still start at false, since posthog.init runs only in the effect below.
-  const [initialized, setInitialized] = useState(() => Boolean(posthog?.__loaded))
+  // A client whose consent guard failed stays not ready. The server render and the first hydration still start at
+  // false, since posthog.init runs only in the effect below.
+  const [initialized, setInitialized] = useState(() => Boolean(posthog?.__loaded) && !postHogGuardFailed(posthog))
   // The visitor's analytics choice as this provider last applied it; with `initialized` it makes PostHogReadyContext.
   const [analyticsAllowed, setAnalyticsAllowed] = useState(false)
 
@@ -61,7 +62,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       // Every failure below keeps PostHog off and reaches Sentry (failPostHogClosed), never only the console.
       try {
         if (posthog.__loaded) {
-          applyPostHogConsent(posthog)
+          if (!applyPostHogConsent(posthog)) setInitialized(false)
           return
         }
         if (!allowed || starting) return

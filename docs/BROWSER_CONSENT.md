@@ -35,13 +35,15 @@ its error diagnostics and data-scrubbing configuration are separate from browser
 With the locked `posthog-js` 1.440.0, `before_send` runs when an event is captured, not when an
 earlier batch or retry leaves. [posthogConsent.ts](../frontend/lib/posthogConsent.ts) therefore
 guards the two places every request leaves through: `_send_request` and the retry queue's
-`retriableRequest`. The npm builds the app ships rename the client's other private members, so
-the guard finds the retry and batch queues by their shape, never by those names. On withdrawal it
-drains batches, retry queues and pending DOM-ready requests through denial guards. A request
-generation prevents a late failed request from retrying after a subsequent allow. PostHog starts
-only after the guard is installed. A guard that cannot hold keeps PostHog off for the page and
-reports the failure to Sentry once. The adapter uses SDK internals; rerun the actual transport
-tests and review those entry points on SDK upgrades.
+`retriableRequest`. The npm builds the app ships rename some of the client's private members,
+among them the three the guard once read, so it finds the retry and batch queues by their shape,
+never by those names. On withdrawal it drains batches, retry queues and pending DOM-ready
+requests through denial guards. A request generation prevents a late failed request from retrying
+after a subsequent allow. PostHog starts only after the guard is installed. A client whose guard
+cannot hold sends no events for the rest of the page: its `before_send` drops every one, whatever
+another tab stores in posthog-js's own consent, which all tabs share and which the failed client
+never writes. The failure reaches Sentry once. The adapter uses SDK internals; rerun the actual
+transport tests and review those entry points on SDK upgrades.
 
 A request already dispatched cannot be recalled, and withdrawal does not erase previously
 received provider data. There is no claim of historical erasure here. Native transport work
@@ -61,14 +63,19 @@ do not certify every version of Vercel's remotely served script or recall its di
 - [telemetryPrivacy.spec.tsx](../frontend/tests/unit/telemetryPrivacy.spec.tsx) retains real-SDK
   credential sanitization and Sentry-envelope checks; replay payloads are always rejected.
 - [posthogConsentGuard.spec.tsx](../frontend/tests/unit/posthogConsentGuard.spec.tsx) runs the guard
-  on real clients from the package entry and the `module` build: allowed sends leave; queued,
-  retried and in-flight requests of a withdrawn choice do not. It runs the provider on a real client
-  (off before an allow, on after it, off after a refusal). It also plants a client the guard cannot
-  hold: that client stays off and the failure reaches Sentry once.
+  on real clients from the package entry and the `module` build. Allowed sends leave. A withdrawn
+  choice's queued and retried requests do not, nor does the retry of one already in flight. It
+  plants each failure the guard must survive: such a client sends nothing, whatever another tab
+  stores, leaves other tabs' consent alone and reaches Sentry once. It runs the provider on real
+  clients: off before an allow, on after it, off after a refusal, with each failure path planted.
+- [posthogShippedMembers.spec.ts](../frontend/tests/unit/posthogShippedMembers.spec.ts) fails any
+  underscore posthog-js member that code or a test stand-in reaches and the `module` build lacks.
 - [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) runs the package's
   `module` build, the one Next bundles, in Chromium. Every request is fulfilled or blocked locally,
-  including remote configuration. It checks queued batches, unload, offline retry, late failure,
-  two-tab withdrawal and disabled replay even when fixture configuration enables it.
+  including remote configuration, and the SDK's lazy-loaded extensions come from the package's own
+  copies, as PostHog's CDN serves them. It checks queued batches, unload, offline retry and its
+  resumption after a new allow, late failure, two-tab withdrawal and disabled replay even when
+  fixture configuration enables it.
 
 These tests do not prove production network configuration, processor agreements, retention or
 international-transfer compliance. Check the deployed network before release; no provider
