@@ -446,6 +446,18 @@ says so; everything else follows the spec.
     printed value the fixture's own to its last digit, the values stop at the newest fiscal year, net margin on a percent axis and the DOM checks of
     `fixtures/chartChecks.ts` for one card (whose zero rule now reads a ratio axis's `0×`), in both themes at 390 and
     1280 px, and every series at 390, 360 and 320 px under 200% text.
+- **A ranked company chart's seams (E251).** The engine gains what the company page's Sector peers panel needs to draw
+  its ranked companies on it, each seam with its gate, while every existing chart's model, plan and readout stays as it
+  was, byte for byte (E251's first pull request dumped the engine's whole output for every analysis dataset, bar case
+  and Financial trends model at every width the sweeps use, before and after). The cases are
+  `tests/unit/fixtures/peers-cohorts.json`, the peers endpoint's answers (production's JPM and BAC joined into a pair,
+  and synthetic cohorts: eleven companies spread across two orders of magnitude, eleven near-equal ones, a six-glyph
+  ticker, a margin, a per-share amount, CNY and a ticker two companies share), drawn through `chartPlan.ts`'s
+  `peerBarCases`.
+  - A slot as wide as its ticks: a slot holds the widest line of its x ticks with 2 px each side, so A7's minimum is
+    `max(36, ceil(widest line + 4))` (`layout.ts` `minSlotOf`) and a labelled chart's search runs to `max(42, that)`.
+    The spec's draft rule (§0.4 row 11); a six-glyph tick ran 1.8 px past a 36 px column. `chart-engine.spec.ts` holds
+    every tick line to its slot over every analysis dataset, bar case and peer case, and A7's checks read `minSlotOf`.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
@@ -1009,10 +1021,12 @@ legend has no fixed width; it never pushes the plot.
 
 **A7. Slot minimum and scroll.**
 
-- The minimum slot is 36 px in both views: `W = max(container width, G_L + 8 + 36·n)`.
-- A chart with labelled marks takes the narrowest whole-pixel width, at most `G_L + 8 + 42·n`, at which A4 finds a
-  tier for every labelled panel (§0.5), and `W = max(container width, that width)`. A chart whose labels no slot up
-  to 42 px holds keeps 36 px.
+- The minimum slot is `max(36, ceil(widest x tick line + 4))` px in both views, so a slot holds each tick line with
+  2 px each side, as the strip's cells (§3.10): `W = max(container width, G_L + 8 + slotMin·n)`. No year or quarter
+  tick reaches it ("2025" is 26.4 px); a ticker can (E251, §0.5): five glyphs take 37 px, six take 44.
+- A chart with labelled marks takes the narrowest whole-pixel width, at most `G_L + 8 + max(42, slotMin)·n`, at which A4
+  finds a tier for every labelled panel (§0.5), and `W = max(container width, that width)`. A chart whose labels no slot
+  up to that holds keeps its minimum.
 - When W exceeds the container, the SVG scrolls horizontally inside its card (the existing `useOverflowRegion`
   viewport); the page never scrolls sideways.
 - Measured: at 1280 no chart scrolls. In the 390 px phone run, charts scroll inside their cards with 0 sideways page
@@ -1840,7 +1854,7 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | M3 | model | One unit and one d per axis; no `$0.00`; zero label is exactly `$0`/`0%`; no M/B mix; no $ tick with ≥ 4 integer digits | mixed units, "$1,000M" |
 | M4 | model | Tick intervals ≤ the panel's cap; gridline spacing ≥ h/(cap + 0.1) (≥ 17 px) in every panel and view | crowded ticks |
 | M5 | model | G_L ≥ max tick px + 8 and ≥ 36 | clipped tick labels |
-| M6 | model | slot ≥ 36 px (a labelled chart: the narrowest width up to 42 px a period with an A4 tier); if the container is narrower, `scroll = true` and W is that width | text collisions, dropped values |
+| M6 | model | slot ≥ max(36, the widest x tick line + 4) px (a labelled chart: the narrowest width up to max(42, that) a period with an A4 tier), so each tick line keeps 2 px each side in its column; if the container is narrower, `scroll = true` and W is that width | text collisions, dropped values, a ticker past its column |
 | M7 | model | Every null plotted value has a band letter; every off-scale line point has an A3b item with its true value; every clipped growth bar has a break mark and its true value as its label; band letters = footnote letters = data-note letters that touch plotted values; no ↑/↓ in the band | silent gaps, orphan notes, hidden values |
 | M8 | model | H identical for W ∈ {342, 502, 1030}; H = 320 on the card; ticks and tick text identical for card and expanded | CLS, grid misalignment, export ≠ screen |
 | M9 | model | Colours = chart-1..k in order over present series; shapes circle, square, triangle by the same index; an absent series takes no slot; no gain, loss or brand token in any mark | colour misuse |

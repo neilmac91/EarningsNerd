@@ -3024,7 +3024,8 @@ plot needs it stops with an error toast rather than paint a fallback (gate, in C
 Firefox are unchecked). Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
-period count and axis space, so a narrow screen never overlaps labels or widens the page.
+period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
+as wide as six glyphs keeps its column; E251), so a narrow screen never overlaps labels or widens the page.
 
 Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through the engine's
 `chartTokens(dark).series` (E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a
