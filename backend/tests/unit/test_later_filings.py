@@ -38,8 +38,20 @@ def test_the_fixture_holds_values_and_comparisons_to_tell_apart():
 def test_a_dataset_without_the_fields_has_no_places_whatever_it_lacks():
     """An older snapshot exports as it did before the line: the twin reads no label or concept of a point that carries
     neither field, so a series or a period that lacks them, or a dataset with no series or periods, gives no places."""
-    regn = deepcopy(next(case for case in CASES if case["name"] == "no_evidence")["dataset"])
-    for series in regn["series"]:
+    dataset = deepcopy(next(case for case in CASES if case["name"] == "no_evidence")["dataset"])
+    for series in dataset["series"]:
         del series["label"], series["concept"]
-    assert later_filing_places(regn) == {"values": [], "comparisons": []}
+    assert later_filing_places(dataset) == {"values": [], "comparisons": []}
     assert later_filing_places({}) == later_filing_places({"series": None, "periods": None}) == {"values": [], "comparisons": []}
+
+
+def test_a_comparison_counts_only_where_its_yoy_reads_n_m():
+    """laterFilings.ts basisChanged: a YoY counts by its growth as first reported only where it reads n/m, as on the
+    page; the fixture cannot carry the key beside a number, which the page's decoder refuses."""
+    case = next(case for case in CASES if case["name"] == "evidence_with_no_change_of_basis")
+    dataset = deepcopy(case["dataset"])
+    point = next(point for series in dataset["series"] for point in series["points"]
+                 if (series["concept"], point["period"]) == ("total_assets", "FY2019"))
+    assert isinstance(point["yoy"], float)
+    point["yoy_first_reported"] = 0.12
+    assert later_filing_places(dataset) == case["expected"]
