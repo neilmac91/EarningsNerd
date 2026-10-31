@@ -20,7 +20,8 @@ a fixture the service would never answer would gate a panel production never dra
    retired client's phantom ``PeerEntry.source_url``, which the endpoint never sent).
 4. The client's types (``frontend/features/peers/api/peers-api.ts``) name the schema's fields and only those:
    ``PeerEntry`` all of them, ``PeerComparisonResponse`` all but ``sic``, which no copy prints (E251). Every member of
-   each interface is read, two on one line among them, and a member this reader cannot read fails it.
+   each interface is read, two on one line among them, and a member this reader cannot read fails it; so does a name
+   declared twice, whose bodies TypeScript merges (a second ``interface PeerEntry`` adding a field unseen).
 """
 from __future__ import annotations
 
@@ -115,7 +116,7 @@ def test_the_fixture_holds_the_panels_cases():
             "no gross profit, with peers", "withheld peer", "withheld subject", "withheld subject, with peers",
             "pair plus withheld", "cap", "cap, subject fifth", "cap, subject eleventh", "cap, subject twelfth",
             "cap, tie at the tenth", "cap, tie at the eleventh", "cap, all tied", "capital expenditures",
-            "bank"} <= set(CASES)
+            "capital expenditures, no subject fact", "bank"} <= set(CASES)
 
 
 @pytest.mark.parametrize("name", list(CASES))
@@ -166,9 +167,19 @@ def _members(body: str) -> list[str]:
     return [member.strip() for line in body.splitlines() for member in line.split(";") if member.strip()]
 
 
+def _declarations(source: str, name: str) -> int:
+    """How often a source declares a type of this name, comments aside: an interface (exported or not, a second one
+    merging into the first), a type alias, a class or an enum."""
+    code = re.sub(r"/\*.*?\*/|//[^\n]*", "", source, flags=re.S)
+    return len(re.findall(rf"\b(?:interface|type|class|enum)\s+{name}\b", code))
+
+
 def _client_fields(interface: str) -> set[str]:
-    """The field names of one `export interface` in the client, every member read, its doc comments skipped."""
+    """The field names of one `export interface` in the client, every member read, its doc comments skipped. A second
+    declaration of the name fails: TypeScript merges it into the first, so its fields would go unread."""
     source = CLIENT.read_text(encoding="utf-8")
+    count = _declarations(source, interface)
+    assert count == 1, f"{CLIENT.name} declares {interface} {count} times; a merged declaration's fields go unread"
     match = re.search(rf"export interface {interface} \{{\n(.*?)\n\}}", source, re.S)
     assert match, f"{CLIENT.name} declares `export interface {interface}`"
     members = _members(match.group(1))
@@ -185,6 +196,12 @@ def test_the_client_reader_reads_every_member():
     assert [bool(MEMBER.fullmatch(m)) for m in ["ticker: string, source_url: string", "onPick: (key: string) => void"]] == [
         False, False,
     ]
+    # A name declared twice merges; one in a comment is no declaration.
+    assert [_declarations(source, "PeerEntry") for source in [
+        "export interface PeerEntry {\n  ticker: string\n}\ninterface PeerEntry {\n  source_url: string | null\n}\n",
+        "export interface PeerEntry {\n  ticker: string\n}\n/** interface PeerEntry is the schema's */\n",
+        "export interface PeerEntryList {\n  rows: string\n}\nexport interface PeerEntry {\n  ticker: string\n}\n",
+    ]] == [2, 1, 1]
 
 
 def test_the_client_reads_what_the_endpoint_serves():
