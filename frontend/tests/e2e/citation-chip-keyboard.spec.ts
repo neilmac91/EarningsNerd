@@ -36,7 +36,7 @@ const ANSWER = {
   followups: ['Which segment declined in 2025?', 'What drove the lower effective tax rate?'],
 }
 const LAUNCHER = 'button[aria-label="Source"]'
-const SUMMARY_CHIP = 'Source: Quote found in filing'
+const SUMMARY_CHIP = 'Quote found in filing, source'
 const CARD = '[role="group"][aria-label^="Citation 1:"]'
 
 async function openFiling(page: Page, baseURL: string) {

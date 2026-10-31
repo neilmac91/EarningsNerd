@@ -15,7 +15,7 @@ describe('SourceTrace passage labels', () => {
     [false, null, 'Quote not found'],
   ])('verified %s, section %s: "%s"', (verified, sectionRef, label) => {
     render(<SourceTrace url={DOCUMENT} verified={verified} sectionRef={sectionRef} />)
-    expect(screen.getByRole('link', { name: `Source: ${label} (opens in a new tab)` })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: `${label}, source (opens in a new tab)` })).toBeInTheDocument()
   })
 
   it('says a section-less passage it could not find links to the filing', () => {

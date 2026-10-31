@@ -2430,7 +2430,7 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  `features/filings/lib/evidenceLabels.ts` (product-wide: "Matches filing", "Linked, not checked",
                  "Quote found in filing", "Section linked", and "Quote not found" for a passage it could not
                  find that names no section, whose panel says the link opens the filing); the accessible name
-                 is "Source: <label>", with
+                 is "<label>, source" (label in name: the words it shows come first; chief design on #1884), with
                  " (opens in a new tab)" where the chip is itself the link, and the panel's link reads "Open
                  the filing on SEC.gov" ("the passage" for a text-fragment URL). The panel's status line rests
                  in the ink with only its check in sage, since a figure's note states the filed amounts (D-030;

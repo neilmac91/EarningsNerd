@@ -99,7 +99,7 @@ describe.each([
   {
     name: 'SourceTrace',
     chip: sourceChip,
-    trigger: () => screen.getByRole('button', { name: 'Source: Quote found in filing' }),
+    trigger: () => screen.getByRole('button', { name: 'Quote found in filing, source' }),
     popover: () => screen.queryByRole('group', { name: 'Source detail' }),
     action: () => screen.getByRole('link', { name: FILING_LINK }),
   },
@@ -287,7 +287,7 @@ describe('SourceTrace without a viewer', () => {
         <button type="button">after</button>
       </>,
     )
-    const link = screen.getByRole('link', { name: 'Source: Quote found in filing (opens in a new tab)' })
+    const link = screen.getByRole('link', { name: 'Quote found in filing, source (opens in a new tab)' })
     act(() => link.focus())
     expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
     expect(fireEvent.keyDown(link, { key: 'Tab' })).toBe(true)

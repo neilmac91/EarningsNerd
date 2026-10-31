@@ -51,7 +51,7 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
           {trace.claim}{' '}
           <button
             type="button"
-            aria-label={`Source: ${PASSAGE_FOUND}`}
+            aria-label={`${PASSAGE_FOUND}, source`}
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((value) => !value)}
