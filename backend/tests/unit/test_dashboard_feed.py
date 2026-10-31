@@ -137,6 +137,232 @@ def test_no_prior_returns_none():
     assert compute_what_changed({"revenue": _series(("2024-03-31", 100.0))}, None) is None
 
 
+# --------------------------------------------------------------------------- E259: the one EPS line
+# A Q2 10-Q (quarter ended 2026-06-30) as the instance extractor stores it since P1.5: each series holds the quarter
+# and its year-ago comparative. Its prior filing is the 10-Q for the quarter ended 2026-03-31.
+_Q2 = {
+    "net_income": _series(("2026-06-30", 12.0), ("2025-06-30", 8.0)),
+    "earnings_per_share": _series(("2026-06-30", 1.02), ("2025-06-30", 0.81)),
+    "eps_diluted": _series(("2026-06-30", 1.00), ("2025-06-30", 0.80)),
+}
+_Q1 = {
+    "net_income": _series(("2026-03-31", 10.0)),
+    "earnings_per_share": _series(("2026-03-31", 0.92)),
+    "eps_diluted": _series(("2026-03-31", 0.90)),
+}
+_EPS_KEYS = ("eps_diluted", "earnings_per_share")
+
+
+def _eps_items(out):
+    return [(i["metric"], i["label"], i["current"], i["prior"]) for i in out["items"] if i["metric"] in _EPS_KEYS]
+
+
+def test_eps_line_is_diluted_when_both_filings_carry_it():
+    # Chief design's ruling on #1862: What changed carries the diluted line, named as /analysis names it, in its
+    # rows and in the headline, after net income (the headline's first two items, in _DELTA_METRICS order).
+    out = compute_what_changed(_Q2, _Q1)
+    assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 1.00, 0.90)]
+    assert [i["metric"] for i in out["items"]] == ["net_income", "eps_diluted"]
+    assert out["headline"] == "Net income up 20.0%; EPS (diluted) up 11.1%"
+    assert out["data_quality"] == "ok"
+
+
+def test_eps_line_takes_one_key_for_both_sides_and_basic_when_a_side_has_no_diluted_series():
+    # A blob stored before P1.5 (2026-06-14), or by the companyfacts fallback, has no eps_diluted; a post-P1.5 blob
+    # has an empty one when no diluted concept anchored. Two 10-Qs share no period, so either side without it puts the
+    # pair on the basic line, its prior the prior filing's quarter: never the current filing's year-ago diluted 0.80
+    # (a plain key swap's pair).
+    for current, prior in (
+        (_Q2, {k: v for k, v in _Q1.items() if k != "eps_diluted"}),  # the prior predates P1.5
+        (_Q2, {**_Q1, "eps_diluted": []}),  # the prior's diluted series is empty
+        ({k: v for k, v in _Q2.items() if k != "eps_diluted"}, _Q1),  # the current predates P1.5
+        ({**_Q2, "eps_diluted": []}, _Q1),  # the current's diluted series is empty
+    ):
+        out = compute_what_changed(current, prior)
+        assert _eps_items(out) == [("earnings_per_share", "EPS (basic)", 1.02, 0.92)]
+        assert all(i["prior"] not in (0.80, 0.81) for i in out["items"])
+    # A companyfacts-shaped pair: basic EPS only, no raw_tag on either side.
+    out = compute_what_changed(
+        {"earnings_per_share": _series(("2026-06-30", 1.02))}, {"earnings_per_share": _series(("2026-03-31", 0.92))}
+    )
+    assert _eps_items(out) == [("earnings_per_share", "EPS (basic)", 1.02, 0.92)]
+    assert out["headline"] == "EPS (basic) up 10.9%"
+
+
+def test_eps_line_never_takes_another_period_than_the_prior_filings():
+    # The prior 10-Q's XBRL has no EPS for the quarter it reported. The current 10-Q's own comparative is the
+    # year-ago quarter, which would sit under "Quarter over quarter, against the 10-Q for the quarter ended Mar 31",
+    # and the prior's own year-ago EPS is another quarter too, so the EPS line is withheld; net income still
+    # differs against the prior filing's quarter.
+    for prior in (
+        {"net_income": _Q1["net_income"]},
+        {**_Q1, "earnings_per_share": [], "eps_diluted": []},
+        {**_Q1, "earnings_per_share": _series(("2026-06-30", 1.02)), "eps_diluted": _series(("2026-06-30", 1.00))},
+        {**_Q1, "earnings_per_share": _series(("2025-03-31", 0.70)), "eps_diluted": _series(("2025-03-31", 0.69))},
+    ):
+        out = compute_what_changed(_Q2, prior)
+        assert _eps_items(out) == []
+        assert [(i["metric"], i["prior"]) for i in out["items"]] == [("net_income", 10.0)]
+        assert out["data_quality"] == "ok"
+    # The withheld line still checks net income's current sign (invariant 2), as the basic line did before.
+    loss = {**_Q2, "net_income": _series(("2026-06-30", -12.0)), "revenue": _series(("2026-06-30", 100.0))}
+    out = compute_what_changed(loss, {"net_income": _Q1["net_income"], "revenue": _series(("2026-03-31", 90.0))})
+    assert [i["metric"] for i in out["items"]] == ["revenue"] and out["data_quality"] == "partial"
+
+
+def test_eps_line_without_a_prior_filing_takes_the_filings_own_comparative():
+    # No prior XBRL (the company's first filing here, or a prior filing never extracted): every metric's prior is
+    # the filing's own comparative, the EPS line's too, diluted where that series has one, else basic.
+    assert _eps_items(compute_what_changed(_Q2, None)) == [("eps_diluted", "EPS (diluted)", 1.00, 0.80)]
+    only_basic_comparative = {**_Q2, "eps_diluted": _series(("2026-06-30", 1.00))}
+    assert _eps_items(compute_what_changed(only_basic_comparative, None)) == [
+        ("earnings_per_share", "EPS (basic)", 1.02, 0.81)
+    ]
+    # A reporting-currency change discards the prior filing's figures: the restated comparative stands in, and the
+    # prior filing's USD diluted EPS (0.90) is never differenced against EUR.
+    # A prior filing's XBRL that reports none of What changed's metrics names no period, so it is no prior XBRL to
+    # What changed: every line, the EPS line too, takes the filing's own comparative (E261).
+    out = compute_what_changed(_Q2, {})
+    assert [(i["metric"], i["prior"]) for i in out["items"]] == [("net_income", 8.0), ("eps_diluted", 0.80)]
+    eur = {**_Q2, "reporting_currency": "EUR"}
+    usd_prior = {**_Q1, "reporting_currency": "USD"}
+    assert _eps_items(compute_what_changed(eur, usd_prior)) == [("eps_diluted", "EPS (diluted)", 1.00, 0.80)]
+
+
+def test_eps_line_takes_this_filings_restated_figure_for_the_prior_filings_period():
+    # A 10:1 split between two 10-Ks. The prior 10-K reported FY2024 diluted EPS of 11.93; this 10-K restates that
+    # year as 1.19. Both are the year the basis names ("Year over year, against the 10-K for the year ended Jan 31,
+    # 2025"), so the restated figure is the like-for-like one: not "down 75.4%" beside net income up 144.6%.
+    current = {
+        "net_income": _series(("2026-01-31", 72.9), ("2025-01-31", 29.8)),
+        "earnings_per_share": _series(("2026-01-31", 2.97), ("2025-01-31", 1.20)),
+        "eps_diluted": _series(("2026-01-31", 2.94), ("2025-01-31", 1.19)),
+    }
+    prior = {
+        "net_income": _series(("2025-01-31", 29.8)),
+        "earnings_per_share": _series(("2025-01-31", 12.0)),
+        "eps_diluted": _series(("2025-01-31", 11.93)),
+    }
+    out = compute_what_changed(current, prior)
+    assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 2.94, 1.19)]
+    assert out["headline"] == "Net income up 144.6%; EPS (diluted) up 147.1%"
+    # A prior 10-K stored before P1.5 has no diluted series: this 10-K's own figure for that year completes the
+    # diluted pair, so an annual pair keeps the diluted line.
+    pre_p15 = {k: v for k, v in prior.items() if k != "eps_diluted"}
+    assert _eps_items(compute_what_changed(current, pre_p15)) == [("eps_diluted", "EPS (diluted)", 2.94, 1.19)]
+    # A 1:10 reverse split: the restated year (11.9) sits far above the prior 10-K's as-filed basic EPS (1.20), so
+    # it is checked against this filing's own basic EPS for that year (12.0), never against the prior filing's.
+    reverse = {
+        "net_income": _series(("2026-01-31", 72.9), ("2025-01-31", 29.8)),
+        "earnings_per_share": _series(("2026-01-31", 29.7), ("2025-01-31", 12.0)),
+        "eps_diluted": _series(("2026-01-31", 29.4), ("2025-01-31", 11.9)),
+    }
+    as_filed = {
+        "net_income": _series(("2025-01-31", 29.8)),
+        "earnings_per_share": _series(("2025-01-31", 1.20)),
+        "eps_diluted": _series(("2025-01-31", 1.19)),
+    }
+    assert _eps_items(compute_what_changed(reverse, as_filed)) == [("eps_diluted", "EPS (diluted)", 29.4, 11.9)]
+
+
+def test_a_diluted_pair_above_basic_falls_to_the_basic_line():
+    # Diluted EPS cannot exceed basic EPS for the same period (the check facts/reconcile.py makes); a series that
+    # does is not what its key says, so the line falls to basic, on either side.
+    for current, prior in (
+        ({**_Q2, "eps_diluted": _series(("2026-06-30", 1.10), ("2025-06-30", 0.80))}, _Q1),
+        (_Q2, {**_Q1, "eps_diluted": _series(("2026-03-31", 0.95))}),
+    ):
+        out = compute_what_changed(current, prior)
+        assert _eps_items(out) == [("earnings_per_share", "EPS (basic)", 1.02, 0.92)]
+        assert out["data_quality"] == "ok"
+    # Equal figures, as in a loss year or with nothing dilutive, keep the diluted line; half a cent above basic is above.
+    equal = {**_Q2, "eps_diluted": _series(("2026-06-30", 1.02), ("2025-06-30", 0.81))}
+    equal_prior = {**_Q1, "eps_diluted": _series(("2026-03-31", 0.92))}
+    assert _eps_items(compute_what_changed(equal, equal_prior)) == [("eps_diluted", "EPS (diluted)", 1.02, 0.92)]
+    above = {**_Q2, "eps_diluted": _series(("2026-06-30", 1.025), ("2025-06-30", 0.80))}
+    assert _eps_items(compute_what_changed(above, _Q1)) == [("earnings_per_share", "EPS (basic)", 1.02, 0.92)]
+
+
+def test_invariant_two_holds_a_restated_prior_year_to_its_own_net_income():
+    # This 10-K restates FY2024 to a loss the prior 10-K reported as a profit. The EPS line's prior side is the
+    # restated figure, so invariant 2 holds it to the restated net income for that year, never to the prior 10-K's
+    # as-reported one, and nothing is withheld.
+    current = {
+        "revenue": _series(("2025-12-31", 100.0), ("2024-12-31", 90.0)),
+        "net_income": _series(("2025-12-31", 30.0), ("2024-12-31", -2.0)),
+        "earnings_per_share": _series(("2025-12-31", 0.30), ("2024-12-31", -0.02)),
+    }
+    prior = {
+        "revenue": _series(("2024-12-31", 90.0)),
+        "net_income": _series(("2024-12-31", 5.0)),
+        "earnings_per_share": _series(("2024-12-31", 0.05)),
+    }
+    out = compute_what_changed(current, prior)
+    assert _eps_items(out) == [("earnings_per_share", "EPS (basic)", 0.30, -0.02)]
+    assert [i["metric"] for i in out["items"]] == ["revenue", "net_income", "earnings_per_share"]
+    assert out["data_quality"] == "ok"
+
+
+def test_a_stale_eps_series_never_stands_for_the_filings_period():
+    # An unusable diluted figure for the quarter leaves its year-ago entry newest: it never stands for this quarter.
+    unusable = [{"period": "2026-06-30", "value": True, "form": "10-Q", "accn": "x"}] + _series(("2025-06-30", 0.80))
+    out = compute_what_changed({**_Q2, "eps_diluted": unusable}, _Q1)
+    assert _eps_items(out) == [("earnings_per_share", "EPS (basic)", 1.02, 0.92)]
+    # A filing whose EPS stops a period before its net income shows no EPS line.
+    out = compute_what_changed(
+        {"net_income": _Q2["net_income"], "earnings_per_share": _series(("2025-06-30", 0.81))}, _Q1
+    )
+    assert _eps_items(out) == [] and [i["metric"] for i in out["items"]] == ["net_income"]
+
+
+def test_invariant_two_holds_net_income_to_basic_eps_where_the_filing_reports_it():
+    revenue = {"revenue": _series(("2026-06-30", 100.0))}, {"revenue": _series(("2026-03-31", 90.0))}
+    # A diluted line with no basic series to check against: its sign disagrees with net income, so both go.
+    current = {**revenue[0], "net_income": _series(("2026-06-30", -12.0)), "eps_diluted": _series(("2026-06-30", 1.00))}
+    prior = {**revenue[1], "net_income": _series(("2026-03-31", -10.0)), "eps_diluted": _series(("2026-03-31", 0.90))}
+    out = compute_what_changed(current, prior)
+    assert [i["metric"] for i in out["items"]] == ["revenue"] and out["data_quality"] == "partial"
+    # A warrant liability's fair-value gain: net income and basic EPS above zero, diluted EPS below it (the diluted
+    # numerator leaves the gain out). Basic EPS agrees with net income, so nothing is withheld, and the diluted line
+    # shows the diluted figures.
+    current = {
+        **revenue[0],
+        "net_income": _series(("2026-06-30", 5.0)),
+        "earnings_per_share": _series(("2026-06-30", 0.05)),
+        "eps_diluted": _series(("2026-06-30", -0.09)),
+    }
+    prior = {
+        **revenue[1],
+        "net_income": _series(("2026-03-31", 4.0)),
+        "earnings_per_share": _series(("2026-03-31", 0.04)),
+        "eps_diluted": _series(("2026-03-31", 0.04)),
+    }
+    out = compute_what_changed(current, prior)
+    assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", -0.09, 0.04)]
+    assert [i["metric"] for i in out["items"]] == ["revenue", "net_income", "eps_diluted"]
+    assert out["data_quality"] == "ok"
+    # The same gain in the prior quarter: that filing's basic EPS agrees with its net income, so nothing is withheld.
+    current = {
+        **revenue[0],
+        "net_income": _series(("2026-06-30", 5.0)),
+        "earnings_per_share": _series(("2026-06-30", 0.05)),
+        "eps_diluted": _series(("2026-06-30", 0.04)),
+    }
+    prior = {
+        **revenue[1],
+        "net_income": _series(("2026-03-31", 4.0)),
+        "earnings_per_share": _series(("2026-03-31", 0.04)),
+        "eps_diluted": _series(("2026-03-31", -0.03)),
+    }
+    out = compute_what_changed(current, prior)
+    assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 0.04, -0.03)] and out["data_quality"] == "ok"
+    # The basic line shown (the prior has no diluted series) disagrees in the prior period: basic and net income go,
+    # and the current filing's diluted series does not take its place.
+    prior = {**revenue[1], "net_income": _series(("2026-03-31", -10.0)), "earnings_per_share": _series(("2026-03-31", 0.92))}
+    out = compute_what_changed({**_Q2, **revenue[0]}, prior)
+    assert [i["metric"] for i in out["items"]] == ["revenue"] and out["data_quality"] == "partial"
+
+
 # --------------------------------------------------------------------------- composition (DB)
 
 @pytest.fixture(scope="module", autouse=True)

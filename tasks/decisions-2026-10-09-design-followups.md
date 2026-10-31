@@ -316,6 +316,8 @@ the merged stack had not been looked at in production.
    and `eps_diluted` "EPS (diluted)" wherever a reader sees them. **Recommended with it:** What changed, the
    change report's metrics, carries the diluted line. The trend picker and the Sector peers panel took the names
    first; What changed's move, with the constraints a review of it found, is `tasks/todo.md` E259.
+   What changed took the names in E259's second pull request: one EPS line per pair, diluted where both
+   sides carry it, else basic.
 3. **Dark-mode logos:** give a loaded logo a light chip in dark mode.
 4. **Layout shift:** reserve the header's signed-out actions' width while `/me` resolves; read the demo
    flag where the server can see it.

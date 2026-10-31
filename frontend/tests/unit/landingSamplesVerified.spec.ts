@@ -180,7 +180,7 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
       'Total net sales': 'RevenueFromContractWithCustomerExcludingAssessedTax',
       'Services net sales': 'Services net sales',
       'Net income': 'NetIncomeLoss',
-      'Diluted EPS': 'EarningsPerShareDiluted',
+      'EPS (diluted)': 'EarningsPerShareDiluted',
       'Diluted earnings per share': 'EarningsPerShareDiluted',
     }
     const SCALE: Record<string, number> = { B: 1e9, M: 1e6, '': 1 }
