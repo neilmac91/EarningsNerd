@@ -15,14 +15,14 @@ import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { BROKEN_BARS, buildBarChart, unitCurrency, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
-import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, minSlotOf, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView, type ModelPanel } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, perShareMoney, ratioFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, noteMarksFigure, resolveDataNotes, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { reasonText } from '@/features/analysis/lib/provenance'
 import { currencySymbol, DATA_FACE_GLYPHS, dataFaceDraws } from '@/lib/format'
-import { barCases, MIXED_NOTES, questioned, withMixedNotes, type BarFixture } from './chartPlan'
+import { barCases, MIXED_NOTES, peerBarCases, questioned, withMixedNotes, type BarFixture, type PeerFixture } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
 const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -38,6 +38,10 @@ const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓·]*$/
 // axis (chartPlan.ts barCases).
 const BAR_CASES = barCases(JSON.parse(readFileSync('tests/unit/fixtures/fundamentals-datasets.json', 'utf8')) as BarFixture)
 const barDef = (name: string): BarChartDef => structuredClone(BAR_CASES.find(([caseName]) => caseName === name)![1])
+// The ranked company charts (E251, chartPlan.ts peerBarCases): every case of the peers fixture, tickers up to six glyphs
+// wide among them.
+const PEER_CASES = peerBarCases(JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture)
+const peerDef = (name: string): BarChartDef => structuredClone(PEER_CASES.find(([caseName]) => caseName === name)![1])
 /** A bar chart's widths: about a 320 px phone's card (inside its p-cap-6), the analysis card's two, and a desktop column. */
 const BAR_WIDTHS: Record<ChartView, number[]> = { card: [250, 342, 502, 800], expanded: WIDTHS.expanded }
 /** M12 for a bar chart's axes, widened only by what they print: a currency's sign, in glyphs the data face draws
@@ -90,15 +94,22 @@ function expectModelChecks(model: ChartModel, view: ChartView, { chart, notes, w
   expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
   if (view === 'card') expect(layouts[0].height).toBe(320)
   layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(widths[i], minChartWidth(model, view))))
+  // A7's minimum slot: MIN_SLOT, or more where the chart's widest x tick needs it (minSlotOf).
+  const minSlot = minSlotOf(model, view)
   for (const [i, layout] of layouts.entries()) {
-    expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(MIN_SLOT - 1e-9)
-    // A4/A7: a chart widens past its container only as far as LABELLED_MAX_SLOT, and only when that gives its
-    // labels a tier; a chart that still prints none kept its minimum.
+    expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(minSlot - 1e-9)
+    // E251: a slot holds every line of its x tick with 2 px each side, as the strip's cells do, at every width: a ticker
+    // is wider than a year.
+    for (const period of model.periods) for (const line of period.tick) {
+      expect(textWidth(line) + 4, `M6: a slot holds the "${line}" tick with 2 px each side`).toBeLessThanOrEqual(layout.slot + 1e-9)
+    }
+    // A4/A7: a chart widens past its container only as far as LABELLED_MAX_SLOT (or its minimum, where its ticks need
+    // more), and only when that gives its labels a tier; a chart that still prints none kept its minimum.
     const fitSlot = (widths[i] - layout.gutter - 8) / model.periods.length
-    if (model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) expect(layout.slot, 'A7: widened at most to LABELLED_MAX_SLOT').toBeLessThanOrEqual(Math.max(fitSlot, LABELLED_MAX_SLOT) + 1e-9)
+    if (model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) expect(layout.slot, 'A7: widened at most to LABELLED_MAX_SLOT, or its minimum').toBeLessThanOrEqual(Math.max(fitSlot, LABELLED_MAX_SLOT, minSlot) + 1e-9)
     // A chart that still prints no labels took no widening, and its labels miss at its minimum too (so a wider
     // container never loses labels its minimum holds).
-    const base = layout.gutter + 8 + MIN_SLOT * model.periods.length
+    const base = layout.gutter + 8 + minSlot * model.periods.length
     const atMinimum = layoutChart(model, 0, view)
     if (layout.valuesDontFit) {
       expect(minChartWidth(model, view), 'A4: no widening for labels it cannot fit').toBe(base)
@@ -264,6 +275,12 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
 describe.each(BAR_CASES)('%s: the spec model checks on a bar chart (barChart.ts)', (_name, def) => {
   for (const view of ['card', 'expanded'] as const) {
     it(view, () => expectModelChecks(buildBarChart(def), view, { widths: BAR_WIDTHS[view], svgGlyphs: BAR_GLYPHS, zero: bareZero }))
+  }
+})
+
+describe.each(PEER_CASES)('%s: the spec model checks on a ranked company chart (E251)', (_name, def) => {
+  for (const view of ['card', 'expanded'] as const) {
+    it(view, () => expectModelChecks(buildBarChart(structuredClone(def)), view, { widths: BAR_WIDTHS[view], svgGlyphs: BAR_GLYPHS, zero: bareZero }))
   }
 })
 
@@ -627,10 +644,12 @@ describe('a one-metric bar chart (barChart.ts): Financial trends on the engine (
     expect(bars('AAPL net margin').footnotes, 'nothing clipped, nothing to say').toEqual([])
   })
 
-  it('refuses a category key given twice, loudly, and values that do not match the categories', () => {
+  it('refuses a category key given twice, loudly, values that do not match the categories, and a start that names none', () => {
     const def = barDef('AAPL revenue')
     expect(() => buildBarChart({ ...def, categories: [def.categories[0], ...def.categories.slice(0, 2)] })).toThrow('the category key "FY2023" appears twice')
     expect(() => buildBarChart({ ...def, series: { ...def.series, values: def.series.values.slice(1) } })).toThrow('2 values for 3 categories')
+    expect(() => buildBarChart({ ...def, start: 'FY1999' })).toThrow('the start "FY1999" names no category')
+    expect(buildBarChart({ ...def, start: 'FY2024' }).start, 'a start the chart holds').toBe('FY2024')
   })
 
   it('a chart that does not apply says why and draws nothing', () => {
@@ -676,6 +695,7 @@ describe('reading a chart: the slot under a pointer, a period’s column and the
     }
   })
   it.each(BAR_CASES.map(([name]) => name))('%s (a bar chart)', (name) => expectReading(buildBarChart(barDef(name))))
+  it.each(PEER_CASES.map(([name]) => name))('%s (a ranked company chart)', (name) => expectReading(buildBarChart(peerDef(name))))
 })
 
 describe('A7’s sticky gutter never shows a printed value in part, at any scroll', () => {
@@ -733,6 +753,7 @@ describe('A7’s sticky gutter never shows a printed value in part, at any scrol
     }
   })
   it.each(BAR_CASES.map(([name]) => name))('%s (a bar chart)', (name) => expectNoPartialValue(buildBarChart(barDef(name)), name))
+  it.each(PEER_CASES.map(([name]) => name))('%s (a ranked company chart)', (name) => expectNoPartialValue(buildBarChart(peerDef(name)), name))
 })
 
 describe('amounts carry their filer’s currency, never a default dollar sign', () => {
