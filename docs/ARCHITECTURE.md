@@ -239,17 +239,18 @@ old snapshots without this field use a presentation-only fallback. The web admit
 at the API boundary against the dataset's quality fields, rejecting malformed or mismatched
 metadata rather than silently falling back. Notes do not change financial values or validation.
 
-An annual dataset also reads, once, the company's non-current fiscal-year rows (`trend_analysis/first_reports.py`,
-MPA WP5a): where a later filing reports a value more than 0.1% from the one the year's own annual report gave (the
+An annual dataset also reads, once, the company's non-current fiscal-year rows (`trend_analysis/first_reports.py`, MPA
+WP5a): where a later filing reports a value more than 0.1% from the one the year's own annual report gave (the
 companyfacts own-report rows below, or a filing-owned or demoted row in that cell), a reported figure carries the own
-report's value as `first_reported`, a calculated figure's inputs carry theirs, and a YoY whose two years sit on
-different bases (their shown-to-first-reported ratios more than 1% apart) reads "nm" with `yoy_first_reported`. That
-is evidence, not a note: values, validation and totals stand. The one exception is read-time: an exact sign flip or
-factor of 1,000ⁿ between the two values marks the figure `needs_review` with the existing `source_conflict` reason,
-on a copy of its provenance, where the own row passed its checks. "Own report" replays `facts/own_reports.py`'s rule
-on stored rows, held to it by `test_first_reports.py`; quarterly datasets read and carry none of it. The page derives
-the data notes' later-filing line from the points (`features/analysis/lib/laterFilings.ts`), so the notes envelope and
-its version are unchanged.
+report's value as `first_reported`. A calculated figure's inputs carry theirs, as do the figures a YoY, CAGR or window
+change compares (`fact_provenance.fact_operand`). A YoY whose two years sit on different bases (their
+shown-to-first-reported ratios more than 1% apart) reads "nm" with `yoy_first_reported`. That is evidence, not a note:
+values, validation and totals stand. The one exception is read-time: an exact sign flip or factor of 1,000ⁿ between
+the two values marks the figure `needs_review` with the existing `source_conflict` reason, on a copy of its
+provenance, where the own row passed its checks. "Own report" replays `facts/own_reports.py`'s rule on stored rows,
+held to it by `test_first_reports.py`; quarterly datasets read and carry none of it. The page derives the data notes'
+later-filing line from the points (`features/analysis/lib/laterFilings.ts`), so the notes envelope and its version are
+unchanged.
 
 `presentation.py` formats selected observations after selection, preserving the model-facing
 catalogue and prompt. Its `narrative_presentation` completion member binds structured red-flag

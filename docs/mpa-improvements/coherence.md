@@ -390,12 +390,15 @@ held in one named constant or function a review can overturn:
 
 The own report is ingest's rule replayed on stored rows: an accession's own year is the latest fiscal-year row stored
 there, a balance included, unless its filing row's period of report lies further on, and a test holds the reader to
-the history row the sync stores for each of WP5b's own-report shapes. Growth as first reported is n/m across a sign or
-scale finding in either year's evidence, an input's included. On WP5b's REGN shape: revenue FY2018 and FY2019 and
-total assets FY2018 carry evidence (3 figures at 0.1%, not the 2 the 1% wording above gives); revenue growth
-FY2018–FY2020 reads n/m with +14.3%, +17.2% and +8.1% as first reported, and the net margin's changes with +16.0pp,
-−9.5pp and +14.4pp; FY2021 keeps +89.1%. The data notes' line takes its places from the points (the page's `laterFilingPlaces`, and its
-backend twin in X), so the envelope is unchanged.
+the history row the sync stores for each of WP5b's own-report shapes. Every record that lists a reported figure lists
+its evidence with it: a calculated figure's inputs (item 5), and the figures a YoY, CAGR or window change compares
+(`fact_provenance.fact_operand`). So a CAGR that keeps its number across a change of basis (D5) still shows the
+changed endpoint's own report in its dialog. Growth as first reported is n/m across a sign or scale finding in either
+year's evidence, an input's included. On WP5b's REGN shape: revenue FY2018 and FY2019 and total assets FY2018 carry
+evidence (3 figures at 0.1%, not the 2 the 1% wording above gives); revenue growth FY2018–FY2020 reads n/m
+with +14.3%, +17.2% and +8.1% as first reported, and the net margin's changes with +16.0pp, −9.5pp and +14.4pp; FY2021
+keeps +89.1%. The data notes' line takes its places from the points (the page's `laterFilingPlaces`, and its backend
+twin in X), so the envelope is unchanged.
 
 The rebuild wave comes in two parts, since the reader takes a year's own report from any non-current row in the cell.
 At B's deploy, every company whose stored rows already hold one beside a later filing's value (a demoted former
