@@ -25,9 +25,10 @@ import { bindingResolver, containerEscape } from './astBindings'
  *    that way.
  *  - Its face: the words it shows, read through wrapper elements and fragments. Not face: a visually hidden span
  *    (`sr-only`, unless a `not-sr-only` variant shows it), a keyboard hint (`kbd`, whose shortcut is no part of the
- *    name), a component that closes itself (an icon), and what `aria-hidden` marks where it is a status the name may say
- *    in words of its own: digits and glyphs, or a value the label names (inView()). Words `aria-hidden` marks are still
- *    face: a speech user sees them, and they are the label the name must begin with.
+ *    name), a component that closes itself (an icon), and what an `aria-hidden` element shows where it is a status the
+ *    name may say in words of its own: digits and glyphs, or a value the label names, read per element (inView()). An
+ *    element that shows a word with a letter stays face, whole: a speech user sees it, and it is the label the name must
+ *    begin with.
  *  - Both as words and values: a string, a template's chunks, and a const that holds one, in the file (by scope,
  *    `astBindings`) or exported by another module of the app (`@/…` or a relative import); any other expression is a
  *    value, the same value wherever it is written the same way. A conditional is read as its two branches (`cond && x`
@@ -55,8 +56,8 @@ const CONTROL_ROLES = new Set(['button', 'link', 'menuitem', 'menuitemcheckbox',
 const CONTROL_NAME = /^(?:Link|\w*Button|\w+Link)$/
 
 type Element = ts.JsxElement | ts.JsxSelfClosingElement
-/** A word or a value; `hidden` where `aria-hidden` marks what shows it (see inView()). */
-type Token = ({ word: string } | { value: string }) & { hidden?: true }
+/** A word or a value; `hidden` names the run an `aria-hidden` element shows it in, one run per element (see inView()). */
+type Token = ({ word: string } | { value: string }) & { hidden?: number }
 /** One branch of a label or a face: its tokens, and the condition branches it was read under. */
 interface Branch { tokens: Token[]; when: Map<string, boolean> }
 /** What a control's label or face reads as: its branches, or null where the scan cannot read it. */
@@ -160,14 +161,17 @@ function judge(label: Token[], face: Token[]): 'ok' | 'fail' | 'unread' {
 }
 
 /**
- * The face a label is judged against. What `aria-hidden` marks drops out where it is a status the name may say in words
- * of its own: digits and glyphs (a count, "9+"), and a value the label itself names (the bell's count, in "Notifications
- * ({unread} unread)"). Its words stay: a reader sees them, and they are the control's label (FilingIndex's "SEC.gov").
- * The scan cannot tell a value that holds words from a count, so a hidden value the label names drops out either way
- * (planted as a gap). With no label to hand (`label` null), a hidden value stays.
+ * The face a label is judged against. A run `aria-hidden` marks drops out whole where it is a status the name may say in
+ * words of its own: no word in it holds a letter (a count, "9+") and each value in it is one the label itself names (the
+ * bell's count, in "Notifications ({unread} unread)"). One word with a letter keeps the whole run, digits and all, since a
+ * reader sees it and it is the control's label (FilingIndex's "SEC.gov", "FY 2024", "10-K"). The scan cannot tell a value
+ * that holds words from a count, so a hidden value the label names drops out either way (planted as a gap). With no label
+ * to hand (`label` null), a run with a value stays.
  */
 function inView(face: Token[], label: Token[] | null): Token[] {
-  return face.filter((t) => !t.hidden || ('word' in t ? /\p{L}/u.test(t.word) : !label?.some((l) => 'value' in l && l.value === t.value)))
+  const status = (t: Token) => ('word' in t ? !/\p{L}/u.test(t.word) : !!label?.some((l) => 'value' in l && l.value === t.value))
+  const kept = new Set(face.filter((t) => t.hidden !== undefined && !status(t)).map((t) => t.hidden))
+  return face.filter((t) => t.hidden === undefined || kept.has(t.hidden))
 }
 
 /** Reads one source's controls. `exportedText` gives a string another module exports, or null. */
@@ -180,6 +184,9 @@ export function labelInName(source: string, file: string, exportedText: (specifi
     const bindings = statement.importClause.namedBindings
     if (ts.isNamedImports(bindings)) for (const spec of bindings.elements) imports.set(spec.name.text, { from: statement.moduleSpecifier.text, name: (spec.propertyName ?? spec.name).text })
   }
+
+  /** The runs aria-hidden elements show, numbered as the scan meets them (one per element, in each branch it shows in). */
+  let hiddenRuns = 0
 
   /** An expression's reading: its words where they are known, a value where not, its branches for a conditional. */
   const read = (expr: ts.Expression, seen = new Set<ts.Node>()): Reading => {
@@ -234,9 +241,11 @@ export function labelInName(source: string, file: string, exportedText: (specifi
         if (openingOf(node).tagName.getText() === 'kbd' || visuallyHidden(classText(node))) return one([])
         if (ts.isJsxSelfClosingElement(node)) return one([])
         const inner = face(node.children)
-        // What aria-hidden marks is read as inView() decides, against each label.
-        if (ariaHidden(node)) return inner && inner.map((b) => ({ tokens: b.tokens.map((t): Token => ({ ...t, hidden: true })), when: b.when }))
-        return inner
+        // What aria-hidden marks is one run, which inView() keeps or drops whole against each label; an outer element's
+        // run takes in an inner one's.
+        if (!ariaHidden(node)) return inner
+        const run = ++hiddenRuns
+        return inner && inner.map((b) => ({ tokens: b.tokens.map((t): Token => ({ ...t, hidden: run })), when: b.when }))
       }
       return one([])
     }))
@@ -408,6 +417,8 @@ describe('the label-in-name reader, on planted controls', () => {
     ['a keyboard hint left out of the name', '<button aria-label="Ask this Filing">Ask this Filing<kbd>⌘K</kbd></button>', 'ok'],
     ['a count marked aria-hidden', '<button aria-label="Notifications, 3 unread"><BellIcon /><span aria-hidden="true">3</span></button>', 'ok'],
     ['words marked aria-hidden, still the face', '<a href="/x" aria-label="View the filing on SEC.gov"><span aria-hidden="true">SEC.gov</span><ArrowIcon /></a>', 'fail'],
+    ['a hidden run of words and digits, read whole', '<button aria-label="FY 2025 report"><span aria-hidden="true">FY 2024</span></button>', 'fail'],
+    ['a hidden form code the label begins with', '<button aria-label="10-K filing"><span aria-hidden="true">10-K</span></button>', 'ok'],
     ['a hidden value the label names, a count it says', '<button aria-label={`Notifications (${t} unread)`}><BellIcon /><span aria-hidden="true">{t}</span></button>', 'ok'],
     ['a hidden value the label names, though it may hold words (a gap)', '<button aria-label={`Add ${t} to your watchlist`}><span aria-hidden="true">{t}</span></button>', 'ok'],
     ['a hidden value the label does not name', '<button aria-label="Open the list"><span aria-hidden="true">{t}</span></button>', 'unread'],
