@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Annotated, Any, Optional
 from contextlib import aclosing
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 from uuid import UUID
 import asyncio
@@ -18,6 +18,8 @@ from starlette.types import Receive, Scope, Send
 from app.services.posthog_client import capture_copilot_inference
 
 from app.config import settings
+from app.api_errors import CodedHTTPException
+from app.error_codes import ErrorCode, sse_error
 from app.database import get_db, SessionLocal
 from app.models import (
     Filing,
@@ -27,10 +29,12 @@ from app.models import (
 )
 from app.routers.auth import get_current_user, get_current_user_optional
 from app.dependencies import copilot_taste_exhausted_detail, require_copilot_or_taste
-from app.services import filing_list_service
+from app.services import filing_list_service, summary_job_store, summary_jobs
+from app.services.request_work import run_owned_sync
+from app.services.summary_job_progress import durable_progress_answer
 from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
-from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.rate_limiter import ActiveStreamLimiter, RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
     LIFETIME_SCOPE,
     check_qa_limit,
@@ -63,6 +67,12 @@ logger = logging.getLogger(__name__)
 # Both burst limiters are keyed on the account alone (``include_client_ip=False``): keying on
 # (IP, user) would let one account presenting several client IPs multiply its allowance.
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
+# Bound cheap replay/join handshakes separately. Only the actual generation leader spends
+# SUMMARY_LIMITER; retries and readers joining another run must not exhaust that work budget.
+SUMMARY_REQUEST_LIMITER = RateLimiter(limit=60, window_seconds=60)
+# Followers wait before the generation semaphore; bound their live HTTP occupancy too.
+# This is per process, not a fleet-wide account limit. Ready replay and GET stay available.
+SUMMARY_STREAM_LIMITER = ActiveStreamLimiter(limit=4)
 # Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
 # burst than summaries while still throttling abuse (per user, sliding window).
 ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
@@ -71,8 +81,12 @@ ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
 class SummaryStreamResponse(StreamingResponse):
     """Close the owned iterator even when disconnect occurs during ASGI send."""
 
-    def __init__(self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence) -> None:
+    def __init__(
+        self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence,
+        release_stream_slot: Optional[Callable[[], None]] = None,
+    ) -> None:
         self.evidence = evidence
+        self.release_stream_slot = release_stream_slot
         self.owned_stream = evidence.wrap_stream(content)
         super().__init__(
             self.owned_stream, media_type="text/event-stream",
@@ -96,7 +110,11 @@ class SummaryStreamResponse(StreamingResponse):
                 try:
                     await self.owned_stream.aclose()
                 finally:
-                    self.evidence.finish("cancelled")
+                    try:
+                        self.evidence.finish("cancelled")
+                    finally:
+                        if self.release_stream_slot is not None:
+                            self.release_stream_slot()
 
 
 @dataclass(frozen=True)
@@ -173,6 +191,10 @@ async def get_summary_progress(
     """
     def progress_for_reader() -> dict[str, Any]:
         try:
+            if settings.SUMMARY_DURABLE_GENERATION_ENABLED and settings.DURABLE_TASKS_ENABLED:
+                durable = durable_progress_answer(db, filing_id)
+                if durable is not None:
+                    return durable
             return progress_poll_answer(db, filing_id)
         finally:
             filing_list_service.release_request_session(db)
@@ -184,6 +206,7 @@ async def generate_summary_stream(
     filing_id: int,
     request: Request,
     force: bool = False,
+    retry_failed: bool = False,
     entry_point: Optional[str] = None,
     ph_id: Optional[str] = None,
     analytics_consent: bool = False,
@@ -204,6 +227,8 @@ async def generate_summary_stream(
         force: If True, regenerate a stored summary in place ("Regenerate Analysis"; Pro-only
                while the stored summary is one the filing page shows). A stored row the page
                cannot show is regenerated in place for any caller, with or without force.
+        retry_failed: An explicit Retry action may reopen a failed durable job after its cooldown.
+            A page-load or transport reconnect only observes it; this never bypasses admission.
         entry_point: Where the visitor entered the funnel (forwarded by the
                      frontend for activation analytics, e.g. "homepage").
         ph_id: Legacy client hint, accepted for compatibility but never used as account identity.
@@ -218,19 +243,41 @@ async def generate_summary_stream(
         transport_attempt=transport_attempt, entry_point=entry_point,
     )
     evidence.start()
+    release_stream_slot = None
+    durable_enabled = settings.SUMMARY_DURABLE_GENERATION_ENABLED and settings.DURABLE_TASKS_ENABLED
     try:
-        client_host = request.client.host if request.client else "unknown"
         # The admission's unit releases the request's session, which detaches the user: read its id first.
         user_id = current_user.id
-        logger.info(f"[stream:{filing_id}] Incoming stream request from {user_id} (IP: {client_host}, force={force})")
+        logger.info("[stream:%s] Incoming stream request request_id=%s force=%s",
+                    filing_id, evidence.properties["request_id"], force)
 
-        enforce_rate_limit(
-            request,
-            SUMMARY_LIMITER,
-            f"summary:{user_id}",
-            error_detail="Too many summary requests. Try again shortly.",
-            include_client_ip=False,
-        )
+        try:
+            enforce_rate_limit(
+                request,
+                SUMMARY_REQUEST_LIMITER,
+                f"summary:{user_id}",
+                error_detail="Too many summary requests. Try again shortly.",
+                include_client_ip=False,
+            )
+        except HTTPException as exc:
+            raise CodedHTTPException(
+                ErrorCode.SUMMARY_RATE_LIMITED, exc.detail,
+                headers=exc.headers,
+            ) from exc
+
+        def admit_generation() -> Optional[dict]:
+            # Called after the pipeline's atomic local leader claim and cache rechecks, before
+            # quota reservation, a generation slot or SEC work. A failed leader's successor must
+            # pass this gate too; the client cannot label itself a free retry or a follower.
+            key = f"summary:{user_id}"
+            if SUMMARY_LIMITER.allow(key):
+                return None
+            evidence.reason = ErrorCode.SUMMARY_RATE_LIMITED.value
+            return sse_error(
+                "Too many summary requests. Try again shortly.", ErrorCode.SUMMARY_RATE_LIMITED,
+                retry_after_seconds=SUMMARY_LIMITER.retry_after(key) or SUMMARY_LIMITER.window_seconds,
+                request_id=evidence.properties["request_id"],
+            )
 
         def admit() -> _StreamAdmission:
             """The admission's session work and the session's release, as one unit off the event loop
@@ -278,9 +325,9 @@ async def generate_summary_stream(
                         # failed-generation retry stays open to Free users. The pipeline then serves or
                         # keeps any summary another request saves meanwhile (replace_unready_only below).
                         if not is_pro_user(current_user):
-                            raise HTTPException(
-                                status_code=status.HTTP_403_FORBIDDEN,
-                                detail="Regenerating a summary is a Pro feature.",
+                            # Coded (E31): the plan card, never a Retry.
+                            raise CodedHTTPException(
+                                ErrorCode.PLAN_REQUIRED, detail="Regenerating a summary is a Pro feature."
                             )
                         # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
                         # existing summary row rather than delete+insert, so the summaries.id — and any
@@ -298,13 +345,14 @@ async def generate_summary_stream(
                         # admission: no reader shows the progress row while the summary exists (it is kept).
                         # One DELETE with no read before it: off the loop two forces of one filing clear it at
                         # once, and a read, then a delete, left the second deleting a row already gone.
-                        db.query(SummaryGenerationProgress).filter(
-                            SummaryGenerationProgress.filing_id == filing_id
-                        ).delete(synchronize_session=False)
+                        if not durable_enabled:
+                            db.query(SummaryGenerationProgress).filter(
+                                SummaryGenerationProgress.filing_id == filing_id
+                            ).delete(synchronize_session=False)
 
                         # Committed below, once the stream's inputs are read: the commit expires the user
                         # and the filing, and a read of either after it would refresh its row.
-                        cleared_for_regeneration = True
+                        cleared_for_regeneration = not durable_enabled
                     else:
                         # The replay's response, captured before the release.
                         return _StreamAdmission(replay={
@@ -340,6 +388,101 @@ async def generate_summary_stream(
                 evidence.observe_terminal(payload)
                 yield f"data: {json.dumps(payload)}\n\n"
             return SummaryStreamResponse(existing_summary(), evidence)
+
+        if settings.SUMMARY_DURABLE_GENERATION_ENABLED and not settings.DURABLE_TASKS_ENABLED:
+            # A half-enabled deployment must not bypass durable ownership with a legacy writer.
+            raise CodedHTTPException(ErrorCode.GENERATION_PAUSED, "Summary preparation is temporarily unavailable.")
+
+        release_stream_slot = SUMMARY_STREAM_LIMITER.try_acquire(f"summary:{user_id}")
+        if release_stream_slot is None:
+            raise CodedHTTPException(
+                ErrorCode.SUMMARY_RATE_LIMITED,
+                "Too many summary requests. Try again shortly.",
+                headers={"Retry-After": "5"},
+            )
+
+        if durable_enabled:
+            def admit_durable_generation() -> None:
+                refusal = admit_generation()
+                if refusal:
+                    raise CodedHTTPException(
+                        ErrorCode.SUMMARY_RATE_LIMITED, refusal["message"],
+                        headers={"Retry-After": str(refusal["retry_after_seconds"])},
+                    )
+
+            try:
+                view = await run_owned_sync(
+                    summary_job_store.ensure_job, filing_id, user_id, force=force,
+                    retry_failed=retry_failed, admit_new=admit_durable_generation,
+                )
+            except summary_job_store.SummaryJobUnavailable as exc:
+                aliases = {
+                    "summary_account_required": ErrorCode.AUTH_REQUIRED,
+                    "summary_refresh_requires_pro": ErrorCode.PLAN_REQUIRED,
+                    "summary_retry_wait": ErrorCode.SUMMARY_RATE_LIMITED,
+                    "summary_pending_limit": ErrorCode.SUMMARY_RATE_LIMITED,
+                    "free_allowance_exhausted": ErrorCode.FREE_ALLOWANCE_EXHAUSTED,
+                    "pro_fair_use_limit": ErrorCode.PRO_FAIR_USE_LIMIT,
+                    "summary_unavailable": ErrorCode.GENERATION_PAUSED,
+                }
+                headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else None
+                if exc.code in aliases:
+                    raise CodedHTTPException(aliases[exc.code], str(exc), headers=headers) from exc
+                if exc.code == "filing_not_found":
+                    raise HTTPException(status_code=404, detail="Filing not found") from exc
+                if exc.code == "summary_account_unavailable":
+                    raise HTTPException(status_code=403, detail="This account is inactive. Contact support with any questions.") from exc
+                raise HTTPException(status_code=503, detail="Summary preparation is unavailable. Try again shortly.", headers=headers) from exc
+
+            evidence.delivery_path = "durable_created" if view.created else "durable_join"
+            evidence.properties["generation_ownership"] = "durable_worker"
+            # Every request may repair the same unacknowledged outbox intent using its stable task key.
+            # A failed handoff never falls through to the request-owned provider pipeline.
+            if view.job_id and view.status in {"queued", "retry_wait"} and view.last_dispatched_at is None:
+                try:
+                    await summary_jobs.dispatch_job(view.job_id, view.generation)
+                    refreshed = await run_owned_sync(summary_job_store.read_job, view.job_id, view.generation)
+                    if refreshed is None or (refreshed.status in {"queued", "retry_wait"} and refreshed.last_dispatched_at is None):
+                        raise RuntimeError("Summary dispatch has not been acknowledged")
+                    view = refreshed
+                except Exception as exc:
+                    logger.warning("[stream:%s] Durable dispatch unavailable exception_class=%s", filing_id, type(exc).__name__)
+                    raise HTTPException(
+                        status_code=503, detail="Summary preparation could not start. Try again shortly.",
+                        headers={"Retry-After": "5"},
+                    ) from exc
+
+            async def durable_events():
+                # Request evidence measures only this observer. Closing it cannot revoke the job lease.
+                evidence.reason = "observer_disconnected"
+                deadline = asyncio.get_running_loop().time() + min(settings.STREAM_TIMEOUT, 240)
+                try:
+                    async with aclosing(summary_jobs.observe_job(view)) as events:
+                        while True:
+                            remaining = deadline - asyncio.get_running_loop().time()
+                            if remaining <= 0:
+                                raise TimeoutError
+                            try:
+                                # Only the iterator wait is cancelled at the deadline. A timeout context
+                                # spanning yield would cancel Starlette's send and swallow our final frame.
+                                event = await asyncio.wait_for(anext(events), timeout=remaining)
+                            except StopAsyncIteration:
+                                break
+                            if event.get("type") in {"complete", "partial", "error"}:
+                                evidence.reason = event.get("code") if event["type"] == "error" else None
+                            evidence.observe_terminal(event)
+                            yield to_sse(event)
+                except TimeoutError:
+                    evidence.reason = "observer_timeout"
+                    evidence.finish("timed_out")
+                    yield to_sse({
+                        "type": "error", "message": "The summary is still preparing. Try again to reconnect.",
+                        "retry_after_seconds": 5, "request_id": evidence.properties["request_id"],
+                    })
+
+            response = SummaryStreamResponse(durable_events(), evidence, release_stream_slot)
+            release_stream_slot = None
+            return response
 
         logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
@@ -377,12 +520,17 @@ async def generate_summary_stream(
                 replace_unready_only=refresh_unready or (force and not admission.had_summary),
                 refresh_xbrl=refresh_xbrl,
                 request_evidence=evidence,
+                admit_generation=admit_generation,
             )) as events:
                 async for event in events:
                     evidence.observe_terminal(event)
                     yield to_sse(event)
 
-        return SummaryStreamResponse(event_stream(), evidence)
+        response = SummaryStreamResponse(event_stream(), evidence, release_stream_slot)
+        # Transfer ownership only after construction succeeds. The ASGI response releases the
+        # lease even if response.start fails before our generator's finally could run.
+        release_stream_slot = None
+        return response
     except HTTPException as exc:
         evidence.reason = f"http_{exc.status_code}"
         evidence.finish("rejected")
@@ -394,6 +542,9 @@ async def generate_summary_stream(
         evidence.reason = "route_error"
         evidence.finish("error")
         raise
+    finally:
+        if release_stream_slot is not None:
+            release_stream_slot()
 
 
 def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> Optional[str]:
@@ -552,18 +703,23 @@ async def ask_filing_stream(
                 # completes (converted) or fails (released).
                 admitted, _used, allowance, token = reserve_qa_taste_use(current_user, db)
                 if not admitted:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail=copilot_taste_exhausted_detail(allowance),
+                    # E31's code follows the words' own case, as require_copilot_or_taste's does (the contract's §3):
+                    # a spent free allowance, or none at all, which is the plan's gate.
+                    raise CodedHTTPException(
+                        ErrorCode.FREE_ALLOWANCE_EXHAUSTED if allowance else ErrorCode.PLAN_REQUIRED,
+                        detail=copilot_taste_exhausted_detail(allowance),
                     )
             else:
                 allowed, count, cap = check_qa_limit(current_user, db)
                 if allowed:
                     allowed, count, cap, token = reserve_qa_use(current_user, db)  # serialized decision
                 if not allowed:
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    # Coded (E31): the plan card with no upgrade button and no Retry. The burst limiter's 429 above stays
+                    # uncoded, a plain rate limit the reader may retry.
+                    raise CodedHTTPException(
+                        ErrorCode.PRO_FAIR_USE_LIMIT,
                         detail=(
-                            f"You've reached this month's fair-use limit of {cap} Copilot questions. "
+                            f"You've reached this month's fair-use limit of {cap:,} questions. "
                             "It resets at the start of next month."
                         ),
                     )
@@ -761,7 +917,7 @@ def _summary_and_filing_for_export(
     try:
         # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
         if not get_entitlements(current_user).can_export:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=refusal)
+            raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail=refusal)  # E31
 
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         if not summary:
@@ -790,10 +946,7 @@ async def export_summary_pdf(
 
     # Require authentication for exports
     if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
+        raise CodedHTTPException(ErrorCode.AUTH_REQUIRED, detail="Authentication required")  # E31
 
     summary, filing = await run_in_threadpool(
         _summary_and_filing_for_export, db, current_user, filing_id,
@@ -826,10 +979,7 @@ async def export_summary_csv(
 
     # Require authentication for exports
     if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
+        raise CodedHTTPException(ErrorCode.AUTH_REQUIRED, detail="Authentication required")  # E31
 
     summary, filing = await run_in_threadpool(
         _summary_and_filing_for_export, db, current_user, filing_id,

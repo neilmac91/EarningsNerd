@@ -829,6 +829,58 @@ def test_endpoint_over_cap_returns_429(client, monkeypatch):
     with _as_user(is_pro=True), _seed_filing() as fid:
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429
+        # E31's code the reader keys on, beside E37's words (the product name gone, D-034); the cap, not a rate limit,
+        # so no Retry-After rides with it.
+        assert resp.json() == {
+            "detail": "You've reached this month's fair-use limit of 0 questions. It resets at the start of next month.",
+            "code": "pro_fair_use_limit",
+        }
+        assert "retry-after" not in resp.headers
+
+
+@pytest.mark.requires_db
+def test_the_cap_prints_its_number_as_the_usage_line_does(client, monkeypatch):
+    # E37: the cap reads "1,000", as the rail's usage line prints it from the usage response, never "1000"; and the
+    # feature's one name stays out of the sentence (D-034).
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "check_qa_limit", lambda user, db: (False, 1000, 1000))
+    with _as_user(is_pro=True), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+    assert resp.status_code == 429
+    assert resp.json()["detail"] == (
+        "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
+    )
+
+
+@pytest.mark.requires_db
+def test_endpoint_burst_limit_429_stays_a_plain_rate_limit(client, monkeypatch):
+    # The burst limiter's 429 is not the fair-use cap: it carries no code, so the reader keeps its Retry. The route's
+    # own limiter, refusing at once, answers it.
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "ASK_LIMITER", summaries_router.RateLimiter(limit=0, window_seconds=60))
+    with _as_user(is_pro=True), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 429
+        assert resp.json() == {"detail": "Too many questions. Try again shortly."}
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(("allowance", "code", "words"), [
+    (3, "free_allowance_exhausted", "You've used your 3 free Copilot questions."),
+    (0, "plan_required", "Ask this Filing is a Pro feature."),
+])
+def test_endpoint_serialized_taste_refusal_codes_its_case(client, monkeypatch, allowance, code, words):
+    # The serialized admission's 403 takes the code its words' case names, as require_copilot_or_taste's does (E31,
+    # the contract's §3): a spent free allowance, or no allowance at all. The gate upstream is let through here.
+    import app.routers.summaries as summaries_router
+
+    monkeypatch.setattr(summaries_router, "reserve_qa_taste_use", lambda user, db: (False, allowance, allowance, None))
+    with _as_user(is_pro=False, free_taste_used=0), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 403
+        assert resp.json()["code"] == code and resp.json()["detail"].startswith(words)
 
 
 # --- Message assembly + snapshot ---------------------------------------------------------------
@@ -2385,6 +2437,7 @@ def test_endpoint_pro_serialized_block_returns_429_when_the_read_admits(client, 
         _insert_lease(uid, QA_RESERVATION_KIND, get_current_month())
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429
+        assert resp.json()["code"] == "pro_fair_use_limit"
         assert len(_leases(uid)) == 1  # the blocked request held nothing
 
 
@@ -2425,6 +2478,7 @@ def test_endpoint_concurrent_free_taste_questions_cannot_exceed_the_allowance(cl
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 403
         assert "free Copilot questions" in resp.json()["detail"]
+        assert resp.json()["code"] == "free_allowance_exhausted"
         monkeypatch.setattr(usage, "get_current_month", lambda: "2000-01")
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 403
         assert len(_leases(uid)) == 1

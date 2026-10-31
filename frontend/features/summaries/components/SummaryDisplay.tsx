@@ -24,11 +24,12 @@ import { cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholde
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
 // a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
-// recharts is heavy + DOM-only, so load it client-side like the other charts. It self-fetches and
-// renders nothing until facts exist, so no loading fallback (which would flash an empty card before
-// it decides). This is the page's single financial chart — it replaced the older current-vs-prior
-// FinancialCharts, whose bar chart duplicated this one's metrics; the FinancialMetricsTable below
-// still shows the numbers.
+// It draws through the trend charts' engine (E195 (D)), which measures its viewport and waits for
+// its font in the browser, so it loads client-side in a chunk of its own, keeping the engine out of
+// the page's first load. It self-fetches and renders nothing until facts exist, so no loading
+// fallback (which would flash an empty card before it decides). This is the page's single financial
+// chart — it replaced the older current-vs-prior FinancialCharts, whose bar chart duplicated this
+// one's metrics; the FinancialMetricsTable below still shows the numbers.
 const FundamentalsTrendChart = dynamic(
   () => import('@/features/fundamentals/components/FundamentalsTrendChart'),
   { ssr: false },
@@ -59,6 +60,7 @@ export interface SummaryDisplayProps {
   demoMode?: boolean
   isAuthenticated: boolean
   onRetry?: () => void
+  onRegenerate?: () => void
   /** Opens the Copilot rail with an optional pre-filled question; `surface` attributes the entry point. */
   onAsk: (prefill: string, surface: string) => void
   /** The server-read change report: What changed renders with the summary, not after it. */
@@ -77,6 +79,7 @@ export function SummaryDisplay({
   demoMode,
   isAuthenticated,
   onRetry,
+  onRegenerate,
   onAsk,
   initialChangeReport,
   headingRef,
@@ -126,7 +129,7 @@ export function SummaryDisplay({
   const coverageTier = isPartial || quality?.tier === 'partial' ? 'partial' : quality?.tier === 'full' ? 'full' : 'unknown'
   const coverageReasons = [...new Set((quality?.reasons ?? []).map(reasonWords))]
   const showQualityBadge = ENABLE_QUALITY_BADGE
-  const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry)
+  const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRegenerate)
 
   // T2: the single structured projection the page renders (metrics, risks-with-provenance, prose,
   // tables — one home per number). Computed on read by the backend from the enriched raw_summary.
@@ -224,7 +227,7 @@ export function SummaryDisplay({
               )}
               {/* Pro-only force-regeneration (backend gates it to Pro); hidden in demo mode. */}
               {showRegenerate && (
-                <Button variant="secondary" onClick={onRetry}>
+                <Button variant="secondary" onClick={onRegenerate}>
                   Regenerate summary
                 </Button>
               )}

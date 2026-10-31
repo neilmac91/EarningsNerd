@@ -232,7 +232,6 @@ describe('StreamingSummaryDisplay status line', () => {
 
   it.each([
     ['initializing', 'fetching'],
-    ['queued', 'fetching'],
     ['fetching', 'fetching'],
     ['parsing', 'parsing'],
     ['analyzing', 'summarizing'],
@@ -245,6 +244,15 @@ describe('StreamingSummaryDisplay status line', () => {
     expect(text.startsWith('10-K · ')).toBe(true)
     expect(LINES[pool]).toContain(text.slice('10-K · '.length))
     expect(meta.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-sm', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+  })
+
+  it('keeps a queued job at zero and shows its preparation state without claiming a source fetch', async () => {
+    render(<StreamingSummaryDisplay streamingText="" stage="queued" message="Waiting to retry the source…" filing={filing} elapsedSeconds={90} />)
+    await act(async () => {})
+    expect(screen.getByText('Waiting to retry the source…')).toBeInTheDocument()
+    expect(screen.queryByText('Opening the filing…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Taking longer than usual. Still working on it.')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
   })
 
   // A line says what the step beside it does not: the summarizing pool's "Checking the figures against the filing's
@@ -314,8 +322,9 @@ describe('StreamingSummaryDisplay headings', () => {
   })
 
   // The capture review at 200% text on a 390px phone: the percent printed over "Generating the summary",
-  // "Usually 30–60s" collided with it, and the meta line broke "10-|K". The header row wraps, the percent
-  // keeps to the right edge on a line of its own, and the form code is one unbreakable run.
+  // the former "Usually 30–60s" line collided with it, and the meta line broke "10-|K". The current
+  // "Estimated progress" line shares that wrapping header: the percent keeps to the right edge on a line of
+  // its own, and the form code is one unbreakable run.
   it('lets the percent move beneath the heading, and keeps the form code whole', async () => {
     renderAt('fetching')
     await act(async () => {})
@@ -339,7 +348,7 @@ describe('StreamingSummaryDisplay paywall routing', () => {
       <StreamingSummaryDisplay
         streamingText=""
         stage="error"
-        message="Monthly limit reached"
+        message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
         filing={filing}
         trialEligible={trialEligible}
       />,
@@ -349,15 +358,16 @@ describe('StreamingSummaryDisplay paywall routing', () => {
   })
 
   it('promises no trial while the trial does not ship, whatever the page says about the user', () => {
-    render(<StreamingSummaryDisplay streamingText="" stage="error" message="Monthly limit reached" filing={filing} trialEligible />)
+    render(<StreamingSummaryDisplay streamingText="" stage="error" message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries." filing={filing} trialEligible />)
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByText(/free trial/)).toBeNull()
   })
 })
 
 // The pipeline's sentences took the product's words with E217's functional change to summary_stages (F35, D-046,
-// E92); the card still maps the stream endpoint's own answers and the two sentences the matchers route on
-// (features/summaries/lib/streamErrorCopy.ts), and the raw sentence still routes it.
+// E92), and the free monthly limit and Pro's fair-use ceiling with E37; the card still maps the stream endpoint's own
+// answers and a retired sentence (features/summaries/lib/streamErrorCopy.ts), and the raw sentence, or its code, still
+// routes it.
 describe('StreamingSummaryDisplay failure reason', () => {
   it('shows a backend sentence in the product voice', async () => {
     render(
@@ -375,19 +385,19 @@ describe('StreamingSummaryDisplay failure reason', () => {
     expect(screen.queryByText('Filing not found')).toBeNull()
   })
 
-  // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card
+  // Pro's fair-use ceiling holds until the month turns, so a Retry could only repeat the blocked request: the card
   // keeps its sentence and offers none (isNonRetryableStreamError, the matcher that also stops the stream's own
   // retry). A failure a retry can help keeps its Retry. The card's one button is its Retry, read by role and not
   // by label, so the case holds whatever the Retry says.
-  it("offers no Retry at Pro's fair-use pause, and one for a failure a retry can help", async () => {
+  it("offers no Retry at Pro's fair-use ceiling, and one for a failure a retry can help", async () => {
     const failed = (error: string) => (
       <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
     )
     const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
     const { rerender } = render(
       failed(
-        "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
-          'Please try again later or contact support.',
+        "Your account has reached this month's limit for generating summaries, regenerations included. " +
+          'It resets next month. Contact support with any questions.',
       ),
     )
     await act(async () => {})
@@ -400,6 +410,19 @@ describe('StreamingSummaryDisplay failure reason', () => {
     expect(cardButton()).toBeNull()
     rerender(failed('The filing could not be summarized right now.'))
     expect(cardButton()).toBeInTheDocument()
+  })
+
+  // While E37 deploys, the page serves before its backend, whose stream still sends the ceiling's old words, coded: the
+  // code withholds the Retry, and the card shows the ceiling's words, never the retired ones.
+  it("shows the ceiling's words for its retired sentence, and the code withholds the Retry", async () => {
+    render(
+      <StreamingSummaryDisplay streamingText="" stage="error" message="" filing={filing} onRetry={() => {}}
+        error="We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support." failure={{ code: 'pro_fair_use_limit' }} />,
+    )
+    await act(async () => {})
+    expect(screen.getByText("Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.")).toBeInTheDocument()
+    expect(screen.queryByText(/temporarily paused/)).toBeNull()
+    expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
   })
 
   // The stream endpoint's 403s hold whatever the reader retries. A Free reader's retry after a failed summary read

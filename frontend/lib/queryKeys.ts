@@ -53,6 +53,7 @@ export const queryKeys = {
 
   // ── Parametrized factories ───────────────────────────────────────────────────
   insiders: (ticker: string, windowDays: number) => ['insiders', ticker, windowDays] as const,
+  // The company page's Sector peers panel: a company's sector cohort on one metric (features/peers).
   peers: (ticker: string, metric: string) => ['peers', ticker, metric] as const,
   calendar: (from: string, to: string) => ['calendar', from, to] as const,
   fullTextSearch: (query: string, forms: string | undefined, startDate: string, endDate: string) =>

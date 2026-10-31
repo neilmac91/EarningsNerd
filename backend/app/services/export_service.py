@@ -83,6 +83,21 @@ def _num(numeric: list[bool], column: int) -> str:
     return ' class="num"' if column < len(numeric) and numeric[column] else ""
 
 
+# The page's mark for a figure it does not have (MissingValue's token, which it reads as "unavailable"). A Financial
+# Highlights row with no prior prints it in both exports, as the page does, so a missing prior never reads as an empty
+# cell (E13); a zero prints as a zero, and every other blank cell stays blank.
+MISSING_FIGURE = "—"
+
+
+def _export_rows(block: Block) -> list[list[str]]:
+    """A block's rows as both exports print them: a metrics row's blank prior takes MISSING_FIGURE."""
+    if block.kind != "metrics" or "Prior Period" not in block.headers:
+        return block.rows
+    prior = block.headers.index("Prior Period")
+    return [[MISSING_FIGURE if column == prior and not cell.strip() else cell for column, cell in enumerate(row)]
+            for row in block.rows]
+
+
 def original_document_url(filing: Filing) -> str:
     """The filing's original on SEC.gov, as the filing page's "Original on SEC.gov" opens it
     (frontend/features/filings/lib/originalDocumentUrl.ts, EN-01): the primary document when it is an
@@ -173,15 +188,28 @@ class ExportService:
                 [header in _METRIC_FIGURE_HEADERS for header in block.headers] if block.kind == "metrics"
                 else numeric_columns(block.rows, max(len(block.headers), *(len(row) for row in block.rows)))
             )
+            if block.literal_cells:
+                # The excerpt is the filing's prose whatever it holds: a figure-only one, set nowrap, ran off the page.
+                numeric[-1] = False
             thead = ""
             if block.headers:
                 head_cells = "".join(f"<th{_num(numeric, c)}>{escape(h)}</th>" for c, h in enumerate(block.headers))
                 thead = f"<thead><tr>{head_cells}</tr></thead>"
+            # A passage the server located (the row's last cell, where the block says so) takes the device's
+            # marked block (D-044, pdf_branding's blockquote.located); every other cell prints as it is.
+            located = [r < len(block.located_rows) and block.located_rows[r] for r in range(len(block.rows))]
             body = "".join(
-                "<tr>" + "".join(f"<td{_num(numeric, c)}>{escape(cell)}</td>" for c, cell in enumerate(row)) + "</tr>"
-                for row in block.rows
+                "<tr>" + "".join(
+                    f'<td{_num(numeric, c)}><blockquote class="located">{escape(cell)}</blockquote></td>'
+                    if located[r] and c == len(row) - 1 else f"<td{_num(numeric, c)}>{escape(cell)}</td>"
+                    for c, cell in enumerate(row)
+                ) + "</tr>"
+                for r, row in enumerate(_export_rows(block))
             )
-            return f"<table>{thead}<tbody>{body}</tbody></table>"
+            # The filing's own words (the source-owned Risks excerpts) set their columns (pdf_branding's
+            # table.excerpts), so a long token in them breaks inside its cell rather than widen the table.
+            table = '<table class="excerpts">' if block.literal_cells else "<table>"
+            return f"{table}{thead}<tbody>{body}</tbody></table>"
         if block.kind == "callout":
             if not block.text:
                 return ""
@@ -252,7 +280,7 @@ class ExportService:
             elif block.kind in ("table", "metrics"):
                 if block.headers:
                     writer.writerow(block.headers)
-                for row in block.rows:
+                for row in _export_rows(block):
                     writer.writerow(row)
             elif block.kind == "callout":
                 if block.text:

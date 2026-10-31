@@ -20,7 +20,9 @@ The founder's review of PR #1226 measured both on the production build.
 - A label beside a heading (a tone badge, a count) wraps alone: the heading and whatever must stay
   beside it (its index) are one group that never wraps, and the row wraps only the label. A wrapping
   row of three items places each at its whole width before shrinking any, so a long heading drops
-  beneath its index instead of wrapping its own words.
+  beneath its index instead of wrapping its own words. Measure the label on a line of its own too: a
+  one-line badge wider than its column under 200% text still overflows after the row wraps, so its
+  label wraps inside it below a 24rem viewport, in the 16px step (the hero example's badge, E156).
 - Two buttons side by side in a card sit in a row of their own that wraps, each label free to wrap
   inside its button (`buttonVariants({ wrap: true })`, `max-w-full`), when the card's own action row
   does not wrap; a header's figure beside a heading (a percent) moves beneath it on a line of its
@@ -216,3 +218,12 @@ past a card ending at 592px at 640px and at 652px at 700px. The full-width form 
 surfaces that pass `fullWidth`; the adaptive size's height stays at `sm`, a device's touch size rather than a layout.
 `frontend/tests/e2e/reflow-200.spec.ts` holds the five-form filter inside its card at 640 and 700px under 200% text,
 and `frontend/tests/unit/segmentedControlFullWidthSwitch.spec.tsx` fails a layout class behind a px breakpoint.
+
+**Recurrence (2026-10-30, Financial trends, E195 (D))**: the filing page's chart card set its heading and its
+"Source check needed" badge in a row that did not wrap, so on a calculated series under 200% text the page measured 511
+to 516px at 320 to 390px. Wrapping the row, the first fix proposed, was not enough: on a line of its own the one-line
+badge is 287px, wider than the card's content box (218, 253 and 279px at 320, 360 and 390px), so it ran past the card at
+360px and took the page to 339px at 320px (probes in CI's fonts). Its label now wraps below 24rem as the hero's does, and
+`frontend/tests/e2e/filing-fundamentals-chart.spec.ts` holds every series at 390, 360 and 320px under 200% text: no
+sideways scroll, the badge inside the card's content box, beside the heading or wholly beneath it, and its label broken
+only where the badge does not fit on a line.

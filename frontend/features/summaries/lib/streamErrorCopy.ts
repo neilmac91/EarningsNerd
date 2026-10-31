@@ -4,11 +4,11 @@
  * The backend writes these sentences in the generation pipeline (backend/app/services/summary_stages, and
  * services/ai/summary_finalize.py for the payload messages generation.py and finalize.py stream). They took the
  * product's words with E217's functional change there (F35, D-046, E92), so their lines map each sentence to
- * itself. Two keep the words the matchers below route on, the free monthly limit and Pro's fair-use pause, until
- * the error-code field lands (E31), and the page maps each of them here, as it maps the stream endpoint's own
- * answers, instead of printing it. Only what the reader sees changes: the raw message is
- * still what decides the card (isPaywallStreamError) and the retry, automatic or offered
- * (isNonRetryableStreamError), so no matcher reads this map.
+ * itself. The last two, the free monthly limit and Pro's fair-use ceiling, took them with E37 once the error-code
+ * field (E31) decided their cards. The page still maps the stream endpoint's own answers here instead of printing
+ * them. Only what the reader sees changes: the raw message, and its code first, is still what decides the card
+ * (isPaywallStreamError) and the retry, automatic or offered (isNonRetryableStreamError), so no matcher reads
+ * this map.
  *
  * Keys are the backend's text exactly, as Python writes it; a `{name}` in a key is an f-string field and
  * matches any value, which the displayed sentence may reuse. tests/unit/streamErrorCopy.spec.ts reads every module
@@ -19,6 +19,8 @@
  * two matchers route on still occur in the sentences that must trigger them.
  */
 export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
+  'New summary generation is temporarily paused. Try again shortly.':
+    'New summary generation is temporarily paused. Try again shortly.',
   // fetch.py: a 6-K's exhibits could not be fetched from EDGAR.
   'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.':
     'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.',
@@ -38,11 +40,17 @@ export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
   // promise of more: the ceiling is one plan constant (entitlements.py, D-050), with no per-account override or reset
   // support could use.
   // It counts what the meter counts: every summary generation, a regeneration among them (lib/planLimits.ts).
+  // Since E37 admission.py writes these words itself.
+  "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.":
+    "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
+  // Retired (E37): the ceiling's words before E37. The page deploys before the backend, and until #1869's backend serves,
+  // #1848's streams these words, coded, so the card shows its successor's words above, not the retired ones. Delete
+  // this line once #1869's backend deploy is verified (tests/unit/streamErrorCopy.spec.ts, RETIRED_KEYS).
   "We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.":
     "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
-  // admission.py: the free monthly limit. The paywall card writes its own copy for this one; the line
-  // keeps the map whole.
-  "You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries.":
+  // admission.py: the free monthly limit, in its own words since E37. The paywall card writes its own copy for this
+  // one; the line keeps the map whole.
+  "You've used this month's {limit} free summaries. Upgrade to Pro for unlimited summaries.":
     "You've used this month's {limit} free summaries. Upgrade to Pro for unlimited summaries.",
   // routers/summaries.py, the stream route's 403 before it streams: a Free reader's force regeneration of a summary
   // the page shows, so a ready summary is there to read (a retry after a failed summary read sends force). Never a

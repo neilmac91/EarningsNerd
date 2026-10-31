@@ -558,6 +558,30 @@ def test_a_failed_trial_whose_rollback_fails_still_verifies(client, mail, events
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("environment, link_logged", [("development", True), ("production", False)])
+def test_registrations_refused_send_is_logged_as_before_with_its_link_in_development(
+    client, mail, monkeypatch, caplog, environment, link_logged,
+):
+    """Registration's verification mail keeps the in-request send's handling after it left the request's session
+    (E121): a failure the provider's client classes as retryable (no API key, as local development runs without
+    Resend) is logged once and not retried, with the link in development only, so a local signup can still finish."""
+    from app.services.resend_service import ResendRetryableError
+
+    mail.verification.side_effect = ResendRetryableError("no API key configured")
+    monkeypatch.setattr(settings, "ENVIRONMENT", environment)
+    email = _email()
+    with caplog.at_level(logging.ERROR):
+        resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": PASSWORD})
+    assert resp.status_code == 200, resp.text
+    link = mail.verification.await_args.kwargs["verification_link"]
+    [record] = [r for r in caplog.records if "email NOT sent" in r.getMessage()]
+    note = f"; link: {link}" if link_logged else ""
+    assert record.getMessage() == f"Verification email NOT sent to user id={_user(email).id}: ResendRetryableError{note}"
+    assert "(nothing sent)" not in caplog.text
+    assert mail.verification.await_count == 1  # tried once, not again
+
+
+@pytest.mark.requires_db
 def test_a_trial_started_event_that_fails_still_verifies(client, mail, monkeypatch, caplog):
     """The trial-started event is sent after the unit's release, best-effort like the grant: a telemetry failure is
     logged and the verification and the trial, both committed, stand, and the route still answers verified (E121)."""
@@ -779,10 +803,11 @@ def _failed_login_audits(email: str) -> int:
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize("account", ["unknown_email", "no_password"])
-def test_a_login_with_no_password_to_check_still_runs_bcrypt(client, mail, monkeypatch, account):
-    """bcrypt runs whether or not the email has an account with a password, against a fixed dummy hash
-    when it has none (an unknown email, or an account that signs in only through Google or Apple), so
-    the answer's timing does not tell which emails are registered; the answer is the generic 401."""
+def test_a_login_with_no_password_to_check_still_runs_the_hash_check(client, mail, monkeypatch, account):
+    """The hash check runs whether or not the email has an account with a password, against a fixed dummy
+    hash when it has none (an unknown email, or an account that signs in only through Google or Apple), so
+    the answer's timing does not tell which emails are registered; the answer is the generic 401. The dummy
+    is Argon2id, as a new account's hash is (E97)."""
     if account == "unknown_email":
         email = _email()
     else:
@@ -799,6 +824,7 @@ def test_a_login_with_no_password_to_check_still_runs_bcrypt(client, mail, monke
     resp = _login(client, email, PASSWORD)
     assert resp.status_code == 401 and resp.json() == {"detail": "Incorrect email or password"}
     assert hashes_checked == [auth_module._DUMMY_PASSWORD_HASH]
+    assert auth_module._DUMMY_PASSWORD_HASH.startswith("$argon2id$")
 
 
 @pytest.mark.requires_db
@@ -846,7 +872,7 @@ def test_a_login_whose_session_mint_fails_changes_nothing(
 @pytest.mark.requires_db
 @pytest.mark.parametrize("meanwhile", ["password_changed", "deactivated"])
 def test_a_login_whose_account_changed_while_it_hashed_is_refused(client, mail, monkeypatch, meanwhile):
-    """A password reset or change, or a deactivation, that commits while a login is in bcrypt leaves
+    """A password reset or change, or a deactivation, that commits while a login checks its hash leaves
     the account the login read stale: the login is refused like a wrong password and mints no session
     (E121)."""
     email, _ = _register(client, mail)
@@ -911,7 +937,7 @@ def test_a_password_change_whose_session_mint_fails_changes_nothing(
 
 @pytest.mark.requires_db
 def test_a_password_change_whose_password_changed_while_it_hashed_is_refused(client, mail, monkeypatch):
-    """A password reset or another change that commits while a change is in bcrypt leaves the current
+    """A password reset or another change that commits while a change checks its hash leaves the current
     password the change checked stale: the change is refused as a wrong current password and writes
     nothing, so the password that committed meanwhile stands and no session is revoked or minted (E121)."""
     email, _ = _register(client, mail)

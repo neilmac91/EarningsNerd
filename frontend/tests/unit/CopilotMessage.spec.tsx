@@ -22,6 +22,7 @@ import {
   isCopilotPaywallError,
   type CopilotCitation,
 } from '@/features/filings/api/copilot-api'
+import { ERROR_CODES, type KnownErrorCode } from '@/lib/api/client'
 
 const verifiedCitation: CopilotCitation = {
   n: 1,
@@ -97,14 +98,15 @@ describe('CopilotMessage citation chips', () => {
   it('renders an inline chip for a tool-figure marker, numbered by the backend like any other citation', () => {
     // The backend's unified citation-resolution pass assigns every citation (text or XBRL fact
     // alike) a plain sequential int — the "F#" shape only ever existed as an internal marker
-    // between the model and the tool, never on the wire. Only `section_ref` distinguishes an XBRL
-    // fact for styling purposes now.
+    // between the model and the tool, never on the wire. Only the server's payload (`fact`, admitted
+    // from its concept) distinguishes an XBRL fact for styling purposes now (E179).
     const factCitation: CopilotCitation = {
       n: 9,
       excerpt: 'Revenue = $391.04B USD (FY2024)',
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       verified: true,
       fragment_url: 'https://www.sec.gov/filing',
+      fact: true,
     }
     const msg = doneMessage({ content: 'Revenue was $391.0B [9].', citations: [factCitation] })
     render(<CopilotMessage message={msg} />)
@@ -116,8 +118,8 @@ describe('CopilotMessage citation chips', () => {
 
   it('renders a chip for a lowercase / spaced marker ([f 1]) matched against a legacy "F1" citation id', () => {
     // Defensive: the frontend matcher still tolerates an "F#"-shaped id/marker (case + whitespace
-    // insensitive) even though the backend no longer emits one, so an older cached/replayed
-    // payload still renders correctly.
+    // insensitive) even though the backend no longer emits one, so such a marker still finds its chip.
+    // The id alone never makes a figure (E179): with no fact payload this one renders as a passage.
     const factCitation: CopilotCitation = {
       n: 'F1',
       excerpt: 'Revenue = $391.04B USD (FY2024)',
@@ -236,6 +238,7 @@ describe('CopilotMessage XBRL fact sources', () => {
     section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
     verified: true,
     fragment_url: null,
+    fact: true,
   }
 
   it('renders an XBRL fact as a dense data row (figure value + source tag)', () => {
@@ -250,6 +253,19 @@ describe('CopilotMessage XBRL fact sources', () => {
     expect(
       screen.getByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'),
     ).toBeInTheDocument()
+  })
+
+  it('renders an "XBRL · …" label without the fact payload as a quoted passage, never a figure row (E179)', () => {
+    const labelled: CopilotCitation = { ...fact, fact: undefined }
+    render(
+      <CopilotMessage
+        message={doneMessage({ content: 'Revenue was $391.0B [1].', citations: [labelled] })}
+      />,
+    )
+    expect(screen.getByText('Revenue = $391.04B USD (FY2024)').closest('blockquote')).not.toBeNull()
+    expect(screen.queryByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax')).not.toBeInTheDocument()
+    const kinds = Array.from(document.querySelectorAll('[data-citation-kind]'), (chip) => chip.getAttribute('data-citation-kind'))
+    expect(kinds).toEqual(['text'])
   })
 })
 
@@ -318,7 +334,7 @@ describe('CopilotMessage follow-up chips', () => {
 describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
   const FAIR_USE =
-    "You've reached this month's fair-use limit of 1000 Copilot questions. It resets at the start of next month."
+    "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
   const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })
   /** The class tokens in a subtree that paint with one of the given status inks, through any variant prefix. */
   const tokensOf = (root: HTMLElement, palette: string) =>
@@ -335,7 +351,23 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(isCopilotFairUseLimit(TASTE_SPENT)).toBe(false)
     expect(isCopilotPaywallError(FAIR_USE)).toBe(true)
     expect(isCopilotFairUseLimit(FAIR_USE)).toBe(true)
-    expect(isCopilotPaywallError('The answer could not be completed. Please try again.')).toBe(false)
+    expect(isCopilotPaywallError("I couldn't complete this answer. Try again.")).toBe(false)
+  })
+
+  it('decides the plan card on a known code first, whatever its words (E31)', () => {
+    const words = 'Words that name neither the cap nor the plan.'
+    expect(isCopilotPaywallError(words, 'plan_required')).toBe(true)
+    expect(isCopilotPaywallError(words, 'free_allowance_exhausted')).toBe(true)
+    expect(isCopilotPaywallError(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(FAIR_USE, 'free_allowance_exhausted')).toBe(false)
+    // Every other known code is a pause, a rate limit or a sign-in: Retry, never the plan card (the contract's §3).
+    const others = (Object.keys(ERROR_CODES) as KnownErrorCode[])
+      .filter((code) => !['plan_required', 'free_allowance_exhausted', 'pro_fair_use_limit'].includes(code))
+    expect(others).toContain('generation_paused')
+    for (const code of others) {
+      expect([code, isCopilotPaywallError(FAIR_USE, code), isCopilotFairUseLimit(FAIR_USE, code)]).toEqual([code, false, false])
+    }
   })
 
   it('a spent allowance is the quiet card with the server sentence and Upgrade to Pro', () => {
@@ -372,7 +404,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   })
 
   it('a real failure keeps the error tint, role="alert" and Retry', () => {
-    render(<CopilotMessage message={errorMessage('The answer could not be completed. Please try again.')} onRetry={vi.fn()} />)
+    render(<CopilotMessage message={errorMessage("I couldn't complete this answer. Try again.")} onRetry={vi.fn()} />)
     const bubble = screen.getByRole('alert')
     expect(errorTokens(bubble).length).toBeGreaterThan(0)
     expect(within(bubble).getByRole('button', { name: /try again/i })).toBeInTheDocument()

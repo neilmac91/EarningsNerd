@@ -29,7 +29,7 @@ describe('server data notes admission', () => {
   it.each(golden.cases)('shares Python memberships, counts, messages and portable identities: $name', (example) => {
     const before = JSON.stringify(example)
     const legacy = groupDataNotes(example.dataset)
-    expect({ version: 2, notes: legacy.notes, totals: legacy.totals }).toEqual(example.expected)
+    expect({ version: 3, notes: legacy.notes, totals: legacy.totals }).toEqual(example.expected)
     const admitted = decodeDataNotes(example.expected, example.dataset)
     expect(admitted).toEqual(example.expected)
     const report = { ...example.dataset, data_notes: admitted }
@@ -38,7 +38,7 @@ describe('server data notes admission', () => {
     expect(resolved.totals).toBe(admitted.totals)
     if (example.citations && example.expected_citation_notes) {
       const combined = groupQualityNotes(example.citations, legacy)
-      expect({ version: 2, notes: combined.notes, totals: legacy.totals }).toEqual(example.expected_citation_notes)
+      expect({ version: 3, notes: combined.notes, totals: legacy.totals }).toEqual(example.expected_citation_notes)
       const completion = decodeCitationDataNotes(example.expected_citation_notes, report, example.citations)
       expect(completion).toEqual(example.expected_citation_notes)
       const model = qualityNotesModelFromWire(completion.notes)
@@ -47,7 +47,7 @@ describe('server data notes admission', () => {
     expect(JSON.stringify(example)).toBe(before)
   })
 
-  it('holds the same reason words, record-only list and summary words as the backend (data notes version 2)', () => {
+  it('holds the same reason words, record-only list and summary words as the backend (data notes version 3)', () => {
     // The backend's test_analysis_data_notes.py pins its maps to the same fixture, so the two sides cannot drift: case
     // all_known_reason_messages_and_supplements_after_z holds one note for every backend reason, its message the words.
     const known = golden.cases.find((entry) => entry.name === 'all_known_reason_messages_and_supplements_after_z')!

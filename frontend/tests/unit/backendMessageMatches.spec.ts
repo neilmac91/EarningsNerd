@@ -107,11 +107,11 @@ const UNSOURCED_MAX = 4
 /** Literal tests the scan reads that test something other than a message the code writes. */
 const NOT_MESSAGES: Record<string, string> = {
   'features/analysis/api/analysis-api.ts startsWith data:': 'an SSE frame prefix',
-  'features/filings/api/copilot-api.ts test ^f\\s*\\d+$': 'a citation id',
-  'features/filings/api/copilot-api.ts startsWith XBRL': 'a section reference (two sites)',
+  'features/filings/api/copilot-api.ts startsWith XBRL': 'a section reference (xbrlTag)',
   'features/filings/api/copilot-api.ts test ^f\\s*[1-9]\\d*$': 'a citation id',
   'features/filings/api/copilot-api.ts startsWith data:': 'an SSE frame prefix',
   'features/summaries/api/summaries-api.ts startsWith data: ': 'an SSE frame prefix',
+  'features/summaries/api/summaries-api.ts test ^\\d+(?:\\.\\d+)?$': 'Retry-After seconds, not an error message',
   'lib/api/client.ts includes Network Error': "axios's own error message, not the backend's",
   'lib/api/client.ts includes ECONNREFUSED': "axios's own error code, not the backend's",
   'lib/api/client.ts includes timeout': "axios's own error message, not the backend's",

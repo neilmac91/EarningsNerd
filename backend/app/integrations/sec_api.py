@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import httpx
+from app.services.sec_request_gate import sec_request_options
 
 from app.config import settings
 from app.services.sec_rate_limiter import sec_rate_limiter
@@ -207,7 +208,7 @@ class SECFullTextSearchClient:
 
         async def _do_request() -> dict:
             async with httpx.AsyncClient(
-                timeout=self._timeout, transport=self._transport
+                timeout=self._timeout, transport=self._transport, **sec_request_options()
             ) as client:
                 response = await client.get(
                     self._base_url, params=params, headers=self._headers()

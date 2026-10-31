@@ -181,10 +181,10 @@ async def test_content_cache_with_null_timestamps_is_treated_as_fresh(caplog):
 
 # ----------------------------------------- A4: quota block without evidence (+ the fair-use twin)
 
-QUOTA_MESSAGE = "You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries."
+QUOTA_MESSAGE = "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
 FAIR_USE_MESSAGE = (
-    "We've temporarily paused new summary generation on your account due "
-    "to unusually high recent volume. Please try again later or contact support."
+    "Your account has reached this month's limit for generating summaries, regenerations "
+    "included. It resets next month. Contact support with any questions."
 )
 
 
@@ -210,14 +210,14 @@ async def test_usage_block_yields_error_logs_and_funnel_without_touching_a_slot(
         )
     started = call(str(user_id), EVENT_GENERATION_STARTED, entry_point="generate_button", surface="filing_page")
     if mode == "monthly_quota":
-        assert events == [INITIALIZING, {"type": "error", "message": QUOTA_MESSAGE}]
+        assert events == [INITIALIZING, {"type": "error", "message": QUOTA_MESSAGE, "code": "free_allowance_exhausted"}]
         assert (logging.WARNING, f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit (5).") in _pipeline_logs(caplog)
         assert capture.call_args_list == [
             started,
             call(str(user_id), EVENT_PAYWALL_HIT, entry_point="generate_button", limit=5, summaries_used=5),
         ]
     else:
-        assert events == [INITIALIZING, {"type": "error", "message": FAIR_USE_MESSAGE}]
+        assert events == [INITIALIZING, {"type": "error", "message": FAIR_USE_MESSAGE, "code": "pro_fair_use_limit"}]
         assert (logging.WARNING, f"[stream:{filing_id}] Pro user {user_id} hit summary fair-use ceiling (50).") in _pipeline_logs(caplog)
         assert capture.call_args_list == [started]
     summarize.assert_not_called()

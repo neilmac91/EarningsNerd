@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Messages are the data notes version 2 reason words (data_notes.REASONS and provenance.ts REASONS, equal), and marked notes take the first letters. record_only_reasons and summaries pin the marking rule's list and the fine print's summary words on both sides. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
+  "version": 3,
+  "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Messages are the data notes version 3 reason words (data_notes.REASONS and provenance.ts REASONS, equal), and marked notes take the first letters. record_only_reasons and summaries pin the marking rule's list and the fine print's summary words on both sides. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
   "record_only_reasons": [
     "legacy_calculation"
   ],
@@ -271,7 +271,7 @@
         ]
       },
       "expected": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -579,7 +579,7 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -973,7 +973,7 @@
         ]
       },
       "expected": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -1178,7 +1178,7 @@
         ]
       },
       "expected": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -1270,7 +1270,7 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -2172,11 +2172,55 @@
                 }
               }
             ]
+          },
+          {
+            "concept": "reason_36",
+            "label": "reason_36",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 36,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "proxy_statement_value"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_37",
+            "label": "reason_37",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 37,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "proxy_statement_operand"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
           }
         ]
       },
       "expected": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -3021,11 +3065,59 @@
           {
             "kind": "review",
             "reasons": [
+              "proxy_statement_value"
+            ],
+            "key": "[\"review\",[\"proxy_statement_value\"]]",
+            "id": "analysis-data-note-aj",
+            "letter": "aj",
+            "message": "Taken from a proxy or information statement, so unavailable.",
+            "values": [
+              {
+                "concept": "reason_36",
+                "label": "reason_36",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "proxy_statement_operand"
+            ],
+            "key": "[\"review\",[\"proxy_statement_operand\"]]",
+            "id": "analysis-data-note-ak",
+            "letter": "ak",
+            "message": "Calculated from a proxy or information statement\u2019s figure, so unavailable.",
+            "values": [
+              {
+                "concept": "reason_37",
+                "label": "reason_37",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
               "legacy_calculation"
             ],
             "key": "[\"review\",[\"legacy_calculation\"]]",
-            "id": "analysis-data-note-aj",
-            "letter": "aj",
+            "id": "analysis-data-note-al",
+            "letter": "al",
             "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked.",
             "values": [
               {
@@ -3044,13 +3136,13 @@
           }
         ],
         "totals": {
-          "reviewValues": 36,
+          "reviewValues": 38,
           "reviewComparisons": 0,
           "unavailable": 0,
           "passed": 0,
           "unknown": 0,
           "calculated": 0,
-          "total": 36
+          "total": 38
         }
       },
       "citations": [
@@ -3086,7 +3178,7 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -3931,11 +4023,59 @@
           {
             "kind": "review",
             "reasons": [
+              "proxy_statement_value"
+            ],
+            "key": "[\"review\",[\"proxy_statement_value\"]]",
+            "id": "analysis-data-note-aj",
+            "letter": "aj",
+            "message": "Taken from a proxy or information statement, so unavailable.",
+            "values": [
+              {
+                "concept": "reason_36",
+                "label": "reason_36",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "proxy_statement_operand"
+            ],
+            "key": "[\"review\",[\"proxy_statement_operand\"]]",
+            "id": "analysis-data-note-ak",
+            "letter": "ak",
+            "message": "Calculated from a proxy or information statement\u2019s figure, so unavailable.",
+            "values": [
+              {
+                "concept": "reason_37",
+                "label": "reason_37",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
               "legacy_calculation"
             ],
             "key": "[\"review\",[\"legacy_calculation\"]]",
-            "id": "analysis-data-note-aj",
-            "letter": "aj",
+            "id": "analysis-data-note-al",
+            "letter": "al",
             "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked.",
             "values": [
               {
@@ -3958,8 +4098,8 @@
               "new_citation_reason"
             ],
             "key": "[\"review\",[\"new_citation_reason\"]]",
-            "id": "analysis-data-note-ak",
-            "letter": "ak",
+            "id": "analysis-data-note-am",
+            "letter": "am",
             "message": "The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [],
@@ -3976,8 +4116,8 @@
               "legacy_unknown"
             ],
             "key": "[\"unknown\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-al",
-            "letter": "al",
+            "id": "analysis-data-note-an",
+            "letter": "an",
             "message": "Validation details are unavailable. No verification claim is made.",
             "values": [],
             "comparisons": [],
@@ -3994,8 +4134,8 @@
               "not_in_dataset"
             ],
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-am",
-            "letter": "am",
+            "id": "analysis-data-note-ao",
+            "letter": "ao",
             "message": "Not in our data. Never shown as zero.",
             "values": [],
             "comparisons": [],
@@ -4008,13 +4148,13 @@
           }
         ],
         "totals": {
-          "reviewValues": 36,
+          "reviewValues": 38,
           "reviewComparisons": 0,
           "unavailable": 0,
           "passed": 0,
           "unknown": 0,
           "calculated": 0,
-          "total": 36
+          "total": 38
         }
       },
       "marked_letters": [
@@ -4053,7 +4193,9 @@
         "ag",
         "ah",
         "ai",
-        "ak"
+        "aj",
+        "ak",
+        "am"
       ]
     },
     {
@@ -4112,7 +4254,7 @@
         ]
       },
       "expected": {
-        "version": 2,
+        "version": 3,
         "notes": [],
         "totals": {
           "reviewValues": 0,
@@ -4279,7 +4421,7 @@
         ]
       },
       "expected": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",
@@ -4453,7 +4595,7 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 2,
+        "version": 3,
         "notes": [
           {
             "kind": "review",

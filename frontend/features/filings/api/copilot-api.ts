@@ -1,4 +1,4 @@
-import { getApiUrl } from '@/lib/api/client'
+import { getApiUrl, parseErrorCode, type KnownErrorCode } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 
 // Idle bound covers the initial POST, shared refresh, headers and stream reads.
@@ -8,7 +8,8 @@ const STREAM_TIMEOUT_MS = 120000
 // --- Types (mirror the P1 backend contract) ---
 
 export interface CopilotCitation {
-  // Numeric for filing-text excerpts ([1], [2]); an "F#" string for tool-provided XBRL figures ([F1]).
+  // The server numbers every citation, figure or passage, in one sequence ([1], [2]); an "F#" string ([F1]) is a
+  // legacy id the marker matcher still tolerates, and never makes a citation a figure (isXbrlCitation).
   n: number | string
   excerpt: string
   section_ref: string | null
@@ -25,12 +26,13 @@ export interface CopilotCitation {
   calculated?: true
 }
 
-// A citation backed by an XBRL financial fact (server-assigned "F#" marker + an "XBRL · <tag>"
-// section_ref), not a quoted filing-text excerpt. These read as hard data (figures, not prose),
-// so the UI renders them as dense data rows. Detection mirrors the backend marker/section_ref shape.
-export const isXbrlCitation = (c: CopilotCitation): boolean =>
-  (typeof c.n === 'string' && /^f\s*\d+$/i.test(c.n)) ||
-  !!c.section_ref?.toUpperCase().startsWith('XBRL')
+// A figure citation: a filed XBRL fact or a figure the server calculated from filed ones, never a quoted
+// filing-text excerpt. These read as hard data (figures, not prose), so the UI renders them as dense data
+// rows and the viewer finds them by text, never as a located passage. The kind comes from the server's
+// payload alone (`fact` or `calculated`, set by parseCompletion): a model can label an excerpt "XBRL · …" or
+// write an "F#" marker, but cannot give it a concept (E179). Every Copilot consumer under features/filings reads
+// the kind here; the landing demo (features/marketing/components/AskFilingDemo.tsx) applies the same rule inline.
+export const isXbrlCitation = (c: CopilotCitation): boolean => c.fact === true || c.calculated === true
 
 // The raw XBRL tag (e.g. "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax") from an
 // XBRL citation's section_ref ("XBRL · <tag>"), or null if it isn't an XBRL citation. Strips the
@@ -61,40 +63,60 @@ export interface CopilotHandlers {
   onToken: (text: string) => void
   onNotDisclosed: (answer: string) => void
   onComplete: (completion: CopilotCompletion) => void
-  onError: (message: string) => void
+  /** `code` comes only when the server sent a code this client knows on its registered channel (E31,
+   *  docs/audit/contracts/error-codes.md): the classifiers below decide on it first, and on the words without it. */
+  onError: (message: string, code?: KnownErrorCode) => void
 }
 
 // A Pro account reached this month's question cap: the 429 the Copilot route raises says "fair-use
-// limit" (backend/app/routers/summaries.py). Upgrading cannot help, so the plan card shows no button.
-export const isCopilotFairUseLimit = (message: string): boolean =>
-  (message || '').toLowerCase().includes('fair-use limit')
-
-// The question hit a plan gate (403 Pro-only or a spent free allowance, or the Pro fair-use 429). Used
-// by the UI to show the quiet plan card instead of the Retry button, since retrying can't help.
-export const isCopilotPaywallError = (message: string): boolean => {
-  const m = (message || '').toLowerCase()
-  return (
-    isCopilotFairUseLimit(m) ||
-    m.includes('pro feature') ||
-    m.includes('upgrade to pro') ||
-    m.includes('monthly limit') ||
-    m.includes('limit reached')
-  )
+// limit" (backend/app/routers/summaries.py). Upgrading cannot help, so the plan card shows no button. A known
+// code decides first (E31): `pro_fair_use_limit` is the cap, and any other code is not.
+export const isCopilotFairUseLimit = (message: string, code?: KnownErrorCode): boolean => {
+  if (code) return code === 'pro_fair_use_limit'
+  return (message || '').toLowerCase().includes('fair-use limit')
 }
 
-const parseErrorDetail = async (response: Response, fallback: string): Promise<string> => {
+/** The codes the plan card answers (the contract's §3): a plan the reader lacks, Free's allowance used up, or
+ *  Pro's monthly cap (whose card has no upgrade button). */
+const PLAN_CARD_CODES: ReadonlySet<KnownErrorCode> = new Set<KnownErrorCode>(
+  ['plan_required', 'free_allowance_exhausted', 'pro_fair_use_limit'],
+)
+
+// The question hit a plan gate (403 Pro-only or a spent free allowance, or the Pro fair-use 429). Used
+// by the UI to show the quiet plan card instead of the Retry button, since retrying can't help. A known code
+// decides first (E31): PLAN_CARD_CODES are the gate, and every other code, a pause or a rate limit, keeps Retry.
+// Without a code the server's own words decide; a 429 whose body this client cannot read takes RATE_LIMITED,
+// which names no plan, so it keeps Retry and never offers a Pro reader an upgrade (E37).
+export const isCopilotPaywallError = (message: string, code?: KnownErrorCode): boolean => {
+  if (code) return PLAN_CARD_CODES.has(code)
+  const m = (message || '').toLowerCase()
+  return isCopilotFairUseLimit(m) || m.includes('pro feature') || m.includes('upgrade to pro')
+}
+
+/** A refused request's words, and its E31 code when the body carries one this client knows on this status. */
+const parseErrorDetail = async (
+  response: Response,
+  fallback: string,
+): Promise<{ message: string; code?: KnownErrorCode }> => {
   try {
     const data = await response.json()
-    if (data?.detail) return typeof data.detail === 'string' ? data.detail : fallback
-    if (data?.message) return typeof data.message === 'string' ? data.message : fallback
+    const code = parseErrorCode(data?.code, response.status)
+    if (data?.detail) return { message: typeof data.detail === 'string' ? data.detail : fallback, code }
+    if (data?.message) return { message: typeof data.message === 'string' ? data.message : fallback, code }
+    return { message: fallback, code }
   } catch {
     // Non-JSON body: fall through to the status-based fallback.
   }
-  return fallback
+  return { message: fallback }
 }
 
+// Twins of copilot_service.py's _PUBLICATION_ERROR and _STREAM_FAILURE, word for word, so a failed answer reads one
+// way whoever writes it (tests/unit/copilotErrorTwins.spec.ts).
 const PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
-const STREAM_ERROR = 'The answer could not be completed. Please try again.'
+const STREAM_ERROR = "I couldn't complete this answer. Try again."
+/** A 429 whose body names nothing: a moment's limit, which a retry can lift, never a plan to sell. The route's own
+    burst limiter's words (routers/summaries.py, ask_filing_stream), held equal by copilotErrorTwins.spec.ts. */
+const RATE_LIMITED = 'Too many questions. Try again shortly.'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -134,9 +156,10 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
     if (markers.has(marker) || !referenced.has(marker)) return null
     markers.add(marker)
     const normalizedN = typeof n === 'string' ? n.replace(/\s/g, '') : n as number
-    // A tool fact carries its concept; a computed one also names its kind (value_kind), and any kind reads as computed.
+    // A tool fact carries its concept; a computed one also names its kind (value_kind). Any kind present, well formed
+    // or not, reads as computed, the weaker claim: only a concept with no kind at all reads "Matches filing" (E179).
     const toolFact = typeof concept === 'string' && concept.trim() !== ''
-    const calculated = toolFact && typeof value_kind === 'string' && value_kind.trim() !== ''
+    const calculated = toolFact && value_kind !== undefined && value_kind !== null
     citations.push({
       n: normalizedN, excerpt, section_ref, verified, fragment_url,
       ...(calculated ? { calculated: true as const } : toolFact ? { fact: true as const } : {}),
@@ -174,8 +197,12 @@ export const askFilingStream = async (
     controller.abort()
     return true
   }
-  const fail = (message: string) => {
-    if (finish()) handlers.onError(message)
+  const fail = (message: string, code?: KnownErrorCode) => {
+    // The code rides only when there is one, so a reader of one argument sees what it saw before E31.
+    if (finish()) {
+      if (code) handlers.onError(message, code)
+      else handlers.onError(message)
+    }
   }
   const onAbort = () => { finish() } // Explicit caller cancellation is quiet.
   const resetTimeout = () => {
@@ -209,17 +236,18 @@ export const askFilingStream = async (
     if (!response || terminal) return
 
     if (!response.ok) {
-      let message: string | null
-      if (response.status === 401) message = 'Log in to ask this filing a question.'
+      let refused: { message: string; code?: KnownErrorCode } | null
+      if (response.status === 401) refused = { message: 'Log in to ask this filing a question.' }
       else if (response.status === 403 || response.status === 429) {
-        // Preserve application-owned entitlement/rate-limit details and their existing upgrade UI.
-        message = await Promise.race([
+        // The server's own words for its gates and limits; a body that names nothing takes the reader's sentence: a 403
+        // the plan's gate, a 429 a moment's limit (RATE_LIMITED), never a plan to sell (E37).
+        refused = await Promise.race([
           parseErrorDetail(response, response.status === 403
-            ? 'This is a Pro feature.' : 'Monthly limit reached. Please try again later.'),
+            ? 'This is a Pro feature.' : RATE_LIMITED),
           cancelled,
         ])
-      } else message = STREAM_ERROR
-      if (message !== null) fail(message)
+      } else refused = { message: STREAM_ERROR }
+      if (refused !== null) fail(refused.message, refused.code)
       cancelBody(response.body)
       return
     }
@@ -260,9 +288,14 @@ export const askFilingStream = async (
             else if (finish()) handlers.onComplete(completion)
             break
           }
-          case 'error':
-            fail(STREAM_ERROR)
+          case 'error': {
+            // A coded event is the application's own refusal (E31), whose words carry what the card must say (a cap
+            // and when it resets), so they stand with their code. An uncoded event may carry a draft's text, so the
+            // reader's own words stand in for it.
+            const code = parseErrorCode(data.code, 'stream')
+            fail(code && typeof data.message === 'string' && data.message.trim() ? data.message : STREAM_ERROR, code)
             break
+          }
           default:
             break
         }

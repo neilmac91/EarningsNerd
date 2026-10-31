@@ -8,7 +8,10 @@ These gates keep it that way: every gcloud call in ops.yml discards or captures 
 lists it (the jobs-channel and rollback actions whose progress output remains operator evidence), a file that
 captures stderr is only ever tested with `grep -q`, the logs-probe and proxy-secret classifiers name the class
 describe-service's gcloud_json() names, and an ops/ module never lets a child process inherit stderr and
-captures or reads one only in gcloud_json(). The sole local-only exception is verify.py's one command
+captures or reads one only in the two gcloud_json() seams or the fixed summary snapshot's private,
+auto-removed files with bounded reads. No step turns on bash's trace, which would print a secret before its
+mask or a captured error text, whatever the condition, and the proxy step, which holds DATABASE_URL, is run
+as a re-run with debug logs too. The sole local-only exception is verify.py's one command
 spawn: its caller owns the terminal streams. A static-reference guard keeps that launcher out of Actions;
 indirect/dynamic invocation remains a review concern. Its observer and every other spawn stay gated.
 Python a step runs is a file run by path from ops/ or scripts/,
@@ -22,7 +25,8 @@ or pipes into a shell, or a `python3 -c` helper; a file a step writes and then r
 call; a capture file named without its literal path (a relative path, a brace or variable expansion); a step in a
 job other than `ops` (only its steps are read); and a dynamic import or lookup (importlib, __import__,
 sys.modules) in an ops/ module. The stdin-program check does not recognise an interpreter invoked through a
-variable or another name (for example `$INTERPRETER -` or `pypy3 -`).
+variable or another name (for example `$INTERPRETER -` or `pypy3 -`). The trace check reads a `set` its text
+spells and the option's name; the trace turned on any other way (through a variable, say) is a review concern.
 """
 import ast
 import importlib.util
@@ -143,8 +147,22 @@ INHERITED = {
 }
 SPAWNERS = {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"}
 OS_SPAWNERS = re.compile(r"system|popen|spawn\w*|exec\w*|posix_spawn\w*|fork\w*")
-# The one place an ops/ module may capture a child's stderr and read it: the seam that reduces it to a closed class.
-SEAM = ("ops/describe/service.py", "gcloud_json")
+# Only these two seams may capture/read child stderr; both reduce it to closed failure classes.
+SEAMS = {("ops/describe/service.py", "gcloud_json"), ("ops/describe/jobs.py", "gcloud_json")}
+# This is one exact spawn, not permission for this module to capture arbitrary descriptors.
+PRIVATE_SNAPSHOT = ("ops/summary_readout/readout.py", "collect_snapshot", "run")
+PRIVATE_SNAPSHOT_CONSTANTS = """MAX_OUTPUT_BYTES = 32 * 1024
+MAX_ERROR_BYTES = 8192
+PROCESS_TIMEOUT_SECONDS = 25
+"""
+PRIVATE_SNAPSHOT_CAPTURE = """with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+    completed = subprocess.run(command, env=env, stdout=output, stderr=errors,
+                               timeout=PROCESS_TIMEOUT_SECONDS, check=False)
+    output.seek(0)
+    raw = output.read(MAX_OUTPUT_BYTES + 1)
+    errors.seek(0)
+    error = errors.read(MAX_ERROR_BYTES)
+"""
 # Local foreground commands preserve the developer's streams, never a public Ops job's output.
 LOCAL_COMMAND = ("ops/dev/verify.py", "run_command", "Popen")
 # Modules that start child processes outside the subprocess/os calls this gate inspects.
@@ -160,6 +178,8 @@ FEEDBACK_RUNTIME_IMPORTS = {
     "app.services.request_work",
 }
 OPS_SIBLING_IMPORTS = {
+    "ops/describe/service.py": {"ops.describe.summary_configuration"},
+    "ops/describe/jobs.py": {"ops.describe.summary_configuration"},
     "ops/feedback_media/manage.py": {"ops.feedback_media.verify_manage"},
     "ops/feedback_media/verify_manage.py": {"manage"},
 }
@@ -231,7 +251,7 @@ def _service_env(workflow):
 
 
 def _service_reads(region):
-    """The six describe-service reads in order (argv after `gcloud`), answered with minimal passing shapes."""
+    """The nine describe-service reads in order, answered with minimal passing shapes."""
     pins = [{"name": "SEC_RATE_LIMIT_PER_SECOND", "value": "1"}, {"name": "EDGAR_RATE_LIMIT_PER_SEC", "value": "1"}]
 
     def status(revision):
@@ -240,6 +260,7 @@ def _service_reads(region):
                              "url": "https://PRIVATE_TRAFFIC_URL_SENTINEL.example.invalid"}]}
 
     tail = [f"--region={region}", "--format=json"]
+    metadata_tail = [f"--location={region}", "--project=earnings-nerd", "--format=json"]
     return [
         (["run", "services", "describe", "earningsnerd-backend", *tail], {"status": status("serving")}),
         (["run", "revisions", "describe", "serving", *tail], {"spec": {"containers": [{"image": "i", "env": pins}]}}),
@@ -250,6 +271,9 @@ def _service_reads(region):
          {"spec": {"containers": [{"image": "k", "env": pins}]}}),
         (["run", "services", "get-iam-policy", "earningsnerd-task-worker", *tail],
          {"bindings": [{"role": "roles/run.invoker", "members": ["serviceAccount:PRIVATE_INVOKER@example.invalid"]}]}),
+        (["scheduler", "jobs", "describe", "filing-scan-hourly", *metadata_tail], {"state": "ENABLED"}),
+        (["scheduler", "jobs", "describe", "summary-recovery-minute", *metadata_tail], {"state": "ENABLED"}),
+        (["tasks", "queues", "describe", "earningsnerd-background", *metadata_tail], {"state": "RUNNING"}),
     ]
 
 
@@ -283,21 +307,19 @@ def test_describe_service_step_keeps_gcloud_stderr_out_of_a_passing_run(tmp_path
     answers["*"] = {"stderr": "ERROR: unexpected call " + SENTINEL, "rc": 2}
     result, calls = _step_shell(steps[SERVICE_STEP]["run"], tmp_path, answers, _service_env(workflow))
     assert result.returncode == 0 and result.stderr == "", result.stderr
-    assert calls == [argv for argv, _ in reads]  # six reads, the service's own first, each with its exact argv
+    assert calls == [argv for argv, _ in reads]  # all nine reads, the service's own first, with exact argv
     assert result.stdout.startswith('Serving traffic: [{"percent": 100, "revisionName": "serving"}]\n')
     assert result.stdout.endswith("describe-service: PASS\n")
     assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
 
 
-@pytest.mark.parametrize("failing", [None, 3])
+@pytest.mark.parametrize("failing", [None, 0, 3, 8])
 def test_describe_jobs_step_never_prints_gcloud_stderr(tmp_path, failing):
-    """The step as GitHub runs it: the loop discards gcloud's stderr on every read, success included; a failed read
-    stops the loop with its closed line and the module never runs."""
+    """The real step captures every child's stderr and retains later evidence after a failed read."""
     workflow, steps = _steps()
     run = steps[JOBS_STEP]["run"]
-    jobs = re.search(r"jobs=\(\n((?:\s+earningsnerd-[a-z-]+\n)+)\s*\)", run).group(1).split()
     pools = _literals(JOBS_MODULE.read_text())["expected_pools"]
-    assert jobs == list(pools)
+    jobs = list(pools)
     reads = [["run", "jobs", "describe", job, f"--region={workflow['env']['REGION']}", "--format=json"] for job in jobs]
     answers = {json.dumps(argv): {"stdout": json.dumps(_job(argv[3], pools[argv[3]])), "stderr": "WARNING: " + SENTINEL}
                for argv in reads}
@@ -312,8 +334,11 @@ def test_describe_jobs_step_never_prints_gcloud_stderr(tmp_path, failing):
         assert result.returncode == 0 and calls == reads
         assert result.stdout.count("== earningsnerd-") == 9 and result.stdout.endswith("describe-jobs: PASS\n")
     else:
-        assert result.returncode == 1 and calls == reads[:failing + 1]
-        assert result.stdout == f"::error::expected Cloud Run job '{jobs[failing]}' is missing or unreadable\n"
+        assert result.returncode == 1 and calls == reads
+        assert f"== {jobs[failing]}\n  read: UNVERIFIED (permission_denied)" in result.stdout
+        assert result.stdout.count("  Summary/SEC runtime configuration:") == 8
+        assert "Job inventory: expected=9 projected=8 unverified=1" in result.stdout
+        assert result.stdout.endswith("describe-jobs: INCOMPLETE (0 invariant failure(s); 1 unverified job(s))\n")
 
 
 def _sentry_ok(fixture):
@@ -432,7 +457,8 @@ def _policy_class(monkeypatch, capsys, failure, code):
     reads = {tuple(argv[1:4]): body for argv, body in _service_reads("fixture-region")}
 
     def fake(argv, *, text, stderr, timeout):
-        assert text is True and stderr is subprocess.PIPE and timeout == 100
+        assert text is True and stderr is subprocess.PIPE
+        assert timeout == (80 if argv[1] == "run" else 20)
         if tuple(argv[2:5]) == ("services", "get-iam-policy", "earningsnerd-task-worker"):
             raise subprocess.CalledProcessError(code, argv, output="", stderr=failure)
         return json.dumps(reads[tuple(argv[2:5])])
@@ -459,8 +485,12 @@ def test_logs_probe_names_the_class_gcloud_json_names_never_the_text(tmp_path, m
 
 
 @pytest.mark.parametrize("stderr,code,klass", [("WARNING: " + SENTINEL, 0, None), *CORPUS])
-def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monkeypatch, capsys, stderr, code, klass):
-    """Run the whole proxy step with fake setup tools and gcloud; failures must never reach env export or launch."""
+# Each case twice: what the step prints may not hang on whether the run asked for debug logs, which any re-run may.
+@pytest.mark.parametrize("debug", [False, True], ids=["first-run", "debug-re-run"])
+def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monkeypatch, capsys, stderr, code, klass,
+                                                                 debug):
+    """Run the whole proxy step with fake setup tools and gcloud, and with `debug` as a re-run with debug logs
+    (RUNNER_DEBUG=1); failures must never reach env export or launch."""
     workflow, steps = _steps()
     argv = ["secrets", "versions", "access", "latest", "--secret=DATABASE_URL"]
     database_url = "postgresql://fixture-user:fixture-password@/fixture-db?host=/cloudsql/fixture:region:instance"
@@ -479,7 +509,8 @@ def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monke
                                {"CLOUD_SQL_PROXY_VERSION": workflow["env"]["CLOUD_SQL_PROXY_VERSION"],
                                 "CLOUD_SQL_PROXY_SHA256": workflow["env"]["CLOUD_SQL_PROXY_SHA256"],
                                 "GITHUB_ENV": str(env_file), "FAKE_PROXY_PROGRESS": str(progress),
-                                "FAKE_PROXY_STARTED": str(tmp_path / "proxy-started")},
+                                "FAKE_PROXY_STARTED": str(tmp_path / "proxy-started"),
+                                **({"RUNNER_DEBUG": "1"} if debug else {})},
                                stubs=stubs, cwd=tmp_path)
     assert calls == [argv] and result.returncode == code and result.stderr == ""
     assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
@@ -667,6 +698,46 @@ def test_no_ops_step_runs_an_inline_python_program():
     assert not inline, f"commit the program under ops/ and run it by path: {inline}"
 
 
+def _traces(run):
+    """Whether a step's script turns on bash's trace, which writes each command to the job log with its variables
+    expanded: a `set` that takes -x, alone or among other letters (`set -x`, `set -euxo pipefail`), in a brace group
+    or not, or any command that names the option (`set -o xtrace`), behind whatever condition (a debug re-run's
+    RUNNER_DEBUG among them). It reads each command whole, a comment after it included, so it fails closed: a `set`
+    whose trailing comment holds a -x word fails, as does any command, or comment after one, that names xtrace,
+    turning the option off by its name included."""
+    return any(re.match(r"(?:\{\s+)*set(?:\s+\S+)*?\s+-[A-Za-z]*x", command) or re.search(r"\bxtrace\b", command)
+               for line in _executable_lines(run) for command in _commands(line))
+
+
+@pytest.mark.parametrize("run,traces", [
+    ("set -x\n", True),
+    ("set -euxo pipefail\n", True),
+    ("set -e -x\n", True),
+    ("set -o xtrace\n", True),
+    ('[ "${RUNNER_DEBUG:-}" != 1 ] || set -x\n', True),  # GitHub sets RUNNER_DEBUG=1 when a run asks for debug logs
+    ('[ "${RUNNER_DEBUG:-}" = 1 ] && set -x\n', True),
+    ('[ "${RUNNER_DEBUG:-}" = 1 ] && { set -x; }\n', True),
+    ('if [ "${RUNNER_DEBUG:-}" = 1 ]; then set -x; fi\n', True),
+    ("set +o xtrace\n", True),  # fails closed: it names the option
+    ("set -euo pipefail\n", False),
+    ("set +e\n", False),
+    ("set +x\n", False),
+    ("# set -x\n", False),
+    ('echo "set -x"\n', False),
+])
+def test_trace_predicate(run, traces):
+    assert _traces(run) is traces
+
+
+def test_no_ops_step_turns_on_the_shell_trace():
+    """bash's trace prints what a step holds before it is masked or classified: the proxy step's DATABASE_URL before
+    its ::add-mask::, a read's captured error text before its closed class. Anyone who can re-run the workflow may
+    ask for debug logs, so a trace behind that condition is one too."""
+    _, steps = _steps()
+    traced = [name for name, step in steps.items() if _traces(step.get("run") or "")]
+    assert not traced, f"bash's trace would print these steps' expanded variables to the public log: {traced}"
+
+
 def _ops_modules():
     modules = sorted((ROOT / "ops").rglob("*.py"))
     assert {path.relative_to(ROOT).as_posix() for path in modules} >= {
@@ -692,6 +763,67 @@ def _local_command_inherits_streams(node):
             and all(k.arg is not None and k.arg not in {"stdin", "stdout", "stderr"} for k in node.keywords))
 
 
+def _private_snapshot_capture(tree, node, parents):
+    """Recognise only the reviewed private-file block and its fixed byte/time bounds."""
+    expected = ast.parse(PRIVATE_SNAPSHOT_CAPTURE).body[0]
+    enclosing = parents.get(node)
+    while enclosing is not None and not isinstance(enclosing, (ast.With, ast.FunctionDef, ast.AsyncFunctionDef)):
+        enclosing = parents.get(enclosing)
+    if not isinstance(enclosing, ast.With) or ast.dump(enclosing) != ast.dump(expected):
+        return False
+    constants = ast.parse(PRIVATE_SNAPSHOT_CONSTANTS).body
+    for expected_constant in constants:
+        name = expected_constant.targets[0].id
+        assignments = [item for item in tree.body if isinstance(item, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == name for target in item.targets)]
+        stores = [item for item in ast.walk(tree) if isinstance(item, ast.Name)
+                  and item.id == name and isinstance(item.ctx, ast.Store)]
+        if len(stores) != 1 or len(assignments) != 1 or ast.dump(assignments[0]) != ast.dump(expected_constant):
+            return False
+    function = parents.get(enclosing)
+    while function is not None and not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        function = parents.get(function)
+    if function is None:
+        return False
+    # No rebinding, aliasing or use of either raw handle outside the sealed block.
+    allowed_nodes = set(ast.walk(enclosing))
+    return all(item in allowed_nodes for item in ast.walk(function)
+               if isinstance(item, ast.Name) and item.id in {"output", "errors"})
+
+
+@pytest.mark.parametrize("old,new,allowed", [
+    ("", "", True),
+    ("stderr=errors", "stderr=None", False),
+    ("stderr=errors", "stderr=sys.stderr", False),
+    ("stderr=errors", "stderr=subprocess.PIPE", False),
+    ("stdout=output", "stdout=sys.stdout", False),
+    ("tempfile.TemporaryFile() as errors", "open('/tmp/shared-errors', 'w+b') as errors", False),
+    ("tempfile.TemporaryFile() as errors", "tempfile.NamedTemporaryFile() as errors", False),
+    ("tempfile.TemporaryFile() as errors", "tempfile.TemporaryFile(mode='w+') as errors", False),
+    ("errors.read(MAX_ERROR_BYTES)", "errors.read()", False),
+    ("output.read(MAX_OUTPUT_BYTES + 1)", "output.read()", False),
+    ("errors.seek(0)", "errors = output", False),
+    ("timeout=PROCESS_TIMEOUT_SECONDS", "timeout=None", False),
+    ("MAX_ERROR_BYTES = 8192", "MAX_ERROR_BYTES = 8192000", False),
+    ("MAX_OUTPUT_BYTES = 32 * 1024", "MAX_OUTPUT_BYTES = 32 * 1024 * 1024", False),
+    ("PROCESS_TIMEOUT_SECONDS = 25", "PROCESS_TIMEOUT_SECONDS = 2500", False),
+    ("return None", "print(errors)\n    return None", False),
+    ("return None", "MAX_ERROR_BYTES = 999999\n    return None", False),
+])
+def test_summary_snapshot_capture_exception_is_structurally_bounded(old, new, allowed):
+    source = PRIVATE_SNAPSHOT_CONSTANTS + "def collect_snapshot():\n" + "\n".join(
+        "    " + line for line in PRIVATE_SNAPSHOT_CAPTURE.splitlines()) + "\n    return None\n"
+    if old:
+        assert source.count(old) == 1
+        source = source.replace(old, new)
+    tree = ast.parse(source)
+    parents = {child: item for item in ast.walk(tree) for child in ast.iter_child_nodes(item)}
+    node = next(item for item in ast.walk(tree) if isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute) and isinstance(item.func.value, ast.Name)
+                and item.func.value.id == "subprocess" and item.func.attr == "run")
+    assert _private_snapshot_capture(tree, node, parents) is allowed
+
+
 @pytest.mark.parametrize("call,inherits", [
     ("subprocess.Popen(command)", True),
     ("subprocess.Popen(command, start_new_session=True, env=environment)", True),
@@ -710,7 +842,7 @@ def test_local_command_exception_refuses_every_redirect_argument_form(call, inhe
 
 
 def test_ops_modules_never_let_a_child_process_inherit_stderr():
-    spawns, local_spawns, stderr_reads = 0, 0, []
+    spawns, local_spawns, private_spawns, stderr_reads = 0, 0, 0, []
     for workflow in (ROOT / ".github/workflows").iterdir():
         if workflow.suffix in (".yml", ".yaml"):
             assert not re.search(r"\bops[/.]dev\b|\bverify\.py\b", workflow.read_text()), (
@@ -750,7 +882,7 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
                     and not (isinstance(node.value, ast.Name) and node.value.id in ("sys", "subprocess"))):
                 stderr_reads.append((module, owner.get(node)))
             # communicate() returns the captured stderr too.
-            if isinstance(node, ast.Attribute) and node.attr == "communicate" and (module, owner.get(node)) != SEAM:
+            if isinstance(node, ast.Attribute) and node.attr == "communicate" and (module, owner.get(node)) not in SEAMS:
                 stderr_reads.append((module, owner.get(node)))
             if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                     and isinstance(node.func.value, ast.Name)):
@@ -764,16 +896,22 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
                     assert _local_command_inherits_streams(node), (
                         "the one local command spawn inherits all three streams, with no expanded/redirect arguments")
                     continue
+                if (module, owner.get(node), function) == PRIVATE_SNAPSHOT:
+                    private_spawns += 1
+                    assert _private_snapshot_capture(tree, node, parents), (
+                        "the summary snapshot spawn requires private TemporaryFiles and fixed bounded reads")
+                    continue
                 stderr = [k.value for k in node.keywords if k.arg == "stderr"]
                 assert len(stderr) == 1 and isinstance(stderr[0], ast.Attribute) and stderr[0].attr in (
                     "PIPE", "DEVNULL"), f"{path}:{node.lineno}: subprocess.{function} must set stderr=PIPE or DEVNULL"
                 # A captured stderr can still print (a CompletedProcess repr carries it), so only the seam captures.
-                assert stderr[0].attr == "DEVNULL" or (module, owner.get(node)) == SEAM, (
+                assert stderr[0].attr == "DEVNULL" or (module, owner.get(node)) in SEAMS, (
                     f"{path}:{node.lineno}: only gcloud_json() may capture a child's stderr")
     assert spawns >= 2  # describe-service's gcloud seam and the readout's identity reads
     assert local_spawns == 1, "the local-only exception must name exactly one command spawn"
-    # A captured stderr is read in one place only, the seam that reduces it to a closed class.
-    assert stderr_reads == [SEAM], stderr_reads
+    assert private_spawns == 1, "the summary snapshot exception must name exactly one private-file spawn"
+    # Each allowed seam reads captured stderr exactly once, before reducing it to a closed class.
+    assert len(stderr_reads) == len(SEAMS) and set(stderr_reads) == SEAMS, stderr_reads
 
 
 def test_ops_modules_import_only_the_standard_library():

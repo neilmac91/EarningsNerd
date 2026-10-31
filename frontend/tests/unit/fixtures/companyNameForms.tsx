@@ -33,7 +33,7 @@ import {
 } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Bar } from 'recharts'
+import { Bar } from '@visx/shape'
 import { toast } from 'sonner'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, DataTable, Notice } from '@/components/ui'
@@ -1751,9 +1751,10 @@ export function N95({ row }: { row: Record<string, string> }) {
   return <span>{row.company_name}</span>
 }
 
-/** N96 flag: a `name` prop of a component the scan cannot read, which prints it (a chart series' name, in its tooltip). */
+/** N96 flag: a `name` prop of a component the scan cannot read (a package's), which may print it, as a chart series'
+ *  name prints in its tooltip. */
 export function N96({ ev }: { ev: CalendarEvent }) {
-  return <Bar dataKey="eps_estimate" name={ev.company_name} />
+  return <Bar name={ev.company_name} />
 }
 
 /** N97 flag: the app's own copy of the served name, kept as data, printed. */

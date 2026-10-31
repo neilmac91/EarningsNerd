@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     SEC_RATE_LIMIT_PER_SECOND: int = 10
     SEC_MAX_RETRIES: int = 5
     SEC_BASE_BACKOFF_SECONDS: float = 1.0
+    # Optional shared fleet admission. Enable only after all callers are deployed,
+    # old executions drain and one extra DB connection/process fits the DB budget.
+    SEC_DISTRIBUTED_LIMIT_ENABLED: bool = False
+    SEC_DISTRIBUTED_WAIT_SECONDS: float = Field(default=10.0, gt=0, le=30, allow_inf_nan=False)
     # Multi-Period Analysis: how long a company's ingested companyfacts history stays fresh before
     # the coverage endpoint re-syncs it (a Filing row newer than the stamp overrides the TTL).
     COMPANYFACTS_SYNC_TTL_HOURS: int = 24
@@ -119,6 +123,19 @@ class Settings(BaseSettings):
 
     # Opt-in rollout: queue delivery must be verified before enabling request-based CPU billing.
     DURABLE_TASKS_ENABLED: bool = False
+    # Requires validated worker/schema rollout. Existing SSE behavior remains the default.
+    SUMMARY_DURABLE_GENERATION_ENABLED: bool = False
+    # Stop only NEW work for a drain/rollback; existing durable workers keep running.
+    SUMMARY_NEW_JOBS_PAUSED: bool = False
+    SUMMARY_JOB_FAILED_RETRY_SECONDS: int = Field(default=60, ge=15, le=3600)
+    SUMMARY_JOB_MAX_PENDING_PER_ACCOUNT: int = Field(default=3, ge=1, le=20)
+    SUMMARY_JOB_MAX_ATTEMPTS: int = Field(default=4, ge=1, le=8)
+    SUMMARY_JOB_LEASE_SECONDS: int = Field(default=90, ge=30, le=300)
+    SUMMARY_JOB_RECOVERY_SECONDS: int = Field(default=300, ge=60, le=1800)
+    SUMMARY_JOB_MAX_AGE_SECONDS: int = Field(default=3600, ge=300, le=86400)
+    # Zero prevents alert discovery from creating system-funded model work.
+    SUMMARY_PREWARM_MAX_PER_DAY: int = Field(default=0, ge=0, le=200)
+    SUMMARY_PREWARM_MAX_PER_SCAN: int = Field(default=0, ge=0, le=20)
     TASKS_PROJECT_ID: str = ""
     TASKS_LOCATION: str = "us-west1"
     TASKS_QUEUE: str = "earningsnerd-background"
@@ -296,6 +313,18 @@ class Settings(BaseSettings):
             v = v.strip()
             if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
                 v = v[1:-1].strip()
+        return v
+
+    @field_validator('FRONTEND_URL')
+    @classmethod
+    def _canonical_frontend_url(cls, v: str) -> str:
+        """One canonical origin for every link: callers append ``/path`` to FRONTEND_URL, so whitespace around the
+        configured value, or a trailing slash or several, would break or double the separator. Those are removed,
+        and only those: scheme, host, case and any path are kept as configured. A value left empty would make every
+        link relative, so it is refused (E111). It runs after the value is a string, whatever it was given as."""
+        v = v.strip().rstrip("/")
+        if not v:
+            raise ValueError("FRONTEND_URL is empty once its whitespace and trailing slashes are removed: set the frontend's origin")
         return v
 
     # App Settings

@@ -7,15 +7,16 @@ export const exactNumber = (value: number): string => value.toLocaleString('en-U
 
 const isMargin = ({ concept }: Figure) => concept?.endsWith('_margin') === true
 
-/** These are presentation units, never a change to a value or its stored validation. */
-export function compactFigure(value: number | null, figure: Figure): string {
+/** These are presentation units, never a change to a value or its stored validation. `digits` asks for more decimals
+ *  than the unit's own (laterFilings.ts distinctFigures, where two values must not print alike). */
+export function compactFigure(value: number | null, figure: Figure, digits?: number): string {
   if (value == null) return 'Unavailable'
-  if (figure.unit === 'growth fraction') return fmtPercent(value * 100, { signed: true })
-  if (figure.unit === 'percentage points') return fmtPercentPoints(value)
-  if (isMargin(figure) || figure.unit === 'percent') return fmtPercent(value)
-  if (figure.unit === 'pure' || figure.concept === 'current_ratio') return `${value.toFixed(2)}×`
+  if (figure.unit === 'growth fraction') return fmtPercent(value * 100, { signed: true, digits })
+  if (figure.unit === 'percentage points') return fmtPercentPoints(value, { digits })
+  if (isMargin(figure) || figure.unit === 'percent') return fmtPercent(value, { digits })
+  if (figure.unit === 'pure' || figure.concept === 'current_ratio') return `${value.toFixed(digits ?? 2)}×`
   const currency = /^([A-Z]{3})(\/shares)?$/.exec(figure.unit ?? '')
-  if (currency) return fmtCurrency(value, { currency: currency[1], compact: !currency[2] && Math.abs(value) >= 1000, digits: currency[2] ? 2 : undefined })
+  if (currency) return fmtCurrency(value, { currency: currency[1], compact: !currency[2] && Math.abs(value) >= 1000, digits: digits ?? (currency[2] ? 2 : undefined) })
   return exactNumber(value)
 }
 

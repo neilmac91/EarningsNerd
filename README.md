@@ -31,7 +31,7 @@ so investors can understand a company in minutes instead of hours.
 ## Tech stack
 
 **Frontend** — Next.js 16 (App Router) · TypeScript · Tailwind CSS + shadcn/ui · React Query ·
-Recharts · PostHog · Sentry. Deployed on **Vercel**.
+visx (the charts' renderer) · PostHog · Sentry. Deployed on **Vercel**.
 
 **Backend** — FastAPI (Python 3.11) · SQLAlchemy 2.0 · PostgreSQL 15 · two-tier cache (in-memory +
 optional Redis). SEC data via **`edgartools`** (XBRL extraction, filing parsing). Deployed on

@@ -1,7 +1,7 @@
 """The paid Copilot fidelity run triggers only on files that can change what it measures.
 
-`.github/workflows/copilot-eval.yml` runs `evals.copilot_bootstrap` and `evals.copilot_runner`
-against DeepSeek whenever a `pull_request` touching its `paths:` filter is marked ready. The
+`.github/workflows/copilot-eval.yml` runs `evals.copilot_bootstrap` and `evals.copilot_source_check`, then
+`evals.copilot_runner` against DeepSeek, whenever a `pull_request` touching its `paths:` filter is marked ready. The
 filter used to be `backend/**`, so a tests-only or docs-only backend change paid for a run that
 could not change its result. This gate reads the entry points from the workflow's own run steps,
 recomputes their transitive import closure over every top-level package and module under
@@ -189,7 +189,7 @@ LOCAL_TOP_LEVEL = frozenset(
     {p[: -len(".py")] for p in TRACKED_PY if "/" not in p}
     | {p.split("/", 1)[0] for p in TRACKED_PY if "/" in p and not p.startswith(".")}
 )
-EXPECTED_ENTRY_POINTS = ["evals.copilot_bootstrap", "evals.copilot_runner"]
+EXPECTED_ENTRY_POINTS = ["evals.copilot_bootstrap", "evals.copilot_runner", "evals.copilot_source_check"]
 # Summary-eval modules the copilot modules import; they must stay in the closure to keep triggering.
 COPILOT_EVAL_MODULES = {"__init__.py", "schema.py", "scorers.py"}
 # Run text is printable ASCII, tab and newline only: a `\v#` reads as a comment to a line splitter and

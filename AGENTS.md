@@ -84,8 +84,10 @@ file instead.
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`,
   `test_ops_readback_allow_rules.py` and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
-  `test_codex_mention_guard.py`, `test_secret_scan_guard.py` and `test_ops_approval_guard.py` (both
-  hooks reuse the first one's shell reader); a `tasks/todo.md` change also runs
+  `test_codex_mention_guard.py`, `test_secret_scan_guard.py`, `test_ops_approval_guard.py` and
+  `test_codex_review_overlap_guard.py` (the other three hooks reuse the first one's shell reader); a
+  `backend/scripts/review_gate.py` change also runs `test_codex_review_overlap_guard.py`, whose hook
+  reads through the gate's functions; a `tasks/todo.md` change also runs
   `test_review_gate.py`, which reads its open rows' owners; a `tasks/todo.md`, `lessons/` or
   `.claude/workflows/` change also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/`
   change also runs that script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
@@ -115,14 +117,18 @@ unclear or unset is reviewed as **high**.
 |---|---|---|---|
 | **records** | only `tasks/`, `lessons/`, `docs/`, `.claude/agents/`, `.claude/skills/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md` (`.claude/council-transcripts/` holds six files from before §7's rule; a new file there is forbidden, and `test_agent_workflow_rules.py` fails on it) | 1 combined lens on Sonnet, no refuters, findings reported unverified (the one independent read-only reviewer context of `tasks/code-red-20261004/runtime/control/DECISIONS-09.md`); author also runs the §4 link check | one read-only pass (links, anchors, hashes, policy greps) |
 | **routine** | everything not listed in the other two tiers: application code and tests outside the high-risk paths, dependency bumps, `CLAUDE.md`, `AGENTS.md`, `README.md` | 1 combined lens on Opus (correctness + rules + gates in one pass); 1 refuter on Sonnet per *blocker* only; should-fix and nits reported unverified | one pass over `git diff main...HEAD` covering the three lenses below; refute each blocker once |
-| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_stages/**`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/app/services/{password_utils,pwned_passwords,refresh_token_service,login_lockout,auth_account_service,account_mail_service,user_account_service,user_data_export_service,invite_service}.py`, `backend/app/services/admin_*_service.py` (where Lane B moved the high-tier routers' logic), `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/services/facts/**`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/hooks/**`, `.claude/workflows/**` | full review, the same lens and refuter count as before: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker or should-fix; agents that return nothing make the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
+| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_stages/**`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/app/services/{password_utils,pwned_passwords,refresh_token_service,login_lockout,auth_account_service,account_mail_service,user_account_service,user_data_export_service,invite_service}.py`, `backend/app/services/admin_*_service.py` (where Lane B moved the high-tier routers' logic), `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/services/facts/**`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/hooks/**`, `.claude/workflows/**` | full review: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker; once should-fix reports come from two or more lenses, a Sonnet dedupe groups the reports of one defect (two from one lens included), and each group shares its 2 Opus refuters, who vote on each report (without a valid grouping each report gets its own 2; a dedupe that returns nothing only costs the saving); a lens or refuter that returns nothing makes the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
 
 Lenses, for the by-hand version: *correctness* reads the merge-base diff file by file and applies
 the §4 and §8 gates for the changed area; *rules-and-brief* checks each `CLAUDE.md` rule and the
 item's done criteria; *tests-and-gates* checks every new test has a mutation proof and locked
 tests are byte-identical. A refutation restates the finding without its rationale, then tries to
-disprove it against the code; the finding stands only if the attempts fail. Missing review output
-is never clearance. Record the tier and the review in the PR body under "Review".
+disprove it against the code; the finding stands only if the attempts fail. A refuter that finds a
+finding standing at the wrong severity corrects it; each refuter's vote holds its correction or, without
+one, the claimed severity; on a finding every refuter votes on and none refutes, the highest holding
+wins, so one refuter's raise to blocker blocks the merge and a lowering needs every refuter of the tier,
+and a finding with a vote missing stays unverified at its claimed severity. Missing review output is
+never clearance. Record the tier and the review in the PR body under "Review".
 
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
@@ -147,6 +153,7 @@ default; the review workflow's agents run on the models below whatever the sessi
 | Records lens | Sonnet | `medium` |
 | Review lenses (routine / high) | Opus | `high` / inherit |
 | Refuters (routine / high) | Sonnet / Opus | `medium` / inherit |
+| Dedupe of should-fix reports (high) | Sonnet | `medium` |
 | `llm-council` advisors and the single peer reviewer | Opus; the chairman is the main session | inherit |
 | `judge-readout` | unchanged (its own procedure) | — |
 
@@ -167,7 +174,11 @@ Other tools Codex and Astra do not have, and what to do instead:
   before every push, as `lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md`'s Rule
   says, whatever `core.hooksPath` names: a path can name a hook that has gone (a moved clone's, or a
   main checkout's at a commit from before E134), and CI's `secret-scan` reads the commits only after
-  the push.
+  the push. Nor does `.claude/hooks/codex_review_overlap_guard.py` hold your ready marks and review
+  requests: before either, read the pull request's Codex summary, and while it shows a review Running,
+  wait until that review completes or is an hour old; after a ready mark or review request of the last
+  five minutes that its row does not show yet (compare the row's time), wait until it does or the five
+  minutes have passed (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
 - **No background monitors.** After merging a PR touching deployable backend files (`backend/`
   outside `backend/tests/`): find the run (`gh run list --workflow ci.yml --branch main --event push -L 1`,
   or the unauthenticated `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`),

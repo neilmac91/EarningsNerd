@@ -34,8 +34,9 @@ export function summaryStatusBadge(status: string, needsRegeneration: boolean): 
       return { label: 'Ready', variant: 'success' }
     case 'generating':
       // One word for every stage: the stage after the colon is the pipeline's key (`summarizing`,
-      // `fetching`, even a stale `completed`), and the filing page's step log speaks in long phrases a
-      // chip cannot carry, so the chip says only that a summary is being written.
+      // `fetching`; a server from before E43 also sent a stalled run's stage, or `completed`), and the
+      // filing page's step log speaks in long phrases a chip cannot carry, so the chip says only that a
+      // summary is being written.
       return { label: 'Generating', variant: 'info-status' }
     case 'missing':
       return { label: 'No summary yet', variant: 'neutral-status' }

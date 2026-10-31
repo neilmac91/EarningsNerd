@@ -29,7 +29,7 @@ test_ops_approval_guard.py pins for the approval and rejection calls); or when d
 pinned command verbatim.
 
 Review-checked, not gated: `ops/describe/service.py`, the free-form Python every allowed describe-service runs.
-test_ops_stderr_withheld.py pins its subprocess and import vocabulary and the six gcloud reads it makes, but a gate
+test_ops_stderr_withheld.py pins its subprocess and import vocabulary and the nine gcloud reads it makes, but a gate
 cannot decide what a module does; a change to it changes what the no-prompt dispatch does, so it is high-tier.
 """
 from __future__ import annotations
@@ -199,14 +199,16 @@ def _conjuncts(condition: str) -> list[str] | None:
     return terms + [body[start:].strip()]
 
 
-def _never_runs_for_a_read(condition: str, unrun: set[str], operand: str) -> bool:
-    """True only when one top-level term of the condition is false for both read operations: it names another
-    operation, lists operations that include neither read, or needs an earlier step that a read skipped."""
+def _never_runs_for_a_read(condition: str, unrun: set[str], operand: str,
+                           operations: tuple[str, ...] = READ_OPERATIONS) -> bool:
+    """True only when one top-level term of the condition is false for each of the operations (by default, both
+    reads): it names another operation, lists operations that include none of them, or needs an earlier step that
+    they skipped. The Ops wiring tests read their own operation's steps with it."""
     for term in _conjuncts(condition) or []:
-        if (match := re.fullmatch(rf"{operand} == '([^']*)'", term)) and match.group(1).lower() not in READ_OPERATIONS:
+        if (match := re.fullmatch(rf"{operand} == '([^']*)'", term)) and match.group(1).lower() not in operations:
             return True
         if (match := re.fullmatch(rf"contains\('([^']*)', {operand}\)", term)) and not any(
-                operation in match.group(1).lower() for operation in READ_OPERATIONS):
+                operation in match.group(1).lower() for operation in operations):
             return True
         if (match := UNRUN_OUTCOME.fullmatch(term)) and match.group(1) in unrun:
             return True
@@ -319,6 +321,8 @@ EVASIONS = {  # each change would put a production write, or a replacement, into
     "a step after a skipped step's skip": _step_before_the_read("always() && steps.quarterly.outcome == 'skipped'"),
     "a step on a step that ran": _step_before_the_read("always() && steps.request.outcome == 'success'"),
     "a step on a later step's outcome": _step_before_the_read("always() && steps.quarterly.outcome != 'skipped'"),
+    "a step on a read under a condition selected() cannot read": _step_before_the_read(
+        "always() && steps.request.outputs.operation == 'describe-service' && hashFiles('x') != ''"),
     "text before the expression": _step_before_the_read("${{ always() }} && steps.request.outputs.operation == 'rollback-traffic'"),
     "a block scalar's newline": _step_before_the_read("${{ steps.request.outputs.operation == 'rollback-traffic' }}\n"),
     "a leading space": _step_before_the_read(" ${{ steps.request.outputs.operation == 'rollback-traffic' }}"),
@@ -375,6 +379,14 @@ def test_the_read_steps_reach_gcloud_only_to_read():
     calls = re.findall(r"(?m)^\s*(?:if\s+)?gcloud\s+(\S+\s+\S+)", probe)  # each command line that runs gcloud
     assert calls and set(calls) == {"logging read"}, calls
     tree = ast.parse(SERVICE_MODULE.read_text(encoding="utf-8"))
+    metadata_reads = [ast.literal_eval(node.value) for node in tree.body
+                      if isinstance(node, ast.Assign) and len(node.targets) == 1
+                      and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "METADATA_READS"]
+    assert metadata_reads == [{
+        ("scheduler", "jobs", "describe", "filing-scan-hourly"),
+        ("scheduler", "jobs", "describe", "summary-recovery-minute"),
+        ("tasks", "queues", "describe", "earningsnerd-background"),
+    }], "metadata reads stay fixed; no arbitrary resource, listing, mutation or task dispatch"
     verbs = [call.args[0].elts[1].value for call in ast.walk(tree)
              if isinstance(call, ast.Call) and getattr(call.func, "id", None) == "gcloud_json"]
     assert verbs and set(verbs) <= {"describe", "get-iam-policy"}, verbs
