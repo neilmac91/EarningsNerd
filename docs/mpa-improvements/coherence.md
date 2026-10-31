@@ -384,7 +384,7 @@ held in one named constant or function a review can overturn:
 - D4: margins, free cash flow, working capital and the current ratio read n/m where an input changed basis
   (`BASIS_INPUTS`), read from the recorded operand, else from the input's own figure for a calculation stored before
   operands were recorded; item 5's evidence sits on the recorded operands.
-- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E256, E257).
+- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E260, E261).
 - D6: any own row the publication policy shows gives evidence; only one that passed its checks grounds the mark
   (`grounds_a_mark`).
 
