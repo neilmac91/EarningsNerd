@@ -8,7 +8,7 @@
    and chart, plus synthetic notes. The golden
    plans (chart-engine.spec.ts) carry the six golden datasets' announcements. The core under them, `readouts`, reads any
    model through a describer: every bar chart case (barChart.ts, E195 (D)) with Financial trends' own, and every ranked
-   company chart (E251), whose context bars' rows say so, for their swatches.
+   company chart (E251) with the Sector peers panel's, whose context bars' rows say so, for their swatches.
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
@@ -21,6 +21,9 @@ import { tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { markedNote, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { slotsOf, trendDescriber } from '@/features/fundamentals/lib/trendChart'
+import { drawn } from '@/features/peers/lib/cohort'
+import { peerChart } from '@/features/peers/lib/peerChart'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { barCases, barSeries, peerBarCases, withMixedNotes, type BarFixture, type PeerFixture } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
@@ -244,24 +247,36 @@ describe('the core reads any model through a describer: every bar chart case (ba
   })
 })
 
-describe('a ranked company chart’s readouts (E251): a row a company, a context bar’s row marked so', () => {
-  const PEERS = peerBarCases(JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture)
+describe('a ranked company chart’s readouts (E251): a company a readout, through the Sector peers panel’s describer', () => {
+  const FIXTURE_PEERS = JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture
+  // Every cohort the panel shows, as its own builder draws it (features/peers/lib/peerChart.ts).
+  const PEERS = peerBarCases(FIXTURE_PEERS)
 
   it.each(PEERS.map(([name]) => name))('%s', (name) => {
-    const m = buildBarChart(structuredClone(PEERS.find(([caseName]) => caseName === name)![1]))
-    const all = coreReadouts(m)
+    const answer = FIXTURE_PEERS.cases[name].response
+    const { model: m, reads: all } = peerChart(answer)
+    const entries = drawn(answer)
+    const ranked = answer.peers.filter((entry) => entry.value != null).length
     const [panel] = m.panels
     const [mark] = panel.marks
     expect(all.map((readout) => readout.period)).toEqual(m.periods.map((period) => period.key))
     all.forEach((readout, i) => {
       const point = mark.points[i]
-      // With no describer, a company's header is its long name, the ticker.
-      expect(readout.header).toBe(m.periods[i].long)
+      const entry = entries[i]
+      // The tooltip heads a company with its ticker and its own fiscal year, which can differ by company; the values stop
+      // says its name, its ticker, "this company" for the one the page is about, and its rank over the companies with a
+      // value (no "·", "#" or unit letter).
+      expect(readout.header).toBe(`${entry.ticker} · FY${entry.fiscal_year} · year ended ${periodEndText(entry.period_end)}`)
+      const spoken = `${formatCompanyName(entry.company_name)}, ${entry.ticker}, ${entry.is_subject ? 'this company, ' : ''}rank ${entry.rank} of ${ranked}, FY${entry.fiscal_year}, year ended ${periodEndText(entry.period_end, true)}. ${mark.label}: `
+      expect(readout.announcement.startsWith(spoken), `${point.period}: "${readout.announcement}"`).toBe(true)
+      expect(readout.announcement).not.toMatch(/[·#]/)
       const [row] = readout.rows
       expect([readout.rows.length, row.seriesKey, row.label, row.color, row.swatch]).toEqual([1, mark.seriesKey, mark.label, 0, 'bar'])
       // A context bar's row carries the flag its swatch paints by (LegendSwatch, E236), and only that row.
       expect(row.context, `${point.period}: the row is its bar’s`).toBe(point.context)
       expect(row.value).toBe(point.value == null ? null : panel.axis.format.tip(point.value))
+      // A figure the backend derived (a margin) reads "Calculated", from its own provenance.
+      expect(row.calculated, `${point.period}: calculated as its provenance says`).toBe(entry.provenance?.method === 'calculated')
     })
     expect(all.some((readout) => readout.rows[0].context) && all.some((readout) => !readout.rows[0].context), 'a subject and a context company').toBe(true)
   })
