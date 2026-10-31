@@ -197,9 +197,10 @@ def _suite_schema():
     and every file that relies on ``TestClient(app)`` running the lifespan first) otherwise depend
     on an earlier test in the same process having created them.
     """
-    import app.models  # noqa: F401 — registers every table on Base.metadata
     from app.database import Base, engine
+    from tests.support.models import import_every_model
 
+    import_every_model()  # every table, as the app's startup has them: `import app.models` leaves the SEC gate's out
     Base.metadata.create_all(bind=engine)
     yield
 

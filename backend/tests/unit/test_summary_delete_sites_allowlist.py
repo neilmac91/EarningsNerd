@@ -403,7 +403,9 @@ def test_nothing_deletes_summaries_by_cascade():
     from app.models import Base, Summary
     from app.services.retention_service import purge_targets
     from app.utils.datetimes import utcnow
+    from tests.support.models import import_every_model
 
+    import_every_model()  # every mapper, whatever an earlier test imported
     for mapper in Base.registry.mappers:
         for relationship in mapper.relationships:
             if relationship.mapper.class_ is Summary:

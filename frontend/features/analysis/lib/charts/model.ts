@@ -32,6 +32,8 @@ export interface ModelPoint {
   nm?: boolean
   /** A growth slot whose year-earlier period comes before the window (A11's structural state). */
   structural?: boolean
+  /** A bar chart's context bar (barChart.ts, E251): the context ink at the growth bars' narrower width. */
+  context?: true
 }
 
 export interface ModelMark {
@@ -94,6 +96,20 @@ export interface StripRow {
   cells: Record<string, string>
 }
 
+/** What a chart's plot calls its categories where it names them (E251): its scroll region and the status a step past either
+ *  end says. */
+export interface ChartReading {
+  /** The scroll region's name ends "Scroll horizontally to view all {items}." */
+  items: string
+  /** What a step past the first category says. */
+  first: string
+  /** What a step past the last says. */
+  last: string
+}
+
+/** The periods' words, every chart's unless it names its own. */
+export const PERIOD_READING: ChartReading = { items: 'periods', first: 'Oldest period.', last: 'Newest period.' }
+
 export interface ChartModel {
   /** The chart's name in the model: an analysis chart's ChartId, a bar chart's own (barChart.ts). Nothing reads it. */
   id: string
@@ -111,6 +127,13 @@ export interface ChartModel {
   unavailable: string | null
   /** The expanded view's value strip: every value of every plotted series not labelled in the plot. */
   strip: StripRow[]
+  /** The category the chart starts at, by key (a bar chart's `start`, E251): the values stop starts there, and a plot that
+   *  overflows opens with its column in view. Unset, the last period, the newest, the one the legend and the metrics
+   *  table quote. */
+  start?: string
+  /** What its plot's scroll region and end-of-range status call its categories (a bar chart's `reading`, E251). Unset,
+   *  its periods (PERIOD_READING). */
+  reading?: ChartReading
 }
 
 const MARKERS: Marker[] = ['circle', 'square', 'triangle']

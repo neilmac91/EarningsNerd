@@ -20,6 +20,8 @@ export interface ReadoutRow {
   label: string
   /** The palette slot and swatch the legend gives the series. */
   color: number
+  /** A context bar's row (barChart.ts, E251): its swatch takes the context ink, the hovered bar's own paint (E236). */
+  context?: true
   swatch: 'bar' | 'line'
   marker?: Marker
   /** The value at tooltip precision: 4 significant figures for an amount, 1 dp for a percent. Null with no value. */
@@ -112,8 +114,8 @@ function rowOf(mark: ModelMark, panel: ModelPanel, point: ModelPoint, describer:
   const calculated = point.value != null && (describer.calculated?.(mark, point.period) ?? false)
   const figure = [value, state && STATE_TEXT[state].shown].filter(Boolean).join(' ')
   return {
-    seriesKey: mark.seriesKey, label: mark.label, color: mark.color, swatch: mark.kind === 'line' ? 'line' : 'bar', marker: mark.marker,
-    value, state, calculated, note, figure,
+    seriesKey: mark.seriesKey, label: mark.label, color: mark.color, ...(point.context ? { context: point.context } : {}),
+    swatch: mark.kind === 'line' ? 'line' : 'bar', marker: mark.marker, value, state, calculated, note, figure,
     text: [figure, calculated ? '· Calculated' : null, note ? `(${note})` : null].filter(Boolean).join(' '),
   }
 }

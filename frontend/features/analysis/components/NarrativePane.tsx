@@ -10,6 +10,7 @@ import { ArrowClockwiseIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
+import type { KnownErrorCode } from '@/lib/api/client'
 import { sourceUrl, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkAnalysisPeriods, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
@@ -118,6 +119,8 @@ export interface NarrativeState {
   stage?: string
   completion?: AnalysisCompletion
   error?: string
+  /** The refusal's E31 code, when the server sent a known one: the page decides on it before the words. */
+  errorCode?: KnownErrorCode
 }
 
 /** What a streaming run is doing, in words: the pane's Activity line and the page's status line (AnalysisPageClient)

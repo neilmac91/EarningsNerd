@@ -435,6 +435,18 @@
         "displayName": "Periwinkle (dark)",
         "canonical": "#AFA2DE",
         "description": "Chart series 6 (Periwinkle) in dark mode; keep the configured order."
+      },
+      "chart-context-light": {
+        "role": "neutral",
+        "displayName": "Context Stone",
+        "canonical": "#968A78",
+        "description": "A bar chart's context bars (E251), every bar it sets beside the one it is about: a solid warm stone, never an opacity. APCA Lc 58.3 on the light card and 52.2 under the column wash (3.24:1), lighter and greyer than chart-1; no series color, so it claims no palette slot."
+      },
+      "chart-context-dark": {
+        "role": "neutral",
+        "displayName": "Context Stone (dark)",
+        "canonical": "#AFA391",
+        "description": "The context ink in dark mode: APCA Lc −49.7 on the dark card, chart-1-dark's own, and −46.4 under the column wash (5.92:1), apart from chart-1-dark by chroma and hue alone."
       }
     },
     "typographyMeta": {
