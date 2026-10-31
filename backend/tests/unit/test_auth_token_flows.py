@@ -558,6 +558,30 @@ def test_a_failed_trial_whose_rollback_fails_still_verifies(client, mail, events
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("environment, link_logged", [("development", True), ("production", False)])
+def test_registrations_refused_send_is_logged_as_before_with_its_link_in_development(
+    client, mail, monkeypatch, caplog, environment, link_logged,
+):
+    """Registration's verification mail keeps the in-request send's handling after it left the request's session
+    (E121): a failure the provider's client classes as retryable (no API key, as local development runs without
+    Resend) is logged once and not retried, with the link in development only, so a local signup can still finish."""
+    from app.services.resend_service import ResendRetryableError
+
+    mail.verification.side_effect = ResendRetryableError("no API key configured")
+    monkeypatch.setattr(settings, "ENVIRONMENT", environment)
+    email = _email()
+    with caplog.at_level(logging.ERROR):
+        resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": PASSWORD})
+    assert resp.status_code == 200, resp.text
+    link = mail.verification.await_args.kwargs["verification_link"]
+    [record] = [r for r in caplog.records if "email NOT sent" in r.getMessage()]
+    note = f"; link: {link}" if link_logged else ""
+    assert record.getMessage() == f"Verification email NOT sent to user id={_user(email).id}: ResendRetryableError{note}"
+    assert "(nothing sent)" not in caplog.text
+    assert mail.verification.await_count == 1  # tried once, not again
+
+
+@pytest.mark.requires_db
 def test_a_trial_started_event_that_fails_still_verifies(client, mail, monkeypatch, caplog):
     """The trial-started event is sent after the unit's release, best-effort like the grant: a telemetry failure is
     logged and the verification and the trial, both committed, stand, and the route still answers verified (E121)."""

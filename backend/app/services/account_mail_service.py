@@ -16,7 +16,8 @@ Nothing here logs the address or a token: a failed send logs the exception's cla
 provider's error text can quote the request body and so the token-bearing link, and a failure that
 sent nothing raises ``AccountMailNotSent``, whose message names only the failure's class, since a
 database error's text quotes its statement's parameters, the address among them. Registration's own
-verification mail, sent in its request, shares the send and its log line (``send_verification_link``).
+verification mail, sent in its request, shares the send and its log line (``send_issued_verification_link``, for
+the token its unit issued, E121).
 With durable tasks these lines are logged in a task child, so their text reaches Cloud Logging only: a child
 reports a failed task to Sentry by its exception's type and stack alone (F50, ``app/utils/telemetry_bootstrap.py``),
 and a send that failed after sending is not a failed task (``docs/OPERATIONS.md``, "Account mail (F60)").
@@ -187,4 +188,11 @@ async def send_verification_link(db: Session, user: User) -> None:
     email the link, a failed send logged as the task's is."""
     user_id, to_email, name = user.id, user.email, user.full_name
     raw_token = auth_account_service.issue_email_verification_token(db, user)
+    await _send_link("verification", _Link(user_id=user_id, to_email=to_email, name=name, raw_token=raw_token))
+
+
+async def send_issued_verification_link(user_id: int, to_email: str, name: str | None, raw_token: str) -> None:
+    """Registration's verification mail for a token its own unit issued and committed: the send alone, with no
+    session, so the route sends after releasing its connection (E121). Sent once: a failed send is logged by
+    ``_log_failed_send`` (the exception's class alone, its link too in local development) and not retried."""
     await _send_link("verification", _Link(user_id=user_id, to_email=to_email, name=name, raw_token=raw_token))
