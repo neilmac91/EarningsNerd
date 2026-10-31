@@ -1116,7 +1116,7 @@ tertiary step, and `note-dark` is the secondary step in dark (§0.5, "The tokens
 was the DS's `barCursorProps` and now names the engine's own `cursor`, and the tooltip value ink the 2026-10-25 note
 names in `Chart.tsx` is gone, so the renderer's `cursor` and `figure` hold those values alone. The renderer's tooltip
 takes the Card recipe's surface and border, so the `tip` row's `chart.tip`, like `chart.crosshair`, has no reader;
-E252 retires both tokens.)
+E255 retires both tokens.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,

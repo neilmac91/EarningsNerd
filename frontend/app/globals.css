@@ -35,10 +35,13 @@
      Fallback"), so two loader calls of one family collide under it (E147: app/fonts.ts
      declares each once, held by tests/unit/oneFontInstance.spec.ts), and exposes it as a
      CSS var (--font-inter / --font-geist-mono / --font-newsreader), which is the contract:
-     every stack LEADS with its next/font variable, and the literals after it are
-     never reached (an unset var() with no fallback inside it makes the whole
-     declaration invalid at computed-value time, so the property inherits;
-     DESIGN_SYSTEM.md §12 item 3). EXCEPTION: --font-body is
+     every stack LEADS with its next/font variable. The names after it never
+     stand in for an unset variable (an unset var() with no fallback makes the
+     whole declaration invalid at computed-value time, so the property
+     inherits; DESIGN_SYSTEM.md §12 item 3); they are the next families when
+     the variable's own faces lack a glyph or have not loaded, which never
+     happens for the mono stacks, whose variable ends in the generic
+     monospace. EXCEPTION: --font-body is
      system-first BY DESIGN — -apple-system stays first (Apple hardware renders
      SF Pro, zero bytes) and the var sits before generic system-ui; do not
      "fix" it to lead. PACKAGING GATE: every fontFamily stack and :root font

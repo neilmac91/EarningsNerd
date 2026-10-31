@@ -174,7 +174,7 @@ module.exports = {
           // the card charts sit on; on bare cream use secondary). Dark = #B8BEC7, a step above text.TERTIARY:
           // gray-400 #9CA3AF measures Lc −48.6 on the dark card, under the 60 that 11–12 px text needs; #B8BEC7 is −63.6.
           label: { light: '#6B7280', dark: '#B8BEC7' },
-          // crosshair and tip: no reader since Recharts left the app (E195 (D)); E252 retires them app-wide.
+          // crosshair and tip: no reader since Recharts left the app (E195 (D)); E255 retires them app-wide.
           crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark
@@ -235,9 +235,11 @@ module.exports = {
         // Type v2 — three FIXED roles (not user-selectable). Must mirror the CSS vars in globals.css.
         // next/font declares each family under its plain name and exposes it as a CSS var
         // (--font-inter / --font-geist-mono / --font-newsreader, declared once in app/fonts.ts), the
-        // contract, so every stack LEADS with its next/font variable; the literals after it name the family it resolves
-        // to and are never reached (an unset var() with no fallback inside it makes the whole declaration invalid at
-        // computed-value time, so the property inherits; DESIGN_SYSTEM.md §12 item 3). EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
+        // contract, so every stack LEADS with its next/font variable. The names after it never stand in for an unset
+        // variable (an unset var() with no fallback makes the whole declaration invalid at computed-value time, so the
+        // property inherits; DESIGN_SYSTEM.md §12 item 3); they are the next families when the variable's own faces lack
+        // a glyph or have not loaded, which never happens for the mono stacks, whose variable ends in the generic
+        // `monospace`. EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
         // first and the var precedes generic system-ui; do not "fix" it to lead. PACKAGING GATE:
         // every fontFamily stack and :root font var leads with its next/font variable (body: the
         // var leads the WEBFONT portion) — this wiring was missed in BOTH the v2 and v2.1 exports.

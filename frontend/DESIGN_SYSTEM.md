@@ -3006,7 +3006,7 @@ series colors** (direction only) and **sage never appears inside a plot area**. 
 the zero rule, labels, the tooltip's inks) takes the `chart.grid/ref/label` sub-tokens and the text inks through the
 engine's `chartTokens(dark)` (`features/analysis/lib/charts/theme.ts`, below) — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).
-`chart.crosshair` and `chart.tip` have had no reader since Recharts left the app (E195 (D)); E252 retires them.
+`chart.crosshair` and `chart.tip` have had no reader since Recharts left the app (E195 (D)); E255 retires them.
 Gridlines are `chart.grid`, `#DCD9D0` / `#525C6B`, Lc 16.8 / −15.0 on the card: visible enough to read a value
 across, quieter than the zero rule (the hairline they replaced measured Lc 0). The landing page's revenue bars draw
 their tick rules in `chart.grid` too, Lc 19.9 / −16.8 on their card, where the hairline `chart.axis` measured
