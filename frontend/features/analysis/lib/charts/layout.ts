@@ -48,6 +48,9 @@ export const STRIP_LABEL_X = 14
 /** What the card says under the SVG when A4 finds no label tier for a panel, even at LABELLED_MAX_SLOT (spec §3.7).
  *  It does not offer the expanded view: on a phone that view is no wider. */
 export const VALUES_DONT_FIT = 'Values don’t fit at this width. The metrics table lists them.'
+/** The same line for a card no metrics table sits beside (the filing page's Financial trends, E195 (D); E251's ranked
+ *  company chart): no table on its page lists the values, so the line stops at what is true. */
+export const VALUES_DONT_FIT_HERE = 'Values don’t fit at this width.'
 
 export interface LabelPlan {
   /** One decimal tier for the whole panel, or null when no tier fits: the panel prints no labels and the card says

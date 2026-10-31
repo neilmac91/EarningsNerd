@@ -479,6 +479,8 @@ says so; everything else follows the spec.
     either end says its `first` or `last` words; a ranked company chart says "companies", "First company." and "Last
     company.". Unset, the periods' words (`PERIOD_READING`). `trend-charts-v2.spec.tsx` holds a peer chart's region
     and end words, and an analysis chart's periods'.
+  - The shared line: Financial trends' "Values don’t fit at this width." moves to `layout.ts` as `VALUES_DONT_FIT_HERE`,
+    beside `VALUES_DONT_FIT`, for any card no metrics table sits beside, so the peers panel reads the same constant.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

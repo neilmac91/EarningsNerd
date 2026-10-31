@@ -21,7 +21,7 @@ import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
 import { useChartFont } from '@/features/analysis/components/useChartFont'
 import { buildBarChart, unitCurrency, type BarAxis } from '@/features/analysis/lib/charts/barChart'
-import { CARD_HEIGHT } from '@/features/analysis/lib/charts/layout'
+import { CARD_HEIGHT, VALUES_DONT_FIT_HERE } from '@/features/analysis/lib/charts/layout'
 import { readouts } from '@/features/analysis/lib/charts/readout'
 import { chartTokens } from '@/features/analysis/lib/charts/theme'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
@@ -32,10 +32,6 @@ import { slotsOf, trendDescriber } from '@/features/fundamentals/lib/trendChart'
 /** What the plot says, at the card's height, for a metric whose every year is withheld (§3.4: a chart that does not apply
  *  keeps its card and says why). */
 const NO_FIGURES = 'No multi-year data available for this metric.'
-/** Where A4 finds no label tier even at the widest slot (an amount in thousands of trillions of won, on a phone), the bars
- *  print no values and the card says so. Not the analysis card's VALUES_DONT_FIT: no metrics table on the filing page
- *  lists this series' years, so the line stops at what is true. */
-const VALUES_DONT_FIT_HERE = 'Values don’t fit at this width.'
 
 /** The value axis a metric takes: an amount in its series' XBRL unit, whose currency the engine prints (CNY, never "$";
  *  "USD/shares" is a per-share amount, in cents), a margin in percentage points, or a multiple. */
@@ -193,6 +189,9 @@ export default function FundamentalsTrendChart({
               // Busy while the plot waits for its font (G4): the plot holds bones of its own plan until then.
               <div data-testid="fundamentals-chart" aria-busy={busy || undefined}>
                 {plot}
+                {/* Where A4 finds no label tier even at the widest slot (an amount in thousands of trillions of won, on a
+                    phone), the bars print no values and the card says so, in the line for a card no metrics table sits
+                    beside (layout.ts). */}
                 {layout?.valuesDontFit && (
                   <p className="mt-2 text-xs" style={{ color: tokens.note }} data-chart-text="fit">{VALUES_DONT_FIT_HERE}</p>
                 )}
