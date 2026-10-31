@@ -34,7 +34,8 @@ from openpyxl import load_workbook
 
 from app.services.analysis_export_metadata import (
     BASIS_CHANGE_CAUSE, LATER_FILING_EVIDENCE, LATER_FILING_MESSAGE, NOT_MEANINGFUL_CAUSES, PDF_CLOSING, WORKBOOK_CLOSING,
-    growth_text, later_filing_entry, pdf_closing, workbook_closing,
+    disagreement_sentence, evidence_lines, first_reported_sentence, growth_text, later_filing_entry, pdf_closing,
+    workbook_closing,
 )
 from app.services.excel_export_service import build_analysis_workbook
 from app.services.export_service import ExportService
@@ -42,6 +43,7 @@ from app.services.trend_analysis.data_notes import data_notes, marks_figure
 from tests.unit.test_export_note_marks import pdf_letters, workbook_letters
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "analysis_later_filings.json"
+ANALYSIS = Path(__file__).resolve().parents[3] / "frontend" / "features" / "analysis"
 CASES = json.loads(FIXTURE.read_text())["cases"]
 IDS = [case["name"] for case in CASES]
 COMPANY = SimpleNamespace(name="Regeneron Pharmaceuticals", ticker="REGN")
@@ -240,6 +242,51 @@ def test_a_finding_says_what_was_found():
     for own, words in ((5_969_900_000_000.0, "1,000 times smaller"), (5_969.9, "1,000,000 times larger")):
         debt["first_reported"]["value"] = own
         assert f"A later filing reports a value {words} than the year’s own annual report." in _workbook(dataset)["Metrics"]["D3"].comment.text
+
+
+def _page(path: str, pattern: str, what: str) -> re.Match:
+    """One of the page's evidence templates, read from its source; a change of its code form fails until re-read."""
+    found = re.search(pattern, (ANALYSIS / path).read_text(encoding="utf-8"))
+    assert found, f"{path}'s {what} moved: re-read it and the files' copy in analysis_export_metadata.py"
+    return found
+
+
+def test_the_evidence_words_are_the_pages():
+    """The words the files print of a figure's evidence are the page dialog's (D11, D12), read from its sources:
+    laterFilings.ts firstReportedSentence and filingParts, disagreementSentence's two findings, and SourceValue.tsx's
+    cause and "As first reported:". Only the values differ, as chief design approved on #1866: exact figures for the
+    page's compact ones, and days as stored for "7 Feb 2019". A reworded page fails here until the files follow."""
+    sentence = _page("lib/laterFilings.ts", r"return `(First reported as )\$\{own\}( in its own annual report)\$\{ownFiling && `"
+                     r"( \()\$\{ownFiling\}(\))`\}(\. A later filing)\$\{laterFiled && `( \(filed )\$\{laterFiled\}(\))`\}"
+                     r"( reports )\$\{later\}(, shown here\.)`", "firstReportedSentence")
+    parts = _page("lib/laterFilings.ts", r"\[form, filed && `(filed )\$\{filed\}`\]\.filter\(Boolean\)\.join\('([^']*)'\)",
+                  "filingParts")
+    sign = _page("lib/laterFilings.ts", r"disagreement === 'opposite_sign'\) return '([^']*)'", "sign finding")
+    scale = _page("lib/laterFilings.ts", r"return `(A later filing reports a value )\$\{fmtCount\(1000 \*\* Math\.abs\(steps\)\)\}"
+                  r"( times )\$\{steps > 0 \? '([^']*)' : '([^']*)'\}( than [^`]*)`", "scale finding")
+    cause = _page("components/SourceValue.tsx", r"\{comparison\.laterFiling && <p>([^<]*)</p>\}", "basis cause")
+    growth = _page("components/SourceValue.tsx", r"\{comparison\.laterFiling\?\.asFirstReported && <p[^>]*>([^<]*)<GrowthText "
+                   r"text=\{comparison\.laterFiling\.asFirstReported\} /></p>\}", "growth as first reported")
+
+    def page_sentence(own: str, filing: list[str], later_filed: str | None, later: str) -> str:
+        own_filing = parts[2].join(filing)
+        return "".join([sentence[1], own, sentence[2], f"{sentence[3]}{own_filing}{sentence[4]}" if own_filing else "",
+                        sentence[5], f"{sentence[6]}{later_filed}{sentence[7]}" if later_filed else "", sentence[8], later,
+                        sentence[9]])
+
+    first = {"value": 6_710_800_000.0, "unit": "USD", "form": "10-K", "filed_at": "2019-02-07", "later_filed_at": "2021-02-08"}
+    own, later = "6,710,800,000 USD", "5,145,600,000 USD"
+    assert first_reported_sentence(first, 5_145_600_000.0) == page_sentence(own, ["10-K", f"{parts[1]}2019-02-07"],
+                                                                             "2021-02-08", later)
+    bare = {**first, "form": None, "filed_at": None, "later_filed_at": None}
+    assert first_reported_sentence(bare, 5_145_600_000.0) == page_sentence(own, [], None, later)
+    assert disagreement_sentence({**first, "disagreement": "opposite_sign"}, -6_710_800_000.0) == sign[1]
+    for shown, factor, direction in ((6_710_800_000_000.0, "1,000", scale[3]), (6_710.8, "1,000,000", scale[4])):
+        assert disagreement_sentence({**first, "disagreement": "scale"}, shown) == (
+            f"{scale[1]}{factor}{scale[2]}{direction}{scale[5]}")
+    assert evidence_lines({"first_reported_growth": 0.1428084874493376, "percent": False}) == [
+        cause[1], f"{growth[1]}{growth_text(0.1428084874493376, False)}"]
+    assert BASIS_CHANGE_CAUSE == cause[1]
 
 
 GROWTH = {
