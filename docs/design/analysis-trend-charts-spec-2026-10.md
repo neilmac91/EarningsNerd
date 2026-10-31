@@ -511,9 +511,11 @@ says so; everything else follows the spec.
   or by its place where two companies answer one (`Company.ticker` is not unique), ticked and named by the ticker; every
   company but the subject `context`; `start` at the subject; `COMPANY_READING` ("companies", "First company.", "Last
   company."); the answered `concept`'s label (a bank asked for revenue answers net interest income) and its axis by the
-  metric's kind in the answer's `unit`. Its describer heads each company with its ticker and its own fiscal year
-  (`AAPL · FY2025 · year ended Sep 27, 2025`), speaks its name, its ticker, "this company" for the subject and its rank
-  over the companies with a value, and reads calculated from `provenance.method`. `features/peers/lib/cohort.ts` decides,
+  metric's kind in the answer's `unit`. Its describer heads each company with its ticker, its name, its rank over the
+  companies with a value and its own fiscal year (`AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025`;
+  chief design's merge condition on #1868: no tick or label names a company, and two can answer one ticker), speaks its
+  name, its ticker, "this company" for the subject, its rank and its year, and reads calculated from
+  `provenance.method`. `features/peers/lib/cohort.ts` decides,
   engine-free, whether the panel shows at all (`noCohort`: a metric FEATURED names, the subject's own figure and at least
   one other company's, never `peer_count`), so the page loads the card, and the engine with it, only for a cohort, which
   `tests/e2e/company-first-load.spec.ts` holds on the build's manifests. `chartPlan.ts`'s peer cases are the panel's own

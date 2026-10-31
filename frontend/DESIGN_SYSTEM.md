@@ -3188,9 +3188,11 @@ the cue colour alone cannot give; every value prints on its bar (A4); a slot is 
 starts at the subject, and a plot that scrolls opens with the subject's column centred as far as the scroll goes, as
 §10's start rule above sets it: a sector's largest company opens at the scroll's start on the plot's own axis, with no
 sticky gutter, and a subject near the end at the scroll's end; and the scroll region and the end-of-range status name
-companies. The tooltip heads a company with its ticker and its own fiscal year ("AAPL · FY2025 · year ended
-Sep 27, 2025"), since fiscal years differ by company, and the values stop says "Apple Inc., AAPL, this company, rank 3 of 9,
-FY2025, year ended September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
+companies. The tooltip heads a company with its ticker, since the reader hovered its bar, then its name, which no tick or
+label prints (two companies can answer one ticker), its rank, and its own fiscal year, since fiscal years differ by
+company ("AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025"), wrapping inside the plot's visible width;
+the values stop says the same in its own order, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year ended
+September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
 ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
 option, the plot's name, the rank line, the footnote and the readout. The card: the heading, `h2` at `text-xl`; the rank
 line in the secondary ink ("AAPL ranks #3 of 9 on revenue", over the companies with a value, never `peer_count`, which

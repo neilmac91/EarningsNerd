@@ -45,9 +45,13 @@ export function slotsOf(entries: PeerEntry[]): BarCategory[] {
 /** A fiscal year's name, "FY2025", or its period end's year where the backend names none. */
 const yearOf = (entry: PeerEntry) => (entry.fiscal_year != null ? `FY${entry.fiscal_year}` : entry.period_end?.slice(0, 4) ?? null)
 
-/** Each company as the tooltip prints it and the values stop says it: "AAPL · FY2025 · year ended Sep 27, 2025", and
- *  "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year ended September 27, 2025." (no "·", "#" or unit letter);
- *  a figure the backend derived reads as calculated from its own provenance. `slots` are `slotsOf(entries)`. */
+/** Each company as the tooltip prints it and the values stop says it, in one order: who it is, where it ranks, which
+ *  year. The tooltip, "AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025": the ticker first, since the
+ *  reader hovered its bar, then the name, which no tick or label prints (two companies can answer one ticker), the rank
+ *  over the companies with a value, and its own fiscal year, which can differ by company; it wraps inside the plot's
+ *  visible width (TrendChartPlot's placeTip). The values stop, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year
+ *  ended September 27, 2025." (no "·", "#" or unit letter). A figure the backend derived reads as calculated from its
+ *  own provenance. `slots` are `slotsOf(entries)`. */
 export function peerDescriber(answer: PeerComparisonResponse, entries: PeerEntry[], slots: BarCategory[]): ReadoutDescriber {
   const at = new Map(slots.map((slot, i) => [slot.key, entries[i]]))
   const of = rankOf(answer)?.of
@@ -55,13 +59,13 @@ export function peerDescriber(answer: PeerComparisonResponse, entries: PeerEntry
     header: (period) => {
       const entry = at.get(period.key)
       if (!entry) return { shown: period.long, spoken: period.long }
+      const name = formatCompanyName(entry.company_name)
+      const rank = entry.rank != null && of != null ? { shown: `#${entry.rank} of ${of}`, spoken: `rank ${entry.rank} of ${of}` } : null
       const year = yearOf(entry)
       const when = year ? periodHeader(year, 'year', entry.period_end) : null
-      const spoken = [
-        formatCompanyName(entry.company_name), entry.ticker, entry.is_subject ? THIS_COMPANY : null,
-        entry.rank != null && of != null ? `rank ${entry.rank} of ${of}` : null, when?.spoken,
-      ]
-      return { shown: [entry.ticker, when?.shown].filter(Boolean).join(' · '), spoken: spoken.filter(Boolean).join(', ') }
+      const shown = [entry.ticker, name, rank?.shown, when?.shown]
+      const spoken = [name, entry.ticker, entry.is_subject ? THIS_COMPANY : null, rank?.spoken, when?.spoken]
+      return { shown: shown.filter(Boolean).join(' · '), spoken: spoken.filter(Boolean).join(', ') }
     },
     calculated: (_mark, key) => at.get(key)?.provenance?.method === 'calculated',
   }

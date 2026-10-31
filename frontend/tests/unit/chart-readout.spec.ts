@@ -263,10 +263,10 @@ describe('a ranked company chart’s readouts (E251): a company a readout, throu
     all.forEach((readout, i) => {
       const point = mark.points[i]
       const entry = entries[i]
-      // The tooltip heads a company with its ticker and its own fiscal year, which can differ by company; the values stop
-      // says its name, its ticker, "this company" for the one the page is about, and its rank over the companies with a
-      // value (no "·", "#" or unit letter).
-      expect(readout.header).toBe(`${entry.ticker} · FY${entry.fiscal_year} · year ended ${periodEndText(entry.period_end)}`)
+      // The tooltip heads a company with its ticker, its name (two companies can answer one ticker), its rank over the
+      // companies with a value and its own fiscal year, which can differ by company; the values stop says its name, its
+      // ticker, "this company" for the one the page is about, its rank and its year (no "·", "#" or unit letter).
+      expect(readout.header).toBe(`${entry.ticker} · ${formatCompanyName(entry.company_name)} · #${entry.rank} of ${ranked} · FY${entry.fiscal_year} · year ended ${periodEndText(entry.period_end)}`)
       const spoken = `${formatCompanyName(entry.company_name)}, ${entry.ticker}, ${entry.is_subject ? 'this company, ' : ''}rank ${entry.rank} of ${ranked}, FY${entry.fiscal_year}, year ended ${periodEndText(entry.period_end, true)}. ${mark.label}: `
       expect(readout.announcement.startsWith(spoken), `${point.period}: "${readout.announcement}"`).toBe(true)
       expect(readout.announcement).not.toMatch(/[·#]/)

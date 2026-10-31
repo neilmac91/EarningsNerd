@@ -267,6 +267,33 @@ describe('the Sector peers panel (E251)', () => {
     expect(stop).toHaveAttribute('aria-valuetext', 'Synthetic Holdings Ltd, HLDX, rank 5 of 11, FY2025, year ended December 31, 2025. Revenue: $150.4 billion.')
   })
 
+  // The tooltip names the company (chief design's merge condition on #1868): no tick, label or footnote prints a name, and
+  // two companies can answer one ticker; and a subject drawn after the top ten carries its rank, as its values stop does.
+  /** The tooltip's header for the values stop's company `i`, reached from the first by the keyboard. */
+  const tipHeader = (section: HTMLElement, i: number) => {
+    const stop = within(section).getByRole('slider', { name: 'Revenue chart values' })
+    fireEvent.keyDown(stop, { key: 'Home' })
+    for (let step = 0; step < i; step++) fireEvent.keyDown(stop, { key: 'ArrowRight' })
+    return section.querySelector('[data-chart-tooltip] p')?.textContent
+  }
+
+  it('heads a tooltip with the ticker, the name, the rank and the year: the two companies that answer DUPX differ by name', async () => {
+    renderPanel({ revenue: answerOf('duplicate ticker') })
+    const section = await panelCard()
+    await plotOf(section, 'Revenue')
+    expect([tipHeader(section, 0), tipHeader(section, 1)]).toEqual([
+      'DUPX · Synthetic Duplicate One Inc · #1 of 4 · FY2025 · year ended Dec 31, 2025',
+      'DUPX · Synthetic Duplicate Two Corp · #2 of 4 · FY2025 · year ended Dec 31, 2025',
+    ])
+  })
+
+  it('gives the rank in the tooltip of a subject drawn after the top ten, where the bars’ order cannot', async () => {
+    renderPanel({ revenue: answerOf('cap') })
+    const section = await panelCard()
+    await plotOf(section, 'Revenue')
+    expect(tipHeader(section, 10)).toBe('CAPM · Synthetic Capped M Inc · #13 of 14 · FY2025 · year ended Dec 31, 2025')
+  })
+
   it('prints a CNY cohort in the engine’s CNY form, its axis, every value and its readout, and names the currency in its footnote', async () => {
     renderPanel({ revenue: answerOf('CNY revenue') })
     const cny = await panelCard()
