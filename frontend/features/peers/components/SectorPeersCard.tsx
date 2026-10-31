@@ -27,6 +27,7 @@ import { usePeers } from '@/features/peers/hooks/usePeers'
 import { croppedOf, DEFAULT_METRIC, drawn, METRICS, metricOf, noCohort, rankOf, shows, type NoCohort } from '@/features/peers/lib/cohort'
 import { peerChart } from '@/features/peers/lib/peerChart'
 import { inSentence } from '@/lib/format'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 
 // ---- The card's words (E251's defaults, for chief design's ruling) ----
 const HEADING = 'Sector peers'
@@ -81,8 +82,12 @@ function HeldRankLine({ children, loading }: { children: ReactNode; loading: boo
   )
 }
 
-/** A company's line in Sources & checks: its ticker and fiscal year, as Financial trends names a year's. */
-const checkLabel = (entry: PeerEntry) => `${entry.ticker}, ${entry.fiscal_year ?? entry.period_end ?? 'period unavailable'}`
+/** A company's line in Sources & checks, each source check's and each "original SEC filing" link's: its ticker first,
+ *  then its name as the tooltip gives it (formatCompanyName; two companies can answer one ticker, chief design's ruling
+ *  on #1868), then its fiscal year, as Financial trends names a year's. "·" parts them, as in the tooltip, since a name
+ *  can hold a comma ("META · Meta Platforms, Inc. · 2025"). */
+const checkLabel = (entry: PeerEntry) =>
+  [entry.ticker, formatCompanyName(entry.company_name), entry.fiscal_year ?? entry.period_end ?? 'period unavailable'].filter((part) => part !== '').join(' · ')
 
 export default function SectorPeersCard({ ticker, answer, className }: {
   ticker: string

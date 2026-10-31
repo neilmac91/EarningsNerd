@@ -48,6 +48,7 @@ import type { PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import SectorPeers from '@/features/peers/components/SectorPeers'
 import { drawn, noCohort } from '@/features/peers/lib/cohort'
 import { peerChartDef } from '@/features/peers/lib/peerChart'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { PEER_SHOWING, type PeerFixture } from './chartPlan'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture
@@ -112,6 +113,8 @@ async function openOn(name: string, options: { theme?: 'light' | 'dark' } = {}) 
   if (metric !== 'revenue') fireEvent.change(picker(section), { target: { value: metric } })
   return section
 }
+/** A string as a RegExp matches it, letter for letter. */
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** The line under the plot. */
 const footnote = (scope: HTMLElement) => within(scope).getByText(/^Companies with the same SEC industry code/)
 /** What follows the heading: the rank line, or the room held for it while a metric picked has none. */
@@ -315,7 +318,27 @@ describe('the Sector peers panel (E251)', () => {
     fireEvent.change(picker(section), { target: { value: 'net_margin' } })
     await plotOf(section, 'Net margin')
     expect(footnote(section)).toHaveTextContent(/each with its most recent annual net margin from SEC filings \(XBRL\)\. Fiscal years can differ by company\. Some figures here need a source check\. Sources & checks lists them\.$/)
-    expect(within(section).getByText(/^MRGC, 2025: Calculated before 10 October 2026/)).toBeInTheDocument()
+    expect(within(section).getByText(/^MRGC · Synthetic Margin C Co · 2025: Calculated before 10 October 2026/)).toBeInTheDocument()
+  })
+
+  // Sources & checks names each company as the tooltip does, its ticker first (chief design's ruling on #1868 carried to
+  // the list): two companies that answer one ticker differ in every line and link it prints.
+  it('labels each company in Sources & checks by its ticker, its name and its year: the two DUPX companies’ links differ', async () => {
+    const answer = answerOf('duplicate ticker')
+    // Production's entries carry their filing's link, which the fixture's synthetic ones cannot (no SEC accession): give
+    // each one, so Sources & checks prints a link a company.
+    answer.peers.forEach((entry, i) => {
+      entry.provenance = { ...entry.provenance!, source_url: `https://www.sec.gov/Archives/edgar/data/${9000 + i}/00000900002600000${i}/` }
+    })
+    renderPanel({ revenue: answer })
+    const section = await panelCard()
+    await plotOf(section, 'Revenue')
+    expect([...section.querySelectorAll('details a')].map((link) => link.textContent)).toEqual([
+      'DUPX · Synthetic Duplicate One Inc · 2025 · original SEC filing',
+      'DUPX · Synthetic Duplicate Two Corp · 2025 · original SEC filing',
+      'UNQX · Synthetic Unique Co · 2025 · original SEC filing',
+      'ALNX · Synthetic Alone Ltd · 2025 · original SEC filing',
+    ])
   })
 
   it('offers the nine metrics FEATURED names, at one width', async () => {
@@ -381,7 +404,7 @@ describe('the Sector peers panel (E251)', () => {
     if (NOT_SHOWING[name as keyof typeof NOT_SHOWING] === 'subject') expect(place.querySelector('.font-data'), 'the ticker in the data face').toHaveTextContent(answerOf(name).subject.ticker)
     // Sources & checks lists every company whose value is withheld, with no chart as with one.
     const withheld = answerOf(name).peers.filter((entry) => entry.provenance?.validation === 'unavailable')
-    expect(withheld.map((entry) => within(section).getByText(new RegExp(`^${entry.ticker}, 2025: unavailable\\.`)).textContent)).toHaveLength(withheld.length)
+    expect(withheld.map((entry) => within(section).getByText(new RegExp(`^${escaped(`${entry.ticker} · ${formatCompanyName(entry.company_name)} · 2025`)}: unavailable\\.`)).textContent)).toHaveLength(withheld.length)
   })
 
   it('says in the plot’s place that an answer ranked on a metric it cannot name cannot be shown', async () => {

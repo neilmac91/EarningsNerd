@@ -3204,7 +3204,9 @@ can differ by company.", the currency only where it is not the dollar), which ad
 is larger than its slots, and "Some figures here need a source check. Sources & checks lists them." where a drawn value
 needs one (no badge: the badge's gate keeps it to Financial
 trends); and Sources & checks, listing every company drawn and every one whose value is withheld, which draws no bar,
-in every state (with no chart, the withheld ones alone, a withheld subject the plot's place names among them). It
+in every state (with no chart, the withheld ones alone, a withheld subject the plot's place names among them), each
+named in its lines and its "original SEC filing" link as the tooltip names it, the ticker first ("DUPX · Synthetic
+Duplicate One Inc · 2025"). It
 shows itself only once the default metric's answer is a cohort: a metric the panel names and formats, the subject's own
 figure and at least one other company's (`features/peers/lib/cohort.ts` `noCohort`, engine-free); until then the gate
 renders nothing and the card's chunk, the engine with it, is never asked for, so the company page's first load keeps the
