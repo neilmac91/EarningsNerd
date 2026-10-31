@@ -979,10 +979,11 @@ excerpt other than the ones prepared, or an excerpt other than the one the run h
 from the prepared database; records another outcome, source or fallback reason than its case
 declares; or supplies a declared section under its floor, or not at all. A source parsed natively
 where its case declares a fallback is refused too, so a parser change that reaches ASML updates its
-declaration and this paragraph in the same change. The report names the first refused source and
+declaration and this paragraph in the same change. A refusal names the first refused source and
 what differs (the fields, each short section and its length, or the recorded and the declared
-source, outcome and reason), never a hash or text, and `preparation.json`, retained with it, keeps
-every source's record. The preflight reads the prepared database's excerpts with the standard
+source, outcome and reason), never a hash or text. The source check prints it as its "Source
+refused" error and in `source-check.log`; the runner, if it refuses, writes it in its report.
+`preparation.json`, retained with them, keeps every source's record. The preflight reads the prepared database's excerpts with the standard
 library's `sqlite3`, read-only, by plain SQL over `filings` and `filing_content_cache`: it runs
 before any setting loads, so the ORM is not yet there; `tests/unit/test_copilot_bootstrap.py`'s real
 preparation ties the query to the schema.
@@ -991,19 +992,20 @@ An SEC outage does not reach the preflight: the bootstrap fetches each filing be
 starts, so an outage fails "Prepare actual SEC sources in a new scratch database", the runner step
 never starts, the draw gate (`backend/scripts/copilot_eval_draw_gate.py`) counts no draw, and a
 re-run draws once SEC answers. A refusal follows a preparation that completed on another source than
-its case declares: a section parse that timed out (30 s, 40 s for a 20-F) or failed, an edgartools,
-parser or assembler change, or a document SEC now serves differently. A refused source spends no draw
-either (the founder's decision of 31 October 2026, E80 option (c)). The preparation step's last act is
-the source check, `python -m evals.copilot_source_check`, the same preflight with no provider call
-and no credential. A refusal fails "Prepare actual SEC sources in a new scratch database" with a
-"Source refused" error that names what differs, and an outage never reaches the check. The runner
-step is then skipped, and the draw gate counts no draw. A re-run draws once the declared source
-prepares again. A refusal the pull request itself causes, a parser change for one, refuses on every
-re-run, at no provider cost, until a push. The bootstrap stays blind to the golden set; the check reads
-the golden cases only once the preparation is written. The runner keeps its own call before any
-provider call, so a check skipped or removed refuses there instead, at the cost of the head's draw:
-the check fails closed. `tests/unit/test_copilot_source_check.py` pins both placements, and that the
-check refuses exactly what the runner refuses.
+the one its case declares: a section parse that timed out (30 s, 40 s for a 20-F) or failed, an
+edgartools, parser or assembler change, or a document SEC now serves differently. A refused source
+spends no draw either (the founder's decision of 31 October 2026, E80 option (c)). The preparation
+step's last act is the source check, `python -m evals.copilot_source_check`. It runs the same
+preflight, with no provider call and no credential. A refusal fails "Prepare actual SEC sources in a
+new scratch database" with a "Source refused" error that names what differs. An outage fails the
+bootstrap first and never reaches the check. The runner step is then skipped, and the draw gate
+counts no draw. A re-run draws once the declared source prepares again. A refusal the pull request
+itself causes, a parser change for one, refuses on every re-run, at no provider cost, until a push.
+The bootstrap stays blind to the golden set; the check reads the golden cases only once the
+preparation is written. The runner keeps its own call before any provider call. So a check skipped
+or removed refuses there instead, at the cost of the head's draw: the check fails closed.
+`tests/unit/test_copilot_source_check.py` pins both placements, and that the check refuses what the
+runner's preflight (`validate_preparation`) refuses.
 
 The runner requires exactly one valid terminal completion per attempt, all planned identities,
 zero execution errors and no trust/accuracy veto. Valid refusal completions preserve the production

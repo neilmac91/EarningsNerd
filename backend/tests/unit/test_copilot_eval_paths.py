@@ -1,7 +1,7 @@
 """The paid Copilot fidelity run triggers only on files that can change what it measures.
 
-`.github/workflows/copilot-eval.yml` runs `evals.copilot_bootstrap`, `evals.copilot_source_check` and
-`evals.copilot_runner` against DeepSeek whenever a `pull_request` touching its `paths:` filter is marked ready. The
+`.github/workflows/copilot-eval.yml` runs `evals.copilot_bootstrap` and `evals.copilot_source_check`, then
+`evals.copilot_runner` against DeepSeek, whenever a `pull_request` touching its `paths:` filter is marked ready. The
 filter used to be `backend/**`, so a tests-only or docs-only backend change paid for a run that
 could not change its result. This gate reads the entry points from the workflow's own run steps,
 recomputes their transitive import closure over every top-level package and module under

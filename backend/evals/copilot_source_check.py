@@ -5,13 +5,14 @@ python -m evals.copilot_source_check --preparation evals/reports/copilot/prepara
 
 It holds the prepared sources to the golden cases' declarations with the runner's own preflight,
 ``copilot_runner.validate_preparation``, which makes no provider call and reads no credential. A refused source then
-fails the preparation step, before "Run every verified question three times", the step the draw gate counts, so it
-spends no draw: a re-run draws once the declared source prepares again, as after an SEC outage. A refusal the pull
-request itself causes, a parser change for one, refuses on every re-run, at no provider cost, until a push.
+fails the preparation step. That is before "Run every verified question three times", the step the draw gate counts,
+so the refusal spends no draw. A re-run draws once the declared source prepares again, as after an SEC outage. A
+refusal the pull request itself causes, a parser change for one, refuses on every re-run, at no provider cost, until a
+push.
 
 The bootstrap stays blind to the golden set (it never reads questions or expected answers); this check reads the
 golden cases only once the preparation is written. The runner still calls the same preflight before any provider
-call, so a check skipped or removed here refuses there instead, at the cost of the head's draw: the check fails closed
+call. So a check skipped or removed here refuses there instead, at the cost of the head's draw: the check fails closed
 (``tests/unit/test_copilot_source_check.py`` pins both placements).
 """
 from __future__ import annotations
@@ -51,7 +52,8 @@ def main(argv: list[str] | None = None) -> int:
         print("source check: every prepared source is the one its golden case declares")
         return 0
     print(f"::error title={TITLE}::{_command_value(reason)}. No draw was spent: a re-run draws once the declared "
-          'source prepares again (backend/evals/RUNBOOK.md, "Source preflight (E80)").')
+          "source prepares again, and a refusal this pull request causes needs a push "
+          '(backend/evals/RUNBOOK.md, "Source preflight (E80)").')
     return 1
 
 
