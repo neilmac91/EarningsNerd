@@ -5,10 +5,12 @@
 -- 2026-10 restatement census: 120 cells at 24 of 59 large filers, 12 of them off the 10-K's, FDX's at a
 -- millionth of it), and the backfill's cross-check (facts/reconcile.py's extract_authoritative_values,
 -- run by backfill-facts) took it as the authority and wrote it over a filing's parsed figure. The next
--- sync replaces a sync's proxy row only where no stored row holds the 10-K's identity: neither a
+-- sync in USD alone replaces a sync's proxy row only where no stored row holds the 10-K's identity: neither a
 -- sync's nor a filing's, which the per-filing writer stores behind a current proxy row when the 10-K
 -- is listed after it. Elsewhere the proxy row stays current, a margin computed from it keeps its value,
--- and no sync rewrites a filing's row. The sets: 1 counts the current rows whose form is a proxy form,
+-- and no sync rewrites a filing's row. A sync that involves another currency also makes the stored row
+-- current over the proxy's where it agrees with the 10-K's figure (facts/fiscal_naming.py's
+-- filing_row_agrees), and leaves the key as found where it does not. The sets: 1 counts the current rows whose form is a proxy form,
 -- 2 lists their companies and concepts, 3 lists the calculations computed from them, 4 lists the
 -- filings' rows, current or not, the cross-check replaced with a proxy's figure, and 5 those it
 -- confirmed against one. Together they are the cohort of the journaled repair, the quarterly repair's

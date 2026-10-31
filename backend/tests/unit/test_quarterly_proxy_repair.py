@@ -1178,16 +1178,34 @@ def test_no_winner_but_a_stored_report_row_refuses(db, monkeypatch):
                                    "winner to agree with")
 
 
+def _a_stored_eur_row(db, company):
+    """A stored, non-current EUR net income row (a stray the per-filing pick once read): every sync of the company's net
+    income then involves another currency than USD (``currency._another_currency``), so the currency step runs."""
+    db.add(FinancialFact(company_id=company.id, concept="net_income", unit="EUR", value=1.0,
+                         period_end=date(2019, 5, 31), period_start=date(2018, 6, 1), fiscal_year=2019,
+                         fiscal_period="FY", accession=_accn(company, "X19"), form="10-K", source="edgar_xbrl",
+                         is_latest=False))
+    db.commit()
+
+
 @pytest.mark.parametrize(("clause", "parsed", "start", "fiscal_year"), [
     ("value", 17_000e6, "2025-01-01", None), ("start", 18_254e6, "2025-02-01", None),
     ("fiscal year", 18_254e6, "2025-01-01", 2024),
 ])
-def test_a_disagreeing_filing_row_refuses(db, monkeypatch, clause, parsed, start, fiscal_year):
+@pytest.mark.parametrize("synced", [False, True], ids=["as-planted", "after-a-sync-involving-eur"])
+def test_a_disagreeing_filing_row_refuses(db, monkeypatch, clause, parsed, start, fiscal_year, synced):
+    # A sync that involves another currency makes the batch's own row current where a proxy row held the key (#1583: a
+    # proxy's row is never a newer filing's), but never a filing row that disagrees with the batch's figure
+    # (``fiscal_naming.filing_row_agrees``): the key stays as found, and the step refuses as before the sync.
     company, payload, filing = _filed_behind(db, monkeypatch, "CCD", parsed=parsed, start=start)
     report = _filing_row(db, filing)
     if fiscal_year is not None:
         report.fiscal_year = fiscal_year  # planted as a label edit
         db.commit()
+    if synced:
+        _a_stored_eur_row(db, company)
+        _resync(db, company, payload)
+        assert not _filing_row(db, filing).is_latest
     [row] = _current_proxy_rows(db, company)
     _refuses(db, company, payload, rf"\(fact {row.id}\): the filing row holding the 10-K's identity "
                                    rf"\(fact {report.id}\) disagrees with the 10-K on: {clause}$")
@@ -3374,6 +3392,30 @@ def test_principal_review_5718798403_item_2_set_2_judges_a_retained_scale_up_at_
             assert (promoted.is_latest, promoted.source, float(promoted.value)) == (True, "companyfacts", 4_433e6)
             found = _detection(db, {company.ticker: payload})
             assert (found[2], found[4], found[5]) == ([], [], [])
+
+
+@pytest.mark.parametrize(("fy2026", "agrees"), [(4_500e6, False), (44_330e6, False), (4_433e6 * 1.005, True)],
+                         ids=["10k_1.5pct_off", "10k_10x_the_value", "10k_0.5pct_off"])
+def test_a_sync_involving_another_currency_never_makes_a_retained_scale_up_current_over_the_proxys_row(
+        db, monkeypatch, fy2026, agrees):
+    # The FY2026 10-K's row holds the year's winner's identity behind P26's current row. A sync that involves another
+    # currency (a stored EUR row) makes the batch's own row current where a proxy row held the key, and that row is
+    # this one; it does so only where the row agrees with the winner (``fiscal_naming.filing_row_agrees``, set 2's own
+    # test). More than 1% off, the sync leaves P26's row current and the step refuses the company on value, as on a
+    # sync in USD alone; 0.5% off, the sync promotes the row and demotes P26's, so the step retires nothing.
+    company, payload, filing = _retained_at_the_winners_identity(db, monkeypatch, "PRE", fy2026)
+    _a_stored_eur_row(db, company)
+    _resync(db, company, payload)
+    row = _filing_row(db, filing)
+    current = _rows(db, company, concept="net_income", period_end=date(2026, 5, 31), is_latest=True)
+    if agrees:
+        assert [r.id for r in current] == [row.id] and not _current_proxy_rows(db, company)
+        assert _preview(db, company, payload)["proxy"]["retired"] == 0
+        return
+    [p26] = current
+    assert (p26.form, row.is_latest) == ("DEF 14A", False)
+    _refuses(db, company, payload, _refusal(db, (p26.id, f"the filing row holding the 10-K's identity (fact {row.id}) "
+                                                         "disagrees with the 10-K on: value")))
 
 
 @pytest.mark.parametrize("witnessed", [True, False], ids=["a_proxy_figure_holds_it", "no_proxy_figure_holds_it"])

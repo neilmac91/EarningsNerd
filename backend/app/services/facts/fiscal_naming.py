@@ -6,13 +6,14 @@ The companyfacts writer (``facts/calendar``, ``facts/companyfacts``) and the per
 whose year is known (``years_back``), and both trust a late or lone annual report's own focus only for
 the year its period ends in or mostly lies in (``focus_years``). It also holds the form rules: the annual
 reports (``ANNUAL_FORMS``), and the proxy and information statements (``is_proxy_form``) whose figures the
-companyfacts collector and the backfill's cross-check never take.
+companyfacts collector and the backfill's cross-check never take; and the test a filing's own row at a companyfacts
+fact's identity passes to stand for that fact (``filing_row_agrees``).
 """
 from __future__ import annotations
 
 import re
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Mapping
 
 ANNUAL_FORMS = frozenset({"10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A"})
 # A 52/53-week calendar drifts a few days from whole quarters and years; transition periods do not.
@@ -104,3 +105,19 @@ def reported_fiscal_year(record: dict, end: date, own_ends: dict[str, date] | No
     earliest = min(item[0] for item in evidence)
     years = {fy for filed, fy in evidence if filed == earliest}
     return next(iter(years)) if len(years) == 1 else None
+
+
+def filing_row_agrees(row: Any, fact: Mapping[str, Any]) -> bool:
+    """Whether a stored row with a filing owner (``filing_id``) at a companyfacts fact's identity agrees with that
+    fact, by the proxy repair's own test of a filing row at the winner's identity
+    (``proxy_fact_repair._disagreements``): its value within the backfill cross-check's tolerance of the fact's, a
+    start that is missing or the same, and the same fiscal year. A filing's row and companyfacts' item for that
+    filing agree unless a cross-check replaced the filing's figure (with a proxy's before #1622, or a scale-up it
+    retained), so the currency step never makes such a row current in the batch's place
+    (``currency._promote_batch_rows``): it leaves the key as found, for the repair to settle."""
+    # Call time: concepts imports quarterly, which imports currency, which imports this module.
+    from app.services.facts.concepts import CROSS_CHECK_TOLERANCE
+
+    value = float(fact["value"])
+    return (abs(float(row.value) - value) / (abs(value) or 1.0) <= CROSS_CHECK_TOLERANCE
+            and row.period_start in (None, fact["period_start"]) and row.fiscal_year == fact["fiscal_year"])

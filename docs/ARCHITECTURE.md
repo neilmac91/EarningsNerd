@@ -526,7 +526,7 @@ unused since generation became account-required in #619; kept because migrations
   one current amount or per-share row and every other there is demoted, whichever sync or writer left
   the period so: the upsert skips a stored identity and never touches its `is_latest`, so without this
   an earlier demotion, an amendment stored behind its original's companyfacts row, or a lagging
-  sync's figure stayed for good. Three cases are left as found: a period where a row of a filing (never
+  sync's figure stayed for good. Four cases are left as found: a period where a row of a filing (never
   a proxy statement's) filed strictly after the batch row's own filing was current (each by its Filing row's date, else
   its filing's `filed` in the payload, else its provenance `filed_at`, which for a calculation records
   its latest operand's date, so a calculation is dated by its own filing wherever a Filing row or the
@@ -536,8 +536,11 @@ unused since generation became account-required in #619; kept because migrations
   collector takes a period from the first registry tag with data, not from the latest filing, so
   where a newer filing restates a period only under a lower-priority tag (revenue moving from the ASC
   606 element to `Revenues`, diluted EPS to `EarningsPerShareBasicAndDiluted` across a split) the
-  batch's winner there is the older filing's figure; a quarantined row, never made current; and a
-  quarter whose unlabelled twin in that unit is current (the bulk writer's NULL-period rule). A proven
+  batch's winner there is the older filing's figure; a quarantined row, never made current; a row
+  with a filing owner at the batch row's identity that disagrees with its figure, never made current
+  either (`facts/fiscal_naming.py::filing_row_agrees`, the proxy step's agreement test: a parse a
+  cross-check replaced); and a quarter whose unlabelled twin in that unit is current (the bulk
+  writer's NULL-period rule). A proven
   switch promotes nothing. A row of a filing the payload does not name and not known to be newer
   than it (undated, or filed on or before its newest date) is not protected, so it yields such a
   period to the batch's row unless filed strictly after the batch row's filing, until the sync that

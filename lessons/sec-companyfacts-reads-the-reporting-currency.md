@@ -78,12 +78,14 @@ behind its original's row. Promoting only at a key with no current row left the 
 each superseded figure the reviews found current after a fresh sync. So at every key the batch
 presents in an amount or per-share unit, the writer makes the batch's own row there (same unit and
 accession) the one current row and demotes every other there (`_promote_batch_rows`), whichever sync
-or writer left the key so, outside four cases: a key where a protected row of the sync's view sits,
+or writer left the key so, outside five cases: a key where a protected row of the sync's view sits,
 current or not (below), which holds the newest protected row instead; a key where a row of a filing
 (never a proxy statement's: its figures never win a period, whatever its date) filed strictly after the batch
 row's own filing was current, left as found; a quarantined row (provenance
-`unavailable`, any reason), never made current, and a quarter whose unlabelled twin in that unit is
-current (the bulk writer's NULL-period rule), both left as found; and a proven switch, which promotes
+`unavailable`, any reason), never made current, a row with a filing owner at the batch row's identity
+that disagrees with its figure (`fiscal_naming.filing_row_agrees`: a parse a cross-check replaced with a
+proxy's figure or a scale-up), never made current either, and a quarter whose unlabelled twin in that unit
+is current (the bulk writer's NULL-period rule), each left as found; and a proven switch, which promotes
 nothing. Date every row by its own filing (`_filed`: its Filing row, else its filing's `filed` in the
 payload, else its provenance `filed_at`, which for a calculation is its latest operand's date), so a
 calculation is dated by its latest operand only where neither a Filing row nor the payload dates its
