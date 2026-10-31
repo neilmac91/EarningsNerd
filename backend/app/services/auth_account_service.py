@@ -3,8 +3,8 @@ email-verification and password-reset tokens, and the writes around a password l
 
 Moved out of ``app.routers.auth`` so the router stays HTTP only
 (``tests/unit/test_router_orm_ceilings_allowlist.py``). The router keeps every HTTP concern: rate
-limits, Turnstile, the invite gate, the breached-password check, the bcrypt calls (off the event
-loop), cookies, the account-exists and OAuth-linked mail, audit rows and telemetry; the reset and
+limits, Turnstile, the invite gate, the breached-password check, the password hash calls (on the password
+thread), cookies, the account-exists and OAuth-linked mail, audit rows and telemetry; the reset and
 verification links are issued and mailed by ``account_mail_service`` (F60). Only a token's SHA-256 is
 stored; the raw value travels in the emailed link. The two token exceptions are what the router maps
 to its 400s.
@@ -247,7 +247,7 @@ def complete_password_reset(db: Session, user: User, hashed_password: str) -> No
 def complete_password_reset_by_id(db: Session, user_id: int, hashed_password: str) -> None:
     """The reset route's write: the account :func:`find_password_reset_user` found, read again by its id, then
     :func:`complete_password_reset`. The route releases its session between the two, before the breached-password
-    check and bcrypt, so it keeps the id, not the row (E121). Raises :class:`AccountTokenInvalidError`, writing
+    check and the hash, so it keeps the id, not the row (E121). Raises :class:`AccountTokenInvalidError`, writing
     nothing, when the account has been deleted since, as the token's read would have then.
 
     The account's users row lock (``refresh_token_service.lock_user_tokens``) comes before the read, which then
