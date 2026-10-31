@@ -588,6 +588,48 @@ describe('CopilotComposer: a press moves the page once the pane settles, when th
     }
   })
 
+  it("the column's own reveal comes first: a column that settled shorter brings the shell to its new foot", () => {
+    const restore = withWindow({ height: 130 })
+    const page = watchThePage()
+    try {
+      const { ref, column } = renderInColumn()
+      ref.current?.focus({ revealOnPage: true })
+      // The pane settles 100px shorter with no resize reported yet: the column ends at 300px, the shell at 350px.
+      column.resize(200)
+      frames(3)
+      // The column brings the shell to its foot (250 to 300px), then the page moves it to the window's: 300 - 130.
+      expect(column.writes).toEqual([70, 170])
+      expect(page.scrollBys).toEqual([{ top: 170, behavior: 'smooth' }])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
+  it('waits for the column too: a column still moving under a still shell keeps the wait going', () => {
+    const restore = withWindow({ height: 130 })
+    const page = watchThePage()
+    try {
+      const { ref, box, column } = renderInColumn()
+      let top = 100
+      box.getBoundingClientRect = () => rect(top, 300)
+      ref.current?.focus({ revealOnPage: true })
+      frames(1)
+      top = 95
+      frames(1)
+      top = 90
+      frames(2)
+      expect(page.scrollBys, 'the column moved a frame ago').toEqual([])
+      frames(1)
+      // Settled at 90px: the column brings the shell to its foot, 340 to 390px, then the page moves it 390 - 130.
+      expect(column.writes).toEqual([70, 80])
+      expect(page.scrollBys).toEqual([{ top: 260, behavior: 'smooth' }])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
   it('a pre-fill asks the same; one jump under prefers-reduced-motion', () => {
     const restore = withWindow({ height: 130 })
     const page = watchThePage()
@@ -718,7 +760,9 @@ describe('CopilotComposer: a press moves the page once the pane settles, when th
         </div>,
       )
       ref.current?.focus({ revealOnPage: true })
+      expect(vi.getTimerCount(), 'the wait, a frame away').toBe(1)
       view.unmount()
+      expect(vi.getTimerCount(), 'gone with the composer').toBe(0)
       frames(30)
       expect(gone.moves).toEqual([])
     } finally {

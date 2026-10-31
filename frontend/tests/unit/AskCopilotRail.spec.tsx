@@ -475,14 +475,15 @@ describe('AskCopilotRail', () => {
 
     it('a reader who wheels, touches, clicks or types while usage loads has moved on, and the page stays', async () => {
       const FREE = { ...PRO_USAGE, is_pro: false, qa_used: 0, copilot_free_taste_used: 0, copilot_free_taste_total: 3 }
-      const readerActs: [string, (() => void) | null][] = [
-        ['nothing: the press still moves the page once the composer can take focus', null],
-        ['a wheel', () => fireEvent.wheel(window)],
-        ['a touch', () => fireEvent.touchStart(window)],
-        ['a click', () => fireEvent.pointerDown(document.body)],
-        ['a key', () => fireEvent.keyDown(document.body, { key: 'ArrowDown' })],
+      const readerActs: [string, (() => void) | null, string[]][] = [
+        ['nothing: the press still moves the page once the composer can take focus', null, ['scrollBy']],
+        ['a wheel', () => fireEvent.wheel(window), []],
+        ['a touch', () => fireEvent.touchStart(window), []],
+        ['a click', () => fireEvent.pointerDown(document.body), []],
+        ['a key', () => fireEvent.keyDown(document.body, { key: 'ArrowDown' }), []],
+        ['⌘K, a press of its own, which arms it again', () => fireEvent.keyDown(document.body, { key: 'k', metaKey: true }), ['scrollBy']],
       ]
-      for (const [what, readerAct] of readerActs) {
+      for (const [what, readerAct, moves] of readerActs) {
         let loaded: (usage: typeof FREE) => void = () => {}
         mockGetUsage.mockReturnValue(new Promise((resolve) => (loaded = resolve)))
         const page = watchThePage()
@@ -495,7 +496,7 @@ describe('AskCopilotRail', () => {
           frames(1)
           expect(field, what).toHaveFocus()
           frames(30)
-          expect(page.moves, what).toEqual(readerAct ? [] : ['scrollBy'])
+          expect(page.moves, what).toEqual(moves)
         } finally {
           page.restore()
           cleanup()

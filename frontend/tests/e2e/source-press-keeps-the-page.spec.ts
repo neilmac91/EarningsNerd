@@ -210,6 +210,9 @@ function expectInView(at: Where, label: string, { fixedLayer = false } = {}) {
   expect(at.focused, `${label}: focus is in the composer`).toBe(true)
   expect(at.shell.top - at.shell.marginTop, `${shell}, with its margin, below the ${r(top)}px band's top`).toBeGreaterThanOrEqual(top - 0.5)
   expect(at.shell.bottom + at.shell.marginBottom, `${shell}, with its margin, above the ${r(bottom)}px band's foot`).toBeLessThanOrEqual(bottom + 0.5)
+  const ring = `${shell}: its ${RING}px ring inside the ${r(top)} to ${r(bottom)}px band`
+  expect(at.shell.top - RING, ring).toBeGreaterThanOrEqual(top - 0.5)
+  expect(at.shell.bottom + RING, ring).toBeLessThanOrEqual(bottom + 0.5)
   const inColumn = `${shell}, and its ring inside its column, ${r(at.column.top)} to ${r(at.column.bottom)}px`
   expect(at.shell.top - RING, inColumn).toBeGreaterThanOrEqual(at.column.top - 0.5)
   expect(at.shell.bottom + RING, inColumn).toBeLessThanOrEqual(at.column.bottom + 0.5)
