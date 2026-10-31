@@ -17,6 +17,11 @@ from .xbrl_cache import logger
 # unrestricted-cash tag is present — the JPM-class bank case whose only cash line is the
 # migrated tag (data-quality plan P0-3). test_cash_registry_consistency.py pins this ordering
 # across all three cash registries.
+# The headline candidates, in priority order; no tag is recorded for them, and the figure check's scope test reads them.
+REVENUE_TAG_CANDIDATES: List[str] = ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
+                                     "SalesRevenueNet", "NetSales", "TotalRevenue"]
+NET_INCOME_TAG_CANDIDATES: List[str] = ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]
+TOTAL_ASSETS_TAG_CANDIDATES: List[str] = ["Assets"]
 CASH_TAG_CANDIDATES: List[str] = [
     "CashAndCashEquivalentsAtCarryingValue",
     "Cash",
@@ -221,12 +226,9 @@ def parse_company_facts(
         if not isinstance(us_gaap, dict):
             return result
 
-        append_items(result, normalized_accession, "revenue", select_fact_data(
-            us_gaap, normalized_accession, ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
-             "SalesRevenueNet", "NetSales", "TotalRevenue"]))
-        append_items(result, normalized_accession, "net_income", select_fact_data(
-            us_gaap, normalized_accession, ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]))
-        append_items(result, normalized_accession, "total_assets", select_fact_data(us_gaap, normalized_accession, ["Assets"]))
+        append_items(result, normalized_accession, "revenue", select_fact_data(us_gaap, normalized_accession, REVENUE_TAG_CANDIDATES))
+        append_items(result, normalized_accession, "net_income", select_fact_data(us_gaap, normalized_accession, NET_INCOME_TAG_CANDIDATES))
+        append_items(result, normalized_accession, "total_assets", select_fact_data(us_gaap, normalized_accession, TOTAL_ASSETS_TAG_CANDIDATES))
         append_items(result, normalized_accession, "total_liabilities", select_fact_data(us_gaap, normalized_accession, ["Liabilities"]))
         cash_data, cash_tag = select_fact_data_with_concept(us_gaap, normalized_accession, CASH_TAG_CANDIDATES)
         append_items(result, normalized_accession, "cash_and_equivalents", cash_data, cash_tag)

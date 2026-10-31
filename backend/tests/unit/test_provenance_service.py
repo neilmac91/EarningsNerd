@@ -537,14 +537,32 @@ class TestFigureCheck:
         out = self._check("Total assets", "$331.5B", "$331.5B", self.QUARTER)
         assert out["source_checkable"] is False and out["source_verified"] is False
 
-    @pytest.mark.parametrize("field, other", [("currency", "EUR"), ("raw_tag", "AssetsNet"), ("form", "10-K")])
-    def test_an_earlier_instant_of_another_currency_tag_or_form_is_not_the_concepts(self, field, other):
-        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets"}
+    @pytest.mark.parametrize("field, other", [
+        ("currency", "EUR"), ("raw_tag", "AssetsNet"), ("form", "10-K"),
+        # The companyfacts path's series holds an earlier 10-Q's own instant, under that filing's accession.
+        ("accn", "0000320193-24-000081"),
+    ])
+    def test_an_earlier_instant_of_another_currency_tag_form_or_filing_is_not_the_concepts(self, field, other):
+        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets", "accn": "0000320193-25-000073"}
         earlier = {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "currency": "USD", "raw_tag": "Assets",
-                   field: other}
+                   "accn": "0000320193-25-000073", field: other}
         quarter = {"reporting_currency": "USD", "total_assets": {
             "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
         assert self._check("Total assets", "$331.5B", "$365.0B", quarter)["source_checkable"] is False
+
+    @pytest.mark.parametrize("own, other", [
+        ("0000320193-25-000073", "0000320193-25-000073"),  # the filing's own instance: one accession throughout
+        ("0000320193-25-000073", "000032019325000073"),  # the same accession, written without dashes
+        ("0000320193-25-000073", None),  # a series stored before accessions rode through
+        (None, None),
+    ])
+    def test_an_earlier_instant_of_this_filing_is_still_matched(self, own, other):
+        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets", **({"accn": own} if own else {})}
+        earlier = {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "currency": "USD", "raw_tag": "Assets",
+                   **({"accn": other} if other else {})}
+        quarter = {"reporting_currency": "USD", "total_assets": {
+            "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
+        assert self._check("Total assets", "$331.5B", "$365.0B", quarter)["source_verified"] is True
 
     # A concept's extraction candidates differ in scope (edgar/instance/concepts.py), and the extractor records the
     # winner as raw_tag. A figure is replaced only by the line its label names; one that differs from another line is
@@ -1297,11 +1315,14 @@ class TestScopeTagsHoldTheirSources:
     @staticmethod
     def recorded_candidates() -> dict[str, set[str]]:
         """Every tag a path may record as ``raw_tag``: the instance extractor's candidates and financial profiles'
-        anchors (``xbrl_instance.py`` records a tag for some keys only), and the companyfacts path's cash candidates
-        (it records no other tag). Classifying each errs on the safe side."""
+        anchors (``xbrl_instance.py`` records a tag for some keys only), and the companyfacts path's candidates, its
+        cash ones (the one tag it records) and its revenue, net-income and total-assets ones (recorded nowhere, read
+        all the same). Classifying each errs on the safe side."""
         from app.services.edgar.instance.concepts import DURATION_CONCEPTS, INSTANT_CONCEPTS
         from app.services.edgar.instance.financial_profiles import FINANCIAL_PROFILES
-        from app.services.edgar.xbrl_companyfacts import CASH_TAG_CANDIDATES
+        from app.services.edgar.xbrl_companyfacts import (
+            CASH_TAG_CANDIDATES, NET_INCOME_TAG_CANDIDATES, REVENUE_TAG_CANDIDATES, TOTAL_ASSETS_TAG_CANDIDATES,
+        )
 
         out: dict[str, set[str]] = {}
         for table in (DURATION_CONCEPTS, INSTANT_CONCEPTS):
@@ -1311,6 +1332,9 @@ class TestScopeTagsHoldTheirSources:
             for key, anchors, _standard_concept in profile["selectors"]:
                 out.setdefault(key, set()).update(anchors)
         out.setdefault("cash_and_equivalents", set()).update(CASH_TAG_CANDIDATES)
+        for key, tags in (("revenue", REVENUE_TAG_CANDIDATES), ("net_income", NET_INCOME_TAG_CANDIDATES),
+                          ("total_assets", TOTAL_ASSETS_TAG_CANDIDATES)):
+            out.setdefault(key, set()).update(tags)
         return out
 
     def test_each_concept_the_check_covers_is_classified(self):
