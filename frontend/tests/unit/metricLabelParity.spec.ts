@@ -17,8 +17,9 @@ import { SAMPLE_CHANGE_REPORT } from '@/features/marketing/lib/landing-samples'
  * /analysis to /analysis's.
  *
  * The EPS lines take /analysis's names, "EPS (diluted)" and "EPS (basic)" (chief design's ruling on #1862). What changed
- * lists both and shows one of them per report, the diluted line where both filings carry it, else the basic one
- * (E259), so both entries are read here and neither is an exception.
+ * lists both and shows one of them per report, the diluted line where both sides of the pair carry it (a 10-K's own
+ * restated prior year can complete the pair), else the basic one (E259), so both entries are read here and neither is
+ * an exception.
  */
 
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -31,11 +32,17 @@ function analysisLabels(source: string): Record<string, string> {
   return Object.fromEntries([...body.matchAll(/^ {4}"([a-z0-9_]+)": "([^"\n]*)",$/gm)].map((m) => [m[1], m[2]]))
 }
 
-/** The `("concept", "Label"),` entries of `_DELTA_METRICS`, in its headline order. */
+/** The `("concept", "Label"),` entries of `_DELTA_METRICS`, in its headline order. Every line of the list that is not
+ *  blank or a comment must be one, so an entry written another way fails here rather than going unread. */
 function whatChangedLabels(source: string): [string, string][] {
   const body = source.match(/^_DELTA_METRICS = \[\n([\s\S]*?)^\]/m)?.[1]
   if (!body) throw new Error('dashboard_feed_service.py has no _DELTA_METRICS list')
-  return [...body.matchAll(/^ {4}\("([a-z0-9_]+)", "([^"\n]*)"\),$/gm)].map((m) => [m[1], m[2]])
+  const entries: [string, string][] = [...body.matchAll(/^ {4}\("([a-z0-9_]+)", "([^"\n]*)"\),$/gm)].map((m) => [m[1], m[2]])
+  const lines = body.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#'))
+  if (entries.length !== lines.length) {
+    throw new Error(`_DELTA_METRICS has ${lines.length} entry lines and the reader reads ${entries.length}: write each as    ("key", "Label"),`)
+  }
+  return entries
 }
 
 /** Every entry whose label is not /analysis's, as `concept: "label" (analysis: "name")`. */
@@ -76,6 +83,14 @@ describe('one name per metric across the picker, What changed, its landing sampl
     expect(sample.filter(([concept, label]) => label !== names[concept])).toEqual([])
   })
 
+  it("names EPS in the sample's hand-written headline as What changed does", () => {
+    const names = new Set(whatChanged.map(([, label]) => label))
+    const headline = SAMPLE_CHANGE_REPORT.metrics?.headline ?? ''
+    const eps = [...headline.matchAll(/\b(?:(?:basic|diluted)\s+)?EPS\b(?:\s*\((?:basic|diluted)\))?/gi)].map((m) => m[0])
+    expect(eps.length).toBeGreaterThan(0)
+    expect(eps.filter((name) => !names.has(name))).toEqual([])
+  })
+
   it("fails a label that leaves /analysis's name, a hyphen or a word order included (planted)", () => {
     const planted: [string, string][] = [
       ['noninterest_income', 'Non-interest income'], ['eps_diluted', 'Diluted EPS'], ['net_income', 'Net income'],
@@ -86,5 +101,7 @@ describe('one name per metric across the picker, What changed, its landing sampl
     ])
     expect(() => analysisLabels('_CONCEPT_LABELS = {}\n')).toThrow('no _CONCEPT_LABELS dict')
     expect(() => whatChangedLabels('DELTA = []\n')).toThrow('no _DELTA_METRICS list')
+    expect(() => whatChangedLabels('_DELTA_METRICS = [\n    ("revenue", "Revenue"),\n    ("net_income", "Net income"),  # planted\n]\n'))
+      .toThrow('2 entry lines and the reader reads 1')
   })
 })

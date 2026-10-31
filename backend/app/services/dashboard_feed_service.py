@@ -13,7 +13,8 @@ corrupt/misaligned XBRL never produces a misleading headline:
 otherwise the offending metric is dropped (never the whole row) and ``data_quality`` is "partial".
 When nothing usable remains the headline is ``None`` and the card falls back to a neutral line.
 EPS is one line, diluted where both sides of the pair carry it and basic otherwise, each side from
-the same key, its prior side the figure for the period the prior filing reported (``_eps_line``).
+the same key, its prior side the figure for the period the prior filing reported, or with no prior
+XBRL the filing's own comparative (``_eps_line``).
 """
 from __future__ import annotations
 
@@ -165,16 +166,18 @@ def _eps_line(current_xbrl: Optional[dict], prior_xbrl: Optional[dict]) -> Optio
     """What changed's one EPS line, or None when the filing reports no EPS for its own period.
 
     Both sides come from ONE key, the first of ``_EPS_METRICS`` whose pair is complete. A blob stored before
-    P1.5 (2026-06-14) or by the companyfacts fallback carries no ``eps_diluted``, so such a pair takes the basic
-    line. (``earnings_per_share`` itself can hold a diluted figure, on either side, where a filer tagged no
-    basic EPS, until E260 records the EPS tag.)
+    P1.5 (2026-06-14) or by the companyfacts fallback carries no ``eps_diluted``, so a pair that needs it from
+    such a blob takes the basic line, though a 10-K's own restated prior year still completes the diluted
+    pair. (``earnings_per_share`` itself can hold a diluted figure, on either side, where a filer tagged no
+    basic EPS: E260.)
 
     Given a prior filing's XBRL, the prior side is the key's figure for the period that filing reported: this
     filing's own figure for that period when it reports one, restated or split-adjusted since, as a 10-K reports
     its prior fiscal year; else the prior filing's. It is never the filing's own figure for another period: for
     a 10-Q that is the year-ago quarter, while the report reads "Quarter over quarter". With no prior XBRL (no
-    prior filing, one never extracted, or a reporting-currency change) the filing's own comparative stands in,
-    as it does for every metric.
+    prior filing, one never extracted, or a reporting-currency change), or one that reports none of What
+    changed's metrics before this filing's period, the filing's own comparative stands in, as it does for every
+    metric.
 
     A diluted pair is not used where either side's diluted figure exceeds its filing's basic EPS for the same
     period (the check facts/reconcile.py makes): the line falls to basic. A key with no figure for the filing's
@@ -191,11 +194,11 @@ def _eps_line(current_xbrl: Optional[dict], prior_xbrl: Optional[dict]) -> Optio
         if not series or series[0][0] != own_period:
             continue
         line = _EpsLine(metric, series[0][1], own_period, series[0][2])
-        if prior_xbrl is None:
+        if prior_period is None:
             older = next(((p, value, tag) for p, value, tag in series[1:] if p < own_period), None)
             if older is not None:
                 line = line._replace(prior=older[1], prior_period=older[0], prior_tag=older[2], prior_xbrl=current_xbrl)
-        elif prior_period is not None:
+        else:
             for source in (current_xbrl, prior_xbrl):
                 hit = _value_at(source, metric, prior_period)
                 if hit is not None:
@@ -282,7 +285,9 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
 
     # Invariant 2: sign(EPS) must match sign(net income) — checked for current AND prior periods. The EPS
     # figure is each side's basic EPS for its period where its filing reports one, else the line shown
-    # (_sign_eps). Disagreement in either period ⇒ distrust both metrics: the EPS line and net income.
+    # (_sign_eps), and the prior side's net income is that same filing's for that period where it reports
+    # one, so a year this filing restates is held to its restated net income. Disagreement in either period
+    # ⇒ distrust both metrics: the EPS line and net income.
     if eps_line is not None and eps_line.metric in data and "net_income" in data:
         eps = _sign_eps(current_xbrl, eps_line.current_period, eps_line.current)
         prior_eps = (
@@ -290,6 +295,9 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
             if eps_line.prior is not None else None
         )
         net_income, prior_net_income = data["net_income"]
+        same_filing = _value_at(eps_line.prior_xbrl, "net_income", eps_line.prior_period)
+        if eps_line.prior is not None and same_filing is not None:
+            prior_net_income = same_filing[0]
         mismatch_current = eps != 0 and net_income != 0 and (eps > 0) != (net_income > 0)
         mismatch_prior = (
             prior_eps is not None and prior_net_income is not None
