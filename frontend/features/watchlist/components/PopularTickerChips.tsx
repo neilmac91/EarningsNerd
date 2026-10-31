@@ -67,7 +67,9 @@ export default function PopularTickerChips() {
           }}
           aria-disabled={addMutation.isPending || undefined}
           aria-busy={pendingTicker === ticker || undefined}
-          aria-label={`Add ${ticker} to your watchlist`}
+          // The ticker the chip shows opens its name, so a speech user says what they see (WCAG 2.5.3; chief
+          // design on #1884).
+          aria-label={`${ticker}, add to your watchlist`}
           className={CHIP_CLASSES}
         >
           {pendingTicker === ticker ? (
