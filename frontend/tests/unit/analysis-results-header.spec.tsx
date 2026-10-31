@@ -2,22 +2,9 @@
 process.env.TZ = 'America/New_York'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// recharts measures the DOM, which jsdom can't do: stub it, as analysis-teaser.spec.tsx does.
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-}))
 vi.mock('react-markdown', () => ({ default: ({ children }: { children: string }) => <div>{children}</div> }))
 vi.mock('remark-gfm', () => ({ default: () => null }))
 // The page reads its link through useSearchParams; PeekLocked's UpgradeModal calls useRouter.
@@ -29,6 +16,11 @@ vi.mock('@/features/analysis/api/analysis-api', async (original) => ({ ...await 
 import { Card } from '@/components/ui'
 import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
 import AnalysisTeaser from '@/features/analysis/components/AnalysisTeaser'
+// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load.
+// next/dynamic still shows its loading grid first, so the cases still wait, and read once the grid has given way to
+// the charts. tests/e2e/charts-v2.spec.ts holds that grid-then-charts path in a browser, and
+// trend-charts-v2-chunk.spec.tsx holds the fallback when the chunk fails to load.
+import '@/features/analysis/components/TrendChartsV2'
 import ResultsHeader from '@/features/analysis/components/ResultsHeader'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 import { getAnalysisDataset, streamAnalysis, type AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -145,7 +137,10 @@ describe('on the analysis page', () => {
     expect(block).toHaveClass('flex', 'flex-col', 'gap-3')
     expect(results).toHaveClass('flex', 'flex-col', 'gap-4', 'sm:gap-6')
     expect(results.firstElementChild).toBe(block)
-    // The modules' headings stay h2, under the page's one h1, and the header is none.
+    // The modules' headings stay h2, under the page's one h1, and the header is none. The trend charts' cards come in
+    // their own chunk (TrendCharts.tsx's dynamic import), after the region: the headings are read once the chunk has
+    // drawn its plots, so its cards' headings are among them.
+    await waitFor(() => expect(results.querySelectorAll('[data-analysis-chart] > svg').length).toBeGreaterThan(0))
     expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Multi-Period Analysis'])
     const levels = within(results).getAllByRole('heading').map((heading) => heading.tagName)
     expect(levels.length).toBeGreaterThan(2)
@@ -179,8 +174,15 @@ describe('Card elevation', () => {
 })
 
 describe('the sample surfaces', () => {
-  it.each([['the Free teaser', AnalysisTeaser], ['the landing demo', AnalysisDemo]] as const)('%s takes no results header and claims no live date for its sample', (_, Component) => {
+  it.each([['the Free teaser', AnalysisTeaser, 4], ['the landing demo', AnalysisDemo, 0]] as const)('%s takes no results header and claims no live date for its sample', async (_, Component, charts) => {
     const { container } = render(<Component />)
+    // The teaser's four trend charts come in their own chunk (TrendCharts.tsx's dynamic import): the surface is read
+    // once their plots are drawn, so their text is read with the rest. The landing demo draws none. After the wait each
+    // surface holds no loading grid (looked for hidden too: PeekLocked keeps the teaser's preview out of the
+    // accessibility tree) and one card per chart, so the demo's zero means no trend charts, not charts on their way.
+    await waitFor(() => expect(container.querySelectorAll('[data-analysis-chart] > svg')).toHaveLength(charts))
+    expect(within(container).queryByRole('status', { name: 'Loading charts', hidden: true })).toBeNull()
+    expect(container.querySelectorAll('section[data-trend-chart]')).toHaveLength(charts)
     expect(container.querySelector('[data-analysis-results-header]')).toBeNull()
     // Its run line names the sample; the only source date it prints is the saved run's, in its data notes' detail.
     const notes = container.querySelector('[data-analysis-data-notes]')!
@@ -189,14 +191,17 @@ describe('the sample surfaces', () => {
     expect(notes).toHaveTextContent('sample data (one saved run)')
   })
 
-  it("the Free teaser's preview stands its modules as the page does: 16px apart on a phone, 24px from sm", () => {
+  it("the Free teaser's preview stands its modules as the page does: 16px apart on a phone, 24px from sm", async () => {
     const { container } = render(<AnalysisTeaser />)
     const strip = container.querySelector('[data-analysis-kpi]')!.closest('[data-launcher-keep-clear]')!
     const modules = strip.parentElement!
     expect(modules).toHaveClass('flex', 'flex-col', 'gap-4', 'sm:gap-6')
     // One child per module, in the page's order: the strip, the chart grid, the commentary, the table with its notes.
+    // The chart grid's plots come in their own chunk (TrendCharts.tsx's dynamic import): the order is read once, after
+    // they are drawn.
     const childHolding = (selector: string) => [...modules.children].findIndex((child) => child.matches(selector) || child.querySelector(selector) !== null)
-    expect(modules.children).toHaveLength(4)
+    await waitFor(() => expect(container.querySelectorAll('[data-analysis-chart] > svg').length).toBeGreaterThan(0))
     expect(['[data-launcher-keep-clear]', '[data-analysis-chart]', '[data-analysis-print-scope]', '[data-analysis-metrics]'].map(childHolding)).toEqual([0, 1, 2, 3])
+    expect(modules.children).toHaveLength(4)
   })
 })

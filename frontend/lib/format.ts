@@ -128,18 +128,9 @@ export const fmtShares = (value: NumericInput, options?: { digits?: number; sign
   return `${num > 0 ? '+' : '\u2212'}${magnitude}`
 }
 
-/** An English ordinal: 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st, 22nd, 23rd, 101st, 111th. */
-export const ordinal = (n: number): string => {
-  const whole = Math.trunc(n)
-  const lastTwo = Math.abs(whole) % 100
-  const last = Math.abs(whole) % 10
-  const suffix = lastTwo >= 11 && lastTwo <= 13 ? 'th' : last === 1 ? 'st' : last === 2 ? 'nd' : last === 3 ? 'rd' : 'th'
-  return `${whole}${suffix}`
-}
-
 /**
- * A data label stored in sentence case as a sentence reads it past its start (the metric charts' lines, "Ranks #2 of 9
- * on net income", E34, and the analysis report's notes): the label's first segment, a run up to whitespace, '-' or
+ * A data label stored in sentence case as a sentence reads it past its start (E34; the analysis report's notes, "net
+ * income is calculated from filed figures"): the label's first segment, a run up to whitespace, '-' or
  * '/', takes a lower-case first letter unless it is an acronym. A segment with no lower-case letter is one, '&' and '.'
  * sitting inside a segment ('EPS', 'R&D', 'U.S.'), and so is one with a capital after its first letter ('YoY'). So
  * 'Net income' reads 'net income', 'Non-interest income' 'non-interest income' and 'Diluted EPS' 'diluted EPS', while

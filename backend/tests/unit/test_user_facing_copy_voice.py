@@ -10,8 +10,8 @@ EXEMPT ships.
 A literal reaches a user when it is:
 
 1. the value of a COPY_KEYWORDS keyword (``HTTPException(detail=)``, ``enforce_rate_limit(error_detail=)``,
-   ``send_email(subject=, html=)``, ``render_branded_pdf(title=)``, ``Block(text=, label=)``), or the
-   positional detail of ``HTTPException``;
+   ``send_email(subject=, html=)``, ``render_branded_pdf(title=)``, ``Block(text=, label=)``), the
+   positional detail of ``HTTPException`` or ``CodedHTTPException`` (E31), or ``sse_error``'s positional message;
 2. a value under a COPY_KEYS key of a dict literal (``{"message": ...}`` in a response body or a stream
    event), or any string inside a ``content=`` dict (a JSONResponse body);
 3. assigned to a name or attribute whose last word says which copy it holds (ROLE_NAME:
@@ -496,8 +496,10 @@ class _Reader(ast.NodeVisitor):
         for keyword in node.keywords:
             if keyword.arg in COPY_KEYWORDS or keyword.arg == "content":
                 self._reach(keyword.value)
-        if _call_name(node) == "HTTPException" and len(node.args) >= 2:
-            self._reach(node.args[1])
+        if _call_name(node) in ("HTTPException", "CodedHTTPException") and len(node.args) >= 2:
+            self._reach(node.args[1])  # the detail, after the status or the E31 code
+        if _call_name(node) == "sse_error" and node.args:
+            self._reach(node.args[0])  # a stream error event's message (app.error_codes.sse_error)
         fields = self.records.get(node.func.id) if isinstance(node.func, ast.Name) else None
         if fields is not None:
             bound = list(zip(fields, node.args)) + [(k.arg, k.value) for k in node.keywords if k.arg in fields]
@@ -686,6 +688,10 @@ def route(n, run):
         raise HTTPException(400, "Try again [if you can!]")
     if n > 1:
         raise HTTPException(status_code=409, detail="This report is out of date — run it again.")
+    if n > 3:
+        raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, "Coded — and positional!")
+    if n > 4:
+        return sse_error("Streamed — and positional!", ErrorCode.PRO_FAIR_USE_LIMIT)
     run.message = "Hold on — joining."
     page = '<p style="color:#6B7280">Hi there</p><h2>Thank You for Writing</h2><h2>Welcome to EarningsNerd</h2>'
     fine = '<!-- note --><style>p {color: red !important}</style><p>a != b</p><!--[if !mso]><!-->x<!--<![endif]--><![if !mso]>y<![endif]>'
@@ -800,6 +806,10 @@ _PROBE_BREAKS = {
     ("exclamation mark", "<![if !mso]><p>Welcome back!</p><![endif]>"),
     ("exclamation mark", "<!--[if !mso]><!--><p>Welcome aboard!</p><!--<![endif]-->"),
     ("em-dash", "This report is out of date — run it again."),
+    ("em-dash", "Coded — and positional!"),
+    ("exclamation mark", "Coded — and positional!"),
+    ("em-dash", "Streamed — and positional!"),
+    ("exclamation mark", "Streamed — and positional!"),
     ("em-dash", "Hold on — joining."),
     ("retired colour #6B7280", _PAGE),
     ("Title Case <h2>", _PAGE),

@@ -55,11 +55,14 @@ from pathlib import Path
 import pytest
 
 from tests.support.ops_workflow import (
-    BY_NAME, COUNT, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE,
+    BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE,
     ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
 )
 
-DB_COMMAND = re.compile(r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\bscripts/")
+DB_COMMAND = re.compile(
+    r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\bscripts/"
+    r"|\bpython3?\s+ops/summary_readout/readout\.py\b"
+)
 RUNNER_SCRIPT = re.compile(r"(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*(\S*\bscripts/[\w./-]+\.(?:py|sh))")
 CONNECTION_EVENTS = {"do_connect", "connect", "first_connect", "checkout", "engine_connect", "begin", "after_begin"}
 # The one connection-level listener allowed: database.py's UTC pin (E151), on `connect`, by this name.
@@ -109,6 +112,28 @@ def test_every_database_command_runs_after_the_proxy_for_its_operations_with_its
     assert unused == set(), f"the proxy starts for operations no Cloud SQL step uses: {sorted(unused)}"
 
 
+def test_summary_recovery_readout_is_fixed_read_only_and_retains_failure_evidence():
+    """The summary receipt operation cannot broaden into arbitrary SQL or a mutating task."""
+    name = "Read bounded summary recovery receipts"
+    at, step = BY_NAME[name]
+    assert selected(step) == {"summary-recovery-readout"}
+    assert step["run"] == "python3 ops/summary_readout/readout.py"
+    assert "continue-on-error" not in step
+    assert 0 < int(step["timeout-minutes"]) <= 2
+    options = step["env"]["PGOPTIONS"]
+    assert dict(pg_settings(options))["default_transaction_read_only"] == "on"
+    assert setting_ms(options, "statement_timeout") == 15_000
+    assert setting_ms(options, "lock_timeout") == 2_000
+    assert "summary-recovery-readout" in selected(BY_NAME[PROXY][1])
+    assert "summary-recovery-readout" in selected(BY_NAME["Refuse to run while a main push (deploy) is in flight"][1])
+    retained_at, retained = BY_NAME["Retain summary recovery readout"]
+    assert retained_at > at
+    assert retained["if"] == "always() && steps.request.outputs.operation == 'summary-recovery-readout'"
+    assert retained["with"]["path"] == "summary-recovery-receipt.json"
+    assert retained["with"]["if-no-files-found"] == "error"
+    assert int(retained["with"]["retention-days"]) <= 14
+
+
 def test_the_relabel_step_runs_for_exactly_the_relabel_operations_and_reads_their_outputs():
     step = BY_NAME[RELABEL][1]
     assert selected(step) == {"relabel-fy-dry-run", "relabel-fy-apply"}
@@ -149,7 +174,7 @@ def test_the_lineage_step_runs_for_exactly_its_operations_and_reads_their_output
     assert step["env"]["TICKERS"] == "${{ steps.request.outputs.tickers }}"
 
 
-@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, COUNT])
+@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE])
 def test_the_script_readback_expects_the_steps_own_guards(name):
     """The step stops when its session reports other settings; the line it expects must be the one
     Postgres shows for the step's own PGOPTIONS (10s stays 10s, 120s shows as 2min)."""
@@ -158,17 +183,6 @@ def test_the_script_readback_expects_the_steps_own_guards(name):
     assert expected, f"{name!r} no longer compares its session's settings with its own"
     options = step["env"]["PGOPTIONS"]
     assert expected.groups() == (shown(setting_ms(options, "lock_timeout")), shown(setting_ms(options, "statement_timeout")))
-
-
-def test_the_count_step_is_read_only_through_pgoptions_alone():
-    """The figure-check count needs no approval because it only reads: its session is read-only from the
-    step's own PGOPTIONS, its read-back expects that (`read_only=on`, the line the parametrized test above
-    ties to the bounds), and its run never appends to PGOPTIONS or passes a flag that could write."""
-    step = BY_NAME[COUNT][1]
-    assert selected(step) == {"figure-check-count"}
-    assert ("default_transaction_read_only", "on") in pg_settings(step["env"]["PGOPTIONS"])
-    assert re.search(r"^\s*READ_ONLY=on\s*$", step["run"], re.M), "the read-back must expect a read-only session"
-    assert "PGOPTIONS=" not in step["run"] and "--apply" not in step["run"]
 
 
 def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
@@ -334,7 +348,7 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     assert database._database_url() == make_url(proxy_url), "the app must use the URL it is given, unchanged"
 
     scripts = [ROOT / "backend/scripts/relabel_filing_fy_facts.py", ROOT / "backend/scripts/repair_quarterly_facts.py",
-               ROOT / "backend/scripts/repair_filing_lineage.py", ROOT / "backend/scripts/count_figure_check_changes.py"]
+               ROOT / "backend/scripts/repair_filing_lineage.py"]
     listeners = [
         listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *scripts]
         for listener in _connection_listeners(path)

@@ -162,9 +162,13 @@ describe operations carry a ten-minute step timeout and run committed stdlib-onl
 API service's own describe included, prints only its closed class (`permission_denied`, `not_found`,
 `unavailable`, `timeout` after 80 s, `unreadable_response`, `error (gcloud exit N)` or
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
-host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
+host or a URL. `describe-jobs` makes its nine reads independently in Python, each with a
+40-second deadline (six minutes of gcloud waits inside its ten-minute step). It reports closed
+failure classes, retains every readable job's projection and finishes nonzero if any job is
+unverified or any readable invariant fails.
 
-The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, `figure-check-count`, the repair-ticker,
+The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `excerpt-cohort`,
+`detection-sql`, the repair-ticker,
 the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
 lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.
@@ -215,11 +219,15 @@ binding is a founder IAM item. When every block printed, the final line is `desc
 `describe-jobs` reports image, task count, pool values and both SEC pin values for all nine
 expected jobs, states whether `earningsnerd-backfill-facts` carries the committed
 `python scripts/backfill_facts.py --only-new` entrypoint (other jobs: override present or image
-default; values are never printed), prints every block before exiting when a value defect (pool,
-pin, task count, image parity) is found (a malformed job description exits at that job; a missing
-or unreadable job stops the shell loop before any block prints), and fails when the release
-or connection-budget invariants drift, when either SEC pin is missing or not `1` on any job, or when
-any expected job, including `earningsnerd-retention-purge`, is missing or unreadable. These two
+default; values are never printed). Every named job gets a block, including a closed UNVERIFIED
+classification when its read fails or its description is malformed. Readable blocks report fixed
+configuration fields and counts of environment entries; arbitrary environment names/values and
+unexpected image identities are withheld. The final inventory counts distinguish projected and
+unverified resources. A readable pool, pin, task-count, image-parity or backfill-entrypoint defect
+produces FAIL; an unreadable job without readable drift produces INCOMPLETE. Both exit nonzero.
+A missing or unreadable separately provisioned job, including feedback cleanup, never suppresses
+evidence for the other jobs and never silently becomes a healthy optional resource. Provisioning
+that resource remains its separate operational decision. These two
 operations access no database, application HTTP endpoint or model provider. In addition to the
 Cloud Run descriptions and worker IAM policy read, `describe-service` reads exactly three
 fixed resources: Scheduler jobs `filing-scan-hourly` and `summary-recovery-minute`, and the
@@ -249,8 +257,24 @@ scheduler, queue or traffic are changed, and no tasks are created.
 These are configuration receipts, not an activation decision. They do not prove scheduler
 execution/non-overlap, recovery success, queue age, mail latency, effective image defaults,
 database headroom, outbound SEC throughput or logical charge reconciliation. Use the existing
-bounded `capacity-readout` below for observed aggregates; summary receipt inspection requires
-a separate reviewed scope. Production flag and capacity changes still require founder approval.
+bounded `capacity-readout` below for observed aggregates and the fixed
+`summary-recovery-readout` for the separately scoped summary receipt snapshot. Production flag and capacity changes still require founder approval.
+
+`summary-recovery-readout` is a fixed database observation, not a recovery trigger. It checks
+REGN filings 45003/45004 against their exact accession, form and CIK, projects their current job
+and referenced reservation/result consistency, counts the oldest 1,000 known-active jobs with
+an explicit 1,001st-row truncation probe, and reads the shared SEC coordinator singleton.
+It accepts no scope or SQL arguments, emits no account/job/lease/reservation identifiers or
+filing bodies, and reads no monthly usage counters. Its fixed thresholds are reference values,
+not deployed Settings. See [the readout contract](../ops/summary_readout/README.md).
+
+The operation retains the deploy-in-flight preflight and uses the existing Cloud SQL proxy.
+Its repeatable-read transaction is read-only, with 15-second statement and 2-second lock bounds,
+a 25-second psql deadline and a 32 KiB accepted-output limit. Normalized evidence, including a
+closed UNVERIFIED failure where the reader ran, is retained as `summary-recovery-receipt.json`
+for 14 days. A valid snapshot may identify missing or inconsistent records: exit zero means
+observation completed, never that activation, delivery, recovery or billing reconciliation passed.
+No generation, queue dispatch, repair or settings change is performed.
 
 `capacity-readout` reads a bounded past window (`capacity_start`/`capacity_end`, UTC, at most two
 hours, ending in the past; end it at least five minutes before dispatch, because Cloud Tasks and
@@ -279,6 +303,40 @@ address after a `label:` prefix are kept, and a host name in a script written wi
 (Indic) is not covered.
 The response body itself is never kept.
 The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
+
+`excerpt-cohort` (E28) counts which builder wrote the summary excerpts, two ways, both read-only,
+into a receipt of counts. `ops/excerpts/provenance_count.py` reads the `Excerpt provenance`, fetch and size-cap
+log lines Cloud Logging still holds for the API service, the task worker and the jobs, one UTC day
+at a time to the top of the hour before the dispatch's, from 2026-10-01 or, once that is more than
+45 days back, from 45 days before that end (the reader's limit); at most 40 pages of 1,000 entries a
+day, and a 25-minute budget inside the step's 30. Its `e28_window.covered` says whether the read
+held E28 (b)'s whole window: from a dispatch at 11:00 UTC on 2026-11-18 the rolled start passes the
+window's opening and it is false whatever the logs still hold, and a day of the window that has
+expired makes it false sooner. It dates what has expired from the `_Default` bucket's
+`retentionDays`, where the identity may read it, and the oldest entry the app's streams still hold.
+Each day carries its own state: `complete`, `expired_or_absent`, `partly_expired_or_absent`,
+`retention_unverified`, `partial` or `unavailable` (with a closed class, `time_budget` among them),
+so missing or expired evidence never reads as a zero count. `ops/excerpts/source_cohort.sql` counts
+the stored excerpts by form, builder and bucket in one `READ ONLY` transaction (120 s a statement,
+10 s a lock), from its own step rather than `detection-sql`'s loop. The
+`excerpt-cohort-<run id>-<attempt>` Actions artifact keeps the counts alone (`logged.json`,
+`stored.txt`), 14 days. The artifact is not private: on this public repository any signed-in GitHub
+user can download it while it is kept, and the Actions log is public too. What the readers write to
+their output files is counts only, with no accession, filing id, URL or message text (#1747's
+contract). A read's error text, which can name the database's user or host or carry whatever the
+reader was reading, reaches neither: a failed read prints its exit code and a closed class
+(`unavailable`, `permission_denied`, `timeout` or `other`; `describe-service` prints the first three
+too, from gcloud's error output or its own time limit, and never `other`). A
+reader that fails outright (no gcloud token or project), or whose gcloud calls hang until
+the step's 30 minutes (they carry no timeout of their own), fails the run before the stored count;
+it writes no receipt then, and the upload step warns. A run stopped before either read starts (the
+pre-flight, the sign-in) keeps no artifact, and its upload step warns. The run needs the Ops identity's Logging read
+access (a denied read leaves its days `unavailable`; CODE RED record 10 records
+`roles/logging.viewer` on that identity and a `logs-probe` reading PERMITTED, access being verified
+per run), and reads `retentionDays` only with `logging.buckets.get` (without it, the oldest-entry
+probe dates expiry alone). Its deploy pre-flight runs before the log read, so the database read
+starts up to half an hour after it: dispatch it when no backend merge is imminent. It retires with
+#1747's readers, when E28 (b) closes.
 
 `logs-probe` reports whether the Ops identity can read the API service's logs:
 `logs-probe: logging.read PERMITTED (N recent entries visible)`, or

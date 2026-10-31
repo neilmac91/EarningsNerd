@@ -16,8 +16,11 @@ not see. Shrinking the chrome had moved the composer from "off-screen, auto-scro
 (a) When a fixed overlay reserves part of the viewport, give the scrollport the same reservation:
 `scroll-padding-bottom: var(--overlay-inset, 0px)` on `html` (top for a sticky header). Every
 `focus()`, `scrollIntoView()` and anchor jump then treats the overlay's strip as not visible and
-scrolls the target clear of it. Chromium honours scroll padding for focus scrolling (measured: the
-composer lands 88px above the bar at 1440x900 and 1280x600).
+scrolls the target clear of it. Chromium honours scroll padding for focus scrolling (measured on the
+composer's old focus scroll: it landed 88px above the bar at 1440x900 and 1280x600). Since E248 the
+composer takes focus without moving the page, and the pane's height keeps it clear of the bar; its
+reveals read this padding as the edges of the band they land in, the page's one move after a press
+included (E252, `lessons/frontend-programmatic-focus-never-moves-the-page.md`).
 
 (b) An inset variable that chrome consumes needs a gate line for the scrollport too: the ladder
 gate fails when `globals.css` loses `scroll-padding-bottom: var(--consent-inset, 0px)`.
@@ -29,6 +32,6 @@ scrolled first would not have.
 **Evidence**: `frontend/app/globals.css` (`html { scroll-padding-bottom: var(--consent-inset, 0px) }`);
 `frontend/tests/unit/bottomChromeLadder.spec.ts` (the scroll-padding clause; a scratch-copy probe setting
 it to `0px` fails it — the repository's one mutation demonstration is the bar's `z-consent` → `z-50`); `frontend/tests/e2e/consent-bar-yields.spec.ts` `expectComposerClear` (desktop: waits for the
-focus scroll, then the pane's bottom ≤ the bar's top and the composer hits itself);
+pane's measurement frame, then the pane's bottom ≤ the bar's top and the composer hits itself);
 harness jobs `A2after-launcher-click-pane-1440-pro`, `-1280x600-pro` in
-`tasks/critique-env-2026-10-04/jobs-en02.json` (scrollY 480 / 330 after the click, composer clear).
+`tasks/critique-env-2026-10-04/jobs-en02.json` (before E248: scrollY 480 / 330 after the click, composer clear).

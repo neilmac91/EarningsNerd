@@ -451,13 +451,17 @@ def mark_dispatched(job_id: str, generation: int, token: str) -> None:
 def due_jobs(limit: int) -> list[tuple[str, int]]:
     now = utcnow()
     with SessionLocal() as db:
+        # Apply dispatch_intent's recovery cooldown before the batch limit, so a
+        # recently redispatched expired owner cannot crowd out undispatched work.
         rows = db.query(SummaryJob.id, SummaryJob.generation).filter(
             or_(
                 and_(SummaryJob.status.in_(["queued", "retry_wait"]),
                      or_(SummaryJob.last_dispatched_at.is_(None),
                          and_(SummaryJob.next_attempt_at <= now,
                               SummaryJob.last_dispatched_at <= now - timedelta(seconds=settings.SUMMARY_JOB_RECOVERY_SECONDS)))),
-                and_(SummaryJob.status == "running", SummaryJob.lease_until <= now),
+                and_(SummaryJob.status == "running", SummaryJob.lease_until <= now,
+                     or_(SummaryJob.last_dispatched_at.is_(None),
+                         SummaryJob.last_dispatched_at <= now - timedelta(seconds=settings.SUMMARY_JOB_RECOVERY_SECONDS))),
             ),
         ).order_by(SummaryJob.created_at).limit(max(1, min(limit, 50))).all()
         return [(row.id, row.generation) for row in rows]

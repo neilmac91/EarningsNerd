@@ -24,8 +24,8 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 ```
 
 - **Frontend:** Next.js 16 (App Router) + TypeScript + Tailwind/shadcn, React Query for
-  server state, Recharts for the filing and peer charts and the chart engine's renderer (visx, E195) for the analysis
-  trend charts, PostHog + Sentry. Auth is an **HttpOnly
+  server state, the chart engine's renderer (visx, E195) for the analysis trend charts and the filing page's Financial
+  trends (D-067), PostHog + Sentry. Auth is an **HttpOnly
   cookie** set by the backend — the token is never readable by client JS.
 - **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0 ORM (no raw SQL), async I/O throughout.
 - **AI:** an OpenAI-*compatible* client pointed at **DeepSeek**; default model
