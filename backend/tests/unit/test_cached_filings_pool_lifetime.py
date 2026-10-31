@@ -3548,8 +3548,9 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
         elif case == "pdf_missing":
             assert [response.json() for response in responses] == [{"detail": "Analysis not found"}] * 8
         else:
+            # E31's code beside the unchanged words (an additive contract change, docs/audit/contracts/error-codes.md).
             assert [response.json() for response in responses] == [
-                {"detail": "PDF export is a Pro feature. Upgrade to Pro to access this feature."}] * 8
+                {"detail": "PDF export is a Pro feature. Upgrade to Pro to access this feature.", "code": "plan_required"}] * 8
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8

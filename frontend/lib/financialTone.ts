@@ -50,12 +50,3 @@ export const directionChip: Record<Direction, string> = {
   down: 'text-loss-text bg-loss-soft border-loss-light/20 dark:text-loss-dark dark:bg-loss-soft-dark dark:border-loss-dark/20',
   flat: 'text-text-secondary-light bg-flat-light/10 border-flat-light/20 dark:text-flat-dark dark:bg-flat-dark/10 dark:border-flat-dark/20',
 }
-
-/** Hex tones for chart contexts (Recharts needs concrete colours, not classes).
- *  GRAPHIC values (lines, bars, dots) — never render these as text; use the
- *  chartTheme(dark).gainText/lossText pair for on-chart labels. */
-export const directionHex: Record<Direction, string> = {
-  up: '#16A34A', // gain (green-600) — positive / up
-  down: '#DC2626', // loss (red-600) — negative / down
-  flat: '#6B7280', // flat (gray-500) — neutral
-}

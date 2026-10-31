@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 
 // react-markdown is ESM-heavy; the teaser only needs the text to land in the DOM.
 vi.mock('react-markdown', () => ({
@@ -19,6 +19,11 @@ vi.mock('@/features/analysis/demo/demo-analysis.json', async importOriginal => {
 
 import demo from '@/features/analysis/demo/demo-analysis.json'
 import AnalysisTeaser from '@/features/analysis/components/AnalysisTeaser'
+// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load.
+// next/dynamic still shows its loading grid first, so the cases still wait, and read once the grid has given way to
+// the charts. tests/e2e/charts-v2.spec.ts holds that grid-then-charts path in a browser, and
+// trend-charts-v2-chunk.spec.tsx holds the fallback when the chunk fails to load.
+import '@/features/analysis/components/TrendChartsV2'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 
 const originalFetch = global.fetch
@@ -28,11 +33,11 @@ describe('AnalysisTeaser (free-user lock)', () => {
     global.fetch = originalFetch
   })
 
-  it('renders the locked sample without a single network call', () => {
+  it('renders the locked sample without a single network call', async () => {
     const fetchSpy = vi.fn()
     global.fetch = fetchSpy as unknown as typeof fetch
 
-    render(<AnalysisTeaser forTicker="MSFT" />)
+    const { container } = render(<AnalysisTeaser forTicker="MSFT" />)
 
     // The PeekLocked chrome + upgrade CTA are present…
     expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
@@ -41,7 +46,9 @@ describe('AnalysisTeaser (free-user lock)', () => {
     const { company_name, ticker, periods } = demo.dataset
     expect(screen.getByText(`Sample: ${company_name} (${ticker}), ${periods[0].key}–${periods[periods.length - 1].key}. Upgrade to run it for MSFT.`)).toBeInTheDocument()
     expect(company_name).toBe('Apple Inc.')
-    // …and NO backend/AI endpoint was touched (the whole point of the canned demo).
+    // …and NO backend/AI endpoint was touched (the whole point of the canned demo), the trend charts included: they come
+    // in their own chunk (TrendCharts.tsx's dynamic import), so the calls are counted once its four plots are drawn.
+    await waitFor(() => expect(container.querySelectorAll('[data-analysis-chart] > svg')).toHaveLength(4))
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

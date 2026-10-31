@@ -27,9 +27,11 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api_errors import CodedHTTPException
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_entitlement
+from app.error_codes import ErrorCode
 from app.models import Company, User
 from app.routers.auth import get_current_user
 from app.schemas.analysis import (
@@ -396,8 +398,9 @@ async def stream_analysis(
                     db, company_id, body.mode, body.start_period, body.end_period
                 )
                 if not reaches_free_path:
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    # Coded (E31): the reader shows the cap with no way to the plans and no Retry.
+                    raise CodedHTTPException(
+                        ErrorCode.PRO_FAIR_USE_LIMIT,
                         detail=(
                             f"You've reached this month's fair-use limit of {cap:,} analysis generations, regenerations included. "
                             "It resets at the start of next month."
@@ -481,9 +484,8 @@ async def export_analysis_pdf(
         # dataset's links (cached_analysis_export), which is all the PDF reads of them.
         try:
             if not get_entitlements(current_user).can_export:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="PDF export is a Pro feature. Upgrade to Pro to access this feature.",
+                raise CodedHTTPException(
+                    ErrorCode.PLAN_REQUIRED, detail="PDF export is a Pro feature. Upgrade to Pro to access this feature."
                 )
             analysis = analysis_data_access.find_analysis(db, analysis_id)
             if analysis is None or not analysis.narrative_md:
