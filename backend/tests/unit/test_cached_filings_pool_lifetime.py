@@ -971,10 +971,10 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
     monkeypatch, tmp_path, outcome,
 ):
     """The login runs its lockout peek and account read as one unit in the thread pool, releases the
-    session before bcrypt, and runs its writes (the session, or the failure's count and audit row) as a
+    session before the hash check, and runs its writes (the session, or the failure's count and audit row) as a
     second unit released before it returns. On the loop it kept its connection checked out across
     bcrypt, and each of its reads and writes checked out there (E121). A locked-out account's login
-    answers 429 from the first unit, which releases its session on that path too, with no bcrypt."""
+    answers 429 from the first unit, which releases its session on that path too, with no hash check."""
     from app.models import AuditLog, LoginAttempt, RefreshToken, User
     from app.routers import auth
     from app.services import login_lockout
@@ -1076,7 +1076,7 @@ _PASSWORD_CLOSES = {
     "reset_unknown": [True, False],  # the token's read, refused
     "reset_fails": [True, True, False],
     "change": [True, False, False],  # the auth lookup's read, then the committed change
-    "change_wrong": [True, False],  # the auth lookup's read; refused at bcrypt, before any write
+    "change_wrong": [True, False],  # the auth lookup's read; refused at the hash check, before any write
     "change_throttled": [True, False],  # the auth lookup's read, released before the rate limit refuses
     "change_fails": [True, True, False],
 }
@@ -1109,14 +1109,14 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
     """The password reset reads its token's account in one thread-pool unit and resets it in a second; the
     password change releases its auth lookup's read in one, before its rate limit, and changes the password
     and mints this device's session in a second. Each unit is released before what follows it, so one request
-    alone has no connection out while bcrypt checks the current password, the breached-password check waits
-    or bcrypt hashes the new one, and nine requests on four slots make no checkout, statement or release on
+    alone has no connection out while the current password is checked, the breached-password check waits
+    or the new one is hashed, and nine requests on four slots make no checkout, statement or release on
     the loop and leave nothing for the finalizer, their refusals and a failing write included. On the loop
     each route read and wrote there, waited there for the account's users row lock, and kept its
     connection checked out across bcrypt and the breach check (E121). A reset sets each account's password,
     burns its link, confirms its email and revokes its session; a change sets its password, revokes its
     session and leaves one new one, the cookie's; a refusal or a failed write leaves every account as it was.
-    The fakes stand in for bcrypt (a blocking call in its worker thread) and HaveIBeenPwned (an await);
+    The fakes stand in for the hash and its check (a blocking call on the password thread) and HaveIBeenPwned (an await);
     the links carry no expiry, which SQLite would hand back without its zone."""
     from app.config import settings
     from app.models import RefreshToken, User
@@ -1175,7 +1175,7 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
     def verify(plain: str, hashed: str) -> bool:
         waits.append(("verify", engine.pool.checkedout()))
         bcrypt_on_loop.append(threading.get_ident() == loop_thread)
-        time.sleep(0.02)  # bcrypt's cost, blocking its worker thread
+        time.sleep(0.02)  # the hash's cost, blocking the password thread
         return plain == current and hashed == "the stored hash"
 
     def hash_password(plain: str) -> str:

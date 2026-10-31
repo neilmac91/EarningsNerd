@@ -1370,7 +1370,7 @@ describe('the password rule moves in lockstep with the backend', () => {
     ])
   })
 
-  it('every password field of the auth schemas is a bare str whose validator only calls validate_password_strength', () => {
+  it('every password field of the auth schemas is a bare str whose validator only calls validate_password_strength, or bound_checked_password for a checked one', () => {
     const router = backend('app/routers/auth.py')
     // A constraint on the field itself (Field(min_length=…), a pattern) would be a rule too.
     const fields = router.split('\n').flatMap((line) => line.match(/^ {4}(\w*password\w*)\s*:\s*(.+?)\s*$/)?.slice(1, 3).join(': ') ?? [])
@@ -1381,10 +1381,26 @@ describe('the password rule moves in lockstep with the backend', () => {
       'current_password: Optional[str] = None',
       'new_password: str',
     ])
+    // Login's password and the change's current password are checked against a stored hash, not set: their one
+    // validator bounds what the check reads (E97), at eight times the most a new password may hold, so it is no rule
+    // PASSWORD_RULE states and refuses no password a policy let in.
     expect(passwordValidators(router), 'a new password rule in a schema: state it in PASSWORD_RULE, then update this list').toEqual([
       '("password") return validate_password_strength(value)',
+      '("password") return bound_checked_password(value)',
       '("new_password") return validate_password_strength(value)',
+      '("current_password") return bound_checked_password(value)',
       '("new_password") return validate_password_strength(value)',
+    ])
+    expect(backend('app/services/password_utils.py'), 'the checked bound must stay past what a policy let in').toMatch(
+      /^CHECKED_PASSWORD_MAX_LENGTH = 8 \* PASSWORD_MAX_LENGTH$/m,
+    )
+    // Its whole body is pinned, as is_valid_unicode's is, so a policy added inside it fails here too.
+    const bound = pythonBody(backend('app/services/password_utils.py'), /^def bound_checked_password\b/)
+    if (!bound) throw new Error('bound_checked_password not found in backend/app/services/password_utils.py')
+    expect(bound, 'a rule inside bound_checked_password would refuse a password a policy let in: keep it the bound alone').toEqual([
+      'if value is not None and len(value) > CHECKED_PASSWORD_MAX_LENGTH:',
+      'raise ValueError(f"Password must be at most {CHECKED_PASSWORD_MAX_LENGTH} characters.")',
+      'return value',
     ])
   })
 

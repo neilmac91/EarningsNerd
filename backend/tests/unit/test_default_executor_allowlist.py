@@ -1,12 +1,13 @@
 """Gate for lessons/ops-auth-lookups-must-let-request-cleanup-progress.md: work that waits for a database
 pool slot never runs on the event loop's default executor.
 
-The default executor is shared with work that may hold a slot: a registration that validates an invite keeps
-its connection checked out while it awaits bcrypt through ``asyncio.to_thread`` (a password change or reset
-did too, until E121's reset-and-change slice (#1727) released theirs before bcrypt). A unit waiting there
-for a slot could hold the thread such a holder needs, and neither could move until the pool timed out.
-Pool-waiting units run on threads of their own instead (``copilot_chat._LOOKUP_THREADS``,
-``facts.sync_threads._SYNC_THREADS``).
+The default executor is shared with work that may hold a slot: a registration that validated an invite kept
+its connection checked out while it awaited bcrypt through ``asyncio.to_thread`` (a password change or reset
+did too, until E121's reset-and-change slice (#1727) released theirs before bcrypt; since E97's Argon2id slice
+every password hash and check runs on the password thread, ``password_utils.in_password_thread``, which runs
+nothing else). A unit waiting there for a slot could hold the thread such a holder needs, and neither could
+move until the pool timed out. Pool-waiting units run on threads of their own instead
+(``copilot_chat._LOOKUP_THREADS``, ``facts.sync_threads._SYNC_THREADS``).
 
 The scan reads every module under ``app/`` and the backend's top-level modules (``main.py``,
 ``task_worker_main.py``) through ``ast`` and lists each call that hands work to the default executor:
@@ -30,15 +31,9 @@ from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
-_BCRYPT = "bcrypt over the request's own values; it opens no session"
 SITES: dict[tuple[str, str, str], str] = {
     ("app/routers/analysis.py", "export_analysis_xlsx", "build_analysis_workbook"):
         "openpyxl over the dataset its unit built and released; it opens no session",
-    ("app/routers/auth.py", "register", "get_password_hash"): _BCRYPT,
-    ("app/routers/auth.py", "login", "verify_password"): _BCRYPT,
-    ("app/routers/auth.py", "reset_password", "get_password_hash"): _BCRYPT,
-    ("app/routers/auth.py", "change_password", "verify_password"): _BCRYPT,
-    ("app/routers/auth.py", "change_password", "get_password_hash"): _BCRYPT,
     ("app/routers/summaries.py", "export_summary_csv", "export_service.generate_csv"):
         "the CSV from the rows the route's unit read and released; it opens no session",
     ("app/services/copilot_service.py", "_admit_not_disclosed", "_withhold_unsupported_quotations"):
