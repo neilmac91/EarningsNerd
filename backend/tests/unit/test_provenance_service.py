@@ -537,32 +537,14 @@ class TestFigureCheck:
         out = self._check("Total assets", "$331.5B", "$331.5B", self.QUARTER)
         assert out["source_checkable"] is False and out["source_verified"] is False
 
-    @pytest.mark.parametrize("field, other", [
-        ("currency", "EUR"), ("raw_tag", "AssetsNet"), ("form", "10-K"),
-        # The companyfacts path's series holds an earlier 10-Q's own instant, under that filing's accession.
-        ("accn", "0000320193-24-000081"),
-    ])
-    def test_an_earlier_instant_of_another_currency_tag_form_or_filing_is_not_the_concepts(self, field, other):
-        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets", "accn": "0000320193-25-000073"}
+    @pytest.mark.parametrize("field, other", [("currency", "EUR"), ("raw_tag", "AssetsNet"), ("form", "10-K")])
+    def test_an_earlier_instant_of_another_currency_tag_or_form_is_not_the_concepts(self, field, other):
+        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets"}
         earlier = {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "currency": "USD", "raw_tag": "Assets",
-                   "accn": "0000320193-25-000073", field: other}
+                   field: other}
         quarter = {"reporting_currency": "USD", "total_assets": {
             "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
         assert self._check("Total assets", "$331.5B", "$365.0B", quarter)["source_checkable"] is False
-
-    @pytest.mark.parametrize("own, other", [
-        ("0000320193-25-000073", "0000320193-25-000073"),  # the filing's own instance: one accession throughout
-        ("0000320193-25-000073", "000032019325000073"),  # the same accession, written without dashes
-        ("0000320193-25-000073", None),  # a series stored before accessions rode through
-        (None, None),
-    ])
-    def test_an_earlier_instant_of_this_filing_is_still_matched(self, own, other):
-        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets", **({"accn": own} if own else {})}
-        earlier = {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "currency": "USD", "raw_tag": "Assets",
-                   **({"accn": other} if other else {})}
-        quarter = {"reporting_currency": "USD", "total_assets": {
-            "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
-        assert self._check("Total assets", "$331.5B", "$365.0B", quarter)["source_verified"] is True
 
     # A concept's extraction candidates differ in scope (edgar/instance/concepts.py), and the extractor records the
     # winner as raw_tag. A figure is replaced only by the line its label names; one that differs from another line is

@@ -17,11 +17,6 @@ from .xbrl_cache import logger
 # unrestricted-cash tag is present — the JPM-class bank case whose only cash line is the
 # migrated tag (data-quality plan P0-3). test_cash_registry_consistency.py pins this ordering
 # across all three cash registries.
-# The headline candidates, in priority order; no tag is recorded for them, and the figure check's scope test reads them.
-REVENUE_TAG_CANDIDATES: List[str] = ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
-                                     "SalesRevenueNet", "NetSales", "TotalRevenue"]
-NET_INCOME_TAG_CANDIDATES: List[str] = ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]
-TOTAL_ASSETS_TAG_CANDIDATES: List[str] = ["Assets"]
 CASH_TAG_CANDIDATES: List[str] = [
     "CashAndCashEquivalentsAtCarryingValue",
     "Cash",
@@ -29,6 +24,11 @@ CASH_TAG_CANDIDATES: List[str] = [
     "CashCashEquivalentsAndShortTermInvestments",
     "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
 ]
+# The headline candidates, in priority order; no tag is recorded for them, and the figure check's scope test reads them.
+REVENUE_TAG_CANDIDATES: List[str] = ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
+                                     "SalesRevenueNet", "NetSales", "TotalRevenue"]
+NET_INCOME_TAG_CANDIDATES: List[str] = ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]
+TOTAL_ASSETS_TAG_CANDIDATES: List[str] = ["Assets"]
 
 
 async def fallback_to_company_facts(

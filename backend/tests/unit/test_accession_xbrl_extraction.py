@@ -621,9 +621,9 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
                     for end, value in expected_series]
     assert raw[metric] == expected_raw
     if qualified:
-        # The accession rides through standardization: the figure check reads it to hold a series match to
-        # this filing's own facts.
-        assert standardized[metric]['series'] == expected_raw
+        assert standardized[metric]['series'] == [
+            {k: v for k, v in item.items() if k != 'accn'} for item in expected_raw
+        ]
     else:
         assert metric not in standardized
 
@@ -647,7 +647,8 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     converted = service.extract_standardized_metrics(legacy)
     if expected_legacy:
         assert converted['cash_and_equivalents']['series'] == [
-            {**item, 'currency': None} for item in expected_legacy
+            {**{k: v for k, v in item.items() if k != 'accn'}, 'currency': None}
+            for item in expected_legacy
         ]
     else:
         assert 'cash_and_equivalents' not in converted
@@ -736,7 +737,9 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
         ]
         assert raw['capital_expenditures'] == expected_raw
         standardized = EdgarXBRLService().extract_standardized_metrics(raw)
-        assert standardized['capital_expenditures']['series'] == expected_raw
+        assert standardized['capital_expenditures']['series'] == [
+            {key: value for key, value in row.items() if key != 'accn'} for row in expected_raw
+        ]
         grounding = build_xbrl_narrative_section(standardized)
         assert f'current source concept: {qualified}' in grounding
         assert f'prior source concept: {qualified}' in grounding

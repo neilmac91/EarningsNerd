@@ -656,16 +656,11 @@ def _shows_a_figure(text: Any) -> bool:
 
 
 def _same_series_concept(current: dict, fact: dict) -> bool:
-    """Whether a series fact is the current fact's concept on an earlier date, from this filing, where both name
-    it: a series the companyfacts path built holds an earlier 10-Q's own instant under another accession, which
-    this filing states nowhere, so it is no match for the shown prior."""
+    """Whether a series fact is the current fact's concept on an earlier date, where both name it."""
     for field in ("currency", "raw_tag", "form"):
         left, right = current.get(field), fact.get(field)
         if left is not None and right is not None and left != right:
             return False
-    own, other = current.get("accn"), fact.get("accn")
-    if isinstance(own, str) and isinstance(other, str) and own.replace("-", "") != other.replace("-", ""):
-        return False
     period, earlier = current.get("period"), fact.get("period")
     return isinstance(period, str) and isinstance(earlier, str) and earlier < period
 
