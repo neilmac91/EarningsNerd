@@ -361,10 +361,9 @@ const RESIDUE: Record<string, number> = {
   'features/filings/components/SourceTrace.tsx': 4, // the Source chip's four triggers (the sheet's, the in-app jump, the link, the popover's) show its label ("Quote found in filing") and are named "Source: …", the link adding "(opens in a new tab)"; the demo below copies it
   'features/filings/components/copilot/CitationChip.tsx': 3, // the Copilot's citation chip (its jump, its link, its popover trigger) shows "[1]" and is named "Citation 1: …", as NarrativePane's is
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // the landing's demo chip shows "Quote found in filing" and is named "Source: Quote found in filing", as SourceTrace's link is
-  'features/notifications/components/NotificationBell.tsx': 1, // the bell's count badge ("3", "9+") is face and the name opens "Notifications (3 unread)"; the badge is a status the name already counts, so aria-hidden on it is the likely fix (inView())
   'features/watchlist/components/PopularTickerChips.tsx': 1, // the chip shows the ticker and is named "Add AAPL to your watchlist"
 }
-const RESIDUE_MAX = { files: 9, controls: 14 }
+const RESIDUE_MAX = { files: 8, controls: 13 }
 /** The labels the scan cannot read on a control that shows words, per file, with why. */
 const UNREAD: Record<string, number> = {
   'features/admin/components/FeedbackRow.tsx': 1, // admin: the row's link opens with the message's preview, data, then shows "View details", and is named "View details for feedback N"
