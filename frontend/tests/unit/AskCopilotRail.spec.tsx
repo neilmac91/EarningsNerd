@@ -865,17 +865,15 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     return { ...utils, showFiling: (filingId: number) => utils.rerender(page(filingId)) }
   }
 
-  it('a pane opened on the Filing tab arms nothing: a switch to Ask, by the code or a click, never moves the page (E252)', async () => {
+  /** The pane at lg+ in a 130px window, 30px of its column showing, too little for the composer's shell, so a page move is
+   *  due whenever a press asks for it (E252). Animation frames are faked, and `viewer()` switches the tabs as the code
+   *  does, with no event. Rendered closed; `open()` opens it, as a press does. */
+  function paneForThePageMove() {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
     const win = window as { innerHeight: number }
     const was = win.innerHeight
-    // 30px of the column shows, too little for the composer's shell: a page move is due whenever a press asks for it.
     win.innerHeight = 130
     const page = watchThePage()
-    const frames = (count: number) =>
-      act(() => {
-        for (let i = 0; i < count; i++) vi.advanceTimersToNextFrame()
-      })
     let viewer: ReturnType<typeof useFilingViewer> = null
     function Viewer() {
       viewer = useFilingViewer()
@@ -900,67 +898,73 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
         </FilingViewerProvider>
       </QueryClientProvider>
     )
+    const view = render(pane(false))
+    return {
+      page,
+      viewer: () => viewer!,
+      open: () => view.rerender(pane(true)),
+      frames: (count: number) =>
+        act(() => {
+          for (let i = 0; i < count; i++) vi.advanceTimersToNextFrame()
+        }),
+      restore: () => {
+        page.restore()
+        win.innerHeight = was
+        vi.useRealTimers()
+      },
+    }
+  }
+
+  it('a pane opened on the Filing tab arms nothing: a switch to Ask, by the code or a click, never moves the page (E252)', () => {
+    const pane = paneForThePageMove()
     try {
       // The reader last saw the Filing tab, and the pane opens on it again, as Source or a chip opens it then.
-      const view = render(pane(false))
-      act(() => viewer!.openFiling())
-      view.rerender(pane(true))
+      act(() => pane.viewer().openFiling())
+      pane.open()
       const field = screen.getByLabelText(/ask about this filing/i)
       composerColumn(field)
-      frames(30)
-      expect(page.moves, 'the Filing tab shows').toEqual([])
+      pane.frames(30)
+      expect(pane.page.moves, 'the Filing tab shows').toEqual([])
       // The code switches to Ask, as a citation flow's return does: no event, and no move.
-      act(() => viewer!.setActiveView('copilot'))
-      frames(30)
+      act(() => pane.viewer().setActiveView('copilot'))
+      pane.frames(30)
       expect(field).toHaveFocus()
-      expect(page.moves, 'the switch').toEqual([])
+      expect(pane.page.moves, 'the switch').toEqual([])
       // Back to Filing, and a click with no pointer press on the Ask tab, as assistive technology sends.
-      act(() => viewer!.openFiling())
+      act(() => pane.viewer().openFiling())
       fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
-      frames(30)
+      pane.frames(30)
       expect(field).toHaveFocus()
-      expect(page.moves, 'the tab').toEqual([])
+      expect(pane.page.moves, 'the tab').toEqual([])
     } finally {
-      page.restore()
-      win.innerHeight = was
-      vi.useRealTimers()
+      pane.restore()
     }
   })
 
   it('a tab pressed or switched back to Ask never moves the page: only the press that opened the pane may (E252)', async () => {
-    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
-    const win = window as { innerHeight: number }
-    const was = win.innerHeight
-    // 30px of the column shows, too little for the composer's shell: a page move is due whenever a press asks for it.
-    win.innerHeight = 130
-    const page = watchThePage()
-    const frames = (count: number) =>
-      act(() => {
-        for (let i = 0; i < count; i++) vi.advanceTimersToNextFrame()
-      })
+    const pane = paneForThePageMove()
     try {
       const user = userEvent.setup()
-      renderInPane()
+      pane.open()
       const field = screen.getByLabelText(/ask about this filing/i)
       composerColumn(field)
-      frames(30)
+      pane.frames(30)
       expect(field).toHaveFocus()
-      expect(page.moves, 'the press that opened the pane').toEqual(['scrollBy'])
-      // Switched back with no press of the reader's, as a citation flow's return does: the open's move is spent.
-      fireEvent.click(screen.getByRole('tab', { name: /filing/i }))
-      fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
-      frames(30)
+      expect(pane.page.moves, 'the press that opened the pane').toEqual(['scrollBy'])
+      // Switched back by the code, as a citation flow's return does, with no event to drop anything: the open's move
+      // is spent.
+      act(() => pane.viewer().openFiling())
+      act(() => pane.viewer().setActiveView('copilot'))
+      pane.frames(30)
       expect(field).toHaveFocus()
-      expect(page.moves, 'the switch').toEqual(['scrollBy'])
+      expect(pane.page.moves, 'the switch').toEqual(['scrollBy'])
       await user.click(screen.getByRole('tab', { name: /filing/i }))
       await user.click(screen.getByRole('tab', { name: 'Ask' }))
-      frames(30)
+      pane.frames(30)
       expect(field).toHaveFocus()
-      expect(page.moves, 'the tab').toEqual(['scrollBy'])
+      expect(pane.page.moves, 'the tab').toEqual(['scrollBy'])
     } finally {
-      page.restore()
-      win.innerHeight = was
-      vi.useRealTimers()
+      pane.restore()
     }
   })
 
