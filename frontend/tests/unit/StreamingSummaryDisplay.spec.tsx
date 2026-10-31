@@ -366,8 +366,7 @@ describe('StreamingSummaryDisplay paywall routing', () => {
 
 // The pipeline's sentences took the product's words with E217's functional change to summary_stages (F35, D-046,
 // E92), and the free monthly limit and Pro's fair-use ceiling with E37; the card still maps the stream endpoint's own
-// answers and a retired sentence (features/summaries/lib/streamErrorCopy.ts), and the raw sentence, or its code, still
-// routes it.
+// answers (features/summaries/lib/streamErrorCopy.ts), and the raw sentence, or its code, still routes it.
 describe('StreamingSummaryDisplay failure reason', () => {
   it('shows a backend sentence in the product voice', async () => {
     render(
@@ -410,19 +409,6 @@ describe('StreamingSummaryDisplay failure reason', () => {
     expect(cardButton()).toBeNull()
     rerender(failed('The filing could not be summarized right now.'))
     expect(cardButton()).toBeInTheDocument()
-  })
-
-  // While E37 deploys, the page serves before its backend, whose stream still sends the ceiling's old words, coded: the
-  // code withholds the Retry, and the card shows the ceiling's words, never the retired ones.
-  it("shows the ceiling's words for its retired sentence, and the code withholds the Retry", async () => {
-    render(
-      <StreamingSummaryDisplay streamingText="" stage="error" message="" filing={filing} onRetry={() => {}}
-        error="We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support." failure={{ code: 'pro_fair_use_limit' }} />,
-    )
-    await act(async () => {})
-    expect(screen.getByText("Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.")).toBeInTheDocument()
-    expect(screen.queryByText(/temporarily paused/)).toBeNull()
-    expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
   })
 
   // The stream endpoint's 403s hold whatever the reader retries. A Free reader's retry after a failed summary read
