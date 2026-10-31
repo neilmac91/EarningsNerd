@@ -9,6 +9,13 @@ import type { ChartModel, ChartView, ModelMark, ModelPanel, NoteGlyph } from './
 import { compactMoney, linear } from './scale'
 
 export const FONT_PX = 11
+/** Every SVG text's family (G1), the face whose advance ADVANCE assumes; it mirrors tailwind's fontFamily.data. It
+ *  leads with var(--font-geist-mono), as the data stack does (DESIGN_SYSTEM.md §12, item 3): next/font exposes the face
+ *  through that variable, which is the contract, while the family name the loader declares is no promise. The
+ *  variable ends in the generic monospace, so the families after it are never reached, and were it unset the whole
+ *  value would be invalid and the text would take its inherited family: they never stand in for it. */
+export const CHART_FONT =
+  'var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
 export const ADVANCE = FONT_PX * 0.6
 export const textWidth = (text: string) => [...text].length * ADVANCE
 
@@ -27,19 +34,25 @@ const STRIP_ROW = 16
 const NOTES_ROW = 16
 const BOTTOM = 4
 const RIGHT_PAD = 8
-/** The narrowest period slot: below it the chart scrolls inside its own viewport, never the page. */
+/** The narrowest period slot: below it the chart scrolls inside its own viewport, never the page. A chart whose widest
+ *  x tick needs more (a ticker wider than a year, E251) takes that instead (minSlotOf). */
 export const MIN_SLOT = 36
 /** A labelled chart (the top line's) widens its slot past MIN_SLOT until A4 finds a label tier, up to this. On the
  *  audit's 72 top lines, 66 fit at 36 px and the other six (LCID, NVDA, PLUG, REGN, REGNPN and RIVN, all annual)
  *  needed at most 41.7 px: six-glyph labels such as "$4.86B" cannot keep 2 px apart at a 36 px pitch. Past it, as
- *  a code-prefixed currency's labels ("CHF 4.9B") can be, the card says VALUES_DONT_FIT instead. */
+ *  a code-prefixed currency's labels ("CHF 4.9B") can be, the card says VALUES_DONT_FIT instead. A chart whose ticks
+ *  need a minimum this wide or wider (minSlotOf: a six-glyph ticker's 44 px) gets no widening: where its labels miss
+ *  at its minimum, its card says they don't fit. */
 export const LABELLED_MAX_SLOT = 42
 /** The value strip's row: its series' swatch centred at STRIP_MARKER_X, then its short name from STRIP_LABEL_X. */
 export const STRIP_MARKER_X = 6
 export const STRIP_LABEL_X = 14
-/** What the card says under the SVG when A4 finds no label tier for a panel, even at LABELLED_MAX_SLOT (spec §3.7).
- *  It does not offer the expanded view: on a phone that view is no wider. */
+/** What the card says under the SVG when A4 finds no label tier for a panel, even at LABELLED_MAX_SLOT or at a minimum
+ *  slot wider than that (spec §3.7). It does not offer the expanded view: on a phone that view is no wider. */
 export const VALUES_DONT_FIT = 'Values don’t fit at this width. The metrics table lists them.'
+/** The same line for a card no metrics table sits beside (the filing page's Financial trends, E195 (D); E251's ranked
+ *  company chart): no table on its page lists the values, so the line stops at what is true. */
+export const VALUES_DONT_FIT_HERE = 'Values don’t fit at this width.'
 
 export interface LabelPlan {
   /** One decimal tier for the whole panel, or null when no tier fits: the panel prints no labels and the card says
@@ -89,6 +102,8 @@ export interface PlacedBar {
   clipped: boolean
   /** The printed value and its baseline (A4), or null when the panel prints none. */
   label: { text: string; y: number } | null
+  /** A bar chart's context bar (barChart.ts, E251): the renderer paints it in the context ink, at contextBarWidth. */
+  context?: true
 }
 
 /** A bar slot with no value prints "—" (missing) or "n/m" (not meaningful) on the zero rule. */
@@ -199,24 +214,34 @@ export const gutterOverlayWidth = (layout: ChartLayout, cover = layout.plotLeft,
   Math.max(cover, ...cuts.map((cut) => cut.x + cut.width), ...layout.panels.map(captionBacking))
 
 /**
- * The left gutter and the narrowest slot. The gutter holds the widest tick label (G_L). An expanded view with a
- * value strip also fits its rows, so the strip is collision-free by construction as §3.10 says: every slot holds
- * its widest cell with 2 px each side, and the gutter reaches past the rows' short names, so the first cell
- * clears them.
+ * The left gutter and the narrowest slot. The gutter holds the widest tick label (G_L). A slot holds the widest line of
+ * its x ticks with 2 px each side, as the strip's cells do, over MIN_SLOT's floor: the form of the spec's draft rule
+ * (§0.4 row 11, max(24, widest slot-centred string + 4)). E251: a ticker is wider than a year, and a six-glyph one ran
+ * 1.8 px past a 36 px column; no year or quarter tick reaches it (26.4 px for "2025").
+ * An expanded view with a value strip also fits its rows, so the strip is collision-free by construction as §3.10 says:
+ * every slot holds its widest cell with 2 px each side, and the gutter reaches past the rows' short names, so the first
+ * cell clears them.
  */
 function frameOf(model: ChartModel, view: ChartView): { gutter: number; minSlot: number } {
   const chars = Math.max(0, ...model.panels.flatMap((panel) => panel.axis.ticks.map((tick) => [...panel.axis.format.tick(tick)].length)))
   const gutter = Math.max(36, Math.ceil(ADVANCE * chars) + 8)
-  if (view !== 'expanded' || !model.strip.length) return { gutter, minSlot: MIN_SLOT }
+  const tick = Math.max(0, ...model.periods.flatMap((period) => period.tick.map(textWidth)))
+  const minSlot = Math.max(MIN_SLOT, Math.ceil(tick + 4))
+  if (view !== 'expanded' || !model.strip.length) return { gutter, minSlot }
   const cell = Math.max(0, ...model.strip.flatMap((row) => Object.values(row.cells).map(textWidth)))
   const label = Math.max(0, ...model.strip.map((row) => textWidth(row.short)))
-  return { gutter: Math.max(gutter, Math.ceil(STRIP_LABEL_X + label)), minSlot: Math.max(MIN_SLOT, Math.ceil(cell + 4)) }
+  return { gutter: Math.max(gutter, Math.ceil(STRIP_LABEL_X + label)), minSlot: Math.max(minSlot, Math.ceil(cell + 4)) }
 }
+
+/** A7's narrowest slot for a model in a view: MIN_SLOT, or more where its widest x tick line, or an expanded view's
+ *  widest strip cell, needs it with 2 px each side. */
+export const minSlotOf = (model: ChartModel, view: ChartView = 'card') => frameOf(model, view).minSlot
 
 /** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. A labelled
  *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period, at which A4 finds a tier for every
  *  labelled panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its
- *  minimum. The search steps a slot pixel at a time, then the pixel within the last step. */
+ *  minimum, and so does a chart whose minimum is already that wide (a six-glyph ticker's 44 px). The search steps a slot
+ *  pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
   const at = (slot: number) => gutter + RIGHT_PAD + slot * model.periods.length
@@ -264,8 +289,8 @@ type Bar = Omit<PlacedBar, 'label'>
 const zeroOf = (box: PanelFrame) => box.y(Math.max(box.panel.axis.domain[0], Math.min(0, box.panel.axis.domain[1])))
 
 /** A13, every bar (top line, growth, equity): the rect from the zero rule to the clamped value, at least
- *  2 px, on the value's side. */
-function placeBars(box: PanelFrame, x: (period: string) => number, barWidth: number, growthBarWidth: number): Bar[] {
+ *  2 px, on the value's side. A growth bar and a context bar take their narrower widths. */
+function placeBars(box: PanelFrame, x: (period: string) => number, barWidth: number, growthBarWidth: number, contextBarWidth: number): Bar[] {
   const [d0, d1] = box.panel.axis.domain
   const zero = zeroOf(box)
   return box.panel.marks.flatMap((mark) => mark.kind === 'line' ? [] : mark.points.flatMap((point) => {
@@ -273,11 +298,12 @@ function placeBars(box: PanelFrame, x: (period: string) => number, barWidth: num
     const clamped = Math.max(d0, Math.min(d1, point.value))
     const length = Math.abs(box.y(clamped) - zero)
     const height = Math.max(2, length)
-    const width = mark.kind === 'growth' ? growthBarWidth : barWidth
+    const width = mark.kind === 'growth' ? growthBarWidth : point.context ? contextBarWidth : barWidth
     return [{
       period: point.period, seriesKey: mark.seriesKey, value: point.value,
       x: x(point.period) - width / 2, y: point.value >= 0 ? zero - height : zero, width, height, zero,
       stub: length < 2, clipped: clamped !== point.value,
+      ...(point.context ? { context: point.context } : {}),
     }]
   }))
 }
@@ -343,6 +369,10 @@ function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
   const slot = (plotRight - plotLeft) / Math.max(1, model.periods.length)
   const barWidth = Math.min(44, Math.round(0.64 * slot))
   const growthBarWidth = Math.max(4, Math.round(0.6 * barWidth))
+  // A context bar's width (E251), the cue colour alone cannot give a colour-blind reader: the context ink sits deutan 17 /
+  // protan 9 ΔE76 from chart-1 (spec §3.8, CVD). The growth bars' narrower width, the spec's precedent for telling bars
+  // apart (§3.7); the bar a chart is about keeps the full width.
+  const contextBarWidth = growthBarWidth
   const index = new Map(model.periods.map((period, i) => [period.key, i]))
   const x = (period: string) => plotLeft + slot * ((index.get(period) ?? 0) + 0.5)
   const stacked = model.panels.length > 1
@@ -385,7 +415,7 @@ function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
     const offBelow = f.offDown ? { top: cursor, ...f.offDown } : null
     cursor += f.offBottom + (i < model.panels.length - 1 ? gap : 0)
     const frame: PanelFrame = { panel, regionTop, captionY, top, height: panelHeight, y: linear(panel.axis.domain, [top + panelHeight, top]), offAbove, offBelow }
-    const placed = placeBars(frame, x, barWidth, growthBarWidth)
+    const placed = placeBars(frame, x, barWidth, growthBarWidth, contextBarWidth)
     const labelled = panel.marks.find((mark) => mark.labelled)
     const labels = labelled ? planLabels(labelled, frame, placed, width) : { decimals: null }
     const printed = new Set(panel.marks.filter((mark) => mark.labelled).map((mark) => mark.seriesKey))

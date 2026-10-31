@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Annotated, Any, Optional
 from contextlib import aclosing
@@ -703,16 +703,21 @@ async def ask_filing_stream(
                 # completes (converted) or fails (released).
                 admitted, _used, allowance, token = reserve_qa_taste_use(current_user, db)
                 if not admitted:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail=copilot_taste_exhausted_detail(allowance),
+                    # E31's code follows the words' own case, as require_copilot_or_taste's does (the contract's §3):
+                    # a spent free allowance, or none at all, which is the plan's gate.
+                    raise CodedHTTPException(
+                        ErrorCode.FREE_ALLOWANCE_EXHAUSTED if allowance else ErrorCode.PLAN_REQUIRED,
+                        detail=copilot_taste_exhausted_detail(allowance),
                     )
             else:
                 allowed, count, cap = check_qa_limit(current_user, db)
                 if allowed:
                     allowed, count, cap, token = reserve_qa_use(current_user, db)  # serialized decision
                 if not allowed:
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    # Coded (E31): the plan card with no upgrade button and no Retry. The burst limiter's 429 above stays
+                    # uncoded, a plain rate limit the reader may retry.
+                    raise CodedHTTPException(
+                        ErrorCode.PRO_FAIR_USE_LIMIT,
                         detail=(
                             f"You've reached this month's fair-use limit of {cap} Copilot questions. "
                             "It resets at the start of next month."

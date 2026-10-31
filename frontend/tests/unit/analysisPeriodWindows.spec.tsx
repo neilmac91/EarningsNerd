@@ -4,13 +4,18 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 // PeekLocked's UpgradeModal calls useRouter; no app router is mounted under vitest.
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 import demo from '@/features/analysis/demo/demo-analysis.json'
 import AnalysisTeaser from '@/features/analysis/components/AnalysisTeaser'
+// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load.
+// next/dynamic still shows its loading grid first, so the cases still wait, and read once the grid has given way to
+// the charts. tests/e2e/charts-v2.spec.ts holds that grid-then-charts path in a browser, and
+// trend-charts-v2-chunk.spec.tsx holds the fallback when the chunk fails to load.
+import '@/features/analysis/components/TrendChartsV2'
 import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import KpiStrip from '@/features/analysis/components/KpiStrip'
@@ -115,8 +120,11 @@ describe('formatAnalysisWindow', () => {
 })
 
 describe('the demo run on the page', () => {
-  it('prints its window as a range in the teaser, in its text, its tooltips and its accessible names', () => {
+  it('prints its window as a range in the teaser, in its text, its tooltips and its accessible names', async () => {
     render(<AnalysisTeaser />)
+    // The teaser's four trend charts come in their own chunk (TrendCharts.tsx's dynamic import): the page is read once
+    // their plots are drawn, so the charts' text and attributes are scanned with the rest.
+    await waitFor(() => expect(document.querySelectorAll('[data-analysis-chart] > svg')).toHaveLength(4))
     expect(windowPrints(document.body)).toEqual([])
     expect(document.body.textContent).toContain('Revenue CAGR was +8.7% over FY2020–FY2025')
     expect(document.body.textContent).toContain('Revenue CAGR · FY2020–FY2025 · +8.7%')
@@ -275,7 +283,7 @@ describe('where a window is read and joined', () => {
         const template = destination(node.parent)
         return !(ts.isJsxExpression(template) && reactOwn(template.parent))
       }
-      // A component's prop counts too (ChartTooltip prints its label).
+      // A component's prop counts too (a chart's tooltip prints its label).
       return ts.isJsxExpression(node) && !reactOwn(node.parent)
     }
     const visit = (node: ts.Node) => {

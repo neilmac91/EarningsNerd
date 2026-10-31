@@ -82,6 +82,11 @@
    Casing: `pro` UPPERCASES its label; brand and every other variant stay
    sentence case. icon={null} strips a variant's automatic affordance (the
    ▲ / ▼ glyph or the pulse dot).
+   wrap: below a 24rem viewport the label may wrap, in the 16px step a chip
+   that can wrap takes (NARROW_WRAP below), as Button's narrow state does for
+   a button's label: on a line of its own the one-line chip can be wider than
+   a phone's card under 200% text (the hero example's quality badge, E156;
+   the filing page's source check, SourceCheckBadge).
    v3: pro's uppercase tracking moved off the 0.05em wider utility onto the
    one eyebrow token (`tracking-eyebrow` = --track-eyebrow 0.08em).
 ============================================================================= */
@@ -107,6 +112,14 @@ export type BadgeVariant =
   | 'new'
 
 const BASE = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold'
+/** `wrap`'s state: below a 24rem viewport (a media query's rem is the browser's text size, so 384px at the default size
+    and 768px under a 200% text setting) the label may wrap, and the chip takes the 16px step (DESIGN.md's radius scale):
+    a pill on one line, a rounded box once it wraps, never a capsule whose curve crosses its text. The media block sits
+    after BASE's whitespace-nowrap and rounded-full in the stylesheet, so it wins there, and the label still breaks only
+    where the chip does not fit; a plain whitespace-normal or rounded-xl would lose to BASE (cx does no tailwind-merge).
+    Written as an arbitrary variant, each class whole, as Button's NARROW_WRAP is: Tailwind drops `max-[24rem]:` because
+    the screens are in px. */
+const NARROW_WRAP = '[@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:rounded-xl'
 
 const TINT = cx(
   'border border-brand-border bg-brand-weak text-brand-strong',
@@ -146,11 +159,13 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant
   /** Override the variant's automatic affordance (▲ / ▼ / pulse dot). Pass null to remove. */
   icon?: ReactNode
+  /** Below a 24rem viewport, let the label wrap where the chip does not fit, in the 16px step (NARROW_WRAP). */
+  wrap?: boolean
 }
 
 /** The chip's span takes a ref, for a chip that takes focus when it appears (the summary's Saved chip). */
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
-  { variant = 'neutral', icon, className, children, ...rest },
+  { variant = 'neutral', icon, wrap = false, className, children, ...rest },
   ref,
 ) {
   const auto: ReactNode =
@@ -167,7 +182,7 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
     ) : null
 
   return (
-    <span ref={ref} className={cx(BASE, VARIANT[variant], className)} {...rest}>
+    <span ref={ref} className={cx(BASE, VARIANT[variant], wrap && NARROW_WRAP, className)} {...rest}>
       {auto}
       {children}
     </span>

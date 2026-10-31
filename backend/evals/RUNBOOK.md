@@ -1146,7 +1146,13 @@ reported totals from no-total banks, and existing deterministic summary assembly
 available component rows using aligned XBRL periods/currencies. It replaces model
 component rows, including their incompatible commentary/evidence, without inventing
 verbatim quotes. Reports retain the actual `xbrl_grounding` used for each result so
-future failures can distinguish extraction absence from generation omissions.
+future failures can distinguish extraction absence from generation omissions. Since E184
+each fact a standardized series takes from the filing's XBRL (and each operand ROE and ROA
+copy) also records `accn`, the filing that recorded it. The judge and the bake-off
+candidates never read it (`runner._model_metrics` drops it, as it drops
+`financial_classification`), nor does the baseline, whose production prompt picks its
+fields one by one. A comparison of retained groundings across that change drops `accn`
+first.
 
 This failed measurement was not pinned. The sole authoritative three-run measurement
 subsequently ran on source `f5b46ba96b3023f93554087e431937ed9daba3c4`, including deployed
