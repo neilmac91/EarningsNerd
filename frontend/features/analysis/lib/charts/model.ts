@@ -113,6 +113,10 @@ export interface ChartModel {
   unavailable: string | null
   /** The expanded view's value strip: every value of every plotted series not labelled in the plot. */
   strip: StripRow[]
+  /** The category the chart starts at, by key (a bar chart's `start`, E251): the values stop starts there, and a plot that
+   *  overflows opens with its column in view. Unset, the last period, the newest, the one the legend and the metrics
+   *  table quote. */
+  start?: string
 }
 
 const MARKERS: Marker[] = ['circle', 'square', 'triangle']

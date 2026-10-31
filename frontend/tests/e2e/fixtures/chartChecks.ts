@@ -15,8 +15,10 @@ import { apcaLc } from '../../unit/apca'
  * - D8: every string paints at Geist Mono's 0.6 em advance, so the planner's widths are the screen's;
  * - D10: no chart animates under reduced motion;
  * - D14: every bar lies on its value's side of its zero rule, at the page's width;
- * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, opened at its newest
- *   period behind A7's sticky gutter, which repeats the y axis at the viewport's edge and passes D1, D2 and D8 itself.
+ * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, opened at its start behind
+ *   A7's sticky gutter, which repeats the y axis at the viewport's edge and passes D1, D2 and D8 itself. The start is the
+ *   newest period by default; a chart that names one (E251: a ranked company chart's subject) opens with that column in
+ *   view, its values stop there.
  */
 
 /** The planner's advance: Geist Mono is 0.6 em at 11 px (layout.ts ADVANCE). */
@@ -47,6 +49,11 @@ export interface PlotReport extends TextReport {
   scrolls: boolean
   /** How far the viewport sits from its newest period (0 there). */
   fromNewest: number
+  /** The values stop's period and its last (aria-valuenow, aria-valuemax): the chart's start until a key moves it. */
+  start: number
+  last: number
+  /** How that period's column falls outside the view right of A7's sticky gutter; empty where it is wholly in view. */
+  startHidden: string[]
   keyboardStop: boolean
   /** A7's sticky gutter, while the plot's own has scrolled away: its text, and its left edge against the viewport's. */
   gutter: (TextReport & { offset: number; ticks: string[]; plotTicks: string[] }) | null
@@ -129,6 +136,19 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       const [v, zero, y, h] = ['data-v', 'data-zero', 'y', 'height'].map((name) => Number(rect.getAttribute(name)))
       return (v >= 0 ? y + h <= zero + 1e-9 : y >= zero - 1e-9) ? [] : [`${rect.getAttribute('data-series')} ${rect.getAttribute('data-period')}`]
     })
+    // The values stop's period, the chart's start until a key moves it (E251), and its column against the view: right of the
+    // sticky gutter's cover (its surface, the overlay's first rect) and inside the viewport. An x tick a period, in order.
+    const stop = viewport.parentElement?.querySelector<HTMLElement>('[data-chart-values]')
+    const start = Number(stop?.getAttribute('aria-valuenow') ?? -1)
+    const last = Number(stop?.getAttribute('aria-valuemax') ?? -1)
+    const centres = [...svg.querySelectorAll('text[data-text="x"]')].map((tick) => Number(tick.getAttribute('x')))
+    const slot = panels.length && centres.length ? (panels[0].right - panels[0].left) / centres.length : 0
+    const cover = overlay ? Number(overlay.querySelector('rect')?.getAttribute('width') ?? panels[0]?.left ?? 0) : (panels[0]?.left ?? 0)
+    const columnLeft = (centres[start] ?? NaN) - slot / 2 - viewport.scrollLeft
+    const startHidden = !(start >= 0 && start < centres.length) ? [`no column for period ${start}`] : [
+      ...(columnLeft < cover - 0.5 ? [`its column starts at ${columnLeft.toFixed(1)}, under the gutter to ${cover.toFixed(1)}`] : []),
+      ...(columnLeft + slot > viewport.clientWidth + 0.5 ? [`its column ends at ${(columnLeft + slot).toFixed(1)}, past the view's ${viewport.clientWidth}`] : []),
+    ]
     const texts: Record<string, string[]> = {}
     for (const node of all) (texts[role(node)] ??= []).push(`${node.textContent}|${node.getAttribute('fill')}`)
     for (const list of Object.values(texts)) list.sort()
@@ -162,6 +182,9 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       viewportWidth: viewport.clientWidth,
       scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
       fromNewest: viewport.scrollWidth - viewport.clientWidth - viewport.scrollLeft,
+      start,
+      last,
+      startHidden,
       keyboardStop: viewport.tabIndex === 0 && viewport.getAttribute('role') === 'region',
       gutter: overlay && {
         ...textOf(overlay),
@@ -193,13 +216,15 @@ export function expectSound(report: PlotReport) {
   expect(report.svgWidth, `${name}: the plot is at least its card's width`).toBeGreaterThanOrEqual(Math.floor(report.viewportWidth))
   expect(report.scrolls, `${name}: scrolls exactly when it is wider than its card`).toBe(report.svgWidth > report.viewportWidth + 1)
   expect(report.keyboardStop, `${name}: a scrolling plot is a keyboard stop, and only then`).toBe(report.scrolls)
-  // A plot that scrolls opens at its newest period, the one the legend and the metrics table quote, behind A7's sticky
-  // gutter: at the viewport's left edge, its text sound, its tick labels the plot's own.
+  // A plot that scrolls opens at its start, behind A7's sticky gutter: by default its newest period, the one the legend and
+  // the metrics table quote, at the scroll's end; a start the chart names (E251), with that column wholly in view right of
+  // the gutter. The gutter sits at the viewport's left edge, its text sound, its tick labels the plot's own.
   if (!report.scrolls) {
     expect(report.gutter, `${name}: no gutter overlay on a plot that fits`).toBeNull()
     return
   }
-  expect(report.fromNewest, `${name}: opens at its newest period`).toBeLessThanOrEqual(1)
+  if (report.start === report.last) expect(report.fromNewest, `${name}: opens at its start, its newest period`).toBeLessThanOrEqual(1)
+  expect(report.startHidden, `${name}: opens with its start's column in view`).toEqual([])
   expect(report.gutter, `${name}: the sticky gutter repeats the y axis`).not.toBeNull()
   const gutter = report.gutter!
   expect(Math.abs(gutter.offset), `${name}: the gutter sticks to the viewport's left edge`).toBeLessThanOrEqual(0.5)

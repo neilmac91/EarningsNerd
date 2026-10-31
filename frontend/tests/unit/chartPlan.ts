@@ -71,8 +71,9 @@ export interface PeerFixture {
 /** Every peers case as the bar chart a ranked company chart draws (E251): a slot per company in the answer's order, its
  *  tick and long name the ticker, keyed by place where a ticker repeats, as slotsOf keys a year two points share
  *  (Company.ticker is not unique, and buildBarChart refuses a key given twice); the subject a plain bar and every other
- *  company a context bar; the metric's own label, and its axis by its kind in the answer's unit, a unit naming no
- *  currency printing no sign. E251's second pull request replaces this with the panel's own builder. */
+ *  company a context bar, the chart starting at the subject; the metric's own label, and its axis by its kind in the
+ *  answer's unit, a unit naming no currency printing no sign. E251's second pull request replaces this with the panel's
+ *  own builder. */
 export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
   return Object.entries(fixture.cases).map(([name, { response }]) => {
     const metric = FEATURED.find((candidate) => candidate.key === response.concept)!
@@ -85,6 +86,7 @@ export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
       id: name,
       title: metric.label,
       categories,
+      start: categories[response.peers.findIndex((entry) => entry.is_subject)].key,
       series: { key: response.concept, label: metric.label, values: response.peers.map((entry) => entry.value) },
       axis: metric.fmt === 'pct' ? { kind: 'percent' } : metric.fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit: response.unit ?? '' },
     }]

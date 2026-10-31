@@ -8,7 +8,8 @@
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
    dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. A
-   ranked company chart (E251): its context bars in the context ink and the tooltip swatch the bar's own paint. Text
+   ranked company chart (E251): its context bars in the context ink, the tooltip swatch the bar's own paint, and the
+   chart starting at its subject. Text
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
@@ -37,7 +38,7 @@ import { peerBarCases, plannedByRole, questioned, withMixedNotes, type PeerFixtu
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
 import { buildBarChart, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
-import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { ADVANCE, CARD_HEIGHT, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { moneyPrefix } from '@/features/analysis/lib/charts/scale'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
@@ -1096,14 +1097,16 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
 describe('a ranked company chart (E251): the subject in chart-1, every other company a context bar', () => {
   // The peers fixture's cases as a ranked company chart draws them (chartPlan.ts peerBarCases).
   const PEERS = peerBarCases(JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture)
+  const peer = (name: string) => buildBarChart(structuredClone(PEERS.find(([caseName]) => caseName === name)![1]))
   /** A chart's plot as any card draws it, through ChartPlotFrame, its font in: at the desktop card's width in jsdom. */
+  const frame = (model: ChartModel, theme: 'light' | 'dark' = 'light') => (
+    <ChartPlotFrame model={model} readouts={coreReadouts(model)} tokens={CHART_TOKENS[theme]} fontReady view="card">
+      {({ plot }) => <section>{plot}</section>}
+    </ChartPlotFrame>
+  )
   const drawPeers = (def: BarChartDef, theme: 'light' | 'dark') => {
     const model = buildBarChart(structuredClone(def))
-    const utils = render(
-      <ChartPlotFrame model={model} readouts={coreReadouts(model)} tokens={CHART_TOKENS[theme]} fontReady view="card">
-        {({ plot }) => <section>{plot}</section>}
-      </ChartPlotFrame>,
-    )
+    const utils = render(frame(model, theme))
     return { ...utils, model, stop: within(utils.container).getByRole('slider', { name: `${model.title} chart values` }) }
   }
 
@@ -1138,5 +1141,48 @@ describe('a ranked company chart (E251): the subject in chart-1, every other com
         expect(swatch(), `${period.key}’s swatch`).toBe(context.get(period.key) ? tokens.context : tokens.series[0])
       })
     })
+  })
+
+  it('starts at its subject: the values stop on mount and after a new window, and a plot that scrolls opens with its column in view', () => {
+    const viewportWidth = 300
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
+    })
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? viewportWidth : 0
+    })
+    const startOf = (model: ChartModel) => model.periods.findIndex((period) => period.key === model.start)
+    /** The start's column lies wholly in the view, right of A7's sticky gutter: a phone opens on the subject, not on the
+     *  company at either end. */
+    const expectStartInView = (viewport: HTMLElement, model: ChartModel) => {
+      const layout = layoutChart(model, viewportWidth, 'card')
+      expect(layout.width, 'the plot scrolls in its card').toBeGreaterThan(viewportWidth)
+      expect(viewport).toHaveAttribute('role', 'region')
+      const column = columnOf(layout, model.periods[startOf(model)].key)
+      const left = column.left - viewport.scrollLeft
+      expect(left, 'clear of the sticky gutter').toBeGreaterThanOrEqual(gutterCover(layout, viewport.scrollLeft) - 1e-9)
+      expect(left + column.width, 'inside the view').toBeLessThanOrEqual(viewportWidth + 1e-9)
+    }
+    try {
+      const spread = peer('spread')
+      expect(startOf(spread), 'the subject sixth of eleven').toBe(5)
+      const { container, rerender } = render(frame(spread))
+      const stop = within(container).getByRole('slider', { name: `${spread.title} chart values` })
+      const viewport = container.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
+      expect(stop).toHaveAttribute('aria-valuenow', '5')
+      expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(spread)[5].announcement)
+      expectStartInView(viewport, spread)
+      // The keyboard moves on; a new window starts again at its own subject, and opens there.
+      fireEvent.keyDown(stop, { key: 'End' })
+      expect(stop).toHaveAttribute('aria-valuenow', String(spread.periods.length - 1))
+      const nearEqual = peer('near-equal')
+      rerender(frame(nearEqual))
+      expect(stop).toHaveAttribute('aria-valuenow', String(startOf(nearEqual)))
+      expect(stop).toHaveAttribute('aria-valuetext', coreReadouts(nearEqual)[startOf(nearEqual)].announcement)
+      expectStartInView(viewport, nearEqual)
+    } finally {
+      scroll.mockRestore()
+      width.mockRestore()
+    }
   })
 })

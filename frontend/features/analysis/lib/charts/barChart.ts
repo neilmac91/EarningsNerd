@@ -43,6 +43,9 @@ export interface BarChartDef {
   footnotes?: Footnote[]
   /** Set when the chart does not apply: one sentence, said at the card's height in place of a plot. */
   unavailable?: string | null
+  /** The category the chart starts at, by key (E251; a ranked company chart's subject): its values stop starts there, and
+   *  a plot that overflows opens with its column in view. Unset, the last category. */
+  start?: string
 }
 
 /** A1's interval cap: the top line's, the one panel of labelled bars on /analysis. */
@@ -78,10 +81,15 @@ export function buildBarChart(def: BarChartDef): ChartModel {
   if (def.series.values.length !== def.categories.length) {
     throw new Error(`buildBarChart ${def.id}: ${def.series.values.length} values for ${def.categories.length} categories`)
   }
+  // A start that names no category would leave the chart opening where its caller did not ask.
+  if (def.start != null && !seen.has(def.start)) throw new Error(`buildBarChart ${def.id}: the start "${def.start}" names no category`)
   // One-line ticks, so the layout's one-line x axis: 'annual' is all layout.ts reads `mode` for. No legend (the card names
   // its one series), no notes band, and no value strip, since every value prints on its bar.
   const periods = def.categories.map(({ key, tick, long }): ChartPeriod => ({ key, tick: [tick], long }))
-  const frame = { id: def.id, title: def.title, subtitle: def.subtitle ?? '', mode: 'annual' as const, periods, legend: [], notesBand: null, strip: [] }
+  const frame = {
+    id: def.id, title: def.title, subtitle: def.subtitle ?? '', mode: 'annual' as const, periods, legend: [], notesBand: null, strip: [],
+    ...(def.start != null ? { start: def.start } : {}),
+  }
   if (def.unavailable) return { ...frame, panels: [], footnotes: [], unavailable: def.unavailable }
   // chart-1 whatever the metric: one series, so the first slot of A8's order.
   const mark: ModelMark = {

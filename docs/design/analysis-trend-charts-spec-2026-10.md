@@ -242,7 +242,8 @@ says so; everything else follows the spec.
     status line. A pointer's tooltip announces nothing: only the keyboard speaks.
   - It starts at the newest period, the one the legend and the metrics table quote, and a plot opens scrolled there
     whenever its view or window starts to overflow: on first layout, after expanding or collapsing (§3.10), whether or
-    not the other view overflowed, and for a new window. Never on a resize or zoom, which would lose the reader's
+    not the other view overflowed, and for a new window. (A bar chart can name another start, E251: then the stop starts
+    there and the plot opens with that column in view.) Never on a resize or zoom, which would lose the reader's
     place: a plot that overflows is planned at its minimum width, which a resize leaves as it is. The Recharts stop
     started at the oldest.
   - The header prints a quarter as the app does, `Q2 2026 · quarter ended Jun 30, 2026`, not `Q2 FY2026`: its end
@@ -466,6 +467,13 @@ says so; everything else follows the spec.
     peer case through `ChartPlotFrame` in both themes, holds each bar's paint and width to its role and each tooltip
     swatch to its bar, and fails an `opacity`, `fill-opacity` or `stroke-opacity` anywhere in a plot: D6 reads a
     computed `fill`, which an opacity leaves as it is.
+  - A start category: a bar chart can name the category it starts at (`BarChartDef.start`, refused when it names none),
+    carried as `ChartModel.start`. The values stop starts there, a new window starts again there, and a plot that
+    overflows opens with that column centred in the view right of the gutter, as a keyboard move brings a column into
+    view, so a phone opens on a ranked company chart's subject rather than at its smallest company. Unset, it is the
+    newest period, as before. `trend-charts-v2.spec.tsx` holds the stop's period on mount and after a new window and the
+    column in view; `fixtures/chartChecks.ts`'s "opens at its newest period" is "opens at its start", the newest by
+    default.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

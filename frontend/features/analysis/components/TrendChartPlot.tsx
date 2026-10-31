@@ -2,15 +2,16 @@
 /**
  * One trend chart's plot under the spec renderer, and the ways to read it (docs/design/analysis-trend-charts-spec-
  * 2026-10.md §3.7 A7, §3.9, §3.13; DESIGN_SYSTEM.md §10; E193). The plot scrolls inside its card's viewport, a named
- * region and Tab stop only while it overflows, and opens at the newest period, the one the legend and the metrics table
- * quote, behind A7's sticky gutter, which repeats the y axis once the plot's own has scrolled away.
+ * region and Tab stop only while it overflows, and opens at its start, behind A7's sticky gutter, which repeats the y axis
+ * once the plot's own has scrolled away: by default the newest period, the one the legend and the metrics table quote,
+ * and for a chart that names its start (`model.start`, E251: a ranked company chart's subject) that category's column.
  *
  * One values stop reads the chart a period at a time: a slider over the periods whose value text is the period's
  * readout (lib/charts/readout.ts), so a screen reader speaks it on focus and on every move. It is a transparent layer
  * laid over the viewport, after it in the Tab order: the pointer passes through it to the plot, its brand ring rings the
  * viewport whatever the plot's scroll, and a touch screen reader finds it anywhere on the chart. Left/Right (Down/Up) step a
  * period, Home/End jump to the oldest and newest, and a step past either end says so in a status line. It starts at the
- * newest period and keeps its period when focus leaves. Hover, a tap, or the keyboard paints the period's column wash
+ * chart's start and keeps its period when focus leaves. Hover, a tap, or the keyboard paints the period's column wash
  * across the plot and shows its tooltip; pointing at a period takes over from the keyboard without moving focus or the
  * scroll, and the next key resumes the keyboard's own period. The tooltip stays while the pointer rests on it, and
  * Escape dismisses it before it collapses an expanded card (WCAG 1.4.13).
@@ -70,11 +71,15 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
     label: `${model.title} chart. Scroll horizontally to view all periods.`,
   })
   const last = model.periods.length - 1
-  // The keyboard's period, by key within its window: a new window (the period picker) starts again at the newest.
+  // Where the chart starts (E251): the category it names, else its newest period. The values stop starts there, and a plot
+  // that overflows opens with that column in view.
+  const named = model.start == null ? -1 : model.periods.findIndex((period) => period.key === model.start)
+  const start = named < 0 ? last : named
+  // The keyboard's period, by key within its window: a new window (the period picker) starts again at the chart's start.
   const windowKey = model.periods.map((period) => period.key).join(' ')
   const [keyboard, setKeyboard] = useState<{ window: string; period: string } | null>(null)
   const found = keyboard?.window === windowKey ? model.periods.findIndex((period) => period.key === keyboard.period) : -1
-  const keyIndex = found < 0 ? last : found
+  const keyIndex = found < 0 ? start : found
   const [hover, setHover] = useState<number | null>(null)
   const [owner, setOwner] = useState<Owner>(null)
   const [pinned, setPinned] = useState(false)
@@ -114,16 +119,20 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
     if (viewport) setScrollLeft(viewport.scrollLeft)
   }
 
-  // Open at the newest period when a view or window starts to overflow: on first layout, after expanding or collapsing
+  // Open at the chart's start when a view or window starts to overflow: on first layout, after expanding or collapsing
   // (spec §3.10), whether or not the other view overflowed, and for a new window. Never on a resize or zoom, which would
-  // lose the reader's place: a plot that overflows is planned at its minimum width, so a resize changes none of these.
+  // lose the reader's place: a plot that overflows is planned at its minimum width, so a resize changes none of these. The
+  // newest period opens at the scroll's end. A start before it opens with its column centred in the view right of the
+  // gutter, as a keyboard move brings a column into view: the column's centre, less half the gutter, less half the view.
+  const startScroll = start === last ? null : layout.x(model.periods[start].key) - layout.plotLeft / 2
   useLayoutEffect(() => {
     const viewport = viewportRef.current
     if (!viewport || !overflowing) return
-    viewport.scrollLeft = viewport.scrollWidth
+    viewport.scrollLeft = startScroll == null ? viewport.scrollWidth : startScroll - viewport.clientWidth / 2
     syncScroll()
-    // The view, the window and the overflow alone: never the layout or its width.
-  }, [view, windowKey, overflowing])
+    // The view, the window, the start and the overflow alone: never the layout or its width (the start's scroll holds
+    // still while the plot overflows).
+  }, [view, windowKey, startScroll, overflowing])
 
   /** The period under a pointer (layout.ts slotAt), none where the sticky gutter or the plot's own gutter is. */
   const indexAt = (clientX: number) => {

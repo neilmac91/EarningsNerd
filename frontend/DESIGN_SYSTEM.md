@@ -3109,10 +3109,11 @@ layer over the viewport after it in the Tab order, ringing the viewport whatever
 period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4
 significant figures or 1 dp, its state, "calculated" and its data note, in words a screen reader says, with no ·, —,
 n/m, unit letter or U+2212. So the reading is spoken on focus and on every move, and no live status repeats it; a
-pointer's tooltip says nothing. It starts at the newest period, the one the legend and the table quote. Left/Right
+pointer's tooltip says nothing. It starts at the chart's start: the newest period, the one the legend and the table
+quote, unless a bar chart names another (E251: a ranked company chart's subject). Left/Right
 and Down/Up step a period, Home/End jump, and a step past either end says "Oldest period." or "Newest period." in a
-status line. A plot opens scrolled to its newest period whenever its view or window starts to overflow, never on a
-resize, behind A7's sticky gutter (`aria-hidden`, outside the exported node), which repeats the y axis, the captions
+status line. A plot opens scrolled to its start whenever its view or window starts to overflow, never on a resize: the
+newest period at the scroll's end, a start a chart names with its column centred in the view, behind A7's sticky gutter (`aria-hidden`, outside the exported node), which repeats the y axis, the captions
 and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis. Hover, a tap or the keyboard paints the
 period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
 flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip

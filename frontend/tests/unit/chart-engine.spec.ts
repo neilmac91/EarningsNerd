@@ -644,10 +644,12 @@ describe('a one-metric bar chart (barChart.ts): Financial trends on the engine (
     expect(bars('AAPL net margin').footnotes, 'nothing clipped, nothing to say').toEqual([])
   })
 
-  it('refuses a category key given twice, loudly, and values that do not match the categories', () => {
+  it('refuses a category key given twice, loudly, values that do not match the categories, and a start that names none', () => {
     const def = barDef('AAPL revenue')
     expect(() => buildBarChart({ ...def, categories: [def.categories[0], ...def.categories.slice(0, 2)] })).toThrow('the category key "FY2023" appears twice')
     expect(() => buildBarChart({ ...def, series: { ...def.series, values: def.series.values.slice(1) } })).toThrow('2 values for 3 categories')
+    expect(() => buildBarChart({ ...def, start: 'FY1999' })).toThrow('the start "FY1999" names no category')
+    expect(buildBarChart({ ...def, start: 'FY2024' }).start, 'a start the chart holds').toBe('FY2024')
   })
 
   it('a chart that does not apply says why and draws nothing', () => {
