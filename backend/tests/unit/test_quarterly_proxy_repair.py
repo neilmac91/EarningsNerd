@@ -1076,21 +1076,21 @@ def test_a_winner_in_another_currency_refuses_until_a_sync(db, monkeypatch):
     with monkeypatch.context() as patch:
         # The old sync read each concept's list in one currency (``series_unit``, before #1583): revenue
         # in USD, every other concept in CNY. Today's pick reads each filing in its own currency and never
-        # a foreign filing's items, so the shape is planted with the old units, on a sync in USD alone.
+        # a foreign filing's items, so the shape is planted with the old units, on a sync in USD alone
+        # (the pick both the collector and ``payload_view`` read says USD and no foreign filing), which
+        # is main's upsert: main 163ce89c's own run of this test stored these 21 rows, every one current.
         collect = companyfacts._collect_companyfacts_values
 
         def old_units(usgaap, tags, unit_key, *, instant, foreign=frozenset()):
             unit = unit_key.replace("CNY", "USD") if REV_TAG in tags else unit_key.replace("USD", "CNY")
             return collect(usgaap, tags, unit, instant=instant, foreign=foreign)
 
-        def old_pick(usgaap):
-            return "USD", frozenset()
-
         patch.setattr(companyfacts, "_collect_companyfacts_values", old_units)
-        patch.setattr(companyfacts, "companyfacts_currencies", old_pick)
-        patch.setattr(currency, "companyfacts_currencies", old_pick)
+        patch.setattr(currency, "_filing_pick", lambda *args: ("USD", frozenset(), {}, None))
         _old_sync(db, monkeypatch, company, payload)
-    assert {r.unit for r in _rows(db, company, concept="revenue")} == {"USD"}
+    planted = _rows(db, company)
+    assert len(planted) == 21 and all(r.is_latest for r in planted)
+    assert {(r.concept == "revenue", r.unit) for r in planted} == {(True, "USD"), (False, "CNY"), (False, "CNY/shares")}
     [row] = _current_proxy_rows(db, company)
     assert (row.period_end, row.unit) == (date(2023, 3, 31), "USD")
     _refuses(db, company, payload, rf"\(fact {row.id}\): the payload's winner for this period is in CNY; "

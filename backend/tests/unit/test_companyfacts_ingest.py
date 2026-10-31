@@ -4144,6 +4144,71 @@ class TestProxyStatementItemsSync:
             assert (proxy_rows, plan["proxy"]["retired"]) == ([], 0)
         db.close()
 
+    @pytest.mark.parametrize("order", ["report-never-stored", "report-stored-then-demoted", "lagging-payload"])
+    @pytest.mark.parametrize("shape", ["usd-filer-eur-8k", "eur-filer"])
+    def test_a_sync_involving_another_currency_never_keeps_a_proxy_row_as_a_newer_filings(
+        self, monkeypatch, shape, order,
+    ):
+        # Where a sync involves another currency than USD (an 8-K the payload reads as EUR, or a filer
+        # reporting in EUR), the currency step keeps a stored row of a newer filing: one the payload does
+        # not name, filed after its newest (``Guard.ids``: a lagging payload here), and a current row of
+        # a filing filed after the batch row's own (``Guard.later``, which also holds the ratios, and
+        # ``_promote_batch_rows``). A proxy statement's row is none of these (``is_proxy_form``): its
+        # figures never win a period. So the sync makes the 10-K's row current at every key a proxy row
+        # held, where main's upsert skips a stored-then-demoted amount, and the 10-K's margin current
+        # where the proxy's revenue named one, unless the 10-K's is stored: a stored ratio's identity is
+        # skipped, as on main, and the journaled repair's proxy step recomputes it.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+        from app.services.facts import currency
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        unit = "EUR" if shape == "eur-filer" else "USD"
+
+        def payload(proxy=True):
+            out = _mrk_payload(tag, proxy=proxy)
+            if proxy:  # its table's company-selected measure: revenue, at 2021
+                out["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(_item(
+                    47_000e6, "2021-12-31", start="2021-01-01", accn=f"P26{tag}", fy=2025, form="DEF 14A",
+                    filed="2026-04-08"))
+            for node in out["facts"]["us-gaap"].values():
+                node["units"] = {unit: node["units"]["USD"]}
+            if shape == "usd-filer-eur-8k":
+                out["facts"]["us-gaap"]["NetIncomeLoss"]["units"]["EUR"] = [
+                    _item(value, f"{year}-12-31", start=f"{year}-01-01", accn=f"8K-23{tag}", fy=2023, form="8-K",
+                          filed="2023-06-01") for year, value in ((2021, 11_000e6), (2022, 12_000e6))]
+            return out
+
+        if order == "report-stored-then-demoted":
+            svc._persist_companyfacts_payload(db, company, payload(proxy=False))
+        with monkeypatch.context() as before_the_fix:
+            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            svc._persist_companyfacts_payload(db, company, payload())
+
+        def current(concept, fiscal_period="FY"):
+            return {r.period_end.year: (float(r.value), r.unit, r.accession.removesuffix(tag), r.form)
+                    for r in db.query(FinancialFact).filter_by(
+                        company_id=company.id, concept=concept, fiscal_period=fiscal_period, is_latest=True)}
+
+        assert current("net_income") == {year: (value, unit, "P26", "DEF 14A") for year, value in _MRK_PROXY.items()}
+        assert current("net_margin")[2021][2:] == ("P26", "DEF 14A")
+        svc._persist_companyfacts_payload(db, company, payload(proxy=order != "lagging-payload"))
+        latest_10k = {2021: "K23", 2022: "K24", 2023: "K25", 2024: "K25", 2025: "K25"}
+        assert current("net_income") == {year: (value, unit, latest_10k[year], "10-K")
+                                         for year, value in _MRK_INCOME.items()}
+        assert current("net_income", "Q4")[2025][2:] == ("K25", "10-K")
+        assert current("revenue")[2021] == (_MRK_REVENUE[2021], unit, "K23", "10-K")
+        stored_ratio = order == "report-stored-then-demoted"
+        margin = current("net_margin")[2021]
+        assert margin[0] == pytest.approx((12_345e6 / 47_000e6 if stored_ratio else
+                                           _MRK_INCOME[2021] / _MRK_REVENUE[2021]) * 100)
+        assert margin[2:] == (("P26", "DEF 14A") if stored_ratio else ("K23", "10-K"))
+        proxies = db.query(FinancialFact).filter_by(company_id=company.id, form="DEF 14A", is_latest=True)
+        assert [row.concept for row in proxies] == (["net_margin"] if stored_ratio else [])
+        db.close()
+
     def test_a_proxy_row_never_displaced_a_10k_listed_locally(self, monkeypatch):
         # The bulk upsert keeps a current row whose accession has a local filing date over an incoming
         # row with none, and no filing row is a proxy (FilingType lists no 14A or 14C form). So where the

@@ -80,7 +80,8 @@ presents in an amount or per-share unit, the writer makes the batch's own row th
 accession) the one current row and demotes every other there (`_promote_batch_rows`), whichever sync
 or writer left the key so, outside four cases: a key where a protected row of the sync's view sits,
 current or not (below), which holds the newest protected row instead; a key where a row of a filing
-filed strictly after the batch row's own filing was current, left as found; a quarantined row (provenance
+(never a proxy statement's: its figures never win a period, whatever its date) filed strictly after the batch
+row's own filing was current, left as found; a quarantined row (provenance
 `unavailable`, any reason), never made current, and a quarter whose unlabelled twin in that unit is
 current (the bulk writer's NULL-period rule), both left as found; and a proven switch, which promotes
 nothing. Date every row by its own filing (`_filed`: its Filing row, else its filing's `filed` in the

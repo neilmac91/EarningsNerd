@@ -391,7 +391,8 @@ unused since generation became account-required in #619; kept because migrations
   company row and preserve a known newer accession. The per-filing writer also preserves untied
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   also preserves a current row the companyfacts sync passes it as newer than its payload, or as of a
-  filing filed strictly after the batch row's own at its key (`Guard.later`, a ratio too; below), and
+  filing filed strictly after the batch row's own at its key (`Guard.later`, a ratio too; below), never
+  a proxy statement's row (`fiscal_naming.is_proxy_form`: its figures never win a period), and
   otherwise uses the received normalizer ordering where local Filing chronology is unavailable. A
   companyfacts sync that involves another currency than USD then makes its payload's winner the one
   current row at each period it presents, outside the periods it leaves as found (below); a sync in USD
@@ -525,8 +526,8 @@ unused since generation became account-required in #619; kept because migrations
   one current amount or per-share row and every other there is demoted, whichever sync or writer left
   the period so: the upsert skips a stored identity and never touches its `is_latest`, so without this
   an earlier demotion, an amendment stored behind its original's companyfacts row, or a lagging
-  sync's figure stayed for good. Three cases are left as found: a period where a row of a filing
-  filed strictly after the batch row's own filing was current (each by its Filing row's date, else
+  sync's figure stayed for good. Three cases are left as found: a period where a row of a filing (never
+  a proxy statement's) filed strictly after the batch row's own filing was current (each by its Filing row's date, else
   its filing's `filed` in the payload, else its provenance `filed_at`, which for a calculation records
   its latest operand's date, so a calculation is dated by its own filing wherever a Filing row or the
   payload dates it), a newer-filing rule by date alone (the upsert's own rule reads Filing rows only,
