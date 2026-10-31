@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Annotated, Any, Optional
 from contextlib import aclosing
@@ -325,9 +325,9 @@ async def generate_summary_stream(
                         # failed-generation retry stays open to Free users. The pipeline then serves or
                         # keeps any summary another request saves meanwhile (replace_unready_only below).
                         if not is_pro_user(current_user):
-                            raise HTTPException(
-                                status_code=status.HTTP_403_FORBIDDEN,
-                                detail="Regenerating a summary is a Pro feature.",
+                            # Coded (E31): the plan card, never a Retry.
+                            raise CodedHTTPException(
+                                ErrorCode.PLAN_REQUIRED, detail="Regenerating a summary is a Pro feature."
                             )
                         # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
                         # existing summary row rather than delete+insert, so the summaries.id — and any
@@ -917,7 +917,7 @@ def _summary_and_filing_for_export(
     try:
         # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
         if not get_entitlements(current_user).can_export:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=refusal)
+            raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail=refusal)  # E31
 
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         if not summary:
@@ -946,10 +946,7 @@ async def export_summary_pdf(
 
     # Require authentication for exports
     if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
+        raise CodedHTTPException(ErrorCode.AUTH_REQUIRED, detail="Authentication required")  # E31
 
     summary, filing = await run_in_threadpool(
         _summary_and_filing_for_export, db, current_user, filing_id,
@@ -982,10 +979,7 @@ async def export_summary_csv(
 
     # Require authentication for exports
     if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
+        raise CodedHTTPException(ErrorCode.AUTH_REQUIRED, detail="Authentication required")  # E31
 
     summary, filing = await run_in_threadpool(
         _summary_and_filing_for_export, db, current_user, filing_id,
