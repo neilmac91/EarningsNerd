@@ -14,7 +14,7 @@ export const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   // Financial-institution revenue lines (only present for banks/insurers/BDCs — a bank shows these
   // instead of a single Revenue; insurers add these alongside their reported total revenue).
   { key: 'net_interest_income', label: 'Net interest income', fmt: 'usd' },
-  { key: 'noninterest_income', label: 'Non-interest income', fmt: 'usd' },
+  { key: 'noninterest_income', label: 'Noninterest income', fmt: 'usd' },
   { key: 'premiums_earned', label: 'Premiums earned', fmt: 'usd' },
   { key: 'net_investment_income', label: 'Net investment income', fmt: 'usd' },
   { key: 'net_income', label: 'Net income', fmt: 'usd' },
