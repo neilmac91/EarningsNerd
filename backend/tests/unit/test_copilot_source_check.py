@@ -6,8 +6,9 @@ a pull request no draw: ``evals.copilot_source_check`` runs the runner's own pre
 database". A refusal then fails that step, the runner step is skipped, and the draw gate, which counts only a runner
 step that ran, counts nothing: a re-run draws once the source is back. The runner keeps the same call before any
 provider call, so a check skipped or removed refuses there instead, at the cost of the head's draw (fail closed).
-These tests pin both placements, that the check refuses what the runner's preflight refuses, and that its failure
-fails the step under Actions' bash. No provider call is made.
+These tests pin both placements, that the check refuses what the runner's preflight refuses, that its failure fails
+the step under Actions' bash, and the order of the runner's main(): it refuses, then binds the prepared database,
+then checks the credential. No provider call is made.
 """
 from __future__ import annotations
 
@@ -190,10 +191,10 @@ def test_the_runner_still_refuses_a_source_the_check_would_refuse_before_any_pro
 def test_the_runner_run_as_the_step_runs_it_refuses_before_any_setting_loads(tmp_path):
     # The backstop's order, in a fresh process: the preflight refuses before main() loads settings (app.config) or
     # checks the credential. The environment is stricter than the runner step's, which has the job's SECRET_KEY and
-    # OPENAI_API_KEY. Here a settings load fails Settings' own validation, and a failed import leaves app.config out of
-    # sys.modules, so in CI it is the report's reason (that failure, not the refused source) that catches the load; the
-    # module list catches it where settings can load (a local backend/.env). A credential checked first would report
-    # itself instead of the refused source.
+    # its own OPENAI_API_KEY. Here a settings load fails Settings' own validation, and a failed import leaves
+    # app.config out of sys.modules, so in CI it is the report's reason (that failure, not the refused source) that
+    # catches the load; the module list catches it where settings can load (a local backend/.env). A credential
+    # checked first would report itself instead of the refused source.
     cases, data = preparation(tmp_path)
     DAMAGES["fallback"](data, cases)
     path = _written(tmp_path, data)
@@ -215,11 +216,14 @@ def test_the_runner_run_as_the_step_runs_it_refuses_before_any_setting_loads(tmp
 
 def test_the_runner_binds_its_settings_to_the_prepared_database(tmp_path):
     # main() points DATABASE_URL at the prepared database before it loads settings, so the rows read the prepared
-    # sources. A fresh process on a declared preparation, with a placeholder SECRET_KEY and an empty credential:
-    # main() passes the preflight, loads settings, and stops at the credential check, before any provider call. The
-    # settings it loaded must name the prepared database. Loaded before DATABASE_URL is set, they would name the
-    # default database, and every row of the spent draw would error.
+    # sources. A fresh process on a declared preparation, with a placeholder SECRET_KEY and an empty credential (set,
+    # so it wins over a key in a local backend/.env): main() passes the preflight, loads settings, and stops at the
+    # credential check, before any provider call. The preparation declares its database elsewhere, as the bootstrap
+    # declares one under $RUNNER_TEMP, and the preflight relocates it to the bundle's copy, the one it hashed. The
+    # settings must name that copy: loaded before DATABASE_URL is set, they would name the default database, and every
+    # row of the spent draw would error.
     cases, data = preparation(tmp_path)
+    data["database_path"] = str(tmp_path / "elsewhere" / "prepared-source.db")
     path = _written(tmp_path, data)
     output = tmp_path / "out"
     env = {"PATH": os.environ.get("PATH", os.defpath), "HOME": str(tmp_path), "GITHUB_SHA": "1" * 40,
@@ -234,6 +238,7 @@ def test_the_runner_binds_its_settings_to_the_prepared_database(tmp_path):
     result = subprocess.run([sys.executable, "-c", code], cwd=Path(runner.__file__).resolve().parents[1], env=env,
                             capture_output=True, text=True, timeout=60)
     prepared = runner.validate_preparation(path, cases)["database_path"]
+    assert prepared == str(tmp_path / "prepared-source.db") != data["database_path"]
     assert (result.returncode, result.stdout.splitlines()[-1:]) == (0, ["sqlite:///" + prepared]), (
         result.stdout + result.stderr)
     report = json.loads((output / "copilot-eval.json").read_text())
