@@ -2075,6 +2075,29 @@ def test_a_current_backed_row_at_the_winners_identity_whose_original_the_10k_con
         _refuses(old, company, payload, _refusal(old, (row.id, SET4_OWN)))
 
 
+def _replaced_at_the_winners_identity_with_no_record(db, monkeypatch, ticker="NSN"):
+    """NSB's shape, its FY2025 comparative replaced before #1191, which recorded no check: no original to read."""
+    company, payload, filing = _replaced_at_the_winners_identity(db, monkeypatch, ticker)
+    [row] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+    row.provenance = None
+    db.commit()
+    return company, payload, filing
+
+
+def test_a_current_backed_row_at_the_winners_identity_with_no_recorded_original_is_refused(monkeypatch):
+    # NSB's shape with no recorded original (a replacement before #1191). Synced as before #1682, set 4 refuses a row
+    # holding a proxy's figure with no original. Since, the FY2025 10-K's history row backs the proxy's 18,254, SF-B has
+    # no original to read, so set 4 leaves the row, and left, the company's current figure would stay the proxy's, 1.9%
+    # off the 10-K: the current-figure refusal (the refusal table's "or the row records none"; review of #1840, round 8).
+    with _synced_before_and_since_1682(monkeypatch, _replaced_at_the_winners_identity_with_no_record) as states:
+        (old, company, payload, _filing), (new, *_rest) = states[False], states[True]
+        [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        assert (row.is_latest, row.source, float(row.value), row.provenance) == (True, "companyfacts", 18_254e6, None)
+        _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("18254000000", "18600000000"))))
+        _refuses(old, company, payload, _refusal(old, (row.id, "a filing row holds a proxy's figure, not the 10-K's, "
+                                                               "and records no original value")))
+
+
 def test_a_row_below_a_later_winner_a_history_row_backs_is_restored_where_the_10k_confirms_its_original(monkeypatch):
     # The FY2026 10-K's comparative holds a figure a report row holds (since #1682, the FY2025 10-K's own figure as first
     # reported) and is not the company's current figure (K27's winner is). Today's 10-K figure, K27's 18,600, confirms
@@ -2485,20 +2508,28 @@ def test_a_scaled_up_replacement_is_left_alone_backed_or_not(monkeypatch, backed
             assert row.id not in {r.fact_id for r in db.query(FinancialFactRevision)}
 
 
-def test_the_cli_totals_count_the_rows_left_report_backed(db, monkeypatch, tmp_path):
+def test_the_cli_totals_count_the_rows_each_listing_holds(db, monkeypatch, tmp_path):
+    # proxy_totals tallies both read-only listings over the companies that succeeded: KKB's and RST's rows a report row
+    # backs, and the scale-ups SSS (no 10-K figure) and SUP (K28's figure 2.6% off) retain (review of #1840, round 8).
     from app import database
 
     payloads = {}
-    for ticker, build in (("KKB", _holds_the_10k_figure), ("RST", _restated_after_the_proxy)):
+    for ticker, build in (("KKB", _holds_the_10k_figure), ("RST", _restated_after_the_proxy),
+                          ("SSS", _scaled_up_where_only_a_proxy_tags),
+                          ("SUP", lambda db, monkeypatch, ticker: _own_figure_scaled_up(db, monkeypatch, ticker,
+                                                                                         backed=False))):
         company, payloads[ticker], _filing_ = build(db, monkeypatch, ticker)
         if ticker == "KKB":  # a fixed sync has since stored the 10-K's row, which backs the filing row
             _sync(db, monkeypatch, company, payloads[ticker])
         (tmp_path / f"CIK{int(company.cik):010d}.json").write_text(json.dumps(payloads[ticker]))
     monkeypatch.setattr(database, "SessionLocal", lambda: Session(db.bind))
-    report = cli.run(cli.build_parser().parse_args(["--tickers", "KKB,RST", "--companyfacts-dir", str(tmp_path)]))
+    report = cli.run(cli.build_parser().parse_args(["--tickers", "KKB,RST,SSS,SUP", "--companyfacts-dir",
+                                                    str(tmp_path)]))
     assert report["failed"] == 0
-    assert [len(c["proxy"]["left_report_backed"]) for c in report["companies"]] == [1, 1]
-    assert report["proxy_totals"]["left_report_backed"] == 2
+    assert [(c["ticker"], len(c["proxy"]["left_report_backed"]), [e["reason"] for e in c["proxy"]["scale_up_retained"]])
+            for c in report["companies"]] == [("KKB", 1, []), ("RST", 1, []), ("SSS", 0, ["no_10k_figure"]),
+                                              ("SUP", 0, ["off_10k_figure"])]
+    assert (report["proxy_totals"]["left_report_backed"], report["proxy_totals"]["scale_up_retained"]) == (2, 2)
 
 
 @pytest.mark.parametrize("exit_", ["filing-stored-first", "per-filing-write", "synced-first"])
