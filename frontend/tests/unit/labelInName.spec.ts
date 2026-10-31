@@ -165,8 +165,9 @@ function judge(label: Token[], face: Token[]): 'ok' | 'fail' | 'unread' {
  * words of its own: no word in it holds a letter (a count, "9+") and each value in it is one the label itself names (the
  * bell's count, in "Notifications ({unread} unread)"). One word with a letter keeps the whole run, digits and all, since a
  * reader sees it and it is the control's label (FilingIndex's "SEC.gov", "FY 2024", "10-K"). The scan cannot tell a value
- * that holds words from a count, so a hidden value the label names drops out either way (planted as a gap). With no label
- * to hand (`label` null), a run with a value stays.
+ * that holds words from a count, so a hidden value the label names drops out either way, and a label split across two
+ * hidden elements ("FY" and "2024") is read one element at a time (both planted as gaps). With no label to hand (`label`
+ * null), a run with a value stays.
  */
 function inView(face: Token[], label: Token[] | null): Token[] {
   const status = (t: Token) => ('word' in t ? !/\p{L}/u.test(t.word) : !!label?.some((l) => 'value' in l && l.value === t.value))
@@ -419,6 +420,9 @@ describe('the label-in-name reader, on planted controls', () => {
     ['words marked aria-hidden, still the face', '<a href="/x" aria-label="View the filing on SEC.gov"><span aria-hidden="true">SEC.gov</span><ArrowIcon /></a>', 'fail'],
     ['a hidden run of words and digits, read whole', '<button aria-label="FY 2025 report"><span aria-hidden="true">FY 2024</span></button>', 'fail'],
     ['a hidden form code the label begins with', '<button aria-label="10-K filing"><span aria-hidden="true">10-K</span></button>', 'ok'],
+    ['two hidden elements, each its own run', '<button aria-label="SEC.gov links"><span aria-hidden="true">SEC.gov</span> <span aria-hidden="true">3</span></button>', 'ok'],
+    ['a hidden element inside another, one run', '<button aria-label="FY 2025 report"><span aria-hidden="true">FY <span aria-hidden="true">2024</span></span></button>', 'fail'],
+    ['a label split across two hidden elements, read per element (a gap)', '<button aria-label="FY 2025 report"><span aria-hidden="true">FY</span> <span aria-hidden="true">2024</span></button>', 'ok'],
     ['a hidden value the label names, a count it says', '<button aria-label={`Notifications (${t} unread)`}><BellIcon /><span aria-hidden="true">{t}</span></button>', 'ok'],
     ['a hidden value the label names, though it may hold words (a gap)', '<button aria-label={`Add ${t} to your watchlist`}><span aria-hidden="true">{t}</span></button>', 'ok'],
     ['a hidden value the label does not name', '<button aria-label="Open the list"><span aria-hidden="true">{t}</span></button>', 'unread'],
