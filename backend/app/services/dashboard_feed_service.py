@@ -56,12 +56,12 @@ def _feed_form_types() -> tuple[str, ...]:
     return FEED_FORM_TYPES
 
 # (xbrl_data key, human label) in headline priority order. The financial-institution component keys
-# are self-gating: a bank's xbrl_data carries net/non-interest income (not "revenue"), while a
+# are self-gating: a bank's xbrl_data carries net/noninterest income (not "revenue"), while a
 # non-financial filer carries "revenue" (not the components), so only the applicable rows render.
 _DELTA_METRICS = [
     ("revenue", "Revenue"),
     ("net_interest_income", "Net interest income"),
-    ("noninterest_income", "Non-interest income"),
+    ("noninterest_income", "Noninterest income"),
     ("net_income", "Net income"),
     ("earnings_per_share", "EPS"),
 ]

@@ -13,7 +13,9 @@ onto current `main` rather than merged blindly. Decisions:
   via `refresh_token_service`) — a better design than this branch's columns-on-`users`.
   This branch's refresh columns/migration were dropped.
 - **Password hashing stays bcrypt** (main's `get_password_hash`), not argon2id. Avoids a
-  new dependency and a mixed-hash state; bcrypt remains industry-standard.
+  new dependency and a mixed-hash state; bcrypt remains industry-standard. *Superseded by E97's
+  Argon2id slice (2026-10-30): new and changed passwords are Argon2id over the whole password, and
+  `verify_password` checks a stored bcrypt hash by its marker until its owner sets a new password.*
 - **JWT subject is the email** (main's convention); `get_current_user` looks up by email.
 - **Password policy is main's**: min 12 chars + upper/lower/digit (frontend hints updated
   to match).
@@ -40,6 +42,7 @@ verification + password reset columns, makes `hashed_password` nullable, and cre
 `oauth_accounts`. main's `20260613_create_refresh_tokens.sql` is unchanged.
 
 ## Deviations from the original plan worth a future look
-- **argon2id** (audit-recommended) was not adopted — kept bcrypt. Revisit if desired.
+- **argon2id** (audit-recommended) was not adopted — kept bcrypt. Revisit if desired. *Adopted by
+  E97 (2026-10-30), see above.*
 - **Register anti-enumeration**: kept main's `400 "Email already registered"` rather than
   the opaque-message approach, to match deployed behavior. Revisit if desired.

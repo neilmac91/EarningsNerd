@@ -17,7 +17,7 @@ roadmap is archived at [`history/plans/DATA_COMPLIANCE_PLAN.md`](./history/plans
 | **Cookie consent** | `frontend/components/CookieConsent.tsx` | GDPR Art. 7 / ePrivacy |
 | **Audit trail** | `AuditLog` model + `audit_service.py` | Accountability (Art. 5(2)) |
 | **Retention inventory** | [`DATA_RETENTION_POLICY.md`](./DATA_RETENTION_POLICY.md) | Storage limitation (Art. 5(e)) |
-| **Security baseline** | bcrypt password hashing, JWT, TLS in transit, rate limiting, no PCI data stored (Stripe handles payments) | Art. 25 / 32 |
+| **Security baseline** | Argon2id password hashing (bcrypt hashes made before E97 kept until their password changes), JWT, TLS in transit, rate limiting, no PCI data stored (Stripe handles payments) | Art. 25 / 32 |
 | **Privacy & security pages** | `frontend/app/privacy/`, `frontend/app/security/` | Transparency |
 
 ## Third-party processors

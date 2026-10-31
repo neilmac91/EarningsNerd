@@ -17,6 +17,10 @@ anyio==4.14.2
     #   openai
     #   starlette
     #   watchfiles
+argon2-cffi==25.1.0
+    # via -r requirements.in
+argon2-cffi-bindings==26.1.0
+    # via argon2-cffi
 backoff==2.2.1
     # via posthog
 bcrypt==5.0.0
@@ -36,6 +40,7 @@ certifi==2026.10.19
     #   sentry-sdk
 cffi==2.0.0
     # via
+    #   argon2-cffi-bindings
     #   cryptography
     #   weasyprint
 charset-normalizer==3.4.7
@@ -183,7 +188,7 @@ psycopg2-binary==2.9.13
     # via -r requirements.in
 pyarrow==24.0.0
     # via edgartools
-pyasn1==0.6.4
+pyasn1==0.6.5
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
