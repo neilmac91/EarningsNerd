@@ -74,6 +74,12 @@ const VALUES_DONT_FIT_HERE = 'Values don’t fit at this width.'
 const axisOf = (fmt: FmtKind, unit: string): BarAxis =>
   fmt === 'pct' ? { kind: 'percent' } : fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit }
 
+/** The picker's one width, the select's and its bone's (chief design's ruling on E253): 14rem, the smallest step that
+ *  holds every FEATURED label (the widest, "Net investment income", is 212px at the default text size), capped at its row.
+ *  A select as wide as its widest option, which the loading card cannot know, wrapped its row as the data landed where
+ *  its bone's did not. */
+const PICKER_WIDTH = 'w-56'
+
 /** The line under the plot: where the figures come from, an amount's reporting currency where it is not the dollar, and
  *  the metric. */
 const footnoteOf = (label: string, currency: string | null) =>
@@ -177,11 +183,11 @@ export default function FundamentalsTrendChart({
           )}
         </div>
         {available.length > 0 ? (
-          // Up to 23 metrics: a compact select sized to its content beside its label, never a segmented row.
+          // Up to 23 metrics: a compact select of one width beside its label, never a segmented row.
           <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
             Metric
             <select
-              className={inputClasses({ select: true, density: 'compact', autoWidth: true })}
+              className={inputClasses({ select: true, density: 'compact', autoWidth: true, className: PICKER_WIDTH })}
               value={activeKey ?? ''}
               onChange={(event) => setSelected(event.target.value)}
             >
@@ -192,10 +198,11 @@ export default function FundamentalsTrendChart({
           </label>
         ) : (
           // Loading (with no metric the card renders nothing, above): the picker's bones in its row, its label's word
-          // and the compact field's heights (44px on a phone, where the picker takes a row of its own, and 36px from sm).
+          // and the field's own box: its one width, capped at the row as the select is (Skeleton's max-w-full), and the
+          // compact field's heights (44px on a phone, where the picker takes a row of its own, and 36px from sm).
           <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
             <TextBone>Metric</TextBone>
-            <Skeleton className="h-11 w-40 rounded-lg sm:h-9" />
+            <Skeleton className={cx('h-11 rounded-lg sm:h-9', PICKER_WIDTH)} />
           </div>
         )}
       </div>

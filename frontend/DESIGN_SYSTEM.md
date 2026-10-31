@@ -1692,7 +1692,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  a busy-state API.
                  A long option set is not a segmented control: the filing page's trend metric picker (up to 23
                  options) is a raw compact select beside a visible "Metric" label,
-                 inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 inputClasses({ select: true, density: 'compact', autoWidth: true, className: 'w-56' }),
+                 one width, 14rem, the smallest step that holds its widest label ("Net investment income"),
+                 capped at its row, so its loading card's bone can hold its room (§10, E253),
                  options in sentence case; the insider window (three codes) keeps the control. At a
                  32px root (200% text) on a 320px screen the select is capped at the card's inner width,
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
@@ -3098,23 +3100,27 @@ The card keeps its own chrome: the heading and its source-check badge, the subti
 footnote and Sources & checks (the source-check presentation above), and it has no PNG export. While its fetch runs it
 holds bones in the shapes of what replaces them, each `aria-hidden`, with one status ("Loading financial trends") on
 the plot's, so a default series that needs no source check lands where they stood (§11, Loading): the picker's (its label's word and the
-compact field's heights, 44 px on a phone, where the picker takes a row of its own, and 36 px from sm), the plot's
-320 px, then the footnote's and Sources & checks' lines, each holding its room with its own text laid out invisible in
-its own type and spacing, so it wraps as its line will at any width and text size (the footnote as it reads for revenue,
-the picker's first metric). Before, the bones held the plot alone, and the card grew 56 px as it landed at 1280 px and
-128 px at 390 and 320 px. What comes only with the data can still move it (E253). The picker's width: a select is as
-wide as its widest option and its bone is 10rem, so where the options run wider its row can wrap as the data lands
-where its bones' did not, on the narrowest phones (320 px for a filing whose options include "Shareholders' equity"),
-and under 200% text at some wider widths. The footnote's metric and currency: its bone reads as revenue in dollars, so
-a bank's first metric or a currency named in the line can take another line. The lines with no bone: the engine's
-footnotes under the plot and the values-don't-fit line. And a badged default moves the card down by the badge's row on
-a phone, where the badge goes beneath the heading once the data says so. Its heading row wraps, so under 200%
+field's own box: its one width and the compact field's heights, 44 px on a phone, where the picker takes a row of its
+own, and 36 px from sm), the plot's 320 px, then the footnote's and Sources & checks' lines, each holding its room with
+its own text laid out invisible in its own type and spacing, so it wraps as its line will at any width and text size
+(the footnote as it reads for revenue, the picker's first metric). The field has one width the loading card can know,
+`w-56` (14rem) capped at its row, the smallest step that holds every FEATURED label (the widest, "Net investment
+income", is 212 px at the default size and 397 px under 200% text), and its bone takes the same class (chief design on
+E253): a select as wide as its widest option wrapped its row under its label as the data landed where its bone's did
+not. So a filing with short labels gets a wider field, and at 320 px every filing's field sits under its label.
+Before, the bones held the plot alone, and the card grew 56 px as it landed at 1280 px and 128 px at 390 and 320 px.
+What comes only with the data can still move it, as E253 accepted: the footnote's metric and currency (its bone reads
+as revenue in dollars, so a bank's first metric or a currency named in the line can take another line); the lines with
+no bone (the engine's footnotes under the plot and the values-don't-fit line); and a badged default, which moves the
+card down by the badge's row on a phone, where the badge goes beneath the heading once the data says so. Its heading
+row wraps, so under 200%
 text the badge goes beneath the heading, and below a 24rem viewport the badge's label may wrap too (Badge's `wrap`), in
 the 16px step, as the hero example's badge does (E156): on a line of its own the one-line badge is wider than a phone's
 card under 200% text. Gates: `tests/unit/fundamentals-trend-chart.spec.tsx` and `tests/e2e/filing-fundamentals-chart.spec.ts`
-(the mount, the engine's drawing and the DOM checks for one card in both themes at 390 and 1280 px, the card landing
-where its bones stood, its fetch held, in both themes at 1280, 390 and 320 px, and every series at 390, 360 and 320 px
-under 200% text).
+(the mount, the engine's drawing and the DOM checks for one card in both themes at 390 and 1280 px; the card landing
+where its bones stood, its fetch held, in both themes, with the fixture at 1280, 390 and 320 px and under 200% text at
+530, 640, 767, 768 and 1080 px, and with every featured metric at 320 px and under 200% text at 600 px; and every series
+at 390, 360 and 320 px under 200% text).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
