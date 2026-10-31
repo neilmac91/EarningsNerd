@@ -158,7 +158,9 @@ Neil's 2026-10-25 acceptance of additive codes) and edits only the added key:
 - `backend/tests/unit/test_cached_filings_pool_lifetime.py`: the export and Pro-gate body equalities (the
   `[{"detail": ...}] * 8` forms). Its editing lease is serialized between A (E121, F19) and C (E171).
 - Substring pins (`test_expired_trial_gating.py`, also a locked anchor, `test_excel_export.py`,
-  `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message` and stay untouched.
+  `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message`, and the code-adding pull requests leave them
+  untouched. E37's copy change moves two of them to the new words: `test_expired_trial_gating.py` under the
+  founder's 2026-10-31 approval of that anchor change, and `test_force_regenerate_keeps_xbrl.py`.
   `test_summary_unready_refresh.py`'s regenerate 403 pin now reads the whole body, its code included (C's summary
   slice).
 
