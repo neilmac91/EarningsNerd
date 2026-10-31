@@ -181,15 +181,23 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     choose(true)
     const sdk = await load()
     const guard = await import('@/lib/posthogConsent')
+    const options = { api_host: INGEST, persistence: 'memory', disable_external_dependency_loading: true, advanced_disable_flags: true } as const
+    // A returning visitor: the SDK persisted an opt-in on an earlier page, so the client starts capturing and only the
+    // fail-closed opt-out can stop it.
+    const earlier = new sdk.PostHog()
+    earlier.init(KEY, options)
+    earlier.opt_in_capturing({ captureEventName: false })
+    await earlier.shutdown()
     const client = new sdk.PostHog()
     clients.push(client)
     guard.installPostHogConsentGuard(client)
     unsubscribes.push((await import('@/lib/browserConsent')).subscribeCookiePreferences(() => guard.applyPostHogConsent(client)))
     let applied: boolean | undefined
+    let capturingAtLoad: boolean | undefined
     client.init(KEY, {
-      api_host: INGEST, persistence: 'memory', autocapture: false, capture_pageview: false, capture_pageleave: false,
-      disable_external_dependency_loading: true, advanced_disable_flags: true, opt_out_capturing_by_default: true,
+      ...options, autocapture: false, capture_pageview: false, capture_pageleave: false, opt_out_capturing_by_default: true,
       loaded: (loaded) => {
+        capturingAtLoad = loaded.is_capturing()
         // Planted: an SDK that keeps its queues where the guard cannot see them.
         const { retry, batch } = guard.findPostHogQueues(loaded)!
         for (const key of Object.keys(loaded)) {
@@ -199,6 +207,7 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
         applied = guard.applyPostHogConsent(loaded)
       },
     })
+    expect(capturingAtLoad).toBe(true)
     expect(applied).toBe(false)
     expect(client.is_capturing()).toBe(false)
     choose(false)
