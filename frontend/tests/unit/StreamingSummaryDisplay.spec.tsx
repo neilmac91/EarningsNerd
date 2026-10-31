@@ -348,7 +348,7 @@ describe('StreamingSummaryDisplay paywall routing', () => {
       <StreamingSummaryDisplay
         streamingText=""
         stage="error"
-        message="Monthly limit reached"
+        message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
         filing={filing}
         trialEligible={trialEligible}
       />,
@@ -358,15 +358,15 @@ describe('StreamingSummaryDisplay paywall routing', () => {
   })
 
   it('promises no trial while the trial does not ship, whatever the page says about the user', () => {
-    render(<StreamingSummaryDisplay streamingText="" stage="error" message="Monthly limit reached" filing={filing} trialEligible />)
+    render(<StreamingSummaryDisplay streamingText="" stage="error" message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries." filing={filing} trialEligible />)
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByText(/free trial/)).toBeNull()
   })
 })
 
 // The pipeline's sentences took the product's words with E217's functional change to summary_stages (F35, D-046,
-// E92); the card still maps the stream endpoint's own answers and the two sentences the matchers route on
-// (features/summaries/lib/streamErrorCopy.ts), and the raw sentence still routes it.
+// E92), and the free monthly limit and Pro's fair-use ceiling with E37; the card still maps the stream endpoint's own
+// answers (features/summaries/lib/streamErrorCopy.ts), and the raw sentence, or its code, still routes it.
 describe('StreamingSummaryDisplay failure reason', () => {
   it('shows a backend sentence in the product voice', async () => {
     render(
@@ -384,19 +384,19 @@ describe('StreamingSummaryDisplay failure reason', () => {
     expect(screen.queryByText('Filing not found')).toBeNull()
   })
 
-  // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card
+  // Pro's fair-use ceiling holds until the month turns, so a Retry could only repeat the blocked request: the card
   // keeps its sentence and offers none (isNonRetryableStreamError, the matcher that also stops the stream's own
   // retry). A failure a retry can help keeps its Retry. The card's one button is its Retry, read by role and not
   // by label, so the case holds whatever the Retry says.
-  it("offers no Retry at Pro's fair-use pause, and one for a failure a retry can help", async () => {
+  it("offers no Retry at Pro's fair-use ceiling, and one for a failure a retry can help", async () => {
     const failed = (error: string) => (
       <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
     )
     const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
     const { rerender } = render(
       failed(
-        "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
-          'Please try again later or contact support.',
+        "Your account has reached this month's limit for generating summaries, regenerations included. " +
+          'It resets next month. Contact support with any questions.',
       ),
     )
     await act(async () => {})

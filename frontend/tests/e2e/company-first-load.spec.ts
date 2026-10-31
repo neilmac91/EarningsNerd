@@ -9,7 +9,7 @@ import { BUILD, firstLoadOf, MARKERS, PAGE_MARKER, staticScripts } from './fixtu
  * it, loads in a chunk of its own, and only once the peers endpoint answers a cohort (features/peers/components/
  * SectorPeers.tsx), as Financial trends keeps the engine out of the filing page's. A static import of the card, or of the
  * engine by anything the company route loads, would put it back in every company page's first load, which no render
- * test sees, and production answers no cohort until the SIC backfill, so no page there would show it either. So this
+ * test sees, and no page would show either, since it costs the first load and draws nothing. So this
  * reads the build the e2e job tests, on disk (fixtures/companyBuild.ts): the company route's first load, every script
  * its client reference manifest names for the route's entries (the root layout, the page and the boundaries it renders
  * under) with the root main files and the polyfills `build-manifest.json` names, and fails any of them that holds what

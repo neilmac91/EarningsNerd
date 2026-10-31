@@ -3210,8 +3210,8 @@ Duplicate One Inc · 2025"). It
 shows itself only once the default metric's answer is a cohort: a metric the panel names and formats, the subject's own
 figure and at least one other company's (`features/peers/lib/cohort.ts` `noCohort`, engine-free); until then the gate
 renders nothing and the card's chunk, the engine with it, is never asked for, so the company page's first load keeps the
-engine out. Production stores no SIC codes until the
-founder's backfill, so every company answers itself alone there and the panel shows nothing. A metric picked holds the
+engine out. Production answers cohorts since the founder's SIC backfill of 2026-10-31, where a company and another of
+its industry hold the default figure. A metric picked holds the
 plot's height with bones while it loads, and the rank line's room with the default answer's line laid out invisible, a
 bone over it while it loads; where its answer draws no chart, the plot's place says why, the first reason `noCohort`
 finds: "{ticker}’s {metric} is unavailable, so it can’t be ranked." (the company's own figure missing or withheld),

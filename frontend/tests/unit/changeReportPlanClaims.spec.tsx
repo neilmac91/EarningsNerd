@@ -155,7 +155,7 @@ describe('the read of what a Change Report line names that production withholds 
     expect(
       namesWhatProductionWithholds('What changed against the prior filing, metric by metric, computed from XBRL. Both plans include it.'),
     ).toEqual([])
-    expect(namesWhatProductionWithholds('Revenue, net income and diluted EPS all rose against the prior fiscal year.')).toEqual([])
+    expect(namesWhatProductionWithholds('Revenue, net income and EPS (diluted) all rose against the prior fiscal year.')).toEqual([])
     expect(namesWhatProductionWithholds('A risky wordsmith')).toEqual([])
   })
 })
