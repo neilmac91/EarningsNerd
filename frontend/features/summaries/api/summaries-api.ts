@@ -142,20 +142,21 @@ export interface ProgressData {
   percent?: number
 }
 
-// The free/guest summary quota was reached (the backend surfaces this as the stream error).
+// The free/guest summary quota was reached (the backend surfaces this as the stream error). A known code decides
+// first; without one, "Upgrade to Pro", which admission.py's free monthly limit says in its words before and after
+// E37 alike.
 export const isPaywallStreamError = (message: string, code?: KnownErrorCode): boolean => {
   if (code) return code === 'free_allowance_exhausted'
-  const m = (message || '').toLowerCase()
-  return m.includes('monthly limit') || m.includes('upgrade to pro')
+  return (message || '').toLowerCase().includes('upgrade to pro')
 }
 
 // Errors a retry cannot help: the stream makes no automatic second attempt (generateSummaryStream below), and
 // the filing page's card offers no Retry (StreamingSummaryDisplay). Each backend sentence is matched on its own
-// words. Pro's fair-use pause (admission.py: "We've temporarily paused new summary generation on your
-// account …") holds until the month turns. The stream route's 403s hold whatever the reader retries: a Free
+// words. Pro's fair-use ceiling (admission.py: "Your account has reached this month's limit for generating
+// summaries, …") holds until the month turns. The stream route's 403s hold whatever the reader retries: a Free
 // reader's force regeneration of a summary the page shows ("Regenerating a summary is a Pro feature.", the
 // route itself) and an inactive account ("This account is inactive. …", get_current_user). A retry of any of them
-// only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the pause from admission.py and
+// only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the ceiling from admission.py and
 // every 403 the stream endpoint returns, and holds this matcher to each. A known code decides first, but for
 // `auth_required`: a 401 keeps today's handling, its words deciding and its Retry kept (the E31 contract's §3, since a
 // refresh or a sign-in can lift it), so a code on it changes nothing here.
@@ -165,7 +166,7 @@ export const isNonRetryableStreamError = (message: string, code?: KnownErrorCode
   const m = (message || '').toLowerCase()
   return (
     isPaywallStreamError(message) ||
-    m.includes('paused new summary generation') ||
+    m.includes('limit for generating summaries') ||
     m.includes('is a pro feature') ||
     m.includes('account is inactive') ||
     m.includes('permission') ||
