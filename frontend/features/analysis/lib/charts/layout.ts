@@ -40,13 +40,15 @@ export const MIN_SLOT = 36
 /** A labelled chart (the top line's) widens its slot past MIN_SLOT until A4 finds a label tier, up to this. On the
  *  audit's 72 top lines, 66 fit at 36 px and the other six (LCID, NVDA, PLUG, REGN, REGNPN and RIVN, all annual)
  *  needed at most 41.7 px: six-glyph labels such as "$4.86B" cannot keep 2 px apart at a 36 px pitch. Past it, as
- *  a code-prefixed currency's labels ("CHF 4.9B") can be, the card says VALUES_DONT_FIT instead. */
+ *  a code-prefixed currency's labels ("CHF 4.9B") can be, the card says VALUES_DONT_FIT instead. A chart whose ticks
+ *  need a minimum this wide or wider (minSlotOf: a six-glyph ticker's 44 px) gets no widening: where its labels miss
+ *  at its minimum, its card says they don't fit. */
 export const LABELLED_MAX_SLOT = 42
 /** The value strip's row: its series' swatch centred at STRIP_MARKER_X, then its short name from STRIP_LABEL_X. */
 export const STRIP_MARKER_X = 6
 export const STRIP_LABEL_X = 14
-/** What the card says under the SVG when A4 finds no label tier for a panel, even at LABELLED_MAX_SLOT (spec §3.7).
- *  It does not offer the expanded view: on a phone that view is no wider. */
+/** What the card says under the SVG when A4 finds no label tier for a panel, even at LABELLED_MAX_SLOT or at a minimum
+ *  slot wider than that (spec §3.7). It does not offer the expanded view: on a phone that view is no wider. */
 export const VALUES_DONT_FIT = 'Values don’t fit at this width. The metrics table lists them.'
 /** The same line for a card no metrics table sits beside (the filing page's Financial trends, E195 (D); E251's ranked
  *  company chart): no table on its page lists the values, so the line stops at what is true. */
@@ -213,8 +215,9 @@ export const gutterOverlayWidth = (layout: ChartLayout, cover = layout.plotLeft,
 
 /**
  * The left gutter and the narrowest slot. The gutter holds the widest tick label (G_L). A slot holds the widest line of
- * its x ticks with 2 px each side, as the strip's cells do (the spec's draft, §0.4 row 11; E251: a ticker is wider than
- * a year, and a six-glyph one ran 1.8 px past a 36 px column); no year or quarter tick reaches it (26.4 px for "2025").
+ * its x ticks with 2 px each side, as the strip's cells do, over MIN_SLOT's floor: the form of the spec's draft rule
+ * (§0.4 row 11, max(24, widest slot-centred string + 4)). E251: a ticker is wider than a year, and a six-glyph one ran
+ * 1.8 px past a 36 px column; no year or quarter tick reaches it (26.4 px for "2025").
  * An expanded view with a value strip also fits its rows, so the strip is collision-free by construction as §3.10 says:
  * every slot holds its widest cell with 2 px each side, and the gutter reaches past the rows' short names, so the first
  * cell clears them.
@@ -235,16 +238,16 @@ function frameOf(model: ChartModel, view: ChartView): { gutter: number; minSlot:
 export const minSlotOf = (model: ChartModel, view: ChartView = 'card') => frameOf(model, view).minSlot
 
 /** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. A labelled
- *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period (or its minimum, where its ticks need
- *  more), at which A4 finds a tier for every labelled panel, so a phone scrolls a little further rather than print no
- *  values; when none does, it keeps its minimum. The search steps a slot pixel at a time, then the pixel within the last
- *  step. */
+ *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period, at which A4 finds a tier for every
+ *  labelled panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its
+ *  minimum, and so does a chart whose minimum is already that wide (a six-glyph ticker's 44 px). The search steps a slot
+ *  pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
   const at = (slot: number) => gutter + RIGHT_PAD + slot * model.periods.length
   const fits = (width: number) => !plan(model, width, view).valuesDontFit
   if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)
-  for (let slot = minSlot + 1; slot <= Math.max(LABELLED_MAX_SLOT, minSlot); slot++) {
+  for (let slot = minSlot + 1; slot <= LABELLED_MAX_SLOT; slot++) {
     if (!fits(at(slot))) continue
     let width = at(slot - 1) + 1
     while (!fits(width)) width++

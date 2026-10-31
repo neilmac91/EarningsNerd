@@ -75,12 +75,19 @@ export const COMPANY_READING: ChartReading = { items: 'companies', first: 'First
 /** Every peers case as the bar chart a ranked company chart draws (E251): a slot per company in the answer's order, its
  *  tick and long name the ticker, keyed by place where a ticker repeats, as slotsOf keys a year two points share
  *  (Company.ticker is not unique, and buildBarChart refuses a key given twice); the subject a plain bar and every other
- *  company a context bar, the chart starting at the subject and naming companies in its own words; the metric's own label, and its axis by its kind in the
- *  answer's unit, a unit naming no currency printing no sign. E251's second pull request replaces this with the panel's
- *  own builder. */
+ *  company a context bar, the chart starting at the subject and naming companies in its own words; the metric's own
+ *  label, and its axis by its kind in the answer's unit, a unit naming no currency printing no sign. A withheld value
+ *  (null, its rank and percentile null) keeps its slot and prints "—", as the engine draws any; a subject with no fact for
+ *  the metric, which the service surfaces only as `subject`, outside `peers`, is refused, since the chart starts at its
+ *  subject. The fixture holds neither shape yet: E251's second pull request adds both, with the panel's own builder in
+ *  place of this one. */
 export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
   return Object.entries(fixture.cases).map(([name, { response }]) => {
     const metric = FEATURED.find((candidate) => candidate.key === response.concept)!
+    const subject = response.peers.findIndex((entry) => entry.is_subject)
+    if (subject < 0) {
+      throw new Error(`peerBarCases ${name}: the subject ${response.subject.ticker} holds no ${response.concept} fact, so the answer lists it only as \`subject\`, outside \`peers\`; a ranked company chart starts at its subject, so this answer draws none`)
+    }
     const tickers = response.peers.map((entry) => entry.ticker)
     const categories = response.peers.map((entry, i): BarCategory => {
       const own = entry.ticker !== '' && tickers.indexOf(entry.ticker) === tickers.lastIndexOf(entry.ticker)
@@ -90,7 +97,7 @@ export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
       id: name,
       title: metric.label,
       categories,
-      start: categories[response.peers.findIndex((entry) => entry.is_subject)].key,
+      start: categories[subject].key,
       reading: COMPANY_READING,
       series: { key: response.concept, label: metric.label, values: response.peers.map((entry) => entry.value) },
       axis: metric.fmt === 'pct' ? { kind: 'percent' } : metric.fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit: response.unit ?? '' },
