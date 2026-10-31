@@ -176,11 +176,11 @@ describe('generateSummaryStream', () => {
   })
 
   // The E31 contract's §3, code by code, read from its own table: whether the card withholds its Retry for a refusal
-  // carrying the code, which decides first whatever the words. A row's "Client behaviour" cell that says "never offer
-  // Retry" withholds it, the one phrase that does: any other negation of Retry ("do not offer Retry", "no Retry",
-  // "Retry is never offered") fails rather than reads as a kept Retry. A cell that keeps a Retry, waits out a
-  // Retry-After or a cooldown, or lets a retry follow keeps it (`auth_required`'s "Retry included": today's 401
-  // handling, its words deciding).
+  // carrying the code, which decides first whatever the words. A row's "Client behaviour" cell may speak of Retry only
+  // in the phrases below: "never offer Retry" withholds it; "with Retry", "Retry included", "keeps its Retry",
+  // "Retry-After" and "may retry" keep it, as a cooldown does (`auth_required`'s "Retry included": today's 401
+  // handling, its words deciding). Any other mention of Retry, or a keeping phrase after a negation, fails, so a rule
+  // in other words ("withhold Retry", "Retry: none", "not with Retry") is never read as a kept Retry.
   const SECTION_3 = (() => {
     const doc = readFileSync(path.join(REPO, 'docs/audit/contracts/error-codes.md'), 'utf8')
     const section = doc.slice(doc.indexOf('## 3.'), doc.indexOf('## 4.'))
@@ -190,11 +190,18 @@ describe('generateSummaryStream', () => {
       return [cells[0].replace(/`/g, ''), cells[3]] as const
     }))
   })()
-  const NEGATED_RETRY = /\b(?:no|not|never|without)\b[^.;,:]{0,25}\bretr(?:y|ies)\b|\bretr(?:y|ies)\b[^.;,:]{0,25}\b(?:never|not)\b/i
+  const WITHHOLDS = 'never offer Retry'
+  const KEEPS = 'with Retry\\b|Retry included|keeps? its Retry|Retry-After|may retry'
   const section3Withholds = (code: string, cell: string): boolean | null => {
-    if (/never offer Retry/.test(cell)) return true
-    if (NEGATED_RETRY.test(cell)) throw new Error(`§3's ${code} row negates Retry in other words: write "never offer Retry"`)
-    return /\bRetry\b|\bretry\b|cooldown/.test(cell) ? false : null
+    const negatedKeep = [...cell.matchAll(new RegExp(KEEPS, 'gi'))]
+      .find((keep) => /(?:\b(?:no|not|never|without)|n't)\s+(?:\w+\s+)?$/i.test(cell.slice(Math.max(0, (keep.index ?? 0) - 16), keep.index)))
+    const stray = /\bretr(?:y|ies)\b/i.exec(cell.replace(new RegExp(`${WITHHOLDS}|${KEEPS}`, 'gi'), ''))
+    if (negatedKeep || stray) {
+      throw new Error(`§3's ${code} row speaks of Retry in words this reader does not know ("${(negatedKeep ?? stray)![0]}"): ` +
+        `write "${WITHHOLDS}" to withhold it, or one of ${KEEPS.replace(/\\b/g, '').split('|').map((k) => `"${k}"`).join(', ')} to keep it`)
+    }
+    if (new RegExp(WITHHOLDS, 'i').test(cell)) return true
+    return new RegExp(`${KEEPS}|cooldown`, 'i').test(cell) ? false : null
   }
   // §3 states no Retry rule for these, so they hold the reader's verdict: a gate the checkout raises, and the
   // calendar's own reader's code.
