@@ -271,7 +271,9 @@ const seamsOf = (model: ChartModel): number[] => model.periods.flatMap((period, 
  *  pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
-  const at = (slot: number) => gutter + RIGHT_PAD + slot * (model.periods.length + SEAM * seamsOf(model).length)
+  // A seam's half slot can leave half a pixel (a 37 px slot over 11.5 slots), and the plan is in whole pixels, as the PNG
+  // export draws it (TrendChartPlot), so the width rounds up; with no seam it is a whole number already.
+  const at = (slot: number) => Math.ceil(gutter + RIGHT_PAD + slot * (model.periods.length + SEAM * seamsOf(model).length))
   const fits = (width: number) => !plan(model, width, view).valuesDontFit
   if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)
   for (let slot = minSlot + 1; slot <= LABELLED_MAX_SLOT; slot++) {

@@ -539,7 +539,7 @@ says so; everything else follows the spec.
     before the first category, where no run breaks. The layout (`layout.ts`) sets `SEAM`, half a slot, of empty plot
     before that period's slot: the slots share the plot with each seam (the plot over n periods and half a slot a
     seam), each period from a seam on moves `SEAM` slots right, the last column still closes the plot, and
-    `minChartWidth` widens by `SEAM` of a slot a seam. The gap is no slot's: `slotAt` reads none over it, and A7's
+    `minChartWidth` widens by `SEAM` of a slot a seam, rounded up to the plan's whole pixel. The gap is no slot's: `slotAt` reads none over it, and A7's
     sticky gutter cuts no column there (`gutterCover` keeps the gutter's own width). The plan carries `count` and
     `seams`, and the bones draw a bar a period from `count`, since the plot's width over its slot also counts a seam.
   - The panel sets it on its subject when `cohort.ts` `breaksBefore` holds: the chart draws the subject after the top
