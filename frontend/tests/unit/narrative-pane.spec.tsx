@@ -287,7 +287,9 @@ describe('NarrativePane citation chips', () => {
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
     const { rerender } = render(<NarrativePane state={state} />)
     expect(screen.getByText('1 source')).toBeInTheDocument()
-    const notesButton = screen.getByRole('button', { name: 'Review data notes a' })
+    const notesButton = screen.getByRole('button', { name: 'Notes a' })
+    // Named by its face (E68 (3)): no aria-label stands in for the words it shows.
+    expect(notesButton).not.toHaveAttribute('aria-label')
     expect(document.getElementById('analysis-source-1')?.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
     expect(screen.getByRole('button', { name: /1\. Citation:.*data note a/ })).toBeInTheDocument()
     fireEvent.click(notesButton)
@@ -322,7 +324,7 @@ describe('NarrativePane citation chips', () => {
     expect(document.querySelectorAll('#analysis-data-note-a')).toHaveLength(1)
     expect(document.querySelectorAll('#analysis-data-note-b')).toHaveLength(1)
     const note = document.getElementById('analysis-data-note-b')!
-    fireEvent.click(screen.getByRole('button', { name: 'Review data notes b' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes b' }))
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
     expect(note).toHaveTextContent('Not yet matched to the filing')
