@@ -1062,6 +1062,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | `s4` coral | Series 4 (not used by these charts) | `#CF7159` | 58.2 / 3.26 | `#E8927C` (`chart-4-dark`) | −51.9 / 6.17 | final (on the dark card the light hex is −36.9) |
 | `s5` slate-blue | Series 5 (not used) | `#6E7E9C` | 65.1 / 3.92 | `#97A6C2` (`chart-5-dark`) | −50.1 / 5.98 | final (on the dark card the light hex is −30.0) |
 | `s6` periwinkle | Series 6 (not used) | `#8B7BC0` | 61.4 / 3.53 | `#AFA2DE` (`chart-6-dark`) | −52.8 / 6.32 | final (on the dark card the light hex is −33.7) |
+| `context` | A bar chart's context bars, every bar it sets beside the one it is about (E251), solid, never an opacity; no palette slot | `#968A78` (`chart.context.light`) | 58.3 / 3.24 | `#AFA391` (`chart.context.dark`) | −49.7 / 5.92 | E251's default, for chief design (on the dark card the light hex is −36.8) |
 | `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | the engine's `cursor` (`charts/theme.ts`) |
 | `tip` | Tooltip surface and border (specified, not yet verified) | the Card recipe: `panel-light`, `border-light`, `shadow-e2` | — | `panel-dark`, a `white/10` hairline, no shadow | — | DS Card / panel (`chart.tip` retired, E255) |
 
@@ -1119,10 +1120,22 @@ takes the Card recipe's surface and border, so the `tip` row's `chart.tip`, like
 E255 retires both tokens.)
 (E255, 2026-10-31: `chart.crosshair` and `chart.tip` are retired from `tailwind.config.js`, and the `tip` row names
 the Card recipe the renderer's tooltip takes. The built CSS held no class of either token before or after.)
+(E251, 2026-10-31: the `context` row is new, `chart.context` in `tailwind.config.js`, for the ranked company chart's other
+companies. It is a solid ink because a fade by opacity escapes D6, which reads a computed `fill`, while it really paints
+lower: the retired Sector peers panel's `flat` at 45% composited to `#BABDC1` (Lc 32.8 on the card, 26.7 under the wash)
+and `#57606D` (−16.7, −13.4). The marks floor holds it on the card and under the column wash in both themes
+(`chart-apca.spec.ts`), with 52.2 and −46.4 under the wash; in light it is lighter and greyer than chart-1 (OKLCH chroma
+0.030 against 0.080), and in dark it measures chart-1-dark's Lc, since the floor sits about 1 Lc under it there, so it
+differs by chroma and hue alone. It is 3.24:1 on the light card and 3.05:1 on cream, the 3:1 a non-text mark needs (DS §1),
+and ΔE76 22 from the light zero rule and 18 from the dark one, so a 2 px stub stays visible on the rule. Its light hex is
+−36.8 on the dark card, so it needs its dark half, as every series does.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
-where shapes, legend order and printed values back it up.
+where shapes, legend order and printed values back it up. The context ink sits deutan 17 / protan 9 from chart-1 in light
+and 15 / 9 in dark, under that weakest pair, as any ink at the floor with as little chroma does (the best found at chroma
+0.03 or less measures 18 / 9), so colour alone cannot tell a context bar from the bar a chart is about for a colour-blind
+reader: a context bar also takes the growth bars' narrower width (§3.7, the precedent for telling bars apart).
 
 **All tokens resolve to literal hex/rgba strings before render.** No `var(--…)` reaches an SVG attribute, so
 serialisation cannot lose them.

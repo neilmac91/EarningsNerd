@@ -29,7 +29,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle · the context ink `chart.context.light` `#968A78` | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) · `chart.context.dark` `#AFA391` | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted. The context ink paints a bar chart's context bars (E251, §10): no series, no palette slot, never an opacity |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -3031,7 +3031,12 @@ Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dar
 data mark's 45) — a CVD-validated **sequence** (blue↔yellow axis alternates early), taken 1→N in order, never skipped
 or re-sorted. At ≥5 series add direct labels/markers — color no longer carries alone. **Gain/loss never appear as
 series colors** (direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
-`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`. Chart chrome (gridlines,
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`. The context ink,
+`chart.context` (`#968A78` / `#AFA391`, the engine's `context`), paints a bar chart's context bars, every bar it sets
+beside the one it is about (E251, a ranked company chart's other companies): a solid warm stone at a data mark's floor
+on the card and under the column wash in both themes, never an opacity, which D6's computed `fill` cannot see (the retired
+peers chart's grey at 45% painted Lc 32.8 and −16.7). It is no series colour, so it claims no palette slot and leaves the
+sequence alone. Chart chrome (gridlines,
 the zero rule, labels, the tooltip's inks) takes the `chart.grid/ref/label` sub-tokens and the text inks through the
 engine's `chartTokens(dark)` (`features/analysis/lib/charts/theme.ts`, below) — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).
@@ -3073,7 +3078,7 @@ production build's `.next/static` or `.next/server` that holds a Recharts class 
 literal SVG attributes from
 `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for both themes. Since E195's token fold they name app
 tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the landing page's revenue
-bars take too; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and
+bars take too; the context ink `chart.context`; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and
 `chart.label.dark` in dark; and the printed values `text.secondary` in
 light and the figure ink `text.primary` in dark (D-063). The dark notes (the subtitle, the footnotes, and the band's
 and the tooltip's letters) keep `chart.label.dark` rather than the figure surfaces' `note-dark` `#D1D5DB`: they take
@@ -3082,8 +3087,8 @@ note's letter reads `#D1D5DB` in the table and `#B8BEC7` in a chart's band, wher
 The review ink is retired: since D-061 no letter takes it. The raw-colour lint rule exempts that
 file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config, `tests/unit/chart-theme.spec.ts` holds
 each field to the spec's table and its own token, and `tests/unit/chart-apca.spec.ts` holds each ink to the spec's
-APCA floor (marks and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and under the column
-wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
+APCA floor (marks, the context ink and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and
+under the column wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
 take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
 latin and latin-ext faces are in, or 1,500 ms pass (G4): `useChartFont.ts` loads and checks `11px "Geist Mono"` with

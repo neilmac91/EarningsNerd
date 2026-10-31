@@ -165,6 +165,13 @@ module.exports = {
           '4-dark': '#E8927C', // coral       — Lc −51.9
           '5-dark': '#97A6C2', // slate-blue  — Lc −50.1
           '6-dark': '#AFA2DE', // periwinkle  — Lc −52.8
+          // ---- The context ink (E251) ----
+          // A bar chart's context bars: every bar it sets beside the one it is about (a sector's other companies). A solid
+          // warm stone, never an opacity, which the browser's contrast check cannot see. APCA Lc at the marks' 45 on the card
+          // and under the column wash (tests/unit/chart-apca.spec.ts): light 58.3 / 52.2 (3.2:1 on the card), dark −49.7 /
+          // −46.4 (chart-1-dark's own Lc on the card; the light hex is −36.8 there). No series colour: it claims no palette
+          // slot, so the sequence above is untouched.
+          context: { light: '#968A78', dark: '#AFA391' },
           // ---- Chart chrome sub-tokens ----
           // Gridlines: Lc 16.8 / −15.0 on the card, visible enough to read a value across, quieter than the zero rule
           // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8). The landing page's tick rules
@@ -178,9 +185,9 @@ module.exports = {
           // The chart tooltip takes the Card recipe's surface and the column wash the engine's own cursor, so no
           // crosshair or tooltip token remains (E255).
           // The trend charts' spec renderer (features/analysis/lib/charts/theme.ts, docs/design/analysis-trend-charts-spec-2026-10.md
-          // §3.8) reads these same tokens and the text inks: its series chart-N and chart-N-dark, its grid chart.grid,
-          // its zero rule chart.ref, its ticks and notes text.tertiary.light and chart.label.dark, its printed values
-          // text.secondary.light and text.primary.dark (E195's token fold).
+          // §3.8) reads these same tokens and the text inks: its series chart-N and chart-N-dark, its context bars
+          // chart.context, its grid chart.grid, its zero rule chart.ref, its ticks and notes text.tertiary.light and
+          // chart.label.dark, its printed values text.secondary.light and text.primary.dark (E195's token fold).
         },
 
         // ---- Text ----
