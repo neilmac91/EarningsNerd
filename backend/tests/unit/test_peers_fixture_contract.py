@@ -1,8 +1,8 @@
 """The peers fixture is what the endpoint answers, and the frontend's client reads only what it serves (E251).
 
 ``frontend/tests/unit/fixtures/peers-cohorts.json`` feeds the company page's Sector peers panel and its gates: the
-panel's unit specs, the engine's sweeps over its charts and the browser gate that mounts it. Production answers no
-cohort until the SIC backfill runs, so these fixture answers are the only cohorts the panel is built and checked on;
+panel's unit specs, the engine's sweeps over its charts and the browser gate that mounts it. No test reaches a
+production answer, so these fixture answers are the only cohorts the panel is built and checked on;
 a fixture the service would never answer would gate a panel production never draws.
 
 1. Each case, seeded into a database of its own as ``test_peers_service.py`` seeds one (a company per entry, in the

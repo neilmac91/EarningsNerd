@@ -361,7 +361,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   take the inset focus ring. Financial trends picks its metric through a compact select of one width, 14rem,
   beside its "Metric" label (up to 23 options, in sentence case on its face; E253); the Sector peers
   panel picks its metric through the same select at the same width (nine options) and shows itself only once
-  the peers endpoint answers a cohort, which production cannot until the SIC backfill (E251); insider
+  the peers endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31 (E251); insider
   activity picks its window through the SegmentedControl; headings in sentence case; a trade's type
   carries a hidden ▲ or ▼ beside its label and the discretionary net keeps its sign; the 10b5-1 note
   says what a plan trade is; a trade's
