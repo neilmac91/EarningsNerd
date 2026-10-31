@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "description": "The one case table for a growth as first reported (MPA WP5a), as the page's evidence dialog prints it and the analysis PDF and workbook print it after \"As first reported:\": run by both copies of the rule, frontend/features/analysis/lib/growth.ts formatGrowth (frontend/tests/unit/analysis-growth-text.spec.ts) and backend/app/services/analysis_export_metadata.py growth_text (backend/tests/unit/test_export_later_filings.py). Each case is [value as the dataset holds it, whether its series is a percent series, the text].",
+  "groups": [
+    {
+      "rule": "relative growth: the fraction times 100, one decimal, a plus above zero",
+      "cases": [
+        [
+          0.183,
+          false,
+          "+18.3%"
+        ],
+        [
+          -0.221,
+          false,
+          "-22.1%"
+        ],
+        [
+          0.1428084874493376,
+          false,
+          "+14.3%"
+        ]
+      ]
+    },
+    {
+      "rule": "a percent series: its change in points, never times 100",
+      "cases": [
+        [
+          -9.0,
+          true,
+          "-9.0pp"
+        ],
+        [
+          4.97,
+          true,
+          "+5.0pp"
+        ],
+        [
+          16.015140188829488,
+          true,
+          "+16.0pp"
+        ],
+        [
+          -9.51793144693572,
+          true,
+          "-9.5pp"
+        ]
+      ]
+    },
+    {
+      "rule": "no sign on zero",
+      "why": "A plus on a zero reads as a rise; a value that rounds to zero keeps the sign it has.",
+      "cases": [
+        [
+          0,
+          false,
+          "0.0%"
+        ],
+        [
+          0,
+          true,
+          "0.0pp"
+        ],
+        [
+          0.0001,
+          false,
+          "+0.0%"
+        ],
+        [
+          -0.00031,
+          false,
+          "-0.0%"
+        ]
+      ]
+    },
+    {
+      "rule": "grouped from 1,000",
+      "cases": [
+        [
+          12.345,
+          false,
+          "+1,234.5%"
+        ],
+        [
+          1234.56,
+          true,
+          "+1,234.6pp"
+        ],
+        [
+          123456.789,
+          false,
+          "+12,345,678.9%"
+        ]
+      ]
+    },
+    {
+      "rule": "a tie rounds half away from zero, from the shortest decimal form",
+      "why": "Intl rounds a number's shortest decimal form half away from zero, where a float's own rounding is half to even on the binary value: 0.15 is 0.1499... in binary.",
+      "cases": [
+        [
+          0.0025,
+          false,
+          "+0.3%"
+        ],
+        [
+          -0.0025,
+          false,
+          "-0.3%"
+        ],
+        [
+          0.25,
+          true,
+          "+0.3pp"
+        ],
+        [
+          -0.25,
+          true,
+          "-0.3pp"
+        ],
+        [
+          0.15,
+          true,
+          "+0.2pp"
+        ],
+        [
+          -0.15,
+          true,
+          "-0.2pp"
+        ],
+        [
+          1.45,
+          true,
+          "+1.5pp"
+        ],
+        [
+          0.0015,
+          false,
+          "+0.2%"
+        ],
+        [
+          0.0035,
+          false,
+          "+0.4%"
+        ]
+      ]
+    },
+    {
+      "rule": "n/m for anything but a number",
+      "cases": [
+        [
+          "nm",
+          false,
+          "n/m"
+        ],
+        [
+          "nm",
+          true,
+          "n/m"
+        ],
+        [
+          "not_meaningful",
+          true,
+          "n/m"
+        ]
+      ]
+    }
+  ]
+}

@@ -34,7 +34,7 @@ from openpyxl import load_workbook
 
 from app.services.analysis_export_metadata import (
     BASIS_CHANGE_CAUSE, LATER_FILING_EVIDENCE, LATER_FILING_MESSAGE, NOT_MEANINGFUL_CAUSES, PDF_CLOSING, WORKBOOK_CLOSING,
-    later_filing_entry, pdf_closing, workbook_closing,
+    growth_text, later_filing_entry, pdf_closing, workbook_closing,
 )
 from app.services.excel_export_service import build_analysis_workbook
 from app.services.export_service import ExportService
@@ -278,6 +278,32 @@ def test_the_top_lines_growth_comment_gives_the_cause():
     assert top["C5"].comment.text.split("\n")[1] == "As first reported: +8.1%"
     # FY2021 keeps its growth and says nothing of a later filing.
     assert isinstance(top["C6"].value, float) and BASIS_CHANGE_CAUSE not in top["C6"].comment.text
+
+
+GROWTH_TABLE = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "analysis_growth_text.json").read_text())
+GROWTH_TEXT = [(group["rule"], value, percent, text) for group in GROWTH_TABLE["groups"]
+               for value, percent, text in group["cases"]]
+
+
+@pytest.mark.parametrize(("rule", "value", "percent", "text"), GROWTH_TEXT,
+                         ids=[f"{value}-{'pp' if percent else 'fraction'}" for _, value, percent, _ in GROWTH_TEXT])
+def test_the_growth_as_first_reported_reads_as_the_page_prints_it(rule, value, percent, text):
+    """The page's formatGrowth (growth.ts) over the table both copies run; frontend/tests/unit/analysis-growth-text.spec.ts
+    runs the page's own copy on it, so the table cannot drift from the page."""
+    assert growth_text(value, percent) == text, rule
+
+
+def test_the_files_print_the_growth_through_the_pages_rule():
+    """Zero, a growth past 1,000% and a tie reach both files as the page prints them, never as the prompt's formatter
+    prints them ("+0.0%", "+1234.5%", "+0.2%")."""
+    dataset = _case("regn_own_reports_beside_later_comparatives")["dataset"]
+    for period, growth in (("FY2018", 0.0), ("FY2019", 12.345), ("FY2020", 0.0025)):
+        _point(dataset, "revenue", period)["yoy_first_reported"] = growth
+    top = _workbook(dataset)["Revenue & growth"]
+    printed = [top[cell].comment.text.split("\n")[1] for cell in ("C3", "C4", "C5")]
+    assert printed == ["As first reported: 0.0%", "As first reported: +1,234.5%", "As first reported: +0.3%"]
+    methods = _methods(_pdf(dataset))
+    assert all(f"{BASIS_CHANGE_CAUSE} {words}</li>" in methods for words in printed)
 
 
 def test_a_growth_is_n_m_across_the_change_only_where_it_reads_n_m():

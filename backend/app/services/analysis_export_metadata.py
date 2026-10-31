@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 import math
 import re
 from typing import Any, NamedTuple
 
 from app.services.trend_analysis.data_notes import marks_figure, note_summary
-from app.services.trend_analysis.formatting import NOT_MEANINGFUL, _fmt_growth
+from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 from app.services.trend_analysis.later_filings import later_filing_places
 from app.utils.datetimes import ensure_utc, utc_from_iso
 
@@ -320,7 +320,20 @@ def evidence_lines(figure: Mapping[str, Any]) -> list[str]:
     if "first_reported_growth" not in figure:
         return []
     growth = figure["first_reported_growth"]
-    return [BASIS_CHANGE_CAUSE, *([] if growth is None else [f"As first reported: {_fmt_growth(growth, figure['percent'])}"])]
+    return [BASIS_CHANGE_CAUSE, *([] if growth is None else [f"As first reported: {growth_text(growth, figure['percent'])}"])]
+
+
+def growth_text(value: Any, percent: bool) -> str:
+    """A growth as the page's dialog prints it (growth.ts formatGrowth, through format.ts fmtPercent and
+    fmtPercentPoints): "n/m" for anything but a number; else one decimal, grouped ("+1,234.5%"), rounded half away from
+    zero from the value's shortest decimal form as Intl does ("+0.3%" for 0.0025), a plus only above zero ("0.0%", never
+    "+0.0%"), and points for a percent series ("-9.5pp"). Not the prompt's formatting._fmt_growth, which signs zero,
+    groups nothing and rounds half to even. backend/tests/fixtures/analysis_growth_text.json holds the two equal."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return "n/m"
+    number = value if percent else value * 100
+    rounded = Decimal(repr(number)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    return f"{'+' if number > 0 else ''}{rounded:,.1f}{'pp' if percent else '%'}"
 
 
 def growth_point(point: Mapping[str, Any], growth: str, percent: bool) -> dict[str, Any]:
