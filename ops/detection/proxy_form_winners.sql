@@ -212,9 +212,9 @@ LIMIT 200;
 \echo '   original is within 1% of the 10-K''s figure, a report row behind its value or not; beyond, refused,'
 \echo '   or left and listed where a report row holds its value and refused when current); where there is no'
 \echo '   10-K figure, or one on the value''s step more than 1% off it, set 4 leaves the row as it is, with no'
-\echo '   write and no count, and lists it in scale_up_retained, unless it holds the 10-K winner''s identity'
-\echo '   behind a current proxy row: there set 2''s agreement test refuses the company, naming the row. This'
-\echo '   file lists nothing for it before or after.'
+\echo '   write and no count, and lists it in scale_up_retained; where it holds the 10-K winner''s identity'
+\echo '   behind a current proxy row, set 2 promotes it if it agrees with the 10-K winner and refuses the'
+\echo '   company, naming the row, if it does not. This file lists nothing for it before or after.'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
