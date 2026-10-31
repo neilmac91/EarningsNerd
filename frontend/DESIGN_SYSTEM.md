@@ -2952,7 +2952,7 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
   indicator itself (a bar, a ring, a tick) takes the sage; a step's number or a percentage beside it
   rests in the ink (D-030).
 
-## 10. Charts (recharts)
+## 10. Charts
 
 **Financial source states (October 2026).** Consume the server’s separate `provenance.method`
 and `provenance.validation`; a calculated figure is not an error. Multi-period analysis uses
@@ -2997,34 +2997,29 @@ native hover titles as the only way to inspect provenance. Dense quarterly chart
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count and axis space, so a narrow screen never overlaps labels or widens the page.
 
-Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through `seriesColor(i, dark)`
-(E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a data mark's 45) — a
-CVD-validated **sequence** (blue↔yellow axis alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5
-series add direct labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
-(direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
-`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`; `chartTheme` carries the
-gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart chrome (grid and baseline, labels,
-crosshair, tooltip) uses the `chart.grid/label/crosshair/ref/tip` sub-tokens — theme-aware via
+Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through the engine's
+`chartTokens(dark).series` (E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a
+data mark's 45) — a CVD-validated **sequence** (blue↔yellow axis alternates early), taken 1→N in order, never skipped
+or re-sorted. At ≥5 series add direct labels/markers — color no longer carries alone. **Gain/loss never appear as
+series colors** (direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`. Chart chrome (gridlines,
+the zero rule, labels, the tooltip's inks) takes the `chart.grid/ref/label` sub-tokens and the text inks through the
+engine's `chartTokens(dark)` (`features/analysis/lib/charts/theme.ts`, below) — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).
+`chart.crosshair` and `chart.tip` have had no reader since Recharts left the app (E195 (D)); E255 retires them.
 Gridlines are `chart.grid`, `#DCD9D0` / `#525C6B`, Lc 16.8 / −15.0 on the card: visible enough to read a value
-across, quieter than the zero rule (the hairline they replaced measured Lc 0). The Recharts baseline takes
-`chart.grid` too: Recharts draws a gridline at each edge of the plot and the x-axis line over the bottom one, and in
-the hairline `#E5E7EB` (Lc 8.8 on the light card) the light baseline would have been the quietest rule
-(`chartThemeTokens.spec.ts`). The landing page's revenue bars draw their tick rules in `chart.grid` too, Lc 19.9 /
-−16.8 on their card, where the hairline `chart.axis` measured 11.8 / 0.0 (under APCA's low clip in dark): they are
-the homepage's gridlines, and `chart.axis` is retired (chief design on #1771; `chartThemeTokens.spec.ts`). Axis
-labels: 11–12px data face + tabular-nums; dark labels use `chart.label.dark` `#B8BEC7`, Lc −63.6 on the dark card, a
-step above the tertiary dark ink `#9CA3AF` (−48.6, under the 60 that 11–12px text needs), chrome still quieter than
-the secondary ink. The tooltip's series names follow secondary, `#D1D5DB` in dark, and its values primary:
-`chartTheme` carries them as `nameInk` (`text.secondary`) and `valueInk` (`text.primary`), and
-`tests/unit/chartThemeTokens.spec.ts` holds every `chartTheme` ink to the tailwind token it copies, per theme. The
-chart export's secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
-`tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its mark's paint: `ChartTooltip` takes the row's `color`,
-which Recharts gives from its series' own `fill`, else the series colour of its position (the peers chart's
-per-bar swatch, `swatchOf`, left with its panel, D-066).
-Tooltip cursor: `barCursorProps(dark)`, a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a
-hairline, as the spec renderer's column wash (`cursor`) is; no chart takes the Recharts kit since Financial trends
-moved onto the engine (D-067, below). `yAxisProps` width 44 is a default that currency and ticker labels override.
+across, quieter than the zero rule (the hairline they replaced measured Lc 0). The landing page's revenue bars draw
+their tick rules in `chart.grid` too, Lc 19.9 / −16.8 on their card, where the hairline `chart.axis` measured
+11.8 / 0.0 (under APCA's low clip in dark): they are the homepage's gridlines, and `chart.axis` is retired (chief
+design on #1771; `chartThemeTokens.spec.ts`). Axis labels: 11–12px data face + tabular-nums; dark labels use
+`chart.label.dark` `#B8BEC7`, Lc −63.6 on the dark card, a step above the tertiary dark ink `#9CA3AF` (−48.6, under
+the 60 that 11–12px text needs), chrome still quieter than the secondary ink. The tooltip's series names follow
+secondary, `#D1D5DB` in dark, and its values primary: the engine's `name` (`text.secondary`) and `figure`
+(`text.primary`), which `tests/unit/chart-theme.spec.ts` holds to those tokens in both themes. The chart export's
+secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
+`tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its series' legend swatch (`LegendSwatch`), in its
+mark's paint. The hover and focus cursor is the spec renderer's column wash (`cursor`, chart.1 teal @ 8% light / 16%
+dark), a fill over the period's column, not a hairline.
 The engine's value axis takes its widest tick label's width (`layout.ts`), so a currency printed by its code
 ("CHF 800B", "KRW 800T"; KRW, VND and XOF print by code, E203) widens the axis, where a fixed 70px once cut it.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
@@ -3039,8 +3034,13 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
 since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
-chart in the app draws with Recharts (the company page's peers chart left with its panel, D-066). It paints the
-engine's plan in literal SVG attributes from
+chart in the app draws with Recharts: the company page's peers chart left with its panel (D-066), and Recharts left
+the app with its chart kit (E195 (D)). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
+text names the package (the lockfile aside, and the gate itself, which plants its forms), a script outside
+the test homes whose strings name it once their escapes are decoded or that loads a module by a computed specifier
+or a folder, and a lockfile entry that installs it; `tests/e2e/no-recharts-in-build.spec.ts` fails a script under the
+production build's `.next/static` or `.next/server` that holds a Recharts class name. It paints the engine's plan in
+literal SVG attributes from
 `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for both themes. Since E195's token fold they name app
 tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the landing page's revenue
 bars take too; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and
@@ -3215,8 +3215,10 @@ timers and rAF loops, which need numbers). **No raw ms or bezier strings anywher
    `adjustFontFallback: false` and `fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']`
    (E199), so `--font-geist-mono` is `'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace` and
    the data role never paints in a proportional face; the generic `monospace` ends it, so the mono
-   stacks' literals after the var serve only where the var is unset. Five sanctioned exceptions, all
-   of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
+   stacks' literals after the var are never reached, and they cannot stand in for an unset var either:
+   a `var()` with no fallback whose variable is unset makes the whole declaration invalid at
+   computed-value time, so the property takes its inherited (or initial) value. Five sanctioned
+   exceptions, all of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
    with the var ahead of the `'Inter'` literal; `fontFamily.sans` is `['var(--font-body)', …]`
    and `--font-active` is `var(--font-body)`, both reaching `--font-inter` one hop later;
    `fontFamily.figure` leads with `"EN Figure Minus"`, the one-glyph `@font-face` in `globals.css`
