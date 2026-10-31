@@ -175,7 +175,10 @@ def operands_within_accession(provenance: Mapping[str, Any], accession: str | No
 
 
 def fact_operand(fact: Any) -> dict[str, Any]:
-    """Retain exact immediate operands and their lineage, including units and period bounds."""
+    """Retain exact immediate operands and their lineage, including units and period bounds. An analysis
+    figure's later-filing evidence (``first_reported``, MPA WP5a) goes with it, so a comparison or window
+    figure shows each figure it compares with that figure's evidence, as a calculated figure shows its
+    inputs' (item 5). A stored fact carries none."""
     operand = {
         name: _json_value(_get(fact, name))
         for name in ("concept", "value", "unit", "period_start", "period_end", "accession", "raw_tag", "filed_at")
@@ -185,6 +188,8 @@ def fact_operand(fact: Any) -> dict[str, Any]:
     operand["provenance"] = provenance
     if provenance.get("source_url"):
         operand["source_url"] = provenance["source_url"]
+    if _get(fact, "first_reported"):
+        operand["first_reported"] = dict(_get(fact, "first_reported"))
     return operand
 
 

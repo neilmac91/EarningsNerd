@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import event
 
 from app.services import facts_service as svc
+from app.services.fact_provenance import fact_operand
 from app.services.trend_analysis.first_reports import (
     BASIS_INPUTS, _CALCULATED, FirstReports, _has_finding, _ratio, basis_changed, differs, disagreement,
     own_period_ends,
@@ -823,6 +824,25 @@ class TestACalculatedFiguresInputsCarryTheirEvidence:
         series = next(series for series in dataset["series"] if series["concept"] == "net_margin")
         first, _last = series["window_pp_provenance"]["inputs"]
         assert self._inputs(first["provenance"])["revenue"]["value"] == 6_710.8e6
+
+    def test_a_comparison_and_the_cagr_show_each_figure_they_compare_with_its_evidence(self, db):
+        # A YoY's or CAGR's record lists the reported figures it compares: each goes with its own evidence, as a
+        # calculated figure's inputs do, so the page's dialog and the exports show it there as well.
+        company = _synced(db, _payload())
+        dataset = _build(db, company, "FY2018", "FY2021")
+        revenue = {period: _point(dataset, "revenue", period) for period in ("FY2018", "FY2019", "FY2020", "FY2021")}
+        assert revenue["FY2018"]["first_reported"]["accession"] == K18
+        assert revenue["FY2019"]["first_reported"]["accession"] == K19
+        comparisons = [revenue[period]["yoy_provenance"]["inputs"] for period in ("FY2019", "FY2020", "FY2021")]
+        assert [now.get("first_reported") for now, _before in comparisons] == [revenue["FY2019"]["first_reported"],
+                                                                              None, None]
+        assert [before.get("first_reported") for _now, before in comparisons] == [
+            revenue["FY2018"]["first_reported"], revenue["FY2019"]["first_reported"], None]
+        series = next(series for series in dataset["series"] if series["concept"] == "revenue")
+        start, end = series["cagr_provenance"]["inputs"]
+        assert start["first_reported"] == revenue["FY2018"]["first_reported"] and "first_reported" not in end
+        # A stored fact has no evidence to carry.
+        assert not any("first_reported" in fact_operand(row) for row in _rows(db, company))
 
 
 @pytest.mark.parametrize("concept, shown, own, finding", [
