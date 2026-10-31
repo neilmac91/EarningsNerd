@@ -34,7 +34,7 @@ from openpyxl import load_workbook
 
 from app.services.analysis_export_metadata import (
     BASIS_CHANGE_CAUSE, LATER_FILING_EVIDENCE, LATER_FILING_MESSAGE, NOT_MEANINGFUL_CAUSES, PDF_CLOSING, WORKBOOK_CLOSING,
-    pdf_closing, workbook_closing,
+    later_filing_entry, pdf_closing, workbook_closing,
 )
 from app.services.excel_export_service import build_analysis_workbook
 from app.services.export_service import ExportService
@@ -152,6 +152,15 @@ def test_both_files_print_the_line_with_the_shared_fixtures_places(case):
     closing = workbook_closing(True)
     assert [text for text in overview if LATER_FILING_MESSAGE in text] == [line]
     assert overview.index(line) + 1 == overview.index(closing)
+
+
+def test_only_the_later_filing_entry_goes_without_an_anchor():
+    """A note keeps the anchor main printed for it, whatever its id; only the line, which has no id, prints none."""
+    note = {"id": "", "letter": "a", "kind": "review", "reasons": ["source_conflict"], "message": "M.", "values": [],
+            "comparisons": []}
+    later = later_filing_entry(_case("evidence_with_no_change_of_basis")["dataset"])
+    html = ExportService()._analysis_notes_list([note], later)
+    assert (html.count('<li id="">'), html.count("<li>")) == (1, 1)
 
 
 def test_regn_reads_as_the_page_reads_it():
