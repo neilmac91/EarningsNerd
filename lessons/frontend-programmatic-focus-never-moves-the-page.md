@@ -23,22 +23,22 @@ when the target does not fit there. Use `revealInScrollBox` in `CopilotComposer.
 for it: that scrolls every ancestor.
 
 (b) The box and the target can still change size after the reveal, as a pane settles or a pre-fill grows the field:
-while focus stays in the target, bring it back to the box's nearest edge on each resize (a ResizeObserver on both), but
-only while it follows. A reveal starts the follow, and so do the reader's scroll and focus moving in once the target is
-in view; the reader's scroll that takes it out of view stops it, and a resize never starts it again. A reveal's own
-scroll reaches the box's listener a frame late, maybe after the target has grown: read a scroll to where the reveal left
-the box as the reveal's, not the reader's.
+while focus stays in the target, bring it back to the nearest edge of the box's part on screen on each resize (a
+ResizeObserver on both), but only while it follows. A reveal starts the follow, and so do the reader's scroll and focus
+moving in once the target is in view; the reader's scroll that takes it out of view stops it, and a resize never starts
+it again. A reveal's own scroll reaches the box's listener a frame late, maybe after the target has grown: read a scroll
+to where the reveal left the box as the reveal's, not the reader's.
 
-(c) The page moves at most once, for the press that opened or pre-filled the pane (Source, ⌘K or "/", "Ask about
-this"), and only after the pane has settled: once the target and its box hold still for two frames (twelve at most), if
-the target, its scroll margins included, is still not wholly in view below the site header, the page moves by the least
-distance that brings it there. Chief design's ruling on #1845 (E252): "Move it once per press or ⌘K. Never move it from
-a resize or the follow." Never in a fixed layer, which no page scroll moves, and never for a focus the press did not
-make: a starter's hand-off, a tab pressed back. A reader who wheels, touches, clicks or types before the target takes
-focus, or wheels, touches or clicks before the pane settles, has moved on, and the page stays. Gate the page-move sites
-to that one. A focus the user moves (Tab, the arrow keys between tabs, Escape's return) keeps the browser's scroll,
-which brings the next control into view where a keyboard user needs it, and so does a dialog's own focus (ui/Modal, the
-phone's sheet).
+(c) The page moves at most once, for the press that opened the pane on the target's tab or pre-filled it (Source, ⌘K or
+"/", "Ask about this"), and only after the pane has settled: once the target and its box hold still for two frames
+(twelve at most), if the target, its scroll margins included, is still not wholly in view below the site header, the
+page moves by the least distance that brings it there. Chief design's ruling on #1845 (E252): "Move it once per press or
+⌘K. Never move it from a resize or the follow." Never in a fixed layer, which no page scroll moves, and never for a
+focus the press did not make: a starter's hand-off, a tab pressed or switched back (an open on another tab arms
+nothing). A reader who wheels, touches, clicks or types before the target takes focus, or wheels, touches or presses
+before the pane settles, has moved on, and the page stays. Gate the page-move sites to that one. A focus the user moves
+(Tab, the arrow keys between tabs, Escape's return) keeps the browser's scroll, which brings the next control into view
+where a keyboard user needs it, and so does a dialog's own focus (ui/Modal, the phone's sheet).
 
 (d) Prove it in a real browser, on each path that hands focus over: with the target held below the fold until a frame
 after it takes focus, as the pane's height catches up; and, with nothing held, at the page's foot and its top in short

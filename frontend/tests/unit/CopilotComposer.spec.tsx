@@ -630,6 +630,32 @@ describe('CopilotComposer: a press moves the page once the pane settles, when th
     }
   })
 
+  it('a fraction of a pixel past the band is in view, and no move', () => {
+    const restore = withWindow({ height: 400 })
+    const page = watchThePage()
+    try {
+      const { ref, box, shell } = renderInColumn()
+      // The column's scroll offset lands on whole pixels, as a browser's can: the reveal asks 70.5px and gets 70, which
+      // leaves the shell's foot 0.5px past the column's and the window's (400px).
+      let top = 0
+      Object.defineProperty(box, 'scrollTop', {
+        configurable: true,
+        get: () => top,
+        set: (value: number) => {
+          top = Math.floor(value)
+        },
+      })
+      shell.getBoundingClientRect = () => rect(420.5 - top, 50)
+      ref.current?.focus({ revealOnPage: true })
+      frames(30)
+      expect(top).toBe(70)
+      expect(page.moves).toEqual([])
+    } finally {
+      page.restore()
+      restore()
+    }
+  })
+
   it('a pre-fill asks the same; one jump under prefers-reduced-motion', () => {
     const restore = withWindow({ height: 130 })
     const page = watchThePage()

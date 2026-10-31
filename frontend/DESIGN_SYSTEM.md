@@ -2442,18 +2442,19 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  frame late, so its lower part can sit below the fold, and a focus's own scroll moved the page there.
                  As the column settles or a pre-fill grows the field, the focused composer follows to the column's
                  foot from each reveal; a reader who scrolls it out of view stops the follow, and no resize restarts
-                 it. Once the pane has settled, the press that opened or pre-filled it (Source, ⌘K or "/", "Ask about
-                 this") moves the page once, by the least distance, when the composer's shell is still not wholly in
-                 view below the site header, its ring included: at the foot of a long page under 200% text the pane
-                 opens above the screen, and at the page's top in a short window below the fold (revealOnPage; chief
-                 design on #1845, E252: "Move it once per press or ⌘K. Never move it from a resize or the follow").
-                 Never in the sheet, never for a starter's hand-off or a tab pressed back, and not once the reader
-                 has wheeled, touched, clicked or typed. Gates: tests/e2e/source-press-keeps-the-page.spec.ts
-                 (Source, ⌘K, a pre-fill and a starter with the composer below the fold until the pane settles; a
-                 column that settles shorter; a pre-fill into a short column; under 200% text the page's foot, its
-                 top in short windows and the sheet; the foot at 100% text);
-                 tests/unit/copilotFocusKeepsThePage.spec.ts (every focus the pane's code moves passes preventScroll,
-                 or is pinned with why it keeps the browser's scroll; the page moves from one site);
+                 it. Once the pane has settled, the press that opened it on Ask or pre-filled it (Source, ⌘K or "/",
+                 "Ask about this") moves the page once, by the least distance, when the composer's shell is still not
+                 wholly in view below the site header, its ring included: at the foot of a long page under 200% text
+                 the pane opens above the screen, and at the page's top in a short window below the fold
+                 (revealOnPage; chief design on #1845, E252: "Move it once per press or ⌘K. Never move it from a
+                 resize or the follow"). Never in the sheet, never for a starter's hand-off or a tab pressed or
+                 switched back (an open on Filing arms nothing), and not once the reader has moved on: a wheel, a
+                 touch or a click before the pane settles, or a key before the composer takes focus. Gates:
+                 tests/e2e/source-press-keeps-the-page.spec.ts (Source, ⌘K, a pre-fill and a starter with the
+                 composer below the fold until the pane settles; a column that settles shorter; a pre-fill into a
+                 short column; under 200% text the page's foot, its top in short windows and the sheet; the foot at
+                 100% text); tests/unit/copilotFocusKeepsThePage.spec.ts (every focus the pane's code moves passes
+                 preventScroll, or is pinned with why it keeps the browser's scroll; the page moves from one site);
                  tests/unit/CopilotComposer.spec.tsx and tests/unit/AskCopilotRail.spec.tsx (each path's focus, what
                  scrolls, and the one page move).
                  The launcher and the coachmark's Try leave with the open, so a keyboard press on either hands

@@ -63,7 +63,7 @@ import { askFilingStream, type CopilotHandlers } from '@/features/filings/api/co
 import { analytics } from '@/lib/analytics'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
-import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
+import { FilingViewerProvider, useFilingViewer } from '@/features/filings/components/copilot/FilingViewerContext'
 import { PANE_PANEL_IDS } from '@/features/filings/components/copilot/SecondaryPaneTabs'
 import { rect, scrollBox, watchThePage } from './scrollBoxes'
 
@@ -480,6 +480,7 @@ describe('AskCopilotRail', () => {
         ['a wheel', () => fireEvent.wheel(window), []],
         ['a touch', () => fireEvent.touchStart(window), []],
         ['a click', () => fireEvent.pointerDown(document.body), []],
+        ['a click with no pointer press, as assistive technology and voice control send', () => fireEvent.click(document.body), []],
         ['a key', () => fireEvent.keyDown(document.body, { key: 'ArrowDown' }), []],
         ['⌘K, a press of its own, which arms it again', () => fireEvent.keyDown(document.body, { key: 'k', metaKey: true }), ['scrollBy']],
       ]
@@ -863,6 +864,68 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     const utils = render(page(baseProps.filingId))
     return { ...utils, showFiling: (filingId: number) => utils.rerender(page(filingId)) }
   }
+
+  it('a pane opened on the Filing tab arms nothing: a switch to Ask, by the code or a click, never moves the page (E252)', async () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    const win = window as { innerHeight: number }
+    const was = win.innerHeight
+    // 30px of the column shows, too little for the composer's shell: a page move is due whenever a press asks for it.
+    win.innerHeight = 130
+    const page = watchThePage()
+    const frames = (count: number) =>
+      act(() => {
+        for (let i = 0; i < count; i++) vi.advanceTimersToNextFrame()
+      })
+    let viewer: ReturnType<typeof useFilingViewer> = null
+    function Viewer() {
+      viewer = useFilingViewer()
+      return null
+    }
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(queryKeys.currentUser(), { id: 1 })
+    const pane = (open: boolean) => (
+      <QueryClientProvider client={queryClient}>
+        <FilingViewerProvider>
+          <Viewer />
+          <FilingWorkspace
+            open={open}
+            onOpenChange={vi.fn()}
+            summaryAvailable
+            secUrl="https://www.sec.gov/Archives/edgar/data/320193/"
+            copilotBody={<AskCopilotRail {...baseProps} open={open} onOpenChange={vi.fn()} embedded />}
+            filingBody={<div>The filing</div>}
+          >
+            <div>The summary</div>
+          </FilingWorkspace>
+        </FilingViewerProvider>
+      </QueryClientProvider>
+    )
+    try {
+      // The reader last saw the Filing tab, and the pane opens on it again, as Source or a chip opens it then.
+      const view = render(pane(false))
+      act(() => viewer!.openFiling())
+      view.rerender(pane(true))
+      const field = screen.getByLabelText(/ask about this filing/i)
+      composerColumn(field)
+      frames(30)
+      expect(page.moves, 'the Filing tab shows').toEqual([])
+      // The code switches to Ask, as a citation flow's return does: no event, and no move.
+      act(() => viewer!.setActiveView('copilot'))
+      frames(30)
+      expect(field).toHaveFocus()
+      expect(page.moves, 'the switch').toEqual([])
+      // Back to Filing, and a click with no pointer press on the Ask tab, as assistive technology sends.
+      act(() => viewer!.openFiling())
+      fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
+      frames(30)
+      expect(field).toHaveFocus()
+      expect(page.moves, 'the tab').toEqual([])
+    } finally {
+      page.restore()
+      win.innerHeight = was
+      vi.useRealTimers()
+    }
+  })
 
   it('a tab pressed or switched back to Ask never moves the page: only the press that opened the pane may (E252)', async () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })

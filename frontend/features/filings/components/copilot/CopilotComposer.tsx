@@ -28,8 +28,8 @@ export interface CopilotComposerHandle {
   /** Replace the input with `text`, focus as `focus` does, grow to fit, and put the caret at the end. */
   prefill: (text: string, options?: ComposerFocusOptions) => void
   /** When focus is in the composer (its field or Send), bring the shell that draws the focus ring around both to the
-   *  nearest edge of the box that scrolls it, never the page. Nothing moves when focus is elsewhere or the shell is
-   *  already in view. */
+   *  nearest edge of the part of the box that scrolls it on screen (revealInScrollBox), never the page. Nothing moves
+   *  when focus is elsewhere or the shell is already in view. */
   revealFocus: () => void
 }
 
@@ -99,11 +99,12 @@ function distanceToReveal(el: HTMLElement, box: HTMLElement) {
 }
 
 /**
- * Brings `el` to the nearest edge of the box that scrolls it, the least distance, and scrolls nothing else: not the
- * boxes around that box, and never the page. A focus's own scroll and scrollIntoView move every scrolling ancestor. The
- * desktop pane's height follows its top a frame late, so after the page above it moves its lower part can sit below the
- * fold, and focusing the composer then moved the page under the reader (E248; chief design on #1813: "A press on Source
- * should never move the page under the reader"). Instant, as that scroll was.
+ * Brings `el` to the nearest edge of the part of the box that scrolls it on screen (distanceToReveal), the least
+ * distance, and scrolls nothing else: not the boxes around that box, and never the page. A focus's own scroll and
+ * scrollIntoView move every scrolling ancestor. The desktop pane's height follows its top a frame late, so after the page
+ * above it moves its lower part can sit below the fold, and focusing the composer then moved the page under the reader
+ * (E248; chief design on #1813: "A press on Source should never move the page under the reader"). Instant, as that
+ * scroll was.
  */
 function revealInScrollBox(el: HTMLElement, box = scrollBoxOf(el)) {
   const by = box ? distanceToReveal(el, box) : 0
@@ -125,7 +126,9 @@ function revealOnPage(el: HTMLElement, box: HTMLElement) {
   if (band.fixed) return
   const { from, to } = marginBox(el)
   const by = toNearestEdge(from, to, band.top, band.bottom)
-  if (by) window.scrollBy({ top: by, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+  // Under a pixel the shell is in view, as the follow's inView reads it: a scroll offset that lands on a whole pixel
+  // can leave its margin a fraction past the band.
+  if (Math.abs(by) >= 1) window.scrollBy({ top: by, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
 }
 
 /**
@@ -228,9 +231,10 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
 
   // The box and the shell can still change size under a focused composer: the desktop pane's height follows its top a
   // frame late, the text size or the consent bar can shrink it later, and a pre-fill grows the field after it takes
-  // focus. While the shell follows, each change brings it back to the box's nearest edge if focus is in the composer.
-  // A reveal starts the follow, and so do the reader's scroll and focus moving in, once the shell is in view; the
-  // reader's scroll that takes it out of view stops it, and a resize never starts it again: the reader's place is theirs.
+  // focus. While the shell follows, each change brings it back to the nearest edge of the box's part on screen if focus
+  // is in the composer. A reveal starts the follow, and so do the reader's scroll and focus moving in, once the shell is
+  // in view; the reader's scroll that takes it out of view stops it, and a resize never starts it again: the reader's
+  // place is theirs.
   // The follow scrolls the column only, never the page.
   useEffect(() => {
     const shell = shellRef.current

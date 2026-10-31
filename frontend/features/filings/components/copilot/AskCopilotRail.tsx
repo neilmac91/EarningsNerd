@@ -66,8 +66,9 @@ const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
 }
 
-// The reader's own acts that drop a page reveal armed by a press, before the composer takes focus (armPageReveal).
-const READER_ACTS = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
+// The reader's own acts that drop a page reveal armed by a press, before the composer takes focus (armPageReveal). A
+// click with no pointer press before it is how assistive technology and voice control activate a control.
+const READER_ACTS = ['wheel', 'touchstart', 'pointerdown', 'click', 'keydown'] as const
 
 // Standalone launcher pinned bottom-RIGHT: clear of the home indicator and of the consent bar
 // (BOTTOM_CHROME_OFFSET adds the bar's height while it is mounted), like FilingWorkspace's.
@@ -241,12 +242,12 @@ export default function AskCopilotRail({
     copilotActiveRef.current = isCopilotActive
   }, [isCopilotActive])
 
-  // A press that opens the pane (Source, the coachmark's Try, an in-page Ask, ⌘K or "/") or pre-fills it may move the
-  // page once, after the pane settles, when the composer is still out of view (E252; CopilotComposer's revealOnPage).
-  // The composer's next focus spends it. canAsk can turn true seconds after the press, once usage or the plan loads: a
-  // reader who wheels, touches, clicks or types before then has moved on, so their act drops it and the page stays
-  // where they left it. A tab pressed back to Ask, or a citation flow's return, drops it the same way: the press that
-  // moved focus there was the reader's own, inside the pane.
+  // A press that opens the pane on Ask (Source, the coachmark's Try, an in-page Ask, ⌘K or "/") or pre-fills it may
+  // move the page once, after the pane settles, when the composer is still out of view (E252; CopilotComposer's
+  // revealOnPage). The composer's next focus spends it. canAsk can turn true seconds after the press, once usage or the
+  // plan loads: a reader who wheels, touches, clicks or types before then has moved on, so their act drops it and the
+  // page stays where they left it. An open on the Filing tab arms nothing: the composer takes focus later, from a tab
+  // pressed or switched back to Ask, or a citation flow's return, and none of those moves the page.
   const pageRevealRef = useRef<(() => void) | null>(null)
   const armPageReveal = useCallback(() => {
     pageRevealRef.current?.()
@@ -263,16 +264,16 @@ export default function AskCopilotRail({
     return armed !== null
   }, [])
   useEffect(() => {
-    if (open) armPageReveal()
-    else pageRevealRef.current?.()
+    if (!open) pageRevealRef.current?.()
+    else if (copilotActiveRef.current) armPageReveal()
   }, [open, armPageReveal])
   useEffect(() => () => pageRevealRef.current?.(), [])
 
   // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
   // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs). The
   // handle never moves the page while the pane settles: canAsk can turn true later, once usage or the
-  // plan loads (CopilotComposer's revealInScrollBox). Only the press that opened the pane moves it
-  // after (revealOnPage).
+  // plan loads (CopilotComposer's revealInScrollBox). Only a press moves it after (revealOnPage): the
+  // open on Ask, a pre-fill, ⌘K or "/".
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
     if (!open || !canAsk || !isCopilotActive) return
