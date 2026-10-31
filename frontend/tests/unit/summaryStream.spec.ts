@@ -169,20 +169,47 @@ describe('generateSummaryStream', () => {
     expect(isNonRetryableStreamError('Regenerating a summary is a Pro feature.', 'plan_required')).toBe(true)
   })
 
-  it.each([
-    ['the fair-use cap, coded', { detail: 'Summary generation allowance is exhausted', code: 'pro_fair_use_limit' }, undefined],
-    ['a plain rate limit', { detail: 'Too many summary requests. Try again shortly.' }, 60],
-  ])('gives %s on a 429 the wait it lifts after', async (_, body, wait) => {
+  const refusedOnHttp = async (status: number, body: Record<string, unknown>, headers: Record<string, string> = {}) => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'info').mockImplementation(() => {})
-    global.fetch = vi.fn(async () => new Response(JSON.stringify(body), { status: 429 })) as unknown as typeof fetch
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status, headers }))
+    global.fetch = fetchMock as unknown as typeof fetch
     const errorSpy = vi.fn()
     const run = generateSummaryStream(303, vi.fn(), vi.fn(), vi.fn(), errorSpy).catch(() => undefined)
     await vi.runAllTimersAsync()
     await run
-    expect(errorSpy).toHaveBeenCalledTimes(1)
-    // Pro's monthly cap lifts when the month turns, never in a minute; a plain 429 keeps its moment's wait.
-    expect(errorSpy.mock.calls[0][1]?.retryAfterSeconds).toBe(wait)
+    return { requests: fetchMock.mock.calls.length, calls: errorSpy.mock.calls }
+  }
+
+  // The same matrix on the HTTP channel, where a code counts only on its registered status (lib/api/client.ts).
+  const regenerate = 'Regenerating a summary is a Pro feature.'
+  it.each([
+    ['a coded plan gate, in words that name no plan', 403, { detail: 'Only some readers may do that.', code: 'plan_required' }, 'plan_required'],
+    ['a plan gate with no code (a server before E31)', 403, { detail: regenerate }, undefined],
+    ['a 403 with an unknown code', 403, { detail: regenerate, code: 'quota_v9' }, undefined],
+    ['a 403 carrying the fair-use code, registered on 429', 403, { detail: regenerate, code: 'pro_fair_use_limit' }, undefined],
+    ['a 429 carrying the plan code, registered on 403', 429, { detail: 'Too many summary requests. Try again shortly.', code: 'plan_required' }, undefined],
+  ])('reads %s by its registered status', async (_, status, body, code) => {
+    const { requests, calls } = await refusedOnHttp(status, body)
+    expect(requests).toBe(1)
+    expect(calls).toHaveLength(1)
+    expect([calls[0][0], calls[0][1]?.code]).toEqual([body.detail, code])
+    // A 403 holds whatever the reader retries: by its code when it carries one, by its words when it does not.
+    expect(isNonRetryableStreamError(calls[0][0], calls[0][1]?.code)).toBe(status === 403)
+    expect(isPaywallStreamError(calls[0][0], calls[0][1]?.code)).toBe(false)
+  })
+
+  it.each([
+    ['the fair-use cap, coded', { detail: 'Summary generation allowance is exhausted', code: 'pro_fair_use_limit' }, {}, undefined],
+    ['the fair-use cap, coded, with a stated wait', { detail: 'Summary generation allowance is exhausted', code: 'pro_fair_use_limit' },
+      { 'Retry-After': '120' }, 120],
+    ['a plain rate limit', { detail: 'Too many summary requests. Try again shortly.' }, {}, 60],
+  ])('gives %s on a 429 the wait it lifts after', async (_, body, headers, wait) => {
+    const { calls } = await refusedOnHttp(429, body, headers)
+    expect(calls).toHaveLength(1)
+    // Pro's monthly cap lifts when the month turns, never in a minute, unless the server states a wait; a plain 429
+    // keeps its moment's wait.
+    expect(calls[0][1]?.retryAfterSeconds).toBe(wait)
   })
 })
 

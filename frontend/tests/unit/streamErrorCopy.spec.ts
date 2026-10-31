@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
 import { pythonTokens, type Token } from './pythonTokens'
 import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
+import type { KnownErrorCode } from '@/lib/api/client'
 import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 
 /**
@@ -32,8 +33,10 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     never prints a sentence nobody mapped. Out of reach (planted as a gap in the self-check): a `status`
  *     set after its `.message`, read as the status before it.
  *  2. No stale lines: every key is still written by one of those modules, or is an answer the stream
- *     endpoint gives before it streams (ENDPOINT, below: the route's own HTTPExceptions and rate-limit
- *     detail, and its account check's), whose JSON detail the reader shows as the error.
+ *     endpoint gives before it streams (ENDPOINT, below: the route's own HTTPExceptions, its E31
+ *     CodedHTTPExceptions at their code's registered status, its rate-limit detail, and its account check's),
+ *     whose JSON detail the reader shows as the error. A coded raise that passes through words written
+ *     elsewhere (OPAQUE_CODED_DETAILS, each named once per raise) is held out of these word legs.
  *  3. Parity: the raw message, not the mapped one, decides the card. Exactly one admission.py error
  *     sentence opens the paywall card (the free monthly limit; Pro's fair-use pause never upsells), and it
  *     carries every phrase isPaywallStreamError routes on. Every phrase isNonRetryableStreamError routes
@@ -45,9 +48,10 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     from the error it streams in the block under `if user_is_unlimited:` (the billing-unlimited caller its
  *     usage gate blocked), and every 403 the endpoint answers with (a plan or account gate: a Free reader's
  *     force regeneration of a summary the page shows, an inactive account) must match
- *     isNonRetryableStreamError, so the stream never retries them and the card offers no Retry; the
- *     endpoint's 401 (a retry after a refresh or a sign-in can help), its 404 (kept retryable since round 3)
- *     and its 429 must not, and a status the table does not classify fails. A reworded sentence fails here
+ *     isNonRetryableStreamError, in its words and, for a coded one, by each code it can carry, so the stream
+ *     never retries them and the card offers no Retry; the endpoint's 401 (a retry after a refresh or a
+ *     sign-in can help), its 404 (kept retryable since round 3), its 429 and its 503 must not (one named code
+ *     excepted), and a status the table does not classify fails. A reworded sentence fails here
  *     until the matcher follows it.
  *  4. Voice: what the page shows has no em-dash, no exclamation mark and no "please", and reads as a sentence, a line of the map
  *     or an endpoint answer the map passes through as the backend wrote it (the account check's, since E45); a
@@ -240,21 +244,33 @@ const ENDPOINT = [
   { file: 'backend/app/routers/auth.py', fn: 'get_current_user' },
 ]
 
-interface Raised { file: string; line: number; status: number; text: string; opaque?: string }
+/** One answer: its status and words, and for a coded one (E31) the codes it can carry; or a coded raise whose words
+    are written elsewhere, by the name of its detail (`opaque`). */
+interface Raised { file: string; line: number; status: number; text: string; codes?: KnownErrorCode[]; opaque?: string }
 
-/** The HTTP status each E31 code answers with: backend/app/error_codes.py's REGISTERED_STATUS, read from its source, so a
-    `CodedHTTPException(ErrorCode.X, …)` reads at the status the server sends it with (app/api_errors.py). */
+/** backend/app/error_codes.py, read from its source: each ErrorCode member's wire value, and REGISTERED_STATUS, the HTTP
+    status each code answers with, so a `CodedHTTPException(ErrorCode.X, …)` reads at the status the server sends it
+    with (app/api_errors.py) and with the code the page reads. */
+const ERROR_CODES_SOURCE = readFileSync(path.join(REPO, 'backend/app/error_codes.py'), 'utf8')
+const CODE_VALUE: Record<string, KnownErrorCode> = Object.fromEntries(
+  [...ERROR_CODES_SOURCE.slice(ERROR_CODES_SOURCE.search(/^class ErrorCode\b/m)).split(/\n(?=\S)/)[0].matchAll(/^ +(\w+) = "(\w+)"$/gm)]
+    .map(([, name, value]) => [name, value as KnownErrorCode]),
+)
 const REGISTERED_STATUS: Record<string, number> = (() => {
-  const src = readFileSync(path.join(REPO, 'backend/app/error_codes.py'), 'utf8')
-  const start = src.indexOf('REGISTERED_STATUS')
-  const block = src.slice(start, src.indexOf('}', start))
+  // The definition, not the module docstring's mention of it.
+  const start = ERROR_CODES_SOURCE.search(/^REGISTERED_STATUS\b[^=\n]*=\s*\{/m)
+  const block = ERROR_CODES_SOURCE.slice(start, ERROR_CODES_SOURCE.indexOf('}', start))
   return Object.fromEntries([...block.matchAll(/ErrorCode\.(\w+):\s*(\d{3})/g)].map(([, name, code]) => [name, Number(code)]))
 })()
 
-/** The coded raises whose detail is no literal: words written elsewhere and passed through (#1824's rate limit, its
-    preparation refusal and its durable job's refusals, in generate_summary_stream). Each is named here by its
-    expression, so a new one fails the reader until it is named, and none is held to the word legs below. */
-const OPAQUE_CODED_DETAILS = ['exc.detail', 'refusal["message"]', 'str(exc)']
+/** The coded raises whose detail is no literal: words written elsewhere and passed through, in generate_summary_stream
+    (#1824). Each raise is named here by its detail's expression, once per raise, so a new one fails the reader until
+    it is named, even one spelled as a named one; none is held to the word legs below. */
+const OPAQUE_CODED_DETAILS = [
+  'exc.detail', // the request limiter's 429, re-raised with its code (its words are enforce_rate_limit's error_detail)
+  'refusal["message"]', // the durable admission's rate limit (admit_generation's sse_error words)
+  'str(exc)', // the durable job's refusals (summary_job_store.SummaryJobUnavailable), through `aliases`
+]
 
 /** The [start, end) token ranges of the depth-0 arguments of the call whose `(` is at `open` and `)` at `close`. */
 function callArgs(toks: Token[], open: number, close: number): Array<[number, number]> {
@@ -277,10 +293,34 @@ function callArgs(toks: Token[], open: number, close: number): Array<[number, nu
 const spelled = (toks: Token[], [start, end]: [number, number]) =>
   toks.slice(start, end).map((t) => (t.kind === 'str' ? JSON.stringify(t.text) : t.text)).join('')
 
-/** A `CodedHTTPException(...)` at `k`: its status, from the code's registered one (the code by `code=` or first; a
-    conditional only where its arms agree), and its detail (by `detail=` or second), or the name of a detail in
-    OPAQUE_CODED_DETAILS. Anything else it cannot read fails it. */
-function codedRaise(toks: Token[], k: number, where: string): { status: number; text: string } | { opaque: string } {
+/** The ErrorCode members a code expression can take: `ErrorCode.X`, or a conditional each of whose arms is one
+    (parenthesized or nested). Null for anything else (a name, a lookup, a call), whose code the reader cannot know. */
+function codeArms(toks: Token[], [start, end]: [number, number]): string[] | null {
+  if (isOp(toks[start], '(') && closing(toks, start) === end - 1) return codeArms(toks, [start + 1, end - 1])
+  let depth = 0
+  let branch = -1
+  for (let i = start; i < end; i++) {
+    if (toks[i].kind === 'op' && OPENERS.includes(toks[i].text)) depth++
+    else if (toks[i].kind === 'op' && CLOSERS.includes(toks[i].text)) depth--
+    else if (depth === 0 && toks[i].kind === 'name' && toks[i].text === 'if' && branch < 0) branch = i
+    else if (depth === 0 && toks[i].kind === 'name' && toks[i].text === 'else' && branch >= 0) {
+      // `A if condition else B`: the first `else` at this depth closes it (B may itself be a conditional).
+      const left = codeArms(toks, [start, branch])
+      const right = codeArms(toks, [i + 1, end])
+      return left && right && [...left, ...right]
+    }
+  }
+  const member = end - start === 3 && toks[start].kind === 'name' && toks[start].text === 'ErrorCode' &&
+    isOp(toks[start + 1], '.') && toks[start + 2].kind === 'name'
+  return branch < 0 && member ? [toks[start + 2].text] : null
+}
+
+/** A `CodedHTTPException(...)` at `k`: its status, from the code's registered one (the code by `code=` or first, read
+    by codeArms; a conditional only where its arms agree), the codes it can carry, and its detail (by `detail=` or
+    second), or the name of a detail in OPAQUE_CODED_DETAILS. Anything else it cannot read fails it. */
+function codedRaise(
+  toks: Token[], k: number, where: string,
+): { status: number; text: string; codes: KnownErrorCode[] } | { opaque: string } {
   const close = closing(toks, k + 1)
   const args = callArgs(toks, k + 1, close)
   const keyword = (name: string) =>
@@ -296,16 +336,15 @@ function codedRaise(toks: Token[], k: number, where: string): { status: number; 
     throw new Error(`${where}: a detail the reader cannot key by its text`)
   }
   const code = valueOf(keyword('code') ?? positional[0], 'code')
-  const statuses = new Set<number>()
-  for (let i = code ? code[0] : close; code && i < code[1]; i++) {
-    if (toks[i].kind === 'name' && toks[i].text === 'ErrorCode' && isOp(toks[i + 1], '.') && toks[i + 2]?.kind === 'name') {
-      const registered = REGISTERED_STATUS[toks[i + 2].text]
-      if (registered === undefined) throw new Error(`${where}: ErrorCode.${toks[i + 2].text} is not registered`)
-      statuses.add(registered)
-    }
-  }
+  const arms = code && codeArms(toks, code)
+  if (!arms) throw new Error(`${where}: a coded error with no status the reader can read`)
+  const statuses = new Set(arms.map((name) => {
+    const registered = REGISTERED_STATUS[name]
+    if (registered === undefined) throw new Error(`${where}: ErrorCode.${name} is not registered`)
+    return registered
+  }))
   if (statuses.size !== 1) throw new Error(`${where}: a coded error with no status the reader can read`)
-  return { status: [...statuses][0], text: lit.text }
+  return { status: [...statuses][0], text: lit.text, codes: [...new Set(arms.map((name) => CODE_VALUE[name]))] }
 }
 
 /** The index of the bracket that closes the one at `open`. */
@@ -586,7 +625,10 @@ describe('the summary stream error sentences the filing page maps', () => {
       { file: 'p.py', line: 7, status: 403, text: 'A Pro feature.' },
     ])
     expect(() => raisedErrors('def f():\n    raise HTTPException(status_code=403, detail=reason)', 'q.py', 'f')).toThrow(/cannot key/)
-    // E31's coded raises, at their code's registered status, the detail by keyword or second; the opaque ones named.
+    // E31's coded raises, at their code's registered status and with the codes they can carry, the detail by keyword
+    // or second; the opaque ones named. error_codes.py is read at its definitions.
+    expect([CODE_VALUE.PLAN_REQUIRED, REGISTERED_STATUS.PLAN_REQUIRED]).toEqual(['plan_required', 403])
+    expect(Object.keys(REGISTERED_STATUS).filter((name) => !CODE_VALUE[name]), 'a registered code with no member').toEqual([])
     const coded = [
       'def stream():',
       '    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail="A Pro feature.")',
@@ -594,23 +636,33 @@ describe('the summary stream error sentences the filing page maps', () => {
       '    raise CodedHTTPException(ErrorCode.PRO_FAIR_USE_LIMIT, ("Capped " "now."), headers=h)',
       '    raise CodedHTTPException(ErrorCode.FREE_ALLOWANCE_EXHAUSTED if n else ErrorCode.PLAN_REQUIRED, detail="Spent.")',
       '    raise CodedHTTPException(aliases[exc.code], str(exc), headers=headers)',
+      '    raise CodedHTTPException((ErrorCode.PLAN_REQUIRED if a else ErrorCode.PLAN_REQUIRED if b else ErrorCode.FREE_ALLOWANCE_EXHAUSTED), "Nested.")',
     ].join('\n')
     expect(raisedErrors(coded, 'c.py', 'stream')).toEqual([
-      { file: 'c.py', line: 2, status: 403, text: 'A Pro feature.' },
-      { file: 'c.py', line: 3, status: 401, text: 'Sign in.' },
-      { file: 'c.py', line: 4, status: 429, text: 'Capped now.' },
-      { file: 'c.py', line: 5, status: 403, text: 'Spent.' },
+      { file: 'c.py', line: 2, status: 403, text: 'A Pro feature.', codes: ['plan_required'] },
+      { file: 'c.py', line: 3, status: 401, text: 'Sign in.', codes: ['auth_required'] },
+      { file: 'c.py', line: 4, status: 429, text: 'Capped now.', codes: ['pro_fair_use_limit'] },
+      { file: 'c.py', line: 5, status: 403, text: 'Spent.', codes: ['free_allowance_exhausted', 'plan_required'] },
       { file: 'c.py', line: 6, status: 0, text: '', opaque: 'str(exc)' },
+      { file: 'c.py', line: 7, status: 403, text: 'Nested.', codes: ['plan_required', 'free_allowance_exhausted'] },
     ])
-    // The real route holds each named opaque detail, and no other: a new one fails the reader until it is named.
-    expect([...new Set(endpointRaises().flatMap((answer) => (answer.opaque ? [answer.opaque] : [])))].sort())
+    // The real route holds each named opaque detail once per raise, and no other: a new one fails the reader until
+    // it is named, even one spelled as a named one.
+    expect(endpointRaises().flatMap((answer) => (answer.opaque ? [answer.opaque] : [])).sort())
       .toEqual([...OPAQUE_CODED_DETAILS].sort())
     // And it reads the route's coded plan gate (the force regeneration's), not only its uncoded 403s.
-    expect(endpointErrors()).toContainEqual(expect.objectContaining({ status: 403, text: 'Regenerating a summary is a Pro feature.' }))
+    expect(endpointErrors()).toContainEqual(
+      expect.objectContaining({ status: 403, text: 'Regenerating a summary is a Pro feature.', codes: ['plan_required'] }),
+    )
     expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED, detail=reason)', 'q.py', 'f')).toThrow(/cannot key/)
     expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.GENERATION_PAUSED if n else ErrorCode.PLAN_REQUIRED, detail="x")', 'q.py', 'f'))
       .toThrow(/no status/)
     expect(() => raisedErrors('def f():\n    raise CodedHTTPException(code, detail="x")', 'q.py', 'f')).toThrow(/no status/)
+    // An arm or a lookup the reader cannot know may send another status, so it is no status, not the one it can see.
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED if n else fallback, detail="x")', 'q.py', 'f'))
+      .toThrow(/no status/)
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(CODES.get(k, ErrorCode.PLAN_REQUIRED), "x")', 'q.py', 'f')).toThrow(/no status/)
+    expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.PLAN_REQUIRED if n, "x")', 'q.py', 'f')).toThrow(/no status/)
     expect(() => raisedErrors('def f():\n    raise CodedHTTPException(ErrorCode.NOT_A_CODE, detail="x")', 'q.py', 'f')).toThrow(/not registered/)
     expect(() => raisedErrors('def f():\n    raise HTTPException(detail="No status")', 'q.py', 'f')).toThrow(/no status/)
     expect(() => raisedErrors('def g():\n    pass', 'q.py', 'f')).toThrow(/is gone/)
@@ -684,14 +736,26 @@ describe('the summary stream error sentences the filing page maps', () => {
     }
     const unclassified = answers.filter((answer) => !NO_RETRY_HELPS.has(answer.status) && !A_RETRY_CAN_HELP.has(answer.status))
     expect(unclassified.map((answer) => `${answer.file}:${answer.line} ${answer.status}`), 'say here whether a retry can help this status').toEqual([])
-    const misread = answers
-      .filter((answer) => isNonRetryableStreamError(answer.text) !== NO_RETRY_HELPS.has(answer.status))
-      .map((answer) => `${answer.file}:${answer.line} ${answer.status} "${answer.text}"`)
+    // A coded answer (E31) is read twice: by its words alone, as a page before E31 reads it, and with each code it can
+    // carry, as the page reads it now (StreamingSummaryDisplay passes the code, and a known one decides first). One
+    // code's verdict is known to disagree with its status: #1824 ships `generation_paused` (503) as non-retryable,
+    // where the E31 contract's §3 row gives it a Retry; reported on #1848 for the contract's owner to settle. It is
+    // named here, so any other disagreement fails.
+    const KNOWN_CODE_DISAGREEMENTS: Record<string, number> = { generation_paused: 503 }
+    const misread = answers.flatMap((answer) =>
+      [undefined, ...(answer.codes ?? [])]
+        .filter((code) => !(code && KNOWN_CODE_DISAGREEMENTS[code] === answer.status))
+        .filter((code) => isNonRetryableStreamError(answer.text, code) !== NO_RETRY_HELPS.has(answer.status))
+        .map((code) => `${answer.file}:${answer.line} ${answer.status}${code ? ` (${code})` : ''} "${answer.text}"`),
+    )
     expect(
       misread,
-      'a 403 must match isNonRetryableStreamError (features/summaries/api/summaries-api.ts) in its own words, or its card ' +
-        'offers a Retry that repeats it; a 401, 404 or 429 must not',
+      'a 403 must match isNonRetryableStreamError (features/summaries/api/summaries-api.ts) in its own words and by its ' +
+        'code, or its card offers a Retry that repeats it; a 401, 404, 429 or 503 must not',
     ).toEqual([])
+    const stale = Object.entries(KNOWN_CODE_DISAGREEMENTS)
+      .filter(([code, status]) => !answers.some((answer) => answer.status === status && answer.codes?.includes(code as KnownErrorCode)))
+    expect(stale.map(([code, status]) => `${status} ${code}`), 'a known disagreement the endpoint no longer answers with: drop it').toEqual([])
   })
 
   it('prints every answer the stream endpoint gives in the product voice, mapped or passed through', () => {

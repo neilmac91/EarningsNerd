@@ -8,6 +8,7 @@
   stay code-less: that job belongs to the filing, ``summary_job_store.finish_job`` stores the event's code on it, and
   ``summary_jobs.observe_job`` replays it to every later observer of the failed job, other accounts among them, so
   one account's paywall would reach them. There the refusal is filed under ``summary_generation_failed``, as before.
+- An account code outside ``STREAM_CODES`` is refused on either run, as ``sse_error`` refuses one.
 """
 from __future__ import annotations
 
@@ -70,3 +71,10 @@ async def test_an_account_refusal_is_coded_on_the_readers_stream_and_never_on_a_
     lease = SimpleNamespace(filing_id=7)
     monkeypatch.setattr(summary_job_store, "reserve_job_usage", lambda held: verdict if held is lease else pytest.fail())
     assert await _events(_run(durable_lease=lease)) == [{"type": "error", "message": message}]
+
+
+@pytest.mark.parametrize("durable_lease", [None, SimpleNamespace(filing_id=7)])
+def test_an_account_code_is_a_stream_code_on_either_run(durable_lease):
+    # As sse_error refuses one: an HTTP-only code on a stream is a code the client ignores.
+    with pytest.raises(ValueError, match="plan_required is not a stream code"):
+        admission._account_code(_run(durable_lease), summary_pipeline.ErrorCode.PLAN_REQUIRED)

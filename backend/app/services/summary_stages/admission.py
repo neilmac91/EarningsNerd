@@ -158,10 +158,15 @@ async def join_or_lead(run: GenerationRun) -> AsyncIterator[dict]:
 def _account_code(run: GenerationRun, code: "pipeline.ErrorCode") -> dict:
     """E31's code for a refusal of this account (its allowance, its fair-use cap), as the stream event's ``code``.
 
-    None for a durable worker's run: its job belongs to the filing, and ``summary_job_store.finish_job`` stores the
+    Nothing for a durable worker's run: its job belongs to the filing, and ``summary_job_store.finish_job`` stores the
     event's code on it, which ``summary_jobs.observe_job`` replays to every later observer of the failed job, other
     accounts among them. One account's paywall must not reach them, so that refusal stays filed under
-    ``summary_generation_failed``, as before E31."""
+    ``summary_generation_failed``, as before E31.
+
+    Raises ``ValueError`` for a code outside ``STREAM_CODES``, on either run, as ``app.error_codes.sse_error`` does: the
+    client ignores such a code on a stream."""
+    if code not in pipeline.STREAM_CODES:
+        raise ValueError(f"{code.value} is not a stream code")
     return {} if run.durable_lease is not None else {"code": code.value}
 
 

@@ -157,8 +157,9 @@ Neil's 2026-10-25 acceptance of additive codes) and edits only the added key:
 - `backend/tests/unit/test_cached_filings_pool_lifetime.py`: the export and Pro-gate body equalities (the
   `[{"detail": ...}] * 8` forms). Its editing lease is serialized between A (E121, F19) and C (E171).
 - Substring pins (`test_expired_trial_gating.py`, also a locked anchor, `test_excel_export.py`,
-  `test_summary_unready_refresh.py`, `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message` and stay
-  untouched.
+  `test_force_regenerate_keeps_xbrl.py`) read `detail` and `message` and stay untouched.
+  `test_summary_unready_refresh.py`'s regenerate 403 pin now reads the whole body, its code included (C's summary
+  slice).
 
 **Telemetry note.** `code` is an exact key of the Sentry `EventScrubber` denylist (for Apple's form-posted OAuth
 code, `app/utils/telemetry_bootstrap.py`). A request body's `code` key is withheld from Sentry events. Response
@@ -175,9 +176,10 @@ once with a known code on the wrong status:
 2. **A**: backend tests for `api_errors.py`, the `dependencies.py` emitters and `get_current_user`, through real
    ASGI requests: status, headers, `detail` byte-identical, `code` present.
 3. **B**: `create_checkout_session`'s 403 through ASGI, with and without the handler registered.
-4. **C**: `summaryStream.contract.spec.ts` (a locked anchor; additive fixture rows only, documented),
-   `summaryStreamAuthRefresh.spec.ts`, the Copilot and analysis reader specs, and the admission SSE events with
-   `code`.
+4. **C**: `summaryStream.spec.ts` (the summary reader's coded frames and HTTP refusals; the locked
+   `summaryStream.contract.spec.ts` holds success frames only and stays untouched), `summaryStreamAuthRefresh.spec.ts`,
+   the Copilot and analysis reader specs, and the admission SSE events with `code` (`test_summary_refusal_codes.py`,
+   with the anchor in `test_summary_pipeline_anchors_admission.py`).
 5. **E**: the registered handler's ASGI test against `main.app`.
 
 Shared parser tests alone do not close E31. Only producer-to-consumer output from every owner does.
