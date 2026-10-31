@@ -4205,6 +4205,8 @@ class TestProxyStatementItemsSync:
         assert margin[0] == pytest.approx((12_345e6 / 47_000e6 if stored_ratio else
                                            _MRK_INCOME[2021] / _MRK_REVENUE[2021]) * 100)
         assert margin[2:] == (("P26", "DEF 14A") if stored_ratio else ("K23", "10-K"))
+        assert db.query(FinancialFact).filter_by(company_id=company.id, concept="net_margin", fiscal_period="FY",
+                                                 period_end=date(2021, 12, 31), is_latest=True).count() == 1
         proxies = db.query(FinancialFact).filter_by(company_id=company.id, form="DEF 14A", is_latest=True)
         assert [row.concept for row in proxies] == (["net_margin"] if stored_ratio else [])
         db.close()

@@ -457,7 +457,7 @@ unused since generation became account-required in #619; kept because migrations
   per-share unit, or which is an amount or per-share row under a filing whose own currency is
   another (a convenience translation an earlier sync stored in the series currency); rows with no
   fiscal period are left alone. A row from a filing the payload does not name and that was filed
-  strictly after the payload's newest filing (its Filing row's date, else its filing's `filed` in the
+  strictly after the payload's newest filing, other than a proxy statement's (its Filing row's date, else its filing's `filed` in the
   payload, else its provenance's `filed_at`; a row with none, or one filed that same day, is not protected;
   `facts/currency.py::protected_rows`) holds its key on the sync's two paths, ratios included, while
   it is in the payload's series currency, its filing's stored rows vote no other currency (below), and

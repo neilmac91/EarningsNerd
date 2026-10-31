@@ -51,7 +51,7 @@ filed strictly after the response's newest filing, where that filing's date is k
 row's, else the row's recorded `filed_at`), and makes the newest such row current at its period; a
 row with no known date, or filed the same day, is not protected, and nor is one under a filing whose
 stored rows read another currency (more of them in one other currency than in any other), a
-convenience translation the sync demotes. A switch is proven where such a filing is an annual report
+convenience translation the sync demotes, or a proxy statement's row, whose figures never win a period. A switch is proven where such a filing is an annual report
 that holds a current row, whose rows read another currency (more of them than any other, over two
 period-ends), and that reports a period at least as late as the report that decides the response's
 currency: the response predates a switch of the reporting currency, so the sync stores nothing from
@@ -64,7 +64,7 @@ currency that it names or cannot protect. So run the sync once companyfacts show
 latest filing: a sync whose response names every stored filing makes its own row the one current row
 at every period it presents, whatever earlier syncs or the per-filing writer left there, except a
 period where a row of a filing filed strictly after its own was current (a newer-filing rule by date,
-each row dated by its own filing) and a quarter whose unlabelled twin in that unit is current, both
+each row dated by its own filing; never a proxy statement's row) and a quarter whose unlabelled twin in that unit is current, both
 left as found, and never a row this repair quarantined, for any reason (a rolled-back insert among
 them): such a period is left as the sync found it, a gap only where nothing else was current. The sync leaves one thing for this
 repair: an annual ratio (a margin or the current ratio) that an older sync computed from

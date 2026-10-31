@@ -109,8 +109,9 @@ promotion, read every writer that sets `is_latest=False` and check that none lea
 on purpose.
 
 Never let a payload demote a row of a filing it does not name and that was filed after it, in the
-currency the sync reads, unless those newer filings' rows prove a switch (below) or that filing's
-own stored rows vote another currency, and never make the payload's older figure current at a key
+currency the sync reads, unless those newer filings' rows prove a switch (below), that filing's
+own stored rows vote another currency, or the row is a proxy statement's (`is_proxy_form`: its figures
+never win a period, so the sync demotes it whatever its date), and never make the payload's older figure current at a key
 such a row holds, current or not: make the newest such row current there. A sync can persist a
 payload older than stored rows: a delayed SEC response, another process's earlier fetch, or the sync
 a new Filing triggers (the TTL bypass) before SEC's companyfacts shows that filing. Such a row
