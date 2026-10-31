@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 
 // react-markdown is ESM-heavy; the teaser only needs the text to land in the DOM.
 vi.mock('react-markdown', () => ({
@@ -28,11 +28,11 @@ describe('AnalysisTeaser (free-user lock)', () => {
     global.fetch = originalFetch
   })
 
-  it('renders the locked sample without a single network call', () => {
+  it('renders the locked sample without a single network call', async () => {
     const fetchSpy = vi.fn()
     global.fetch = fetchSpy as unknown as typeof fetch
 
-    render(<AnalysisTeaser forTicker="MSFT" />)
+    const { container } = render(<AnalysisTeaser forTicker="MSFT" />)
 
     // The PeekLocked chrome + upgrade CTA are present…
     expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
@@ -41,7 +41,9 @@ describe('AnalysisTeaser (free-user lock)', () => {
     const { company_name, ticker, periods } = demo.dataset
     expect(screen.getByText(`Sample: ${company_name} (${ticker}), ${periods[0].key}–${periods[periods.length - 1].key}. Upgrade to run it for MSFT.`)).toBeInTheDocument()
     expect(company_name).toBe('Apple Inc.')
-    // …and NO backend/AI endpoint was touched (the whole point of the canned demo).
+    // …and NO backend/AI endpoint was touched (the whole point of the canned demo), the trend charts included: they come
+    // in their own chunk (TrendCharts.tsx's dynamic import), so the calls are counted once its four plots are drawn.
+    await waitFor(() => expect(container.querySelectorAll('[data-analysis-chart] > svg')).toHaveLength(4))
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

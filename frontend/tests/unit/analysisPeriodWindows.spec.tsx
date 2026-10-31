@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 // PeekLocked's UpgradeModal calls useRouter; no app router is mounted under vitest.
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
@@ -115,8 +115,11 @@ describe('formatAnalysisWindow', () => {
 })
 
 describe('the demo run on the page', () => {
-  it('prints its window as a range in the teaser, in its text, its tooltips and its accessible names', () => {
+  it('prints its window as a range in the teaser, in its text, its tooltips and its accessible names', async () => {
     render(<AnalysisTeaser />)
+    // The teaser's four trend charts come in their own chunk (TrendCharts.tsx's dynamic import): the page is read once
+    // their plots are drawn, so the charts' text and attributes are scanned with the rest.
+    await waitFor(() => expect(document.querySelectorAll('[data-analysis-chart] > svg')).toHaveLength(4))
     expect(windowPrints(document.body)).toEqual([])
     expect(document.body.textContent).toContain('Revenue CAGR was +8.7% over FY2020–FY2025')
     expect(document.body.textContent).toContain('Revenue CAGR · FY2020–FY2025 · +8.7%')
