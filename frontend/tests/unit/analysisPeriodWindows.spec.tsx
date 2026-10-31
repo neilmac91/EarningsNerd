@@ -275,7 +275,7 @@ describe('where a window is read and joined', () => {
         const template = destination(node.parent)
         return !(ts.isJsxExpression(template) && reactOwn(template.parent))
       }
-      // A component's prop counts too (ChartTooltip prints its label).
+      // A component's prop counts too (a chart's tooltip prints its label).
       return ts.isJsxExpression(node) && !reactOwn(node.parent)
     }
     const visit = (node: ts.Node) => {

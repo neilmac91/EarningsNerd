@@ -5,19 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// recharts measures the DOM, which jsdom can't do: stub it, as analysis-teaser.spec.tsx does.
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-}))
 vi.mock('react-markdown', () => ({ default: ({ children }: { children: string }) => <div>{children}</div> }))
 vi.mock('remark-gfm', () => ({ default: () => null }))
 // The page reads its link through useSearchParams; PeekLocked's UpgradeModal calls useRouter.

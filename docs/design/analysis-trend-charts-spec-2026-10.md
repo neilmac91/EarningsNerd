@@ -156,10 +156,11 @@ says so; everything else follows the spec.
 
 - **Where each rule lives.** `scale.ts`: A1, A1b, A2, A3, F$ and compact $. `model.ts`: A5, A8, A9, A11, A12, the
   legend items and values (A10 without the wrapping, which is the renderer's) and the footnotes. `layout.ts`: A3b,
-  A4, A6, A7, A13 and A13b, and every pixel a renderer draws: bar rects with their stub and clip flags and label
-  baselines, the "—" and "n/m" gap texts, the off-scale bands, and the note glyphs' x. §4.0's interfaces are the
-  prototype's shape; the repository's types carry the same values, split between the model (data and strings) and
-  the layout (pixels).
+  A4, A6, A7, A13 and A13b, G1's stack (`CHART_FONT`, beside the 11 px size and the 0.6 em advance its widths take;
+  `components/ui/Chart.tsx` held it until E195 (D)), and every pixel a renderer draws: bar rects with their stub and
+  clip flags and label baselines, the "—" and "n/m" gap texts, the off-scale bands, and the note glyphs' x. §4.0's
+  interfaces are the prototype's shape; the repository's types carry the same values, split between the model (data
+  and strings) and the layout (pixels).
 - **Currency.** Amounts carry their filed currency (`lessons/frontend-xbrl-amounts-carry-their-own-currency.md`).
   Every `$` in this spec stands for the panel's own symbol from `lib/format.ts`'s `currencySymbol`: `¥2B`, `CA$2B`,
   and a code-like symbol followed by a space, `CHF 2B`. A unit that is not an ISO 4217 code prints no symbol, and the
@@ -350,13 +351,14 @@ says so; everything else follows the spec.
     halves, held to the tokens by `chartThemeTokens.spec.ts`. The sequences are `Chart.tsx`'s own, so no chart can
     index the light one in dark. Its x-axis line takes the grid too: Recharts draws a gridline at each edge of the
     plot and that line over the bottom one, and in the hairline `#E5E7EB` (Lc 8.8 on the light card) the light
-    baseline would have been the quietest rule; `chartThemeTokens.spec.ts` holds the baseline to the gridlines'
-    contrast. `chartExport.ts` needed no change: its `EXPORT_TEXT` mirrors `text.primary` and `text.secondary`, which
-    the fold leaves alone, and no Recharts chart exports a PNG. The renderer's PNG takes the card's own inks: its
-    header and notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary
-    measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend
-    names take it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the card's
-    notes on screen (`#B8BEC7`).
+    baseline would have been the quietest rule; `chartThemeTokens.spec.ts` held the baseline to the gridlines'
+    contrast. (E195 (D) removed that kit with Recharts, and those cases of `chartThemeTokens.spec.ts` with it; the
+    file keeps the landing page's tick-rule case.) `chartExport.ts` needed no change: its `EXPORT_TEXT` mirrors
+    `text.primary` and `text.secondary`, which the fold leaves alone, and no Recharts chart exports a PNG. The
+    renderer's PNG takes the card's own inks: its header and notes paint in the legend names' ink. That was `#B8BEC7`
+    on dark while the export's own dark secondary measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to
+    `#D1D5DB` (−77.3), and since E194 the legend names take it, so on dark the PNG's header and notes paint in the
+    export's own secondary, a step above the card's notes on screen (`#B8BEC7`).
   - `DESIGN.md` (item 3) documents `chart-1-dark…6-dark` in its frontmatter, as the sidecar's colorMeta does. DS §1
     and §10 (items 4 and 5) name the dark halves, and §10's dark labels are `chart.label.dark` `#B8BEC7`. Of item 5,
     DS §10's paragraph on the renderer states its inks; E195 rewrote its Recharts trend-chart contract (the hollow
@@ -395,7 +397,7 @@ says so; everything else follows the spec.
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
   tests). M14, M15 and M19 run on the renderer (above), and M20 stays out of the product.
 - **A chart without an analysis dataset (E195 (D)).** The engine builds a one-metric bar chart from a plain
-  definition, for the filing page's Financial trends, which a later pull request draws with it.
+  definition, and the filing page's Financial trends draws with it in the analysis charts' full look (D-067).
   `lib/charts/barChart.ts`'s `buildBarChart` takes categories (a key, a one-line tick and a long name), one series'
   values and an axis, and returns the analysis charts' own model, so the layout, the readout and the renderer take it as
   it is: one bar mark in chart-1, every value printed (A4), on a money axis in its series' XBRL unit's currency
@@ -427,8 +429,23 @@ says so; everything else follows the spec.
     current ratio, negative working capital and four years of equity) and synthetic filings (CNY, a bank's net interest
     income, one year, every year withheld, EPS under a dollar, a clipped margin). M3's bare zero and M12's glyphs widen
     for them only by what such an axis prints: its currency's sign before `0`, `0×`, and the `DATA_FACE_GLYPHS`
-    characters, × among them. Every model's period keys must be unique. `chart-readout.spec.ts` reads every case through
-    Financial trends' describer.
+    characters, × among them. Every model's period keys must be unique. `barCases` keys every case with Financial
+    trends' own slots, and `chart-readout.spec.ts` reads every case through its own describer (both in
+    `features/fundamentals/lib/trendChart.ts`).
+  - Financial trends (`features/fundamentals/components/FundamentalsTrendChart.tsx`, its slots and describer in
+    `features/fundamentals/lib/trendChart.ts`) builds the chosen metric's chart from its filing-scoped series: a slot per year the filing reports, withheld years included, keyed `FY2025` and
+    ticked `2025` (a point with no fiscal year takes its period end's year, and a name two points share keys each by
+    its place, since a key given twice is refused), on a money axis in the series' own unit (a per-share unit in cents),
+    a percent axis or a ratio axis by the metric's kind, chart-1 whatever the metric. Its describer heads a year
+    `FY2025 · year ended Sep 27, 2025` and reads calculated from the point's `provenance.method`; it reads no notes,
+    since the card keeps its source-check badge and Sources & checks (DS §10). A metric whose every year is withheld
+    takes `unavailable` and says so at the card's height. The card prints the model's footnotes under the plot in the
+    `note` ink; where A4 finds no tier it says only "Values don’t fit at this width.", since no metrics table on the
+    filing page lists the series' years. `tests/unit/fundamentals-trend-chart.spec.tsx` reads the engine's DOM, and
+    `tests/e2e/filing-fundamentals-chart.spec.ts` holds the card on a production build: the named SVG, chart-1 bars, each
+    printed value the fixture's own to its last digit, the values stop at the newest fiscal year, net margin on a percent axis and the DOM checks of
+    `fixtures/chartChecks.ts` for one card (whose zero rule now reads a ratio axis's `0×`), in both themes at 390 and
+    1280 px, and every series at 390, 360 and 320 px under 200% text.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
@@ -457,11 +474,11 @@ says so; everything else follows the spec.
     `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that list, and the wait's sample test holds it
     to the sample, so a sign the face lacks paints in no plot (G2).
   - Outside the spec renderer, `fmtCurrency` prints the same codes (E203; chief design on #1652), so the KPI strip,
-    the source dialog's figure (`font-figure`, which falls through to Geist Mono), What changed's figures and the
-    Recharts charts that remain (`Chart.tsx`: filing fundamentals and peers) paint no sign in the fallback;
-    `formatters.spec.ts` holds it over the ISO 4217 list. The metrics table prints bare figures. A code is wider than
-    the sign: the KPI strip takes its columns from its widest value (E197), and the fundamentals chart's value axis
-    takes its labels' width (`width="auto"`), where a fixed 70px cut "KRW 800.0T", and "CHF 800.0B" before E203.
+    the source dialog's figure (`font-figure`, which falls through to Geist Mono) and What changed's figures paint no
+    sign in the fallback; `formatters.spec.ts` holds it over the ISO 4217 list. The metrics table prints bare figures.
+    A code is wider than the sign: the KPI strip takes its columns from its widest value (E197), and a chart's value
+    axis its widest tick's (`layout.ts`), where Financial trends' fixed 70px under Recharts cut "KRW 800.0T", and
+    "CHF 800.0B" before E203.
 - **What this spec supersedes.** Since the renderer replaced the Recharts charts (report §10, step 7; E195), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and since E194 only a note that questions the number letters,
@@ -1045,7 +1062,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | `s4` coral | Series 4 (not used by these charts) | `#CF7159` | 58.2 / 3.26 | `#E8927C` (`chart-4-dark`) | −51.9 / 6.17 | final (on the dark card the light hex is −36.9) |
 | `s5` slate-blue | Series 5 (not used) | `#6E7E9C` | 65.1 / 3.92 | `#97A6C2` (`chart-5-dark`) | −50.1 / 5.98 | final (on the dark card the light hex is −30.0) |
 | `s6` periwinkle | Series 6 (not used) | `#8B7BC0` | 61.4 / 3.53 | `#AFA2DE` (`chart-6-dark`) | −52.8 / 6.32 | final (on the dark card the light hex is −33.7) |
-| `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | DS `barCursorProps` |
+| `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | the engine's `cursor` (`charts/theme.ts`) |
 | `tip` | Tooltip surface and border (specified, not yet verified) | DS `chart.tip` | | DS `chart.tip` | | DS |
 
 **Thresholds.**
@@ -1095,6 +1112,11 @@ The landing page's revenue bars take the first series' dark half, the dark label
 takes a review ink. The card's notes (the subtitle, the footnotes, and the band's and the tooltip's letters) keep
 `chart.label.dark` rather than the table's `note-dark` `#D1D5DB`, for the E194 note's reason: their light half is the
 tertiary step, and `note-dark` is the secondary step in dark (§0.5, "The tokens").)
+(E195 (D), 2026-10-30: Recharts left the app, and `components/ui/Chart.tsx`'s kit with it: the `cursor` row's source
+was the DS's `barCursorProps` and now names the engine's own `cursor`, and the tooltip value ink the 2026-10-25 note
+names in `Chart.tsx` is gone, so the renderer's `cursor` and `figure` hold those values alone. The renderer's tooltip
+takes the Card recipe's surface and border, so the `tip` row's `chart.tip`, like `chart.crosshair`, has no reader;
+E255 retires both tokens.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
@@ -1130,7 +1152,8 @@ serialisation cannot lose them.
    `chart-note-layout`. Delete `features/analysis/lib/chartNoteLayout.ts`.
 
 **Status.** Every item is done: 6 (E199) and 7 (E195), and 1 to 5 with E195's token fold (C), 2026-10-29. Of item 5,
-E195 rewrote DS §10's Recharts trend-chart contract and the fold its dark labels.
+E195 rewrote DS §10's Recharts trend-chart contract and the fold its dark labels. E195 (D) then removed item 2's mirror
+with Recharts (the note above).
 
 ### 3.9 Tooltip and interaction states
 
