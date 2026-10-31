@@ -80,5 +80,19 @@ describe('the live hero’s figures', () => {
         'Revenue $416.2B', 'Net income $112.0B',
       ])
     }
+    // A row marked adjusted or non-GAAP fills no tile (chief design's review of #1877): each tile names the GAAP figure.
+    for (const name of ['Adjusted diluted EPS', 'Non-GAAP diluted EPS', 'Diluted EPS (non GAAP)', 'Diluted EPS, as adjusted']) {
+      expect(await shown([...base, { metric: name, currentPeriod: '$8.10', deltaPercent: 25.0 }]), name).toEqual([
+        'Revenue $416.2B', 'Net income $112.0B',
+      ])
+    }
+    // Listed ahead of the GAAP rows, an adjusted row is passed over and the GAAP row fills the tile.
+    expect(await shown([
+      { metric: 'Total net sales', currentPeriod: '$416.2B', deltaPercent: 6.4 },
+      { metric: 'Adjusted net income', currentPeriod: '$120.0B', deltaPercent: 21.0 },
+      { metric: 'Net income', currentPeriod: '$112.0B', deltaPercent: 19.5 },
+      { metric: 'Non-GAAP diluted earnings per share', currentPeriod: '$8.10', deltaPercent: 25.0 },
+      { metric: 'Diluted earnings per share', currentPeriod: '$7.46', deltaPercent: 22.7 },
+    ])).toEqual(['Revenue $416.2B', 'Net income $112.0B', 'EPS (diluted) $7.46'])
   })
 })

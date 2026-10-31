@@ -119,6 +119,10 @@ const METRIC_MATCHERS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'EPS (diluted)', pattern: /^(?=.*\bdiluted\b)(?=.*\b(?:eps|earnings per share)\b)/i },
 ]
 
+// Each tile names the filing's GAAP figure, so a row marked adjusted or non-GAAP ("Adjusted diluted EPS", "Non-GAAP net
+// income") fills none of them (chief design's review of #1877): the tile takes the GAAP row, or the hero shows the others.
+const NON_GAAP = /\b(?:adjusted|non[\s‐‑-]?gaap)\b/i
+
 // A figure the server wrote whole from the filing's data, as a replaced figure is ("$133,050,000,000", "EUR
 // 30,600,000,000": backend/app/schemas/summary.py _format_xbrl_value, provenance_service._swap_in_filed_figures).
 const FILED_FIGURE = /^(\$|[A-Z]{3} )(-?)(\d{1,3}(?:,\d{3})+)$/
@@ -138,7 +142,7 @@ const pickMetrics = (summary: SummaryPayload): ExampleMetric[] => {
   const picked: ExampleMetric[] = []
   for (const { label, pattern } of METRIC_MATCHERS) {
     // Defensive: the payload is external — tolerate null entries in the array.
-    const fact = facts.find((f) => f?.metric && pattern.test(f.metric) && f.currentPeriod)
+    const fact = facts.find((f) => f?.metric && !NON_GAAP.test(f.metric) && pattern.test(f.metric) && f.currentPeriod)
     if (fact?.currentPeriod) {
       picked.push({ label, value: heroFigure(fact.currentPeriod), deltaPercent: fact.deltaPercent })
     }
