@@ -3163,3 +3163,45 @@ def test_principal_review_5718798403_item_2_a_retained_scale_up_off_the_10k_figu
             assert applied["scale_up_retained"] == plan["scale_up_retained"]
             assert repair.snapshot(_filing_row(db, filing)) == stored
             assert row.id not in {r.fact_id for r in db.query(FinancialFactRevision)}
+
+
+def _retained_at_the_winners_identity(db, monkeypatch, ticker, fy2026):
+    """FedEx's FY2026 10-K, read in units (4,433 for 4,433 million), which the backfill before the fix scaled up to P26's
+    figure, 4,433 million; a sync before the fix left P26's row current at FY2026. The FY2026 10-K, the year's only one,
+    tags FY2026 at ``fy2026``, on the value's scale step but more than 1% off it: the year's winner, at the identity the
+    filing row holds."""
+    payload = _fdx_with_proxy({})
+    for item in _items(payload):
+        if item["form"] == "10-K" and item["end"] == "2026-05-31":
+            item["val"] = fy2026
+    return _cross_checked(db, monkeypatch, ticker, payload, 4_433.0, period=("2026-05-31", "2025-06-01", "2026-07-20"))
+
+
+@pytest.mark.parametrize("fy2026", [4_500e6, 44_330e6], ids=["10k_1.5pct_off", "10k_10x_the_value"])
+def test_principal_review_5718798403_item_2_a_retained_scale_up_at_the_winners_identity_behind_a_proxy_row_refuses(
+        monkeypatch, fy2026):
+    # Principal review 5718798403, item 2, and the review of #1840, round 8: a retained scale-up is not out of the step's
+    # reach. Set 4 leaves the FY2026 10-K's row, the exemption standing (today's 10-K figure is on the value's scale
+    # step), and lists it off_10k_figure. But the row holds the year's 10-K winner's identity behind P26's current row:
+    # set 2, retiring P26's row, would promote it, and its agreement test refuses the company on value, naming the row,
+    # as for any filing row the 10-K contradicts there. The listing never reaches a preview. Alike since #1682.
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _retained_at_the_winners_identity(
+            db, monkeypatch, "PRW", fy2026)) as states:
+        for db, company, payload, filing in states.values():
+            row = _filing_row(db, filing)
+            [p26] = _rows(db, company, concept="net_income", period_end=date(2026, 5, 31), is_latest=True)
+            assert (row.is_latest, row.accession, row.source, float(row.value), _check(row)["original_value"],
+                    p26.form) == (False, _accn(company, "K26"), "companyfacts", 4_433e6, 4_433.0, "DEF 14A")
+            assert svc.extract_authoritative_values(payload)[("net_income", date(2026, 5, 31))] == fy2026
+            listed = []
+            refuse = proxy._Planner.refuse
+
+            def spy(self, row_id, why):
+                listed.append([(e["fact_id"], e["reason"], e["gap"]) for e in self.retained])
+                return refuse(self, row_id, why)
+
+            with monkeypatch.context() as patch:
+                patch.setattr(proxy._Planner, "refuse", spy)
+                _refuses(db, company, payload, _refusal(db, (p26.id, f"the filing row holding the 10-K's identity (fact "
+                                                                     f"{row.id}) disagrees with the 10-K on: value")))
+            assert listed[0] == [(row.id, "off_10k_figure", round(4_433e6 / fy2026, 6))]

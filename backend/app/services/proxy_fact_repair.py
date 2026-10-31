@@ -560,7 +560,9 @@ class _Planner:
             # proxy figure holds (set 4's) is listed where the 10-K does not confirm it: with no 10-K figure, the step
             # cannot tell a parse read in units (SSS) from a right parse a proxy tagged at the wrong scale replaced;
             # with one on the value's step but more than 1% off it, a unit fix and a later restatement may justify the
-            # value as filed, or may not. Neither is replaced or refused; each is read against its filing.
+            # value as filed, or may not. Set 4 writes neither, and lists each to be read against its filing. Neither is
+            # out of the step's reach, though: one at the 10-K winner's identity behind a current proxy row is what set
+            # 2 would promote, and its agreement test refuses the company there, naming the row.
             if _scale_up(value, original) and _scale_up_stands(value, authority):
                 self._retained(row_id, state, value, original, authority)
                 continue
