@@ -1425,6 +1425,206 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
         engine.dispose()
 
 
+# The registration's closes, as above: the invite's read (invite-only), then the account's unit, then the finalizer.
+# The account's unit holds a transaction at its release (its read, or the audit row's refresh after its commit) but
+# for a refused redemption, whose rollback ends it; a refused invite or a breached password ends after the invite's
+# read, and the finalizer finds nothing open.
+_REGISTER_CLOSES = {
+    "register": [True, False],
+    "register_existing": [True, False],
+    "register_invite": [True, True, False],
+    "register_invite_invalid": [True, False],
+    "register_breached": [True, False],
+    "register_redeemed": [True, False, False],
+    "register_fails": [True, False],
+    "register_unavailable": [True, False],
+}
+_REGISTER_ANSWERS = {
+    "register_invite_invalid": (403, {"detail": "A valid invite is required to register."}),
+    "register_breached": (
+        400, {"detail": "This password has appeared in a known data breach. Choose a different one."},
+    ),
+    "register_fails": (500, None),
+    "register_unavailable": (503, {"detail": "New accounts are paused."}),
+}
+_REGISTER_INVITE_ONLY = {"register_invite", "register_invite_invalid", "register_breached", "register_redeemed"}
+_REGISTER_CREATED = {"register", "register_invite"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_REGISTER_CLOSES))
+async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tmp_path, case):
+    """The registration reads its invite (invite-only) in one thread-pool unit and finds or creates the account, with
+    the invite's redemption and the register audit row, in a second, each released before what follows it: the
+    breached-password check and the hash after the first, either mail after the second. So one request alone has no
+    connection out across the check, the hash or a send, and nine requests on four slots make no checkout, statement or
+    release on the loop and leave nothing for the finalizer, their refusals and a failing write included. On the loop
+    the route read the invite and the account there, kept the invite's connection checked out across the check and the
+    hash, and issued the verification token on the request's session (E121). A new account is unverified, holds the
+    hash and, invited, its redeemed invite and the beta tag, with one register audit row and its funnel events; an
+    existing address gets the account-exists notice and nothing written; a refusal or a failed write leaves no account
+    and every invite unused."""
+    from datetime import datetime, timezone
+
+    from app.config import settings
+    from app.models import AccountAgreement, AuditLog, InviteCode, User
+    from app.routers import auth
+    from app.services import account_mail_service, auth_account_service, email_service, invite_service
+    from app.services.legal_readiness_service import CollectionUnavailable
+    from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'register.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, InviteCode, AccountAgreement, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"register-{i}@example.com" for i in range(9)]
+    with sessions() as db:
+        if case == "register_existing":
+            db.add_all([User(email=email, is_active=True, hashed_password="the stored hash", full_name=f"Owner {i}")
+                        for i, email in enumerate(emails)])
+        if case in _REGISTER_INVITE_ONLY:
+            expires = datetime.now(timezone.utc) + timedelta(days=7)
+            db.add_all([InviteCode(code_hash=invite_service._hash_token(f"invite-{i}"), email=email if i % 2 else None,
+                                   expires_at=expires)
+                        for i, email in enumerate(emails)])
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    held_across: list[tuple[str, int]] = []  # each wait's connections out
+    sent: list[tuple[str, str, int]] = []  # each mail: its kind, its address and the connections out
+    events: list[tuple[str, str, dict, int]] = []
+
+    async def breached(_password: str) -> bool:
+        held_across.append(("breach check", engine.pool.checkedout()))
+        await asyncio.sleep(0.01)  # HaveIBeenPwned's round trip, an await
+        return case == "register_breached"
+
+    def hash_password(_password: str) -> str:
+        held_across.append(("hash", engine.pool.checkedout()))
+        time.sleep(0.02)  # the hash's cost, blocking the password thread
+        return "the new hash"
+
+    async def verification(mail: str, email: str) -> None:
+        sent.append((mail, email, engine.pool.checkedout()))
+
+    async def account_exists(*, to_email: str, **_kwargs: Any) -> None:
+        sent.append(("account_exists", to_email, engine.pool.checkedout()))
+
+    def capture(distinct_id: str, name: str, properties: dict) -> None:
+        events.append((distinct_id, name, properties, engine.pool.checkedout()))
+
+    def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+        db.query(User.id).first()
+        raise RuntimeError("the unit failed after its first query")
+
+    def collection_closes(db: Session, *_args: Any, **_kwargs: Any) -> None:
+        db.query(User.id).first()
+        raise CollectionUnavailable("New accounts are paused.")
+
+    if case == "register_fails":
+        monkeypatch.setattr(auth_account_service, "create_password_account", fails_after_its_first_query)
+    if case == "register_unavailable":
+        monkeypatch.setattr(auth_account_service, "create_password_account", collection_closes)
+    if case == "register_redeemed":
+        monkeypatch.setattr(invite_service, "redeem_invite", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only" if case in _REGISTER_INVITE_ONLY else "public")
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "REGISTER_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "is_password_pwned", breached)
+    monkeypatch.setattr(auth, "get_password_hash", hash_password)
+    monkeypatch.setattr(auth, "capture_event", capture)
+    monkeypatch.setattr(account_mail_service, "send_account_mail_after_response", verification)
+    monkeypatch.setattr(email_service, "send_account_exists_email", account_exists)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        invite = "never-issued" if case == "register_invite_invalid" else f"invite-{i}"
+        payload = {**ACCOUNT_AGREEMENT, "email": emails[i], "password": "Sup3rSecretPassw0rd!", "full_name": f"New {i}"}  # gitleaks:allow
+        if case in _REGISTER_INVITE_ONLY:
+            payload["invite_code"] = invite
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post("/api/auth/register", json=payload)
+
+    try:
+        # One request alone first: no connection out across its waits or its mail, which follows its last release.
+        responses = [await send(0)]
+        assert all(out == 0 for _, out in held_across), held_across
+        assert all(out == 0 for *_, out in sent), sent
+        assert all(out == 0 for *_, out in events), events
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        # Every checkout waited in the thread pool, and every statement and release ran there: none on the loop.
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once; the dependency's finalizer found nothing open.
+        assert [request.open_at_close for request in request_sessions] == [_REGISTER_CLOSES[case]] * 9
+        status, payload = _REGISTER_ANSWERS.get(case, (200, auth._REGISTER_OPAQUE))
+        assert [response.status_code for response in responses] == [status] * 9
+        if payload is not None:
+            assert [response.json() for response in responses] == [payload] * 9
+        # Each request's waits are the ones its case reaches: a refused invite reaches none, a breached password the
+        # check alone.
+        waits = {"register_invite_invalid": [], "register_breached": ["breach check"]}.get(case, ["breach check", "hash"])
+        assert sorted(name for name, _ in held_across) == sorted(waits * 9)
+        created = case in _REGISTER_CREATED
+        mails = ([("verification", email) for email in emails] if created
+                 else [("account_exists", email) for email in emails] if case == "register_existing" else [])
+        assert sorted(mail[:2] for mail in sent) == sorted(mails)
+        with sessions() as db:
+            accounts = sorted((user.email, user.hashed_password, bool(user.email_verified), bool(user.is_beta))
+                              for user in db.query(User))
+            ids = {user.email: str(user.id) for user in db.query(User)}
+            invites_used = [invite.used_at is not None for invite in db.query(InviteCode)]
+            audits = db.query(AuditLog).filter(AuditLog.action == "register").count()
+        invited = case == "register_invite"
+        if created:
+            assert accounts == sorted((email, "the new hash", False, invited) for email in emails)
+        elif case == "register_existing":
+            assert accounts == sorted((email, "the stored hash", False, False) for email in emails)
+        else:
+            assert accounts == []
+        assert invites_used == ([invited] * 9 if case in _REGISTER_INVITE_ONLY else [])
+        assert audits == (9 if created else 0)
+        # Each new account's funnel events name it: the redemption's (whether the invite named an address) and the
+        # signup's.
+        expected = [(ids[email], auth.EVENT_SIGNUP_COMPLETED, {"is_beta": invited, "invited": invited})
+                    for email in emails] if created else []
+        if invited:
+            expected += [(ids[email], auth.EVENT_INVITE_REDEEMED, {"email_bound": bool(i % 2)})
+                         for i, email in enumerate(emails)]
+        assert sorted((event[:3] for event in events), key=repr) == sorted(expected, key=repr)
+    finally:
+        engine.dispose()
+
+
 # The connections routes' closes, as above. The auth lookup's read runs on into the route's one unit, whose release
 # ends it; a provider the route does not know is refused before any unit, and the finalizer ends the read, in the
 # thread pool, with nothing awaited in between. An unlink's last statement is its audit row's refresh.
@@ -5226,12 +5426,11 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
-# each entry is a route E121 (``auth.py``) names in ``tasks/todo.md``, E171's last route having left on
-# 2026-10-25. The blank line between entries keeps in-place number edits on different entries mergeable in
-# any order.
-ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/auth.py", "register"): 5,
-}
+# each entry was a route E121 (``auth.py``) names in ``tasks/todo.md``, E171's last route having left on
+# 2026-10-25 and E121's last, register, with its register family (2026-10-31). Every async route's ceiling is
+# now 0; a new entry needs a reviewed reason. The blank line between entries keeps in-place number edits on
+# different entries mergeable in any order.
+ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {}
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.
 MIN_ASYNC_SESSION_FUNCTIONS = 60

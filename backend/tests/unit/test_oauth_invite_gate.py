@@ -518,8 +518,9 @@ def test_password_account_creation_is_reached_only_through_explicit_gates():
     """Registration is the sole password creator; admin provisioning cannot invent assent.
     Keep the admin boundary authenticated even though its service now always refuses."""
     references = _function_references_to(PASSWORD_ACCOUNT_CREATOR)
+    # The one reference is register's own account unit, the thread-pool unit nested in it (E121).
     assert references == [
-        ("routers/auth.py", "register"),
+        ("routers/auth.py", "register_account"),
     ], (
         f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {references}; only validated registration may call it."
     )
@@ -529,6 +530,7 @@ def test_password_account_creation_is_reached_only_through_explicit_gates():
     ], "only the authenticated admin handler may reach free-account provisioning"
 
     (register,) = _function_defs(ast.parse((APP_DIR / "routers" / "auth.py").read_text(encoding="utf-8")), "register")
+    assert len(_function_defs(register, "register_account")) == 1, "the account unit must be register's own"
     body = ast.unparse(register)
     assert "settings.REGISTRATION_MODE" in body and "invite_service.validate_invite(" in body, (
         "register() no longer gates account creation on REGISTRATION_MODE + validate_invite"
