@@ -95,9 +95,9 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     // Do not continue any request: a new SDK endpoint must remain inside this fixture too.
     if (url.origin !== INGEST) return route.abort('blockedbyclient')
     // This build lazy-loads its extensions, the session recorder among them, from /static on the assets host, which
-    // is the api host here. Serve the package's own copies as PostHog's CDN does, so a recorder the configuration
-    // failed to disable could really start.
-    const asset = /^\/static\/[\w.-]+\.js$/.test(url.pathname) ? path.join(POSTHOG_PACKAGE, 'dist', path.basename(url.pathname)) : null
+    // is the api host here, under a version segment (/static/1.440.0/lazy-recorder.js). Serve the package's own
+    // copies as PostHog's CDN does, so a recorder the configuration failed to disable could really start.
+    const asset = /^\/static\/(?:[\w.-]+\/)?[\w.-]+\.js$/.test(url.pathname) ? path.join(POSTHOG_PACKAGE, 'dist', path.basename(url.pathname)) : null
     if (asset && existsSync(asset)) return route.fulfill({ contentType: 'text/javascript', body: readFileSync(asset) })
     wire.push({ url: request.url(), payload: decodeRequest(request) })
     if (url.pathname.startsWith('/e') && holdEvent) {
