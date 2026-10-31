@@ -48,7 +48,8 @@ const CHART_SERIES_DARK = [
   '#AFA2DE', // 6 periwinkle
 ] as const
 
-/** How many colours the sequence has, for a chart that cycles one series through them (FundamentalsTrendChart). */
+/** How many colours the sequence has, for a chart that cycles one series through them; none does since Financial trends
+ *  moved onto the engine, which draws every metric in chart-1 (D-067). */
 export const CHART_SERIES_COUNT = CHART_SERIES.length
 
 /** Positional series color — 0-indexed, in the theme's half. Charts should never need more than 6. */

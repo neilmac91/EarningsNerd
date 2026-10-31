@@ -1,27 +1,38 @@
 'use client'
-
-import { queryKeys } from '@/lib/queryKeys'
-import { useContext, useMemo, useState } from 'react'
+/**
+ * Financial trends on the filing page: one metric's annual figures as reported in this filing, drawn through the trend
+ * charts' engine as /analysis draws its charts (E195 (D), D-067): `buildBarChart` models the active series, the frame
+ * lays it out at the card's measured width and the spec renderer paints it, so the plot is 320 px with 11 px ticks, every
+ * metric is chart-1, every value is printed on its bar (A4), a withheld year prints "—" in its slot, and one values stop
+ * reads a year at a time beside the column-wash tooltip, which marks a derived figure "· Calculated"
+ * (docs/design/analysis-trend-charts-spec-2026-10.md §0.5; DESIGN_SYSTEM.md §10). The card's own chrome stays: the
+ * heading and its source-check badge, the subtitle, the metric picker, the footnote and Sources & checks. While the
+ * query loads, bones in the shapes of the picker, the plot and the two lines under it hold the card's room, so it lands
+ * where its bones stood (DESIGN_SYSTEM.md §11).
+ */
+import { useContext, useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-
-import {
-  getFilingFundamentals,
-  FundamentalsResponse,
-} from '@/features/fundamentals/api/fundamentals-api'
+import { queryKeys } from '@/lib/queryKeys'
+import { getFilingFundamentals, type FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtDecimal, fmtPercent } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, seriesColor, CHART_SERIES_COUNT, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
+import { Card, Skeleton, cx, inputClasses } from '@/components/ui'
+import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
+import SourceChecks from '@/features/analysis/components/SourceChecks'
+import { useChartFont } from '@/features/analysis/components/useChartFont'
+import { buildBarChart, unitCurrency, type BarAxis } from '@/features/analysis/lib/charts/barChart'
+import { CARD_HEIGHT } from '@/features/analysis/lib/charts/layout'
+import { readouts } from '@/features/analysis/lib/charts/readout'
+import { chartTokens } from '@/features/analysis/lib/charts/theme'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
-import SourceChecks from '@/features/analysis/components/SourceChecks'
+import { slotsOf, trendDescriber } from '@/features/fundamentals/lib/trendChart'
 
 type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 
 // Curated, ordered set of concepts to offer (only those present in the response are shown).
 // `concept` keys match the backend's standardized vocabulary (facts_service._CONCEPT_UNITS). Each label is stored in
-// sentence case, as the picker, the tooltip, the footnote and the source checks show it (E34).
+// sentence case, as the picker, the tooltip, the values stop, the footnote and the source checks show it (E34).
 const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'revenue', label: 'Revenue', fmt: 'usd' },
   // Financial-institution revenue lines (only present for banks/insurers/BDCs — a bank shows these
@@ -50,22 +61,34 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'shareholders_equity', label: "Shareholders' equity", fmt: 'usd' },
 ]
 
+/** What the plot says, at the card's height, for a metric whose every year is withheld (§3.4: a chart that does not apply
+ *  keeps its card and says why). */
+const NO_FIGURES = 'No multi-year data available for this metric.'
+/** Where A4 finds no label tier even at the widest slot (an amount in thousands of trillions of won, on a phone), the bars
+ *  print no values and the card says so. Not the analysis card's VALUES_DONT_FIT: no metrics table on the filing page
+ *  lists this series' years, so the line stops at what is true. */
+const VALUES_DONT_FIT_HERE = 'Values don’t fit at this width.'
 
-// Derive an ISO-4217 currency code from a fact's stored unit (e.g. "CNY", "CNY/shares" -> "CNY",
-// "pure" -> USD fallback, never used for percentages). Foreign issuers report in their own
-// currency, so a CNY/EUR value must NOT render with a "$".
-const currencyFromUnit = (unit: string | undefined): string => {
-  const code = (unit || 'USD').split('/')[0].trim().toUpperCase()
-  return /^[A-Z]{3}$/.test(code) ? code : 'USD'
-}
+/** The value axis a metric takes: an amount in its series' XBRL unit, whose currency the engine prints (CNY, never "$";
+ *  "USD/shares" is a per-share amount, in cents), a margin in percentage points, or a multiple. */
+const axisOf = (fmt: FmtKind, unit: string): BarAxis =>
+  fmt === 'pct' ? { kind: 'percent' } : fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit }
 
-const formatValue = (value: number, fmt: FmtKind, currency = 'USD'): string => {
-  if (fmt === 'pct') return fmtPercent(value, { digits: 1 })
-  // A ratio (e.g. current ratio 2.5) is a dimensionless multiple — never a "$" or "%".
-  if (fmt === 'ratio')
-    return `${fmtDecimal(value, { minDigits: 2, maxDigits: 2 })}×`
-  if (fmt === 'eps') return fmtCurrency(value, { currency, digits: 2, compact: false })
-  return fmtCurrency(value, { currency, compact: true })
+/** The line under the plot: where the figures come from, an amount's reporting currency where it is not the dollar, and
+ *  the metric. */
+const footnoteOf = (label: string, currency: string | null) =>
+  `Annual figures from SEC filings (XBRL)${currency && currency !== 'USD' ? `, reported in ${currency}` : ''}. ${label} by fiscal year.`
+
+/** A bone that holds the room of a line the loaded card prints: the line's own text lays out invisible in the line's
+ *  type and spacing (the className), so the bone wraps as the line will at any width and text size, and covers it.
+ *  aria-hidden, as every raw bone is: the card's one status names the wait. */
+function TextBone({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <div aria-hidden="true" className={cx('grid w-fit max-w-full', className)}>
+      <span className="invisible col-start-1 row-start-1">{children}</span>
+      <Skeleton className="col-start-1 row-start-1" />
+    </div>
+  )
 }
 
 export default function FundamentalsTrendChart({
@@ -78,10 +101,11 @@ export default function FundamentalsTrendChart({
   // Optional context line under the heading (the filing page passes one to frame the source).
   subtitle?: string
 }) {
-  // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
-  // light fallback so provider-less renders/SSR/tests never throw. Chrome comes from the
-  // Chart factories (chartTheme/gridProps/axis props/ChartTooltip) — no local hexes.
+  // The chart's inks are SVG attributes, not classes: the theme comes off the context (not useTheme), with a light
+  // fallback, so a render without a provider (tests) never throws.
   const dark = useContext(ThemeContext)?.theme === 'dark'
+  const tokens = chartTokens(dark)
+  const fontReady = useChartFont()
 
   const { data, isLoading, isError } = useQuery<FundamentalsResponse>({
     queryKey: queryKeys.filingFundamentals(filingId),
@@ -103,41 +127,34 @@ export default function FundamentalsTrendChart({
     ? selected
     : available[0]?.key ?? null
   const active = FEATURED.find((f) => f.key === activeKey)
-  // Reporting currency of the active series (CNY for an FPI like Alibaba), so values render in the
-  // as-filed currency rather than an implied USD "$".
-  const activeCurrency = currencyFromUnit(
-    data?.concepts.find((c) => c.concept === activeKey)?.unit
-  )
-  // Rotate the bar color per metric so each series reads distinctly as you tab through
-  // them — positional 1→N across the visible tabs (DESIGN_SYSTEM §10), never re-sorted.
-  // Pre-mod by the palette length so a 7th+ metric wraps in range without tripping
-  // seriesColor's ">6 series" dev warning (that targets simultaneous series; here one
-  // shows at a time and cycling is intentional). -1 (unfound) guards to color 1 (teal).
-  const activeIndex =
-    Math.max(0, available.findIndex((a) => a.key === activeKey)) % CHART_SERIES_COUNT
+  const series = data?.concepts.find((c) => c.concept === activeKey)
 
-  const chartData = useMemo(() => {
-    if (!data || !activeKey) return []
-    const series = data.concepts.find((c) => c.concept === activeKey)
-    if (!series) return []
-    return series.points
-      .filter((p) => p.value !== null)
-      .map((p) => ({
-        year: String(p.fiscal_year ?? (p.period_end ? p.period_end.slice(0, 4) : '')),
-        value: p.value as number,
-      }))
-  }, [data, activeKey])
+  // The active series as the engine's bar chart: a slot per year the filing reports, withheld years included.
+  const chart = useMemo(() => {
+    if (!active || !series) return null
+    const slots = slotsOf(series.points)
+    const model = buildBarChart({
+      id: 'financial-trends',
+      // The plot announces "{title} chart", and its values stop "{title} chart values".
+      title: active.label,
+      categories: slots,
+      series: { key: active.key, label: active.label, values: series.points.map((point) => point.value) },
+      axis: axisOf(active.fmt, series.unit),
+      unavailable: series.points.some((point) => point.value != null) ? null : NO_FIGURES,
+    })
+    // Each year as the tooltip prints it and the values stop says it ("FY2025 · year ended Sep 27, 2025").
+    const reads = readouts(model, trendDescriber(slots, series.points))
+    return { model, reads }
+  }, [active, series])
+  // Reporting currency of an amount (CNY for an FPI like Alibaba), named in the footnote; a margin or a multiple has none.
+  const currency = active && series && (active.fmt === 'usd' || active.fmt === 'eps') ? unitCurrency(series.unit).currency : null
 
   // Any flagged value in the active series → show the honesty badge.
-  const hasUnverified = useMemo(() => {
-    if (!data || !activeKey) return false
-    const series = data.concepts.find((c) => c.concept === activeKey)
-    return !!series?.points.some(needsSourceCheck)
-  }, [data, activeKey])
+  const hasUnverified = !!series?.points.some(needsSourceCheck)
 
   // Supplementary section: stay quiet on error, and disappear when there are no facts
-  // (e.g. before the backfill runs) rather than showing an empty card. Keep the card (with a
-  // spinner sized to the chart) mounted *while loading* so the common "has data" case doesn't
+  // (e.g. before the backfill runs) rather than showing an empty card. Keep the card (with
+  // bones in the shapes of its rows) mounted *while loading* so the common "has data" case doesn't
   // shift content when the query resolves — only collapse once we know there are no facts.
   if (isError || (!isLoading && available.length === 0)) return null
 
@@ -145,7 +162,11 @@ export default function FundamentalsTrendChart({
     <Card as="section" className="mb-8 p-cap-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
+          {/* The row wraps, so where the heading and the badge do not fit side by side (a phone under 200% text) the
+              badge goes beneath the heading rather than past the card and the screen; on a line of its own the
+              one-line badge is 287px under 200% text, wider than the card's content box at 320 to 390px, so below a
+              24rem viewport its label may wrap too (SourceCheckBadge). */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial trends</h2>
             {hasUnverified && (
               <SourceCheckBadge reconciled={false} />
@@ -155,7 +176,7 @@ export default function FundamentalsTrendChart({
             <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{subtitle}</p>
           )}
         </div>
-        {available.length > 0 && (
+        {available.length > 0 ? (
           // Up to 23 metrics: a compact select sized to its content beside its label, never a segmented row.
           <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
             Metric
@@ -169,57 +190,56 @@ export default function FundamentalsTrendChart({
               ))}
             </select>
           </label>
+        ) : (
+          // Loading (with no metric the card renders nothing, above): the picker's bones in its row, its label's word
+          // and the compact field's heights (44px on a phone, where the picker takes a row of its own, and 36px from sm).
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+            <TextBone>Metric</TextBone>
+            <Skeleton className="h-11 w-40 rounded-lg sm:h-9" />
+          </div>
         )}
       </div>
 
-      {isLoading ? (
+      {!chart || !active ? (
+        // Loading: the plot's bones at its height, then the footnote's and Sources & checks' lines, each holding its
+        // text's room. No line reads until there is a metric to name: the footnote's bone holds it as it reads for
+        // revenue, the picker's first metric and so its default wherever the filing reports one, and Sources & checks'
+        // its closed summary, disclosure triangle included.
         <div role="status" aria-label="Loading financial trends">
-          <Skeleton className="h-72 w-full rounded-lg" />
+          <Skeleton className="w-full rounded-lg" style={{ height: CARD_HEIGHT }} />
+          <TextBone className="mt-3 text-xs">{footnoteOf(FEATURED[0].label, null)}</TextBone>
+          <TextBone className="mt-3 text-xs"><span className="list-item list-inside list-[disclosure-closed]">Sources &amp; checks</span></TextBone>
           <span className="sr-only">Loading…</span>
         </div>
-      ) : chartData.length === 0 ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
-          No multi-year data available for this metric.
-        </p>
       ) : (
-        <div className="h-72 w-full" data-testid="fundamentals-chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid {...gridProps(dark)} />
-              <XAxis dataKey="year" {...xAxisProps(dark)} />
-              <YAxis
-                {...yAxisProps(dark)}
-                // The widest tick label sets the width (Recharts measures it before paint): a currency printed by
-                // its code ("CHF 800.0B", "KRW 800.0T", E203) outgrew the fixed 70px this axis had.
-                width="auto"
-                tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd', activeCurrency)}
-              />
-              <Tooltip
-                cursor={barCursorProps(dark)}
-                content={
-                  <ChartTooltip
-                    dark={dark}
-                    formatValue={(v) => formatValue(Number(v), active?.fmt ?? 'usd', activeCurrency)}
-                  />
-                }
-              />
-              <Bar
-                dataKey="value"
-                name={active?.label ?? 'Value'}
-                fill={seriesColor(activeIndex, dark)}
-                radius={[4, 4, 0, 0]}
-                maxBarSize={56}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <>
+          <ChartPlotFrame model={chart.model} readouts={chart.reads} tokens={tokens} fontReady={fontReady} view="card">
+            {({ layout, plot, busy }) => (
+              // Busy while the plot waits for its font (G4): the plot holds bones of its own plan until then.
+              <div data-testid="fundamentals-chart" aria-busy={busy || undefined}>
+                {plot}
+                {layout?.valuesDontFit && (
+                  <p className="mt-2 text-xs" style={{ color: tokens.note }} data-chart-text="fit">{VALUES_DONT_FIT_HERE}</p>
+                )}
+              </div>
+            )}
+          </ChartPlotFrame>
+          {/* The engine's own footnotes: a margin bar the axis clips is broken, and this line says its printed value is
+              the true one. */}
+          {chart.model.footnotes.length > 0 && (
+            <ul className="mt-2 space-y-0.5 text-xs" style={{ color: tokens.note }}>
+              {chart.model.footnotes.map((footnote) => (
+                <li key={`${footnote.mark}${footnote.text}`} data-chart-text="footnote">
+                  {footnote.mark && <span className="mr-2 font-data">{footnote.mark}</span>}
+                  {footnote.text}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{footnoteOf(active.label, currency)}</p>
+          <SourceChecks values={(series?.points ?? []).map((point) => ({ ...point, label: `${active.label}, ${point.fiscal_year ?? point.period_end ?? 'period unavailable'}` }))} />
+        </>
       )}
-
-      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-        Annual figures from SEC filings (XBRL){activeCurrency !== 'USD' ? `, reported in ${activeCurrency}` : ''}.{' '}
-        {active ? active.label : ''} by fiscal year.
-      </p>
-      <SourceChecks values={(data?.concepts.find((series) => series.concept === activeKey)?.points ?? []).map((point) => ({ ...point, label: `${active?.label ?? 'Figure'}, ${point.fiscal_year ?? point.period_end ?? 'period unavailable'}` }))} />
     </Card>
   )
 }
