@@ -14,8 +14,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { bonesPlan } from '@/features/analysis/components/TrendChartBones'
 import { BROKEN_BARS, buildBarChart, unitCurrency, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
-import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, minSlotOf, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, minSlotOf, noteGlyphs, OFF_GLYPH, OFF_ROW, SEAM, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView, type ModelPanel } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, perShareMoney, ratioFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
@@ -672,14 +673,31 @@ describe('reading a chart: the slot under a pointer, a period’s column and the
       })
       expect(slotAt(layout, layout.plotLeft - 0.001)).toBeNull()
       expect(slotAt(layout, layout.plotRight)).toBeNull()
-      // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut.
+      // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut. A chart
+      // whose run breaks (E258) is also scrolled to the middle of each gap seam and into the column past it.
       expect(gutterCover(layout, 0)).toBe(layout.plotLeft)
-      for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width]) {
+      const seamScrolls = layout.seams.flatMap((seam) => {
+        const gapLeft = layout.x(model.periods[seam - 1].key) + layout.slot / 2
+        const gapRight = layout.x(model.periods[seam].key) - layout.slot / 2
+        return [(gapLeft + gapRight) / 2, gapRight + layout.slot / 4].map((edge) => edge - layout.plotLeft)
+      })
+      for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width, ...seamScrolls]) {
         const cover = gutterCover(layout, scroll)
         expect(cover).toBeGreaterThanOrEqual(layout.plotLeft - 1e-9)
         expect(cover).toBeLessThan(layout.plotLeft + layout.slot)
-        const boundary = (scroll + cover - layout.plotLeft) / layout.slot
-        expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+        // Inside the plot, the column the gutter's own edge cuts: the cover runs out to its right edge, so it shows whole or
+        // not at all. An edge on a column's boundary, or in a gap seam's (E258), cuts none, and the cover is the gutter's
+        // own. Past the plot, a scroll no plot this wide reaches, the cover still ends on a slot boundary, each seam taken out.
+        const edge = layout.plotLeft + scroll
+        if (edge >= layout.plotRight) {
+          const boundary = (scroll + cover - layout.plotLeft) / layout.slot - SEAM * layout.seams.length
+          expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+          continue
+        }
+        const cut = model.periods.map((period) => columnOf(layout, period.key))
+          .find((column) => column.left + 1e-6 < edge && edge < column.left + column.width - 1e-6)
+        if (cut) expect(scroll + cover, 'out to the cut column’s right edge').toBeCloseTo(cut.left + cut.width, 6)
+        else expect(cover, 'no column cut: the gutter’s own width').toBeCloseTo(layout.plotLeft, 6)
       }
       expect(gutterOverlayWidth(layout)).toBe(Math.max(layout.plotLeft, ...layout.panels.map(captionBacking)))
       for (const box of layout.panels) {
@@ -696,6 +714,63 @@ describe('reading a chart: the slot under a pointer, a period’s column and the
   })
   it.each(BAR_CASES.map(([name]) => name))('%s (a bar chart)', (name) => expectReading(buildBarChart(barDef(name))))
   it.each(PEER_CASES.map(([name]) => name))('%s (a ranked company chart)', (name) => expectReading(buildBarChart(peerDef(name))))
+})
+
+describe('a gap seam, where a chart’s run breaks (E258)', () => {
+  const KEYS = [...'ABCDEFGHIJK'].map((letter) => `C${letter}`)
+  /** Eleven companies on a percent axis, whose labels fit at the narrowest slot, the last one the chart is about; with
+   *  `gap`, the run breaks before it, as a ranked chart's subject drawn past companies it leaves out. */
+  const def = (gap: boolean): BarChartDef => ({
+    id: 'seam', title: 'Seam',
+    categories: KEYS.map((key, i) => ({
+      key, tick: key, long: key, ...(i < 10 ? { context: true as const } : {}), ...(gap && i === 10 ? { gapBefore: true as const } : {}),
+    })),
+    series: { key: 'margin', label: 'Margin', values: KEYS.map((_, i) => 11 - i) },
+    axis: { kind: 'percent' },
+  })
+
+  it('sets SEAM slots of empty plot before its period, which the slots share the plot with, and still closes the plot', () => {
+    for (const width of [342, 502, 1030]) {
+      const layout = layoutChart(buildBarChart(def(true)), width, 'card')
+      expect([layout.count, layout.seams]).toEqual([11, [10]])
+      expect(layout.slot).toBeCloseTo((layout.plotRight - layout.plotLeft) / (11 + SEAM), 9)
+      const steps = KEYS.slice(1).map((key, i) => (layout.x(key) - layout.x(KEYS[i])) / layout.slot)
+      steps.forEach((step, i) => expect(step, `${width}px: the step to ${KEYS[i + 1]}, in slots`).toBeCloseTo(i === 9 ? 1 + SEAM : 1, 9))
+      expect(layout.x('CK') + layout.slot / 2).toBeCloseTo(layout.plotRight, 9)
+    }
+  })
+
+  it('belongs to no slot: a pointer over it reads none, and A7’s gutter cuts no column there', () => {
+    const layout = layoutChart(buildBarChart(def(true)), 342, 'card')
+    const gapLeft = layout.x('CJ') + layout.slot / 2
+    const gapRight = layout.x('CK') - layout.slot / 2
+    expect(gapRight - gapLeft).toBeCloseTo(layout.slot * SEAM, 9)
+    expect([gapLeft - 0.001, gapLeft + 0.001, (gapLeft + gapRight) / 2, gapRight - 0.001, gapRight + 0.001].map((x) => slotAt(layout, x)))
+      .toEqual([9, null, null, null, 10])
+    // The gutter's own edge in the gap: no column is cut, so the cover is the gutter's own width.
+    expect(gutterCover(layout, (gapLeft + gapRight) / 2 - layout.plotLeft)).toBe(layout.plotLeft)
+    // In the column past it, the cover runs out to that column's right edge, the plot's; in a column before it, as on an
+    // unbroken run.
+    const past = layout.x('CK') - layout.plotLeft
+    expect(gutterCover(layout, past) + past).toBeCloseTo(layout.plotRight, 9)
+    expect(gutterCover(layout, layout.slot * 2.25) + layout.slot * 2.25).toBeCloseTo(layout.plotLeft + layout.slot * 3, 9)
+  })
+
+  it('widens the narrowest chart by SEAM of its narrowest slot, and the bones still draw a bar a period', () => {
+    const [broken, even] = [buildBarChart(def(true)), buildBarChart(def(false))]
+    expect(minChartWidth(broken) - minChartWidth(even)).toBeCloseTo(SEAM * minSlotOf(even), 9)
+    expect(bonesPlan(layoutChart(broken, 342, 'card')).slots).toBe(11)
+    // An unbroken run is laid out as before E258: no seam, and the plot shared by its periods alone.
+    const plain = layoutChart(even, 342, 'card')
+    expect([plain.count, plain.seams]).toEqual([11, []])
+    expect(plain.slot).toBe((plain.plotRight - plain.plotLeft) / 11)
+  })
+
+  it('never stands before the first category, where no run breaks', () => {
+    const first = def(false)
+    first.categories[0] = { ...first.categories[0], gapBefore: true }
+    expect(() => buildBarChart(first)).toThrow('a gap before the first category "CA" breaks no run')
+  })
 })
 
 describe('A7’s sticky gutter never shows a printed value in part, at any scroll', () => {

@@ -46,7 +46,7 @@ import { ThemeContext } from '@/components/ThemeProvider'
 import { CHART_TOKENS } from '@/features/analysis/lib/charts/theme'
 import type { PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import SectorPeers from '@/features/peers/components/SectorPeers'
-import { drawn, noCohort } from '@/features/peers/lib/cohort'
+import { breaksBefore, drawn, noCohort } from '@/features/peers/lib/cohort'
 import { peerChartDef } from '@/features/peers/lib/peerChart'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { PEER_SHOWING, type PeerFixture } from './chartPlan'
@@ -103,6 +103,14 @@ const picker = (scope: HTMLElement) => within(scope).getByRole('combobox', { nam
 const plotOf = async (scope: HTMLElement, label: string) => {
   const svg = await within(scope).findByRole('img', { name: `${label} chart` })
   return { svg, bars: [...svg.querySelectorAll('rect[data-series]')] }
+}
+/** Each step between neighbouring bars' centres, in the narrowest step's units to two places: 1 a slot, 1.5 where a gap
+ *  seam stands between them (E258). */
+const stepsOf = (bars: Element[]) => {
+  const centres = bars.map((bar) => Number(bar.getAttribute('x')) + Number(bar.getAttribute('width')) / 2)
+  const steps = centres.slice(1).map((centre, i) => centre - centres[i])
+  const slot = Math.min(...steps)
+  return steps.map((step) => Math.round((step / slot) * 100) / 100)
 }
 /** The card on a case: a case on the default metric as the default answer; any other as the metric picked, the default
  *  answered with the spread, as a reader reaches it. */
@@ -233,16 +241,18 @@ describe('the Sector peers panel (E251)', () => {
   // A cohort larger than the eleven slots: the top eleven where the subject ranks among them, else the top ten and the
   // subject, either side of the slots' edge (the eleventh drawn among the top, the twelfth after the top ten); the top
   // never parts a tie, so it is the companies ranked that high, and where one rank fills the slots the footnote gives
-  // the count alone.
+  // the count alone. Where the chart leaves out a company ranked above the subject drawn after the top, a gap of half a
+  // slot stands before it (E258), so the bars never read it as next in rank; every other step is one slot.
   it.each([
-    { name: 'cap', top: 'ABCDEFGHIJ', after: 'CAPM', ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPM.' },
-    { name: 'cap, subject fifth', top: 'ABCDEFGHIJK', after: null, ranks: 'CAPE ranks #5 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
-    { name: 'cap, subject eleventh', top: 'ABCDEFGHIJK', after: null, ranks: 'CAPK ranks #11 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
-    { name: 'cap, subject twelfth', top: 'ABCDEFGHIJ', after: 'CAPL', ranks: 'CAPL ranks #12 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPL.' },
-    { name: 'cap, tie at the tenth', top: 'ABCDEFGHI', after: 'CAPM', ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 9 of the 14 companies ranked, and CAPM.' },
-    { name: 'cap, tie at the eleventh', top: 'ABCDEFGHIJ', after: null, ranks: 'CAPB ranks #2 of 12 on revenue', cut: 'The chart shows the top 10 of the 12 companies ranked.' },
-    { name: 'cap, all tied', top: 'ABCDEFGHIJ', after: 'CAPL', ranks: 'CAPL ranks #1 of 12 on revenue', cut: 'The chart shows 11 of the 12 companies ranked.' },
-  ])('$name: draws what its footnote says, "$cut"', async ({ name, top, after, ranks, cut }) => {
+    { name: 'cap', top: 'ABCDEFGHIJ', after: 'CAPM', gap: true, ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPM.' },
+    { name: 'cap, subject fifth', top: 'ABCDEFGHIJK', after: null, gap: false, ranks: 'CAPE ranks #5 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
+    { name: 'cap, subject eleventh', top: 'ABCDEFGHIJK', after: null, gap: false, ranks: 'CAPK ranks #11 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
+    { name: 'cap, subject twelfth', top: 'ABCDEFGHIJ', after: 'CAPL', gap: true, ranks: 'CAPL ranks #12 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPL.' },
+    { name: 'cap, tie at the tenth', top: 'ABCDEFGHI', after: 'CAPM', gap: true, ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 9 of the 14 companies ranked, and CAPM.' },
+    { name: 'cap, tie at the eleventh', top: 'ABCDEFGHIJ', after: null, gap: false, ranks: 'CAPB ranks #2 of 12 on revenue', cut: 'The chart shows the top 10 of the 12 companies ranked.' },
+    // Every company ties: the one left out ranks no higher than the subject, so its run does not break.
+    { name: 'cap, all tied', top: 'ABCDEFGHIJ', after: 'CAPL', gap: false, ranks: 'CAPL ranks #1 of 12 on revenue', cut: 'The chart shows 11 of the 12 companies ranked.' },
+  ])('$name: draws what its footnote says, "$cut"', async ({ name, top, after, gap, ranks, cut }) => {
     const answer = answerOf(name)
     renderPanel({ revenue: answer })
     const section = await panelCard()
@@ -252,6 +262,7 @@ describe('the Sector peers panel (E251)', () => {
     expect([...svg.querySelectorAll('text[data-text="x"]')].map((tick) => tick.textContent)).toEqual(companies)
     expect([rankLine(section).tagName, rankLine(section).textContent]).toEqual(['P', ranks])
     expect(footnote(section).textContent!.endsWith(`Fiscal years can differ by company. ${cut}`), footnote(section).textContent!).toBe(true)
+    expect(stepsOf(bars), 'each step between neighbouring bars, in slots').toEqual(companies.slice(1).map((_, i) => (gap && i === companies.length - 2 ? 1.5 : 1)))
     // The words never contradict the ranks: "the top N" is every company ranked N or better, and only those.
     const named = /the top (\d+) of/.exec(cut)
     if (named) {
@@ -259,6 +270,20 @@ describe('the Sector peers panel (E251)', () => {
       const ranked = answer.peers.filter((entry) => entry.rank != null && entry.rank <= atMost).map((entry) => entry.ticker)
       expect(companies.filter((ticker) => ticker !== after), `the top: every company ranked ${atMost} or better, and nothing ranked below`).toEqual(ranked)
     }
+  })
+
+  it('draws no gap before a subject that ties with the companies it leaves out: it stands at its own rank, next after the top', async () => {
+    // CAPK and CAPL tie with CAPM at the eleventh rank: the chart draws the top ten and CAPM, and leaves out the two it ties
+    // with, which rank no higher than it (E258).
+    const answer = answerOf('cap')
+    for (const entry of answer.peers) if (['CAPK', 'CAPL', 'CAPM'].includes(entry.ticker)) Object.assign(entry, { rank: 11, value: 38.2e9 })
+    expect(breaksBefore(answer)).toBe(false)
+    renderPanel({ revenue: answer })
+    const section = await panelCard()
+    const { bars } = await plotOf(section, 'Revenue')
+    expect(bars.map((bar) => bar.getAttribute('data-period'))).toEqual([...'ABCDEFGHIJ'].map((letter) => `CAP${letter}`).concat('CAPM'))
+    expect(stepsOf(bars), 'every step one slot').toEqual(Array(10).fill(1))
+    expect(rankLine(section).textContent).toBe('CAPM ranks #11 of 14 on revenue')
   })
 
   it('starts the values stop at the subject, which it names as this company, with its rank and its own fiscal year', async () => {

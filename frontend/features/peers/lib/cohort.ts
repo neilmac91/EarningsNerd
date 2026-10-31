@@ -68,6 +68,17 @@ export function croppedOf(answer: PeerComparisonResponse): { shown: number; of: 
   return shown.length === of ? null : { shown: shown.length, of, top, subject }
 }
 
+/** Whether the bars' order skips ranks before the subject (E258): the chart draws it after the top companies and leaves
+ *  out a company ranked above it, so even spacing would read it as next in rank (CAPM, thirteenth, as the eleventh
+ *  company). The chart then breaks its run there (peerChart.ts, the engine's gap seam). A company left out that ties
+ *  with the subject breaks nothing: the subject still stands at its own rank. */
+export function breaksBefore(answer: PeerComparisonResponse): boolean {
+  const { shown, subject } = cut(answer)
+  if (!subject || subject.rank == null) return false
+  const rank = subject.rank
+  return valued(answer).some((entry) => !shown.includes(entry) && entry.rank != null && entry.rank < rank)
+}
+
 /** Why an answer draws no chart: it ranks a metric the panel cannot name or format ('concept'); the subject's own figure
  *  is missing, where the service synthesises a subject that holds no fact, or withheld ('subject'); or fewer than two
  *  companies have a value ('few'). */

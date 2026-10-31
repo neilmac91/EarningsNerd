@@ -25,7 +25,10 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * (E251's PR 1 rule, TrendChartPlot): at 300 and 390px a subject's column opens centred as far as the scroll goes, the
  * spread's first company at the scroll's start on the plot's own axis with no sticky gutter, its sixth scrolled with the
  * gutter shown, its tenth at the scroll's end, and near-equal's fourth at the scroll's start at 390px and scrolled at
- * 300px, whose plot's view is 230px; at 1280px each fits its card. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
+ * 300px, whose plot's view is 230px; at 1280px each fits its card. A broken run (E258), at 390 and 1280px: where the chart leaves
+ * out a company ranked above the subject it draws after the top ('cap', 'cap, tie at the tenth'), the step to the subject's
+ * tick is half a slot wider than every other; where it leaves out none ranked above it, a tie included ('cap, subject
+ * eleventh', 'cap, all tied'), every step is a slot; and the DOM checks hold over each. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
  * the heading, the rank line and the picker stay inside the card. While a metric picked loads, and once its answer
  * draws no chart, the heading row keeps its height, at 390 and 1280px. With production's own answer, a company ranked
  * alone (peer_count 1, JPM's on 2026-10-31), the panel never asks for the card's chunk: once the page has handled that
@@ -212,6 +215,47 @@ for (const width of [300, 390, 1280] as const) {
         const opened: Opens = report.scrollLeft <= 0 ? 'start' : report.fromNewest <= 1 ? 'end' : 'scrolled'
         expect(opened, `${label}: where it opens`).toBe(opens[width])
         expect(report.gutter != null, `${label}: the sticky gutter exactly when scrolled`).toBe(opened !== 'start')
+      })
+    }
+  })
+}
+
+// E258: where the chart leaves out a company ranked above the subject it draws after the top, a gap of half a slot stands
+// before the subject, so the bars never read it as next in rank; a cut that leaves out no company ranked above it, a tie
+// included, draws its bars a slot apart. The companies each case draws are written out, so the check reads the plot's
+// own ticks against them rather than the panel's own logic.
+const BREAKS: { name: string; drawn: string; gap: boolean }[] = [
+  { name: 'cap', drawn: 'ABCDEFGHIJM', gap: true },
+  { name: 'cap, tie at the tenth', drawn: 'ABCDEFGHIM', gap: true },
+  { name: 'cap, subject eleventh', drawn: 'ABCDEFGHIJK', gap: false },
+  { name: 'cap, all tied', drawn: 'ABCDEFGHIJL', gap: false },
+]
+
+for (const width of [390, 1280] as const) {
+  test.describe(`Sector peers' run at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' })
+
+    for (const { name, drawn, gap } of BREAKS) {
+      const tickers = [...drawn].map((letter) => `CAP${letter}`)
+      const subject = PEERS.cases[name].response.subject.ticker
+      test(`${name}: ${gap ? `half a slot more before ${subject}, drawn after the top` : 'its bars a slot apart'}, and the plot sound`, async ({ page, baseURL }) => {
+        await openCompany(page, baseURL!, name, 'light')
+        const card = sectorPeers(page)
+        const plot = card.getByTestId('peers-chart')
+        await expect(plot.getByRole('img', { name: 'Revenue chart', exact: true })).toBeVisible()
+        await expect(plot).not.toHaveAttribute('aria-busy')
+        await page.evaluate(() => document.fonts.ready)
+        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+        const label = `${name} at ${width}px`
+        const [report] = await measurePlots(card)
+        expectSound({ ...report, name: label }, { start: tickers.indexOf(subject) })
+        const ticks = await plot.getByRole('img', { name: 'Revenue chart', exact: true }).locator('text[data-text="x"]').evaluateAll((nodes) =>
+          nodes.map((node) => ({ ticker: node.textContent, x: Number(node.getAttribute('x')) })))
+        expect(ticks.map((tick) => tick.ticker), `${label}: a tick a company drawn`).toEqual(tickers)
+        const steps = ticks.slice(1).map((tick, i) => tick.x - ticks[i].x)
+        const slot = Math.min(...steps)
+        expect(steps.map((step) => Math.round((step / slot) * 100) / 100), `${label}: each step between neighbouring ticks, in slots`)
+          .toEqual(steps.map((_, i) => (gap && i === steps.length - 1 ? 1.5 : 1)))
       })
     }
   })

@@ -3027,7 +3027,8 @@ Firefox are unchecked). Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
-as wide as six glyphs keeps its column; E251), so a narrow screen never overlaps labels or widens the page.
+as wide as six glyphs keeps its column; E251), with half a slot more for each break in a ranked chart's run (E258), so
+a narrow screen never overlaps labels or widens the page.
 
 Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through the engine's
 `chartTokens(dark).series` (E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a
@@ -3179,7 +3180,11 @@ the peers endpoint answers as a one-metric bar chart of the companies with a val
 descending), as many as its eleven slots hold, never leaving out a company a slot could hold but for a tie at the cut: a
 cohort of eleven or fewer whole; a larger one the top eleven where the subject ranks among them, else the top ten and
 then the subject. The top never parts a tie: a cut that would separate two companies of one rank moves up to the first
-of them and leaves the slot empty, so the top is always the companies ranked that high. The footnote then says what the
+of them and leaves the slot empty, so the top is always the companies ranked that high. Where the chart draws the
+subject after the top and leaves out a company ranked above it, a gap of half a slot stands before its bar, the engine's
+gap seam (E258, `cohort.ts` `breaksBefore`), since even spacing would read it as next in rank (CAPM, thirteenth, as the
+eleventh company); a company left out that ties with the subject breaks no run, since the subject still stands at its
+own rank. The footnote then says what the
 chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", "the top 11 of the 14 companies
 ranked", "the top 9 …" where a tie sits at the tenth), counted as the rank line counts, and where one rank fills every
 slot, so no top can be named, the count alone ("The chart shows 11 of the 12 companies ranked."). The company the page is about is
@@ -3227,7 +3232,9 @@ build, the computed inks by role, every printed value the fixture's and the DOM 
 D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; the heading row's height while a
 metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer; and the
 start in a browser at 300, 390 and 1280 px, the subject first, near-equal's fourth, the spread's sixth and its tenth, each
-opening where the rule puts it, its sticky gutter exactly when scrolled),
+opening where the rule puts it, its sticky gutter exactly when scrolled; and a broken run at 390 and 1280 px, the step
+to the subject's tick half a slot wider where the chart leaves out a company ranked above it, and no step wider where it
+leaves out none, a tie included, with the DOM checks over each),
 `tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
 holds what only a module of the engine the card pulls in, or the card, holds, and the page's own chunk is among the
 scripts read) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is
