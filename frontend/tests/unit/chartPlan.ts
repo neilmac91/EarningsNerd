@@ -12,6 +12,7 @@ import { noteGlyphs, type ChartLayout } from '@/features/analysis/lib/charts/lay
 import type { ChartModel } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import type { FundamentalSeries, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
+import { slotsOf } from '@/features/fundamentals/lib/trendChart'
 
 /** tests/unit/fixtures/fundamentals-datasets.json: filing-scoped fundamentals as their endpoint serves them, and the bar
  *  charts the cases draw from them, each a series and its axis. */
@@ -26,15 +27,16 @@ export const barSeries = (fixture: BarFixture, name: string): FundamentalSeries 
   return fixture.filings[chart.filing].response.concepts.find((series) => series.concept === chart.concept)!
 }
 
-/** Every chart case as the definition buildBarChart takes: a slot per fiscal year the series holds, withheld years
- *  included (key "FY2025", tick "2025"), and its axis, a money axis in the series' own unit. */
+/** Every chart case as the definition buildBarChart takes: a slot per point the series holds, withheld years included,
+ *  as Financial trends keys them (slotsOf: key "FY2025", tick "2025"), and its axis, a money axis in the series' own
+ *  unit. */
 export function barCases(fixture: BarFixture): [string, BarChartDef][] {
   return Object.entries(fixture.charts).map(([name, chart]) => {
     const series = barSeries(fixture, name)
     return [name, {
       id: name,
       title: chart.label,
-      categories: series.points.map((point) => ({ key: `FY${point.fiscal_year}`, tick: String(point.fiscal_year), long: `FY${point.fiscal_year}` })),
+      categories: slotsOf(series.points),
       series: { key: chart.concept, label: chart.label, values: series.points.map((point) => point.value) },
       axis: chart.axis === 'money' ? { kind: 'money', unit: series.unit } : { kind: chart.axis },
     }]

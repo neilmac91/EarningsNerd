@@ -19,6 +19,7 @@ import { chartReadouts, periodEndText, periodHeader, readouts as coreReadouts, t
 import { tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { markedNote, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { slotsOf, trendDescriber } from '@/features/fundamentals/lib/trendChart'
 import { barCases, barSeries, withMixedNotes, type BarFixture } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
@@ -177,14 +178,11 @@ describe('the core reads any model through a describer: every bar chart case (ba
   const BAR_FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/fundamentals-datasets.json', 'utf8')) as BarFixture
   const BARS = barCases(BAR_FIXTURE)
   const model = (name: string) => buildBarChart(structuredClone(BARS.find(([caseName]) => caseName === name)![1]))
-  /** Financial trends' describer, as its card builds it: a fiscal year and its end date, and calculated from its point's
-   *  provenance. It has no data notes. */
+  /** Financial trends' own describer over its own slots (features/fundamentals/lib/trendChart.ts), as its card builds
+   *  them: a fiscal year and its end date, and calculated from its point's provenance. It has no data notes. */
   const financialTrends = (name: string): ReadoutDescriber => {
-    const points = new Map(barSeries(BAR_FIXTURE, name).points.map((point) => [`FY${point.fiscal_year}`, point]))
-    return {
-      header: (period) => periodHeader(period.long, 'year', points.get(period.key)?.period_end),
-      calculated: (_mark, period) => points.get(period)?.provenance?.method === 'calculated',
-    }
+    const points = barSeries(BAR_FIXTURE, name).points
+    return trendDescriber(slotsOf(points), points)
   }
 
   it.each(BARS.map(([name]) => name))('%s', (name) => {

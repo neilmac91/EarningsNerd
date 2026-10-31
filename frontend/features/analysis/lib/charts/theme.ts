@@ -1,9 +1,10 @@
 /**
  * The trend charts' tokens, chart scope (docs/design/analysis-trend-charts-spec-2026-10.md §3.8). Every value is a
  * literal hex or rgba string, so no var(--…) reaches an SVG attribute and serialising the SVG for the PNG export
- * cannot lose a colour. Only the spec renderer reads these. They mirror Tailwind's chart, text and surface tokens
- * (E195's token fold): the series chart-1…6 and chart-1-dark…6-dark and the grid chart.grid, which the Recharts
- * chart elsewhere (the filing page's fundamentals) takes through components/ui/Chart.tsx too, the zero rule chart.ref, and the ticks and the card's notes text.tertiary.light and chart.label.dark.
+ * cannot lose a colour. Only the spec renderer reads these, for the analysis charts and the filing page's Financial
+ * trends (D-067). They mirror Tailwind's chart, text and surface tokens (E195's token fold): the series chart-1…6 and
+ * chart-1-dark…6-dark, the grid chart.grid, the zero rule chart.ref, and the ticks and the card's notes
+ * text.tertiary.light and chart.label.dark.
  * designTokenParity holds every hex here to a token, tests/unit/chart-theme.spec.ts holds each field to the spec's
  * table and its own token, and tests/unit/chart-apca.spec.ts holds each to its contrast floor. Pure and SSR-safe.
  */

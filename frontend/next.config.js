@@ -6,7 +6,6 @@ const nextConfig = {
   reactStrictMode: true,
   // Public addresses are shared with the backend; include that repository source in the bundle.
   turbopack: { root: path.resolve(__dirname, '..') },
-  transpilePackages: ['recharts'],
   typescript: {
     // `next build` typechecks the same surface as CI's `npm run typecheck`: shipped app/library code.
     // Since 16.3 the build walks tsconfig.json's full `include` (tests/** too); specs are exercised
@@ -55,38 +54,6 @@ const nextConfig = {
         ],
       },
     ]
-  },
-  webpack: (config, { isServer }) => {
-    // TODO: Revisit this webpack configuration when Next.js or recharts has better support for lodash.
-    // This is a workaround for a known issue with recharts and lodash compatibility.
-    // See: https://github.com/recharts/recharts/issues/2372
-    // Fix for Recharts/lodash compatibility issue
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-      }
-    }
-    
-    // Ensure lodash and its submodules are resolved correctly
-    const path = require('path')
-    const lodashPath = path.dirname(require.resolve('lodash/package.json'))
-    
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'lodash$': lodashPath,
-      'lodash/isEqual': path.join(lodashPath, 'isEqual.js'),
-      'lodash/throttle': path.join(lodashPath, 'throttle.js'),
-      'lodash/merge': path.join(lodashPath, 'merge.js'),
-    }
-    
-    // Also ensure modules can resolve lodash submodules
-    config.resolve.modules = [
-      ...(config.resolve.modules || []),
-      path.join(__dirname, 'node_modules'),
-    ]
-    
-    return config
   },
 }
 
