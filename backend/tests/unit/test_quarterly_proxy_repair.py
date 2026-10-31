@@ -2023,15 +2023,15 @@ def _replaced_at_the_winners_identity(db, monkeypatch, ticker="NSB", parsed=18_6
 
 
 
-def _replaced_below_a_later_winner(db, monkeypatch, ticker="LTX"):
-    """A sync before the fix stored the proxies' rows, and a later 10-K (K27) gives FY2025 as the FY2026 10-K did:
-    the year's winner is K27's, which the harness's sync makes current, so the FY2026 10-K's replaced comparative is
-    neither current nor at the winner's identity."""
+def _replaced_below_a_later_winner(db, monkeypatch, ticker="LTX", fy2025=18_600e6):
+    """A sync before the fix stored the proxies' rows, and a later 10-K (K27) gives FY2025 as ``fy2025`` (as the FY2026
+    10-K did, unless given): the year's winner is K27's, which the harness's sync makes current, so the FY2026 10-K's
+    replaced comparative is neither current nor at the winner's identity."""
     company = _company(db, ticker)
     payload, filing = _restated_and_quoted_as_first_reported(db, monkeypatch, company, old_sync=True)
     _items(payload).extend(_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=_accn(company, "K27"), fy=2027,
                                  filed="2028-02-25")
-                           for year, value in ((2025, 18_600e6), (2026, 19_000e6), (2027, 20_000e6)))
+                           for year, value in ((2025, fy2025), (2026, 19_000e6), (2027, 20_000e6)))
     return company, payload, filing
 
 
@@ -2120,6 +2120,38 @@ def test_a_row_below_a_later_winner_a_history_row_backs_is_restored_where_the_10
         [history] = [r for r in _rows(states[True][0], states[True][1], concept="net_income",
                                       period_end=date(2025, 12, 31)) if r.accession == _accn(states[True][1], "K25")]
         assert (history.is_latest, history.filing_id, float(history.value)) == (False, None, 18_254e6)
+
+
+def test_a_row_below_a_later_winner_whose_original_the_10k_contradicts_is_listed_and_detection_leaves_it(monkeypatch):
+    # LTX's shape with K27 restating FY2025 again (18,900), so today's 10-K figure contradicts the recorded original
+    # (18,600) too and SF-B restores nothing. A sync before the fix stored the proxies' rows, so P27's stored row
+    # witnesses the filing row's 18,254 for detection's set 4. Since #1682 the FY2025 10-K's history row holds that
+    # figure: set 4 leaves the row (not the company's current figure: K27's is) and lists it with that backer, and
+    # detection, by the same report-row rule, leaves it unlisted, before the apply and after; here the backer alone
+    # decides it. Synced as before #1682, no report row backs it, and set 4's own test refuses the original. (Review of
+    # #1840, rounds 8 and 9: the pin LTX's listing test held, where a stored proxy row makes the backer decide.)
+    with _synced_before_and_since_1682(monkeypatch, lambda db, monkeypatch: _replaced_below_a_later_winner(
+            db, monkeypatch, "LTC", fy2025=RESTATED_AGAIN)) as states:
+        (old, company, payload, _filing), (new, *_rest) = states[False], states[True]
+        [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        assert (row.is_latest, row.source, float(row.value), _check(row)["original_value"]) == (
+            False, "companyfacts", 18_254e6, 18_600e6)
+        [p27] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31))
+                 if r.accession == _accn(company, "P27")]
+        [history] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31))
+                     if r.accession == _accn(company, "K25")]
+        assert (p27.form, history.is_latest, history.filing_id, float(history.value)) == ("DEF 14A", False, None, 18_254e6)
+        stored = repair.snapshot(row)
+        since = _preview(new, company, payload)["proxy"]
+        assert [(e["fact_id"], e["set"], e["authority"], [b["fact_id"] for b in e["backed_by"]])
+                for e in since["left_report_backed"]] == [(row.id, 4, RESTATED_AGAIN, [history.id])]
+        applied = _apply(new, company, payload)["proxy"]
+        assert (since["detection_listed"], applied["detection_listed"]) == ([], [])  # the backer decides it
+        found = _detection(new, {company.ticker: payload})
+        assert (found[4], found[5]) == ([], [])
+        assert repair.snapshot(new.get(FinancialFact, row.id)) == stored
+        assert row.id not in {r.fact_id for r in new.query(FinancialFactRevision)}
+        _refuses(old, company, payload, _refusal(old, (row.id, SET4_OWN)))
 
 
 def _replaced_where_the_own_report_gave_another_figure(db, monkeypatch, ticker="UNB"):
@@ -3105,7 +3137,9 @@ def test_principal_review_5718798403_item_3_a_left_row_is_listed_with_its_backer
                 "filing_id": None, "source": "companyfacts"}]}]
         applied = _apply(new, company, payload)["proxy"]
         assert applied["left_report_backed"] == since["left_report_backed"]
-        assert (since["detection_listed"], applied["detection_listed"]) == ([], [])  # backed: detection leaves it too
+        # No stored proxy row witnesses the row here (the proxy's figure is a payload item alone), so detection cannot
+        # list it, backed or not; LTX's contradicted test above pins the case where the backer decides.
+        assert (since["detection_listed"], applied["detection_listed"]) == ([], [])
         found = _detection(new, {company.ticker: payload})
         assert (found[4], found[5]) == ([], [])
         assert repair.snapshot(new.get(FinancialFact, row.id)) == stored and _snapshots(new, company) == planted
