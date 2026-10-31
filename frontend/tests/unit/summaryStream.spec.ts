@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -175,12 +176,10 @@ describe('generateSummaryStream', () => {
     expect(isNonRetryableStreamError('Regenerating a summary is a Pro feature.', 'plan_required')).toBe(true)
   })
 
-  // The E31 contract's §3, code by code, read from its own table: whether the card withholds its Retry for a refusal
-  // carrying the code, which decides first whatever the words. A row's "Client behaviour" cell may speak of Retry only
-  // in the phrases below: "never offer Retry" withholds it; "with Retry", "Retry included", "keeps its Retry",
-  // "Retry-After" and "may retry" keep it, as a cooldown does (`auth_required`'s "Retry included": today's 401
-  // handling, its words deciding). Any other mention of Retry, or a keeping phrase after a negation, fails, so a rule
-  // in other words ("withhold Retry", "Retry: none", "not with Retry") is never read as a kept Retry.
+  // The E31 contract's §3, code by code: whether the card withholds its Retry for a refusal carrying the code, which
+  // decides first whatever the words. Each rule below is read by hand from §3's "Client behaviour" cell, and pinned to
+  // that cell by a hash of its text: any edit to the cell fails here until its rule is read again, so a rule written
+  // in any words (a settlement of the disagreement below among them) is never missed. No prose is parsed.
   const SECTION_3 = (() => {
     const doc = readFileSync(path.join(REPO, 'docs/audit/contracts/error-codes.md'), 'utf8')
     const section = doc.slice(doc.indexOf('## 3.'), doc.indexOf('## 4.'))
@@ -190,40 +189,38 @@ describe('generateSummaryStream', () => {
       return [cells[0].replace(/`/g, ''), cells[3]] as const
     }))
   })()
-  const WITHHOLDS = 'never offer Retry'
-  const KEEPS = 'with Retry\\b|Retry included|keeps? its Retry|Retry-After|may retry'
-  const section3Withholds = (code: string, cell: string): boolean | null => {
-    const negatedKeep = [...cell.matchAll(new RegExp(KEEPS, 'gi'))]
-      .find((keep) => /(?:\b(?:no|not|never|without)|n't)\s+(?:\w+\s+)?$/i.test(cell.slice(Math.max(0, (keep.index ?? 0) - 16), keep.index)))
-    const stray = /\bretr(?:y|ies)\b/i.exec(cell.replace(new RegExp(`${WITHHOLDS}|${KEEPS}`, 'gi'), ''))
-    if (negatedKeep || stray) {
-      throw new Error(`§3's ${code} row speaks of Retry in words this reader does not know ("${(negatedKeep ?? stray)![0]}"): ` +
-        `write "${WITHHOLDS}" to withhold it, or one of ${KEEPS.replace(/\\b/g, '').split('|').map((k) => `"${k}"`).join(', ')} to keep it`)
-    }
-    if (new RegExp(WITHHOLDS, 'i').test(cell)) return true
-    return new RegExp(`${KEEPS}|cooldown`, 'i').test(cell) ? false : null
-  }
-  // §3 states no Retry rule for these, so they hold the reader's verdict: a gate the checkout raises, and the
-  // calendar's own reader's code.
-  const READER_VERDICT_WHERE_SECTION_3_IS_SILENT: Partial<Record<KnownErrorCode, boolean>> = {
-    email_verification_required: true,
-    earnings_alert_limit: false,
+  const cellHash = (cell: string) => createHash('sha256').update(cell).digest('hex').slice(0, 12)
+  // `silent`: §3 states no Retry rule, so the row holds the reader's verdict (`readerWithholds`).
+  const SECTION_3_RETRY: Record<KnownErrorCode, { cell: string; rule: 'withhold' | 'keep' | 'silent'; readerWithholds?: boolean }> = {
+    auth_required: { cell: 'bec468d1d938', rule: 'keep' }, // "Retry included": today's 401 handling, its words deciding
+    email_verification_required: { cell: '623726acc97d', rule: 'silent', readerWithholds: true }, // the checkout's gate
+    plan_required: { cell: 'ad76c0c3ab16', rule: 'withhold' }, // "never offer Retry"
+    free_allowance_exhausted: { cell: '126a4941cb29', rule: 'withhold' }, // "never offer Retry"
+    pro_fair_use_limit: { cell: 'fe9d3a539324', rule: 'withhold' }, // "never offer Retry" (a 429 without the code keeps it)
+    generation_paused: { cell: 'a137c8c900fc', rule: 'keep' }, // "a transient ... state with Retry"
+    earnings_alert_limit: { cell: 'b3d39f3d06dc', rule: 'silent', readerWithholds: false }, // the calendar's own reader
+    summary_rate_limited: { cell: '0d7de231bb05', rule: 'keep' }, // "respect Retry-After ... before requesting new work"
+    sec_rate_limited: { cell: 'ce4f446951f6', rule: 'keep' }, // "failure and cooldown"
+    filing_source_unavailable: { cell: 'ff5f54ceb332', rule: 'keep' }, // "manual recovery may retry after any ... cooldown"
   }
   // #1824 ships `generation_paused` as non-retryable, where §3's row gives it a Retry: reported on #1848 for the
-  // contract's owner to settle. Named so that any other disagreement fails, and so does this one once it is settled,
-  // in the reader or in §3.
+  // contract's owner to settle. Named so that any other disagreement fails, and so does this one once it is settled:
+  // in the reader by the verdict below, in §3 by its cell's hash.
   const DISAGREES_WITH_SECTION_3: KnownErrorCode[] = ['generation_paused']
 
-  it('reads a Retry rule, or names the silence, for every known code in §3', () => {
+  it('holds each known code\'s §3 row to the cell its Retry rule was read from', () => {
     expect([...SECTION_3.keys()].sort(), '§3 has a row for each known code, and only those').toEqual(Object.keys(ERROR_CODES).sort())
-    const silent = [...SECTION_3].filter(([code, cell]) => section3Withholds(code, cell) === null).map(([code]) => code)
-    expect(silent.sort(), 'a §3 row with no Retry rule takes the reader verdict here, and only such a row')
-      .toEqual(Object.keys(READER_VERDICT_WHERE_SECTION_3_IS_SILENT).sort())
+    expect(Object.keys(SECTION_3_RETRY).sort(), 'a Retry rule here for each known code, and only those').toEqual(Object.keys(ERROR_CODES).sort())
+    const changed = [...SECTION_3]
+      .filter(([code, cell]) => SECTION_3_RETRY[code as KnownErrorCode]?.cell !== cellHash(cell))
+      .map(([code, cell]) => `${code}: ${cellHash(cell)}`)
+    expect(changed, "§3's Client behaviour cell changed: read its Retry rule again, then pin the new hash in SECTION_3_RETRY").toEqual([])
   })
 
   it.each(Object.keys(ERROR_CODES) as KnownErrorCode[])('holds %s\'s Retry verdict to §3, its named silence or its named disagreement', (code) => {
-    const contract = section3Withholds(code, SECTION_3.get(code) ?? '') ?? READER_VERDICT_WHERE_SECTION_3_IS_SILENT[code]
-    expect(contract, `classify ${code}: give §3's row a Retry rule, or name the reader's verdict here`).toBeTypeOf('boolean')
+    const { rule, readerWithholds } = SECTION_3_RETRY[code]
+    const contract = rule === 'silent' ? readerWithholds : rule === 'withhold'
+    expect(contract, `${code} is silent in §3: name the reader's verdict in readerWithholds`).toBeTypeOf('boolean')
     const verdict = isNonRetryableStreamError('A sentence no matcher reads.', code)
     expect(verdict, DISAGREES_WITH_SECTION_3.includes(code)
       ? `${code} now agrees with §3: drop it from DISAGREES_WITH_SECTION_3`
