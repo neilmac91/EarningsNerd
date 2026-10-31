@@ -27,7 +27,7 @@ test.describe('the analysis route draws the spec renderer (E195)', () => {
 
   // Whatever the build's env, as production builds it: no flag chooses a renderer any more. That no tracked file names
   // Recharts' package and the lockfile installs none is tests/unit/rechartsImporters.spec.ts's gate, and that the build
-  // ships none of its code tests/e2e/no-recharts-in-build.spec.ts's (E195 (D)).
+  // holds none of its drawing code tests/e2e/no-recharts-in-build.spec.ts's (E195 (D)).
   test('its four charts are the spec renderer’s', async ({ page, baseURL }) => {
     await openAnalysis(page, baseURL!, 'captured', 'light')
     await expect(page.locator('[data-analysis-chart] > svg')).toHaveCount(4)

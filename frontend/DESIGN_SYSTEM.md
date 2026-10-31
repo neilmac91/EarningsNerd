@@ -3035,10 +3035,12 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
 since E195, D-064) draws those four charts and the filing page's Financial trends (below; E195 (D), D-067), so no
 chart in the app draws with Recharts: the company page's peers chart left with its panel (D-066), and Recharts left
-the app with its chart kit (E195 (D); `tests/unit/rechartsImporters.spec.ts` fails any tracked frontend file that
-names the package, a script that loads a module by a computed specifier or a folder, and a lockfile that installs it,
-and `tests/e2e/no-recharts-in-build.spec.ts` any script the production build ships that holds a Recharts class
-name). It paints the engine's plan in literal SVG attributes from
+the app with its chart kit (E195 (D)). `tests/unit/rechartsImporters.spec.ts` fails a tracked frontend file whose
+text names the package (the lockfile aside, and the gate and the build scan, which plant its forms), a script outside
+the test homes whose strings name it once their escapes are decoded or that loads a module by a computed specifier
+or a folder, and a lockfile entry that installs it; `tests/e2e/no-recharts-in-build.spec.ts` fails a script under the
+production build's `.next/static` or `.next/server` that holds a Recharts class name. It paints the engine's plan in
+literal SVG attributes from
 `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for both themes. Since E195's token fold they name app
 tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the grid `chart.grid`, which the landing page's revenue
 bars take too; the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and
@@ -3213,8 +3215,10 @@ timers and rAF loops, which need numbers). **No raw ms or bezier strings anywher
    `adjustFontFallback: false` and `fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']`
    (E199), so `--font-geist-mono` is `'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace` and
    the data role never paints in a proportional face; the generic `monospace` ends it, so the mono
-   stacks' literals after the var serve only where the var is unset. Five sanctioned exceptions, all
-   of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
+   stacks' literals after the var are never reached, and they cannot stand in for an unset var either:
+   a `var()` with no fallback whose variable is unset makes the whole declaration invalid at
+   computed-value time, so the property takes its inherited (or initial) value. Five sanctioned
+   exceptions, all of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
    with the var ahead of the `'Inter'` literal; `fontFamily.sans` is `['var(--font-body)', …]`
    and `--font-active` is `var(--font-body)`, both reaching `--font-inter` one hop later;
    `fontFamily.figure` leads with `"EN Figure Minus"`, the one-glyph `@font-face` in `globals.css`

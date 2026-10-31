@@ -10,9 +10,10 @@ import { compactMoney, linear } from './scale'
 
 export const FONT_PX = 11
 /** Every SVG text's family (G1), the face whose advance ADVANCE assumes; it mirrors tailwind's fontFamily.data. It
- *  leads with var(--font-geist-mono), as every stack does (DESIGN_SYSTEM.md §12, item 3): next/font exposes the face
- *  through that variable, which is the contract, while the family name the loader declares is no promise, and the
- *  variable carries the loader's monospace fallback too; the literals after it serve only where it is unset. */
+ *  leads with var(--font-geist-mono), as the data stack does (DESIGN_SYSTEM.md §12, item 3): next/font exposes the face
+ *  through that variable, which is the contract, while the family name the loader declares is no promise. The
+ *  variable ends in the generic monospace, so the families after it are never reached, and were it unset the whole
+ *  value would be invalid and the text would take its inherited family: they never stand in for it. */
 export const CHART_FONT =
   'var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
 export const ADVANCE = FONT_PX * 0.6
