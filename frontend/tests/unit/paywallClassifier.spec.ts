@@ -11,9 +11,8 @@ import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
  *  - The PRO fair-use ceiling message ("Your account has reached this month's limit for generating summaries…",
  *    the page's words since E37) MUST NOT: a fair-use-capped PRO user is already paying; showing them "start your
  *    free trial" would be an absurd (and billing-false) upsell. So must its words before E37 ("We've temporarily
- *    paused…", #618), which a server before E37 streams uncoded from a durable job while a deploy rolls out. This
- *    spec makes the choice enforceable so a future copy edit on either side can't silently break it (staff review,
- *    PR #619).
+ *    paused…", #618), read by their words as a page before E31 read them. This spec makes the choice enforceable so
+ *    a future copy edit on either side can't silently break it (staff review, PR #619).
  */
 describe('isPaywallStreamError vs backend stream-error copy', () => {
   it('classifies the Free monthly-limit message as paywall', () => {

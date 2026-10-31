@@ -156,7 +156,7 @@ export const isPaywallStreamError = (message: string, code?: KnownErrorCode): bo
 // summaries, …") holds until the month turns. The stream route's 403s hold whatever the reader retries: a Free
 // reader's force regeneration of a summary the page shows ("Regenerating a summary is a Pro feature.", the
 // route itself) and an inactive account ("This account is inactive. …", get_current_user). A retry of any of them
-// only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the pause from admission.py and
+// only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the ceiling from admission.py and
 // every 403 the stream endpoint returns, and holds this matcher to each. A known code decides first, but for
 // `auth_required`: a 401 keeps today's handling, its words deciding and its Retry kept (the E31 contract's §3, since a
 // refresh or a sign-in can lift it), so a code on it changes nothing here.

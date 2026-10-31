@@ -3,7 +3,7 @@
 - The summary exports' 401 answers ``auth_required`` beside its unchanged words. Their 403 (``plan_required``) is
   held by ``test_cached_filings_pool_lifetime.py``'s export case, and the regenerate 403 by
   ``test_summary_unready_refresh.py``.
-- Admission's two account refusals, the free monthly limit and Pro's fair-use pause, carry their code on a reader's
+- Admission's two account refusals, the free monthly limit and Pro's fair-use ceiling, carry their code on a reader's
   own stream (``test_summary_pipeline_anchors_admission.py`` holds the events whole). On a durable worker's run they
   stay code-less: that job belongs to the filing, ``summary_job_store.finish_job`` stores the event's code on it, and
   ``summary_jobs.observe_job`` replays it to every later observer of the failed job, other accounts among them, so
@@ -22,7 +22,7 @@ from app.services.summary_stages import admission
 from main import app
 
 QUOTA = "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
-PAUSE = (
+CEILING = (
     "Your account has reached this month's limit for generating summaries, regenerations "
     "included. It resets next month. Contact support with any questions."
 )
@@ -60,7 +60,7 @@ async def _events(run) -> list[dict]:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("unlimited", "message", "code"), [
     (False, QUOTA, "free_allowance_exhausted"),
-    (True, PAUSE, "pro_fair_use_limit"),
+    (True, CEILING, "pro_fair_use_limit"),
 ])
 async def test_an_account_refusal_is_coded_on_the_readers_stream_and_never_on_a_durable_job(
         monkeypatch, unlimited, message, code):

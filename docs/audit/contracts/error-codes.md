@@ -146,7 +146,8 @@ headers and no code, so the order is safe in both directions.
   paywall shown to another.
 - **E**: the `main.py` handler of §4.
 - **No owner** rewrites a `detail` or `message` in the pull request that adds its code. Copy changes follow under
-  their own items once §6 passes.
+  their own items once §6 passes for their surface, its producer and its reader both coded: E37's summary sentences
+  follow C's summary slice (#1869 on #1848), and its Copilot sentences the Copilot slice (#1863 on #1843).
 
 **Locked expectations.** Several existing tests compare whole bodies or whole events, so an added `code` key
 changes them. Each producer's pull request names its rows as an accepted contract change (CLAUDE.md rule 6,

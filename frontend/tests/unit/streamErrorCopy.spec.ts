@@ -13,8 +13,8 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
 /**
  * The summary stream's error sentences are written in the backend pipeline (summary_stages, and the
  * payload messages services/ai/summary_finalize.py writes for generation.py and finalize.py to stream),
- * whose sentences took the product's words with E217's functional change there (F35, D-046, E92), all but the two
- * the matchers route on; the filing page maps each sentence to the product's words
+ * whose sentences took the product's words with E217's functional change there (F35, D-046, E92), and the last two,
+ * the free monthly limit and Pro's fair-use ceiling, with E37; the filing page maps each sentence to the product's words
  * (features/summaries/lib/streamErrorCopy.ts, brand sweep filing/F48), a sentence already in them to itself.
  * This gate reads every module under summary_stages plus ai/summary_finalize.py, read only, and holds the
  * map to that Python source:
@@ -38,13 +38,13 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     whose JSON detail the reader shows as the error. A coded raise that passes through words written
  *     elsewhere (OPAQUE_CODED_DETAILS, each named once per raise) is held out of these word legs.
  *  3. Parity: the raw message, not the mapped one, decides the card. Exactly one admission.py error
- *     sentence opens the paywall card (the free monthly limit; Pro's fair-use pause never upsells), and it
+ *     sentence opens the paywall card (the free monthly limit; Pro's fair-use ceiling never upsells), and it
  *     carries every phrase isPaywallStreamError routes on. Every phrase isNonRetryableStreamError routes
  *     on is still written somewhere a stream error's text can come from (routers/summaries.py, the stage
  *     modules, the endpoint's answers, the client's own fallbacks, the matchers' own `.includes` literals
  *     never counted): a dead-phrase check, not a proof that a stream error carries it. A 401 is never retried
  *     automatically whatever its text (the reader sets retryable only for a 5xx). The proof, sentence by
- *     sentence, for every answer no retry can change: Pro's fair-use pause, read in admission.py's own words
+ *     sentence, for every answer no retry can change: Pro's fair-use ceiling, read in admission.py's own words
  *     from the error it streams in the block under `if user_is_unlimited:` (the billing-unlimited caller its
  *     usage gate blocked), and every 403 the endpoint answers with (a plan or account gate: a Free reader's
  *     force regeneration of a summary the page shows, an inactive account) must match
@@ -597,6 +597,14 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(unmapped, 'add the sentence to STREAM_ERROR_COPY (features/summaries/lib/streamErrorCopy.ts), keyed by its exact Python text').toEqual([])
   })
 
+  /** A line kept for a sentence no module writes any more, while a deploy rolls out: the page deploys before the
+      backend, which streams the old words until its new revision serves. Each names its successor, whose words it
+      shows, and goes once that deploy is verified (E37: #1869's backend). */
+  const RETIRED_KEYS: Record<string, string> = {
+    "We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.":
+      "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
+  }
+
   it('keeps no line for a sentence no stage module writes and the endpoint no longer answers with', () => {
     const written = new Set<string>()
     for (const file of SOURCES) {
@@ -607,7 +615,14 @@ describe('the summary stream error sentences the filing page maps', () => {
       })
     }
     for (const answer of endpointErrors()) written.add(answer.text)
-    expect(Object.keys(STREAM_ERROR_COPY).filter((key) => !written.has(key)), 'delete the stale line from STREAM_ERROR_COPY').toEqual([])
+    expect(Object.keys(STREAM_ERROR_COPY).filter((key) => !written.has(key) && !(key in RETIRED_KEYS)), 'delete the stale line from STREAM_ERROR_COPY')
+      .toEqual([])
+    // A retired line is one no module writes, whose successor is written, and which shows its successor's words.
+    for (const [retired, successor] of Object.entries(RETIRED_KEYS)) {
+      expect(written.has(retired), 'a module writes it again: it is a live line, drop it from RETIRED_KEYS').toBe(false)
+      expect(written.has(successor), 'its successor is no longer written: delete both lines').toBe(true)
+      expect(STREAM_ERROR_COPY[retired], "a retired line shows its successor's words").toBe(STREAM_ERROR_COPY[successor])
+    }
   })
 
   it("reads every error an endpoint function raises, in each form, and nothing after it (a self-check on planted forms)", () => {
@@ -708,7 +723,7 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(frontendStrings(matcher)).toEqual(['Sign in again.'])
   })
 
-  it("holds Pro's fair-use pause, in admission.py's own words, to the matcher that stops every retry", () => {
+  it("holds Pro's fair-use ceiling, in admission.py's own words, to the matcher that stops every retry", () => {
     // The block read, planted: the error inside the block counts (its literals joined, a blank and a comment line
     // inside skipped), the one after the block's dedent does not, and a condition no line tests reads as null.
     const probe = [
@@ -727,12 +742,12 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(errorsUnder(probe, 'p.py', 'user_is_pro')).toBeNull()
     const file = 'summary_stages/admission.py'
     const pause = errorsUnder(source(file), file, 'user_is_unlimited')
-    expect(pause, `${file} no longer tests \`if user_is_unlimited:\`: find where it streams Pro's fair-use pause and read that`).not.toBeNull()
-    expect(pause!.map((m) => m.text), `${file} streams one fair-use pause`).toHaveLength(1)
+    expect(pause, `${file} no longer tests \`if user_is_unlimited:\`: find where it streams Pro's fair-use ceiling and read that`).not.toBeNull()
+    expect(pause!.map((m) => m.text), `${file} streams one fair-use ceiling`).toHaveLength(1)
     expect(
       isNonRetryableStreamError(pause![0].text),
       `${file}:${pause![0].line} "${pause![0].text}" no longer matches isNonRetryableStreamError: move its phrase ` +
-        '(features/summaries/api/summaries-api.ts) to the new words, or the stream retries the pause and its card offers a Retry',
+        '(features/summaries/api/summaries-api.ts) to the new words, or the stream retries the ceiling and its card offers a Retry',
     ).toBe(true)
   })
 
