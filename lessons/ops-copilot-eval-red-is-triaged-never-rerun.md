@@ -33,10 +33,10 @@ Never draw again on the same code to get a green result:
   head commit, and a later run on a head that already drew reports that draw's verdict and spends
   nothing. Nothing in the PR body exempts a head.
 - **A run that drew nothing.** An attempt whose runner step never started, on a head that has not
-  drawn, drew nothing. An install failure ends an attempt that way, and so do an SEC outage, the draw
-  gate's failed read of earlier runs, and a "Source refused" from the preparation step's source check
-  (E80, the founder's decision of 31 October 2026). The triage rule does not apply to such an
-  attempt. Diagnose its error. When the cause lies outside the pull request, re-run it after the
+  drawn, drew nothing. An install failure ends an attempt that way, and so does an SEC outage or the
+  draw gate's failed read of earlier runs. So does a "Source refused" from the preparation step's
+  source check (E80, the founder's decision of 31 October 2026). The triage rule does not apply to
+  such an attempt. Diagnose its error. When the cause lies outside the pull request, re-run it after the
   cause clears. A refusal the pull request causes refuses on every re-run, until a push. An attempt
   whose runner step started is the head's draw, even one cancelled or refused by the runner's own
   preflight. A run the gate stopped because the head already drew carries that draw's verdict: triage

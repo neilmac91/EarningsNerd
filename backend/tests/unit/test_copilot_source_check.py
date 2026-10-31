@@ -188,10 +188,12 @@ def test_the_runner_still_refuses_a_source_the_check_would_refuse_before_any_pro
 
 
 def test_the_runner_run_as_the_step_runs_it_refuses_before_any_setting_loads(tmp_path):
-    # The backstop's order, in a fresh process with no setting or credential in its environment, as the runner step
-    # runs: the preflight refuses before main() loads settings (app.config) or checks the credential. Settings loaded
-    # before main() points DATABASE_URL at the prepared database would bind the default database, and a credential
-    # checked first would report itself instead of the refused source.
+    # The backstop's order, in a fresh process: the preflight refuses before main() loads settings (app.config) or
+    # checks the credential. The environment is stricter than the runner step's, which has the job's SECRET_KEY and
+    # OPENAI_API_KEY. Here a settings load fails Settings' own validation, and a failed import leaves app.config out of
+    # sys.modules, so in CI it is the report's reason (that failure, not the refused source) that catches the load; the
+    # module list catches it where settings can load (a local backend/.env). A credential checked first would report
+    # itself instead of the refused source.
     cases, data = preparation(tmp_path)
     DAMAGES["fallback"](data, cases)
     path = _written(tmp_path, data)
@@ -209,6 +211,33 @@ def test_the_runner_run_as_the_step_runs_it_refuses_before_any_setting_loads(tmp
     assert (result.returncode, result.stdout.splitlines()[-1:]) == (0, ["[]"]), result.stdout + result.stderr
     report = json.loads((output / "copilot-eval.json").read_text())
     assert report["failures"] == ["preflight failed: " + check.refusal(path)]
+
+
+def test_the_runner_binds_its_settings_to_the_prepared_database(tmp_path):
+    # main() points DATABASE_URL at the prepared database before it loads settings, so the rows read the prepared
+    # sources. A fresh process on a declared preparation, with a placeholder SECRET_KEY and an empty credential:
+    # main() passes the preflight, loads settings, and stops at the credential check, before any provider call. The
+    # settings it loaded must name the prepared database. Loaded before DATABASE_URL is set, they would name the
+    # default database, and every row of the spent draw would error.
+    cases, data = preparation(tmp_path)
+    path = _written(tmp_path, data)
+    output = tmp_path / "out"
+    env = {"PATH": os.environ.get("PATH", os.defpath), "HOME": str(tmp_path), "GITHUB_SHA": "1" * 40,
+           "SECRET_KEY": "offline-test-" + "x" * 32, "OPENAI_API_KEY": ""}
+    if os.environ.get("LD_LIBRARY_PATH"):  # setup-python's shared libpython on CI runners
+        env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH"]
+    code = ('import runpy, sys\n'
+            f'sys.argv = ["copilot_runner", "--preparation", {str(path)!r}, "--output", {str(output)!r}]\n'
+            'try:\n    runpy.run_module("evals.copilot_runner", run_name="__main__")\n'
+            'except SystemExit as stop:\n    assert stop.code == 1, stop.code\n'
+            '    print(sys.modules["app.config"].settings.DATABASE_URL)')
+    result = subprocess.run([sys.executable, "-c", code], cwd=Path(runner.__file__).resolve().parents[1], env=env,
+                            capture_output=True, text=True, timeout=60)
+    prepared = runner.validate_preparation(path, cases)["database_path"]
+    assert (result.returncode, result.stdout.splitlines()[-1:]) == (0, ["sqlite:///" + prepared]), (
+        result.stdout + result.stderr)
+    report = json.loads((output / "copilot-eval.json").read_text())
+    assert report["failures"] == ["preflight failed: generator credential unavailable"]
 
 
 def test_a_refused_source_fails_the_preparation_step_and_spends_no_draw(tmp_path):
