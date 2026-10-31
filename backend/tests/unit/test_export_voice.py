@@ -128,10 +128,29 @@ def _summary():
     return export_fixtures._make_summary_and_filing(sections)
 
 
+# A year's own annual report's value beside a later filing's (MPA WP5a): a figure's, with a factor of 1,000, reaches
+# the later-filing line, the evidence sentence and the scale words; an input's, of the opposite sign, the input's
+# evidence and the sign words; growth across the change, the cause, a growth as first reported and its n/m, and the
+# closing and n/m sentences.
+_FIRST_REPORTED = {"unit": "USD", "form": "10-K", "accession": "0000123456-23-000001", "filed_at": "2023-02-14",
+                   "source_url": "https://www.sec.gov/Archives/edgar/data/1/000012345623000001/",
+                   "later_filed_at": "2025-02-14"}
+
+
+def _later_filings(revenue: list[dict], input_point: dict | None = None) -> None:
+    revenue[0]["first_reported"] = {**_FIRST_REPORTED, "value": revenue[0]["value"] / 1000, "disagreement": "scale"}
+    for point, growth in zip(revenue[1:], (0.25, "nm")):
+        point.update(yoy="nm", yoy_first_reported=growth,
+                     yoy_provenance=point.get("yoy_provenance") or {"method": "calculated", "validation": "passed"})
+    if input_point is not None:
+        operand = input_point["provenance"]["inputs"][0]
+        operand["first_reported"] = {**_FIRST_REPORTED, "value": -operand["value"], "disagreement": "opposite_sign"}
+
+
 def _analysis():
     """The PDF fixture with a narrative that carries no heading, a calculated point with its operand's
-    source fields, a metric calculated in full (the sentence above the grid names it), and data notes in every
-    count the summary line prints."""
+    source fields, a metric calculated in full (the sentence above the grid names it), data notes in every
+    count the summary line prints, and later-filing evidence on a figure, an input and two growths."""
     analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
     # The CAGR sentence as observations.py stores it, with the window key.
     analysis.narrative_md = "Revenue grew from $1,000 [1] to $1,500 [2]. Revenue CAGR was 22.5% over FY2022..FY2024 [3]."
@@ -150,6 +169,7 @@ def _analysis():
         "points": [{"period": period, "value": 200.0, "provenance": {"method": "calculated", "validation": "passed"}}
                    for period in ("FY2022", "FY2023", "FY2024")],
     })
+    _later_filings(points, input_point=points[2])
     analysis.dataset_json["data_notes"] = data_notes(analysis.dataset_json)
     return analysis
 
@@ -167,10 +187,14 @@ def _quarterly_analysis():
 
 
 def _dataset():
-    """The workbook fixture with a note that questions a figure, so the Metrics grid prints its key."""
+    """The workbook fixture with a note that questions a figure, so the Metrics grid prints its key, and later-filing
+    evidence on the top line's figure and growths and, of the opposite sign, on net income's."""
     dataset = workbook_fixtures._dataset()
     dataset["series"][0]["points"][0]["provenance"] = {"method": "reported", "validation": "needs_review",
                                                        "reasons": ["source_conflict"]}
+    _later_filings(dataset["series"][0]["points"])
+    net_income = next(series for series in dataset["series"] if series["concept"] == "net_income")["points"][1]
+    net_income["first_reported"] = {**_FIRST_REPORTED, "value": -net_income["value"], "disagreement": "opposite_sign"}
     return dataset
 
 

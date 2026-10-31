@@ -52,7 +52,8 @@ def _dataset():
                 "points": [
                     {"period": "FY2022", "value": 1000.0},
                     {"period": "FY2023", "value": 1200.0, "yoy": 0.2},
-                    # yoy "nm" = the sign-flip sentinel; derived = a computed-Q4 estimate.
+                    # yoy "nm" = growth that is not meaningful (a change of sign, or of basis across a later
+                    # filing's value); derived = a computed-Q4 estimate.
                     {"period": "FY2024", "value": 1500.0, "yoy": "nm", "derived": True},
                 ],
             },
@@ -336,7 +337,7 @@ class TestPanelSheets:
         assert ws["B2"].value == 1000.0 and ws["B2"].number_format == "#,##0"
         assert ws["C2"].value is None  # first period has no YoY
         assert ws["C3"].value == pytest.approx(0.2) and ws["C3"].number_format == "0.0%"
-        assert ws["C4"].value == "n/m"  # the sign-flip sentinel is text, not a fake percentage
+        assert ws["C4"].value == "n/m"  # not meaningful growth is text, not a fake percentage
 
     def test_margins_sheet_writes_true_percents(self, workbook):
         ws = workbook["Margins"]

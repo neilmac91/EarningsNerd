@@ -18,7 +18,9 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    its templates, the gap's words aside: the PDF draws the page's dash, the workbook says "left blank"), the places
    (at most SUMMARY_PLACES metrics, then "and N more", and the comparison labels), the detail's places, counts and
    comparisons, and the checks sentence. "No figures need review" is held back beside a record-only note on a growth
-   figure alone, on dataNoteMarking.spec.tsx's own report. A change of the page's code form fails here until re-read.
+   figure alone, on dataNoteMarking.spec.tsx's own report. The later-filing line (MPA WP5a, D9) is the page's, its lead,
+   count, n/m sentence and place joins read from its template, without its page action ("select one to see both
+   filings"), set as one more detail entry. A change of the page's code form fails here until re-read.
 4. The calculated sentence names the metrics metrics-table.spec.tsx's sentences name, read from that spec, for the same
    runs, and both files print it, the PDF above its grid and the workbook in its Overview, with their closing lines. The
    Q4 legend is MetricsTable.tsx's, read from its source.
@@ -34,7 +36,8 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
 7. Every line of the fine print both files print holds the reason words' surface rules (test_analysis_data_notes.py): no
    page action, no drawing, no single figure, no semicolon. The gap words alone say how each file draws a gap, which is
    their job; the detail's entries list places and counts with "; " and their messages are the reason words, which
-   that test holds.
+   that test holds. A run with later-filing evidence (REGN's) adds the closing line's evidence sentence and the
+   workbook's comment clause, which hold the rules too, and the later-filing line, which reads as an entry.
 8. The PDF's grid prints whole on one landscape page with the lines above it and its summary under it (WeasyPrint), at
    the sizes reports print: the page's own e2e run, annual and quarterly, at 20 and 22 metrics, with no marked note,
    one, two, or a letter on every row, each row as tall as an unlettered run's. A longer grid's summary line stays on
@@ -58,8 +61,10 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
 from app.services.analysis_export_metadata import (
-    AUTOMATED_CHECKS, DERIVED_Q4_LEGEND, FCF_DEFINITION, PDF_CLOSING, QUARTER_LEGEND, SUMMARY_PLACES, WORKBOOK_CLOSING,
-    _comparison_label, calculated_sentence, derived_q4_sentence, detail_entries, fine_print_summary, summary_places,
+    AUTOMATED_CHECKS, DERIVED_Q4_LEGEND, FCF_DEFINITION, LATER_FILING_GROWTH, LATER_FILING_MESSAGE, NOT_MEANINGFUL_CAUSES,
+    PDF_CLOSING, QUARTER_LEGEND, SUMMARY_PLACES, WORKBOOK_CLOSING, _comparison_label, calculated_sentence,
+    derived_q4_sentence, detail_entries, fine_print_summary, later_filing_entry, pdf_closing, summary_places,
+    workbook_closing,
 )
 from app.services.excel_export_service import build_analysis_workbook
 from app.services.export_service import ANALYSIS_GRID_PRECISION, ANALYSIS_GRID_ROUNDING, ExportService
@@ -69,6 +74,8 @@ from tests.unit.test_export_voice import read_html
 
 FIXTURE = json.loads((Path(__file__).parents[1] / "fixtures" / "analysis_data_notes.json").read_text())
 CASES = FIXTURE["cases"]
+# The later-filing evidence's shared fixture (MPA WP5a), whose places the page's later-filings.spec.tsx reads too.
+LATER_CASES = json.loads((Path(__file__).parents[1] / "fixtures" / "analysis_later_filings.json").read_text())["cases"]
 COMPANY = SimpleNamespace(name="Test Co", ticker="TST")
 FRONTEND = Path(__file__).resolve().parents[3] / "frontend"
 ANALYSIS_COMPONENTS = FRONTEND / "features" / "analysis" / "components"
@@ -353,6 +360,36 @@ def test_the_fine_print_reads_the_page_words():
     assert AUTOMATED_CHECKS == checks.replace("confirm that", "confirm").replace("; they", ". They")
 
 
+def test_the_later_filing_line_is_the_pages_without_its_page_action():
+    """D9: the files' later-filing line is the page's (DataNotes.tsx), read from its template: its lead as the
+    message, its count's words, its n/m sentence after the count's "; ", and its places joined as the page joins them,
+    set as a detail entry's ("Revenue (FY2018, FY2019); Total assets (FY2018)"). The page action after its places,
+    "select one to see both filings", is dropped, since a file offers none (chief design on #1776, as #1659 ruled for
+    the exports), and the surface rules refuse it."""
+    page = (ANALYSIS_COMPONENTS / "DataNotes.tsx").read_text(encoding="utf-8")
+    line = _page(r"data-analysis-later-filings>\{`(A later filing reports a different value) for \$\{plural\(later\.values"
+                 r"\.length, '([^']*)', '([^']*)'\)\} \(\$\{placeList\(later\.values\)\}\); ([^.`]*)\.\$\{later\.comparisons"
+                 r"\.length \? ` (Growth across the change reads n/m) \(\$\{placeList\(later\.comparisons\)\}\)\.` : ''\}`\}",
+                 page, "later-filing line")
+    joins = _page(r"const placeList = .*?=> `\$\{label\} \$\{periods\.join\('([^']*)'\)\}`\)\.join\('([^']*)'\)", page,
+                  "later-filing places")
+    assert (LATER_FILING_MESSAGE, LATER_FILING_GROWTH) == (f"{line[1]}.", line[5][:1].lower() + line[5][1:])
+    cases = {case["name"]: case["dataset"] for case in LATER_CASES}
+    regn = later_filing_entry(cases["regn_own_reports_beside_later_comparatives"])
+    assert regn["places"] == f"Revenue (FY2018{joins[1]}FY2019){joins[2]}Total assets (FY2018)."
+    assert regn["counts"] == f"3 {line[3]}; {LATER_FILING_GROWTH}."
+    assert regn["comparisons"] == (f"Comparisons: Revenue YoY (FY2018{joins[1]}FY2019{joins[1]}FY2020){joins[2]}"
+                                   f"Net margin YoY (FY2018{joins[1]}FY2019{joins[1]}FY2020).")
+    assert later_filing_entry(cases["evidence_with_no_change_of_basis"])["counts"] == f"1 {line[2]}."
+    # An entry like a note's, with no letter and no anchor: nothing links to it.
+    assert (regn["id"], regn["letter"], regn["message"]) == (None, None, LATER_FILING_MESSAGE)
+    # The page action, which no file prints, fails the surface rules.
+    assert line[4] == "select one to see both filings"
+    assert not any(line[4] in str(part) for entry in map(later_filing_entry, cases.values()) if entry
+                   for part in entry.values())
+    assert _held(f"{line[4][:1].upper()}{line[4][1:]}.", "")
+
+
 # ---- The calculated sentence, as reportPresentation.ts ---------------------------------------------------------
 def _run(*rows: tuple[str, str, bool, bool]) -> dict:
     """metrics-table.spec.tsx's runs: each row (concept, label, calculated, percent) with a value in both years."""
@@ -604,6 +641,23 @@ def test_every_line_of_the_fine_print_holds_the_reason_words_surface_rules():
     quarterly_read, _ = overview_lines(quarterly)
     assert derived_q4_sentence(quarterly) in quarterly_read, quarterly_read
     assert {line: found for line in read + quarterly_read if (found := _held(line, " left blank"))} == {}
+
+    # REGN's run (MPA WP5a): the closing line's evidence sentence in each file and the workbook's comment clause hold the
+    # rules, the later-filing line reads as an entry, and Sources & methods' n/m sentence, which is no fine print, holds
+    # them too.
+    regn = next(case["dataset"] for case in LATER_CASES if case["name"] == "regn_own_reports_beside_later_comparatives")
+    html = ExportService().generate_analysis_pdf_html(SimpleNamespace(
+        mode="annual", period_key=regn["period_key"], dataset_json=deepcopy(regn), narrative_md="", citations_json=[]), COMPANY)
+    regn_pdf = [html_lib.unescape(re.sub(r"<[^>]+>", "", paragraph)).strip()
+                for paragraph in re.findall(r'<p class="fine-print[^"]*">(.*?)</p>', html, re.S)]
+    assert regn_pdf[-1] == pdf_closing(True) and {line: found for line in regn_pdf if (found := _held(line, " shown as —"))} == {}
+    overview = [str(row[0]) for row in load_workbook(io.BytesIO(build_analysis_workbook(deepcopy(regn))))[
+        "Overview"].iter_rows(values_only=True) if row[0]]
+    printed = overview[overview.index(FCF_DEFINITION) + 1:overview.index(workbook_closing(True)) + 1]
+    entries = [line for line in printed if re.match(r"(?:[a-z]{1,2}\. )?[A-Z][^·]*\. .*\d+ (?:growth )?figures?", line)]
+    assert [line.startswith(LATER_FILING_MESSAGE) for line in entries] == [True], entries
+    assert {line: found for line in [*printed, NOT_MEANINGFUL_CAUSES] if line not in entries
+            and (found := _held(line, " left blank"))} == {}
     # Planted: the page's own closing line and sentence ending, and the line this replaced, fail here.
     assert _held("Select any figure to see its source filing, method and inputs.", "")
     assert _held("Select any value for its source and full precision.", "")
