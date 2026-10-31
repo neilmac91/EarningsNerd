@@ -57,8 +57,7 @@ def calculate_waitlist_position(base_position: int, priority_score: int) -> int:
 
 def build_referral_link(referral_code: str) -> str:
     """The share link: /waitlist reads ``?ref=`` (WaitlistForm) with WAITLIST_MODE on or off; the homepage does not."""
-    base = settings.FRONTEND_URL.rstrip("/")
-    return f"{base}/waitlist?ref={referral_code}"
+    return f"{settings.FRONTEND_URL}/waitlist?ref={referral_code}"
 
 
 class WaitlistAlreadyJoined(Exception):
