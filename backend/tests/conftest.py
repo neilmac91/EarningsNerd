@@ -247,9 +247,10 @@ def _reset_delivery_ownership():
 def _isolate_summary_limiter():
     """Request allowances belong to one test, even when tests reuse a stand-in account id.
 
-    Avoid importing a router for tests that do not use it. Check again at teardown because the
-    running test may be the first to import it. The ordered probes in test_suite_isolation.py
-    exhaust one account's allowance, then require an empty limiter in the next test.
+    The router is already loaded: ``_import_session_local_binders`` imports it before the first test
+    (E263). It is read from ``sys.modules`` rather than imported here, and checked again at teardown,
+    so this reset never depends on that order. The ordered probes in test_suite_isolation.py exhaust
+    one account's allowance, then require an empty limiter in the next test.
     """
     def clear_loaded_limiter():
         summaries = sys.modules.get("app.routers.summaries")

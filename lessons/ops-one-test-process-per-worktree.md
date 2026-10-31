@@ -122,16 +122,17 @@ leaker and the victim in that order in one process (`python -m pytest -n 0 -p no
 - `_offline_stream_enrichment` stubs any file but its listed three, or the temp directory of any
   process (the xdist controller and each worker included) outlives its run.
 
-`backend/tests/unit/test_session_local_binders.py` fails when a module under `app/` copies `SessionLocal` from
-`app.database` at import and `tests/support/session_local_binders.py` does not list it, or the list names a module
-that no longer does.
-
-It runs the probe pairs in a fixed order in a fresh serial process, because `-n auto` and random
-order can split or reverse a definition-order pair. A `test_probe_*` or `test_isolation_*` function
+`test_suite_isolation.py` runs the probe pairs in a fixed order in a fresh serial process, because `-n auto` and
+random order can split or reverse a definition-order pair. A `test_probe_*` or `test_isolation_*` function
 outside that order fails it. `backend/tests/unit/test_wall_clock_bounds.py` fails on an assert that
 requires elapsed time to stay under a bound, except for the listed guards whose bound is many times
 what they measure. CI's backend step runs the same parallel `python -m pytest`, so every PR exercises
 a different test-to-worker split.
+
+`backend/tests/unit/test_session_local_binders.py` fails when a module under `app/` copies `SessionLocal` at import
+and `tests/support/session_local_binders.py` does not list it, or the list names a module that no longer does. A copy
+is an import of it from `app.database`, or a read of `database.SessionLocal` in code that runs at import: the top
+level, a class body, a function's decorators or default values.
 
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
 `70fca647` (2705 passed) with the worktree left alone; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9 section. The
