@@ -66,6 +66,9 @@ const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
 }
 
+// The reader's own acts that drop a page reveal armed by a press, before the composer takes focus (armPageReveal).
+const READER_ACTS = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
+
 // Standalone launcher pinned bottom-RIGHT: clear of the home indicator and of the consent bar
 // (BOTTOM_CHROME_OFFSET adds the bar's height while it is mounted), like FilingWorkspace's.
 const LAUNCHER_OFFSET: CSSProperties = {
@@ -238,26 +241,63 @@ export default function AskCopilotRail({
     copilotActiveRef.current = isCopilotActive
   }, [isCopilotActive])
 
+  // A press that opens the pane (Source, the coachmark's Try, an in-page Ask, ⌘K or "/") or pre-fills it may move the
+  // page once, after the pane settles, when the composer is still out of view (E252; CopilotComposer's revealOnPage).
+  // The composer's next focus spends it. canAsk can turn true seconds after the press, once usage or the plan loads: a
+  // reader who wheels, touches, clicks or types before then has moved on, so their act drops it and the page stays
+  // where they left it. A tab pressed back to Ask, or a citation flow's return, drops it the same way: the press that
+  // moved focus there was the reader's own, inside the pane.
+  const pageRevealRef = useRef<(() => void) | null>(null)
+  const armPageReveal = useCallback(() => {
+    pageRevealRef.current?.()
+    const drop = () => {
+      for (const type of READER_ACTS) window.removeEventListener(type, drop, true)
+      if (pageRevealRef.current === drop) pageRevealRef.current = null
+    }
+    for (const type of READER_ACTS) window.addEventListener(type, drop, { capture: true, passive: true })
+    pageRevealRef.current = drop
+  }, [])
+  const spendPageReveal = useCallback(() => {
+    const armed = pageRevealRef.current
+    armed?.()
+    return armed !== null
+  }, [])
+  useEffect(() => {
+    if (open) armPageReveal()
+    else pageRevealRef.current?.()
+  }, [open, armPageReveal])
+  useEffect(() => () => pageRevealRef.current?.(), [])
+
   // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
   // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs). The
-  // handle never moves the page, which can still be settling: canAsk can turn true later, once usage
-  // or the plan loads (CopilotComposer's revealInScrollBox).
+  // handle never moves the page while the pane settles: canAsk can turn true later, once usage or the
+  // plan loads (CopilotComposer's revealInScrollBox). Only the press that opened the pane moves it
+  // after (revealOnPage).
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
     if (!open || !canAsk || !isCopilotActive) return
-    const raf = requestAnimationFrame(() => composerRef.current?.focus())
+    const raf = requestAnimationFrame(() => composerRef.current?.focus({ revealOnPage: spendPageReveal() }))
     return () => cancelAnimationFrame(raf)
-  }, [open, canAsk, isCopilotActive])
+  }, [open, canAsk, isCopilotActive, spendPageReveal])
 
-  // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us).
+  // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us). The press arms the
+  // page reveal, as an open does, also while the pane is already open.
   const lastPrefillNonce = useRef(0)
+  const armedPrefillNonce = useRef(0)
   useEffect(() => {
-    if (!prefill || !canAsk || prefill.nonce === lastPrefillNonce.current) return
+    if (!prefill) return
+    if (prefill.nonce !== armedPrefillNonce.current) {
+      armedPrefillNonce.current = prefill.nonce
+      armPageReveal()
+    }
+    if (!canAsk || prefill.nonce === lastPrefillNonce.current) return
     lastPrefillNonce.current = prefill.nonce
     // Defer so the composer has mounted (the rail was opened in the same tick).
-    const raf = requestAnimationFrame(() => composerRef.current?.prefill(prefill.text))
+    const raf = requestAnimationFrame(() =>
+      composerRef.current?.prefill(prefill.text, { revealOnPage: spendPageReveal() }),
+    )
     return () => cancelAnimationFrame(raf)
-  }, [prefill, canAsk])
+  }, [prefill, canAsk, armPageReveal, spendPageReveal])
 
   // Below lg the standalone overlay acts as a modal (focus trap + scrim). When `embedded`,
   // FilingWorkspace owns the trap/scrim, so we disable the query entirely (isMobile stays false)
@@ -288,8 +328,11 @@ export default function AskCopilotRail({
       if (openCombo || slashCombo) {
         e.preventDefault()
         if (open) {
-          // Already open → the focus-on-open effect won't re-fire, so focus directly.
-          composerRef.current?.focus()
+          // Already open → the focus-on-open effect won't re-fire, so focus directly. The press may move the page
+          // once the pane settles (revealOnPage); while the composer waits on usage or the plan, it arms that move
+          // for the focus the effect makes once it can.
+          if (composerRef.current) composerRef.current.focus({ revealOnPage: true })
+          else armPageReveal()
         } else {
           // Opening → the focus-on-open effect handles focus once the composer mounts.
           onOpenChange(true)
@@ -301,7 +344,7 @@ export default function AskCopilotRail({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onOpenChange, summaryAvailable])
+  }, [open, onOpenChange, summaryAvailable, armPageReveal])
 
   const updateAssistant = (
     id: string,

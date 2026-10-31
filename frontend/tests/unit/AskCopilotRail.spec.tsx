@@ -102,7 +102,7 @@ function renderRail(overrides: Partial<React.ComponentProps<typeof AskCopilotRai
  */
 function composerColumn(field: HTMLElement) {
   const column = scrollBox(field.closest('form')!.parentElement!, 100, 300)
-  const shell = field.closest('.scroll-mb-1') as HTMLElement
+  const shell = field.closest('.scroll-my-1') as HTMLElement
   shell.getBoundingClientRect = () => rect(420 - column.scrollTop, 50)
   return column
 }

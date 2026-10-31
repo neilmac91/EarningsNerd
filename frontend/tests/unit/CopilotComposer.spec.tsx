@@ -52,7 +52,7 @@ function renderInColumn({ shellTop = 420 }: { shellTop?: number } = {}) {
   const box = screen.getByTestId('column')
   const column = scrollBox(box, 100, 300)
   const outer = scrollBox(screen.getByTestId('outer'), 0, 200)
-  const shell = field.closest('.scroll-mb-1') as HTMLElement
+  const shell = field.closest('.scroll-my-1') as HTMLElement
   let shellHeight = 50
   shell.getBoundingClientRect = () => rect(shellTop - column.scrollTop, shellHeight)
   const growShell = (height: number) => {
@@ -153,7 +153,7 @@ describe('CopilotComposer focus handles never move the page (E248)', () => {
     try {
       const { ref, shell, box, column } = renderInColumn()
       // A 2px border (clientTop, the content 296px tall), 6px and 8px of scroll padding, and the shell's own margins
-      // (scroll-mb-1 gives it 4px below, for the focus ring).
+      // (scroll-my-1 gives it 4px each side, for the focus ring; 3px and 4px here, to tell the two apart).
       Object.defineProperty(box, 'clientTop', { configurable: true, get: () => 2 })
       column.resize(296)
       box.style.setProperty('scroll-padding-top', '6px')
@@ -379,7 +379,7 @@ describe('CopilotComposer revealFocus handle', () => {
       expect(column.writes).toEqual([])
 
       // Focus in the field, then on Send: each time the shell around both comes to the column's foot. Not the form,
-      // whose privacy note would push the conversation off a short sheet; scroll-mb-1 leaves room below the shell for
+      // whose privacy note would push the conversation off a short sheet; scroll-my-1 leaves room around the shell for
       // the 3px ring.
       expect(shell.tagName).not.toBe('FORM')
       for (const control of [field, send]) {

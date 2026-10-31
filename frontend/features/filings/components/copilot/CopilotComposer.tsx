@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { PaperPlaneTiltIcon } from '@/lib/icons'
 import { Button, Textarea, cx, inputClasses, primaryUnavailableClass } from '@/components/ui'
+import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 interface CopilotComposerProps {
   onSubmit: (question: string) => void
@@ -12,12 +13,20 @@ interface CopilotComposerProps {
   locked: boolean
 }
 
+/** What a press asks of a focus handle. */
+export interface ComposerFocusOptions {
+  /** The press opened the pane or pre-filled it (Source, ⌘K, "/", "Ask about this"): once the pane has settled, when
+   *  the shell is still not wholly in view below the site header, the page moves by the least distance that brings it
+   *  there, once (E252). */
+  revealOnPage?: boolean
+}
+
 export interface CopilotComposerHandle {
-  /** Focus the field without moving the page, and bring the shell around it into view inside the box that scrolls
-   *  it (revealInScrollBox). */
-  focus: () => void
+  /** Focus the field without moving the page, and bring the shell around it into view inside the box that scrolls it
+   *  (revealInScrollBox). */
+  focus: (options?: ComposerFocusOptions) => void
   /** Replace the input with `text`, focus as `focus` does, grow to fit, and put the caret at the end. */
-  prefill: (text: string) => void
+  prefill: (text: string, options?: ComposerFocusOptions) => void
   /** When focus is in the composer (its field or Send), bring the shell that draws the focus ring around both to the
    *  nearest edge of the box that scrolls it, never the page. Nothing moves when focus is elsewhere or the shell is
    *  already in view. */
@@ -25,6 +34,12 @@ export interface CopilotComposerHandle {
 }
 
 const SCROLLS = /^(auto|scroll|hidden)$/
+const px = (value: string) => parseFloat(value) || 0
+/** The reader's own moves, any of which drops a page reveal still waiting for the pane to settle. */
+const READER_MOVES = ['wheel', 'touchstart', 'pointerdown'] as const
+/** Frames the shell and its column hold still before the pane counts as settled, and the most frames waited for it. */
+const SETTLED_FRAMES = 2
+const MAX_SETTLE_FRAMES = 12
 
 /** The box that scrolls `el` (the rail's column): its nearest scrolling ancestor, never the page. */
 function scrollBoxOf(el: HTMLElement): HTMLElement | null {
@@ -33,20 +48,54 @@ function scrollBoxOf(el: HTMLElement): HTMLElement | null {
   return box === document.body ? null : box
 }
 
-/** How far `box` scrolls to bring `el`, its scroll margin included, to its nearest edge, the least distance: 0 when `el`
- *  is in view. */
-function distanceToReveal(el: HTMLElement, box: HTMLElement) {
-  const boxStyle = getComputedStyle(box)
-  const elStyle = getComputedStyle(el)
-  const b = box.getBoundingClientRect()
-  const r = el.getBoundingClientRect()
-  const top = b.top + box.clientTop + (parseFloat(boxStyle.scrollPaddingTop) || 0)
-  const bottom = b.top + box.clientTop + box.clientHeight - (parseFloat(boxStyle.scrollPaddingBottom) || 0)
-  const elTop = r.top - (parseFloat(elStyle.scrollMarginTop) || 0)
-  const elBottom = r.bottom + (parseFloat(elStyle.scrollMarginBottom) || 0)
-  if (elBottom > bottom) return Math.min(elBottom - bottom, elTop - top)
-  if (elTop < top) return elTop - top
+/** Whether `el` sits in a fixed layer (the phone's sheet, the standalone rail), which no page scroll moves. */
+function inFixedLayer(el: HTMLElement) {
+  for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+    if (getComputedStyle(node).position === 'fixed') return true
+  }
+  return false
+}
+
+/** The part of the window a reveal lands in: below the bars the page's scroll padding reserves (the site header) and
+ *  above the consent bar it reserves (globals.css), or the whole window in a fixed layer, which sits over both. */
+function bandOf(el: HTMLElement) {
+  if (inFixedLayer(el)) return { top: 0, bottom: window.innerHeight, fixed: true }
+  const page = getComputedStyle(document.documentElement)
+  return { top: px(page.scrollPaddingTop), bottom: window.innerHeight - px(page.scrollPaddingBottom), fixed: false }
+}
+
+/** How far to scroll so [top, bottom] holds [from, to] at its nearest edge, the least distance, or holds its top when it
+ *  is the taller: 0 when it already holds it. */
+function toNearestEdge(from: number, to: number, top: number, bottom: number) {
+  if (to > bottom) return Math.min(to - bottom, from - top)
+  if (from < top) return from - top
   return 0
+}
+
+/** `el`'s extent in the window, its scroll margins included. */
+function marginBox(el: HTMLElement) {
+  const style = getComputedStyle(el)
+  const r = el.getBoundingClientRect()
+  return { from: r.top - px(style.scrollMarginTop), to: r.bottom + px(style.scrollMarginBottom) }
+}
+
+/** How far `box` scrolls to bring `el`, its scroll margins included, to the nearest edge of the part of `box` on screen
+ *  (below the site header, above the fold and the consent bar), the least distance: 0 when `el` is in view there. When
+ *  `el` does not fit there (nothing of `box` is on screen, or too little), the nearest edge of `box` itself, and the
+ *  page's reveal after a press brings it on screen. Chief design on #1845: "The column's reveal aims at its visible
+ *  part: its box clipped to the window, below the site header, not its whole box." */
+function distanceToReveal(el: HTMLElement, box: HTMLElement) {
+  const style = getComputedStyle(box)
+  const b = box.getBoundingClientRect()
+  const top = b.top + box.clientTop + px(style.scrollPaddingTop)
+  const bottom = b.top + box.clientTop + box.clientHeight - px(style.scrollPaddingBottom)
+  const { from, to } = marginBox(el)
+  const band = bandOf(box)
+  const shownTop = Math.max(top, band.top)
+  const shownBottom = Math.min(bottom, band.bottom)
+  return shownBottom - shownTop >= to - from
+    ? toNearestEdge(from, to, shownTop, shownBottom)
+    : toNearestEdge(from, to, top, bottom)
 }
 
 /**
@@ -63,11 +112,29 @@ function revealInScrollBox(el: HTMLElement, box = scrollBoxOf(el)) {
 }
 
 /**
+ * The one page move a press makes (E252), once its pane has settled and the column has had its own reveal: when `el`,
+ * its scroll margins included, is still not wholly in view below the site header, the page moves by the least distance
+ * that brings it there. At the foot of a long page under 200% text the pane's sticky cell has scrolled up with the
+ * workspace's end, and in a short window at the page's top the pane opens below the fold: either way focus would land in
+ * a composer the reader cannot see. Not in a fixed layer, which no page scroll moves. Smooth, or one jump under
+ * prefers-reduced-motion, as a citation jump's scroll is. Chief design on #1845: "Move it once per press or ⌘K. Never
+ * move it from a resize or the follow."
+ */
+function revealOnPage(el: HTMLElement, box: HTMLElement) {
+  const band = bandOf(box)
+  if (band.fixed) return
+  const { from, to } = marginBox(el)
+  const by = toNearestEdge(from, to, band.top, band.bottom)
+  if (by) window.scrollBy({ top: by, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+}
+
+/**
  * Bottom-pinned input for the Copilot rail. Enter submits, Shift+Enter inserts a newline.
  * Send is unavailable (aria-disabled, still focusable) while a stream is in flight or the input is
  * empty. Exposes `focus()` / `prefill()` handles so the rail can focus it on open (⌘K) or pre-fill
- * it from a "Ask about this" text selection; neither moves the page (revealInScrollBox), and a
- * focused composer that stood in view stays in view as its column settles.
+ * it from a "Ask about this" text selection; neither moves the page while the pane settles
+ * (revealInScrollBox), a focused composer that stood in view stays in view as its column settles,
+ * and a press that opened the pane may move the page once it has settled (revealOnPage).
  */
 const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   function CopilotComposer({ onSubmit, locked }, ref) {
@@ -78,24 +145,65 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   // composer's own reveal last left the box at.
   const followRef = useRef(true)
   const placedRef = useRef<number | null>(null)
+  // A press's page reveal, waiting for the pane to settle; calling it drops the wait.
+  const settlingRef = useRef<(() => void) | null>(null)
 
   useImperativeHandle(ref, () => {
     const reveal = () => {
-      if (!shellRef.current) return
+      if (!shellRef.current) return null
       const box = revealInScrollBox(shellRef.current)
       if (box) placedRef.current = box.scrollTop
       followRef.current = true
+      return box
     }
-    // preventScroll, then the shell (the ring's box, as revealFocus brings) into view inside its column: the page stays.
-    const focusField = (el: HTMLTextAreaElement) => {
+    // Once the shell and its column hold still for SETTLED_FRAMES frames (the pane's height catches up with its top a
+    // frame late, a pre-fill grows the field, the column follows), or after MAX_SETTLE_FRAMES: the column's reveal
+    // again, then the page's. A newer press, the reader's own move or focus leaving the composer drops it.
+    const revealOnPageOnceSettled = () => {
+      settlingRef.current?.()
+      const shell = shellRef.current
+      const box = shell && scrollBoxOf(shell)
+      if (!shell || !box) return
+      let raf = 0
+      let frames = 0
+      let still = 0
+      let last = ''
+      const drop = () => {
+        cancelAnimationFrame(raf)
+        for (const type of READER_MOVES) window.removeEventListener(type, drop, true)
+        if (settlingRef.current === drop) settlingRef.current = null
+      }
+      const tick = () => {
+        const s = shell.getBoundingClientRect()
+        const b = box.getBoundingClientRect()
+        const now = `${s.top} ${s.bottom} ${b.top} ${b.bottom}`
+        still = now === last ? still + 1 : 0
+        last = now
+        if (still < SETTLED_FRAMES && ++frames < MAX_SETTLE_FRAMES) {
+          raf = requestAnimationFrame(tick)
+          return
+        }
+        drop()
+        if (!shell.contains(document.activeElement)) return
+        reveal()
+        revealOnPage(shell, box)
+      }
+      for (const type of READER_MOVES) window.addEventListener(type, drop, { capture: true, passive: true })
+      raf = requestAnimationFrame(tick)
+      settlingRef.current = drop
+    }
+    // preventScroll, then the shell (the ring's box, as revealFocus brings) into view inside its column: the page stays
+    // while the pane settles.
+    const focusField = (el: HTMLTextAreaElement, options?: ComposerFocusOptions) => {
       el.focus({ preventScroll: true })
       reveal()
+      if (options?.revealOnPage) revealOnPageOnceSettled()
     }
     return {
-      focus: () => {
-        if (textareaRef.current) focusField(textareaRef.current)
+      focus: (options) => {
+        if (textareaRef.current) focusField(textareaRef.current, options)
       },
-      prefill: (text: string) => {
+      prefill: (text, options) => {
         setValue(text)
         const el = textareaRef.current
         if (!el) return
@@ -103,7 +211,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         // state catches up on the next render; height comes from the controlled path — Textarea's
         // layout effect re-grows on the value change).
         el.value = text
-        focusField(el)
+        focusField(el, options)
         el.setSelectionRange(text.length, text.length)
         // The caret at the end, in view inside the field's own scroll (its 120px cap): a focus without the browser's
         // scroll leaves a long excerpt showing its start.
@@ -115,11 +223,15 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
     }
   }, [])
 
+  // A page reveal still waiting when the composer leaves goes with it.
+  useEffect(() => () => settlingRef.current?.(), [])
+
   // The box and the shell can still change size under a focused composer: the desktop pane's height follows its top a
   // frame late, the text size or the consent bar can shrink it later, and a pre-fill grows the field after it takes
   // focus. While the shell follows, each change brings it back to the box's nearest edge if focus is in the composer.
   // A reveal starts the follow, and so do the reader's scroll and focus moving in, once the shell is in view; the
   // reader's scroll that takes it out of view stops it, and a resize never starts it again: the reader's place is theirs.
+  // The follow scrolls the column only, never the page.
   useEffect(() => {
     const shell = shellRef.current
     const box = shell && scrollBoxOf(shell)
@@ -179,12 +291,12 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
     >
       {/* DS "Chat composer" pattern: the shell carries the field recipe, its focus
           border and ring keyed to focus-within (`shell: true`); the composer-variant
-          Textarea inside stays chrome-free. scroll-mb-1 keeps the 3px ring in view when the
-          reveal (on focus, a pre-fill or revealFocus) brings the shell to the bottom edge, where
-          the rail's reveal lands (its column has just returned to the top); a top scroll margin
-          here would read as a site-header offset, which is what this codebase's top scroll
-          margins are. */}
-      <div ref={shellRef} className={inputClasses({ shell: true, className: 'flex items-end gap-2 scroll-mb-1' })}>
+          Textarea inside stays chrome-free. scroll-my-1 keeps the 3px ring in view at the edge
+          a reveal brings the shell to: the column's foot, where the rail's reveal lands (its
+          column has just returned to the top), or, when a press moves the page (revealOnPage),
+          the top of the window below the site header. The ring's room only: the page's scroll
+          padding holds the header's height, which no scroll margin here adds again. */}
+      <div ref={shellRef} className={inputClasses({ shell: true, className: 'flex items-end gap-2 scroll-my-1' })}>
         <Textarea
           variant="composer"
           ref={textareaRef}
