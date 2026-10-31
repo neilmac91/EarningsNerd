@@ -19,8 +19,10 @@ vi.mock('@/features/analysis/demo/demo-analysis.json', async importOriginal => {
 
 import demo from '@/features/analysis/demo/demo-analysis.json'
 import AnalysisTeaser from '@/features/analysis/components/AnalysisTeaser'
-// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load;
-// next/dynamic still renders its loading grid first, so the waits stay. The chunk spec checks loading.
+// Load the trend charts' renderer before the test clock starts, so a wait below times its render, not its module load.
+// next/dynamic still shows its loading grid first, so the cases still wait, and read once the grid has given way to
+// the charts. tests/e2e/charts-v2.spec.ts holds that grid-then-charts path in a browser, and
+// trend-charts-v2-chunk.spec.tsx holds the fallback when the chunk fails to load.
 import '@/features/analysis/components/TrendChartsV2'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 
