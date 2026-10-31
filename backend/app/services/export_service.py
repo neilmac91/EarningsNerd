@@ -501,7 +501,7 @@ class ExportService:
         items = []
         for entry in [*detail_entries(notes), *filter(None, [later_filing])]:
             letter = f'{escape(entry["letter"])}.' if entry["letter"] else ""
-            anchor = f' id="{escape(entry["id"], quote=True)}"' if entry["id"] else ""
+            anchor = f' id="{escape(entry["id"], quote=True)}"' if entry["id"] is not None else ""
             # One run of text: the page's lines (message, places, counts, comparisons) read as sentences in print.
             parts = (entry["message"], entry["places"], entry["counts"], entry["comparisons"])
             items.append(f'<li{anchor}><span class="note-letter">{letter}</span>'
