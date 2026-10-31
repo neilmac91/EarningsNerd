@@ -38,8 +38,8 @@ const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓·]*$/
 // axis (chartPlan.ts barCases).
 const BAR_CASES = barCases(JSON.parse(readFileSync('tests/unit/fixtures/fundamentals-datasets.json', 'utf8')) as BarFixture)
 const barDef = (name: string): BarChartDef => structuredClone(BAR_CASES.find(([caseName]) => caseName === name)![1])
-// The ranked company charts (E251, chartPlan.ts peerBarCases): every case of the peers fixture, tickers up to six glyphs
-// wide among them.
+// The ranked company charts (E251, chartPlan.ts peerBarCases): every case of the peers fixture the panel shows, pinned by
+// name (PEER_SHOWING), tickers up to six glyphs wide among them.
 const PEER_CASES = peerBarCases(JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture)
 const peerDef = (name: string): BarChartDef => structuredClone(PEER_CASES.find(([caseName]) => caseName === name)![1])
 /** A bar chart's widths: about a 320 px phone's card (inside its p-cap-6), the analysis card's two, and a desktop column. */

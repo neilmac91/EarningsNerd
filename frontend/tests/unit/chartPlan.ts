@@ -4,17 +4,20 @@
  * chart-apca.spec.ts holds. Shared by the renderer's unit spec and the gallery (tests/e2e/charts-v2-gallery.spec.ts),
  * so the page and the plan are held to one list. Also the engine specs' shared cases: the analysis datasets' synthetic
  * notes, the bar chart cases (barCases) that chart-engine.spec.ts and chart-readout.spec.ts both sweep, and the ranked
- * company charts (peerBarCases, E251) those two and trend-charts-v2.spec.tsx sweep.
+ * company charts (peerBarCases, E251: the Sector peers panel's, built by its own peerChart.ts) those two and
+ * trend-charts-v2.spec.tsx sweep.
  */
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
-import type { BarCategory, BarChartDef } from '@/features/analysis/lib/charts/barChart'
+import type { BarChartDef } from '@/features/analysis/lib/charts/barChart'
 import { noteGlyphs, type ChartLayout } from '@/features/analysis/lib/charts/layout'
-import type { ChartModel, ChartReading } from '@/features/analysis/lib/charts/model'
+import type { ChartModel } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import type { FundamentalSeries, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
-import { FEATURED } from '@/features/fundamentals/lib/featuredMetrics'
 import { slotsOf } from '@/features/fundamentals/lib/trendChart'
+import type { PeerComparisonResponse } from '@/features/peers/api/peers-api'
+import { shows } from '@/features/peers/lib/cohort'
+import { peerChartDef } from '@/features/peers/lib/peerChart'
 
 /** tests/unit/fixtures/fundamentals-datasets.json: filing-scoped fundamentals as their endpoint serves them, and the bar
  *  charts the cases draw from them, each a series and its axis. */
@@ -45,64 +48,34 @@ export function barCases(fixture: BarFixture): [string, BarChartDef][] {
   })
 }
 
-/** One company in a peers answer, as GET /api/companies/{ticker}/peers serves it (PeerEntry, backend/app/schemas/peers.py). */
-export interface PeerEntryAnswer {
-  ticker: string
-  company_name: string
-  value: number | null
-  period_end: string | null
-  fiscal_year: number | null
-  is_subject: boolean
-  rank: number | null
-  percentile: number | null
-  reconciled: boolean
-  provenance: Record<string, unknown> | null
-}
-
-/** tests/unit/fixtures/peers-cohorts.json: the peers endpoint's answers (PeerComparisonResponse), each case labelled. */
+/** tests/unit/fixtures/peers-cohorts.json: the peers endpoint's answers, each case labelled with the metric its request
+ *  named (backend/tests/unit/test_peers_fixture_contract.py holds the service to each). An answer carries `sic` too,
+ *  which the client leaves unread. */
 export interface PeerFixture {
   source: string
-  cases: Record<string, {
-    case: string
-    response: { ticker: string; company_name: string; sic: string | null; concept: string; unit: string | null; peer_count: number; subject: PeerEntryAnswer; peers: PeerEntryAnswer[] }
-  }>
+  cases: Record<string, { case: string; metric: string; response: PeerComparisonResponse & { sic: string | null } }>
 }
 
-/** A ranked company chart's words for its categories (E251's defaults): its scroll region and end-of-range status name
- *  companies, not periods. */
-export const COMPANY_READING: ChartReading = { items: 'companies', first: 'First company.', last: 'Last company.' }
+/** The peers cases the Sector peers panel shows, by name, in the fixture's order: pinned here rather than read from
+ *  `shows`, the code under test, so a change to it that drops a cohort the sweeps read, or one that starts drawing a case
+ *  it should not, fails every sweep instead of shrinking or growing it unseen. The cases it does not show (a company
+ *  ranked alone, a subject with no figure or a withheld one, a withheld peer in a pair, a concept FEATURED does not
+ *  name) draw no chart; its own spec holds that (sector-peers.spec.tsx). */
+export const PEER_SHOWING = [
+  'pair', 'spread', 'spread, subject first', 'spread, subject tenth', 'near-equal', 'six-glyph', 'net margin',
+  'diluted EPS', 'CNY revenue', 'duplicate ticker', 'pair plus withheld', 'cap', 'cap, subject fifth',
+  'cap, subject eleventh', 'cap, subject twelfth', 'cap, tie at the tenth', 'cap, tie at the eleventh', 'cap, all tied',
+  'bank',
+]
 
-/** Every peers case as the bar chart a ranked company chart draws (E251): a slot per company in the answer's order, its
- *  tick and long name the ticker, keyed by place where a ticker repeats, as slotsOf keys a year two points share
- *  (Company.ticker is not unique, and buildBarChart refuses a key given twice); the subject a plain bar and every other
- *  company a context bar, the chart starting at the subject and naming companies in its own words; the metric's own
- *  label, and its axis by its kind in the answer's unit, a unit naming no currency printing no sign. A withheld value
- *  (null, its rank and percentile null) keeps its slot and prints "—", as the engine draws any; a subject with no fact for
- *  the metric, which the service surfaces only as `subject`, outside `peers`, is refused, since the chart starts at its
- *  subject. The fixture holds neither shape yet: E251's second pull request adds both, with the panel's own builder in
- *  place of this one. */
+/** Every case of PEER_SHOWING as the bar chart the panel draws: the panel's own builder (features/peers/lib/peerChart.ts),
+ *  so the sweeps read the charts the page draws. Throws where `shows` picks out any other list from the fixture. */
 export function peerBarCases(fixture: PeerFixture): [string, BarChartDef][] {
-  return Object.entries(fixture.cases).map(([name, { response }]) => {
-    const metric = FEATURED.find((candidate) => candidate.key === response.concept)!
-    const subject = response.peers.findIndex((entry) => entry.is_subject)
-    if (subject < 0) {
-      throw new Error(`peerBarCases ${name}: the subject ${response.subject.ticker} holds no ${response.concept} fact, so the answer lists it only as \`subject\`, outside \`peers\`; a ranked company chart starts at its subject, so this answer draws none`)
-    }
-    const tickers = response.peers.map((entry) => entry.ticker)
-    const categories = response.peers.map((entry, i): BarCategory => {
-      const own = entry.ticker !== '' && tickers.indexOf(entry.ticker) === tickers.lastIndexOf(entry.ticker)
-      return { key: own ? entry.ticker : `${entry.ticker || 'company'}#${i}`, tick: entry.ticker, long: entry.ticker, ...(entry.is_subject ? {} : { context: true as const }) }
-    })
-    return [name, {
-      id: name,
-      title: metric.label,
-      categories,
-      start: categories[subject].key,
-      reading: COMPANY_READING,
-      series: { key: response.concept, label: metric.label, values: response.peers.map((entry) => entry.value) },
-      axis: metric.fmt === 'pct' ? { kind: 'percent' } : metric.fmt === 'ratio' ? { kind: 'ratio' } : { kind: 'money', unit: response.unit ?? '' },
-    }]
-  })
+  const showing = Object.entries(fixture.cases).filter(([, { response }]) => shows(response)).map(([name]) => name)
+  if (showing.join('\n') !== PEER_SHOWING.join('\n')) {
+    throw new Error(`peerBarCases: the panel shows ${JSON.stringify(showing)}, not the pinned ${JSON.stringify(PEER_SHOWING)}`)
+  }
+  return PEER_SHOWING.map((name) => [name, peerChartDef(fixture.cases[name].response)])
 }
 
 /** A dataset whose record-only review notes (legacy_calculation, such as REGNPN's nine simulated flags) question the
