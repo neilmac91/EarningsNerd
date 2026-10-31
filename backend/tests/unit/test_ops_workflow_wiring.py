@@ -27,9 +27,9 @@ refuses as a whole, or a run stopped before its report, writes no file; its log 
 error, or the script's start line, which names the run. Those guards and the read-only transactions
 reach the database only through libpq's `PGOPTIONS`. An `options` setting in the app engine's
 `connect_args`, a query on the URL the proxy step exports or on the URL the app builds from it, a
-connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any of those
-scripts or in the modules that run the quarterly repair's or the lineage backfill's SQL would replace
-them, so none may exist.
+connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any committed
+script a Cloud SQL step runs (each read from its step's command, not named by hand) or in the modules
+that run the quarterly repair's or the lineage backfill's SQL would replace them, so none may exist.
 The one connection-level event allowed is database.py's `connect` listener that runs each session
 at UTC (E151), held by running it on a recording connection: it sets the time zone and touches
 nothing else, no other statement, attribute or method.
@@ -45,8 +45,19 @@ unchanged, and the `ops` concurrency group is its own, so a wait for approval ho
 dispatch; the two read operations a session may dispatch take a group of their own run (F51).
 
 `inputs[...]` and `outputs[...]` index syntax, which these checks would not see, is refused.
+
+Every name an expression gives the operation is a dispatch option (E257): a contains() list's words,
+and an `==` or `!=` name either way round, in a job's or a step's `if:` or in any other `${{ }}`.
+`selected()` reads a word no dispatch offers as selecting nothing, so an operation retired or renamed in
+the dispatch but left in a list, or misspelled there, would pass every gate that reads its step
+through it. Every other literal in an expression that reads the operation is one of
+`NOT_AN_OPERATION`, each of them in use, so a form the check does not read (a list `fromJSON()`
+parses, a `startsWith()` prefix) fails it too. Out of reach, each planted in `STALE_NAME_CASES` as a
+gap: the operation read under another name (an `env.` value), a list an expression reads from outside
+itself, and a shell test of `$OP` in a run script.
 """
 import ast
+import copy
 import os
 import re
 import subprocess
@@ -67,6 +78,12 @@ RUNNER_SCRIPT = re.compile(r"(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*(\S*\bscri
 CONNECTION_EVENTS = {"do_connect", "connect", "first_connect", "checkout", "engine_connect", "begin", "after_begin"}
 # The one connection-level listener allowed: database.py's UTC pin (E151), on `connect`, by this name.
 UTC_PIN = ("backend/app/database.py", "connect", "_set_session_time_zone_utc")
+OPERATION_READ = re.compile(r"\b(?:inputs|outputs)\.operation\b")  # the dispatch input however reached, or a step's output
+LITERAL = re.compile(r"'((?:[^']|'')*)'")  # GitHub writes a quote inside a literal as two
+# The literals beside the operation's names that name no operation: the main ref, the approval job's two
+# results and the first attempt, the read group's format and the shared group's name, and the
+# verification output's glob with the empty string its hashFiles() is compared with.
+NOT_AN_OPERATION = {"refs/heads/main", "skipped", "success", "1", "ops-read-{0}", "ops", "verification-output/*", ""}
 
 
 def test_dispatch_options_are_exactly_the_operations_the_resolve_step_accepts():
@@ -88,6 +105,98 @@ def test_every_request_output_a_step_reads_is_one_the_resolve_step_writes():
     assert written == {"operation", "tickers", "revision"}
     read = set(re.findall(r"steps\.request\.outputs\.(\w+)", OPS_TEXT))
     assert read <= written, f"outputs no step writes, which GitHub reads as '': {sorted(read - written)}"
+
+
+def _expressions(node, key=None) -> list[str]:
+    """Each expression in a workflow as GitHub reads it: every `if:`, which is one with or without
+    `${{ }}`, and every `${{ }}` in any other value (a concurrency group, an env value, a run script)."""
+    if isinstance(node, dict):
+        return [found for name, value in node.items() for found in _expressions(value, name)]
+    if isinstance(node, list):
+        return [found for item in node for found in _expressions(item, key)]
+    return [node] if key == "if" else re.findall(r"\$\{\{(.*?)\}\}", node, re.DOTALL)
+
+
+def _beside_the_operation(workflow) -> list[str]:
+    """Each literal in the workflow's expressions that read the operation, lowercased, as GitHub
+    compares strings."""
+    return [literal.lower() for expression in _expressions(workflow) if OPERATION_READ.search(expression)
+            for literal in LITERAL.findall(expression)]
+
+
+def _names_no_dispatch_offers(workflow) -> set[str]:
+    """Each word of a literal beside the operation that the workflow's dispatch does not offer, in every
+    literal but NOT_AN_OPERATION's; an empty literal outside them reads as itself."""
+    options = set(workflow["on"]["workflow_dispatch"]["inputs"]["operation"]["options"])
+    return {word for literal in _beside_the_operation(workflow) if literal not in NOT_AN_OPERATION
+            for word in literal.split() or [literal] if word not in options}
+
+
+def _lists_options(literal: str, options) -> bool:
+    """Whether a literal is one or more dispatch options, as a contains() list or an == name."""
+    return bool(literal.split()) and set(literal.split()) <= set(options)
+
+
+def _planted_step(condition: str, **more):
+    """A planted step right after the resolve step, with this `if:`."""
+    return lambda workflow: workflow["jobs"]["ops"]["steps"].insert(
+        2, {"name": "Planted", "if": condition, "run": "true", **more})
+
+
+STALE = "figure-check-count"  # an operation the dispatch offered until #1857 retired it
+STALE_NAME_CASES = {  # each planted change, and the words the check flags in it
+    "an operation retired from the dispatch and left in every list that names it": (
+        lambda workflow: workflow["on"]["workflow_dispatch"]["inputs"]["operation"]["options"].remove(
+            "repair-lineage-apply"), {"repair-lineage-apply"}),
+    "a misspelled word in a step's list": (_planted_step(
+        "contains('repair-quarterly-dry-run repair-quarterly-aply', steps.request.outputs.operation)"),
+        {"repair-quarterly-aply"}),
+    "a name a step compares with": (_planted_step(f"steps.request.outputs.operation == '{STALE}'"), {STALE}),
+    "a name compared unequal": (_planted_step(f"steps.request.outputs.operation != '{STALE}'"), {STALE}),
+    "a name compared the other way round": (_planted_step(f"'{STALE}' == steps.request.outputs.operation"), {STALE}),
+    "a name in the event's input": (_planted_step(f"contains('{STALE}', github.event.inputs.operation)"), {STALE}),
+    "a name in a job's list under ${{ }}": (lambda workflow: workflow["jobs"]["refuse-rerun"].update(
+        {"if": f"${{{{ !cancelled() && contains('relabel-fy-apply {STALE}', inputs.operation) }}}}"}), {STALE}),
+    "a name in the concurrency group": (lambda workflow: workflow["jobs"]["ops"]["concurrency"].update(
+        group=workflow["jobs"]["ops"]["concurrency"]["group"].replace("'logs-probe'", "'logs-probes'")),
+        {"logs-probes"}),
+    "a name in an env value's expression": (_planted_step(
+        "always()", env={"APPLY": f"${{{{ steps.request.outputs.operation == '{STALE}' }}}}"}), {STALE}),
+    "a list fromJSON() reads": (_planted_step(
+        "contains(fromJSON('[\"relabel-fy-apply\"]'), steps.request.outputs.operation)"), {'["relabel-fy-apply"]'}),
+    "a prefix startsWith() reads": (_planted_step("startsWith(steps.request.outputs.operation, 'repair-')"), {"repair-"}),
+    # Look-alikes, which pass.
+    "an option in capitals, as GitHub compares": (_planted_step("steps.request.outputs.operation == 'Detection-SQL'"), set()),
+    "a list across lines": (_planted_step(
+        "contains('relabel-fy-dry-run\n  relabel-fy-apply', steps.request.outputs.operation)"), set()),
+    "a literal in an expression that does not read the operation": (_planted_step("github.ref == 'refs/heads/dev'"), set()),
+    # Gaps, which pass though the rule forbids them: the module docstring names each.
+    "gap: the operation read under another name": (_planted_step(f"env.OP == '{STALE}'"), set()),
+    "gap: a list the expression reads from outside itself": (_planted_step(
+        "contains(env.APPLIES, steps.request.outputs.operation)", env={"APPLIES": f"relabel-fy-apply {STALE}"}), set()),
+    "gap: a shell test of the operation in a run script": (lambda workflow: workflow["jobs"]["ops"]["steps"].insert(
+        2, {"name": "Planted", "run": f'if [ "$OP" = "{STALE}" ]; then exit 1; fi'}), set()),
+}
+
+
+def test_every_name_an_expression_gives_the_operation_is_a_dispatch_option():
+    """selected() reads a word no dispatch offers as selecting nothing, so no gate that reads a step
+    through it sees a stale name: each literal beside the operation names dispatch options or is one of
+    NOT_AN_OPERATION, and each of those is still in use (E257)."""
+    assert STALE not in OPTIONS, "the planted cases' stale name must be one the dispatch does not offer"
+    assert _names_no_dispatch_offers(OPS) == set(), "names no dispatch offers, or a form this check does not read"
+    others = {literal for literal in _beside_the_operation(OPS) if not _lists_options(literal, OPTIONS)}
+    assert others == NOT_AN_OPERATION, f"NOT_AN_OPERATION lists what no expression holds: {sorted(NOT_AN_OPERATION - others)}"
+
+
+@pytest.mark.parametrize("case", STALE_NAME_CASES)
+def test_the_stale_name_check_scores_its_planted_cases(case):
+    """The check's reach, on planted changes to a copy of the workflow: each flags the words it names,
+    and each look-alike and each gap flags none."""
+    plant, flagged = STALE_NAME_CASES[case]
+    workflow = copy.deepcopy(OPS)
+    plant(workflow)
+    assert _names_no_dispatch_offers(workflow) == flagged
 
 
 def test_every_database_command_runs_after_the_proxy_for_its_operations_with_its_script_installed():
@@ -210,6 +319,21 @@ def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
     return found
 
 
+def _cloud_sql_scripts() -> list[Path]:
+    """Each committed script a step that can reach Cloud SQL runs (`cloud_sql_reach()`), as RUNNER_SCRIPT
+    reads the step's command, at the path its working directory gives it (E257: a hand-kept list of
+    them missed the ticker repair's)."""
+    scripts = []
+    for _, step in cloud_sql_reach():
+        for script in RUNNER_SCRIPT.findall(step["run"]):
+            path = next((ROOT / base / script for base in (step.get("working-directory", "."), ".")
+                         if (ROOT / base / script).is_file()), None)
+            assert path is not None, f"{step['name']!r}: {script} is not committed there"
+            if path not in scripts:
+                scripts.append(path)
+    return scripts
+
+
 def _what_it_does(listener) -> list[str]:
     """What a connect listener does to its session, run on a recording DBAPI connection: each statement
     it executes, each connection attribute it sets but autocommit (psycopg2's readonly, isolation_level
@@ -319,8 +443,9 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     """libpq applies PGOPTIONS unless the connection names its own options, and a connection-level
     event could set the guards again after it. So the engine's connect_args carry no `options`, the
     URL the proxy step exports carries no query, the app uses that URL as it parses it, and nothing
-    in the app or the Ops repair scripts listens for a connection event but database.py's UTC pin on
-    `connect` (E151), which, run, sets the session's time zone and nothing else."""
+    in the app or in a committed script a Cloud SQL step runs (`_cloud_sql_scripts()`) listens for a
+    connection event but database.py's UTC pin on `connect` (E151), which, run, sets the session's
+    time zone and nothing else."""
     from sqlalchemy.engine import make_url
 
     from app import database
@@ -347,8 +472,8 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     monkeypatch.setattr(settings, "DATABASE_URL", proxy_url)
     assert database._database_url() == make_url(proxy_url), "the app must use the URL it is given, unchanged"
 
-    scripts = [ROOT / "backend/scripts/relabel_filing_fy_facts.py", ROOT / "backend/scripts/repair_quarterly_facts.py",
-               ROOT / "backend/scripts/repair_filing_lineage.py"]
+    scripts = _cloud_sql_scripts()
+    assert scripts, "no Cloud SQL step runs a committed script: re-point this scan"
     listeners = [
         listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *scripts]
         for listener in _connection_listeners(path)
