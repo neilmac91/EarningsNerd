@@ -319,9 +319,11 @@ def test_a_finding_says_what_was_found():
                         "A later filing reports the opposite sign."]
     assert scale[2] == "A later filing reports a value 1,000 times larger than the year’s own annual report."
     assert "A later filing reports the opposite sign." in _methods(_pdf(dataset))
-    # The factor's size and direction come from the two values.
+    # The factor's size and direction come from the two values, at each factor of 1,000ⁿ the page reads (n to 3).
     debt = _point(dataset, "long_term_debt", "FY2019")
-    for own, words in ((5_969_900_000_000.0, "1,000 times smaller"), (5_969.9, "1,000,000 times larger")):
+    for own, words in ((5_969_900_000_000.0, "1,000 times smaller"), (5_969.9, "1,000,000 times larger"),
+                       (5_969_900_000_000_000.0, "1,000,000 times smaller"), (5.9699, "1,000,000,000 times larger"),
+                       (5_969_900_000_000_000_000.0, "1,000,000,000 times smaller")):
         debt["first_reported"]["value"] = own
         assert f"A later filing reports a value {words} than the year’s own annual report." in _workbook(dataset)["Metrics"]["D3"].comment.text
 
