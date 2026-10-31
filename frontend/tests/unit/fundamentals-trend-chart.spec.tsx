@@ -115,17 +115,18 @@ describe('FundamentalsTrendChart', () => {
     expect((screen.getByRole('option', { name: 'Revenue' }) as HTMLOptionElement).selected).toBe(false)
   })
 
-  it('picks the metric through a compact select sized to its content beside its label, never a segmented row', async () => {
+  it('picks the metric through a compact select of one width beside its label, 14rem, never a segmented row', async () => {
     getFilingFundamentals.mockResolvedValue(RESP)
     renderChart()
 
     const picker = await metricPicker()
     expect(picker.tagName).toBe('SELECT')
     expect(picker.closest('label')).toHaveTextContent(/^Metric/)
-    // inputClasses({ select: true, autoWidth: true }): capped at its container, not filling the row.
-    expect(picker.className).toContain('max-w-full')
-    expect(picker.className).not.toMatch(/(^| )w-full( |$)/)
-    expect(picker.className).toContain('pr-9')
+    // One width the loading card can know (E253): 14rem, the smallest step that holds every FEATURED label, whatever
+    // options the filing brings, capped at its row and never filling it; pr-9 clears the chevron.
+    const classes = picker.className.split(/\s+/)
+    expect(classes).toEqual(expect.arrayContaining(['w-56', 'max-w-full', 'pr-9']))
+    expect(classes).not.toContain('w-full')
     expect(screen.queryByRole('group', { name: 'Metric' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Revenue' })).toBeNull()
   })
