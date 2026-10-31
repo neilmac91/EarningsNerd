@@ -21,10 +21,10 @@ from app.services import summary_job_store, summary_pipeline
 from app.services.summary_stages import admission
 from main import app
 
-QUOTA = "You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries."
+QUOTA = "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
 PAUSE = (
-    "We've temporarily paused new summary generation on your account due "
-    "to unusually high recent volume. Please try again later or contact support."
+    "Your account has reached this month's limit for generating summaries, regenerations "
+    "included. It resets next month. Contact support with any questions."
 )
 
 

@@ -826,7 +826,7 @@ describe('the summary stream error sentences the filing page maps', () => {
       expect(shown).toMatch(/^[A-Z].*[.…]$/)
       expect(key, 'a key field is a bare {name}: a format spec or an expression never matches at runtime').not.toMatch(/\{(?!\w+\})/)
     }
-    expect(streamErrorCopy("You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries.")).toBe(
+    expect(streamErrorCopy("You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries.")).toBe(
       "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries.",
     )
     expect(streamErrorCopy('Filing not found')).toBe('This filing could not be found.')

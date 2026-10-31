@@ -348,7 +348,7 @@ describe('StreamingSummaryDisplay paywall routing', () => {
       <StreamingSummaryDisplay
         streamingText=""
         stage="error"
-        message="Monthly limit reached"
+        message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries."
         filing={filing}
         trialEligible={trialEligible}
       />,
@@ -358,7 +358,7 @@ describe('StreamingSummaryDisplay paywall routing', () => {
   })
 
   it('promises no trial while the trial does not ship, whatever the page says about the user', () => {
-    render(<StreamingSummaryDisplay streamingText="" stage="error" message="Monthly limit reached" filing={filing} trialEligible />)
+    render(<StreamingSummaryDisplay streamingText="" stage="error" message="You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries." filing={filing} trialEligible />)
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByText(/free trial/)).toBeNull()
   })
@@ -395,8 +395,8 @@ describe('StreamingSummaryDisplay failure reason', () => {
     const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
     const { rerender } = render(
       failed(
-        "We've temporarily paused new summary generation on your account due to unusually high recent volume. " +
-          'Please try again later or contact support.',
+        "Your account has reached this month's limit for generating summaries, regenerations included. " +
+          'It resets next month. Contact support with any questions.',
       ),
     )
     await act(async () => {})
