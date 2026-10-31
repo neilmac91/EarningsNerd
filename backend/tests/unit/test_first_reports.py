@@ -397,6 +397,22 @@ def _sequences():
         "an-own-report-filed-again-with-filing-rows": [
             ((K18, K20), _amended({year: values for year, values in _REVENUE.items() if year <= 2018}, [refiled])),
             ((), _amended(_REVENUE, [refiled]))],
+        # The FY2018 10-K synced alone, then filed again and synced, then the FY2020 10-K: two originals of FY2018,
+        # each stored as a winner and then demoted, so the earlier filed is the year's own by ingest's date order.
+        "an-own-report-filed-again-synced-between": [
+            ((), _up_to(2018)),
+            ((), _amended({year: values for year, values in _REVENUE.items() if year <= 2018}, [refiled])),
+            ((), _amended(_REVENUE, [refiled]))],
+        # The same, stopping at the refiled original: the figure shown is an own report, ranked by its filed day.
+        "an-own-report-filed-again-and-shown": [
+            ((), _up_to(2018)),
+            ((), _amended({year: values for year, values in _REVENUE.items() if year <= 2018}, [refiled]))],
+        # A 10-K/A filed the day of the original, its accession sorting before the original's: an original still
+        # ranks before an amendment.
+        "a-same-day-amendment-whose-accession-sorts-first": [
+            ((), _up_to(2018)),
+            ((), _amended({year: values for year, values in _REVENUE.items() if year <= 2018},
+                          [(6_750.0e6, 2018, 2018, "0001532176-19-000001", "10-K/A", "2019-02-07")]))],
     }
 
 
@@ -600,6 +616,43 @@ def test_a_shown_value_that_is_not_finite_carries_no_evidence(value):
     point = _figure(value=value)
     FirstReports({}, {}, None, history=[_own()]).attach([point])
     assert "first_reported" not in point
+
+
+_K18_AMENDED = "0001532176-19-000070"  # a 10-K/A of FY2018, filed after the original
+
+
+def _amendment_row(concept="revenue"):
+    """A current row of the FY2018 10-K/A that records no filed day, and no filing row for it."""
+    from app.services.fact_provenance import reported_provenance
+
+    return SimpleNamespace(concept=concept, unit="USD", period_start=date(2018, 1, 1), period_end=FY2018,
+                           fiscal_period="FY", form="10-K/A", accession=_K18_AMENDED, value=Decimal("6750000000"),
+                           raw_tag="us-gaap:X", source="companyfacts", reconciled=True,
+                           provenance=reported_provenance({"reconciled": True}))
+
+
+def _amended_figure(**fields):
+    """The 10-K/A's FY2018 revenue as a figure that records no filed day: only its form ranks it after the original."""
+    figure = {**_figure(value=6_750.0e6), "accession": _K18_AMENDED, "filed_at": None, **fields}
+    figure["provenance"] = {**figure["provenance"], "filed_at": None}
+    return figure
+
+
+def test_the_figures_own_filing_ranks_by_its_stored_row_where_the_figure_records_no_form():
+    # A calculated figure's input records no form (fact_operand keeps none) and no filed day here, and no filing row
+    # gives either: the filing's stored current row says it is an amendment, so the original 10-K is the year's own.
+    reports = FirstReports({}, {}, None, current=[_amendment_row()], history=[_own()])
+    first = reports.evidence(_amended_figure())
+    assert (first["accession"], first["value"]) == (K18, 6_710.8e6)
+
+
+def test_the_figures_own_filing_ranks_by_its_recorded_form_where_no_row_of_its_cell_is_stored():
+    # Only another concept's row places the 10-K/A's own year, so the figure's own record ranks it: its form.
+    reports = FirstReports({}, {}, None, current=[_amendment_row("net_income")], history=[_own()])
+    first = reports.evidence(_amended_figure(form="10-K/A"))
+    assert (first["accession"], first["value"]) == (K18, 6_710.8e6)
+    # Without a form it reads as an original with no filed day, which ranks first: the figure is the year's own.
+    assert reports.evidence(_amended_figure()) is None
 
 
 def test_a_finding_two_inputs_deep_on_the_year_before_holds_the_growth_as_first_reported_to_n_m():
@@ -828,7 +881,10 @@ class TestACalculatedFiguresInputsCarryTheirEvidence:
     def test_a_comparison_and_the_cagr_show_each_figure_they_compare_with_its_evidence(self, db):
         # A YoY's or CAGR's record lists the reported figures it compares: each goes with its own evidence, as a
         # calculated figure's inputs do, so the page's dialog and the exports show it there as well.
+        import json
+
         company = _synced(db, _payload())
+        stored = {row.id: json.dumps(row.provenance, sort_keys=True) for row in _rows(db, company)}
         dataset = _build(db, company, "FY2018", "FY2021")
         revenue = {period: _point(dataset, "revenue", period) for period in ("FY2018", "FY2019", "FY2020", "FY2021")}
         assert revenue["FY2018"]["first_reported"]["accession"] == K18
@@ -841,7 +897,17 @@ class TestACalculatedFiguresInputsCarryTheirEvidence:
         series = next(series for series in dataset["series"] if series["concept"] == "revenue")
         start, end = series["cagr_provenance"]["inputs"]
         assert start["first_reported"] == revenue["FY2018"]["first_reported"] and "first_reported" not in end
-        # A stored fact has no evidence to carry.
+        # A window that ends on a year with evidence gives the CAGR's end figure its evidence too.
+        short = _build(db, company, "FY2017", "FY2019")
+        start, end = next(series for series in short["series"] if series["concept"] == "revenue")["cagr_provenance"][
+            "inputs"]
+        assert "first_reported" not in start
+        assert end["first_reported"] == _point(short, "revenue", "FY2019")["first_reported"]
+        # The evidence lives in the dataset alone: the builds wrote nothing, and no stored row's provenance carries
+        # any, so no stored calculation, Copilot answer or later sync can take it up.
+        assert not db.dirty
+        assert {row.id: json.dumps(row.provenance, sort_keys=True) for row in _rows(db, company)} == stored
+        assert not any("first_reported" in text for text in stored.values())
         assert not any("first_reported" in fact_operand(row) for row in _rows(db, company))
 
 
