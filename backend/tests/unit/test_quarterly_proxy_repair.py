@@ -2532,6 +2532,27 @@ def test_the_cli_totals_count_the_rows_each_listing_holds(db, monkeypatch, tmp_p
     assert (report["proxy_totals"]["left_report_backed"], report["proxy_totals"]["scale_up_retained"]) == (2, 2)
 
 
+def _listing_block(left, retained):
+    """A company's ``proxy`` block with every counter at zero, ``left`` rows in ``left_report_backed`` and ``retained``
+    in ``scale_up_retained``."""
+    return {**dict.fromkeys(proxy.COUNTERS, 0), "other_planned_updates": 0, "other_planned_inserts": 0,
+            "other_updates_by_kind": dict.fromkeys(proxy.OTHER_KINDS, 0), "other_inserts_by_concept": {},
+            "left_report_backed": [{"fact_id": n} for n in range(left)],
+            "scale_up_retained": [{"fact_id": n} for n in range(retained)]}
+
+
+@pytest.mark.parametrize(("blocks", "expected"), [
+    ([(2, 0), (0, 1), (1, 0)], (3, 1)), ([(0, 2)], (0, 2)), ([(0, 0), (1, 3)], (1, 3)),
+], ids=["two_rows_in_one_listing", "retained_rows_alone", "both_listings_in_one_company"])
+def test_proxy_totals_count_each_listings_rows_apart(blocks, expected):
+    # A pure test of ``totals`` (review of #1840, round 9): each listing's total is the number of rows the companies'
+    # blocks list there, its own listing's alone, rows and not companies. The CLI test's batch is symmetric (two
+    # companies with one row in each listing), so these batches are not: a company listing two rows in one listing, a
+    # batch whose only rows are retained, and a company in both listings.
+    out = proxy.totals([_listing_block(left, retained) for left, retained in blocks])
+    assert (out["left_report_backed"], out["scale_up_retained"]) == expected
+
+
 @pytest.mark.parametrize("exit_", ["filing-stored-first", "per-filing-write", "synced-first"])
 def test_a_sync_clears_the_current_figure_refusal_only_after_the_later_10ks_filing(monkeypatch, exit_):
     # NSB's company, synced since #1682, with K27 filed after its last sync, restating FY2025 again (18,900 million), so
