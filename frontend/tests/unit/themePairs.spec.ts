@@ -438,8 +438,8 @@ const THEME_PAIR_RESIDUE_MAX = { files: 6, classes: 8 }
 /** Bare dark halves per file and class: surfaces dark in both themes on purpose. Each entry says why. */
 const BARE_DARK_RESIDUE: Record<string, Record<string, number>> = {
   // The forced-dark modes (`mode="dark"`) are dark on purpose, beside the forced-light ones above.
-  'components/EarningsNerdLogo.tsx': { 'text-text-primary-dark': 1, 'text-brand-strong-dark': 1 },
-  'components/EarningsNerdLogoIcon.tsx': { 'text-brand-strong-dark': 1 },
+  'components/EarningsNerdLogo.tsx': { 'text-text-primary-dark': 1, 'text-brand-bright-dark': 1 },
+  'components/EarningsNerdLogoIcon.tsx': { 'text-brand-bright-dark': 1 },
   // The debug payload panel is fixed-dark in both themes (its own comment says so).
   'features/summaries/components/SummaryDisplay.tsx': { 'bg-panel-dark': 1, 'border-border-dark': 1, 'text-text-primary-dark': 2 },
 }
@@ -730,6 +730,70 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       '7 bg-panel-dark',
       '8 bg-panel-dark',
       '9 text-text-primary-dark',
+    ])
+  })
+})
+
+/**
+ * Bright Sage, brand.bright-dark #98C5AD, is a fill and a mark, never a text ink (D-070): the C5 emphasis fill (D-057),
+ * the primary button's dark hover fill, dots and indicator lines. As text it reads at Lc -62.2 on the dark panel, under
+ * the 75 a label needs, which is why the accent text ink, brand.strong-dark, rose from that value to #AEDCC2 (E202 (2)):
+ * the Export Excel label sat there. A class that paints text, its decoration, a placeholder or a caret in it fails, and
+ * so does a stylesheet colour declaration that names it, by token or by its hex. The logo alone keeps it as an ink, the
+ * mark's own sage, listed in BRIGHT_INK_RESIDUE; a logo is not reading text.
+ */
+const BRIGHT_INK = /^(?:text|decoration|caret|placeholder)-brand-bright-dark(?:\/(?:\d+|\[[^\]]+\]))?$/
+const brightInk = (own: string): string[] => own.split(/\s+/).filter(Boolean).filter((token) => BRIGHT_INK.test(splitClass(token).utility))
+/** A stylesheet colour declaration (a text colour, its fill, decoration or caret) naming Bright Sage by token or hex. */
+const BRIGHT_COLOUR = /(?<![\w-])(?:color|-webkit-text-fill-color|text-decoration-color|caret-color)\s*:[^;{}]*(?:colors\.brand\.bright-dark|#98c5ad\b)/gi
+function brightColourFindings(source: string, rel: string): Finding[] {
+  const text = source.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '))
+  return [...text.matchAll(BRIGHT_COLOUR)].map((match) => ({ rel, line: text.slice(0, match.index ?? 0).split('\n').length, className: match[0].replace(/\s+/g, ' ') }))
+}
+const brightInkIn = (file: string): Finding[] => {
+  const source = readFileSync(file, 'utf8')
+  return file.endsWith('.css') ? [...applyFindings(source, rel(file), brightInk), ...brightColourFindings(source, rel(file))] : themePairFindings(source, rel(file), brightInk)
+}
+/** The logo's two inks, auto and forced dark, in the wordmark's accent and the monogram. */
+const BRIGHT_INK_RESIDUE: Record<string, Record<string, number>> = {
+  'components/EarningsNerdLogo.tsx': { 'dark:text-brand-bright-dark': 1, 'text-brand-bright-dark': 1 },
+  'components/EarningsNerdLogoIcon.tsx': { 'dark:text-brand-bright-dark': 1, 'text-brand-bright-dark': 1 },
+}
+
+describe('Bright Sage stays a fill: brand.bright-dark is no text ink outside the logo (D-070)', () => {
+  it('names it as a text ink only in the logo, at the counts listed', () => {
+    expect(
+      residueProblems(FILES.flatMap(brightInkIn), BRIGHT_INK_RESIDUE, 'BRIGHT_INK_RESIDUE', 'Bright Sage inks'),
+      'paint sage text with the accent text ink, text-brand-strong dark:text-brand-strong-dark (Lc 75 or more); Bright Sage is the fill',
+    ).toEqual([])
+  })
+
+  it('catches what it is for (a self-check on a fixed source)', () => {
+    const src = [
+      "const label = 'text-brand-strong dark:text-brand-bright-dark'",
+      "const link = 'underline dark:hover:decoration-brand-bright-dark/60 dark:placeholder:text-brand-bright-dark'",
+      // A fill, a hairline, a dot and a line are what it is for.
+      "const fill = 'bg-brand dark:bg-brand-dark dark:hover:bg-brand-bright-dark dark:border-brand-bright-dark/40'",
+      "const caret = cx('p-1', on && 'dark:caret-brand-bright-dark')",
+    ].join('\n')
+    expect(themePairFindings(src, 'probe.tsx', brightInk).map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 dark:text-brand-bright-dark',
+      '2 dark:hover:decoration-brand-bright-dark/60',
+      '2 dark:placeholder:text-brand-bright-dark',
+      '4 dark:caret-brand-bright-dark',
+    ])
+    const css = [
+      '.a { @apply dark:text-brand-bright-dark; }',
+      ".b::before { background: theme('colors.brand.bright-dark'); }",
+      ".dark .c { color: theme('colors.brand.bright-dark'); }",
+      '.dark .d { color: #98C5AD; /* color: #98C5AD in a comment is no use */ }',
+      '.dark .e { text-decoration-color: #98c5ad; border-color: #98C5AD; }',
+    ].join('\n')
+    expect([...applyFindings(css, 'probe.css', brightInk), ...brightColourFindings(css, 'probe.css')].map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 dark:text-brand-bright-dark',
+      "3 color: theme('colors.brand.bright-dark",
+      '4 color: #98C5AD',
+      '5 text-decoration-color: #98c5ad',
     ])
   })
 })

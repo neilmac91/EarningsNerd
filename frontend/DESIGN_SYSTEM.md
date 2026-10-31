@@ -21,7 +21,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 
 | Role | Light | Dark | Use for |
 |------|-------|------|---------|
-| **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #98C5AD` (text/links) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
+| **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #AEDCC2` (text/links: APCA Lc −75.5 on panel, −78.4 on navy) / `brand-bright-dark #98C5AD` (Bright Sage: the primary hover, the C5 emphasis fill in both themes, the logo's accent, dots and lines; never text outside the logo) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
@@ -44,13 +44,22 @@ The analysis figure surfaces (the metrics table's sheet and the KPI cards) are a
 |Lc| ≥ 90; change lines, headings and labels ≥ 75, as is the KPI's 24px/600 value; marks and the
 missing-value dash ≥ 60; rules ≥ 15, and a hovered row's rules ≥ 30. Gate:
 `tests/unit/figureSurfaceInks.spec.ts` (every pair the surfaces draw, in both themes).
+The accent text ink, the sage of every link and every secondary or ghost button label (12px/600 at the
+smallest), reads at that label tier in both themes, |Lc| ≥ 75 on its panel and page: `brand-strong` is 79.3 on
+the light panel and 75.1 on cream, and its dark twin `brand-strong-dark` `#AEDCC2` (Reading Sage), the same
+OKLCH hue and chroma, is −75.5 on the dark panel and −78.4 on navy. As `#98C5AD` (Bright Sage) the dark
+Export Excel label measured −62.2 (E202 (2), D-070); Bright Sage stays as `brand-bright-dark`, a fill, and is
+no text ink outside the logo. In dark Reading Sage sits close to the figure surfaces' gain ink `#B6E4CE`
+(OKLab 0.026 apart, where light's accent and gain are 0.056); sage never carries a number (brandCopyRules.spec.ts
+rule 2), so the two never mark one thing. Gates: `tests/unit/figureSurfaceInks.spec.ts` (the tier, and the twin
+on Deep Sage's hue and chroma) and `tests/unit/themePairs.spec.ts` (Bright Sage stays a fill).
 
 **The device's tint is a ground like any other** (`brand-weak` light, `brand-weak-dark` mixed over what
 is behind it). The words on it are the primary ink pair: a marked block's excerpt is 15.4:1 on the light
 tint and 12.7:1 on the dark tint over navy, and the Source pane's located passage takes the primary ink
 too (D-044, set when the reader's secondary ink, then `#9CA3AF`, measured 4.49:1 on the dark tint over
 the slate panel). The marker and its twin sit beside the tint, not on it, in `brand-strong` (5.9:1 on
-cream, 9.8:1 on navy).
+cream, 12.4:1 on navy in Reading Sage, D-070).
 Gate: tests/e2e/risk-evidence-rows.spec.ts measures the marker, the twin and the excerpt in both themes.
 
 ## 2. Theme-responsiveness is mandatory
@@ -401,7 +410,7 @@ summary row's share dialog, each press said in a status line inside the dialog a
 
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
-                 DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-strong-dark,
+                 DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-bright-dark,
                  active bg-brand-fill-dark.  White-on-fill-dark is 3.7:1 — never revert to it.
 
 Secondary button <Button variant="secondary">  — brand hairline on transparent; tints on hover
@@ -501,8 +510,8 @@ Count control    A link or control whose label carries a count, a date, an index
                  the pointer, 'inline' (a link set among lines of text) keeps its underline at rest,
                  since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone.
                  In dark the label rests at #D1D5DB (the secondary ink since 2026-10-25) and turns
-                 brand-strong-dark #98C5AD under the pointer, a little darker than at rest, so the hue
-                 carries the change.
+                 brand-strong-dark #AEDCC2 under the pointer, at about the same lightness (Lc −75.5
+                 against −77.3 on the panel), so the hue carries the change (D-070).
                  Its chrome (the ring, a hairline, a selected fill) may be sage where its recipe says
                  so; the label's ink never. Never a sage label with the count in a span of its own:
                  the control then rests in sage while it carries a value, and the rule keeps sage for
@@ -2673,7 +2682,7 @@ never a tint. The content cards below it on the page keep `shadow-e2` in light. 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
 search glow. Every promotional headline accent uses `BrandEmphasis`, the shared C5 treatment
 below, in all homepage variants, the authentication pane and the waitlist. The phrase uses dark
-ink on solid sage. Sage ink stays for links and the wordmark's italic.
+ink on solid sage. Sage ink stays for links (Reading Sage in dark) and the wordmark's italic (Bright Sage in dark).
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
 (panel + hairline + e2, brighten on hover); the popular-company chips are the same surface at e1,
@@ -2686,9 +2695,10 @@ phrase span, `.en-mark.en-hero-emphasis`, and loads the existing
 `next/font/local`, with genuine italic, weight 600, optical sizing and `font-synthesis: none`.
 This local face does not change the root fonts (`app/fonts.ts`, one instance each, which `app/layout.tsx`
 and `app/global-error.tsx` import, E147) or the root font variables; the broader web/brand-image italic
-decision (E79) remains separate work. The class uses solid `brand.strong-dark` (`#98C5AD`) in both themes, opaque
-`text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
-That is a local fill/ink role exception, with no new palette token, hairline, shadow or interaction.
+decision (E79) remains separate work. The class uses solid `brand.bright-dark` (`#98C5AD`, Bright Sage) in both
+themes, opaque `text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
+That is a local fill/ink role exception, with no hairline, shadow or interaction; Bright Sage became a token of its
+own when the dark accent text ink rose to Reading Sage (D-070), so the fill D-057 names did not move.
 Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`, inline margins
 `-.1em`, the existing `.5rem` radius and baseline alignment. The 1px top trim keeps the fill off
 the preceding line's descender at default text size. The heading isolates a local stacking context;

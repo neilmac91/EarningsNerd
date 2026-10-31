@@ -152,7 +152,7 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   'brand-line': ['brand-border', 'brand-border-dark'],
   pressed: ['brand-border@0.6', 'brand-border-dark'],
   'primary-ink': ['white', 'background-dark'],
-  'primary-hover': ['brand-strong', 'brand-strong-dark'],
+  'primary-hover': ['brand-strong', 'brand-bright-dark'],
   'primary-active': ['brand-emphasis', 'brand-fill-dark'],
   'primary-disabled': ['brand@0.45', 'brand-dark@0.35'],
   'primary-disabled-ink': ['white@0.8', 'background-dark@0.6'],
