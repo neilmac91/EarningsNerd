@@ -23,7 +23,8 @@ its name (WCAG 2.5.3, label in name); the founder's design review caught it. An 
 a control's text, so a control with visible words takes none: it keeps them and extends its name
 with a hidden tail, here `Open filing{' '}<span className="sr-only">(10-K, accession …)</span>`.
 `frontend/tests/unit/filing-supersession.spec.tsx` asserts both rows' whole names with
-`toHaveAccessibleName`; the app-wide gate, which needs a residue list, is tasks/todo.md E68.
+`toHaveAccessibleName`; the app-wide gate is `frontend/tests/unit/labelInName.spec.ts` (E68 (3)), whose RESIDUE lists
+the controls that still wait on their fixes, each with the words chief design ruled on #1884.
 
 **Recurrence (2026-10-29, the invite share panel, E243)**: chief design's review of #1784 found "Copy for
 DM/LinkedIn" named "Copy invite message and link for a DM or LinkedIn" and "Copy message" named "Copy invite

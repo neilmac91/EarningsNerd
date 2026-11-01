@@ -10,7 +10,7 @@
  * - `link`: an underline under the pointer.
  * - `inline`: a link set among lines of text, which keeps its underline at rest, since its ink no longer marks it.
  * - `summary`: a disclosure's summary, which turns sage under the pointer alone in light.
- * In dark the label's step from the secondary ink #D1D5DB to the accent text ink #AEDCC2 is 1.03:1 (D-070), fainter than
+ * In dark the label's step from the secondary ink #D1D5DB to the accent text ink #AEDCC2 is 1.03:1 (D-071), fainter than
  * the secondary-to-primary step DESIGN_SYSTEM.md §2 refuses, so every kind carries a cue dark shows besides the ink:
  * the tint, the underline, an inline link's underline resting in the tertiary ink and turning sage, and a summary's
  * underline under the pointer (gate: themePairs.spec.ts, the faint dark hover).

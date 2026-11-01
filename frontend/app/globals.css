@@ -363,7 +363,7 @@
   transform: translateY(-50%); /* centred on its marker's midpoint, whatever height it renders at */
   color: #3C6650; /* brand-strong */
 }
-.dark .en-margin-mark { color: #AEDCC2; /* brand-strong-dark, the accent text ink (D-070) */ }
+.dark .en-margin-mark { color: #AEDCC2; /* brand-strong-dark, the accent text ink (D-071) */ }
 
 /* Hero accent word — solid sage ink, not a gradient. Tokenized: brand.strong
    in light, brand.strong-dark on navy. The legacy `.text-gradient-mint` alias

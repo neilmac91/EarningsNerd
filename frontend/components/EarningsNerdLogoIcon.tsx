@@ -8,7 +8,7 @@ import React from 'react'
 export type LogoMode = 'auto' | 'light' | 'dark'
 
 /* Brand ink per surface: sage brand.strong on light, Bright Sage brand.bright-dark (#98C5AD) on navy, the
-   wordmark's accent (D-070; the accent text ink, brand.strong-dark, rose for reading, and a mark is not text). The
+   wordmark's accent (D-071; the accent text ink, brand.strong-dark, rose for reading, and a mark is not text). The
    icon-dark asset rendition draws brand.dark #7FB295. */
 const MODE_CLASSES: Record<LogoMode, string> = {
   auto: 'text-brand-strong dark:text-brand-bright-dark',

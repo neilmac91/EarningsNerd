@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest'
  *    in light (|Lc| >= 75 on the dark panel and page), and tertiary's dark twin stays text-safe (4.5:1). So is the
  *    accent text ink, the sage of every link and secondary or ghost button label: brand.strong and its dark twin read
  *    at the label tier (|Lc| >= 75) on their panel and page, and the twin keeps brand.strong's OKLCH hue and chroma,
- *    so brand stays one sage in both themes (E202 (2), D-070: at #98C5AD the dark Export Excel label was Lc -62.2).
+ *    so brand stays one sage in both themes (E202 (2), D-071: at #98C5AD the dark Export Excel label was Lc -62.2).
  * 3. Balance. In dark the gain and loss data inks match in contrast and chroma, so neither direction reads louder
  *    (emerald-300 beside rose-200 did), and dark primary stays a step above the secondary ink it once all but met.
  */
@@ -137,7 +137,7 @@ const PAIRS: [string, string, string, number][] = [
   }),
   ['dark secondary ink on the panel', 'text.secondary.dark', 'panel.dark', 75],
   ['dark secondary ink on the page', 'text.secondary.dark', 'background.dark', 75],
-  // The accent text ink: links and secondary or ghost button labels, 12px/600 at the smallest (D-070).
+  // The accent text ink: links and secondary or ghost button labels, 12px/600 at the smallest (D-071).
   ['light accent ink on the panel', 'brand.strong', 'panel.light', 75],
   ['light accent ink on the page', 'brand.strong', 'background.light', 75],
   ['dark accent ink on the panel', 'brand.strong-dark', 'panel.dark', 75],
@@ -178,7 +178,7 @@ describe('the analysis figure surfaces keep their own inks', () => {
     expect(Math.abs(gain - loss), `gain chroma ${gain.toFixed(3)} against loss chroma ${loss.toFixed(3)}`).toBeLessThanOrEqual(0.01)
   })
 
-  it("keeps the dark accent ink on the light one's sage, so brand is one sage in both themes (D-070)", () => {
+  it("keeps the dark accent ink on the light one's sage, so brand is one sage in both themes (D-071)", () => {
     // #AEDCC2 is brand.strong's hue and chroma at the lightness that reads at the label tier on the dark panel.
     const [light, dark] = [token('brand.strong'), token('brand.strong-dark')]
     expect(Math.abs(hue(dark) - hue(light)), `hue ${hue(dark).toFixed(1)} against ${hue(light).toFixed(1)}`).toBeLessThanOrEqual(1)

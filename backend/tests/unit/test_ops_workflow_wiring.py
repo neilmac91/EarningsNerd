@@ -68,7 +68,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.ops_workflow import (
-    BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE,
+    BASELINE, BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE,
     ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
 )
 
@@ -288,7 +288,7 @@ def test_the_lineage_step_runs_for_exactly_its_operations_and_reads_their_output
     assert step["env"]["TICKERS"] == "${{ steps.request.outputs.tickers }}"
 
 
-@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE])
+@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, BASELINE])
 def test_the_script_readback_expects_the_steps_own_guards(name):
     """The step stops when its session reports other settings; the line it expects must be the one
     Postgres shows for the step's own PGOPTIONS (10s stays 10s, 120s shows as 2min)."""
@@ -297,6 +297,17 @@ def test_the_script_readback_expects_the_steps_own_guards(name):
     assert expected, f"{name!r} no longer compares its session's settings with its own"
     options = step["env"]["PGOPTIONS"]
     assert expected.groups() == (shown(setting_ms(options, "lock_timeout")), shown(setting_ms(options, "statement_timeout")))
+
+
+def test_the_baseline_step_is_read_only_through_pgoptions_alone():
+    """The fixed quarterly baseline needs no approval because it only reads: its session is read-only from the
+    step's own PGOPTIONS, its read-back expects that (`read_only=on`, the line the parametrized test above
+    ties to the bounds), and its run never appends to PGOPTIONS or passes a flag that could write."""
+    step = BY_NAME[BASELINE][1]
+    assert selected(step) == {"repair-quarterly-baseline-80fa90d-dry-run"}
+    assert ("default_transaction_read_only", "on") in pg_settings(step["env"]["PGOPTIONS"])
+    assert re.search(r"^\s*READ_ONLY=on\s*$", step["run"], re.M), "the read-back must expect a read-only session"
+    assert "PGOPTIONS=" not in step["run"] and "--apply" not in step["run"]
 
 
 def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:

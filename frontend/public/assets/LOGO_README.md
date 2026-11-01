@@ -31,7 +31,7 @@ Never inline the mark by hand — compose the components:
 - `components/EarningsNerdLogoIcon.tsx` — the monogram in `currentColor`
   (`mode="auto"` = `text-brand-strong dark:text-brand-bright-dark`: Bright Sage
   `#98C5AD` in dark, the logo's own sage, which stayed when the accent text ink rose
-  to `#AEDCC2`, D-070). Single source of the geometry, kept in sync with
+  to `#AEDCC2`, D-071). Single source of the geometry, kept in sync with
   `earningsnerd-mark-mono.svg`.
 - `components/EarningsNerdLogo.tsx` — the ONE source of the two-tone wordmark:
   `variant="full"` (mark + wordmark; AuthShell, whose wordmark yields to the
@@ -40,7 +40,7 @@ Never inline the mark by hand — compose the components:
   icon-only mark).
   "Earnings" in the primary ink + italic "Nerd" in `text-brand-strong
   dark:text-brand-bright-dark` (Bright Sage in dark, as the mark: the logo is the one
-  place Bright Sage is a text ink, `tests/unit/themePairs.spec.ts`, D-070); size it with scale classes via
+  place Bright Sage is a text ink, `tests/unit/themePairs.spec.ts`, D-071); size it with scale classes via
   `wordmarkClassName`. Never hand-compose the wordmark at a call site
   (gate: `tests/unit/wordmarkSingleSource.spec.ts`).
 

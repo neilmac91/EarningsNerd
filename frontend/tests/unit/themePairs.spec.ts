@@ -185,7 +185,7 @@ function crossedRungs(own: string, shared = ''): string[] {
  * under the pointer barely shows a hover in dark (light keeps a 1.69:1 step; white is 1.47:1). Such a control steps to
  * white in dark or carries another hover cue: a fill, a border, a ring, a shadow or an underline. Thirteen controls had
  * only the ink step when the dark secondary rose to gray-300. The accent text ink is a faint step too since it rose to
- * #AEDCC2 (D-070): 1.03:1 from the secondary ink, so a control that turns only sage under the pointer carries a cue too,
+ * #AEDCC2 (D-071): 1.03:1 from the secondary ink, so a control that turns only sage under the pointer carries a cue too,
  * and so does one that rests in the primary ink and turns only sage, a 1.28:1 step.
  *
  * The cue must change something in dark. A `dark:` variant compiles to `:is(.dark *)`, as specific as `:hover` and later
@@ -210,7 +210,7 @@ function faintHovers(own: string, shared = ''): string[] {
   const at = (variants: string[], test: (utility: string) => boolean) =>
     all.some((c) => c.variants.length === variants.length && variants.every((v) => c.variants.includes(v)) && test(c.bare))
   const restsSecondary = at(['dark'], (u) => u === 'text-text-secondary-dark')
-  // Primary to sage is 1.28:1 in dark since the accent text ink rose (D-070), near the 1.24:1 step refused above.
+  // Primary to sage is 1.28:1 in dark since the accent text ink rose (D-071), near the 1.24:1 step refused above.
   const restsPrimary = at(['dark'], (u) => u === 'text-text-primary-dark' || u === 'text-text-heading-dark')
   const hovered = (c: { variants: string[] }) => c.variants.includes('hover') || c.variants.includes('group-hover')
   const darkRest = (property: string) => all.filter((c) => c.variants.length === 1 && c.variants[0] === 'dark' && cueProperty(c.bare) === property).map((c) => c.bare)
@@ -572,7 +572,7 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
   it('reads a faint dark hover wherever a twin is read (a self-check on a fixed source)', () => {
     const src = [
       "const link = 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark'",
-      // Sage alone is as faint in dark since the accent text ink rose (D-070); with its underline it is a cue.
+      // Sage alone is as faint in dark since the accent text ink rose (D-071); with its underline it is a cue.
       "const sage = 'text-text-secondary-light hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark'",
       "const sageLined = 'text-text-secondary-light dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:underline'",
       // A decoration colour with no resting colour of its own steps as the ink does; over a tertiary underline it is a cue.
@@ -776,7 +776,7 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
 })
 
 /**
- * Bright Sage, brand.bright-dark #98C5AD, is a fill and a mark, never a text ink (D-070): the C5 emphasis fill (D-057),
+ * Bright Sage, brand.bright-dark #98C5AD, is a fill and a mark, never a text ink (D-071): the C5 emphasis fill (D-057),
  * the primary button's dark hover fill, dots and indicator lines. As text it reads at Lc -62.2 on the dark panel, under
  * the 75 a label needs, which is why the accent text ink, brand.strong-dark, rose from that value to #AEDCC2 (E202 (2)):
  * the Export Excel label sat there. A class that paints text, its decoration, a placeholder or a caret in it fails, and
@@ -812,7 +812,7 @@ const BRIGHT_INK_RESIDUE: Record<string, Record<string, number>> = {
   'components/EarningsNerdLogoIcon.tsx': { 'dark:text-brand-bright-dark': 1, 'text-brand-bright-dark': 1 },
 }
 
-describe('Bright Sage stays a fill: brand.bright-dark is no text ink outside the logo (D-070)', () => {
+describe('Bright Sage stays a fill: brand.bright-dark is no text ink outside the logo (D-071)', () => {
   it('names it as a text ink only in the logo, at the counts listed', () => {
     expect(
       residueProblems(FILES.flatMap(brightInkIn), BRIGHT_INK_RESIDUE, 'BRIGHT_INK_RESIDUE', 'Bright Sage inks'),

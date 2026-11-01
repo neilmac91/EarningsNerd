@@ -120,7 +120,7 @@ export default function WaitlistPage() {
                 secondary recipe's hover fill (in dark a shade stronger: brand-dark/15, where the
                 recipe's brand-weak-dark is the same sage at 0.14) and takes the recipe's pressed fill
                 under the pointer, in both themes (E82): its label measures 5.33:1 on that fill in light
-                and 5.69:1 in dark, on this card (4.50:1 before the accent text ink rose, D-070). tests/e2e/text-floors.spec.ts holds both themes, at
+                and 5.69:1 in dark, on this card (4.50:1 before the accent text ink rose, D-071). tests/e2e/text-floors.spec.ts holds both themes, at
                 rest and hovered. */}
             <WaitlistEntryLink
               className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"

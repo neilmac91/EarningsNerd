@@ -126,7 +126,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   The pill, which answered no pointer, rests at the secondary recipe's hover fill and takes its pressed
   fill under the pointer (`hover:bg-brand-border/60`, `dark:hover:bg-brand-border-dark`; E82): on the How
   it works card its label measures 5.77:1 at rest and 5.33:1 hovered in light, 7.35:1 and 5.69:1 in
-  dark (5.81:1 and 4.50:1 before the accent text ink rose, D-070), and `tests/e2e/text-floors.spec.ts` holds both themes at rest and hovered.
+  dark (5.81:1 and 4.50:1 before the accent text ink rose, D-071), and `tests/e2e/text-floors.spec.ts` holds both themes at rest and hovered.
   /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
   /contact, /privacy, /terms, /security, /delete-account, /calendar (its pinned fixture week painted) and
   /search (its results painted), since CI's e2e build turns the calendar and search on, join the routes
@@ -361,7 +361,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   take the inset focus ring. Financial trends picks its metric through a compact select of one width, 14rem,
   beside its "Metric" label (up to 23 options, in sentence case on its face; E253); the Sector peers
   panel picks its metric through the same select at the same width (nine options) and shows itself only once
-  the peers endpoint answers a cohort, which production cannot until the SIC backfill (E251); insider
+  the peers endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31 (E251); insider
   activity picks its window through the SegmentedControl; headings in sentence case; a trade's type
   carries a hidden ▲ or ▼ beside its label and the discretionary net keeps its sign; the 10b5-1 note
   says what a plan trade is; a trade's

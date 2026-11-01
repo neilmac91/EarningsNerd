@@ -45,7 +45,7 @@ const FALLBACK: ExampleData = {
   metrics: [
     { label: 'Revenue', value: '$416.2B', deltaPercent: 6.4 },
     { label: 'Net income', value: '$112.0B', deltaPercent: 19.5 },
-    { label: 'Diluted EPS', value: '$7.46', deltaPercent: 22.7 },
+    { label: 'EPS (diluted)', value: '$7.46', deltaPercent: 22.7 },
   ],
 }
 
@@ -56,7 +56,7 @@ const FALLBACK: ExampleData = {
 const FALLBACK_CONCEPTS: Record<string, string> = {
   Revenue: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
   'Net income': 'us-gaap:NetIncomeLoss',
-  'Diluted EPS': 'us-gaap:EarningsPerShareDiluted',
+  'EPS (diluted)': 'us-gaap:EarningsPerShareDiluted',
 }
 
 const formatDelta = (delta?: number | null): string | null => {

@@ -489,7 +489,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
         </div>
 
         {/* The company ranked against its sector on one metric (E251): self-fetching, it shows itself only once the
-            endpoint answers a cohort, which production cannot until the SIC backfill runs. Last in <main>, so its arrival
+            endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31. Last in <main>, so its arrival
             after a client fetch never moves the filings or Compare periods. The boundary is keyed on the ticker, as the
             filings index is, so a soft navigation to another company starts the panel afresh: its picked metric, a
             chart that failed to draw (the boundary never resets on its own) and a card chunk that failed to load (the

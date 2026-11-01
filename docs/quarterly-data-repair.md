@@ -302,11 +302,12 @@ other report forms and amendments are admitted (including a 10-K/A carrying the 
 table). `gap` measures each retired figure against its winner, the first measure for rows with no stored
 report behind them. Read `made_unavailable` row by row in `changes`: each such figure leaves the public
 pages. Read the other corrections against a baseline: a read-only preview of the same tickers on the
-commit before the step, `80fa90d4`, run by the CTO's guarded operation from its immutable source (#1838),
-not a plain dry run on main, which includes the step since #1667 merged (`1f56928d`). The step's own dry
-run and its apply follow on the merged head, with #1840's fixes. A company only set 5 names is first
-known after the merge (set 5 is new with the step), so it has no baseline: read its `other_*` corrections
-row by row in `changes` instead.
+commit before the step, `80fa90d4`, run by the CTO's guarded operation from its immutable source (#1838,
+the [recovered pre-step baseline](#recovered-pre-step-baseline-for-e211)), not a plain dry run on main,
+which includes the step since #1667 merged (`1f56928d`). That operation runs old source against current
+data, so it cannot recreate a pre-merge snapshot. The step's own dry run and its apply follow on the
+merged head, with #1840's fixes. A company only set 5 names is first known after the merge (set 5 is new
+with the step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
 
 **A company synced since #1682.** A sync since #1682 was deployed (2026-10-28 23:13Z) also stores, for
 each year a later report restated, the year's own report's figure as a non-current history row at that
@@ -545,6 +546,39 @@ gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
 gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
   --args="^;^scripts/repair_quarterly_facts.py;--tickers;TGT,JNJ;--limit;50;--rollback-run;RUN_ID;--apply" --wait
 ```
+
+## Recovered pre-step baseline for E211
+
+`repair-quarterly-baseline-80fa90d-dry-run` prepares the missing nine-company comparison
+against the repair code before the proxy step. Dispatch it only from reviewed `main`, with
+`tickers` and `revision` empty: the operation fixes the cohort to BIIB, BMRN, CRM, FTNT, JPM,
+META, NVDA, RDDT and REGN. Its workflow retains the deployment preflight and ordinary Ops
+concurrency. It has no apply mode and changes no production setting.
+
+The workflow checks out the complete immutable source
+`80fa90d48ed1546e7770d88fd3b1b0aa05b1f89d` separately, verifies its commit and clean working
+tree, installs that source's requirements, and runs its script and imports on the Actions
+runner. Its SQL session must report `read_only=on lock_timeout=10s statement_timeout=2min`;
+both SEC request pins remain 1. The main checkout still supplies the workflow and the
+bounded runner in `ops/quarterly_baseline/run.py`. No input selects a source ref or extends
+the cohort. The operation is outside the two exact agent readback allow rules.
+
+The `quarterly-baseline-<run id>` artifact retains the normal filing-data `report.json`
+and `source-receipt.json`. The receipt distinguishes the workflow commit from the baseline
+source commit and tree, hashes the script, database module, repair module and requirements,
+and binds the resulting report hash and run ID to all nine companies. Production images
+are not selected or executed. Raw stdout/stderr are withheld, and company exception strings
+are replaced with a closed failure description before retention. Any failed company or
+incomplete report fails the operation; a failure receipt is not a completed baseline.
+
+This measures old source against the data and SEC payloads available when it runs. It cannot
+recreate a pre-merge database snapshot, and installing pinned requirements on a runner is
+not a byte-for-byte reproduction of the old container. Keep the source receipt, execution
+time and each company's payload hash with the comparison; avoid intervening fact writes
+between paired previews. With the corrected proxy step now on main (#1840), run detection
+set 5, preview the union cohort and compare its ordinary corrections with this baseline
+before proposing the whole-company apply. The apply retains its separate founder approval
+on the run page.
 
 ## Audited rollback
 

@@ -48,7 +48,7 @@ The accent text ink, the sage of every link and every secondary or ghost button 
 smallest), reads at that label tier in both themes, |Lc| ≥ 75 on its panel and page: `brand-strong` is 79.3 on
 the light panel and 75.1 on cream, and its dark twin `brand-strong-dark` `#AEDCC2` (Reading Sage), the same
 OKLCH hue and chroma, is −75.5 on the dark panel and −78.4 on navy. As `#98C5AD` (Bright Sage) the dark
-Export Excel label measured −62.2 (E202 (2), D-070); Bright Sage stays as `brand-bright-dark`, a fill, and is
+Export Excel label measured −62.2 (E202 (2), D-071); Bright Sage stays as `brand-bright-dark`, a fill, and is
 no text ink outside the logo. In dark Reading Sage sits close to the figure surfaces' gain ink `#B6E4CE`
 (OKLab 0.026 apart, where light's accent and gain are 0.056); sage never carries a number (brandCopyRules.spec.ts
 rule 2), so the two never mark one thing. Gates: `tests/unit/figureSurfaceInks.spec.ts` (the tier, and the twin
@@ -59,7 +59,7 @@ is behind it). The words on it are the primary ink pair: a marked block's excerp
 tint and 12.7:1 on the dark tint over navy, and the Source pane's located passage takes the primary ink
 too (D-044, set when the reader's secondary ink, then `#9CA3AF`, measured 4.49:1 on the dark tint over
 the slate panel). The marker and its twin sit beside the tint, not on it, in `brand-strong` (5.9:1 on
-cream, 12.4:1 on navy in Reading Sage, D-070).
+cream, 12.4:1 on navy in Reading Sage, D-071).
 Gate: tests/e2e/risk-evidence-rows.spec.ts measures the marker, the twin and the excerpt in both themes.
 
 ## 2. Theme-responsiveness is mandatory
@@ -121,7 +121,7 @@ the debug payload panel).
   heading on the figure sheet, which rests in secondary, steps to white the same way. A state
   marked by the same step does the same: the
   pricing page's selected billing label takes white in dark. Sage alone is as faint since the accent
-  text ink rose to Reading Sage `#AEDCC2` (D-070), 1.03:1 from the secondary ink, so a control that
+  text ink rose to Reading Sage `#AEDCC2` (D-071), 1.03:1 from the secondary ink, so a control that
   rests in secondary and turns only sage carries a cue in dark too: the count control's every kind
   (Count control, §4) and three source links, SourceTrace's, CitationChip's and the figure receipt's,
   which take an underline under the pointer. A name that rests in the primary ink and turns only
@@ -273,6 +273,16 @@ has it, as on `<Button loading>`; the faded ink and hairline hold under hover. G
 variant anywhere in the app's source, and no other `opacity-*` class, except behind `disabled:`, on an element
 that carries `aria-disabled` or on a use of a shared control that renders one with the caller's className:
 `<Button loading>`, RetryButton, AlertBell).
+
+A control that shows words keeps them at the start of its accessible name (WCAG 2.5.3, label in name;
+`lessons/frontend-hidden-name-tails-bring-their-own-space.md`). An `aria-label` replaces what a control shows, so a
+control with words takes none, and where its name needs more than it shows it adds a visually hidden tail after a
+written space (`Open filing{' '}<span className="sr-only">(10-K, …)</span>`), or it takes a label that begins with its
+words. A keyboard hint (`kbd`) stays out of the name, and so may a status the name already says, a count or a glyph
+marked `aria-hidden`. `aria-hidden` never takes a control's words out of its label, since a speech user still sees them.
+An icon alone is named by its label. Gate: `tests/unit/labelInName.spec.ts`, over every control whose label the app's
+source writes in an attribute or a plain object spread, its RESIDUE the controls that wait on their fixes, whose words
+chief design ruled on #1884 (E68 (3)), and its UNREAD the labels it cannot read (a prop, data).
 
 A Retry of a failed query is
 `<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef} />`, never a hand-rolled
@@ -518,7 +528,7 @@ Count control    A link or control whose label carries a count, a date, an index
                  the pointer, 'inline' (a link set among lines of text) keeps its underline at rest,
                  since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone in light.
                  In dark the label rests at #D1D5DB (the secondary ink since 2026-10-25) and turns
-                 brand-strong-dark #AEDCC2 under the pointer, about as light as at rest (1.03:1, D-070),
+                 brand-strong-dark #AEDCC2 under the pointer, about as light as at rest (1.03:1, D-071),
                  fainter than the secondary-to-primary step §2 refuses, so in dark each kind carries a
                  cue besides the ink: 'button' its tint, 'link' its underline, 'inline' an underline
                  that rests in the tertiary ink and turns sage, and 'summary' an underline under the
@@ -2711,7 +2721,7 @@ and `app/global-error.tsx` import, E147) or the root font variables; the broader
 decision (E79) remains separate work. The class uses solid `brand.bright-dark` (`#98C5AD`, Bright Sage) in both
 themes, opaque `text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
 That is a local fill/ink role exception, with no hairline, shadow or interaction; Bright Sage became a token of its
-own when the dark accent text ink rose to Reading Sage (D-070), so the fill D-057 names did not move.
+own when the dark accent text ink rose to Reading Sage (D-071), so the fill D-057 names did not move.
 Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`, inline margins
 `-.1em`, the existing `.5rem` radius and baseline alignment. The 1px top trim keeps the fill off
 the preceding line's descender at default text size. The heading isolates a local stacking context;
@@ -3233,8 +3243,8 @@ Duplicate One Inc · 2025"). It
 shows itself only once the default metric's answer is a cohort: a metric the panel names and formats, the subject's own
 figure and at least one other company's (`features/peers/lib/cohort.ts` `noCohort`, engine-free); until then the gate
 renders nothing and the card's chunk, the engine with it, is never asked for, so the company page's first load keeps the
-engine out. Production stores no SIC codes until the
-founder's backfill, so every company answers itself alone there and the panel shows nothing. A metric picked holds the
+engine out. Production answers cohorts since the founder's SIC backfill of 2026-10-31, where a company and another of
+its industry hold the default figure. A metric picked holds the
 plot's height with bones while it loads, and the rank line's room with the default answer's line laid out invisible, a
 bone over it while it loads; where its answer draws no chart, the plot's place says why, the first reason `noCohort`
 finds: "{ticker}’s {metric} is unavailable, so it can’t be ranked." (the company's own figure missing or withheld),

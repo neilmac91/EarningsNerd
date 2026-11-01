@@ -32,7 +32,7 @@ const LIVE: ExampleData = {
   metrics: [
     { label: 'Revenue', value: '$416.2B', deltaPercent: 6.4 },
     { label: 'Net income', value: '$112.0B', deltaPercent: 19.5 },
-    { label: 'Diluted EPS', value: '$7.46', deltaPercent: -1.2 },
+    { label: 'EPS (diluted)', value: '$7.46', deltaPercent: -1.2 },
   ],
   evidence: { excerpt: EXCERPT, url: 'https://www.sec.gov/Archives/edgar/data/320193/doc.htm#:~:text=Substantially' },
 }
@@ -109,7 +109,7 @@ describe('HeroExample', () => {
     expect(terms).toEqual([
       'Revenue, filed tag us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       'Net income, filed tag us-gaap:NetIncomeLoss',
-      'Diluted EPS, filed tag us-gaap:EarningsPerShareDiluted',
+      'EPS (diluted), filed tag us-gaap:EarningsPerShareDiluted',
     ])
     for (const receipt of fallback.container.querySelectorAll('dl dt span')) expect(receipt).toHaveClass('sr-only')
   })

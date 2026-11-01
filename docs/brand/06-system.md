@@ -40,7 +40,7 @@ WCAG contrast ratios computed for this page (relative luminance, sRGB) against t
 | text-secondary-dark | `#D1D5DB` | 12.78 | 9.96 | 10.23 |
 | text-tertiary-dark | `#9CA3AF` | 7.42 | 5.78 | 5.94 |
 | brand-dark (fill and accent) | `#7FB295` | 7.80 | 6.08 | 6.25 |
-| brand-strong-dark (text; Reading Sage since D-070) | `#AEDCC2` | 12.39 | 9.66 | 9.92 |
+| brand-strong-dark (text; Reading Sage since D-071) | `#AEDCC2` | 12.39 | 9.66 | 9.92 |
 | brand-bright-dark (Bright Sage: fills, the logo's accent) | `#98C5AD` | 9.80 | 7.64 | 7.84 |
 | brand-fill-dark | `#569272` | 5.16 | 4.02 | 4.13 |
 | gain-dark | `#34D399` | 9.79 | 7.64 | 7.84 |
@@ -160,7 +160,7 @@ Rules:
   places.
 - **Colour.** Light: tint `#ECF2EE`, hairline `#CFE0D6`, bar `#4F7A63`, marks `#3C6650`. Dark: tint
   `rgba(127,178,149,0.14)`, hairline `rgba(127,178,149,0.28)`, bar `#7FB295`, marks `#AEDCC2`
-  (Reading Sage, the accent text ink, since D-070). The tint is a surface, never a fill for text;
+  (Reading Sage, the accent text ink, since D-071). The tint is a surface, never a fill for text;
   measured, the hairline reads 1.24:1 on cream and the tint 1.02:1, which is the point: the device
   is quiet, and the ink on it (15.4:1 light, 12.7:1 dark) carries the words. The words on the tint
   are the primary ink: in the Source pane the reader's secondary ink was 4.49:1 on the dark tint
