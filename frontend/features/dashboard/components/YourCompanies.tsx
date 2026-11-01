@@ -11,11 +11,10 @@ import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
 import { formatLocalDate } from '@/lib/format'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { Card, GuidanceCard, Skeleton, TrailingArrowLabel } from '@/components/ui'
 import { RetryButton, type RetainedFailure } from '@/hooks/useRetainedFailure'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
 import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
-import TrailingArrowLabel from './TrailingArrowLabel'
 
 interface YourCompaniesProps {
   insights: WatchlistInsight[] | undefined

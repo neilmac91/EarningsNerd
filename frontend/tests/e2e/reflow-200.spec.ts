@@ -2842,3 +2842,98 @@ for (const width of [390, 360, 320]) {
     }
   })
 }
+
+/** The arrow links outside the dashboard (E275, chief design's review of #1904, comment 6553954259): the home page's
+    hero example link ("Read the full example summary"), the waitlist's ("Try a live example summary", one box inside its
+    sentence) and the company page's Compare periods link ("Open change report"). Each was a flex row with the arrow
+    after the label, so under 200% text, where the label wrapped, its arrow parted from its words: on main the hero's sat
+    37px above its last line from 320 to 390px and 17px from 414 to 480px, and the waitlist's 17px from 320 to 430px. The
+    hero's h-9 also held its three lines in a 72px box, its words 21px past the box above and below. Each label's last
+    word and its arrow are now one no-wrap run (TrailingArrowLabel), and each link is one box (inline-block, min-h-9
+    where it was h-9): the arrow sits inside its last word's line, right after it, and every line of the link's words
+    lies inside its box. Each case holds a label to more than one line where it wraps with room to spare, so it reads a
+    wrapped label; where a label stops wrapping is the font's to say (E274's CI runner wrapped a label 4px past the local
+    edge), so no case holds one to a single line. */
+const ARROW_CHANGE_REPORT = {
+  has_prior: true,
+  comparison_basis: 'Year over year',
+  prior_filing: { filing_id: 14, filing_type: '10-K', filing_date: '2024-11-01T00:00:00+00:00', period_end_date: '2024-09-28T00:00:00+00:00' },
+  metrics: {
+    headline: 'Revenue up 6.4%',
+    items: [{ metric: 'revenue', label: 'Revenue', direction: 'up', pct: 6.4, current: 416e9, prior: 391e9, display: '+6.4%', tone: 'gain' }],
+    data_quality: 'ok',
+  },
+  reporting_currency: 'USD',
+  risks: null,
+  key_changes: null,
+  has_changes: true,
+}
+const ARROW_LINKS: Array<{ name: string; path: string; wrapsTo: number; open: (page: Page, baseURL: string) => Promise<void> }> = [
+  { name: 'Read the full example summary', path: '/', wrapsTo: 414, open: answerGuest },
+  { name: 'Try a live example summary', path: '/waitlist', wrapsTo: 414, open: answerGuest },
+  {
+    name: 'Open change report',
+    path: '/company/AAPL',
+    wrapsTo: 414,
+    open: (page, baseURL) => answerSite(page, baseURL, false, { path: '/api/summaries/filing/11/what-changed', status: 200, body: ARROW_CHANGE_REPORT }),
+  },
+]
+
+async function trailingArrowGeometry(link: Locator) {
+  return link.evaluate((a) => {
+    const box = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+    const lines = (node: Node) => {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      return [...range.getClientRects()].filter((r) => r.width > 0).map(box)
+    }
+    const walker = document.createTreeWalker(a, NodeFilter.SHOW_TEXT)
+    const texts: Text[] = []
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) texts.push(node as Text)
+    const painted = texts.flatMap(lines)
+    const lastLines = lines(texts[texts.length - 1])
+    return {
+      boxes: a.getClientRects().length,
+      painted,
+      lineCount: new Set(painted.map((line) => Math.round(line.top))).size,
+      lastWord: lastLines[lastLines.length - 1],
+      arrow: box(a.querySelector('svg')!.getBoundingClientRect()),
+      link: box(a.getBoundingClientRect()),
+    }
+  })
+}
+
+for (const width of [320, 360, 390, 414]) {
+  test.describe(`a ${width}px phone at 200% text, the arrow links outside the dashboard`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: true, hasTouch: true })
+    for (const l of ARROW_LINKS) {
+      test(`${l.path}: "${l.name}" keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await l.open(page, baseURL!)
+        await page.goto(l.path)
+        const link = page.getByRole('link', { name: l.name, exact: true })
+        await expect(link).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        await doubleText(page)
+        await settle(page)
+        const g = await trailingArrowGeometry(link)
+        const at = `${l.name} at ${width}px and 200% text`
+        if (width <= l.wrapsTo) expect(g.lineCount, `${at}: wraps here, so the case reads a wrapped label`).toBeGreaterThan(1)
+        expect(g.boxes, `${at}: the link is one box, so its ring and its hover fill hold every line`).toBe(1)
+        expect(g.arrow.top, `${at}: the arrow sits inside its last word's line`).toBeGreaterThanOrEqual(g.lastWord.top - 2)
+        expect(g.arrow.bottom, `${at}: the arrow sits inside its last word's line`).toBeLessThanOrEqual(g.lastWord.bottom + 2)
+        expect(g.arrow.left, `${at}: the arrow comes after its last word`).toBeGreaterThanOrEqual(g.lastWord.right - 0.5)
+        expect(g.arrow.left - g.lastWord.right, `${at}: the arrow follows its last word`).toBeLessThanOrEqual(12)
+        for (const part of [...g.painted, g.arrow]) {
+          expect(part.top, `${at}: every line of its words lies inside the link`).toBeGreaterThanOrEqual(g.link.top - 0.5)
+          expect(part.bottom, `${at}: every line of its words lies inside the link`).toBeLessThanOrEqual(g.link.bottom + 0.5)
+        }
+      })
+    }
+  })
+}
