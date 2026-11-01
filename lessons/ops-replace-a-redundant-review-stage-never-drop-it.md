@@ -1,4 +1,4 @@
-# Never drop a review stage to save model tokens: when it can no longer change what ships, spend it on a fresh review of the fix
+# Never cut review agents to save model tokens, neither a stage nor a report's own refuter pair: when a stage can no longer change what ships, spend it on a fresh review of the fix
 
 Date: 2026-10-23, updated 2026-11-01 (#1855)   Area: ops, review
 
@@ -15,14 +15,15 @@ to be one defect, and each group shared one pair of Opus refuters instead of a p
 saved about three Opus calls per high-tier review (380 to 278 should-fix refuter calls over 35 past runs). It saved no
 time unless the refuters would have queued, since the grouping ran before any refuter started and the refuters run in
 parallel. What it gave up were independent attempts on the defects several lenses agree on, the likeliest to be real:
-in 5 of 34 past duplicate groups the separate pairs had split, and the copy that stood was right. On 2026-11-01 the
-founder decided to remove it and keep its severity fix.
+in 5 of 34 past duplicate groups the separate pairs had split, and the copy that stood was right. #1855's body set that
+risk out, and records that the founder chose to keep it on 2026-10-31. On 2026-11-01 the founder decided to remove it
+and keep its severity fix.
 
 **Rule**:
 - Never cut a review tier's agents for cost alone: AGENTS.md §5 sets the tier, and the founder wants the effort spent.
 - One refuter pair per report is part of the tier: never share a pair among the reports several lenses make of one
-  defect, since each pair is an independent chance for a real defect to stand (gated by
-  `frontend/tests/unit/premergeReviewWorkflow.spec.ts`).
+  defect, since each pair is an independent chance for a real defect to stand (partly gated by
+  `frontend/tests/unit/premergeReviewWorkflow.spec.ts`, for reviews of up to 54 reports).
 - When a stage can no longer change what ships (its findings are reproduced and fixed), replace it with one that can: an
   independent review of the fix diff, briefed with the code and not your conclusions, before the push.
 - Where a push draws a paid eval run (`ops-reserve-eval-baseline-before-each-push.md`), review the fix commit before
@@ -35,7 +36,8 @@ cut; this lesson first said about fifteen, all the tests lens's, until the fix c
 counted them. The founder's message followed the stop, and three fresh Opus lenses then reviewed the fix commit before
 the push: no blockers, and their should-fix findings rode that push.
 
-#1855, merged as 2a2136f6 on 2026-10-31; its body gives the 380-to-278 count and the 5-of-34 split. The spec now has
-three lenses report the same two
-defects in their own words, and fails if any agent other than the lenses and the refuters runs, if a refuter is shown
-more than one report, or if a report lacks its own pair.
+#1855, merged as 2a2136f6 on 2026-10-31; its body gives the 380-to-278 count, the 5-of-34 split and the 2026-10-31
+decision. The spec now runs reviews where one to three lenses report the same defects once or twice each, every copy
+sharing its file, line and title. It fails when an agent other than the lenses and the refuters runs, when a refuter's
+prompt carries another report's words, when a report lacks its own refuters #1 and #2, or when refuting one copy takes
+another with it. A grouping that starts only above those reviews' size (54 reports) is out of its reach.

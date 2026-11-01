@@ -7,23 +7,28 @@
  * `agent`/`pipeline`/`parallel` and asserts what every stage actually receives and returns:
  *   - every agent call carries a literal, non-premium model and the effort the tier promises;
  *   - the agent counts per tier (records 1, routine 1 + 1 per blocker, high 3 + 2 per serious finding);
- *   - every blocker and should-fix report gets the tier's own refuters, even when several lenses report one
- *     defect: no agent runs between the lenses and the refuters to group or deduplicate the reports, each
- *     refuter is shown the one report it votes on, with the one-verdict schema pinned exactly (types and enums
- *     included), and refuting one lens's copy of a defect leaves the other copies standing on their own votes
- *     (the founder removed #1855's shared refuters on 2026-11-01;
- *     lessons/ops-replace-a-redundant-review-stage-never-drop-it.md);
- *   - each refuter holds a finding at its corrected severity, or at the claimed one when it sets none (the
- *     refuter prompt asks for a correction only when the claimed severity is wrong), and the highest holding
- *     wins whichever refuter gives it: a should-fix raised to blocker, by one refuter or both, is a confirmed
- *     blocker and blocks the merge, even when the other refuter restates or lowers it; a lowering needs every
- *     refuter of the tier (both on the high tier), so a claimed blocker that one refuter lowers while the other
- *     is silent still blocks the merge, while the routine tier's one refuter lowers a blocker alone; two
- *     lowerings that agree confirm the finding at the lower severity, nit included, and two that disagree
- *     confirm it at the higher of the two; a raise never outlives a refutation: a finding one refuter raises to
- *     blocker while the other refutes it, or whose one vote refutes and raises at once, is refuted, and a
- *     claimed blocker one of its two refuters refutes is refuted; a finding with a vote missing stays
- *     unverified at its claimed severity whatever the other refuter holds;
+ *   - every refuter, on every tier, answers in the one-verdict schema, pinned exactly (types and enums included),
+ *     and its prompt asks for a correction only when the claimed severity is wrong;
+ *   - on the high tier, every blocker and should-fix report gets its own two Opus refuters, even when several
+ *     lenses report one defect (the founder removed #1855's shared refuters on 2026-11-01;
+ *     lessons/ops-replace-a-redundant-review-stage-never-drop-it.md). The script calls agent() at exactly two sites,
+ *     the lenses and the refuters, so no stage adds an agent at any size. In reviews where one to three lenses report
+ *     a blocker and up to eight should-fix defects, each once or twice, every copy of a defect sharing its file, line
+ *     and title: no agent runs but the lenses and the refuters; each refuter's prompt carries the words of the one
+ *     report it votes on and of no other report, in any layout; each report has its own refuters #1 and #2;
+ *     refuting a report leaves the other copies of its defect standing on their own votes; and each confirmed
+ *     report keeps the lens that found it. Out of the gate's reach: a grouping with no agent of its own that starts
+ *     only above those reviews' size (54 reports), or one keyed on something the fixture does not vary;
+ *   - each refuter holds a finding at its corrected severity, or at the claimed one when it sets none or sets one
+ *     outside the three severities, and the highest holding wins whichever refuter gives it: a should-fix raised
+ *     to blocker, by one refuter or both, is a confirmed blocker and blocks the merge, even when the other refuter
+ *     restates or lowers it; a lowering needs every refuter of the tier (both on the high tier), so a claimed
+ *     blocker that one refuter lowers while the other is silent still blocks the merge, while the routine tier's
+ *     one refuter lowers a blocker alone; two lowerings that agree confirm the finding at the lower severity, nit
+ *     included, and two that disagree confirm it at the higher of the two; a raise never outlives a refutation: a
+ *     finding one refuter raises to blocker while the other refutes it, or whose one vote refutes and raises at
+ *     once, is refuted, and a claimed blocker one of its two refuters refutes is refuted; a finding with a vote
+ *     missing stays unverified at its claimed severity whatever the other refuter holds;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -161,52 +166,75 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
         const isLens = call.label.startsWith('review:')
         expect(call.model, `${tier} ${call.label}`).toBe(isLens ? want.lensModel : want.refuterModel)
         expect(call.effort, `${tier} ${call.label}`).toBe(isLens ? want.lensEffort : want.refuterEffort)
+        if (isLens) continue
+        // Every refuter, on every tier, answers in the one-verdict schema and is asked for a correction only when the
+        // claimed severity is wrong, which is what lets the judge hold a silent refuter at the claimed severity.
+        expect(call.schema, `${tier} ${call.label}`).toEqual(VERDICT_SCHEMA)
+        expect(call.prompt, `${tier} ${call.label}`).toContain('If it stands but the severity is wrong, keep refuted=false and set corrected_severity.')
       }
     }
   })
 
-  it('gives every report its own two Opus refuters, shown that report alone, even when all three lenses report one defect: nothing groups the copies, so refuting one leaves the others standing', async () => {
-    // Every lens words the same two defects its own way: a blocker at a.py:7 and a should-fix at b.py:9.
-    const sameDefects = (label: string): Findings => {
-      const lens = label.split(':').pop() as string
-      return {
-        findings: [
-          { file: 'src/a.py', line: 7, title: `blocker-${lens}`, detail: `the a.py defect, in the ${lens} lens's words`, severity: 'blocker', evidence: 'e' },
-          { file: 'src/b.py', line: 9, title: `should-${lens}`, detail: `the b.py defect, in the ${lens} lens's words`, severity: 'should-fix', evidence: 'e' },
-        ],
-        summary: 's',
+  it('gives every report its own two Opus refuters, shown that report alone, in reviews where one to three lenses report the same defects once or twice each: nothing groups the copies, so refuting one leaves the others standing', async () => {
+    const LENSES = ['correctness', 'rules-and-brief', 'tests-and-gates']
+    // [lenses that report, should-fix defects each, copies of every defect per lens]. Every reporting lens reports one
+    // blocker and the same should-fix defects. Each copy of a defect shares its file, line and title; only its detail
+    // and evidence, in its lens's words and numbered, tell it from the other copies. Up to 3 x 9 x 2 = 54 reports.
+    const SHAPES: Array<[number, number, number]> = [[1, 1, 1], [1, 4, 2], [2, 1, 1], [2, 4, 1], [2, 8, 1], [3, 1, 1], [3, 2, 1], [3, 4, 1], [3, 8, 1], [3, 8, 2]]
+    // The script calls agent() at exactly two sites, the lenses and the refuters, so no stage can add an agent between
+    // them at any review size; a deliberate new stage changes this count where a reviewer sees it.
+    const code = readFileSync(SCRIPT, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\])\/\/.*$/gm, '$1')
+    expect(code.match(/(?<![\w.$])agent\s*\(/g) ?? []).toHaveLength(2)
+    for (const [lensCount, defects, copies] of SHAPES) {
+      const shape = `${lensCount} lens(es), ${defects} should-fix defect(s), ${copies} cop(ies)`
+      const lenses = LENSES.slice(0, lensCount)
+      const defectNames = ['the blocker', ...Array.from({ length: defects }, (_, d) => `should-fix ${d + 1}`)]
+      const words = (what: string, lens: string, copy: number) => `${what}, in the ${lens} lens's words, copy ${copy}.`
+      const proof = (what: string, lens: string, copy: number) => `the ${lens} lens's evidence of ${what}, copy ${copy}.`
+      const review = (label: string): Findings => {
+        const lens = label.split(':').pop() as string
+        if (!lenses.includes(lens)) return { findings: [], summary: 'nothing' }
+        return {
+          findings: defectNames.flatMap((what, d) => Array.from({ length: copies }, (_, c) => ({
+            file: d === 0 ? 'src/a.py' : `src/b${d}.py`, line: 7, title: what, detail: words(what, lens, c + 1),
+            severity: d === 0 ? 'blocker' : 'should-fix', evidence: proof(what, lens, c + 1),
+          }))),
+          summary: 's',
+        }
       }
+      const reports = lenses.flatMap((lens) => defectNames.flatMap((what) => Array.from({ length: copies }, (_, c) => ({ detail: words(what, lens, c + 1), evidence: proof(what, lens, c + 1), lens }))))
+      // Every refuter refutes the reports the first lens worded as its copy 1, and holds the others.
+      const isRefuted = (detail: string) => detail.includes(`in the ${lenses[0]} lens's words, copy 1.`)
+      const { agent, calls } = stub(undefined, { findings: review, refuted: (_label, prompt) => isRefuted(prompt) })
+      const [result] = (await load()({ prs: [pr('high')] }, agent)) as Result[]
+      // The three lenses and two refuters per report are the only agents: nothing groups or deduplicates the copies.
+      expect(calls.map((c) => c.label.split(':')[0]).sort(), shape).toEqual([...Array(3).fill('review'), ...Array(reports.length * 2).fill('verify')])
+      expect(result.agents, shape).toBe(3 + reports.length * 2)
+      expect(result, shape).not.toHaveProperty('groups')
+      // Each refuter is shown one report, in any layout: its prompt carries that report's detail and evidence and no
+      // other report's. It has the one-verdict schema, on Opus.
+      const pairs: Record<string, string[]> = {}
+      for (const call of calls.filter((c) => c.label.startsWith('verify:'))) {
+        const shown = reports.filter((r) => call.prompt.includes(r.detail))
+        expect(shown.map((r) => r.detail), `${shape}: ${call.label}`).toHaveLength(1)
+        expect(reports.filter((r) => call.prompt.includes(r.evidence)).map((r) => r.evidence), `${shape}: ${call.label}`).toEqual([shown[0].evidence])
+        expect([call.model, call.effort, call.schema], `${shape}: ${call.label}`).toEqual(['opus', undefined, VERDICT_SCHEMA])
+        pairs[shown[0].detail] = [...(pairs[shown[0].detail] ?? []), call.label.split('#').pop() as string]
+      }
+      // Every report has its own refuters #1 and #2.
+      expect(Object.keys(pairs).sort(), shape).toEqual(reports.map((r) => r.detail).sort())
+      for (const r of reports) expect(pairs[r.detail].sort(), `${shape}: ${r.detail}`).toEqual(['1', '2'])
+      // Refuting a report refutes that report only: the other copies of its defect stand on their own votes, each
+      // under the lens that reported it.
+      const confirmed = result.confirmed as Array<{ title: string; detail: string; lens: string }>
+      expect(titles(result.refuted), shape).toEqual([...defectNames].sort())
+      expect(confirmed.map((c) => c.detail).sort(), shape).toEqual(reports.filter((r) => !isRefuted(r.detail)).map((r) => r.detail).sort())
+      for (const c of confirmed) expect(c.detail, `${shape}: lens tag`).toContain(`in the ${c.lens} lens's words`)
+      expect(result.unverified, shape).toHaveLength(0)
+      expect(result.incomplete, shape).toBe(false)
+      // A blocker copy still stands, and blocks the merge, unless its one copy was the refuted one.
+      expect(result.mergeable, shape).toBe(lensCount * copies === 1)
     }
-    const reports = ['correctness', 'rules-and-brief', 'tests-and-gates'].flatMap((lens) => [`blocker-${lens}`, `should-${lens}`]).sort()
-    // Every refuter refutes the copies the correctness lens worded and holds the others.
-    const { agent, calls } = stub(undefined, { findings: sameDefects, refuted: (_label, prompt) => /^ {2}title: \w+-correctness$/m.test(prompt) })
-    const [result] = (await load()({ prs: [pr('high')] }, agent)) as Result[]
-    // The lenses and the refuters are the only agents: no stage between them groups or deduplicates the copies.
-    expect(calls.map((c) => c.label.split(':')[0]).sort()).toEqual([...Array(3).fill('review'), ...Array(6 * 2).fill('verify')])
-    expect(result.agents).toBe(3 + 6 * 2)
-    expect(calls).toHaveLength(result.agents)
-    expect(result).not.toHaveProperty('groups')
-    // Each refuter is shown exactly one report, the one it votes on, with the one-verdict schema, on Opus.
-    const verify = calls.filter((c) => c.label.startsWith('verify:'))
-    const shown = verify.map((c) => Array.from(c.prompt.matchAll(/^ {2}title: (.*)$/gm), (m) => m[1]))
-    verify.forEach((call, k) => {
-      expect(shown[k], call.label).toHaveLength(1)
-      expect([call.model, call.effort], call.label).toEqual(['opus', undefined])
-      expect(call.schema, call.label).toEqual(VERDICT_SCHEMA)
-    })
-    // Exactly two refuters per report, numbered #1 and #2: one independent pair for every copy of each defect.
-    const pairs: Record<string, string[]> = {}
-    verify.forEach((call, k) => {
-      const report = shown[k][0]
-      pairs[report] = [...(pairs[report] ?? []), call.label.split('#').pop() as string]
-    })
-    expect(Object.keys(pairs).sort()).toEqual(reports)
-    for (const report of reports) expect(pairs[report].sort(), report).toEqual(['1', '2'])
-    // Refuting the correctness lens's copies refutes those copies only: each defect stands on the other lenses' votes.
-    expect(titles(result.refuted)).toEqual(['blocker-correctness', 'should-correctness'])
-    expect(titles(result.confirmed)).toEqual(['blocker-rules-and-brief', 'blocker-tests-and-gates', 'should-rules-and-brief', 'should-tests-and-gates'])
-    expect(result.incomplete).toBe(false)
-    expect(result.mergeable).toBe(false)
   })
 
   it('moves a finding every refuter refutes to refuted and frees the merge, and clears a PR with no findings', async () => {
@@ -328,13 +356,6 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('holds a finding at its claimed severity for a refuter that sets no correction, so a lowering needs both refuters: a claimed blocker that one refuter lowers while the other is silent still blocks the merge, and two lowerings that disagree confirm the higher', async () => {
-    // The refuter prompt asks for a correction only when the claimed severity is wrong, which is what lets the judge
-    // hold a silent refuter at the claimed severity.
-    const probe = stub()
-    await load()({ prs: [pr('high')] }, probe.agent)
-    for (const call of probe.calls.filter((c) => c.label.startsWith('verify:'))) {
-      expect(call.prompt, call.label).toContain('If it stands but the severity is wrong, keep refuted=false and set corrected_severity.')
-    }
     // Every lens reports the blocker (a.py) and a should-fix (b.py); refuter #1 lowers each, refuter #2 sets nothing.
     const lowerFirst = stub(undefined, { corrected: (label) => (label.endsWith(':a.py#1') ? 'should-fix' : label.endsWith(':b.py#1') ? 'nit' : undefined) })
     const [held] = (await load()({ prs: [pr('high')] }, lowerFirst.agent)) as Result[]
@@ -356,6 +377,11 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       expect(split.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity), `${first} then ${second}`).toEqual([expected, expected, expected])
       expect(split.mergeable, `${first} then ${second}`).toBe(true)
     }
+    // A correction outside the three severities is no correction: both refuters hold the claimed severity.
+    const bogus = stub(undefined, { corrected: (label) => (label.includes(':a.py#') ? 'critical' : undefined) })
+    const [unchanged] = (await load()({ prs: [pr('high')] }, bogus.agent)) as Result[]
+    expect(unchanged.confirmed.filter((c) => c.title === 'blocker').map((c) => c.severity)).toEqual(['blocker', 'blocker', 'blocker'])
+    expect(unchanged.mergeable).toBe(false)
   })
 
   it("lets the routine tier's one refuter lower a blocker alone: the corrected severity confirms and the PR is mergeable", async () => {

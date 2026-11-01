@@ -62,10 +62,11 @@ const VERDICT_SCHEMA = {
   required: ['refuted', 'reason'],
 }
 
-// Every blocker and should-fix a lens reports gets the tier's own refuters, even when several lenses report one
-// defect: each report's refuters are an independent attempt to refute it, so a defect several lenses found keeps
-// several independent chances to stand. Sharing one pair of refuters among the reports of one defect (#1855) was
-// removed on the founder's decision of 2026-11-01 (AGENTS.md §5; lessons/ops-replace-a-redundant-review-stage-never-drop-it.md).
+// Every finding of a severity the tier verifies (on the high tier, every blocker and should-fix) gets the tier's own
+// refuters, even when several lenses report one defect: each report's refuters are an independent attempt to refute it,
+// so a defect several lenses found keeps several independent chances to stand. Sharing one pair of refuters among the
+// reports of one defect (#1855) was removed on the founder's decision of 2026-11-01 (AGENTS.md §5;
+// lessons/ops-replace-a-redundant-review-stage-never-drop-it.md).
 // Severity order, for taking the highest of the refuters' holdings on a finding.
 const SEVERITY_RANK = { blocker: 3, 'should-fix': 2, nit: 1 }
 const rankOf = (sev) => (Object.prototype.hasOwnProperty.call(SEVERITY_RANK, sev) ? SEVERITY_RANK[sev] : 0)
